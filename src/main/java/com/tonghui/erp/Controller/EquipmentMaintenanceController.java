@@ -75,6 +75,8 @@ public class EquipmentMaintenanceController extends BaseController {
 
     /**
      * 新增维保记录
+     * 保养类型：自动按维保周期计算下次维保时间
+     * 维修类型：不自动计算，需手工填写
      */
     @PostMapping
     public ApiResponse<EquipmentMaintenance> create(@RequestBody EquipmentMaintenance maintenance) {
@@ -83,10 +85,10 @@ public class EquipmentMaintenanceController extends BaseController {
             maintenance.setCreatedAt(LocalDateTime.now());
             maintenance.setIsDeleted(0);
             maintenance.setVersion(0);
-            equipmentMaintenanceService.save(maintenance);
+            equipmentMaintenanceService.saveWithAutoCalc(maintenance);
             return success(maintenance, "新增成功");
         } catch (Exception e) {
-            return exception(e, "操作");
+            return exception(e, "新增维保记录");
         }
     }
 

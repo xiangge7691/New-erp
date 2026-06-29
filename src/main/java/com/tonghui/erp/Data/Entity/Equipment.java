@@ -83,6 +83,30 @@ public class Equipment {
     private LocalDate lastMaintenanceDate;
 
     /**
+     * 设备类型：生产设备/检验设备/环境设备/其他设备
+     */
+    @TableField(value = "equipment_type")
+    private String equipmentType;
+
+    /**
+     * 维保周期（月），默认6个月
+     */
+    @TableField(value = "maintenance_cycle")
+    private Integer maintenanceCycle;
+
+    /**
+     * 到期提醒天数，默认15天
+     */
+    @TableField(value = "reminder_days")
+    private Integer reminderDays;
+
+    /**
+     * 下次维保时间
+     */
+    @TableField(value = "next_maintenance_date")
+    private LocalDate nextMaintenanceDate;
+
+    /**
      * 备注。设备的附加说明信息。
      */
     @TableField(value = "remark")

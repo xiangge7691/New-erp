@@ -22,4 +22,13 @@ public interface EquipmentMaintenanceService extends IService<EquipmentMaintenan
      * @return 维保记录列表
      */
     List<EquipmentMaintenance> findByEquipmentId(Long equipmentId);
+
+    /**
+     * 新增维保记录（含自动计算逻辑）
+     * 保养类型：自动按维保周期计算下次维保时间
+     * 维修类型：不自动计算，需手工填写
+     * @param maintenance 维保记录
+     * @return 保存后的记录
+     */
+    EquipmentMaintenance saveWithAutoCalc(EquipmentMaintenance maintenance);
 }

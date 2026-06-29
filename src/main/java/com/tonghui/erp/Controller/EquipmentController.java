@@ -233,4 +233,40 @@ public class EquipmentController extends BaseCrudController<Equipment, Equipment
             return exception(ex, "更新维护日期");
         }
     }
+
+    /**
+     * 保存设备维保设置
+     * @param id 设备ID
+     * @param maintenanceCycle 维保周期（月）
+     * @param reminderDays 到期提醒天数
+     * @return 更新结果
+     */
+    @PutMapping("/{id}/maintenanceSettings")
+    public ApiResponse<Boolean> saveMaintenanceSettings(
+            @PathVariable Integer id,
+            @RequestParam Integer maintenanceCycle,
+            @RequestParam Integer reminderDays) {
+        try {
+            Equipment existing = equipmentService.getById(id);
+            if (existing == null) {
+                return error("设备不存在");
+            }
+            
+            Equipment update = new Equipment();
+            update.setEquipmentId(id);
+            update.setMaintenanceCycle(maintenanceCycle);
+            update.setReminderDays(reminderDays);
+            update.setUpdatedTime(LocalDateTime.now());
+            
+            Long currentUserId = EntityUtils.getCurrentUserId();
+            if (currentUserId != null) {
+                update.setUpdaterId(currentUserId);
+            }
+            
+            equipmentService.updateById(update);
+            return success(true, "维保设置保存成功");
+        } catch (Exception ex) {
+            return exception(ex, "保存维保设置");
+        }
+    }
 }

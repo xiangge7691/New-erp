@@ -71,6 +71,18 @@ public class EquipmentMaintenance {
     private String maintainer;
 
     /**
+     * 维保公司
+     */
+    @TableField(value = "maintenance_company")
+    private String maintenanceCompany;
+
+    /**
+     * 联系方式
+     */
+    @TableField(value = "contact_phone")
+    private String contactPhone;
+
+    /**
      * 备注
      */
     @TableField(value = "remark")
