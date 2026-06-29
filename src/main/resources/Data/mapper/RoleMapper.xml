@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.RoleMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.Role">
+            <id property="roleId" column="role_id" />
+            <result property="roleName" column="role_name" />
+            <result property="roleDesc" column="role_desc" />
+            <result property="roleStatus" column="role_status" />
+            <result property="createTime" column="create_time" />
+            <result property="updateTime" column="update_time" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        role_id,role_name,role_desc,role_status,create_time,update_time
+    </sql>
+</mapper>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.ApprovalRecordMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.ApprovalRecord">
+            <id property="id" column="id" />
+            <result property="instanceId" column="instance_id" />
+            <result property="nodeId" column="node_id" />
+            <result property="approverId" column="approver_id" />
+            <result property="action" column="action" />
+            <result property="targetNodeId" column="target_node_id" />
+            <result property="comment" column="comment" />
+            <result property="createdAt" column="created_at" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,instance_id,node_id,approver_id,action,target_node_id,
+        comment,created_at
+    </sql>
+</mapper>

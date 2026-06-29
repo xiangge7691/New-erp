@@ -1,0 +1,33 @@
+package com.tonghui.erp.Data.Entity;
+
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import lombok.Data;
+
+/**
+ * 药品剂型分类表
+ * @TableName dosage_form
+ */
+@TableName(value ="dosage_form")
+@Data
+public class DosageForm {
+    /**
+     * 剂型唯一标识
+     */
+    @TableId(value = "dosage_id", type = IdType.AUTO)
+    private Long dosageId;
+
+    /**
+     * 剂型名称（法定全称）
+     */
+    @TableField(value = "dosage_name")
+    private String dosageName;
+
+    /**
+     * 剂型特性备注
+     */
+    @TableField(value = "remark")
+    private String remark;
+}

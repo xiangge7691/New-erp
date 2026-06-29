@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.StockMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.Stock">
+            <id property="stockId" column="stock_id" />
+            <result property="prodUnitId" column="prod_unit_id" />
+            <result property="itemType" column="item_type" />
+            <result property="itemId" column="item_id" />
+            <result property="itemCode" column="item_code" />
+            <result property="itemName" column="item_name" />
+            <result property="categoryName" column="category_name" />
+            <result property="unitName" column="unit_name" />
+            <result property="quantity" column="quantity" />
+            <result property="minQuantity" column="min_quantity" />
+            <result property="maxQuantity" column="max_quantity" />
+            <result property="batchNumber" column="batch_number" />
+            <result property="productionDate" column="production_date" />
+            <result property="expiryDate" column="expiry_date" />
+            <result property="storageLocation" column="storage_location" />
+            <result property="stockStatus" column="stock_status" />
+            <result property="remark" column="remark" />
+            <result property="createdBy" column="created_by" />
+            <result property="createdTime" column="created_time" />
+            <result property="updatedBy" column="updated_by" />
+            <result property="updatedTime" column="updated_time" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        stock_id,prod_unit_id,item_type,item_id,item_code,item_name,
+        category_name,unit_name,quantity,min_quantity,max_quantity,
+        batch_number,production_date,expiry_date,storage_location,stock_status,
+        remark,created_by,created_time,updated_by,updated_time
+    </sql>
+
+    <!-- 查询即将过期的库存（基于 FIFO 先进先出计算实际剩余数量） -->
+    <select id="selectExpiringStocksWithDetail" resultType="com.tonghui.erp.Common.Dto.Stock.ExpiryWarningDTO">
+        <![CDATA[
+        WITH 
+        -- 步骤1: 获取所有已确认入库的明细，按入库日期排序（FIFO顺序）
+        ordered_in_details AS (
+            SELECT 
+                sid.in_detail_id,
+                sid.in_id,
+                sid.item_type,
+                sid.item_id,
+                sid.item_code,
+                sid.item_name,
+                sid.category_name,
+                sid.unit_name,
+                sid.batch_number,
+                sid.quantity AS in_quantity,
+                sid.expiry_date,
+                sid.production_date,
+                sid.storage_location,
+                si.prod_unit_id,
+                si.in_code,
+                si.in_date,
+                si.in_status,
+                -- 按 FIFO 顺序编号（同一仓库、同一物品内按入库日期排序）
+                ROW_NUMBER() OVER (
+                    PARTITION BY si.prod_unit_id, sid.item_type, sid.item_id
+                    ORDER BY si.in_date ASC, sid.in_detail_id ASC
+                ) AS fifo_order
+            FROM stock_in_detail sid
+            INNER JOIN stock_in si ON sid.in_id = si.in_id
+            WHERE si.in_status = 'completed'
+              AND sid.expiry_date IS NOT NULL
+        ),
+        
+        -- 步骤2: 汇总每个物品的总出库数量
+        total_out_by_item AS (
+            SELECT 
+                s.prod_unit_id,
+                s.item_type,
+                s.item_id,
+                COALESCE(SUM(ABS(st.quantity_change)), 0) AS total_out_quantity
+            FROM stock s
+            LEFT JOIN stock_transaction st 
+                ON s.stock_id = st.stock_id 
+                AND st.transaction_type = 'out'
+            GROUP BY s.prod_unit_id, s.item_type, s.item_id
+        ),
+        
+        -- 步骤3: 计算累计入库数量
+        cumulative_calc AS (
+            SELECT 
+                oid.*,
+                -- 累计入库数量（到当前行为止）
+                SUM(oid.in_quantity) OVER (
+                    PARTITION BY oid.prod_unit_id, oid.item_type, oid.item_id
+                    ORDER BY oid.fifo_order
+                    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                ) AS cumulative_in_quantity,
+                -- 获取该物品的总出库数量
+                COALESCE(toi.total_out_quantity, 0) AS total_out_quantity
+            FROM ordered_in_details oid
+            LEFT JOIN total_out_by_item toi
+                ON oid.prod_unit_id = toi.prod_unit_id
+                AND oid.item_type = toi.item_type
+                AND oid.item_id = toi.item_id
+        ),
+        
+        -- 步骤4: 计算上一行的累计入库数量
+        fifo_calculation AS (
+            SELECT 
+                cc.*,
+                -- 上一行的累计入库数量（用于计算当前行被扣减的数量）
+                LAG(cc.cumulative_in_quantity, 1, 0) OVER (
+                    PARTITION BY cc.prod_unit_id, cc.item_type, cc.item_id
+                    ORDER BY cc.fifo_order
+                ) AS prev_cumulative_in_quantity
+            FROM cumulative_calc cc
+        )
+        
+        -- 步骤4: 计算每个入库明细的实际剩余数量
+        SELECT 
+            fc.in_detail_id AS inDetailId,
+            s.stock_id AS stockId,
+            fc.item_type AS itemType,
+            fc.item_id AS itemId,
+            fc.item_code AS itemCode,
+            fc.item_name AS itemName,
+            fc.category_name AS categoryName,
+            fc.unit_name AS unitName,
+            fc.batch_number AS batchNumber,
+            fc.in_quantity AS inQuantity,
+            -- 计算已出库数量（FIFO规则）
+            CASE 
+                -- 情况1: 总出库数量 <= 上一行累计入库数量（当前行完全未被出库）
+                WHEN fc.total_out_quantity <= fc.prev_cumulative_in_quantity THEN 0
+                -- 情况2: 总出库数量 >= 当前行累计入库数量（当前行完全被出库）
+                WHEN fc.total_out_quantity >= fc.cumulative_in_quantity THEN fc.in_quantity
+                -- 情况3: 部分出库（当前行被部分扣减）
+                ELSE fc.total_out_quantity - fc.prev_cumulative_in_quantity
+            END AS outQuantity,
+            -- 计算实际剩余数量
+            fc.in_quantity - CASE 
+                WHEN fc.total_out_quantity <= fc.prev_cumulative_in_quantity THEN 0
+                WHEN fc.total_out_quantity >= fc.cumulative_in_quantity THEN fc.in_quantity
+                ELSE fc.total_out_quantity - fc.prev_cumulative_in_quantity
+            END AS remainingQuantity,
+            fc.expiry_date AS expiryDate,
+            fc.production_date AS productionDate,
+            fc.prod_unit_id AS prodUnitId,
+            fc.storage_location AS storageLocation,
+            fc.in_id AS inId,
+            fc.in_code AS inCode,
+            fc.in_date AS inDate,
+            fc.in_status AS inStatus
+        FROM fifo_calculation fc
+        LEFT JOIN stock s 
+            ON s.prod_unit_id = fc.prod_unit_id 
+            AND s.item_type = fc.item_type 
+            AND s.item_id = fc.item_id
+        WHERE fc.expiry_date BETWEEN #{startDate} AND #{endDate}
+          -- 只返回实际剩余数量 > 0 的记录
+          AND (fc.in_quantity - CASE 
+                WHEN fc.total_out_quantity <= fc.prev_cumulative_in_quantity THEN 0
+                WHEN fc.total_out_quantity >= fc.cumulative_in_quantity THEN fc.in_quantity
+                ELSE fc.total_out_quantity - fc.prev_cumulative_in_quantity
+            END) > 0
+        ]]>
+        <if test="itemType != null and itemType != ''">
+          AND fc.item_type = #{itemType}
+        </if>
+        <if test="prodUnitId != null">
+          AND fc.prod_unit_id = #{prodUnitId}
+        </if>
+        ORDER BY fc.expiry_date ASC, fc.in_date ASC
+    </select>
+
+    <!-- 统计各预警级别的库存批次数量 -->
+    <select id="countExpiringStocksByLevel" resultType="java.util.HashMap">
+        <![CDATA[
+        WITH 
+        ordered_in_details AS (
+            SELECT 
+                sid.in_detail_id,
+                sid.item_type,
+                sid.item_id,
+                sid.quantity AS in_quantity,
+                sid.expiry_date,
+                si.prod_unit_id,
+                ROW_NUMBER() OVER (
+                    PARTITION BY si.prod_unit_id, sid.item_type, sid.item_id
+                    ORDER BY si.in_date ASC, sid.in_detail_id ASC
+                ) AS fifo_order
+            FROM stock_in_detail sid
+            INNER JOIN stock_in si ON sid.in_id = si.in_id
+            WHERE si.in_status = 'completed'
+              AND sid.expiry_date IS NOT NULL
+        ),
+        total_out_by_item AS (
+            SELECT 
+                s.prod_unit_id,
+                s.item_type,
+                s.item_id,
+                COALESCE(SUM(ABS(st.quantity_change)), 0) AS total_out_quantity
+            FROM stock s
+            LEFT JOIN stock_transaction st 
+                ON s.stock_id = st.stock_id 
+                AND st.transaction_type = 'out'
+            GROUP BY s.prod_unit_id, s.item_type, s.item_id
+        ),
+        -- 计算累计入库数量
+        cumulative_calc AS (
+            SELECT 
+                oid.*,
+                SUM(oid.in_quantity) OVER (
+                    PARTITION BY oid.prod_unit_id, oid.item_type, oid.item_id
+                    ORDER BY oid.fifo_order
+                    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                ) AS cumulative_in_quantity,
+                COALESCE(toi.total_out_quantity, 0) AS total_out_quantity
+            FROM ordered_in_details oid
+            LEFT JOIN total_out_by_item toi
+                ON oid.prod_unit_id = toi.prod_unit_id
+                AND oid.item_type = toi.item_type
+                AND oid.item_id = toi.item_id
+        ),
+        -- 计算上一行的累计入库数量
+        fifo_calculation AS (
+            SELECT 
+                cc.*,
+                LAG(cc.cumulative_in_quantity, 1, 0) OVER (
+                    PARTITION BY cc.prod_unit_id, cc.item_type, cc.item_id
+                    ORDER BY cc.fifo_order
+                ) AS prev_cumulative_in_quantity
+            FROM cumulative_calc cc
+        )
+        SELECT 
+            SUM(CASE WHEN DATEDIFF(expiry_date, CURDATE()) <= 7 THEN 1 ELSE 0 END) AS urgentCount,
+            SUM(CASE WHEN DATEDIFF(expiry_date, CURDATE()) > 7 
+                     AND DATEDIFF(expiry_date, CURDATE()) <= 30 THEN 1 ELSE 0 END) AS warningCount,
+            SUM(CASE WHEN DATEDIFF(expiry_date, CURDATE()) > 30 
+                     AND DATEDIFF(expiry_date, CURDATE()) <= 90 THEN 1 ELSE 0 END) AS infoCount,
+            COUNT(*) AS totalCount
+        FROM fifo_calculation fc
+        WHERE fc.expiry_date >= CURDATE()
+          AND fc.expiry_date <= DATE_ADD(CURDATE(), INTERVAL 90 DAY)
+          AND (fc.in_quantity - CASE 
+                WHEN fc.total_out_quantity <= fc.prev_cumulative_in_quantity THEN 0
+                WHEN fc.total_out_quantity >= fc.cumulative_in_quantity THEN fc.in_quantity
+                ELSE fc.total_out_quantity - fc.prev_cumulative_in_quantity
+            END) > 0
+        ]]>
+    </select>
+</mapper>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.DosageFormMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.DosageForm">
+            <id property="dosageId" column="dosage_id" />
+            <result property="dosageName" column="dosage_name" />
+            <result property="remark" column="remark" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        dosage_id,dosage_name,remark
+    </sql>
+</mapper>

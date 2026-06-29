@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.RolePermMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.RolePerm">
+            <id property="rolepermId" column="roleperm_id" />
+            <result property="roleId" column="role_id" />
+            <result property="permId" column="perm_id" />
+            <result property="createdAt" column="created_at" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        roleperm_id,role_id,perm_id,created_at
+    </sql>
+</mapper>

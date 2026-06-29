@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.ApprovalNodeMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.ApprovalNode">
+            <id property="id" column="id" />
+            <result property="workflowId" column="workflow_id" />
+            <result property="nodeName" column="node_name" />
+            <result property="nodeOrder" column="node_order" />
+            <result property="roleId" column="role_id" />
+            <result property="needBindBusiness" column="need_bind_business" />
+            <result property="bindType" column="bind_type" />
+            <result property="enterNodePrompt" column="enter_node_prompt" />
+            <result property="afterPassStatus" column="after_pass_status" />
+            <result property="rejectPrompt" column="reject_prompt" />
+            <result property="afterRejectStatus" column="after_reject_status" />
+            <result property="createdAt" column="created_at" />
+            <result property="updatedAt" column="updated_at" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,workflow_id,node_name,node_order,role_id,need_bind_business,bind_type,enter_node_prompt,after_pass_status,reject_prompt,after_reject_status,created_at,updated_at
+    </sql>
+</mapper>

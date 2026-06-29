@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.PurchaseOrdersMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.PurchaseOrders">
+            <id property="id" column="id" />
+            <result property="purchaseNumber" column="purchase_number" />
+            <result property="warehouse" column="warehouse" />
+            <result property="processingDate" column="processing_date" />
+            <result property="expectedDeliveryDate" column="expected_delivery_date" />
+            <result property="invoiceInfo" column="invoice_info" />
+            <result property="receivingInfo" column="receiving_info" />
+            <result property="unit" column="unit" />
+            <result property="title" column="title" />
+            <result property="prescriptionMultiple" column="prescription_multiple" />
+            <result property="remark" column="remark" />
+            <result property="generateProductionPlan" column="generate_production_plan" />
+            <result property="status" column="status" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,purchase_number,warehouse,processing_date,expected_delivery_date,invoice_info,
+        receiving_info,unit,title,prescription_multiple,remark,
+        generate_production_plan,status
+    </sql>
+</mapper>

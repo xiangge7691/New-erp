@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.WorkOrderMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.WorkOrder">
+            <id property="workOrderId" column="work_order_id" />
+            <result property="workOrderCode" column="work_order_code" />
+            <result property="workOrderName" column="work_order_name" />
+            <result property="preparationId" column="preparation_id" />
+            <result property="preparationCode" column="preparation_code" />
+            <result property="preparationName" column="preparation_name" />
+            <result property="batchQty" column="batch_qty" />
+            <result property="producer" column="producer" />
+            <result property="receiver" column="receiver" />
+            <result property="deliveryTime" column="delivery_time" />
+            <result property="invoicePrice" column="invoice_price" />
+            <result property="insurancePrice" column="insurance_price" />
+            <result property="settlementPrice" column="settlement_price" />
+            <result property="batchNumber" column="batch_number" />
+            <result property="outboundQty" column="outbound_qty" />
+            <result property="receiptAmount" column="receipt_amount" />
+            <result property="actualReceiptAmount" column="actual_receipt_amount" />
+            <result property="invoiceAmount" column="invoice_amount" />
+            <result property="settlementAmount" column="settlement_amount" />
+            <result property="returnAmount" column="return_amount" />
+            <result property="createdBy" column="created_by" />
+            <result property="updatedBy" column="updated_by" />
+            <result property="createdTime" column="created_time" />
+            <result property="updatedTime" column="updated_time" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        work_order_id,work_order_code,work_order_name,preparation_id,preparation_code,preparation_name,
+        batch_qty,producer,receiver,delivery_time,invoice_price,
+        insurance_price,settlement_price,batch_number,outbound_qty,receipt_amount,
+        actual_receipt_amount,invoice_amount,settlement_amount,return_amount,created_by,
+        updated_by,created_time,updated_time
+    </sql>
+</mapper>

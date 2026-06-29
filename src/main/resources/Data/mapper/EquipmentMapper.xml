@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.EquipmentMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.Equipment">
+            <id property="equipmentId" column="equipment_id" />
+            <result property="equipmentName" column="equipment_name" />
+            <result property="equipmentModel" column="equipment_model" />
+            <result property="roomId" column="room_id" />
+            <result property="productionCapacity" column="production_capacity" />
+            <result property="equipmentStatus" column="equipment_status" />
+            <result property="fixedAssetCode" column="fixed_asset_code" />
+            <result property="manufacturer" column="manufacturer" />
+            <result property="purchaseDate" column="purchase_date" />
+            <result property="purchaseAmount" column="purchase_amount" />
+            <result property="lastMaintenanceDate" column="last_maintenance_date" />
+            <result property="remark" column="remark" />
+            <result property="createdTime" column="created_time" />
+            <result property="creatorName" column="creator_name" />
+            <result property="updatedTime" column="updated_time" />
+            <result property="updaterName" column="updater_name" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        equipment_id,equipment_name,equipment_model,room_id,production_capacity,equipment_status,
+        fixed_asset_code,manufacturer,purchase_date,purchase_amount,last_maintenance_date,
+        remark,created_time,creator_name,updated_time,updater_name
+    </sql>
+</mapper>

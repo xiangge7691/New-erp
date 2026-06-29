@@ -1,0 +1,68 @@
+# ===================================
+# 应用配置
+# ===================================
+
+# 应用名称
+spring:
+  application:
+    name: Erp
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+  # ===================================
+  # 数据库配置
+  # ===================================
+
+  # 数据库连接URL
+  # 包含数据库地址、端口、数据库名以及连接参数
+  datasource:
+    url: jdbc:mysql://localhost:3306/erp_db?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=GMT%2B8&allowPublicKeyRetrieval=true
+    username: root
+    password: 89749050
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+# ===================================
+# MyBatis-Plus配置0
+# ===================================
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  mapper-locations: classpath:Data/mapper/*.xml
+  global-config:
+    db-config:
+      # 分页配置
+      pagination: true
+
+# ===================================
+# JWT配置
+# ===================================
+
+jwt:
+  secret-key: default_secret_key_which_should_be_replaced
+  issuer: ErpSys
+  audience: ErpSysUsers
+  expires-in-minutes: 120
+  refresh-expires-in-minutes: 10080
+
+# 在现有配置基础上添加
+file:
+  base-path: ${ERP_FILE_STORAGE_PATH:./uploaded-files}
+  max-size: 10485760  # 10MB
+  allowed-types:
+    - image/jpeg
+    - image/png
+    - image/gif
+    - application/pdf
+    - application/msword
+    - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+    - application/vnd.ms-excel
+    - text/plain
+  archive-dir: archives
+  enable-md5-check: true
+  temp-dir: temp
+  permanent-dir: permanent
+  image-dir: images
+  document-dir: documents

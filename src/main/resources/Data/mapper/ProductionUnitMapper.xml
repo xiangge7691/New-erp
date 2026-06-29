@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.ProductionUnitMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.ProductionUnit">
+            <id property="prodUnitId" column="prod_unit_id" />
+            <result property="prodUnitCode" column="prod_unit_code" />
+            <result property="prodUnitName" column="prod_unit_name" />
+            <result property="prodUnitAddress" column="prod_unit_address" />
+            <result property="prodUnitManager" column="prod_unit_manager" />
+            <result property="prodUnitPhone" column="prod_unit_phone" />
+            <result property="prodUnitStatus" column="prod_unit_status" />
+            <result property="prodUnitRemark" column="prod_unit_remark" />
+            <result property="createdBy" column="created_by" />
+            <result property="createdTime" column="created_time" />
+            <result property="updatedBy" column="updated_by" />
+            <result property="updateTime" column="update_time" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        prod_unit_id,prod_unit_code,prod_unit_name,prod_unit_address,prod_unit_manager,prod_unit_phone,
+        prod_unit_status,prod_unit_remark,created_by,created_time,updated_by,
+        update_time
+    </sql>
+</mapper>

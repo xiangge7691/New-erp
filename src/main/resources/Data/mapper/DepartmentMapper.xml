@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.DepartmentMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.Department">
+            <id property="departmentId" column="department_id" />
+            <result property="departmentName" column="department_name" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        department_id,department_name
+    </sql>
+</mapper>

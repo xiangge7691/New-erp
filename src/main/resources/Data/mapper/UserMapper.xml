@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.UserMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.User">
+            <id property="userId" column="user_id" />
+            <result property="userAccount" column="user_account" />
+            <result property="userName" column="user_name" />
+            <result property="password" column="password" />
+            <result property="phone" column="phone" />
+            <result property="gender" column="gender" />
+            <result property="userStatus" column="user_status" />
+            <result property="userNotes" column="user_notes" />
+            <result property="createdTime" column="created_time" />
+            <result property="updateTime" column="update_time" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        user_id,user_account,user_name,password,phone,gender,
+        user_status,user_notes,created_time,update_time
+    </sql>
+</mapper>

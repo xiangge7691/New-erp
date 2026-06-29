@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.ProductionProcessRecordMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.ProductionProcessRecord">
+            <id property="recordId" column="record_id" />
+            <result property="planId" column="plan_id" />
+            <result property="processName" column="process_name" />
+            <result property="operatorName" column="operator_name" />
+            <result property="stepOrder" column="step_order" />
+            <result property="workshop" column="workshop" />
+            <result property="processingQty" column="processing_qty" />
+            <result property="unitName" column="unit_name" />
+            <result property="equipment" column="equipment" />
+            <result property="startTime" column="start_time" />
+            <result property="endTime" column="end_time" />
+            <result property="recordStatus" column="record_status" />
+            <result property="remark" column="remark" />
+            <result property="createdTime" column="created_time" />
+            <result property="updatedTime" column="updated_time" />
+            <result property="updatedName" column="updated_name" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        record_id,plan_id,process_name,operator_name,step_order,workshop,
+        processing_qty,unit_name,equipment,start_time,end_time,
+        record_status,remark,created_time,updated_time,updated_name
+    </sql>
+</mapper>

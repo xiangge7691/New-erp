@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.PreparationFormulaMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.PreparationFormula">
+            <id property="formulaId" column="formula_id" />
+            <result property="preparationId" column="preparation_id" />
+            <result property="preparationCode" column="preparation_code" />
+            <result property="preparationName" column="preparation_name" />
+            <result property="materialId" column="material_id" />
+            <result property="materialCode" column="material_code" />
+            <result property="materialName" column="material_name" />
+            <result property="materialCategory" column="material_category" />
+            <result property="dosage" column="dosage" />
+            <result property="unitId" column="unit_id" />
+            <result property="unitName" column="unit_name" />
+            <result property="createdBy" column="created_by" />
+            <result property="updatedBy" column="updated_by" />
+            <result property="createdTime" column="created_time" />
+            <result property="updatedTime" column="updated_time" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        formula_id,preparation_id,preparation_code,preparation_name,material_id,material_code,
+        material_name,material_category,dosage,unit_id,unit_name,
+        created_by,updated_by,created_time,updated_time
+    </sql>
+</mapper>

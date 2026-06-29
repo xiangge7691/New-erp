@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.MaterialMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.Material">
+            <id property="materialId" column="material_id" />
+            <result property="materialCode" column="material_code" />
+            <result property="materialName" column="material_name" />
+            <result property="categoryName" column="category_name" />
+            <result property="unitName" column="unit_name" />
+            <result property="spec" column="spec" />
+            <result property="materialStatus" column="material_status" />
+            <result property="remark" column="remark" />
+            <result property="createdBy" column="created_by" />
+            <result property="updatedBy" column="updated_by" />
+            <result property="createdTime" column="created_time" />
+            <result property="updatedTime" column="updated_time" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        material_id,material_code,material_name,category_name,unit_name,spec,
+        material_status,remark,created_by,updated_by,created_time,
+        updated_time
+    </sql>
+</mapper>

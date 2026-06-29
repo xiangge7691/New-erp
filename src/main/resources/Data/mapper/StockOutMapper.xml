@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.StockOutMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.StockOut">
+            <id property="outId" column="out_id" />
+            <result property="outCode" column="out_code" />
+            <result property="outType" column="out_type" />
+            <result property="prodUnitId" column="prod_unit_id" />
+            <result property="customerId" column="customer_id" />
+            <result property="relatedOrder" column="related_order" />
+            <result property="outDate" column="out_date" />
+            <result property="totalAmount" column="total_amount" />
+            <result property="outStatus" column="out_status" />
+            <result property="remark" column="remark" />
+            <result property="createdBy" column="created_by" />
+            <result property="createdTime" column="created_time" />
+            <result property="updatedBy" column="updated_by" />
+            <result property="updatedTime" column="updated_time" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        out_id,out_code,out_type,prod_unit_id,customer_id,related_order,
+        out_date,total_amount,out_status,remark,created_by,
+        created_time,updated_by,updated_time
+    </sql>
+</mapper>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.ProcessTypeMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.ProcessType">
+            <id property="processId" column="process_id" />
+            <result property="processCode" column="process_code" />
+            <result property="processName" column="process_name" />
+            <result property="processDescription" column="process_description" />
+            <result property="processStatus" column="process_status" />
+            <result property="creatorId" column="creator_id" />
+            <result property="createdTime" column="created_time" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        process_id,process_code,process_name,process_description,process_status,creator_id,
+        created_time
+    </sql>
+</mapper>

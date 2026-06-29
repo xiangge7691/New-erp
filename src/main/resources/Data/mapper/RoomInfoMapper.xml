@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.RoomInfoMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.RoomInfo">
+            <id property="roomId" column="room_id" />
+            <result property="roomName" column="room_name" />
+            <result property="roomLocation" column="room_location" />
+            <result property="area" column="area" />
+            <result property="remark" column="remark" />
+            <result property="roomStatus" column="room_status" />
+            <result property="creatorName" column="creator_name" />
+            <result property="createdTime" column="created_time" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        room_id,room_name,room_location,area,remark,room_status,
+        creator_name,created_time
+    </sql>
+</mapper>

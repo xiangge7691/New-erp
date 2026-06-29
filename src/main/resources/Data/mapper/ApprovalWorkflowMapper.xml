@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.ApprovalWorkflowMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.ApprovalWorkflow">
+            <id property="id" column="id" />
+            <result property="workflowName" column="workflow_name" />
+            <result property="workflowType" column="workflow_type" />
+            <result property="createdAt" column="created_at" />
+            <result property="updatedAt" column="updated_at" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,workflow_name,workflow_type,created_at,updated_at
+    </sql>
+</mapper>
