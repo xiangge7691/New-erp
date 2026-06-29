@@ -15,7 +15,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import jakarta.servlet.http.HttpServletRequest;  // 修改为jakarta.servlet
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URLEncoder;
@@ -64,7 +64,7 @@ public class FileController extends BaseController {
      *
      * @param id 文件ID
      * @param request HTTP请求
-     * @return 文件流
+     * @return 文件流（ResponseEntity<Resource>）
      */
     @GetMapping("/{id}")
     public ResponseEntity<Resource> downloadFile(@PathVariable Long id, HttpServletRequest request) {

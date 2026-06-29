@@ -82,6 +82,30 @@ public class ProductionProcessRecord {
     private LocalDateTime endTime;
 
     /**
+     * 生产开始时间
+     */
+    @TableField(value = "production_start")
+    private LocalDateTime productionStart;
+
+    /**
+     * 生产结束时间
+     */
+    @TableField(value = "production_end")
+    private LocalDateTime productionEnd;
+
+    /**
+     * 检验开始时间
+     */
+    @TableField(value = "inspection_start")
+    private LocalDateTime inspectionStart;
+
+    /**
+     * 检验结束时间
+     */
+    @TableField(value = "inspection_end")
+    private LocalDateTime inspectionEnd;
+
+    /**
      * 记录状态。`1`-正常，`0`-作废。
      */
     @TableField(value = "record_status")

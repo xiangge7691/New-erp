@@ -18,7 +18,7 @@ spring:
   # 数据库连接URL
   # 包含数据库地址、端口、数据库名以及连接参数
   datasource:
-    url: jdbc:mysql://localhost:3306/erp_db?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=GMT%2B8&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://192.168.5.100:3306/erp_db?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=GMT%2B8&allowPublicKeyRetrieval=true
     username: root
     password: 89749050
     driver-class-name: com.mysql.cj.jdbc.Driver
