@@ -97,4 +97,13 @@ public class Position {
      */
     @TableField(value = "version")
     private Integer version;
+
+
+// ========== 关联表显示字段（非数据库字段）==========
+
+    /**
+     * 部门名称（关联department表）
+     */
+    @TableField(exist = false)
+    private String departmentName;
 }

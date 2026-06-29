@@ -55,4 +55,19 @@ public class PlanStatusLog {
      */
     @TableField(value = "remark")
     private String remark;
+
+
+// ========== 关联表显示字段（非数据库字段）==========
+
+    /**
+     * 计划编号（关联production_plan表）
+     */
+    @TableField(exist = false)
+    private String planNumber;
+
+    /**
+     * 操作人姓名（关联user表）
+     */
+    @TableField(exist = false)
+    private String operatorName;
 }

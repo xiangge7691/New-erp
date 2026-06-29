@@ -104,4 +104,18 @@ public class PreparationDocument {
      */
     @TableField(value = "version")
     private Integer version;
+
+    // ========== 关联表显示字段（非数据库字段）==========
+
+    /**
+     * 制剂名称（关联preparation表）
+     */
+    @TableField(exist = false)
+    private String preparationName;
+
+    /**
+     * 文件名称（关联file_info表）
+     */
+    @TableField(exist = false)
+    private String fileName;
 }

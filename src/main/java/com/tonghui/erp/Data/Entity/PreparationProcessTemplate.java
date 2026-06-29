@@ -110,4 +110,24 @@ public class PreparationProcessTemplate {
      */
     @TableField(value = "version")
     private Integer version;
+
+    // ========== 关联表显示字段（非数据库字段）==========
+
+    /**
+     * 制剂名称（关联preparation表）
+     */
+    @TableField(exist = false)
+    private String preparationName;
+
+    /**
+     * 工序类型名称（关联process_type表）
+     */
+    @TableField(exist = false)
+    private String processTypeName;
+
+    /**
+     * 单位名称（关联unit表）
+     */
+    @TableField(exist = false)
+    private String unitName;
 }

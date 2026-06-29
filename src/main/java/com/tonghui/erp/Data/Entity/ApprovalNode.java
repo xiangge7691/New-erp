@@ -91,4 +91,19 @@ public class ApprovalNode {
      */
     @TableField(value = "updated_at")
     private LocalDateTime updatedAt;
+
+
+// ========== 关联表显示字段（非数据库字段）==========
+
+    /**
+     * 流程名称（关联approval_workflow表）
+     */
+    @TableField(exist = false)
+    private String workflowName;
+
+    /**
+     * 角色名称（关联role表）
+     */
+    @TableField(exist = false)
+    private String roleName;
 }

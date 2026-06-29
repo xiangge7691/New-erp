@@ -61,4 +61,25 @@ public class ApprovalRecord {
      */
     @TableField(value = "created_at")
     private LocalDateTime createdAt;
+
+
+// ========== 关联表显示字段（非数据库字段）==========
+
+    /**
+     * 节点名称（关联approval_node表）
+     */
+    @TableField(exist = false)
+    private String nodeName;
+
+    /**
+     * 审批人姓名（关联user表）
+     */
+    @TableField(exist = false)
+    private String approverName;
+
+    /**
+     * 转交目标节点名称（关联approval_node表）
+     */
+    @TableField(exist = false)
+    private String targetNodeName;
 }

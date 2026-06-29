@@ -123,4 +123,12 @@ public class EquipmentMaintenance {
      */
     @TableField(value = "version")
     private Integer version;
+
+    // ========== 关联表显示字段（非数据库字段）==========
+
+    /**
+     * 设备名称（关联equipment表）
+     */
+    @TableField(exist = false)
+    private String equipmentName;
 }
