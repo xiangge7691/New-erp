@@ -8,9 +8,11 @@ import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.PersonnelFile;
 import com.tonghui.erp.Data.Entity.Position;
 import com.tonghui.erp.Data.Entity.Department;
+import com.tonghui.erp.Data.Entity.User;
 import com.tonghui.erp.Service.PersonnelFileService;
 import com.tonghui.erp.Service.PositionService;
 import com.tonghui.erp.Service.DepartmentService;
+import com.tonghui.erp.Service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
@@ -31,6 +33,9 @@ public class PersonnelFileController extends BaseController {
 
     @Autowired
     private DepartmentService departmentService;
+
+    @Autowired
+    private UserService userService;
 
     /**
      * 分页查询人员档案列表
@@ -186,6 +191,12 @@ public class PersonnelFileController extends BaseController {
      */
     private void fillNameFields(PersonnelFile file) {
         if (file == null) return;
+        if (file.getUserId() != null) {
+            User user = userService.getById(file.getUserId());
+            if (user != null) {
+                file.setUserName(user.getUserName());
+            }
+        }
         if (file.getPositionId() != null) {
             Position position = positionService.getById(file.getPositionId());
             if (position != null) {

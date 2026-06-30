@@ -204,6 +204,12 @@ public class PersonnelFile {
     // ========== 关联表显示字段（非数据库字段）==========
 
     /**
+     * 用户姓名（关联user表）
+     */
+    @TableField(exist = false)
+    private String userName;
+
+    /**
      * 岗位名称（关联position表）
      */
     @TableField(exist = false)
