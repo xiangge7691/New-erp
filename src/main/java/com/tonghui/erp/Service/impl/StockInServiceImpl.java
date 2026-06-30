@@ -4,11 +4,14 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Stock.StockInWithDetailsDto;
 import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.Entity.StockInDetail;
 import com.tonghui.erp.Data.mapper.StockInMapper;
 import com.tonghui.erp.Data.mapper.StockInDetailMapper;
 import com.tonghui.erp.Service.StockInService;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +20,8 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 入库单业务实现类
@@ -309,6 +314,45 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
         wrapper.orderByDesc("in_code");
 
         return stockInMapper.selectPage(page, wrapper);
+    }
+
+    // #endregion
+
+    // #region 带子表查询
+
+    @Override
+    public PagedResult<StockInWithDetailsDto> searchWithDetails(StockIn stockIn, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, LocalDate startDate, LocalDate endDate, int pageNum, int pageSize) {
+        Page<StockIn> parentPage = queryStockIns(stockIn, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd, startDate, endDate, pageNum, pageSize);
+        List<StockIn> parents = parentPage.getRecords();
+
+        PagedResult<StockInWithDetailsDto> result = new PagedResult<>();
+        if (parents.isEmpty()) {
+            result.setItems(List.of());
+            result.setTotalCount(parentPage.getTotal());
+            result.setPageIndex(pageNum);
+            result.setPageSize(pageSize);
+            return result;
+        }
+
+        List<Long> parentIds = parents.stream().map(StockIn::getInId).collect(Collectors.toList());
+        QueryWrapper<StockInDetail> wrapper = new QueryWrapper<>();
+        wrapper.in("in_id", parentIds);
+        List<StockInDetail> allDetails = stockInDetailMapper.selectList(wrapper);
+        Map<Long, List<StockInDetail>> detailsMap = allDetails.stream()
+                .collect(Collectors.groupingBy(StockInDetail::getInId));
+
+        List<StockInWithDetailsDto> dtos = parents.stream().map(parent -> {
+            StockInWithDetailsDto dto = new StockInWithDetailsDto();
+            BeanUtils.copyProperties(parent, dto);
+            dto.setDetails(detailsMap.getOrDefault(parent.getInId(), List.of()));
+            return dto;
+        }).collect(Collectors.toList());
+
+        result.setItems(dtos);
+        result.setTotalCount(parentPage.getTotal());
+        result.setPageIndex(pageNum);
+        result.setPageSize(pageSize);
+        return result;
     }
 
     // #endregion

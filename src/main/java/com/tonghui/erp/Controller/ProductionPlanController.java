@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.ProductionPlanWithRecordsDto;
 import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.ProductionPlan;
 import com.tonghui.erp.Service.ProductionPlanService;
@@ -139,6 +140,40 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
             return success(pagedResult);
         } catch (Exception ex) {
             return error("查询失败：" + ex.getMessage());
+        }
+    }
+
+    // #endregion
+
+    // #region 带子表查询
+
+    /**
+     * 高级查询生产计划（包含工序记录子表）
+     *
+     * @param productionPlan 查询条件
+     * @param createdTimeStart 创建时间起始
+     * @param createdTimeEnd 创建时间结束
+     * @param updatedTimeStart 更新时间起始
+     * @param updatedTimeEnd 更新时间结束
+     * @param pageIndex 页码
+     * @param pageSize  每页大小
+     * @return 分页结果（包含工序记录）
+     */
+    @GetMapping("/search-with-details")
+    public ApiResponse<PagedResult<ProductionPlanWithRecordsDto>> searchWithDetails(ProductionPlan productionPlan,
+                                                                                     @RequestParam(required = false) LocalDateTime createdTimeStart,
+                                                                                     @RequestParam(required = false) LocalDateTime createdTimeEnd,
+                                                                                     @RequestParam(required = false) LocalDateTime updatedTimeStart,
+                                                                                     @RequestParam(required = false) LocalDateTime updatedTimeEnd,
+                                                                                     @RequestParam int pageIndex,
+                                                                                     @RequestParam int pageSize) {
+        try {
+            int safePageIndex = Math.max(0, pageIndex);
+            int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
+            PagedResult<ProductionPlanWithRecordsDto> result = productionPlanService.searchWithDetails(productionPlan, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd, safePageIndex, safePageSize);
+            return success(result);
+        } catch (Exception ex) {
+            return exception(ex, "查询失败");
         }
     }
 

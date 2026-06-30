@@ -5,6 +5,7 @@ import com.tonghui.erp.Data.Entity.Preparation;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.PreparationWithDetailsDto;
 
 import java.util.List;
 
@@ -83,6 +84,20 @@ public interface PreparationService extends IService<Preparation> {
      * @return 分页结果
      */
     Page<Preparation> queryPreparations(Preparation preparation, int pageNum, int pageSize);
+
+    // #endregion
+
+    // #region 带子表查询
+
+    /**
+     * 高级查询制剂（包含处方、文档、工序模版子表）
+     *
+     * @param preparation 查询条件
+     * @param pageNum     页码
+     * @param pageSize    每页大小
+     * @return 分页结果（包含子表）
+     */
+    PagedResult<PreparationWithDetailsDto> searchWithDetails(Preparation preparation, int pageNum, int pageSize);
 
     // #endregion
 

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.PreparationWithDetailsDto;
 import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Service.PreparationService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -161,6 +162,69 @@ public class PreparationController extends BaseCrudController<Preparation, Prepa
             return success(pagedResult);
         } catch (Exception ex) {
             return exception(ex, "搜索制剂");
+        }
+    }
+
+    // #endregion
+
+    // #region 带子表查询
+
+    /**
+     * 高级查询制剂（包含处方、文档、工序模版子表）
+     *
+     * @param preparationCode 制剂编码
+     * @param preparationName 制剂品名
+     * @param spec 规格描述
+     * @param processAttr 加工性质
+     * @param packageSpec 包装规格
+     * @param dosageForm 剂型
+     * @param status 状态
+     * @param unitName 单位名称
+     * @param producer 生产商
+     * @param recordInfo 制剂备案
+     * @param functionMain 功能主治
+     * @param method 制法
+     * @param pageIndex 页码
+     * @param pageSize  每页大小
+     * @return 分页结果（包含子表）
+     */
+    @GetMapping("/search-with-details")
+    public ApiResponse<PagedResult<PreparationWithDetailsDto>> searchWithDetails(
+            @RequestParam(required = false) String preparationCode,
+            @RequestParam(required = false) String preparationName,
+            @RequestParam(required = false) String spec,
+            @RequestParam(required = false) String processAttr,
+            @RequestParam(required = false) String packageSpec,
+            @RequestParam(required = false) String dosageForm,
+            @RequestParam(required = false) Integer status,
+            @RequestParam(required = false) String unitName,
+            @RequestParam(required = false) String producer,
+            @RequestParam(required = false) String recordInfo,
+            @RequestParam(required = false) String functionMain,
+            @RequestParam(required = false) String method,
+            @RequestParam int pageIndex,
+            @RequestParam int pageSize) {
+        try {
+            Preparation preparation = new Preparation();
+            preparation.setPreparationCode(preparationCode);
+            preparation.setPreparationName(preparationName);
+            preparation.setSpec(spec);
+            preparation.setProcessAttr(processAttr);
+            preparation.setPackageSpec(packageSpec);
+            preparation.setDosageForm(dosageForm);
+            preparation.setStatus(status);
+            preparation.setUnitName(unitName);
+            preparation.setProducer(producer);
+            preparation.setRecordInfo(recordInfo);
+            preparation.setFunctionMain(functionMain);
+            preparation.setMethod(method);
+
+            int safePageIndex = Math.max(0, pageIndex);
+            int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
+            PagedResult<PreparationWithDetailsDto> result = preparationService.searchWithDetails(preparation, safePageIndex, safePageSize);
+            return success(result);
+        } catch (Exception ex) {
+            return exception(ex, "查询失败");
         }
     }
 

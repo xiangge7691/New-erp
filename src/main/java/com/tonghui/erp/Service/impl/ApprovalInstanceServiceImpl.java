@@ -3,24 +3,29 @@ package com.tonghui.erp.Service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.tonghui.erp.Common.Dto.Approval.ApprovalInstanceWithRecordsDto;
 import com.tonghui.erp.Common.Dto.Approval.CurrentHandlerRoleDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.ApprovalInstance;
 import com.tonghui.erp.Data.Entity.ApprovalNode;
 import com.tonghui.erp.Data.Entity.ApprovalRecord;
 import com.tonghui.erp.Data.Entity.UserRole;
+import com.tonghui.erp.Data.mapper.ApprovalRecordMapper;
 import com.tonghui.erp.Service.ApprovalInstanceService;
 import com.tonghui.erp.Service.ApprovalNodeService;
 import com.tonghui.erp.Service.ApprovalRecordService;
 import com.tonghui.erp.Service.RoleService;
 import com.tonghui.erp.Service.UserRoleService;
 import com.tonghui.erp.Data.mapper.ApprovalInstanceMapper;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
 * @author 87954
@@ -42,6 +47,9 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
     
     @Autowired
     private ApprovalRecordService approvalRecordService;
+
+    @Autowired
+    private ApprovalRecordMapper approvalRecordMapper;
     
     @Override
     public ApprovalInstance getInstanceByRelated(Long relatedId, String relatedType) {
@@ -255,6 +263,41 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
         }
         
         return true;
+    }
+
+    @Override
+    public PagedResult<ApprovalInstanceWithRecordsDto> searchWithDetails(int pageIndex, int pageSize) {
+        PagedResult<ApprovalInstance> parentPage = getInstances(pageIndex, pageSize);
+        List<ApprovalInstance> parents = parentPage.getItems();
+
+        PagedResult<ApprovalInstanceWithRecordsDto> result = new PagedResult<>();
+        if (parents == null || parents.isEmpty()) {
+            result.setItems(List.of());
+            result.setTotalCount(parentPage.getTotalCount());
+            result.setPageIndex(pageIndex);
+            result.setPageSize(pageSize);
+            return result;
+        }
+
+        List<Long> parentIds = parents.stream().map(ApprovalInstance::getId).collect(Collectors.toList());
+        QueryWrapper<ApprovalRecord> wrapper = new QueryWrapper<>();
+        wrapper.in("instance_id", parentIds);
+        List<ApprovalRecord> allRecords = approvalRecordMapper.selectList(wrapper);
+        Map<Long, List<ApprovalRecord>> recordsMap = allRecords.stream()
+                .collect(Collectors.groupingBy(ApprovalRecord::getInstanceId));
+
+        List<ApprovalInstanceWithRecordsDto> dtos = parents.stream().map(parent -> {
+            ApprovalInstanceWithRecordsDto dto = new ApprovalInstanceWithRecordsDto();
+            BeanUtils.copyProperties(parent, dto);
+            dto.setRecords(recordsMap.getOrDefault(parent.getId(), List.of()));
+            return dto;
+        }).collect(Collectors.toList());
+
+        result.setItems(dtos);
+        result.setTotalCount(parentPage.getTotalCount());
+        result.setPageIndex(pageIndex);
+        result.setPageSize(pageSize);
+        return result;
     }
 }
 

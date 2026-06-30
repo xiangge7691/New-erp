@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Purchase.PurchaseOrdersWithItemsDto;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
 
 import java.util.List;
@@ -72,6 +73,20 @@ public interface PurchaseOrdersService extends IService<PurchaseOrders> {
      * @return 分页结果
      */
     Page<PurchaseOrders> queryPurchaseOrders(PurchaseOrders purchaseOrders, int pageNum, int pageSize);
+
+    // #endregion
+
+    // #region 带子表查询
+
+    /**
+     * 高级查询采购订单（包含明细子表）
+     *
+     * @param purchaseOrders 查询条件
+     * @param pageNum        页码
+     * @param pageSize       每页大小
+     * @return 分页结果（包含明细）
+     */
+    PagedResult<PurchaseOrdersWithItemsDto> searchWithDetails(PurchaseOrders purchaseOrders, int pageNum, int pageSize);
 
     // #endregion
 }

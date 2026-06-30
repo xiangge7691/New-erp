@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Config.JwtConfig;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.System.ProductionUnitWithDetailsDto;
 import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.ProdUnitMaterialFile;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
@@ -15,6 +16,7 @@ import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Data.mapper.ProdUnitInvoiceMapper;
 import com.tonghui.erp.Service.FileStorageService;
 import com.tonghui.erp.Service.ProductionUnitService;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +26,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper, ProductionUnit> implements ProductionUnitService {
@@ -192,6 +196,56 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
         }
 
         return this.page(page, wrapper);
+    }
+
+    //#endregion
+
+    //#region 带子表查询
+
+    @Override
+    public PagedResult<ProductionUnitWithDetailsDto> searchWithDetails(ProductionUnit productionUnit,
+                                                                       LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
+                                                                       LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
+                                                                       int pageNum, int pageSize) {
+        Page<ProductionUnit> parentPage = queryProductionUnits(productionUnit, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd, pageNum, pageSize);
+        List<ProductionUnit> parents = parentPage.getRecords();
+
+        PagedResult<ProductionUnitWithDetailsDto> result = new PagedResult<>();
+        if (parents.isEmpty()) {
+            result.setItems(List.of());
+            result.setTotalCount(parentPage.getTotal());
+            result.setPageIndex(pageNum);
+            result.setPageSize(pageSize);
+            return result;
+        }
+
+        List<Long> parentIds = parents.stream().map(ProductionUnit::getProdUnitId).collect(Collectors.toList());
+
+        QueryWrapper<ProdUnitInvoice> invoiceWrapper = new QueryWrapper<>();
+        invoiceWrapper.in("prod_unit_id", parentIds);
+        List<ProdUnitInvoice> allInvoices = prodUnitInvoiceMapper.selectList(invoiceWrapper);
+        Map<Long, List<ProdUnitInvoice>> invoicesMap = allInvoices.stream()
+                .collect(Collectors.groupingBy(ProdUnitInvoice::getProdUnitId));
+
+        QueryWrapper<ProdUnitMaterialFile> materialWrapper = new QueryWrapper<>();
+        materialWrapper.in("prod_unit_id", parentIds);
+        List<ProdUnitMaterialFile> allMaterials = prodUnitMaterialFileMapper.selectList(materialWrapper);
+        Map<Long, List<ProdUnitMaterialFile>> materialsMap = allMaterials.stream()
+                .collect(Collectors.groupingBy(ProdUnitMaterialFile::getProdUnitId));
+
+        List<ProductionUnitWithDetailsDto> dtos = parents.stream().map(parent -> {
+            ProductionUnitWithDetailsDto dto = new ProductionUnitWithDetailsDto();
+            BeanUtils.copyProperties(parent, dto);
+            dto.setInvoices(invoicesMap.getOrDefault(parent.getProdUnitId(), List.of()));
+            dto.setMaterialFiles(materialsMap.getOrDefault(parent.getProdUnitId(), List.of()));
+            return dto;
+        }).collect(Collectors.toList());
+
+        result.setItems(dtos);
+        result.setTotalCount(parentPage.getTotal());
+        result.setPageIndex(pageNum);
+        result.setPageSize(pageSize);
+        return result;
     }
 
     //#endregion

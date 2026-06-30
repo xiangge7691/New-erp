@@ -1,6 +1,7 @@
 package com.tonghui.erp.Controller;
 
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.Dto.Approval.ApprovalInstanceWithRecordsDto;
 import com.tonghui.erp.Common.Dto.Approval.CancelRequest;
 import com.tonghui.erp.Common.Dto.Approval.CurrentHandlerRoleDto;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
@@ -236,6 +237,27 @@ public class ApprovalInstanceController extends BaseController {
             }
         } catch (Exception e) {
             return exception(e, "作废审批实例");
+        }
+    }
+
+    /**
+     * 查询审批实例（包含审批记录子表）
+     *
+     * @param pageIndex 页码
+     * @param pageSize  每页数量
+     * @return 分页结果（包含审批记录）
+     */
+    @GetMapping("/search-with-details")
+    public ApiResponse<PagedResult<ApprovalInstanceWithRecordsDto>> searchWithDetails(
+            @RequestParam int pageIndex,
+            @RequestParam int pageSize) {
+        try {
+            int safePageIndex = Math.max(0, pageIndex);
+            int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
+            PagedResult<ApprovalInstanceWithRecordsDto> result = approvalInstanceService.searchWithDetails(safePageIndex, safePageSize);
+            return success(result);
+        } catch (Exception e) {
+            return exception(e, "查询审批实例");
         }
     }
 }

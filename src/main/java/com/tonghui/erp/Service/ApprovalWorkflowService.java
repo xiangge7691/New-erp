@@ -2,6 +2,8 @@ package com.tonghui.erp.Service;
 
 import com.tonghui.erp.Data.Entity.ApprovalWorkflow;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.tonghui.erp.Common.Dto.Approval.ApprovalWorkflowWithNodesDto;
+import com.tonghui.erp.Common.Dto.PagedResult;
 
 import java.util.List;
 
@@ -23,4 +25,13 @@ public interface ApprovalWorkflowService extends IService<ApprovalWorkflow> {
      * @return 审批流程列表
      */
     List<ApprovalWorkflow> getAllWorkflows();
+
+    /**
+     * 查询审批流程（包含节点子表）
+     *
+     * @param pageIndex 页码
+     * @param pageSize  每页大小
+     * @return 分页结果（包含节点）
+     */
+    PagedResult<ApprovalWorkflowWithNodesDto> searchWithDetails(int pageIndex, int pageSize);
 }

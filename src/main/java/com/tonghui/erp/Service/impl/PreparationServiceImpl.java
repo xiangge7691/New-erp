@@ -6,9 +6,17 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Config.JwtConfig;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.PreparationWithDetailsDto;
 import com.tonghui.erp.Data.Entity.Preparation;
+import com.tonghui.erp.Data.Entity.PreparationDocument;
+import com.tonghui.erp.Data.Entity.PreparationFormula;
+import com.tonghui.erp.Data.Entity.PreparationProcessTemplate;
+import com.tonghui.erp.Data.mapper.PreparationDocumentMapper;
+import com.tonghui.erp.Data.mapper.PreparationFormulaMapper;
 import com.tonghui.erp.Data.mapper.PreparationMapper;
+import com.tonghui.erp.Data.mapper.PreparationProcessTemplateMapper;
 import com.tonghui.erp.Service.PreparationService;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -18,6 +26,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.time.LocalDateTime;
 import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Common.utils.JwtHelper;
@@ -27,6 +37,15 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
 
     @Autowired
     private JwtConfig jwtConfig;
+
+    @Autowired
+    private PreparationFormulaMapper preparationFormulaMapper;
+
+    @Autowired
+    private PreparationDocumentMapper preparationDocumentMapper;
+
+    @Autowired
+    private PreparationProcessTemplateMapper preparationProcessTemplateMapper;
 
     @Override
     public PagedResult<Preparation> getPreparationList(PageRequestDto pageRequestDto) {
@@ -249,6 +268,56 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
             Page<Preparation> page = new Page<>(actualPageNum, actualPageSize);
             return this.baseMapper.selectPage(page, wrapper);
         }
+    }
+
+    @Override
+    public PagedResult<PreparationWithDetailsDto> searchWithDetails(Preparation preparation, int pageNum, int pageSize) {
+        Page<Preparation> parentPage = queryPreparations(preparation, pageNum, pageSize);
+        List<Preparation> parents = parentPage.getRecords();
+
+        PagedResult<PreparationWithDetailsDto> result = new PagedResult<>();
+        if (parents.isEmpty()) {
+            result.setItems(List.of());
+            result.setTotalCount(parentPage.getTotal());
+            result.setPageIndex(pageNum);
+            result.setPageSize(pageSize);
+            return result;
+        }
+
+        List<Long> parentIds = parents.stream().map(Preparation::getPreparationId).collect(Collectors.toList());
+
+        QueryWrapper<PreparationFormula> formulaWrapper = new QueryWrapper<>();
+        formulaWrapper.in("preparation_id", parentIds);
+        List<PreparationFormula> allFormulas = preparationFormulaMapper.selectList(formulaWrapper);
+        Map<Long, List<PreparationFormula>> formulasMap = allFormulas.stream()
+                .collect(Collectors.groupingBy(PreparationFormula::getPreparationId));
+
+        QueryWrapper<PreparationDocument> docWrapper = new QueryWrapper<>();
+        docWrapper.in("preparation_id", parentIds);
+        List<PreparationDocument> allDocs = preparationDocumentMapper.selectList(docWrapper);
+        Map<Long, List<PreparationDocument>> docsMap = allDocs.stream()
+                .collect(Collectors.groupingBy(PreparationDocument::getPreparationId));
+
+        QueryWrapper<PreparationProcessTemplate> templateWrapper = new QueryWrapper<>();
+        templateWrapper.in("preparation_id", parentIds);
+        List<PreparationProcessTemplate> allTemplates = preparationProcessTemplateMapper.selectList(templateWrapper);
+        Map<Long, List<PreparationProcessTemplate>> templatesMap = allTemplates.stream()
+                .collect(Collectors.groupingBy(PreparationProcessTemplate::getPreparationId));
+
+        List<PreparationWithDetailsDto> dtos = parents.stream().map(parent -> {
+            PreparationWithDetailsDto dto = new PreparationWithDetailsDto();
+            BeanUtils.copyProperties(parent, dto);
+            dto.setFormulas(formulasMap.getOrDefault(parent.getPreparationId(), List.of()));
+            dto.setDocuments(docsMap.getOrDefault(parent.getPreparationId(), List.of()));
+            dto.setProcessTemplates(templatesMap.getOrDefault(parent.getPreparationId(), List.of()));
+            return dto;
+        }).collect(Collectors.toList());
+
+        result.setItems(dtos);
+        result.setTotalCount(parentPage.getTotal());
+        result.setPageIndex(pageNum);
+        result.setPageSize(pageSize);
+        return result;
     }
 
     /**

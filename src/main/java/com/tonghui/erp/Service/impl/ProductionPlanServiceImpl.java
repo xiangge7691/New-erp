@@ -3,17 +3,26 @@ package com.tonghui.erp.Service.impl;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.ProductionPlanWithRecordsDto;
 import com.tonghui.erp.Data.Entity.ProductionPlan;
+import com.tonghui.erp.Data.Entity.ProductionProcessRecord;
 import com.tonghui.erp.Data.Entity.PlanStatusLog;
+import com.tonghui.erp.Data.mapper.ProductionProcessRecordMapper;
 import com.tonghui.erp.Service.ProductionPlanService;
 import com.tonghui.erp.Service.PlanStatusLogService;
 import com.tonghui.erp.Data.mapper.ProductionPlanMapper;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
 * @author 87954
@@ -29,6 +38,9 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
     public ProductionPlanServiceImpl(PlanStatusLogService planStatusLogService) {
         this.planStatusLogService = planStatusLogService;
     }
+
+    @Autowired
+    private ProductionProcessRecordMapper productionProcessRecordMapper;
     
     /**
      * 高级查询生产计划（支持分页）
@@ -92,6 +104,41 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
         wrapper.orderByDesc("plan_number");
 
         return this.page(page, wrapper);
+    }
+
+    @Override
+    public PagedResult<ProductionPlanWithRecordsDto> searchWithDetails(ProductionPlan productionPlan, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, int pageNum, int pageSize) {
+        Page<ProductionPlan> parentPage = queryProductionPlans(productionPlan, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd, pageNum, pageSize);
+        List<ProductionPlan> parents = parentPage.getRecords();
+
+        PagedResult<ProductionPlanWithRecordsDto> result = new PagedResult<>();
+        if (parents.isEmpty()) {
+            result.setItems(List.of());
+            result.setTotalCount(parentPage.getTotal());
+            result.setPageIndex(pageNum);
+            result.setPageSize(pageSize);
+            return result;
+        }
+
+        List<Integer> parentIds = parents.stream().map(ProductionPlan::getId).collect(Collectors.toList());
+        QueryWrapper<ProductionProcessRecord> wrapper = new QueryWrapper<>();
+        wrapper.in("plan_id", parentIds);
+        List<ProductionProcessRecord> allRecords = productionProcessRecordMapper.selectList(wrapper);
+        Map<Integer, List<ProductionProcessRecord>> recordsMap = allRecords.stream()
+                .collect(Collectors.groupingBy(ProductionProcessRecord::getPlanId));
+
+        List<ProductionPlanWithRecordsDto> dtos = parents.stream().map(parent -> {
+            ProductionPlanWithRecordsDto dto = new ProductionPlanWithRecordsDto();
+            BeanUtils.copyProperties(parent, dto);
+            dto.setRecords(recordsMap.getOrDefault(parent.getId(), List.of()));
+            return dto;
+        }).collect(Collectors.toList());
+
+        result.setItems(dtos);
+        result.setTotalCount(parentPage.getTotal());
+        result.setPageIndex(pageNum);
+        result.setPageSize(pageSize);
+        return result;
     }
     
     /**

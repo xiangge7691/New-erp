@@ -1,6 +1,7 @@
 package com.tonghui.erp.Service;
 
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Approval.ApprovalInstanceWithRecordsDto;
 import com.tonghui.erp.Common.Dto.Approval.CurrentHandlerRoleDto;
 import com.tonghui.erp.Data.Entity.ApprovalInstance;
 import com.baomidou.mybatisplus.extension.service.IService;
@@ -66,4 +67,13 @@ public interface ApprovalInstanceService extends IService<ApprovalInstance> {
      * @return 操作是否成功
      */
     boolean cancelInstance(Long instanceId, Long userId, String cancelReason);
+
+    /**
+     * 查询审批实例（包含审批记录子表）
+     *
+     * @param pageIndex 页码
+     * @param pageSize  每页大小
+     * @return 分页结果（包含审批记录）
+     */
+    PagedResult<ApprovalInstanceWithRecordsDto> searchWithDetails(int pageIndex, int pageSize);
 }

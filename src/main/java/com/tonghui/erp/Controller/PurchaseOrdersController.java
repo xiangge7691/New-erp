@@ -1,8 +1,10 @@
 package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Purchase.PurchaseOrdersWithItemsDto;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
 import com.tonghui.erp.Service.PurchaseOrdersService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -109,6 +111,32 @@ public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders,
         pagedResult.setPageSize((int) pageResult.getSize());
 
         return pagedResult;
+    }
+
+    // #endregion
+
+    // #region 带子表查询
+
+    /**
+     * 高级查询采购订单（包含明细子表）
+     *
+     * @param purchaseOrders 查询条件
+     * @param pageIndex      页码
+     * @param pageSize       每页大小
+     * @return 分页结果（包含明细）
+     */
+    @GetMapping("/search-with-details")
+    public ApiResponse<PagedResult<PurchaseOrdersWithItemsDto>> searchWithDetails(PurchaseOrders purchaseOrders,
+                                                                                    @RequestParam int pageIndex,
+                                                                                    @RequestParam int pageSize) {
+        try {
+            int safePageIndex = Math.max(0, pageIndex);
+            int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
+            PagedResult<PurchaseOrdersWithItemsDto> result = purchaseOrdersService.searchWithDetails(purchaseOrders, safePageIndex, safePageSize);
+            return success(result);
+        } catch (Exception ex) {
+            return exception(ex, "查询失败");
+        }
     }
 
     // #endregion

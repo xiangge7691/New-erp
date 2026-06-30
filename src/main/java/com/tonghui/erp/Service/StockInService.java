@@ -1,6 +1,8 @@
 package com.tonghui.erp.Service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Stock.StockInWithDetailsDto;
 import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.Entity.StockInDetail;
 import com.baomidou.mybatisplus.extension.service.IService;
@@ -143,6 +145,26 @@ public interface StockInService extends IService<StockIn> {
      * @return 分页结果
      */
     Page<StockIn> queryStockIns(StockIn stockIn, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, LocalDate startDate, LocalDate endDate, int pageNum, int pageSize);
+
+    // #endregion
+
+    // #region 带子表查询
+
+    /**
+     * 高级查询入库单（包含明细子表）
+     *
+     * @param stockIn   查询条件
+     * @param createdTimeStart 创建时间起始
+     * @param createdTimeEnd 创建时间结束
+     * @param updatedTimeStart 更新时间起始
+     * @param updatedTimeEnd 更新时间结束
+     * @param startDate 开始日期
+     * @param endDate   结束日期
+     * @param pageNum   页码
+     * @param pageSize  每页大小
+     * @return 分页结果（包含明细）
+     */
+    PagedResult<StockInWithDetailsDto> searchWithDetails(StockIn stockIn, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, LocalDate startDate, LocalDate endDate, int pageNum, int pageSize);
 
     // #endregion
 }

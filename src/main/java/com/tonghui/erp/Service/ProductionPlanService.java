@@ -2,6 +2,8 @@ package com.tonghui.erp.Service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.ProductionPlanWithRecordsDto;
 import com.tonghui.erp.Data.Entity.ProductionPlan;
 
 import java.math.BigDecimal;
@@ -53,6 +55,20 @@ public interface ProductionPlanService extends IService<ProductionPlan> {
      * @return 是否成功
      */
     boolean resumePlanStatus(Integer planId, Long operatorId, String remark);
+
+    /**
+     * 高级查询生产计划（包含工序记录子表）
+     *
+     * @param productionPlan 查询条件
+     * @param createdTimeStart 创建时间起始
+     * @param createdTimeEnd 创建时间结束
+     * @param updatedTimeStart 更新时间起始
+     * @param updatedTimeEnd 更新时间结束
+     * @param pageNum 页码
+     * @param pageSize 每页大小
+     * @return 分页结果（包含工序记录）
+     */
+    PagedResult<ProductionPlanWithRecordsDto> searchWithDetails(ProductionPlan productionPlan, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, int pageNum, int pageSize);
     
     /**
      * 验证状态变更是否符合业务规则

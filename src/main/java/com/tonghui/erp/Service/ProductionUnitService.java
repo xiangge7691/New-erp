@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.System.ProductionUnitWithDetailsDto;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Data.Entity.ProdUnitInvoice;
 import com.tonghui.erp.Data.Entity.ProdUnitMaterialFile;
@@ -113,9 +114,30 @@ public interface ProductionUnitService extends IService<ProductionUnit> {
      * @return 分页结果
      */
     Page<ProductionUnit> queryProductionUnits(ProductionUnit productionUnit, 
-                                              LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
-                                              LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
-                                              int pageNum, int pageSize);
+                                               LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
+                                               LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
+                                               int pageNum, int pageSize);
+
+    // #endregion
+
+    // #region 带子表查询
+
+    /**
+     * 高级查询生产单位（包含发票和材料文件子表）
+     *
+     * @param productionUnit 查询条件
+     * @param createdTimeStart 创建时间起始
+     * @param createdTimeEnd   创建时间结束
+     * @param updatedTimeStart 更新时间起始
+     * @param updatedTimeEnd   更新时间结束
+     * @param pageNum        页码
+     * @param pageSize       每页大小
+     * @return 分页结果（包含子表）
+     */
+    PagedResult<ProductionUnitWithDetailsDto> searchWithDetails(ProductionUnit productionUnit,
+                                                                 LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
+                                                                 LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
+                                                                 int pageNum, int pageSize);
 
     // #endregion
 

@@ -5,18 +5,28 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Purchase.PurchaseOrdersWithItemsDto;
+import com.tonghui.erp.Data.Entity.PurchaseOrderItems;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
+import com.tonghui.erp.Data.mapper.PurchaseOrderItemsMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrdersMapper;
 import com.tonghui.erp.Service.PurchaseOrdersService;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper, PurchaseOrders>
         implements PurchaseOrdersService {
+
+    @Autowired
+    private PurchaseOrderItemsMapper purchaseOrderItemsMapper;
 
     @Override
     public PagedResult<PurchaseOrders> getPurchaseOrderList(PageRequestDto pageRequestDto) {
@@ -118,6 +128,45 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
         wrapper.orderByDesc("purchase_number");
 
         return this.page(page, wrapper);
+    }
+
+    //#endregion
+
+    //#region 带子表查询
+
+    @Override
+    public PagedResult<PurchaseOrdersWithItemsDto> searchWithDetails(PurchaseOrders purchaseOrders, int pageNum, int pageSize) {
+        Page<PurchaseOrders> parentPage = queryPurchaseOrders(purchaseOrders, pageNum, pageSize);
+        List<PurchaseOrders> parents = parentPage.getRecords();
+
+        PagedResult<PurchaseOrdersWithItemsDto> result = new PagedResult<>();
+        if (parents.isEmpty()) {
+            result.setItems(List.of());
+            result.setTotalCount(parentPage.getTotal());
+            result.setPageIndex(pageNum);
+            result.setPageSize(pageSize);
+            return result;
+        }
+
+        List<Integer> parentIds = parents.stream().map(PurchaseOrders::getId).collect(Collectors.toList());
+        QueryWrapper<PurchaseOrderItems> wrapper = new QueryWrapper<>();
+        wrapper.in("order_id", parentIds);
+        List<PurchaseOrderItems> allItems = purchaseOrderItemsMapper.selectList(wrapper);
+        Map<Integer, List<PurchaseOrderItems>> itemsMap = allItems.stream()
+                .collect(Collectors.groupingBy(PurchaseOrderItems::getOrderId));
+
+        List<PurchaseOrdersWithItemsDto> dtos = parents.stream().map(parent -> {
+            PurchaseOrdersWithItemsDto dto = new PurchaseOrdersWithItemsDto();
+            BeanUtils.copyProperties(parent, dto);
+            dto.setItems(itemsMap.getOrDefault(parent.getId(), List.of()));
+            return dto;
+        }).collect(Collectors.toList());
+
+        result.setItems(dtos);
+        result.setTotalCount(parentPage.getTotal());
+        result.setPageIndex(pageNum);
+        result.setPageSize(pageSize);
+        return result;
     }
 
     //#endregion

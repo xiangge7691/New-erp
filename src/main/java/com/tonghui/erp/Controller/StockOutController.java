@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Stock.StockOutWithDetailsDto;
 import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.Entity.StockInDetail;
@@ -157,6 +158,44 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
         pagedResult.setPageSize((int) pageResult.getSize());
 
         return pagedResult;
+    }
+
+    // #endregion
+
+    // #region 带子表查询
+
+    /**
+     * 高级查询出库单（包含明细子表）
+     *
+     * @param stockOut  查询条件
+     * @param createdTimeStart 创建时间起始
+     * @param createdTimeEnd 创建时间结束
+     * @param updatedTimeStart 更新时间起始
+     * @param updatedTimeEnd 更新时间结束
+     * @param startDate 出库开始日期
+     * @param endDate   出库结束日期
+     * @param pageIndex 页码
+     * @param pageSize  每页大小
+     * @return 分页结果（包含明细）
+     */
+    @GetMapping("/search-with-details")
+    public ApiResponse<PagedResult<StockOutWithDetailsDto>> searchWithDetails(StockOut stockOut,
+                                                                               @RequestParam(required = false) LocalDateTime createdTimeStart,
+                                                                               @RequestParam(required = false) LocalDateTime createdTimeEnd,
+                                                                               @RequestParam(required = false) LocalDateTime updatedTimeStart,
+                                                                               @RequestParam(required = false) LocalDateTime updatedTimeEnd,
+                                                                               @RequestParam(required = false) LocalDate startDate,
+                                                                               @RequestParam(required = false) LocalDate endDate,
+                                                                               @RequestParam int pageIndex,
+                                                                               @RequestParam int pageSize) {
+        try {
+            int safePageIndex = Math.max(0, pageIndex);
+            int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
+            PagedResult<StockOutWithDetailsDto> result = stockOutService.searchWithDetails(stockOut, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd, startDate, endDate, safePageIndex, safePageSize);
+            return success(result);
+        } catch (Exception ex) {
+            return exception(ex, "查询失败");
+        }
     }
 
     // #endregion

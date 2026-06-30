@@ -1,6 +1,7 @@
 package com.tonghui.erp.Controller;
 
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.Dto.Approval.ApprovalWorkflowWithNodesDto;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.ApprovalWorkflow;
@@ -222,6 +223,27 @@ public class ApprovalWorkflowController extends BaseController {
             }
         } catch (Exception e) {
             return exception(e, "删除审批流程");
+        }
+    }
+
+    /**
+     * 查询审批流程（包含节点子表）
+     *
+     * @param pageIndex 页码
+     * @param pageSize  每页数量
+     * @return 分页结果（包含节点）
+     */
+    @GetMapping("/search-with-details")
+    public ApiResponse<PagedResult<ApprovalWorkflowWithNodesDto>> searchWithDetails(
+            @RequestParam int pageIndex,
+            @RequestParam int pageSize) {
+        try {
+            int safePageIndex = Math.max(0, pageIndex);
+            int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
+            PagedResult<ApprovalWorkflowWithNodesDto> result = approvalWorkflowService.searchWithDetails(safePageIndex, safePageSize);
+            return success(result);
+        } catch (Exception e) {
+            return exception(e, "查询审批流程");
         }
     }
 }

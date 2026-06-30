@@ -3,6 +3,7 @@ package com.tonghui.erp.Controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.System.ProductionUnitWithDetailsDto;
 import com.tonghui.erp.Data.Entity.ProdUnitInvoice;
 import com.tonghui.erp.Data.Entity.ProdUnitMaterialFile;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
@@ -133,6 +134,40 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
             return success(pagedResult);
         } catch (Exception ex) {
             return exception(ex, "搜索生产单位");
+        }
+    }
+
+    // #endregion
+
+    // #region 带子表查询
+
+    /**
+     * 高级查询生产单位（包含发票和材料文件子表）
+     *
+     * @param productionUnit 查询条件
+     * @param createdTimeStart 创建时间起始
+     * @param createdTimeEnd 创建时间结束
+     * @param updatedTimeStart 更新时间起始
+     * @param updatedTimeEnd 更新时间结束
+     * @param pageIndex 页码
+     * @param pageSize  每页大小
+     * @return 分页结果（包含子表）
+     */
+    @GetMapping("/search-with-details")
+    public ApiResponse<PagedResult<ProductionUnitWithDetailsDto>> searchWithDetails(ProductionUnit productionUnit,
+                                                                                     @RequestParam(required = false) LocalDateTime createdTimeStart,
+                                                                                     @RequestParam(required = false) LocalDateTime createdTimeEnd,
+                                                                                     @RequestParam(required = false) LocalDateTime updatedTimeStart,
+                                                                                     @RequestParam(required = false) LocalDateTime updatedTimeEnd,
+                                                                                     @RequestParam int pageIndex,
+                                                                                     @RequestParam int pageSize) {
+        try {
+            int safePageIndex = Math.max(0, pageIndex);
+            int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
+            PagedResult<ProductionUnitWithDetailsDto> result = productionUnitService.searchWithDetails(productionUnit, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd, safePageIndex, safePageSize);
+            return success(result);
+        } catch (Exception ex) {
+            return exception(ex, "查询失败");
         }
     }
 
