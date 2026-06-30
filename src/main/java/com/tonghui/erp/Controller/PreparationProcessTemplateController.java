@@ -5,8 +5,14 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.utils.EntityUtils;
+import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.PreparationProcessTemplate;
+import com.tonghui.erp.Data.Entity.ProcessType;
+import com.tonghui.erp.Data.Entity.Unit;
 import com.tonghui.erp.Service.PreparationProcessTemplateService;
+import com.tonghui.erp.Service.PreparationService;
+import com.tonghui.erp.Service.ProcessTypeService;
+import com.tonghui.erp.Service.UnitService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
@@ -22,6 +28,15 @@ public class PreparationProcessTemplateController extends BaseController {
 
     @Autowired
     private PreparationProcessTemplateService templateService;
+
+    @Autowired
+    private PreparationService preparationService;
+
+    @Autowired
+    private ProcessTypeService processTypeService;
+
+    @Autowired
+    private UnitService unitService;
 
     /**
      * 分页查询工序模版列表
@@ -41,6 +56,7 @@ public class PreparationProcessTemplateController extends BaseController {
             wrapper.orderByAsc("step_order");
             
             Page<PreparationProcessTemplate> pageResult = templateService.page(page, wrapper);
+            fillNameFieldsForList(pageResult.getRecords());
             PagedResult<PreparationProcessTemplate> pagedResult = new PagedResult<>();
             pagedResult.setItems(pageResult.getRecords());
             pagedResult.setTotalCount(pageResult.getTotal());
@@ -63,6 +79,7 @@ public class PreparationProcessTemplateController extends BaseController {
             if (template == null) {
                 return error("工序模版不存在");
             }
+            fillNameFields(template);
             return success(template);
         } catch (Exception e) {
             return exception(e, "操作");
@@ -126,6 +143,7 @@ public class PreparationProcessTemplateController extends BaseController {
     public ApiResponse<List<PreparationProcessTemplate>> getByPreparationId(@PathVariable Long prepId) {
         try {
             List<PreparationProcessTemplate> list = templateService.findByPreparationId(prepId);
+            fillNameFieldsForList(list);
             return success(list);
         } catch (Exception e) {
             return exception(e, "操作");
@@ -150,6 +168,49 @@ public class PreparationProcessTemplateController extends BaseController {
             return success(null, "保存成功");
         } catch (Exception e) {
             return exception(e, "操作");
+        }
+    }
+
+    /**
+     * 填充工序模版的关联名称字段
+     * @param template 工序模版对象
+     */
+    private void fillNameFields(PreparationProcessTemplate template) {
+        if (template == null) return;
+
+        // 填充制剂名称
+        if (template.getPreparationId() != null) {
+            Preparation preparation = preparationService.getById(template.getPreparationId());
+            if (preparation != null) {
+                template.setPreparationName(preparation.getPreparationName());
+            }
+        }
+
+        // 填充工序类型名称
+        if (template.getProcessTypeId() != null) {
+            ProcessType processType = processTypeService.getById(template.getProcessTypeId());
+            if (processType != null) {
+                template.setProcessTypeName(processType.getProcessName());
+            }
+        }
+
+        // 填充单位名称
+        if (template.getUnitId() != null) {
+            Unit unit = unitService.getById(template.getUnitId());
+            if (unit != null) {
+                template.setUnitName(unit.getUnitName());
+            }
+        }
+    }
+
+    /**
+     * 批量填充工序模版的关联名称字段
+     * @param list 工序模版列表
+     */
+    private void fillNameFieldsForList(List<PreparationProcessTemplate> list) {
+        if (list == null) return;
+        for (PreparationProcessTemplate template : list) {
+            fillNameFields(template);
         }
     }
 }
