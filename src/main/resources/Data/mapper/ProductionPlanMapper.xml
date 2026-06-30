@@ -27,6 +27,12 @@
             <result property="productionCycle" column="production_cycle" />
             <result property="yieldRate" column="yield_rate" />
             <result property="totalAmount" column="total_amount" />
+            <result property="productionStartTime" column="production_start_time" />
+            <result property="productionEndTime" column="production_end_time" />
+            <result property="inspectionStartTime" column="inspection_start_time" />
+            <result property="inspectionEndTime" column="inspection_end_time" />
+            <result property="outboundTime" column="outbound_time" />
+            <result property="archiveTime" column="archive_time" />
     </resultMap>
 
     <sql id="Base_Column_List">
@@ -34,6 +40,7 @@
         plan_type,current_status,current_status_date,create_time,create_user,
         update_time,update_user,remark,is_archived,unit_name,
         production_unit,unit_price,finished_quantity,production_cycle,yield_rate,
-        total_amount
+        total_amount,production_start_time,production_end_time,inspection_start_time,
+        inspection_end_time,outbound_time,archive_time
     </sql>
 </mapper>

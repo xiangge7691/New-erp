@@ -55,7 +55,16 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
      * @return 分页结果
      */
     @Override
-    public Page<ProductionPlan> queryProductionPlans(ProductionPlan productionPlan, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, int pageNum, int pageSize) {
+    public Page<ProductionPlan> queryProductionPlans(ProductionPlan productionPlan,
+                                                     LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
+                                                     LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
+                                                     LocalDateTime productionStartTimeStart, LocalDateTime productionStartTimeEnd,
+                                                     LocalDateTime productionEndTimeStart, LocalDateTime productionEndTimeEnd,
+                                                     LocalDateTime inspectionStartTimeStart, LocalDateTime inspectionStartTimeEnd,
+                                                     LocalDateTime inspectionEndTimeStart, LocalDateTime inspectionEndTimeEnd,
+                                                     LocalDateTime outboundTimeStart, LocalDateTime outboundTimeEnd,
+                                                     LocalDateTime archiveTimeStart, LocalDateTime archiveTimeEnd,
+                                                     int pageNum, int pageSize) {
         // 将页码从0开始转换为1开始
         int actualPageNum = pageNum + 1;
 
@@ -99,6 +108,54 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
         if (updatedTimeEnd != null) {
             wrapper.le("update_time", updatedTimeEnd);
         }
+
+        // Handle production start time range query
+        if (productionStartTimeStart != null) {
+            wrapper.ge("production_start_time", productionStartTimeStart);
+        }
+        if (productionStartTimeEnd != null) {
+            wrapper.le("production_start_time", productionStartTimeEnd);
+        }
+
+        // Handle production end time range query
+        if (productionEndTimeStart != null) {
+            wrapper.ge("production_end_time", productionEndTimeStart);
+        }
+        if (productionEndTimeEnd != null) {
+            wrapper.le("production_end_time", productionEndTimeEnd);
+        }
+
+        // Handle inspection start time range query
+        if (inspectionStartTimeStart != null) {
+            wrapper.ge("inspection_start_time", inspectionStartTimeStart);
+        }
+        if (inspectionStartTimeEnd != null) {
+            wrapper.le("inspection_start_time", inspectionStartTimeEnd);
+        }
+
+        // Handle inspection end time range query
+        if (inspectionEndTimeStart != null) {
+            wrapper.ge("inspection_end_time", inspectionEndTimeStart);
+        }
+        if (inspectionEndTimeEnd != null) {
+            wrapper.le("inspection_end_time", inspectionEndTimeEnd);
+        }
+
+        // Handle outbound time range query
+        if (outboundTimeStart != null) {
+            wrapper.ge("outbound_time", outboundTimeStart);
+        }
+        if (outboundTimeEnd != null) {
+            wrapper.le("outbound_time", outboundTimeEnd);
+        }
+
+        // Handle archive time range query
+        if (archiveTimeStart != null) {
+            wrapper.ge("archive_time", archiveTimeStart);
+        }
+        if (archiveTimeEnd != null) {
+            wrapper.le("archive_time", archiveTimeEnd);
+        }
         
         // 按编号倒序排列
         wrapper.orderByDesc("plan_number");
@@ -107,8 +164,20 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
     }
 
     @Override
-    public PagedResult<ProductionPlanWithRecordsDto> searchWithDetails(ProductionPlan productionPlan, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, int pageNum, int pageSize) {
-        Page<ProductionPlan> parentPage = queryProductionPlans(productionPlan, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd, pageNum, pageSize);
+    public PagedResult<ProductionPlanWithRecordsDto> searchWithDetails(ProductionPlan productionPlan,
+                                                                       LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
+                                                                       LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
+                                                                       LocalDateTime productionStartTimeStart, LocalDateTime productionStartTimeEnd,
+                                                                       LocalDateTime productionEndTimeStart, LocalDateTime productionEndTimeEnd,
+                                                                       LocalDateTime inspectionStartTimeStart, LocalDateTime inspectionStartTimeEnd,
+                                                                       LocalDateTime inspectionEndTimeStart, LocalDateTime inspectionEndTimeEnd,
+                                                                       LocalDateTime outboundTimeStart, LocalDateTime outboundTimeEnd,
+                                                                       LocalDateTime archiveTimeStart, LocalDateTime archiveTimeEnd,
+                                                                       int pageNum, int pageSize) {
+        Page<ProductionPlan> parentPage = queryProductionPlans(productionPlan, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd,
+                productionStartTimeStart, productionStartTimeEnd, productionEndTimeStart, productionEndTimeEnd,
+                inspectionStartTimeStart, inspectionStartTimeEnd, inspectionEndTimeStart, inspectionEndTimeEnd,
+                outboundTimeStart, outboundTimeEnd, archiveTimeStart, archiveTimeEnd, pageNum, pageSize);
         List<ProductionPlan> parents = parentPage.getRecords();
 
         PagedResult<ProductionPlanWithRecordsDto> result = new PagedResult<>();

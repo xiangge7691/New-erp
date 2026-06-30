@@ -33,7 +33,9 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
 
         // 使用ProductionPlanService的queryProductionPlans方法进行查询
         ProductionPlan productionPlan = new ProductionPlan();
-        Page<ProductionPlan> pageResult = productionPlanService.queryProductionPlans(productionPlan, null, null, null, null, safePageIndex, safePageSize);
+        Page<ProductionPlan> pageResult = productionPlanService.queryProductionPlans(productionPlan,
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                safePageIndex, safePageSize);
 
         // 转换为PagedResult
         PagedResult<ProductionPlan> pagedResult = new PagedResult<>();
@@ -109,6 +111,18 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
      * @param createdTimeEnd 创建时间结束
      * @param updatedTimeStart 更新时间起始
      * @param updatedTimeEnd 更新时间结束
+     * @param productionStartTimeStart 生产开始时间起始
+     * @param productionStartTimeEnd 生产开始时间结束
+     * @param productionEndTimeStart 生产结束时间起始
+     * @param productionEndTimeEnd 生产结束时间结束
+     * @param inspectionStartTimeStart 检验开始时间起始
+     * @param inspectionStartTimeEnd 检验开始时间结束
+     * @param inspectionEndTimeStart 检验结束时间起始
+     * @param inspectionEndTimeEnd 检验结束时间结束
+     * @param outboundTimeStart 出库时间起始
+     * @param outboundTimeEnd 出库时间结束
+     * @param archiveTimeStart 归档时间起始
+     * @param archiveTimeEnd 归档时间结束
      * @param pageIndex 页码
      * @param pageSize 每页大小
      * @return 分页结果
@@ -119,6 +133,18 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
                                                                          @RequestParam(required = false) LocalDateTime createdTimeEnd,
                                                                          @RequestParam(required = false) LocalDateTime updatedTimeStart,
                                                                          @RequestParam(required = false) LocalDateTime updatedTimeEnd,
+                                                                         @RequestParam(required = false) LocalDateTime productionStartTimeStart,
+                                                                         @RequestParam(required = false) LocalDateTime productionStartTimeEnd,
+                                                                         @RequestParam(required = false) LocalDateTime productionEndTimeStart,
+                                                                         @RequestParam(required = false) LocalDateTime productionEndTimeEnd,
+                                                                         @RequestParam(required = false) LocalDateTime inspectionStartTimeStart,
+                                                                         @RequestParam(required = false) LocalDateTime inspectionStartTimeEnd,
+                                                                         @RequestParam(required = false) LocalDateTime inspectionEndTimeStart,
+                                                                         @RequestParam(required = false) LocalDateTime inspectionEndTimeEnd,
+                                                                         @RequestParam(required = false) LocalDateTime outboundTimeStart,
+                                                                         @RequestParam(required = false) LocalDateTime outboundTimeEnd,
+                                                                         @RequestParam(required = false) LocalDateTime archiveTimeStart,
+                                                                         @RequestParam(required = false) LocalDateTime archiveTimeEnd,
                                                                          @RequestParam int pageIndex,
                                                                          @RequestParam int pageSize) {
         try {
@@ -128,7 +154,12 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
             int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
 
             // 获取分页结果
-            Page<ProductionPlan> pageResult = productionPlanService.queryProductionPlans(productionPlan, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd, safePageIndex, safePageSize);
+            Page<ProductionPlan> pageResult = productionPlanService.queryProductionPlans(productionPlan,
+                    createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd,
+                    productionStartTimeStart, productionStartTimeEnd, productionEndTimeStart, productionEndTimeEnd,
+                    inspectionStartTimeStart, inspectionStartTimeEnd, inspectionEndTimeStart, inspectionEndTimeEnd,
+                    outboundTimeStart, outboundTimeEnd, archiveTimeStart, archiveTimeEnd,
+                    safePageIndex, safePageSize);
 
             // 转换为统一的PagedResult格式
             PagedResult<ProductionPlan> pagedResult = new PagedResult<>();
@@ -155,6 +186,18 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
      * @param createdTimeEnd 创建时间结束
      * @param updatedTimeStart 更新时间起始
      * @param updatedTimeEnd 更新时间结束
+     * @param productionStartTimeStart 生产开始时间起始
+     * @param productionStartTimeEnd 生产开始时间结束
+     * @param productionEndTimeStart 生产结束时间起始
+     * @param productionEndTimeEnd 生产结束时间结束
+     * @param inspectionStartTimeStart 检验开始时间起始
+     * @param inspectionStartTimeEnd 检验开始时间结束
+     * @param inspectionEndTimeStart 检验结束时间起始
+     * @param inspectionEndTimeEnd 检验结束时间结束
+     * @param outboundTimeStart 出库时间起始
+     * @param outboundTimeEnd 出库时间结束
+     * @param archiveTimeStart 归档时间起始
+     * @param archiveTimeEnd 归档时间结束
      * @param pageIndex 页码
      * @param pageSize  每页大小
      * @return 分页结果（包含工序记录）
@@ -165,12 +208,29 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
                                                                                      @RequestParam(required = false) LocalDateTime createdTimeEnd,
                                                                                      @RequestParam(required = false) LocalDateTime updatedTimeStart,
                                                                                      @RequestParam(required = false) LocalDateTime updatedTimeEnd,
+                                                                                     @RequestParam(required = false) LocalDateTime productionStartTimeStart,
+                                                                                     @RequestParam(required = false) LocalDateTime productionStartTimeEnd,
+                                                                                     @RequestParam(required = false) LocalDateTime productionEndTimeStart,
+                                                                                     @RequestParam(required = false) LocalDateTime productionEndTimeEnd,
+                                                                                     @RequestParam(required = false) LocalDateTime inspectionStartTimeStart,
+                                                                                     @RequestParam(required = false) LocalDateTime inspectionStartTimeEnd,
+                                                                                     @RequestParam(required = false) LocalDateTime inspectionEndTimeStart,
+                                                                                     @RequestParam(required = false) LocalDateTime inspectionEndTimeEnd,
+                                                                                     @RequestParam(required = false) LocalDateTime outboundTimeStart,
+                                                                                     @RequestParam(required = false) LocalDateTime outboundTimeEnd,
+                                                                                     @RequestParam(required = false) LocalDateTime archiveTimeStart,
+                                                                                     @RequestParam(required = false) LocalDateTime archiveTimeEnd,
                                                                                      @RequestParam int pageIndex,
                                                                                      @RequestParam int pageSize) {
         try {
             int safePageIndex = Math.max(0, pageIndex);
             int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
-            PagedResult<ProductionPlanWithRecordsDto> result = productionPlanService.searchWithDetails(productionPlan, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd, safePageIndex, safePageSize);
+            PagedResult<ProductionPlanWithRecordsDto> result = productionPlanService.searchWithDetails(productionPlan,
+                    createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd,
+                    productionStartTimeStart, productionStartTimeEnd, productionEndTimeStart, productionEndTimeEnd,
+                    inspectionStartTimeStart, inspectionStartTimeEnd, inspectionEndTimeStart, inspectionEndTimeEnd,
+                    outboundTimeStart, outboundTimeEnd, archiveTimeStart, archiveTimeEnd,
+                    safePageIndex, safePageSize);
             return success(result);
         } catch (Exception ex) {
             return exception(ex, "查询失败");

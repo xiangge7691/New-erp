@@ -146,4 +146,40 @@ public class ProductionPlan {
      */
     @TableField(value = "total_amount")
     private BigDecimal totalAmount;
+
+    /**
+     * 生产开始时间
+     */
+    @TableField(value = "production_start_time")
+    private LocalDateTime productionStartTime;
+
+    /**
+     * 生产结束时间
+     */
+    @TableField(value = "production_end_time")
+    private LocalDateTime productionEndTime;
+
+    /**
+     * 检验开始时间
+     */
+    @TableField(value = "inspection_start_time")
+    private LocalDateTime inspectionStartTime;
+
+    /**
+     * 检验结束时间
+     */
+    @TableField(value = "inspection_end_time")
+    private LocalDateTime inspectionEndTime;
+
+    /**
+     * 出库时间
+     */
+    @TableField(value = "outbound_time")
+    private LocalDateTime outboundTime;
+
+    /**
+     * 归档时间
+     */
+    @TableField(value = "archive_time")
+    private LocalDateTime archiveTime;
 }

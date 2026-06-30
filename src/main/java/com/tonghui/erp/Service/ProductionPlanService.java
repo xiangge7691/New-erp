@@ -24,11 +24,32 @@ public interface ProductionPlanService extends IService<ProductionPlan> {
      * @param createdTimeEnd 创建时间结束
      * @param updatedTimeStart 更新时间起始
      * @param updatedTimeEnd 更新时间结束
+     * @param productionStartTimeStart 生产开始时间起始
+     * @param productionStartTimeEnd 生产开始时间结束
+     * @param productionEndTimeStart 生产结束时间起始
+     * @param productionEndTimeEnd 生产结束时间结束
+     * @param inspectionStartTimeStart 检验开始时间起始
+     * @param inspectionStartTimeEnd 检验开始时间结束
+     * @param inspectionEndTimeStart 检验结束时间起始
+     * @param inspectionEndTimeEnd 检验结束时间结束
+     * @param outboundTimeStart 出库时间起始
+     * @param outboundTimeEnd 出库时间结束
+     * @param archiveTimeStart 归档时间起始
+     * @param archiveTimeEnd 归档时间结束
      * @param pageNum 页码
      * @param pageSize 每页大小
      * @return 分页结果
      */
-    Page<ProductionPlan> queryProductionPlans(ProductionPlan productionPlan, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, int pageNum, int pageSize);
+    Page<ProductionPlan> queryProductionPlans(ProductionPlan productionPlan,
+                                             LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
+                                             LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
+                                             LocalDateTime productionStartTimeStart, LocalDateTime productionStartTimeEnd,
+                                             LocalDateTime productionEndTimeStart, LocalDateTime productionEndTimeEnd,
+                                             LocalDateTime inspectionStartTimeStart, LocalDateTime inspectionStartTimeEnd,
+                                             LocalDateTime inspectionEndTimeStart, LocalDateTime inspectionEndTimeEnd,
+                                             LocalDateTime outboundTimeStart, LocalDateTime outboundTimeEnd,
+                                             LocalDateTime archiveTimeStart, LocalDateTime archiveTimeEnd,
+                                             int pageNum, int pageSize);
     
     /**
      * 更改生产计划状态
@@ -64,11 +85,32 @@ public interface ProductionPlanService extends IService<ProductionPlan> {
      * @param createdTimeEnd 创建时间结束
      * @param updatedTimeStart 更新时间起始
      * @param updatedTimeEnd 更新时间结束
+     * @param productionStartTimeStart 生产开始时间起始
+     * @param productionStartTimeEnd 生产开始时间结束
+     * @param productionEndTimeStart 生产结束时间起始
+     * @param productionEndTimeEnd 生产结束时间结束
+     * @param inspectionStartTimeStart 检验开始时间起始
+     * @param inspectionStartTimeEnd 检验开始时间结束
+     * @param inspectionEndTimeStart 检验结束时间起始
+     * @param inspectionEndTimeEnd 检验结束时间结束
+     * @param outboundTimeStart 出库时间起始
+     * @param outboundTimeEnd 出库时间结束
+     * @param archiveTimeStart 归档时间起始
+     * @param archiveTimeEnd 归档时间结束
      * @param pageNum 页码
      * @param pageSize 每页大小
      * @return 分页结果（包含工序记录）
      */
-    PagedResult<ProductionPlanWithRecordsDto> searchWithDetails(ProductionPlan productionPlan, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, int pageNum, int pageSize);
+    PagedResult<ProductionPlanWithRecordsDto> searchWithDetails(ProductionPlan productionPlan,
+                                                                LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
+                                                                LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
+                                                                LocalDateTime productionStartTimeStart, LocalDateTime productionStartTimeEnd,
+                                                                LocalDateTime productionEndTimeStart, LocalDateTime productionEndTimeEnd,
+                                                                LocalDateTime inspectionStartTimeStart, LocalDateTime inspectionStartTimeEnd,
+                                                                LocalDateTime inspectionEndTimeStart, LocalDateTime inspectionEndTimeEnd,
+                                                                LocalDateTime outboundTimeStart, LocalDateTime outboundTimeEnd,
+                                                                LocalDateTime archiveTimeStart, LocalDateTime archiveTimeEnd,
+                                                                int pageNum, int pageSize);
     
     /**
      * 验证状态变更是否符合业务规则
