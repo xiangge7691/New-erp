@@ -173,14 +173,18 @@ public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders,
      * @return 操作结果
      */
     @PostMapping("/{id}/status/{status}")
-    public boolean togglePurchaseOrderStatus(@PathVariable Long id, @PathVariable Object status) {
-        PurchaseOrders purchaseOrders = purchaseOrdersService.getPurchaseOrderById(id);
-        if (purchaseOrders != null) {
-            purchaseOrders.setStatus(status);
-            purchaseOrdersService.updatePurchaseOrder(purchaseOrders);
-            return true;
+    public ApiResponse<Boolean> togglePurchaseOrderStatus(@PathVariable Long id, @PathVariable Object status) {
+        try {
+            PurchaseOrders purchaseOrders = purchaseOrdersService.getPurchaseOrderById(id);
+            if (purchaseOrders != null) {
+                purchaseOrders.setStatus(status);
+                purchaseOrdersService.updatePurchaseOrder(purchaseOrders);
+                return success(true, "状态更新成功");
+            }
+            return error("未找到对应的采购订单");
+        } catch (Exception e) {
+            return exception(e, "更新采购订单状态");
         }
-        return false;
     }
 
     // #endregion

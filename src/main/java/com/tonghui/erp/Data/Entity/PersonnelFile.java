@@ -40,10 +40,82 @@ public class PersonnelFile {
     private String employeeNo;
 
     /**
+     * 姓名
+     */
+    @TableField(value = "name")
+    private String name;
+
+    /**
+     * 所属部门ID
+     */
+    @TableField(value = "department_id")
+    private Long departmentId;
+
+    /**
+     * 人员资格认定
+     */
+    @TableField(value = "qualification")
+    private String qualification;
+
+    /**
+     * 职称名
+     */
+    @TableField(value = "title_name")
+    private String titleName;
+
+    /**
+     * 职称等级
+     */
+    @TableField(value = "title_level")
+    private String titleLevel;
+
+    /**
      * 身份证号
      */
     @TableField(value = "id_card_no")
     private String idCardNo;
+
+    /**
+     * 学历
+     */
+    @TableField(value = "education")
+    private String education;
+
+    /**
+     * 专业
+     */
+    @TableField(value = "major")
+    private String major;
+
+    /**
+     * 入职日期
+     */
+    @TableField(value = "entry_date")
+    private LocalDate entryDate;
+
+    /**
+     * 任职简历
+     */
+    @TableField(value = "work_experience")
+    private String workExperience;
+
+    /**
+     * 教育-培训经历
+     */
+    @TableField(value = "education_training")
+    private String educationTraining;
+
+    /**
+     * 注册证书名
+     */
+    @TableField(value = "certificate_name")
+    private String certificateName;
+
+    /**
+     * 注册证书号
+     */
+    @TableField(value = "certificate_no")
+    private String certificateNo;
 
     /**
      * 健康证编号
@@ -64,22 +136,22 @@ public class PersonnelFile {
     private LocalDate healthCertExpire;
 
     /**
-     * 学历
+     * 上次体检时间
      */
-    @TableField(value = "education")
-    private String education;
+    @TableField(value = "last_checkup_date")
+    private LocalDate lastCheckupDate;
 
     /**
-     * 专业
+     * 健康档案（关联file_info.file_id）
      */
-    @TableField(value = "major")
-    private String major;
+    @TableField(value = "health_file")
+    private Long healthFile;
 
     /**
-     * 入职日期
+     * 附件（关联file_info.file_id）
      */
-    @TableField(value = "entry_date")
-    private LocalDate entryDate;
+    @TableField(value = "attachments")
+    private Long attachments;
 
     /**
      * 状态：0离职/1在职
@@ -132,14 +204,14 @@ public class PersonnelFile {
     // ========== 关联表显示字段（非数据库字段）==========
 
     /**
-     * 用户姓名（关联user表）
-     */
-    @TableField(exist = false)
-    private String userName;
-
-    /**
      * 岗位名称（关联position表）
      */
     @TableField(exist = false)
     private String positionName;
+
+    /**
+     * 部门名称（关联department表）
+     */
+    @TableField(exist = false)
+    private String departmentName;
 }

@@ -148,9 +148,9 @@ public interface ProductionUnitService extends IService<ProductionUnit> {
      *
      * @param prodUnitId       生产单位ID
      * @param prodInvoiceInfo  发票信息内容
-     * @return 是否成功
+     * @return 新增的发票信息（含ID）
      */
-    boolean addProdUnitInvoice(Long prodUnitId, String prodInvoiceInfo);
+    ProdUnitInvoice addProdUnitInvoice(Long prodUnitId, String prodInvoiceInfo);
 
     /**
      * 获取生产单位的发票信息列表
@@ -181,17 +181,17 @@ public interface ProductionUnitService extends IService<ProductionUnit> {
      * @param fileMd5       文件MD5
      * @param fileSize      文件大小
      * @param description   文件描述
-     * @return 是否成功
+     * @return 新增的材料文件（含ID）
      */
-    boolean addProdUnitMaterialFile(Long prodUnitId, String materialType, String fileName, String fileMd5, Long fileSize, String description);
+    ProdUnitMaterialFile addProdUnitMaterialFile(Long prodUnitId, String materialType, String fileName, String fileMd5, Long fileSize, String description);
 
     /**
      * 添加生产单位材料文件（直接传入实体）
      *
      * @param materialFile 材料文件实体
-     * @return 是否成功
+     * @return 新增的材料文件（含ID）
      */
-    boolean addProdUnitMaterialFile(ProdUnitMaterialFile materialFile);
+    ProdUnitMaterialFile addProdUnitMaterialFile(ProdUnitMaterialFile materialFile);
 
     /**
      * 添加生产单位材料文件（使用MultipartFile）
@@ -200,9 +200,9 @@ public interface ProductionUnitService extends IService<ProductionUnit> {
      * @param materialType 材料类型
      * @param file         文件
      * @param description   文件描述
-     * @return 是否成功
+     * @return 新增的材料文件（含ID）
      */
-    boolean addProdUnitMaterialFile(Long prodUnitId, String materialType, MultipartFile file, String description);
+    ProdUnitMaterialFile addProdUnitMaterialFile(Long prodUnitId, String materialType, MultipartFile file, String description);
 
     /**
      * 获取生产单位的材料文件列表

@@ -183,10 +183,10 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
      * @return 操作结果
      */
     @PostMapping("/{id}/invoice")
-    public ApiResponse<Boolean> addProdUnitInvoice(@PathVariable("id")Long prodUnitId, @RequestBody String prodInvoiceInfo) {
+    public ApiResponse<ProdUnitInvoice> addProdUnitInvoice(@PathVariable("id")Long prodUnitId, @RequestBody String prodInvoiceInfo) {
         try {
-            boolean result = productionUnitService.addProdUnitInvoice(prodUnitId, prodInvoiceInfo);
-            return success(result, "添加发票信息成功");
+            ProdUnitInvoice invoice = productionUnitService.addProdUnitInvoice(prodUnitId, prodInvoiceInfo);
+            return success(invoice, "添加发票信息成功");
         } catch (Exception e) {
             return exception(e, "添加发票信息失败");
         }
@@ -241,7 +241,7 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
      * @return 操作结果
      */
     @PostMapping("/{id}/material-file")
-    public ApiResponse<Boolean> addProdUnitMaterialFile(
+    public ApiResponse<ProdUnitMaterialFile> addProdUnitMaterialFile(
             @PathVariable("id") Long prodUnitId,
             @RequestParam String materialType,
             @RequestParam String fileName,
@@ -250,7 +250,6 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
             @RequestParam(required = false) String description,
             @RequestBody String fileContent) {
         try {
-            // 创建材料文件对象
             ProdUnitMaterialFile materialFile = new ProdUnitMaterialFile();
             materialFile.setProdUnitId(prodUnitId);
             materialFile.setMaterialType(materialType);
@@ -262,8 +261,7 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
                 materialFile.setDescription(description);
             }
             
-            // 保存到数据库
-            boolean result = productionUnitService.addProdUnitMaterialFile(materialFile);
+            ProdUnitMaterialFile result = productionUnitService.addProdUnitMaterialFile(materialFile);
             return success(result, "添加材料文件成功");
         } catch (Exception e) {
             return exception(e, "添加材料文件失败");

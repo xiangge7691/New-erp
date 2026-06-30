@@ -6,7 +6,11 @@ import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.PersonnelFile;
+import com.tonghui.erp.Data.Entity.Position;
+import com.tonghui.erp.Data.Entity.Department;
 import com.tonghui.erp.Service.PersonnelFileService;
+import com.tonghui.erp.Service.PositionService;
+import com.tonghui.erp.Service.DepartmentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
@@ -14,7 +18,6 @@ import java.util.List;
 
 /**
  * 人员档案控制器
- * 提供人员档案的CRUD操作及健康证到期提醒查询
  */
 @RestController
 @RequestMapping("/api/personnelFile")
@@ -23,35 +26,56 @@ public class PersonnelFileController extends BaseController {
     @Autowired
     private PersonnelFileService personnelFileService;
 
+    @Autowired
+    private PositionService positionService;
+
+    @Autowired
+    private DepartmentService departmentService;
+
     /**
      * 分页查询人员档案列表
      */
     @GetMapping
     public ApiResponse<PagedResult<PersonnelFile>> getAll(
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long departmentId,
+            @RequestParam(required = false) Long positionId,
+            @RequestParam(required = false) String qualification,
             @RequestParam(required = false) Integer status,
             @RequestParam(defaultValue = "0") int pageIndex,
             @RequestParam(defaultValue = "10") int pageSize) {
         try {
             Page<PersonnelFile> page = new Page<>(pageIndex + 1, pageSize);
             QueryWrapper<PersonnelFile> wrapper = new QueryWrapper<>();
-            
+
             if (keyword != null && !keyword.isEmpty()) {
-                wrapper.and(w -> w.like("employee_no", keyword)
-                                  .or().like("health_cert_no", keyword));
+                wrapper.and(w -> w.like("name", keyword)
+                                  .or().like("employee_no", keyword)
+                                  .or().like("id_card_no", keyword));
+            }
+            if (departmentId != null) {
+                wrapper.eq("department_id", departmentId);
+            }
+            if (positionId != null) {
+                wrapper.eq("position_id", positionId);
+            }
+            if (qualification != null && !qualification.isEmpty()) {
+                wrapper.like("qualification", qualification);
             }
             if (status != null) {
                 wrapper.eq("status", status);
             }
             wrapper.orderByDesc("created_at");
-            
+
             Page<PersonnelFile> pageResult = personnelFileService.page(page, wrapper);
+            fillNameFieldsForList(pageResult.getRecords());
+
             PagedResult<PersonnelFile> pagedResult = new PagedResult<>();
             pagedResult.setItems(pageResult.getRecords());
             pagedResult.setTotalCount(pageResult.getTotal());
             pagedResult.setPageIndex(pageIndex);
             pagedResult.setPageSize(pageSize);
-            
+
             return success(pagedResult);
         } catch (Exception e) {
             return exception(e, "操作");
@@ -68,6 +92,7 @@ public class PersonnelFileController extends BaseController {
             if (file == null) {
                 return error("人员档案不存在");
             }
+            fillNameFields(file);
             return success(file);
         } catch (Exception e) {
             return exception(e, "操作");
@@ -126,14 +151,13 @@ public class PersonnelFileController extends BaseController {
 
     /**
      * 健康证到期提醒查询
-     * @param days 提前天数，默认30天
-     * @return 即将到期的人员档案列表
      */
     @GetMapping("/expiring")
     public ApiResponse<List<PersonnelFile>> expiring(
             @RequestParam(defaultValue = "30") int days) {
         try {
             List<PersonnelFile> list = personnelFileService.findExpiringHealthCerts(days);
+            fillNameFieldsForList(list);
             return success(list);
         } catch (Exception e) {
             return exception(e, "操作");
@@ -150,9 +174,39 @@ public class PersonnelFileController extends BaseController {
             if (file == null) {
                 return error("人员档案不存在");
             }
+            fillNameFields(file);
             return success(file);
         } catch (Exception e) {
             return exception(e, "操作");
+        }
+    }
+
+    /**
+     * 填充关联名称字段
+     */
+    private void fillNameFields(PersonnelFile file) {
+        if (file == null) return;
+        if (file.getPositionId() != null) {
+            Position position = positionService.getById(file.getPositionId());
+            if (position != null) {
+                file.setPositionName(position.getPositionName());
+            }
+        }
+        if (file.getDepartmentId() != null) {
+            Department department = departmentService.getById(file.getDepartmentId());
+            if (department != null) {
+                file.setDepartmentName(department.getDepartmentName());
+            }
+        }
+    }
+
+    /**
+     * 批量填充关联名称字段
+     */
+    private void fillNameFieldsForList(List<PersonnelFile> list) {
+        if (list == null) return;
+        for (PersonnelFile file : list) {
+            fillNameFields(file);
         }
     }
 }

@@ -207,21 +207,19 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
      * @return 入库单信息
      */
     @PostMapping("/withDetails")
-    public StockIn createStockInWithDetails(@RequestBody StockIn stockIn,
-                                           @RequestParam(required = false) List<StockInDetail> details) {
-        // 设置创建人和更新人
+    public ApiResponse<StockIn> createStockInWithDetails(@RequestBody StockIn stockIn,
+                                            @RequestParam(required = false) List<StockInDetail> details) {
         Long currentUserId = EntityUtils.getCurrentUserId();
         if (currentUserId != null) {
             stockIn.setCreatedBy(currentUserId);
             stockIn.setUpdatedBy(currentUserId);
         }
         
-        // 创建时如果没有单号，则自动生成
         if (stockIn.getInCode() == null || stockIn.getInCode().isEmpty()) {
             stockIn.setInCode(stockInService.generateStockInCode());
         }
         stockInService.addStockIn(stockIn, details);
-        return stockIn;
+        return success(stockIn, "入库单创建成功");
     }
 
     /**

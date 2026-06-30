@@ -210,21 +210,19 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
      * @return 出库单信息
      */
     @PostMapping("/withDetails")
-    public StockOut createStockOutWithDetails(@RequestBody StockOut stockOut,
-                                             @RequestParam(required = false) List<StockOutDetail> details) {
-        // 设置创建人和更新人
+    public ApiResponse<StockOut> createStockOutWithDetails(@RequestBody StockOut stockOut,
+                                              @RequestParam(required = false) List<StockOutDetail> details) {
         Long currentUserId = EntityUtils.getCurrentUserId();
         if (currentUserId != null) {
             stockOut.setCreatedBy(currentUserId);
             stockOut.setUpdatedBy(currentUserId);
         }
         
-        // 创建时如果没有单号，则自动生成
         if (stockOut.getOutCode() == null || stockOut.getOutCode().isEmpty()) {
             stockOut.setOutCode(stockOutService.generateStockOutCode());
         }
         stockOutService.addStockOut(stockOut, details);
-        return stockOut;
+        return success(stockOut, "出库单创建成功");
     }
 
     /**

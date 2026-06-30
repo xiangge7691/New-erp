@@ -25,13 +25,13 @@ public class PurchaseOrderItemsController extends BaseController {
      * 新增采购订单明细
      *
      * @param purchaseOrderItems 采购订单明细实体
-     * @return 操作结果
+     * @return 新增的采购订单明细（含ID）
      */
     @PostMapping
-    public ApiResponse<Boolean> addPurchaseOrderItem(@RequestBody PurchaseOrderItems purchaseOrderItems) {
+    public ApiResponse<PurchaseOrderItems> addPurchaseOrderItem(@RequestBody PurchaseOrderItems purchaseOrderItems) {
         try {
-            boolean result = purchaseOrderItemsService.addPurchaseOrderItem(purchaseOrderItems);
-            return success(result, "新增采购订单明细成功");
+            purchaseOrderItemsService.addPurchaseOrderItem(purchaseOrderItems);
+            return success(purchaseOrderItems, "新增采购订单明细成功");
         } catch (Exception e) {
             return exception(e, "新增采购订单明细");
         }

@@ -254,22 +254,21 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
 
     @Override
     @Transactional
-    public boolean addProdUnitInvoice(Long prodUnitId, String prodInvoiceInfo) {
+    public ProdUnitInvoice addProdUnitInvoice(Long prodUnitId, String prodInvoiceInfo) {
         ProdUnitInvoice invoice = new ProdUnitInvoice();
         invoice.setProdUnitId(prodUnitId);
         invoice.setProdInvoiceInfo(prodInvoiceInfo);
         
-        // 设置创建时间
         java.time.LocalDateTime now = java.time.LocalDateTime.now();
         invoice.setCreatedTime(now);
         
-        // 获取当前用户ID
         Long currentUserId = EntityUtils.getCurrentUserId();
         if (currentUserId != null) {
             invoice.setCreatedBy(currentUserId);
         }
         
-        return prodUnitInvoiceMapper.insert(invoice) > 0;
+        prodUnitInvoiceMapper.insert(invoice);
+        return invoice;
     }
 
     @Override
@@ -291,73 +290,66 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
 
     @Override
     @Transactional
-    public boolean addProdUnitMaterialFile(ProdUnitMaterialFile materialFile) {
-        // 设置创建时间
+    public ProdUnitMaterialFile addProdUnitMaterialFile(ProdUnitMaterialFile materialFile) {
         java.time.LocalDateTime now = java.time.LocalDateTime.now();
         materialFile.setCreatedTime(now);
         
-        // 获取当前用户ID
         Long currentUserId = EntityUtils.getCurrentUserId();
         if (currentUserId != null) {
             materialFile.setCreatedBy(currentUserId);
         }
         
-        return prodUnitMaterialFileMapper.insert(materialFile) > 0;
+        prodUnitMaterialFileMapper.insert(materialFile);
+        return materialFile;
     }
 
     @Override
     @Transactional
-    public boolean addProdUnitMaterialFile(Long prodUnitId, String materialType, String fileName, String fileMd5, Long fileSize, String description) {
+    public ProdUnitMaterialFile addProdUnitMaterialFile(Long prodUnitId, String materialType, String fileName, String fileMd5, Long fileSize, String description) {
         ProdUnitMaterialFile materialFile = new ProdUnitMaterialFile();
         materialFile.setProdUnitId(prodUnitId);
         materialFile.setMaterialType(materialType);
         materialFile.setFileName(fileName);
         materialFile.setFileMd5(fileMd5);
-        materialFile.setFileSize(fileSize != null ? fileSize.intValue() : null); // 类型转换
+        materialFile.setFileSize(fileSize != null ? fileSize.intValue() : null);
         
-        // 设置创建时间
         java.time.LocalDateTime now = java.time.LocalDateTime.now();
         materialFile.setCreatedTime(now);
         
-        // 获取当前用户ID
         Long currentUserId = EntityUtils.getCurrentUserId();
         if (currentUserId != null) {
             materialFile.setCreatedBy(currentUserId);
         }
         
-        return prodUnitMaterialFileMapper.insert(materialFile) > 0;
+        prodUnitMaterialFileMapper.insert(materialFile);
+        return materialFile;
     }
 
     @Override
     @Transactional
-    public boolean addProdUnitMaterialFile(Long prodUnitId, String materialType, MultipartFile file, String description) {
+    public ProdUnitMaterialFile addProdUnitMaterialFile(Long prodUnitId, String materialType, MultipartFile file, String description) {
         try {
-            // 计算文件MD5
             String fileMd5 = fileStorageService.calculateMD5(file);
-            
-            // 将文件转换为Base64字符串
             String fileContent = fileStorageService.encodeFileToBase64(file);
             
-            // 保存文件元数据到数据库
             ProdUnitMaterialFile materialFile = new ProdUnitMaterialFile();
             materialFile.setProdUnitId(prodUnitId);
             materialFile.setMaterialType(materialType);
             materialFile.setFileName(file.getOriginalFilename());
             materialFile.setFileMd5(fileMd5);
             materialFile.setFileSize((int) file.getSize());
-            materialFile.setFileContent(fileContent); // 存储Base64编码的文件内容
+            materialFile.setFileContent(fileContent);
             
-            // 设置创建时间
             java.time.LocalDateTime now = java.time.LocalDateTime.now();
             materialFile.setCreatedTime(now);
             
-            // 获取当前用户ID
             Long currentUserId = EntityUtils.getCurrentUserId();
             if (currentUserId != null) {
                 materialFile.setCreatedBy(currentUserId);
             }
             
-            return prodUnitMaterialFileMapper.insert(materialFile) > 0;
+            prodUnitMaterialFileMapper.insert(materialFile);
+            return materialFile;
         } catch (Exception e) {
             throw new RuntimeException("添加材料文件失败", e);
         }

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.PersonnelFileMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.PersonnelFile">
+            <id property="personnelFileId" column="personnel_file_id" />
+            <result property="userId" column="user_id" />
+            <result property="positionId" column="position_id" />
+            <result property="employeeNo" column="employee_no" />
+            <result property="name" column="name" />
+            <result property="departmentId" column="department_id" />
+            <result property="qualification" column="qualification" />
+            <result property="titleName" column="title_name" />
+            <result property="titleLevel" column="title_level" />
+            <result property="idCardNo" column="id_card_no" />
+            <result property="education" column="education" />
+            <result property="major" column="major" />
+            <result property="entryDate" column="entry_date" />
+            <result property="workExperience" column="work_experience" />
+            <result property="educationTraining" column="education_training" />
+            <result property="certificateName" column="certificate_name" />
+            <result property="certificateNo" column="certificate_no" />
+            <result property="healthCertNo" column="health_cert_no" />
+            <result property="healthCertIssue" column="health_cert_issue" />
+            <result property="healthCertExpire" column="health_cert_expire" />
+            <result property="lastCheckupDate" column="last_checkup_date" />
+            <result property="healthFile" column="health_file" />
+            <result property="attachments" column="attachments" />
+            <result property="status" column="status" />
+            <result property="remark" column="remark" />
+            <result property="createdBy" column="created_by" />
+            <result property="updatedBy" column="updated_by" />
+            <result property="createdAt" column="created_at" />
+            <result property="updatedAt" column="updated_at" />
+            <result property="isDeleted" column="is_deleted" />
+            <result property="version" column="version" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        personnel_file_id,user_id,position_id,employee_no,name,department_id,
+        qualification,title_name,title_level,id_card_no,education,
+        major,entry_date,work_experience,education_training,certificate_name,
+        certificate_no,health_cert_no,health_cert_issue,health_cert_expire,last_checkup_date,
+        health_file,attachments,status,remark,created_by,
+        updated_by,created_at,updated_at,is_deleted,version
+    </sql>
+</mapper>

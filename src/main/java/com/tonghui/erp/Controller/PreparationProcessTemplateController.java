@@ -155,17 +155,16 @@ public class PreparationProcessTemplateController extends BaseController {
      * 先删除原有模版，再批量插入新模版
      */
     @PostMapping("/batch")
-    public ApiResponse<Void> batchSave(
+    public ApiResponse<List<PreparationProcessTemplate>> batchSave(
             @RequestParam Long preparationId,
             @RequestBody List<PreparationProcessTemplate> templates) {
         try {
-            // 设置创建人
             Long userId = EntityUtils.getCurrentUserId();
             for (PreparationProcessTemplate template : templates) {
                 template.setCreatedBy(userId);
             }
             templateService.batchSave(preparationId, templates);
-            return success(null, "保存成功");
+            return success(templates, "保存成功");
         } catch (Exception e) {
             return exception(e, "操作");
         }
