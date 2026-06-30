@@ -71,7 +71,11 @@ public class FileInfoServiceImpl extends ServiceImpl<FileInfoMapper, FileInfo>
         
         // 保存到数据库
         save(fileInfo);
-        
+
+        // 更新fileUrl（保存后才有fileId）
+        fileInfo.setFileUrl("/api/files/" + fileInfo.getFileId());
+        updateById(fileInfo);
+
         return fileInfo;
     }
     
@@ -171,6 +175,10 @@ public class FileInfoServiceImpl extends ServiceImpl<FileInfoMapper, FileInfo>
         fileInfo.setUpdatedTime(LocalDateTime.now());
 
         save(fileInfo);
+
+        fileInfo.setFileUrl("/api/files/" + fileInfo.getFileId());
+        updateById(fileInfo);
+
         return fileInfo;
     }
 }
