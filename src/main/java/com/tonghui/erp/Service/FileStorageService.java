@@ -92,4 +92,19 @@ public interface FileStorageService {
      * @param businessType 业务类型
      */
     void updateBusinessInfo(FileInfo fileInfo, Long businessId, String businessType);
+
+    /**
+     * 按业务路径上传文件
+     * 路径格式：{basePath}/{业务中文目录}/{年}/{月}/{实体名}/{uuid.ext}
+     *
+     * @param file 文件对象
+     * @param businessType 业务类型（如 EQUIPMENT_MAINTENANCE）
+     * @param businessId 业务ID
+     * @param entityName 实体名称（如设备名称，用于目录名）
+     * @param description 文件描述
+     * @return 文件信息实体
+     * @throws IOException IO异常
+     */
+    FileInfo uploadFileWithBusinessPath(MultipartFile file, String businessType,
+                                        Long businessId, String entityName, String description) throws IOException;
 }

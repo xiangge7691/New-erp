@@ -18,6 +18,7 @@ import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 /**
@@ -239,5 +240,78 @@ public class FileStorageServiceImpl implements FileStorageService {
             default:
                 return fileStorageConfig.getDocumentDir();
         }
+    }
+
+    @Override
+    public FileInfo uploadFileWithBusinessPath(MultipartFile file, String businessType,
+                                                Long businessId, String entityName, String description) throws IOException {
+        if (!isAllowedFileType(file)) {
+            throw new IllegalArgumentException("不支持的文件类型: " + file.getContentType());
+        }
+        if (isFileSizeExceeded(file)) {
+            throw new IllegalArgumentException("文件大小超出限制: " + file.getSize() + " bytes");
+        }
+
+        String originalFilename = file.getOriginalFilename();
+        String extension = getFileExtension(originalFilename);
+        String storedName = generateStoredName(extension);
+
+        Path storagePath = determineBusinessPath(businessType, entityName, storedName);
+        Files.createDirectories(storagePath.getParent());
+        Files.copy(file.getInputStream(), storagePath, StandardCopyOption.REPLACE_EXISTING);
+
+        FileInfo fileInfo = new FileInfo();
+        fileInfo.setOriginalName(originalFilename);
+        fileInfo.setStoredName(storedName);
+        fileInfo.setFilePath(storagePath.toString());
+        fileInfo.setFileSize(file.getSize());
+        fileInfo.setContentType(file.getContentType());
+        fileInfo.setFileExtension(extension);
+        fileInfo.setCategory(fileStorageConfig.getBusinessTypeDir(businessType));
+        fileInfo.setDescription(description);
+        fileInfo.setStorageType("LOCAL");
+
+        if (businessId != null) {
+            fileInfo.setBusinessId(businessId);
+        }
+        if (StringUtils.hasText(businessType)) {
+            fileInfo.setBusinessType(businessType);
+        }
+
+        if (fileStorageConfig.isEnableMd5Check()) {
+            fileInfo.setFileMd5(calculateMD5(file));
+        }
+
+        Long currentUserId = EntityUtils.getCurrentUserId();
+        fileInfo.setCreatedBy(currentUserId);
+        fileInfo.setCreatedTime(LocalDateTime.now());
+        fileInfo.setUpdatedTime(LocalDateTime.now());
+        fileInfo.setFileUrl("/api/files/" + fileInfo.getFileId());
+
+        return fileInfo;
+    }
+
+    /**
+     * 按业务类型+日期+实体名确定存储路径
+     * 格式：{basePath}/{中文目录}/{年}/{月}/{实体名}/{uuid.ext}
+     */
+    private Path determineBusinessPath(String businessType, String entityName, String storedName) {
+        String basePath = resolveBasePath();
+        String dir = fileStorageConfig.getBusinessTypeDir(businessType);
+        String year = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy"));
+        String month = LocalDateTime.now().format(DateTimeFormatter.ofPattern("MM"));
+        String safeName = sanitizeFileName(entityName);
+        return Paths.get(basePath, dir, year, month, safeName, storedName);
+    }
+
+    /**
+     * 清理文件名中的非法字符
+     */
+    private String sanitizeFileName(String name) {
+        if (!StringUtils.hasText(name)) {
+            return "未命名";
+        }
+        String sanitized = name.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
+        return sanitized.isEmpty() ? "未命名" : sanitized;
     }
 }

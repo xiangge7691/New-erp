@@ -5,7 +5,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Component
@@ -72,4 +74,28 @@ public class FileStorageConfig {
      * 归档文件子目录
      */
     private String archiveDir = "archives";
+
+    /**
+     * 业务类型 -> 中文目录名映射
+     */
+    private Map<String, String> businessTypeDirMap = new HashMap<>() {{
+        put("EQUIPMENT_MAINTENANCE", "维保记录");
+        put("EQUIPMENT_PHOTO", "设备照片");
+        put("PREPARATION_DOCUMENT", "制剂文档");
+        put("PRODUCTION_RECORD", "生产记录");
+        put("PRODUCTION_PLAN", "生产计划");
+        put("MATERIAL_FILE", "物料文件");
+        put("QUALITY_RECORD", "质量记录");
+        put("GENERAL", "通用文件");
+    }};
+
+    /**
+     * 根据业务类型获取中文目录名，未映射时返回业务类型本身
+     */
+    public String getBusinessTypeDir(String businessType) {
+        if (businessType == null || businessType.isEmpty()) {
+            return documentDir;
+        }
+        return businessTypeDirMap.getOrDefault(businessType, businessType);
+    }
 }

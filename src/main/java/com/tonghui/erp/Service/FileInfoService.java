@@ -81,4 +81,18 @@ public interface FileInfoService extends IService<FileInfo> {
      * @return 文件信息列表
      */
     List<FileInfo> getFilesByMd5(String fileMd5);
+
+    /**
+     * 按业务路径上传文件
+     *
+     * @param file 文件对象
+     * @param businessType 业务类型
+     * @param businessId 业务ID
+     * @param entityName 实体名称（用于目录名）
+     * @param description 文件描述
+     * @return 文件信息实体
+     * @throws IOException IO异常
+     */
+    FileInfo uploadFileWithBusinessPath(MultipartFile file, String businessType,
+                                        Long businessId, String entityName, String description) throws IOException;
 }

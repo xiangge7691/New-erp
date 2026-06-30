@@ -169,4 +169,32 @@ public class FileController extends BaseController {
             return exception(e, "查询业务相关文件");
         }
     }
+
+    /**
+     * 按业务路径上传文件
+     * 路径格式：{basePath}/{中文目录}/{年}/{月}/{实体名}/{uuid.ext}
+     *
+     * @param file 文件对象
+     * @param businessType 业务类型（如 EQUIPMENT_MAINTENANCE）
+     * @param businessId 业务ID
+     * @param entityName 实体名称（如设备名称，用于目录名）
+     * @param description 文件描述
+     * @return 上传结果
+     */
+    @PostMapping("/upload-business")
+    public ApiResponse<FileInfo> uploadFileWithBusinessPath(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam String businessType,
+            @RequestParam Long businessId,
+            @RequestParam(required = false) String entityName,
+            @RequestParam(required = false) String description) {
+        try {
+            FileInfo fileInfo = fileInfoService.uploadFileWithBusinessPath(file, businessType, businessId, entityName, description);
+            return success(fileInfo, "文件上传成功");
+        } catch (IOException e) {
+            return exception(e, "文件上传");
+        } catch (IllegalArgumentException e) {
+            return error(e.getMessage());
+        }
+    }
 }

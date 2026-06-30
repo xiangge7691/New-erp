@@ -148,4 +148,29 @@ public class FileInfoServiceImpl extends ServiceImpl<FileInfoMapper, FileInfo>
         queryWrapper.eq("file_md5", fileMd5);
         return list(queryWrapper);
     }
+
+    @Override
+    @Transactional
+    public FileInfo uploadFileWithBusinessPath(MultipartFile file, String businessType,
+                                                Long businessId, String entityName, String description) throws IOException {
+        if (!fileStorageService.isAllowedFileType(file)) {
+            throw new IllegalArgumentException("不支持的文件类型: " + file.getContentType());
+        }
+        if (fileStorageService.isFileSizeExceeded(file)) {
+            throw new IllegalArgumentException("文件大小超出限制: " + file.getSize() + " bytes");
+        }
+
+        String fileMd5 = fileStorageService.calculateMD5(file);
+        FileInfo fileInfo = fileStorageService.uploadFileWithBusinessPath(file, businessType, businessId, entityName, description);
+        fileInfo.setFileMd5(fileMd5);
+        fileInfo.setDescription(description);
+
+        Long currentUserId = EntityUtils.getCurrentUserId();
+        fileInfo.setCreatedBy(currentUserId);
+        fileInfo.setCreatedTime(LocalDateTime.now());
+        fileInfo.setUpdatedTime(LocalDateTime.now());
+
+        save(fileInfo);
+        return fileInfo;
+    }
 }

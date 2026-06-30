@@ -5,10 +5,15 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.utils.EntityUtils;
+import com.tonghui.erp.Data.Entity.Equipment;
 import com.tonghui.erp.Data.Entity.EquipmentMaintenance;
+import com.tonghui.erp.Data.Entity.FileInfo;
 import com.tonghui.erp.Service.EquipmentMaintenanceService;
+import com.tonghui.erp.Service.EquipmentService;
+import com.tonghui.erp.Service.FileInfoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -22,6 +27,12 @@ public class EquipmentMaintenanceController extends BaseController {
 
     @Autowired
     private EquipmentMaintenanceService equipmentMaintenanceService;
+
+    @Autowired
+    private FileInfoService fileInfoService;
+
+    @Autowired
+    private EquipmentService equipmentService;
 
     /**
      * 分页查询维保记录列表
@@ -113,11 +124,15 @@ public class EquipmentMaintenanceController extends BaseController {
     }
 
     /**
-     * 删除维保记录
+     * 删除维保记录（同时删除关联附件）
      */
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         try {
+            List<FileInfo> attachments = fileInfoService.getFilesByBusiness(id, "EQUIPMENT_MAINTENANCE");
+            for (FileInfo file : attachments) {
+                fileInfoService.deleteFile(file.getFileId());
+            }
             equipmentMaintenanceService.removeById(id);
             return success(null, "删除成功");
         } catch (Exception e) {
@@ -153,4 +168,65 @@ public class EquipmentMaintenanceController extends BaseController {
             return exception(e, "操作");
         }
     }
+
+    // #region 附件管理
+
+    /**
+     * 上传维保附件
+     * 路径格式：uploaded-files/维保记录/{年}/{月}/{设备名}/{uuid.ext}
+     */
+    @PostMapping("/{id}/attachments")
+    public ApiResponse<FileInfo> uploadAttachment(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(required = false) String description) {
+        try {
+            EquipmentMaintenance maintenance = equipmentMaintenanceService.getById(id);
+            if (maintenance == null) {
+                return error("维保记录不存在");
+            }
+
+            String entityName = "维保记录" + id;
+            if (maintenance.getEquipmentId() != null) {
+                Equipment equipment = equipmentService.getById(maintenance.getEquipmentId());
+                if (equipment != null) {
+                    entityName = equipment.getEquipmentName();
+                }
+            }
+
+            FileInfo fileInfo = fileInfoService.uploadFileWithBusinessPath(
+                    file, "EQUIPMENT_MAINTENANCE", id, entityName, description);
+            return success(fileInfo, "附件上传成功");
+        } catch (Exception e) {
+            return exception(e, "上传附件");
+        }
+    }
+
+    /**
+     * 查询维保记录的附件列表
+     */
+    @GetMapping("/{id}/attachments")
+    public ApiResponse<List<FileInfo>> getAttachments(@PathVariable Long id) {
+        try {
+            List<FileInfo> files = fileInfoService.getFilesByBusiness(id, "EQUIPMENT_MAINTENANCE");
+            return success(files);
+        } catch (Exception e) {
+            return exception(e, "查询附件");
+        }
+    }
+
+    /**
+     * 删除维保附件
+     */
+    @DeleteMapping("/{id}/attachments/{fileId}")
+    public ApiResponse<Void> deleteAttachment(@PathVariable Long id, @PathVariable Long fileId) {
+        try {
+            fileInfoService.deleteFile(fileId);
+            return success(null, "附件删除成功");
+        } catch (Exception e) {
+            return exception(e, "删除附件");
+        }
+    }
+
+    // #endregion
 }
