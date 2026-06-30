@@ -191,6 +191,7 @@ public class PreparationProcessTemplateController extends BaseController {
             ProcessType processType = processTypeService.getById(template.getProcessTypeId());
             if (processType != null) {
                 template.setProcessTypeName(processType.getProcessName());
+                template.setProcessCode(processType.getProcessCode());
             }
         }
 

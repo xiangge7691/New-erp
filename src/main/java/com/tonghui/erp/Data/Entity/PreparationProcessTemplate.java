@@ -126,6 +126,12 @@ public class PreparationProcessTemplate {
     private String processTypeName;
 
     /**
+     * 工序编码（关联process_type表）
+     */
+    @TableField(exist = false)
+    private String processCode;
+
+    /**
      * 单位名称（关联unit表）
      */
     @TableField(exist = false)
