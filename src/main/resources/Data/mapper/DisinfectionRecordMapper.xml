@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.DisinfectionRecordMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.DisinfectionRecord">
+        <id property="id" column="id" />
+        <result property="roomId" column="room_id" />
+        <result property="disinfectionDate" column="disinfection_date" />
+        <result property="disinfectionMethod" column="disinfection_method" />
+        <result property="disinfectionPerson" column="disinfection_person" />
+        <result property="disinfectionCycle" column="disinfection_cycle" />
+        <result property="nextDisinfectionDate" column="next_disinfection_date" />
+        <result property="remark" column="remark" />
+        <result property="createdAt" column="created_at" />
+        <result property="updatedAt" column="updated_at" />
+        <result property="isDeleted" column="is_deleted" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,room_id,disinfection_date,disinfection_method,disinfection_person,
+        disinfection_cycle,next_disinfection_date,remark,created_at,updated_at,is_deleted
+    </sql>
+</mapper>

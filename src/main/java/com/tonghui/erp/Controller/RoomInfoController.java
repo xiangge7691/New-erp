@@ -4,7 +4,9 @@ import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.utils.EntityUtils;
+import com.tonghui.erp.Data.Entity.DisinfectionRecord;
 import com.tonghui.erp.Data.Entity.RoomInfo;
+import com.tonghui.erp.Service.DisinfectionRecordService;
 import com.tonghui.erp.Service.RoomInfoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -22,9 +24,12 @@ public class RoomInfoController extends BaseCrudController<RoomInfo, RoomInfo, I
 
     private final RoomInfoService roomInfoService;
 
+    private final DisinfectionRecordService disinfectionRecordService;
+
     @Autowired
-    public RoomInfoController(RoomInfoService roomInfoService) {
+    public RoomInfoController(RoomInfoService roomInfoService, DisinfectionRecordService disinfectionRecordService) {
         this.roomInfoService = roomInfoService;
+        this.disinfectionRecordService = disinfectionRecordService;
     }
 
     // CRUD 实现
@@ -143,6 +148,20 @@ public class RoomInfoController extends BaseCrudController<RoomInfo, RoomInfo, I
             return success(result);
         } catch (Exception ex) {
             return exception(ex, "获取启用房间");
+        }
+    }
+
+    /**
+     * 全局消毒到期提醒（供首页待办使用）
+     */
+    @GetMapping("/disinfection/reminder")
+    public ApiResponse<List<DisinfectionRecord>> disinfectionReminder(
+            @RequestParam(defaultValue = "30") int days) {
+        try {
+            List<DisinfectionRecord> result = disinfectionRecordService.findUpcomingDisinfection(days);
+            return success(result);
+        } catch (Exception ex) {
+            return exception(ex, "查询消毒提醒");
         }
     }
 }

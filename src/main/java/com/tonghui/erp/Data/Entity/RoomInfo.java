@@ -40,6 +40,36 @@ public class RoomInfo {
     private BigDecimal area;
 
     /**
+     * 生产制剂类型。多选：内服/外用/眼用。
+     */
+    @TableField(value = "production_type")
+    private String productionType;
+
+    /**
+     * 是否为产尘操作间。
+     */
+    @TableField(value = "dust_room")
+    private Boolean dustRoom;
+
+    /**
+     * 是否为洁净区。
+     */
+    @TableField(value = "clean_area")
+    private Boolean cleanArea;
+
+    /**
+     * 洁净等级。当洁净区=是时填写：A级/B级/C级/D级。
+     */
+    @TableField(value = "clean_grade")
+    private String cleanGrade;
+
+    /**
+     * 洁净规程文件ID，关联file_info表。
+     */
+    @TableField(value = "clean_procedure_file_id")
+    private Long cleanProcedureFileId;
+
+    /**
      * 备注。房间的附加说明信息，可为空。
      */
     @TableField(value = "remark")

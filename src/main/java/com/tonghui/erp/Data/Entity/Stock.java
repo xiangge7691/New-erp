@@ -71,6 +71,12 @@ public class Stock {
     private BigDecimal quantity;
 
     /**
+     * 单价
+     */
+    @TableField(value = "unit_price")
+    private BigDecimal unitPrice;
+
+    /**
      * 最低库存预警数量
      */
     @TableField(value = "min_quantity")

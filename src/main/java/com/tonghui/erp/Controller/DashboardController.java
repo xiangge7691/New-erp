@@ -44,6 +44,9 @@ public class DashboardController extends BaseController {
     @Autowired
     private StockInService stockInService;
 
+    @Autowired
+    private DisinfectionRecordService disinfectionRecordService;
+
     /**
      * 获取首页汇总数据（保留旧接口兼容）
      */
@@ -201,6 +204,40 @@ public class DashboardController extends BaseController {
             }
             typeCounts.put("库存", (long) expiringStocks.size());
 
+            // 2.5 待入库
+            List<StockIn> pendingStockIns = stockInService.list(
+                new QueryWrapper<StockIn>()
+                    .eq("in_status", "草稿")
+                    .orderByDesc("created_time"));
+            for (StockIn si : pendingStockIns) {
+                TodoItemDto todo = new TodoItemDto();
+                todo.setId(si.getInId());
+                todo.setTodoType("待入库");
+                todo.setContent((si.getInCode() != null ? si.getInCode() : "入库单" + si.getInId()) + "已完成检验，待入库");
+                todo.setDueDate(si.getInDate() != null ? si.getInDate().toString() : "");
+                todo.setSourceModule("库存管理");
+                todo.setLink("入库管理.html");
+                allTodos.add(todo);
+            }
+            typeCounts.put("待入库", (long) pendingStockIns.size());
+
+            // 2.6 待确认
+            List<StockIn> unconfirmedStockIns = stockInService.list(
+                new QueryWrapper<StockIn>()
+                    .eq("in_status", "已确认")
+                    .orderByDesc("created_time"));
+            for (StockIn si : unconfirmedStockIns) {
+                TodoItemDto todo = new TodoItemDto();
+                todo.setId(si.getInId());
+                todo.setTodoType("待确认");
+                todo.setContent((si.getInCode() != null ? si.getInCode() : "入库单" + si.getInId()) + "已到货，待确认入库");
+                todo.setDueDate(si.getInDate() != null ? si.getInDate().toString() : "");
+                todo.setSourceModule("库存管理");
+                todo.setLink("入库管理.html");
+                allTodos.add(todo);
+            }
+            typeCounts.put("待确认", (long) unconfirmedStockIns.size());
+
             // 3. 人员健康证到期
             List<PersonnelFile> expiringCerts = personnelFileService.findExpiringHealthCerts(30);
             for (PersonnelFile p : expiringCerts) {
@@ -219,7 +256,28 @@ public class DashboardController extends BaseController {
             }
             typeCounts.put("人员管理", (long) expiringCerts.size());
 
-            typeCounts.put("环境管理", 0L);
+            // 5. 环境管理（消毒到期提醒）
+            List<DisinfectionRecord> upcomingDisinfection = disinfectionRecordService.findUpcomingDisinfection(30);
+            for (DisinfectionRecord d : upcomingDisinfection) {
+                TodoItemDto todo = new TodoItemDto();
+                todo.setId(d.getId());
+                todo.setTodoType("环境管理");
+                String roomName = d.getRoomName() != null ? d.getRoomName() : "车间" + d.getRoomId();
+                if (d.getNextDisinfectionDate() != null) {
+                    long days = java.time.temporal.ChronoUnit.DAYS.between(today, d.getNextDisinfectionDate());
+                    if (days < 0) {
+                        todo.setContent(roomName + "已超期消毒" + Math.abs(days) + "天！");
+                    } else {
+                        todo.setContent(roomName + "距离下次消毒还有" + days + "天");
+                    }
+                    todo.setDueDate(d.getNextDisinfectionDate().toString());
+                }
+                todo.setSourceModule("环境管理");
+                todo.setLink("车间详情.html?id=" + d.getRoomId());
+                allTodos.add(todo);
+            }
+            typeCounts.put("环境管理", (long) upcomingDisinfection.size());
+
             typeCounts.put("全部", (long) allTodos.size());
 
             TodoListDto result = new TodoListDto();
@@ -252,6 +310,8 @@ public class DashboardController extends BaseController {
                 dto.setId(plan.getId().longValue());
                 dto.setOrderName(plan.getPreparationName());
                 dto.setQuantity(plan.getPlanQuantity() != null ? plan.getPlanQuantity() + "" : "");
+                dto.setBatchNo(plan.getPlanNumber());
+                dto.setHospital(plan.getUnitName());
                 dto.setCurrentStatus(plan.getCurrentStatus());
                 if (plan.getCreateTime() != null) {
                     dto.setOrderDate(plan.getCreateTime().format(DateTimeFormatter.ofPattern("MM-dd")));
@@ -327,12 +387,16 @@ public class DashboardController extends BaseController {
             });
             chartData.setRevenueByMonth(revenueList);
 
-            // 库存资金占用（简化：按分类分组）
+            // 库存资金占用（按分类分组，计算金额=数量*单价）
             List<Stock> allStocks = stockService.list();
             Map<String, Double> fundOccupation = allStocks.stream()
                 .collect(Collectors.groupingBy(
                     s -> s.getCategoryName() != null ? s.getCategoryName() : "其他",
-                    Collectors.summingDouble(s -> s.getQuantity() != null ? s.getQuantity().doubleValue() : 0.0)
+                    Collectors.summingDouble(s -> {
+                        double qty = s.getQuantity() != null ? s.getQuantity().doubleValue() : 0.0;
+                        double price = s.getUnitPrice() != null ? s.getUnitPrice().doubleValue() : 0.0;
+                        return qty * price;
+                    })
                 ));
             chartData.setInventoryFundOccupation(fundOccupation);
 

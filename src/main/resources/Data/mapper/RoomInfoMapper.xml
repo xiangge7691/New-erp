@@ -9,14 +9,22 @@
             <result property="roomName" column="room_name" />
             <result property="roomLocation" column="room_location" />
             <result property="area" column="area" />
+            <result property="productionType" column="production_type" />
+            <result property="dustRoom" column="dust_room" />
+            <result property="cleanArea" column="clean_area" />
+            <result property="cleanGrade" column="clean_grade" />
+            <result property="cleanProcedureFileId" column="clean_procedure_file_id" />
             <result property="remark" column="remark" />
             <result property="roomStatus" column="room_status" />
-            <result property="creatorName" column="creator_name" />
+            <result property="creatorId" column="creator_id" />
             <result property="createdTime" column="created_time" />
+            <result property="updaterId" column="updater_id" />
+            <result property="updatedTime" column="updated_time" />
     </resultMap>
 
     <sql id="Base_Column_List">
-        room_id,room_name,room_location,area,remark,room_status,
-        creator_name,created_time
+        room_id,room_name,room_location,area,production_type,dust_room,clean_area,
+        clean_grade,clean_procedure_file_id,remark,room_status,
+        creator_id,created_time,updater_id,updated_time
     </sql>
 </mapper>

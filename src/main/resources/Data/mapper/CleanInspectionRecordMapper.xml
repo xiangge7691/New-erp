@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.CleanInspectionRecordMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.CleanInspectionRecord">
+        <id property="id" column="id" />
+        <result property="roomId" column="room_id" />
+        <result property="inspectionDate" column="inspection_date" />
+        <result property="inspectionArea" column="inspection_area" />
+        <result property="inspectionItem" column="inspection_item" />
+        <result property="inspectionResult" column="inspection_result" />
+        <result property="inspector" column="inspector" />
+        <result property="reportFileId" column="report_file_id" />
+        <result property="createdAt" column="created_at" />
+        <result property="updatedAt" column="updated_at" />
+        <result property="isDeleted" column="is_deleted" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,room_id,inspection_date,inspection_area,inspection_item,
+        inspection_result,inspector,report_file_id,created_at,updated_at,is_deleted
+    </sql>
+</mapper>

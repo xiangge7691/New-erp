@@ -7,25 +7,30 @@
     <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.Equipment">
             <id property="equipmentId" column="equipment_id" />
             <result property="equipmentName" column="equipment_name" />
+            <result property="equipmentType" column="equipment_type" />
             <result property="equipmentModel" column="equipment_model" />
             <result property="roomId" column="room_id" />
             <result property="productionCapacity" column="production_capacity" />
-            <result property="equipmentStatus" column="equipment_status" />
             <result property="fixedAssetCode" column="fixed_asset_code" />
             <result property="manufacturer" column="manufacturer" />
             <result property="purchaseDate" column="purchase_date" />
             <result property="purchaseAmount" column="purchase_amount" />
             <result property="lastMaintenanceDate" column="last_maintenance_date" />
+            <result property="nextMaintenanceDate" column="next_maintenance_date" />
+            <result property="maintenanceCycle" column="maintenance_cycle" />
+            <result property="reminderDays" column="reminder_days" />
             <result property="remark" column="remark" />
+            <result property="equipmentStatus" column="equipment_status" />
+            <result property="creatorId" column="creator_id" />
             <result property="createdTime" column="created_time" />
-            <result property="creatorName" column="creator_name" />
+            <result property="updaterId" column="updater_id" />
             <result property="updatedTime" column="updated_time" />
-            <result property="updaterName" column="updater_name" />
     </resultMap>
 
     <sql id="Base_Column_List">
-        equipment_id,equipment_name,equipment_model,room_id,production_capacity,equipment_status,
+        equipment_id,equipment_name,equipment_type,equipment_model,room_id,production_capacity,
         fixed_asset_code,manufacturer,purchase_date,purchase_amount,last_maintenance_date,
-        remark,created_time,creator_name,updated_time,updater_name
+        next_maintenance_date,maintenance_cycle,reminder_days,remark,equipment_status,
+        creator_id,created_time,updater_id,updated_time
     </sql>
 </mapper>
