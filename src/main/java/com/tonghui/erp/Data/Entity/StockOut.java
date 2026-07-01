@@ -77,6 +77,12 @@ public class StockOut {
     private String remark;
 
     /**
+     * 审批实例ID
+     */
+    @TableField(value = "approval_instance_id")
+    private Long approvalInstanceId;
+
+    /**
      * 创建人ID
      */
     @TableField(value = "created_by")
@@ -99,4 +105,16 @@ public class StockOut {
      */
     @TableField(value = "updated_time")
     private LocalDateTime updatedTime;
+
+    /**
+     * 是否已删除
+     */
+    @TableField(value = "is_deleted")
+    private Integer isDeleted;
+
+    /**
+     * 乐观锁版本号
+     */
+    @TableField(value = "version")
+    private Integer version;
 }

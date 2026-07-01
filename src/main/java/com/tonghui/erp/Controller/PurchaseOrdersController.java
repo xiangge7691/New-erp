@@ -56,7 +56,7 @@ public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders,
 
     @Override
     protected PurchaseOrders doUpdate(Long id, PurchaseOrders purchaseOrders) {
-        purchaseOrders.setId(id.intValue()); // 转换为Integer类型
+        purchaseOrders.setId(id);
         purchaseOrdersService.updatePurchaseOrder(purchaseOrders);
         return purchaseOrders;
     }

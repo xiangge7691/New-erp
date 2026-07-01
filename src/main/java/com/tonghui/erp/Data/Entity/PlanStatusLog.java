@@ -70,4 +70,16 @@ public class PlanStatusLog {
      */
     @TableField(exist = false)
     private String operatorName;
+
+    /**
+     * 是否已删除
+     */
+    @TableField(value = "is_deleted")
+    private Integer isDeleted;
+
+    /**
+     * 乐观锁版本号
+     */
+    @TableField(value = "version")
+    private Integer version;
 }

@@ -51,6 +51,12 @@ public class ProdUnitMaterialFile {
     private Integer fileSize;
 
     /**
+     * 文件存储路径
+     */
+    @TableField(value = "file_path")
+    private String filePath;
+
+    /**
      * 文件描述
      */
     @TableField(value = "description")
@@ -73,4 +79,16 @@ public class ProdUnitMaterialFile {
      */
     @TableField(value = "created_time")
     private LocalDateTime createdTime;
+
+    /**
+     * 是否已删除
+     */
+    @TableField(value = "is_deleted")
+    private Integer isDeleted;
+
+    /**
+     * 乐观锁版本号
+     */
+    @TableField(value = "version")
+    private Integer version;
 }

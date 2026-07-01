@@ -17,8 +17,8 @@ public class RolePerm {
     /**
      * 关联ID
      */
-    @TableId(value = "roleperm_id", type = IdType.AUTO)
-    private Long rolepermId;
+    @TableId(value = "id", type = IdType.AUTO)
+    private Long id;
 
     /**
      * 角色ID
@@ -37,4 +37,10 @@ public class RolePerm {
      */
     @TableField(value = "created_at")
     private LocalDateTime createdAt;
+
+    /**
+     * 是否已删除
+     */
+    @TableField(value = "is_deleted")
+    private Integer isDeleted;
 }

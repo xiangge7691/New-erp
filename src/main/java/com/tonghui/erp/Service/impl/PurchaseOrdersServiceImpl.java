@@ -148,11 +148,11 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
             return result;
         }
 
-        List<Integer> parentIds = parents.stream().map(PurchaseOrders::getId).collect(Collectors.toList());
+        List<Long> parentIds = parents.stream().map(PurchaseOrders::getId).collect(Collectors.toList());
         QueryWrapper<PurchaseOrderItems> wrapper = new QueryWrapper<>();
         wrapper.in("order_id", parentIds);
         List<PurchaseOrderItems> allItems = purchaseOrderItemsMapper.selectList(wrapper);
-        Map<Integer, List<PurchaseOrderItems>> itemsMap = allItems.stream()
+        Map<Long, List<PurchaseOrderItems>> itemsMap = allItems.stream()
                 .collect(Collectors.groupingBy(PurchaseOrderItems::getOrderId));
 
         List<PurchaseOrdersWithItemsDto> dtos = parents.stream().map(parent -> {

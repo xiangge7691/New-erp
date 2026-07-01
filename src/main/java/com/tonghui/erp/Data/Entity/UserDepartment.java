@@ -17,8 +17,8 @@ public class UserDepartment {
     /**
      * 关联ID
      */
-    @TableId(value = "userdepartment_id", type = IdType.AUTO)
-    private Long userdepartmentId;
+    @TableId(value = "id", type = IdType.AUTO)
+    private Long id;
 
     /**
      * 用户ID
@@ -43,4 +43,10 @@ public class UserDepartment {
      */
     @TableField(value = "created_at")
     private LocalDateTime createdAt;
+
+    /**
+     * 是否已删除
+     */
+    @TableField(value = "is_deleted")
+    private Integer isDeleted;
 }

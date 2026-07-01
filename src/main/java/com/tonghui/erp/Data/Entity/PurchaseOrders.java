@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import lombok.Data;
 
 /**
@@ -19,13 +20,25 @@ public class PurchaseOrders {
      * 主键ID
      */
     @TableId(value = "id", type = IdType.AUTO)
-    private Integer id;
+    private Long id;
 
     /**
      * 采购编号
      */
     @TableField(value = "purchase_number")
     private String purchaseNumber;
+
+    /**
+     * 供应商ID
+     */
+    @TableField(value = "supplier_id")
+    private Long supplierId;
+
+    /**
+     * 仓库（生产单位ID）
+     */
+    @TableField(value = "prod_unit_id")
+    private Long prodUnitId;
 
     /**
      * 仓库
@@ -92,4 +105,46 @@ public class PurchaseOrders {
      */
     @TableField(value = "status")
     private Object status;
+
+    /**
+     * 审批实例ID
+     */
+    @TableField(value = "approval_instance_id")
+    private Long approvalInstanceId;
+
+    /**
+     * 创建人ID
+     */
+    @TableField(value = "created_by")
+    private Long createdBy;
+
+    /**
+     * 更新人ID
+     */
+    @TableField(value = "updated_by")
+    private Long updatedBy;
+
+    /**
+     * 创建时间
+     */
+    @TableField(value = "created_at")
+    private LocalDateTime createdAt;
+
+    /**
+     * 更新时间
+     */
+    @TableField(value = "updated_at")
+    private LocalDateTime updatedAt;
+
+    /**
+     * 是否已删除
+     */
+    @TableField(value = "is_deleted")
+    private Integer isDeleted;
+
+    /**
+     * 乐观锁版本号
+     */
+    @TableField(value = "version")
+    private Integer version;
 }

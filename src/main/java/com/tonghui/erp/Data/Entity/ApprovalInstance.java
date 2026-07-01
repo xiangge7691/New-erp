@@ -106,4 +106,10 @@ public class ApprovalInstance {
      */
     @TableField(exist = false)
     private String currentNodeName;
+
+    /**
+     * 乐观锁版本号
+     */
+    @TableField(value = "version")
+    private Integer version;
 }

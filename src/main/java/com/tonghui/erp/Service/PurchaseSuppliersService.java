@@ -39,7 +39,7 @@ public interface PurchaseSuppliersService extends IService<PurchaseSuppliers> {
      * @param id 采购供应商ID
      * @return 是否成功
      */
-    boolean deletePurchaseSupplier(Integer id);
+    boolean deletePurchaseSupplier(Long id);
 
     // #endregion
 
@@ -51,7 +51,7 @@ public interface PurchaseSuppliersService extends IService<PurchaseSuppliers> {
      * @param id 采购供应商ID
      * @return 采购供应商实体
      */
-    PurchaseSuppliers getPurchaseSupplierById(Integer id);
+    PurchaseSuppliers getPurchaseSupplierById(Long id);
 
     /**
      * 根据编号查询采购供应商

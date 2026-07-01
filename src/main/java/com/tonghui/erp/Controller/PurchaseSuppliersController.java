@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController
 @RequestMapping("/api/purchase-suppliers")
-public class PurchaseSuppliersController extends BaseCrudController<PurchaseSuppliers, PurchaseSuppliers, Integer> {
+public class PurchaseSuppliersController extends BaseCrudController<PurchaseSuppliers, PurchaseSuppliers, Long> {
 
     @Autowired
     private PurchaseSuppliersService purchaseSuppliersService;
@@ -40,7 +40,7 @@ public class PurchaseSuppliersController extends BaseCrudController<PurchaseSupp
     }
 
     @Override
-    protected PurchaseSuppliers getDataById(Integer id) {
+    protected PurchaseSuppliers getDataById(Long id) {
         return purchaseSuppliersService.getPurchaseSupplierById(id);
     }
 
@@ -51,14 +51,14 @@ public class PurchaseSuppliersController extends BaseCrudController<PurchaseSupp
     }
 
     @Override
-    protected PurchaseSuppliers doUpdate(Integer id, PurchaseSuppliers purchaseSuppliers) {
+    protected PurchaseSuppliers doUpdate(Long id, PurchaseSuppliers purchaseSuppliers) {
         purchaseSuppliers.setId(id);
         purchaseSuppliersService.updatePurchaseSupplier(purchaseSuppliers);
         return purchaseSuppliers;
     }
 
     @Override
-    protected boolean doDelete(Integer id) {
+    protected boolean doDelete(Long id) {
         try {
             purchaseSuppliersService.deletePurchaseSupplier(id);
             return true;
@@ -169,7 +169,7 @@ public class PurchaseSuppliersController extends BaseCrudController<PurchaseSupp
      * @return 操作结果
      */
     @PostMapping("/{id}/status/{status}")
-    public ApiResponse<Boolean> togglePurchaseSupplierStatus(@PathVariable Integer id, @PathVariable Object status) {
+    public ApiResponse<Boolean> togglePurchaseSupplierStatus(@PathVariable Long id, @PathVariable Object status) {
         try {
             PurchaseSuppliers purchaseSuppliers = purchaseSuppliersService.getPurchaseSupplierById(id);
             if (purchaseSuppliers != null) {

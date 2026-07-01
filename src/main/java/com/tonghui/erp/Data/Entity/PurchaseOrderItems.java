@@ -18,19 +18,25 @@ public class PurchaseOrderItems {
      * 主键ID
      */
     @TableId(value = "id", type = IdType.AUTO)
-    private Integer id;
+    private Long id;
 
     /**
      * 关联订单ID
      */
     @TableField(value = "order_id")
-    private Integer orderId;
+    private Long orderId;
 
     /**
      * 序号
      */
     @TableField(value = "sequence_number")
     private Integer sequenceNumber;
+
+    /**
+     * 物料ID
+     */
+    @TableField(value = "material_id")
+    private Long materialId;
 
     /**
      * 制剂名称
@@ -49,6 +55,12 @@ public class PurchaseOrderItems {
      */
     @TableField(value = "dose")
     private BigDecimal dose;
+
+    /**
+     * 单位ID
+     */
+    @TableField(value = "unit_id")
+    private Long unitId;
 
     /**
      * 单位
@@ -79,4 +91,16 @@ public class PurchaseOrderItems {
      */
     @TableField(value = "difference")
     private BigDecimal difference;
+
+    /**
+     * 是否已删除
+     */
+    @TableField(value = "is_deleted")
+    private Integer isDeleted;
+
+    /**
+     * 乐观锁版本号
+     */
+    @TableField(value = "version")
+    private Integer version;
 }

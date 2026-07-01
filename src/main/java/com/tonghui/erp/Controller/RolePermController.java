@@ -65,7 +65,7 @@ public class RolePermController extends BaseCrudController<RolePerm, RolePerm, L
             throw new RuntimeException("角色权限关联不存在");
         }
 
-        rolePerm.setRolepermId(id);
+        rolePerm.setId(id);
         boolean result = rolePermService.updateById(rolePerm);
         
         if (!result) {

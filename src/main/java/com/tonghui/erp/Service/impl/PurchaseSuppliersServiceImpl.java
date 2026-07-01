@@ -53,7 +53,7 @@ public class PurchaseSuppliersServiceImpl extends ServiceImpl<PurchaseSuppliersM
 
     @Override
     @Transactional
-    public boolean deletePurchaseSupplier(Integer id) {
+    public boolean deletePurchaseSupplier(Long id) {
         return this.removeById(id);
     }
 
@@ -62,7 +62,7 @@ public class PurchaseSuppliersServiceImpl extends ServiceImpl<PurchaseSuppliersM
     //#region 查询操作
 
     @Override
-    public PurchaseSuppliers getPurchaseSupplierById(Integer id) {
+    public PurchaseSuppliers getPurchaseSupplierById(Long id) {
         return this.getById(id);
     }
 

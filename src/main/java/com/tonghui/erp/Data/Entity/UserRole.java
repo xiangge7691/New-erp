@@ -17,8 +17,8 @@ public class UserRole {
     /**
      * 关联ID
      */
-    @TableId(value = "userrole_id", type = IdType.AUTO)
-    private Long userroleId;
+    @TableId(value = "id", type = IdType.AUTO)
+    private Long id;
 
     /**
      * 用户ID
@@ -37,4 +37,10 @@ public class UserRole {
      */
     @TableField(value = "created_at")
     private LocalDateTime createdAt;
+
+    /**
+     * 是否已删除
+     */
+    @TableField(value = "is_deleted")
+    private Integer isDeleted;
 }
