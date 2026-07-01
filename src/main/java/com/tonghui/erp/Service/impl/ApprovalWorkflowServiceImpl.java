@@ -53,7 +53,7 @@ public class ApprovalWorkflowServiceImpl extends ServiceImpl<ApprovalWorkflowMap
         }
 
         QueryWrapper<ApprovalWorkflow> wrapper = new QueryWrapper<>();
-        wrapper.orderByDesc("created_at");
+        wrapper.orderByDesc("created_time");
         Page<ApprovalWorkflow> parentPage = this.page(page, wrapper);
         List<ApprovalWorkflow> parents = parentPage.getRecords();
 

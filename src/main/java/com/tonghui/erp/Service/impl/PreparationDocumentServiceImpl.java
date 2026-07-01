@@ -22,7 +22,7 @@ public class PreparationDocumentServiceImpl extends ServiceImpl<PreparationDocum
     public List<PreparationDocument> findByPreparationId(Long preparationId) {
         QueryWrapper<PreparationDocument> wrapper = new QueryWrapper<>();
         wrapper.eq("preparation_id", preparationId)
-               .orderByDesc("created_at");
+               .orderByDesc("created_time");
         return list(wrapper);
     }
 
@@ -34,7 +34,7 @@ public class PreparationDocumentServiceImpl extends ServiceImpl<PreparationDocum
     public List<PreparationDocument> findByDocType(String docType) {
         QueryWrapper<PreparationDocument> wrapper = new QueryWrapper<>();
         wrapper.eq("doc_type", docType)
-               .orderByDesc("created_at");
+               .orderByDesc("created_time");
         return list(wrapper);
     }
 }

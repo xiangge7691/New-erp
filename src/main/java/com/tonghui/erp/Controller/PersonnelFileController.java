@@ -71,7 +71,7 @@ public class PersonnelFileController extends BaseController {
         if (status != null) {
             wrapper.eq("status", status);
         }
-        wrapper.orderByDesc("created_at");
+        wrapper.orderByDesc("created_time");
 
         Page<PersonnelFile> pageResult = personnelFileService.page(page, wrapper);
         fillNameFieldsForList(pageResult.getRecords());

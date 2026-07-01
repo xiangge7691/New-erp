@@ -155,14 +155,14 @@ public class UserRoleServiceImpl extends ServiceImpl<UserRoleMapper, UserRole>
         if (createdStartTime != null && !createdStartTime.isEmpty()) {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
             LocalDateTime startTime = LocalDateTime.parse(createdStartTime, formatter);
-            queryWrapper.ge("created_at", startTime);
+            queryWrapper.ge("created_time", startTime);
         }
 
         // 创建时间结束筛选
         if (createdEndTime != null && !createdEndTime.isEmpty()) {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
             LocalDateTime endTime = LocalDateTime.parse(createdEndTime, formatter);
-            queryWrapper.le("created_at", endTime);
+            queryWrapper.le("created_time", endTime);
         }
 
         List<UserRole> userRoleEntities;
@@ -231,13 +231,13 @@ public class UserRoleServiceImpl extends ServiceImpl<UserRoleMapper, UserRole>
         if (createdStartTime != null && !createdStartTime.isEmpty()) {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
             LocalDateTime startTime = LocalDateTime.parse(createdStartTime, formatter);
-            queryWrapper.ge("created_at", startTime);
+            queryWrapper.ge("created_time", startTime);
         }
 
         if (createdEndTime != null && !createdEndTime.isEmpty()) {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
             LocalDateTime endTime = LocalDateTime.parse(createdEndTime, formatter);
-            queryWrapper.le("created_at", endTime);
+            queryWrapper.le("created_time", endTime);
         }
 
         Page<UserRole> page = new Page<>(pageIndex + 1, pageSize);

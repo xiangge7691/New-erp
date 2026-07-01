@@ -83,7 +83,7 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
         }
 
         QueryWrapper<ApprovalInstance> queryWrapper = new QueryWrapper<>();
-        queryWrapper.orderByDesc("created_at");
+        queryWrapper.orderByDesc("created_time");
 
         Page<ApprovalInstance> resultPage = this.page(page, queryWrapper);
 

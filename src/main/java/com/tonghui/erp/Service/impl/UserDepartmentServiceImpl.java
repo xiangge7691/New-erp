@@ -147,13 +147,13 @@ public class UserDepartmentServiceImpl extends ServiceImpl<UserDepartmentMapper,
         if (createdStartTime != null && !createdStartTime.isEmpty()) {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
             LocalDateTime startTime = LocalDateTime.parse(createdStartTime, formatter);
-            queryWrapper.ge("created_at", startTime);
+            queryWrapper.ge("created_time", startTime);
         }
         
         if (createdEndTime != null && !createdEndTime.isEmpty()) {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
             LocalDateTime endTime = LocalDateTime.parse(createdEndTime, formatter);
-            queryWrapper.le("created_at", endTime);
+            queryWrapper.le("created_time", endTime);
         }
         
         Page<UserDepartment> page = new Page<>(pageIndex + 1, pageSize);

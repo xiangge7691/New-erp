@@ -39,7 +39,7 @@ public class PreparationDocumentController extends BaseController {
         if (docType != null && !docType.isEmpty()) {
             wrapper.eq("doc_type", docType);
         }
-        wrapper.orderByDesc("created_at");
+        wrapper.orderByDesc("created_time");
         
         Page<PreparationDocument> pageResult = documentService.page(page, wrapper);
         PagedResult<PreparationDocument> pagedResult = new PagedResult<>();

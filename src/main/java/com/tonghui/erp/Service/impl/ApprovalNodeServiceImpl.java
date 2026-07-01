@@ -40,7 +40,7 @@ public class ApprovalNodeServiceImpl extends ServiceImpl<ApprovalNodeMapper, App
     public PagedResult<ApprovalNode> getNodes(int pageIndex, int pageSize) {
         Page<ApprovalNode> page = new Page<>(pageIndex + 1, pageSize);
         QueryWrapper<ApprovalNode> queryWrapper = new QueryWrapper<>();
-        queryWrapper.orderByDesc("created_at");
+        queryWrapper.orderByDesc("created_time");
         
         Page<ApprovalNode> pageResult = page(page, queryWrapper);
         

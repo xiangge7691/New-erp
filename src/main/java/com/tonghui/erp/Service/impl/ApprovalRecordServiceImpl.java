@@ -22,7 +22,7 @@ public class ApprovalRecordServiceImpl extends ServiceImpl<ApprovalRecordMapper,
     public List<ApprovalRecord> getRecordsByInstanceId(Long instanceId) {
         QueryWrapper<ApprovalRecord> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("instance_id", instanceId);
-        queryWrapper.orderByDesc("created_at");
+        queryWrapper.orderByDesc("created_time");
         return list(queryWrapper);
     }
     
@@ -30,7 +30,7 @@ public class ApprovalRecordServiceImpl extends ServiceImpl<ApprovalRecordMapper,
     public List<ApprovalRecord> getRecordsByNodeId(Long nodeId) {
         QueryWrapper<ApprovalRecord> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("node_id", nodeId);
-        queryWrapper.orderByDesc("created_at");
+        queryWrapper.orderByDesc("created_time");
         return list(queryWrapper);
     }
 }

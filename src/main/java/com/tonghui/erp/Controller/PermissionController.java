@@ -103,7 +103,7 @@ public class PermissionController extends BaseCrudController<Permission, Permiss
         updateWrapper.set("parent_id",permission.getParentId()); // 直接使用permission.getParentId()
         updateWrapper.set("display_order",permission.getDisplayOrder() != null ?permission.getDisplayOrder() : originalPermission.getDisplayOrder());
         updateWrapper.set("perm_status",permission.getPermStatus() != null ?permission.getPermStatus() : originalPermission.getPermStatus());
-        updateWrapper.set("updated_at", java.time.LocalDateTime.now());
+        updateWrapper.set("updated_time", java.time.LocalDateTime.now());
 
         // 更新权限
         boolean result = permissionService.update(updateWrapper);
