@@ -11,11 +11,11 @@
         <result property="inspectionArea" column="inspection_area" />
         <result property="pressureValue" column="pressure_value" />
         <result property="recorder" column="recorder" />
-        <result property="createdAt" column="created_at" />
+        <result property="createdTime" column="created_time" />
         <result property="isDeleted" column="is_deleted" />
     </resultMap>
 
     <sql id="Base_Column_List">
-        id,room_id,record_date,inspection_area,pressure_value,recorder,created_at,is_deleted
+        id,room_id,record_date,inspection_area,pressure_value,recorder,created_time,is_deleted
     </sql>
 </mapper>

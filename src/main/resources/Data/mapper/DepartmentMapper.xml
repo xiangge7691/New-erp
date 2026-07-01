@@ -7,9 +7,13 @@
     <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.Department">
             <id property="departmentId" column="department_id" />
             <result property="departmentName" column="department_name" />
+            <result property="createdBy" column="created_by" />
+            <result property="updatedBy" column="updated_by" />
+            <result property="createdTime" column="created_time" />
+            <result property="updatedTime" column="updated_time" />
     </resultMap>
 
     <sql id="Base_Column_List">
-        department_id,department_name
+        department_id,department_name,created_by,updated_by,created_time,updated_time
     </sql>
 </mapper>

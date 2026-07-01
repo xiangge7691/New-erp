@@ -19,8 +19,8 @@
         <result property="remark" column="remark" />
         <result property="createdBy" column="created_by" />
         <result property="updatedBy" column="updated_by" />
-        <result property="createdAt" column="created_at" />
-        <result property="updatedAt" column="updated_at" />
+        <result property="createdTime" column="created_time" />
+        <result property="updatedTime" column="updated_time" />
         <result property="isDeleted" column="is_deleted" />
         <result property="version" column="version" />
     </resultMap>
@@ -29,6 +29,6 @@
         maintenance_id,equipment_id,maintenance_type,maintenance_date,
         next_maintenance_date,maintenance_content,maintenance_result,cost,
         maintainer,maintenance_company,contact_phone,remark,
-        created_by,updated_by,created_at,updated_at,is_deleted,version
+        created_by,updated_by,created_time,updated_time,is_deleted,version
     </sql>
 </mapper>

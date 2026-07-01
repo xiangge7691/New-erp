@@ -14,11 +14,11 @@
             <result property="userStatus" column="user_status" />
             <result property="userNotes" column="user_notes" />
             <result property="createdTime" column="created_time" />
-            <result property="updatedTime" column="update_time" />
+            <result property="updatedTime" column="updated_time" />
     </resultMap>
 
     <sql id="Base_Column_List">
         user_id,user_account,user_name,password,phone,gender,
-        user_status,user_notes,created_time,update_time
+        user_status,user_notes,created_time,updated_time
     </sql>
 </mapper>

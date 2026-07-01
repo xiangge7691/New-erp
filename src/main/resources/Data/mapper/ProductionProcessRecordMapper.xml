@@ -20,12 +20,11 @@
             <result property="remark" column="remark" />
             <result property="createdTime" column="created_time" />
             <result property="updatedTime" column="updated_time" />
-            <result property="updatedName" column="updated_name" />
     </resultMap>
 
     <sql id="Base_Column_List">
         record_id,plan_id,process_name,operator_name,step_order,workshop,
         processing_qty,unit_name,equipment,start_time,end_time,
-        record_status,remark,created_time,updated_time,updated_name
+        record_status,remark,created_time,updated_time
     </sql>
 </mapper>

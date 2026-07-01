@@ -107,18 +107,6 @@ public class PersonnelFile extends AuditEntity {
     private String educationTraining;
 
     /**
-     * 注册证书名
-     */
-    @TableField(value = "certificate_name")
-    private String certificateName;
-
-    /**
-     * 注册证书号
-     */
-    @TableField(value = "certificate_no")
-    private String certificateNo;
-
-    /**
      * 健康证编号
      */
     @TableField(value = "health_cert_no")
@@ -197,4 +185,10 @@ public class PersonnelFile extends AuditEntity {
      */
     @TableField(exist = false)
     private String departmentName;
+
+    /**
+     * 证书列表（关联personnel_certificate表）
+     */
+    @TableField(exist = false)
+    private java.util.List<PersonnelCertificate> certificates;
 }

@@ -13,13 +13,13 @@
         <result property="disinfectionCycle" column="disinfection_cycle" />
         <result property="nextDisinfectionDate" column="next_disinfection_date" />
         <result property="remark" column="remark" />
-        <result property="createdAt" column="created_at" />
-        <result property="updatedAt" column="updated_at" />
+        <result property="createdTime" column="created_time" />
+        <result property="updatedTime" column="updated_time" />
         <result property="isDeleted" column="is_deleted" />
     </resultMap>
 
     <sql id="Base_Column_List">
         id,room_id,disinfection_date,disinfection_method,disinfection_person,
-        disinfection_cycle,next_disinfection_date,remark,created_at,updated_at,is_deleted
+        disinfection_cycle,next_disinfection_date,remark,created_time,updated_time,is_deleted
     </sql>
 </mapper>

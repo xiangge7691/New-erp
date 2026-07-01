@@ -13,13 +13,13 @@
         <result property="inspectionResult" column="inspection_result" />
         <result property="inspector" column="inspector" />
         <result property="reportFileId" column="report_file_id" />
-        <result property="createdAt" column="created_at" />
-        <result property="updatedAt" column="updated_at" />
+        <result property="createdTime" column="created_time" />
+        <result property="updatedTime" column="updated_time" />
         <result property="isDeleted" column="is_deleted" />
     </resultMap>
 
     <sql id="Base_Column_List">
         id,room_id,inspection_date,inspection_area,inspection_item,
-        inspection_result,inspector,report_file_id,created_at,updated_at,is_deleted
+        inspection_result,inspector,report_file_id,created_time,updated_time,is_deleted
     </sql>
 </mapper>

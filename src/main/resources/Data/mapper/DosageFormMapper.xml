@@ -8,9 +8,15 @@
             <id property="dosageId" column="dosage_id" />
             <result property="dosageName" column="dosage_name" />
             <result property="remark" column="remark" />
+            <result property="status" column="status" />
+            <result property="isDeleted" column="is_deleted" />
+            <result property="createdBy" column="created_by" />
+            <result property="updatedBy" column="updated_by" />
+            <result property="createdTime" column="created_time" />
+            <result property="updatedTime" column="updated_time" />
     </resultMap>
 
     <sql id="Base_Column_List">
-        dosage_id,dosage_name,remark
+        dosage_id,dosage_name,remark,status,is_deleted,created_by,updated_by,created_time,updated_time
     </sql>
 </mapper>

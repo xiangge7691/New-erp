@@ -9,11 +9,11 @@
             <result property="roleName" column="role_name" />
             <result property="roleDesc" column="role_desc" />
             <result property="roleStatus" column="role_status" />
-            <result property="createdTime" column="create_time" />
-            <result property="updatedTime" column="update_time" />
+            <result property="createdTime" column="created_time" />
+            <result property="updatedTime" column="updated_time" />
     </resultMap>
 
     <sql id="Base_Column_List">
-        role_id,role_name,role_desc,role_status,create_time,update_time
+        role_id,role_name,role_desc,role_status,created_time,updated_time
     </sql>
 </mapper>

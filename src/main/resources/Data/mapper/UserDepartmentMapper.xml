@@ -5,14 +5,14 @@
 <mapper namespace="com.tonghui.erp.Data.mapper.UserDepartmentMapper">
 
     <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.UserDepartment">
-            <id property="userdepartmentId" column="userdepartment_id" />
+            <id property="id" column="id" />
             <result property="userId" column="user_id" />
             <result property="departmentId" column="department_id" />
             <result property="isPrimary" column="is_primary" />
-            <result property="createdAt" column="created_at" />
+            <result property="createdTime" column="created_time" />
     </resultMap>
 
     <sql id="Base_Column_List">
-        userdepartment_id,user_id,department_id,is_primary,created_at
+        id,user_id,department_id,is_primary,created_time
     </sql>
 </mapper>

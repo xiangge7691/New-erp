@@ -5,13 +5,13 @@
 <mapper namespace="com.tonghui.erp.Data.mapper.UserRoleMapper">
 
     <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.UserRole">
-            <id property="userroleId" column="userrole_id" />
+            <id property="id" column="id" />
             <result property="userId" column="user_id" />
             <result property="roleId" column="role_id" />
-            <result property="createdAt" column="created_at" />
+            <result property="createdTime" column="created_time" />
     </resultMap>
 
     <sql id="Base_Column_List">
-        userrole_id,user_id,role_id,created_at
+        id,user_id,role_id,created_time
     </sql>
 </mapper>

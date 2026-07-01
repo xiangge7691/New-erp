@@ -44,10 +44,4 @@ public class DosageForm extends AuditEntity {
      */
     @TableField(value = "is_deleted")
     private Integer isDeleted;
-
-    /**
-     * 乐观锁版本号
-     */
-    @TableField(value = "version")
-    private Integer version;
 }

@@ -8,11 +8,11 @@
             <id property="id" column="id" />
             <result property="workflowName" column="workflow_name" />
             <result property="workflowType" column="workflow_type" />
-            <result property="createdAt" column="created_at" />
-            <result property="updatedAt" column="updated_at" />
+            <result property="createdTime" column="created_time" />
+            <result property="updatedTime" column="updated_time" />
     </resultMap>
 
     <sql id="Base_Column_List">
-        id,workflow_name,workflow_type,created_at,updated_at
+        id,workflow_name,workflow_type,created_time,updated_time
     </sql>
 </mapper>

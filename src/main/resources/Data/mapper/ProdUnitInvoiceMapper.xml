@@ -11,11 +11,11 @@
             <result property="createdBy" column="created_by" />
             <result property="createdTime" column="created_time" />
             <result property="updatedBy" column="updated_by" />
-            <result property="updatedTime" column="update_time" />
+            <result property="updatedTime" column="updated_time" />
     </resultMap>
 
     <sql id="Base_Column_List">
         prod_invoice_id,prod_unit_id,prod_invoice_info,created_by,created_time,updated_by,
-        update_time
+        updated_time
     </sql>
 </mapper>

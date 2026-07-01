@@ -32,8 +32,8 @@
             <result property="remark" column="remark" />
             <result property="createdBy" column="created_by" />
             <result property="updatedBy" column="updated_by" />
-            <result property="createdAt" column="created_at" />
-            <result property="updatedAt" column="updated_at" />
+            <result property="createdTime" column="created_time" />
+            <result property="updatedTime" column="updated_time" />
             <result property="isDeleted" column="is_deleted" />
             <result property="version" column="version" />
     </resultMap>
@@ -44,6 +44,6 @@
         major,entry_date,work_experience,education_training,certificate_name,
         certificate_no,health_cert_no,health_cert_issue,health_cert_expire,last_checkup_date,
         health_file,attachments,status,remark,created_by,
-        updated_by,created_at,updated_at,is_deleted,version
+        updated_by,created_time,updated_time,is_deleted,version
     </sql>
 </mapper>

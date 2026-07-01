@@ -12,11 +12,11 @@
             <result property="action" column="action" />
             <result property="targetNodeId" column="target_node_id" />
             <result property="comment" column="comment" />
-            <result property="createdAt" column="created_at" />
+            <result property="createdTime" column="created_time" />
     </resultMap>
 
     <sql id="Base_Column_List">
         id,instance_id,node_id,approver_id,action,target_node_id,
-        comment,created_at
+        comment,created_time
     </sql>
 </mapper>

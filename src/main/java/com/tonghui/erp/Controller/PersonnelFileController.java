@@ -12,6 +12,7 @@ import com.tonghui.erp.Service.PersonnelFileService;
 import com.tonghui.erp.Service.PositionService;
 import com.tonghui.erp.Service.DepartmentService;
 import com.tonghui.erp.Service.UserService;
+import com.tonghui.erp.Service.PersonnelCertificateService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -34,6 +35,9 @@ public class PersonnelFileController extends BaseController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private PersonnelCertificateService personnelCertificateService;
 
     /**
      * 分页查询人员档案列表
@@ -91,6 +95,7 @@ public class PersonnelFileController extends BaseController {
             return error("人员档案不存在");
         }
         fillNameFields(file);
+        file.setCertificates(personnelCertificateService.getByPersonnelFileId(id));
         return success(file);
     }
 
@@ -149,6 +154,7 @@ public class PersonnelFileController extends BaseController {
             return error("人员档案不存在");
         }
         fillNameFields(file);
+        file.setCertificates(personnelCertificateService.getByPersonnelFileId(file.getPersonnelFileId()));
         return success(file);
     }
 

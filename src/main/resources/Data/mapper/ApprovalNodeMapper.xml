@@ -16,11 +16,11 @@
             <result property="afterPassStatus" column="after_pass_status" />
             <result property="rejectPrompt" column="reject_prompt" />
             <result property="afterRejectStatus" column="after_reject_status" />
-            <result property="createdAt" column="created_at" />
-            <result property="updatedAt" column="updated_at" />
+            <result property="createdTime" column="created_time" />
+            <result property="updatedTime" column="updated_time" />
     </resultMap>
 
     <sql id="Base_Column_List">
-        id,workflow_id,node_name,node_order,role_id,need_bind_business,bind_type,enter_node_prompt,after_pass_status,reject_prompt,after_reject_status,created_at,updated_at
+        id,workflow_id,node_name,node_order,role_id,need_bind_business,bind_type,enter_node_prompt,after_pass_status,reject_prompt,after_reject_status,created_time,updated_time
     </sql>
 </mapper>

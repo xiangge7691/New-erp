@@ -16,12 +16,12 @@
             <result property="createdBy" column="created_by" />
             <result property="createdTime" column="created_time" />
             <result property="updatedBy" column="updated_by" />
-            <result property="updatedTime" column="update_time" />
+            <result property="updatedTime" column="updated_time" />
     </resultMap>
 
     <sql id="Base_Column_List">
         prod_unit_id,prod_unit_code,prod_unit_name,prod_unit_address,prod_unit_manager,prod_unit_phone,
         prod_unit_status,prod_unit_remark,created_by,created_time,updated_by,
-        update_time
+        updated_time
     </sql>
 </mapper>

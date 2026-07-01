@@ -10,12 +10,12 @@
             <result property="processName" column="process_name" />
             <result property="processDescription" column="process_description" />
             <result property="processStatus" column="process_status" />
-            <result property="creatorId" column="creator_id" />
+            <result property="createdBy" column="created_by" />
             <result property="createdTime" column="created_time" />
     </resultMap>
 
     <sql id="Base_Column_List">
-        process_id,process_code,process_name,process_description,process_status,creator_id,
+        process_id,process_code,process_name,process_description,process_status,created_by,
         created_time
     </sql>
 </mapper>

@@ -12,11 +12,11 @@
         <result property="temperature" column="temperature" />
         <result property="humidity" column="humidity" />
         <result property="recorder" column="recorder" />
-        <result property="createdAt" column="created_at" />
+        <result property="createdTime" column="created_time" />
         <result property="isDeleted" column="is_deleted" />
     </resultMap>
 
     <sql id="Base_Column_List">
-        id,room_id,record_date,inspection_area,temperature,humidity,recorder,created_at,is_deleted
+        id,room_id,record_date,inspection_area,temperature,humidity,recorder,created_time,is_deleted
     </sql>
 </mapper>
