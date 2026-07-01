@@ -49,24 +49,30 @@ public class ApprovalInstance {
      */
     @TableField(value = "status")
     private String status;
-    
+
     /**
      * 作废原因
      */
     @TableField(value = "cancel_reason")
     private String cancelReason;
-    
+
     /**
      * 作废人 ID
      */
     @TableField(value = "cancelled_by")
     private Long cancelledBy;
-    
+
     /**
      * 作废时间
      */
     @TableField(value = "cancelled_at")
     private LocalDateTime cancelledAt;
+
+    /**
+     * 发起人ID
+     */
+    @TableField(value = "initiator_id")
+    private Long initiatorId;
 
     /**
      * 创建时间
@@ -79,6 +85,12 @@ public class ApprovalInstance {
      */
     @TableField(value = "updated_at")
     private LocalDateTime updatedAt;
+
+    /**
+     * 是否已删除
+     */
+    @TableField(value = "is_deleted")
+    private Integer isDeleted;
 
 
 // ========== 关联表显示字段（非数据库字段）==========

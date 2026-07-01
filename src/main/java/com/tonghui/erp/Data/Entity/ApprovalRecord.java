@@ -57,6 +57,12 @@ public class ApprovalRecord {
     private String comment;
 
     /**
+     * 审批时间
+     */
+    @TableField(value = "approved_at")
+    private LocalDateTime approvedAt;
+
+    /**
      * 创建时间
      */
     @TableField(value = "created_at")

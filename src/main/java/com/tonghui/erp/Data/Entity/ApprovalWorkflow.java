@@ -33,6 +33,12 @@ public class ApprovalWorkflow {
     private String workflowType;
 
     /**
+     * 状态：0停用/1启用
+     */
+    @TableField(value = "status")
+    private Integer status;
+
+    /**
      * 创建时间
      */
     @TableField(value = "created_at")
@@ -43,4 +49,10 @@ public class ApprovalWorkflow {
      */
     @TableField(value = "updated_at")
     private LocalDateTime updatedAt;
+
+    /**
+     * 是否已删除
+     */
+    @TableField(value = "is_deleted")
+    private Integer isDeleted;
 }

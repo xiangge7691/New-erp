@@ -81,6 +81,12 @@ public class ApprovalNode {
     private String afterRejectStatus;
 
     /**
+     * 驳回到哪个节点（为null时驳回到第一个节点）
+     */
+    @TableField(value = "reject_to_node_id")
+    private Long rejectToNodeId;
+
+    /**
      * 创建时间
      */
     @TableField(value = "created_at")

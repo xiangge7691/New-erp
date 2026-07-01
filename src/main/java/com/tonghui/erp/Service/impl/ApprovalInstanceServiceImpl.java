@@ -20,6 +20,7 @@ import com.tonghui.erp.Data.mapper.ApprovalInstanceMapper;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -28,29 +29,27 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
-* @author 87954
-* @description 针对表【approval_instance(审批实例)】的数据库操作Service实现
-* @createDate 2025-12-18 09:50:00
-*/
+ * 审批实例服务实现
+ */
 @Service
 public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMapper, ApprovalInstance>
-    implements ApprovalInstanceService{
-    
+    implements ApprovalInstanceService {
+
     @Autowired
     private ApprovalNodeService approvalNodeService;
-    
+
     @Autowired
     private RoleService roleService;
-    
+
     @Autowired
     private UserRoleService userRoleService;
-    
+
     @Autowired
     private ApprovalRecordService approvalRecordService;
 
     @Autowired
     private ApprovalRecordMapper approvalRecordMapper;
-    
+
     @Override
     public ApprovalInstance getInstanceByRelated(Long relatedId, String relatedType) {
         QueryWrapper<ApprovalInstance> queryWrapper = new QueryWrapper<>();
@@ -58,14 +57,14 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
         queryWrapper.eq("related_type", relatedType);
         return getOne(queryWrapper);
     }
-    
+
     @Override
     public List<ApprovalInstance> getInstancesByWorkflowId(Long workflowId) {
         QueryWrapper<ApprovalInstance> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("workflow_id", workflowId);
         return list(queryWrapper);
     }
-    
+
     @Override
     public List<ApprovalInstance> getInstancesByStatus(String status) {
         QueryWrapper<ApprovalInstance> queryWrapper = new QueryWrapper<>();
@@ -75,20 +74,16 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
 
     @Override
     public PagedResult<ApprovalInstance> getInstances(int pageIndex, int pageSize) {
-        // 创建Page对象，处理全量数据的情况
         Page<ApprovalInstance> page;
         boolean isAllData = (pageIndex == -1 || pageSize == -1);
         if (isAllData) {
-            // 获取所有数据
             page = new Page<>(1, Integer.MAX_VALUE);
         } else {
-            // 页码从0开始，但MyBatis Plus的Page页码从1开始，所以需要+1
             page = new Page<>(pageIndex + 1, pageSize);
         }
 
-        // 构建查询条件
         QueryWrapper<ApprovalInstance> queryWrapper = new QueryWrapper<>();
-        queryWrapper.orderByDesc("created_at"); // 按创建时间倒序排列
+        queryWrapper.orderByDesc("created_at");
 
         Page<ApprovalInstance> resultPage = this.page(page, queryWrapper);
 
@@ -98,43 +93,36 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
         pagedResult.setPageIndex(isAllData ? 0 : pageIndex);
         pagedResult.setPageSize((int) resultPage.getSize());
 
-        // 如果是全量数据，调整pageSize为实际记录数
         if (isAllData) {
             pagedResult.setPageSize((int) resultPage.getTotal());
         }
 
         return pagedResult;
     }
-    
+
     @Override
     public List<CurrentHandlerRoleDto> getCurrentHandlerRoles(Long id) {
         List<CurrentHandlerRoleDto> result = new ArrayList<>();
-        
-        // 获取审批实例
+
         ApprovalInstance instance = getById(id);
         if (instance == null) {
             return result;
         }
-        
-        // 获取流程中的所有节点
+
         List<ApprovalNode> nodes = approvalNodeService.getNodesByWorkflowId(instance.getWorkflowId());
         if (nodes == null || nodes.isEmpty()) {
             return result;
         }
-        
-        // 按节点顺序排序
+
         nodes.sort((n1, n2) -> n1.getNodeOrder().compareTo(n2.getNodeOrder()));
-        
-        // 判断当前实例状态
+
         boolean isPending = "PENDING".equals(instance.getStatus());
         boolean isTransferred = "TRANSFERRED".equals(instance.getStatus());
-        
-        // 如果实例已完成或已驳回，则没有需要处理的角色
+
         if (!isPending && !isTransferred) {
             return result;
         }
-        
-        // 获取当前节点
+
         ApprovalNode currentNode = null;
         if (instance.getCurrentNodeId() != null) {
             currentNode = nodes.stream()
@@ -142,19 +130,17 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
                 .findFirst()
                 .orElse(null);
         }
-        
-        // 如果没有当前节点，取第一个节点作为当前节点
+
         if (currentNode == null && !nodes.isEmpty()) {
             currentNode = nodes.get(0);
         }
-        
-        // 构建所有涉及的角色信息
+
         for (ApprovalNode node : nodes) {
             if (node.getRoleId() == null) continue;
-            
+
             com.tonghui.erp.Data.Entity.Role role = roleService.getById(node.getRoleId());
             if (role == null) continue;
-            
+
             CurrentHandlerRoleDto roleDto = new CurrentHandlerRoleDto();
             roleDto.setRoleId(role.getRoleId());
             roleDto.setRoleName(role.getRoleName());
@@ -162,92 +148,79 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
             roleDto.setNodeId(node.getId());
             roleDto.setNodeName(node.getNodeName());
             roleDto.setNodeOrder(node.getNodeOrder());
-            
-            // 判断是否为当前处理节点
-            boolean isCurrentNode = currentNode != null && 
+
+            boolean isCurrentNode = currentNode != null &&
                 currentNode.getId().equals(node.getId());
             roleDto.setIsCurrentNode(isCurrentNode);
-            
-            // 设置状态描述
+
             if (isCurrentNode) {
                 roleDto.setStatusDescription("当前待处理");
-            } else if (node.getNodeOrder() < currentNode.getNodeOrder()) {
+            } else if (currentNode != null && node.getNodeOrder() < currentNode.getNodeOrder()) {
                 roleDto.setStatusDescription("已处理");
             } else {
                 roleDto.setStatusDescription("待处理");
             }
-            
-            // 获取该角色下的用户列表
+
             List<UserRole> userRoles = userRoleService.list(
                 new QueryWrapper<UserRole>().eq("role_id", role.getRoleId())
             );
             if (userRoles != null && !userRoles.isEmpty()) {
                 List<String> roleIds = userRoles.stream()
                     .map(ur -> String.valueOf(ur.getRoleId()))
-                    .collect(java.util.stream.Collectors.toList());
+                    .collect(Collectors.toList());
                 roleDto.setUserList(roleIds);
-
             }
-            
+
             result.add(roleDto);
         }
-        
+
         return result;
     }
-    
+
     @Override
     public boolean isCurrentUserHandler(Long id, Long userId) {
-        // 获取当前处理角色列表
         List<CurrentHandlerRoleDto> handlerRoles = getCurrentHandlerRoles(id);
-        
-        // 检查用户所属的角色是否在当前处理角色列表中
+
         for (CurrentHandlerRoleDto roleDto : handlerRoles) {
             if (Boolean.TRUE.equals(roleDto.getIsCurrentNode())) {
-                // 获取该角色下的用户
                 List<UserRole> userRoles = userRoleService.list(
                     new QueryWrapper<UserRole>().eq("role_id", roleDto.getRoleId())
                 );
-                
-                // 检查用户是否属于该角色
+
                 boolean userInRole = userRoles.stream()
                     .anyMatch(ur -> ur.getUserId() != null && ur.getUserId().equals(userId));
-                
+
                 if (userInRole) {
                     return true;
                 }
             }
         }
-        
+
         return false;
     }
-    
+
     @Override
     public boolean cancelInstance(Long instanceId, Long userId, String cancelReason) {
-        // 获取审批实例
         ApprovalInstance instance = getById(instanceId);
         if (instance == null) {
             return false;
         }
-        
-        // 检查实例状态，只有待审批的实例才能作废
+
         if (!"PENDING".equals(instance.getStatus())) {
             return false;
         }
-        
-        // 更新实例状态为已作废
+
         instance.setStatus("CANCELLED");
         instance.setCancelReason(cancelReason);
         instance.setCancelledBy(userId);
         instance.setCancelledAt(LocalDateTime.now());
         instance.setUpdatedAt(LocalDateTime.now());
-        
-        // 保存更新
+
         boolean updated = updateById(instance);
         if (!updated) {
             return false;
         }
-        
-        // 记录作废操作到审批记录表
+
         try {
             ApprovalRecord record = new ApprovalRecord();
             record.setInstanceId(instanceId);
@@ -255,13 +228,13 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
             record.setApproverId(userId);
             record.setAction("CANCEL");
             record.setComment(cancelReason);
+            record.setApprovedAt(LocalDateTime.now());
             record.setCreatedAt(LocalDateTime.now());
             approvalRecordService.save(record);
         } catch (Exception e) {
-            // 记录日志但不影响主流程
             e.printStackTrace();
         }
-        
+
         return true;
     }
 
@@ -299,8 +272,169 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
         result.setPageSize(pageSize);
         return result;
     }
+
+    // ========== 审批流程引擎 ==========
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void approve(Long instanceId, Long userId, String remark) {
+        ApprovalInstance instance = getById(instanceId);
+        if (instance == null) {
+            throw new RuntimeException("审批实例不存在");
+        }
+        if (!"PENDING".equals(instance.getStatus()) && !"TRANSFERRED".equals(instance.getStatus())) {
+            throw new RuntimeException("当前状态不允许审批操作");
+        }
+        if (!isCurrentUserHandler(instanceId, userId)) {
+            throw new RuntimeException("您不是当前节点的审批人");
+        }
+
+        ApprovalNode currentNode = getCurrentNode(instance);
+        if (currentNode == null) {
+            throw new RuntimeException("当前节点不存在");
+        }
+
+        // 记录审批操作
+        saveRecord(instanceId, currentNode.getId(), userId, "AGREE", remark, null);
+
+        // 查找下一个节点
+        ApprovalNode nextNode = getNextNode(instance.getWorkflowId(), currentNode.getNodeOrder());
+
+        if (nextNode != null) {
+            // 有下一个节点，更新当前节点
+            instance.setCurrentNodeId(nextNode.getId());
+            instance.setStatus("PENDING");
+        } else {
+            // 没有下一个节点，审批通过
+            instance.setStatus("APPROVED");
+        }
+
+        instance.setUpdatedAt(LocalDateTime.now());
+        updateById(instance);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void reject(Long instanceId, Long userId, String remark) {
+        ApprovalInstance instance = getById(instanceId);
+        if (instance == null) {
+            throw new RuntimeException("审批实例不存在");
+        }
+        if (!"PENDING".equals(instance.getStatus()) && !"TRANSFERRED".equals(instance.getStatus())) {
+            throw new RuntimeException("当前状态不允许驳回操作");
+        }
+        if (!isCurrentUserHandler(instanceId, userId)) {
+            throw new RuntimeException("您不是当前节点的审批人");
+        }
+
+        ApprovalNode currentNode = getCurrentNode(instance);
+        if (currentNode == null) {
+            throw new RuntimeException("当前节点不存在");
+        }
+
+        // 记录驳回操作
+        saveRecord(instanceId, currentNode.getId(), userId, "REJECT", remark, null);
+
+        // 判断驳回到哪个节点
+        Long rejectToNodeId = currentNode.getRejectToNodeId();
+        if (rejectToNodeId != null) {
+            // 驳回到指定节点，实例保持PENDING
+            instance.setCurrentNodeId(rejectToNodeId);
+            instance.setStatus("PENDING");
+        } else {
+            // 没有指定驳回节点，审批驳回
+            instance.setStatus("REJECTED");
+        }
+
+        instance.setUpdatedAt(LocalDateTime.now());
+        updateById(instance);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void transfer(Long instanceId, Long userId, String remark) {
+        ApprovalInstance instance = getById(instanceId);
+        if (instance == null) {
+            throw new RuntimeException("审批实例不存在");
+        }
+        if (!"PENDING".equals(instance.getStatus())) {
+            throw new RuntimeException("当前状态不允许转交操作");
+        }
+        if (!isCurrentUserHandler(instanceId, userId)) {
+            throw new RuntimeException("您不是当前节点的审批人");
+        }
+
+        ApprovalNode currentNode = getCurrentNode(instance);
+        if (currentNode == null) {
+            throw new RuntimeException("当前节点不存在");
+        }
+
+        // 记录转交操作
+        saveRecord(instanceId, currentNode.getId(), userId, "TRANSFER", remark, currentNode.getId());
+
+        // 转交后实例状态变为TRANSFERRED，等待新处理人
+        instance.setStatus("TRANSFERRED");
+        instance.setUpdatedAt(LocalDateTime.now());
+        updateById(instance);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ApprovalInstance createWithBinding(String relatedType, Long relatedId, Long workflowId, Long initiatorId) {
+        ApprovalInstance instance = new ApprovalInstance();
+        instance.setWorkflowId(workflowId);
+        instance.setRelatedId(relatedId);
+        instance.setRelatedType(relatedType);
+        instance.setInitiatorId(initiatorId);
+        instance.setStatus("PENDING");
+        instance.setIsDeleted(0);
+        instance.setCreatedAt(LocalDateTime.now());
+        instance.setUpdatedAt(LocalDateTime.now());
+
+        // 获取流程的第一个节点
+        List<ApprovalNode> nodes = approvalNodeService.getNodesByWorkflowId(workflowId);
+        if (nodes != null && !nodes.isEmpty()) {
+            nodes.sort((n1, n2) -> n1.getNodeOrder().compareTo(n2.getNodeOrder()));
+            instance.setCurrentNodeId(nodes.get(0).getId());
+        }
+
+        save(instance);
+        return instance;
+    }
+
+    // ========== 私有方法 ==========
+
+    private ApprovalNode getCurrentNode(ApprovalInstance instance) {
+        if (instance.getCurrentNodeId() == null) {
+            return null;
+        }
+        return approvalNodeService.getById(instance.getCurrentNodeId());
+    }
+
+    private ApprovalNode getNextNode(Long workflowId, Integer currentNodeOrder) {
+        List<ApprovalNode> nodes = approvalNodeService.getNodesByWorkflowId(workflowId);
+        if (nodes == null || nodes.isEmpty()) {
+            return null;
+        }
+        nodes.sort((n1, n2) -> n1.getNodeOrder().compareTo(n2.getNodeOrder()));
+        for (ApprovalNode node : nodes) {
+            if (node.getNodeOrder() > currentNodeOrder) {
+                return node;
+            }
+        }
+        return null;
+    }
+
+    private void saveRecord(Long instanceId, Long nodeId, Long userId, String action, String remark, Long targetNodeId) {
+        ApprovalRecord record = new ApprovalRecord();
+        record.setInstanceId(instanceId);
+        record.setNodeId(nodeId);
+        record.setApproverId(userId);
+        record.setAction(action);
+        record.setComment(remark);
+        record.setTargetNodeId(targetNodeId);
+        record.setApprovedAt(LocalDateTime.now());
+        record.setCreatedAt(LocalDateTime.now());
+        approvalRecordService.save(record);
+    }
 }
-
-
-
-

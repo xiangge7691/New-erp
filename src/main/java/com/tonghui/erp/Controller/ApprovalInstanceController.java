@@ -6,12 +6,12 @@ import com.tonghui.erp.Common.Dto.Approval.CancelRequest;
 import com.tonghui.erp.Common.Dto.Approval.CurrentHandlerRoleDto;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.ApprovalInstance;
 import com.tonghui.erp.Service.ApprovalInstanceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -31,10 +31,8 @@ public class ApprovalInstanceController extends BaseController {
     public ApiResponse<PagedResult<ApprovalInstance>> listInstances(@ModelAttribute PageRequestDto pageRequest) {
         try {
             pageRequest = processPageRequest(pageRequest);
-            // 使用MyBatis Plus分页查询
             PagedResult<ApprovalInstance> result;
             if (pageRequest.getPageIndex() == -1 || pageRequest.getPageSize() == -1) {
-                // 获取所有数据
                 result = approvalInstanceService.getInstances(-1, -1);
             } else {
                 result = approvalInstanceService.getInstances(pageRequest.getPageIndex(), pageRequest.getPageSize());
@@ -110,12 +108,35 @@ public class ApprovalInstanceController extends BaseController {
     @PostMapping
     public ApiResponse<ApprovalInstance> createInstance(@RequestBody ApprovalInstance instance) {
         try {
+            instance.setInitiatorId(EntityUtils.getCurrentUserId());
             boolean saved = approvalInstanceService.save(instance);
             if (saved) {
                 return success(instance, "审批实例创建成功");
             } else {
                 return error("审批实例创建失败");
             }
+        } catch (Exception e) {
+            return exception(e, "创建审批实例");
+        }
+    }
+
+    /**
+     * 创建审批实例并绑定业务
+     *
+     * @param relatedType 业务类型（如 PURCHASE_ORDER）
+     * @param relatedId   业务ID
+     * @param workflowId  流程ID
+     */
+    @PostMapping("/create-with-binding")
+    public ApiResponse<ApprovalInstance> createWithBinding(
+            @RequestParam String relatedType,
+            @RequestParam Long relatedId,
+            @RequestParam Long workflowId) {
+        try {
+            Long initiatorId = EntityUtils.getCurrentUserId();
+            ApprovalInstance instance = approvalInstanceService.createWithBinding(
+                    relatedType, relatedId, workflowId, initiatorId);
+            return success(instance, "审批实例创建成功");
         } catch (Exception e) {
             return exception(e, "创建审批实例");
         }
@@ -138,11 +159,9 @@ public class ApprovalInstanceController extends BaseController {
             return exception(e, "更新审批实例");
         }
     }
-    
+
     /**
      * 获取审批实例的当前处理角色列表
-     * @param id 审批实例ID
-     * @return 当前需要处理的角色列表
      */
     @GetMapping("/{id}/current-handler-roles")
     public ApiResponse<List<CurrentHandlerRoleDto>> getCurrentHandlerRoles(@PathVariable Long id) {
@@ -153,12 +172,9 @@ public class ApprovalInstanceController extends BaseController {
             return exception(e, "获取当前处理角色列表");
         }
     }
-    
+
     /**
      * 检查用户是否为当前审批实例的处理人
-     * @param id 审批实例 ID
-     * @param userId 用户 ID
-     * @return true 表示用户需要处理该实例，false 表示不需要
      */
     @GetMapping("/{id}/check-handler/{userId}")
     public ApiResponse<Boolean> isCurrentUserHandler(@PathVariable Long id, @PathVariable Long userId) {
@@ -169,19 +185,9 @@ public class ApprovalInstanceController extends BaseController {
             return exception(e, "检查用户处理权限");
         }
     }
-    
+
     /**
-     * 根据 ID 删除审批实例
-     * DELETE /api/approval/instance/{id}
-     * 请求参数:
-     * - id: 审批实例 ID
-     * 返回参数:
-     * {
-     *   "code": 200,
-     *   "message": "审批实例删除成功",
-     *   "data": null,
-     *   "timestamp": 时间戳
-     * }
+     * 删除审批实例
      */
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deleteInstance(@PathVariable Long id) {
@@ -196,39 +202,20 @@ public class ApprovalInstanceController extends BaseController {
             return exception(e, "删除审批实例");
         }
     }
-    
+
     /**
      * 作废审批实例
-     * POST /api/approval/instance/{id}/cancel
-     * 请求参数:
-     * - id: 审批实例 ID
-     * 请求体:
-     * {
-     *   "userId": 作废人用户 ID,
-     *   "cancelReason": "作废原因"
-     * }
-     * 返回参数:
-     * {
-     *   "code": 200,
-     *   "message": "审批实例作废成功",
-     *   "data": null,
-     *   "timestamp": 时间戳
-     * }
      */
     @PostMapping("/{id}/cancel")
     public ApiResponse<Void> cancelInstance(@PathVariable Long id,
                                             @RequestBody CancelRequest request) {
         try {
-            // 验证请求参数
             if (request == null || request.getUserId() == null) {
                 return error("作废人 ID 不能为空");
             }
-            
             if (request.getCancelReason() == null || request.getCancelReason().trim().isEmpty()) {
                 return error("作废原因不能为空");
             }
-            
-            // 执行作废操作
             boolean cancelled = approvalInstanceService.cancelInstance(id, request.getUserId(), request.getCancelReason());
             if (cancelled) {
                 return success(null, "审批实例作废成功");
@@ -241,11 +228,52 @@ public class ApprovalInstanceController extends BaseController {
     }
 
     /**
+     * 同意审批
+     */
+    @PostMapping("/{id}/approve")
+    public ApiResponse<Void> approveInstance(@PathVariable Long id,
+                                             @RequestParam(required = false) String remark) {
+        try {
+            Long userId = EntityUtils.getCurrentUserId();
+            approvalInstanceService.approve(id, userId, remark);
+            return success(null, "审批同意成功");
+        } catch (Exception e) {
+            return exception(e, "同意审批");
+        }
+    }
+
+    /**
+     * 驳回审批
+     */
+    @PostMapping("/{id}/reject")
+    public ApiResponse<Void> rejectInstance(@PathVariable Long id,
+                                            @RequestParam(required = false) String remark) {
+        try {
+            Long userId = EntityUtils.getCurrentUserId();
+            approvalInstanceService.reject(id, userId, remark);
+            return success(null, "审批驳回成功");
+        } catch (Exception e) {
+            return exception(e, "驳回审批");
+        }
+    }
+
+    /**
+     * 转交审批
+     */
+    @PostMapping("/{id}/transfer")
+    public ApiResponse<Void> transferInstance(@PathVariable Long id,
+                                              @RequestParam(required = false) String remark) {
+        try {
+            Long userId = EntityUtils.getCurrentUserId();
+            approvalInstanceService.transfer(id, userId, remark);
+            return success(null, "审批转交成功");
+        } catch (Exception e) {
+            return exception(e, "转交审批");
+        }
+    }
+
+    /**
      * 查询审批实例（包含审批记录子表）
-     *
-     * @param pageIndex 页码
-     * @param pageSize  每页数量
-     * @return 分页结果（包含审批记录）
      */
     @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<ApprovalInstanceWithRecordsDto>> searchWithDetails(
