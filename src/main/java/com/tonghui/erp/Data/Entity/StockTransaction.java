@@ -1,6 +1,5 @@
 package com.tonghui.erp.Data.Entity;
 
-import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -8,6 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 库存交易记录表（用于审计和追溯）
@@ -15,7 +15,8 @@ import lombok.Data;
  */
 @TableName(value ="stock_transaction")
 @Data
-public class StockTransaction {
+@EqualsAndHashCode(callSuper = true)
+public class StockTransaction extends AuditEntity {
     /**
      * 交易记录唯一标识
      */
@@ -81,18 +82,6 @@ public class StockTransaction {
      */
     @TableField(value = "remark")
     private String remark;
-
-    /**
-     * 操作人ID
-     */
-    @TableField(value = "created_by", fill = FieldFill.INSERT)
-    private Long createdBy;
-
-    /**
-     * 创建时间
-     */
-    @TableField(value = "created_time", fill = FieldFill.INSERT)
-    private LocalDateTime createdTime;
 
     /**
      * 是否已删除

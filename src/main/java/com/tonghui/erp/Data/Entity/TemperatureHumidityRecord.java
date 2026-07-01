@@ -6,8 +6,8 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 温湿度记录表（硬件预留）
@@ -15,7 +15,8 @@ import lombok.Data;
  */
 @TableName(value = "temperature_humidity_record")
 @Data
-public class TemperatureHumidityRecord {
+@EqualsAndHashCode(callSuper = true)
+public class TemperatureHumidityRecord extends AuditEntity {
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
@@ -36,9 +37,6 @@ public class TemperatureHumidityRecord {
 
     @TableField(value = "recorder")
     private String recorder;
-
-    @TableField(value = "created_at")
-    private LocalDateTime createdAt;
 
     @TableField(value = "is_deleted")
     private Integer isDeleted;

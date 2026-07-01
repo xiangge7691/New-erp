@@ -79,7 +79,7 @@ public class DisinfectionRecordController extends BaseController {
     public ApiResponse<DisinfectionRecord> create(@PathVariable Integer roomId, @RequestBody DisinfectionRecord record) {
         try {
             record.setRoomId(roomId);
-            record.setCreatedAt(LocalDateTime.now());
+            record.setCreatedTime(LocalDateTime.now());
             record.setIsDeleted(0);
 
             if (record.getDisinfectionDate() != null && record.getDisinfectionCycle() != null
@@ -105,7 +105,7 @@ public class DisinfectionRecordController extends BaseController {
                 return error("记录不存在");
             }
             record.setId(id);
-            record.setUpdatedAt(LocalDateTime.now());
+            record.setUpdatedTime(LocalDateTime.now());
             disinfectionRecordService.updateById(record);
             return success(record, "修改成功");
         } catch (Exception e) {

@@ -193,8 +193,8 @@ public class SystemMenuController {
         copy.setParentId(source.getParentId());
         copy.setDisplayOrder(source.getDisplayOrder());
         copy.setStatus(source.getStatus());
-        copy.setCreatedAt(source.getCreatedAt());
-        copy.setUpdatedAt(source.getUpdatedAt());
+        copy.setCreatedTime(source.getCreatedTime());
+        copy.setUpdatedTime(source.getUpdatedTime());
         return copy;
     }
 

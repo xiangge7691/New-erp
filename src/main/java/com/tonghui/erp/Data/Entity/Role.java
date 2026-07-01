@@ -1,12 +1,11 @@
 package com.tonghui.erp.Data.Entity;
 
-import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import java.time.LocalDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 系统角色表
@@ -14,7 +13,8 @@ import lombok.Data;
  */
 @TableName(value ="role")
 @Data
-public class Role {
+@EqualsAndHashCode(callSuper = true)
+public class Role extends AuditEntity {
     /**
      * 角色唯一标识
      */
@@ -38,18 +38,6 @@ public class Role {
      */
     @TableField(value = "role_status")
     private Integer roleStatus;
-
-    /**
-     * 创建时间
-     */
-    @TableField(value = "created_time", fill = FieldFill.INSERT)
-    private LocalDateTime createdTime;
-
-    /**
-     * 更新时间
-     */
-    @TableField(value = "updated_time", fill = FieldFill.INSERT_UPDATE)
-    private LocalDateTime updatedTime;
 
     /**
      * 是否已删除

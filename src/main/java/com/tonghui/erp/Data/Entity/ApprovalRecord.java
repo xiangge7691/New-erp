@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.time.LocalDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 审批记录
@@ -13,7 +14,8 @@ import lombok.Data;
  */
 @TableName(value ="approval_record")
 @Data
-public class ApprovalRecord {
+@EqualsAndHashCode(callSuper = true)
+public class ApprovalRecord extends AuditEntity {
     /**
      * 主键ID
      */
@@ -61,12 +63,6 @@ public class ApprovalRecord {
      */
     @TableField(value = "approved_at")
     private LocalDateTime approvedAt;
-
-    /**
-     * 创建时间
-     */
-    @TableField(value = "created_at")
-    private LocalDateTime createdAt;
 
 
 // ========== 关联表显示字段（非数据库字段）==========

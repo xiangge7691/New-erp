@@ -1,12 +1,11 @@
 package com.tonghui.erp.Data.Entity;
 
-import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import java.time.LocalDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 用户信息表
@@ -14,7 +13,8 @@ import lombok.Data;
  */
 @TableName(value ="user")
 @Data
-public class User {
+@EqualsAndHashCode(callSuper = true)
+public class User extends AuditEntity {
     /**
      * 用户唯一标识
      */
@@ -62,18 +62,6 @@ public class User {
      */
     @TableField(value = "user_notes")
     private String userNotes;
-
-    /**
-     * 创建时间
-     */
-    @TableField(value = "created_time", fill = FieldFill.INSERT)
-    private LocalDateTime createdTime;
-
-    /**
-     * 更新时间
-     */
-    @TableField(value = "updated_time", fill = FieldFill.INSERT_UPDATE)
-    private LocalDateTime updatedTime;
 
     /**
      * 是否已删除

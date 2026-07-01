@@ -6,8 +6,8 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 设备维保记录表
@@ -15,7 +15,8 @@ import lombok.Data;
  */
 @TableName(value = "equipment_maintenance")
 @Data
-public class EquipmentMaintenance {
+@EqualsAndHashCode(callSuper = true)
+public class EquipmentMaintenance extends AuditEntity {
     /**
      * 维保记录唯一标识
      */
@@ -87,30 +88,6 @@ public class EquipmentMaintenance {
      */
     @TableField(value = "remark")
     private String remark;
-
-    /**
-     * 创建人ID
-     */
-    @TableField(value = "created_by")
-    private Long createdBy;
-
-    /**
-     * 更新人ID
-     */
-    @TableField(value = "updated_by")
-    private Long updatedBy;
-
-    /**
-     * 创建时间
-     */
-    @TableField(value = "created_at")
-    private LocalDateTime createdAt;
-
-    /**
-     * 更新时间
-     */
-    @TableField(value = "updated_at")
-    private LocalDateTime updatedAt;
 
     /**
      * 是否已删除

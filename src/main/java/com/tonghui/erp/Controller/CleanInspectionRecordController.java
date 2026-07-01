@@ -77,7 +77,7 @@ public class CleanInspectionRecordController extends BaseController {
     public ApiResponse<CleanInspectionRecord> create(@PathVariable Integer roomId, @RequestBody CleanInspectionRecord record) {
         try {
             record.setRoomId(roomId);
-            record.setCreatedAt(LocalDateTime.now());
+            record.setCreatedTime(LocalDateTime.now());
             record.setIsDeleted(0);
             cleanInspectionRecordService.save(record);
             return success(record, "新增成功");
@@ -97,7 +97,7 @@ public class CleanInspectionRecordController extends BaseController {
                 return error("记录不存在");
             }
             record.setId(id);
-            record.setUpdatedAt(LocalDateTime.now());
+            record.setUpdatedTime(LocalDateTime.now());
             cleanInspectionRecordService.updateById(record);
             return success(record, "修改成功");
         } catch (Exception e) {

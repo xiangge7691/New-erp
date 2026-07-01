@@ -77,7 +77,7 @@ public class TemperatureHumidityRecordController extends BaseController {
     public ApiResponse<TemperatureHumidityRecord> create(@PathVariable Integer roomId, @RequestBody TemperatureHumidityRecord record) {
         try {
             record.setRoomId(roomId);
-            record.setCreatedAt(LocalDateTime.now());
+            record.setCreatedTime(LocalDateTime.now());
             record.setIsDeleted(0);
             temperatureHumidityRecordService.save(record);
             return success(record, "新增成功");

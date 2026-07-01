@@ -4,8 +4,8 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import java.time.LocalDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 系统权限表
@@ -13,7 +13,8 @@ import lombok.Data;
  */
 @TableName(value ="permission")
 @Data
-public class Permission {
+@EqualsAndHashCode(callSuper = true)
+public class Permission extends AuditEntity {
     /**
      * 权限唯一标识
      */
@@ -60,18 +61,6 @@ public class Permission {
     public void setStatus(Integer status) {
         this.permStatus = status;
     }
-
-    /**
-     * 创建时间
-     */
-    @TableField(value = "created_at")
-    private LocalDateTime createdAt;
-
-    /**
-     * 更新时间
-     */
-    @TableField(value = "updated_at")
-    private LocalDateTime updatedAt;
 
     /**
      * 是否已删除

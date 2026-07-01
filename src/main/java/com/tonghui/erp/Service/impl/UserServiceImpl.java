@@ -340,7 +340,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                     UserRole userRole = new UserRole();
                     userRole.setUserId(userId);
                     userRole.setRoleId(roleId);
-                    userRole.setCreatedAt(LocalDateTime.now());
+                    userRole.setCreatedTime(LocalDateTime.now());
                     userRoleService.save(userRole);
                 }
             }
@@ -371,7 +371,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                     userDepartment.setUserId(userId);
                     userDepartment.setDepartmentId(departmentIds.get(i));
                     userDepartment.setIsPrimary(i == 0 ? 1 : 0); // 第一个部门设为主部门
-                    userDepartment.setCreatedAt(LocalDateTime.now());
+                    userDepartment.setCreatedTime(LocalDateTime.now());
                     userDepartmentService.save(userDepartment);
                 }
             }
@@ -483,8 +483,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                 departmentDto.setId(department.getDepartmentId());
                 departmentDto.setDepartmentName(department.getDepartmentName());
                 // 清除不存在的字段
-                departmentDto.setCreatedAt(null);
-                departmentDto.setUpdatedAt(null);
+                departmentDto.setCreatedTime(null);
+                departmentDto.setUpdatedTime(null);
                 departmentDtos.add(departmentDto);
 
                 // 设置主部门

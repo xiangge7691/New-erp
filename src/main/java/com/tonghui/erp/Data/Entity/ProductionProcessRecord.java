@@ -1,6 +1,5 @@
 package com.tonghui.erp.Data.Entity;
 
-import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -8,6 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 生产工序记录表
@@ -15,7 +15,8 @@ import lombok.Data;
  */
 @TableName(value ="production_process_record")
 @Data
-public class ProductionProcessRecord {
+@EqualsAndHashCode(callSuper = true)
+public class ProductionProcessRecord extends AuditEntity {
     /**
      * 记录 ID，主键。自增长，唯一标识。
      */
@@ -117,30 +118,6 @@ public class ProductionProcessRecord {
      */
     @TableField(value = "remark")
     private String remark;
-
-    /**
-     * 创建人 ID。记录创建者 ID，关联用户表 (user.user_id)。
-     */
-    @TableField(value = "creator_id", fill = FieldFill.INSERT)
-    private Long creatorId;
-
-    /**
-     * 创建时间。记录插入时间，自动填充。
-     */
-    @TableField(value = "created_time", fill = FieldFill.INSERT)
-    private LocalDateTime createdTime;
-
-    /**
-     * 修改人 ID。记录最后修改者 ID，关联用户表 (user.user_id)。
-     */
-    @TableField(value = "updater_id", fill = FieldFill.INSERT_UPDATE)
-    private Long updaterId;
-
-    /**
-     * 最后修改时间。记录更新时自动更新。
-     */
-    @TableField(value = "updated_time", fill = FieldFill.INSERT_UPDATE)
-    private LocalDateTime updatedTime;
 
     /**
      * 是否已删除

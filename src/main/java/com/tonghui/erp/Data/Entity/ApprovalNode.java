@@ -4,8 +4,8 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import java.time.LocalDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 审批节点定义
@@ -13,7 +13,8 @@ import lombok.Data;
  */
 @TableName(value ="approval_node")
 @Data
-public class ApprovalNode {
+@EqualsAndHashCode(callSuper = true)
+public class ApprovalNode extends AuditEntity {
     /**
      * 主键ID
      */
@@ -85,18 +86,6 @@ public class ApprovalNode {
      */
     @TableField(value = "reject_to_node_id")
     private Long rejectToNodeId;
-
-    /**
-     * 创建时间
-     */
-    @TableField(value = "created_at")
-    private LocalDateTime createdAt;
-
-    /**
-     * 更新时间
-     */
-    @TableField(value = "updated_at")
-    private LocalDateTime updatedAt;
 
 
 // ========== 关联表显示字段（非数据库字段）==========

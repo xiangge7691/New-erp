@@ -56,8 +56,8 @@ public class RoomInfoController extends BaseCrudController<RoomInfo, RoomInfo, I
         // 设置创建人 ID 和更新人 ID
         Long currentUserId = EntityUtils.getCurrentUserId();
         if (currentUserId != null) {
-            roomInfo.setCreatorId(currentUserId);
-            roomInfo.setUpdaterId(currentUserId);
+            roomInfo.setCreatedBy(currentUserId);
+            roomInfo.setUpdatedBy(currentUserId);
         }
         
         // 设置创建时间和更新时间
@@ -85,7 +85,7 @@ public class RoomInfoController extends BaseCrudController<RoomInfo, RoomInfo, I
         // 设置更新人 ID 和更新时间
         Long currentUserId = EntityUtils.getCurrentUserId();
         if (currentUserId != null) {
-            roomInfo.setUpdaterId(currentUserId);
+            roomInfo.setUpdatedBy(currentUserId);
         }
         roomInfo.setUpdatedTime(LocalDateTime.now());
 

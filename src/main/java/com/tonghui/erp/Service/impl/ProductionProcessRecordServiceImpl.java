@@ -249,7 +249,7 @@ public class ProductionProcessRecordServiceImpl extends ServiceImpl<ProductionPr
         }
         
         record.setRecordStatus(0);
-        record.setUpdaterId(updaterId);
+        record.setUpdatedBy(updaterId);
         record.setUpdatedTime(LocalDateTime.now());
         
         return this.updateById(record);

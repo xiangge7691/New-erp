@@ -45,7 +45,7 @@ public class UserDepartmentDto {
      * 创建时间
      * <p>关联关系的创建时间</p>
      */
-    private LocalDateTime createdAt;
+    private LocalDateTime createdTime;
     
     //#endregion
 }

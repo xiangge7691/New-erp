@@ -4,8 +4,8 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import java.time.LocalDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 用户-角色关联表
@@ -13,7 +13,8 @@ import lombok.Data;
  */
 @TableName(value ="user_role")
 @Data
-public class UserRole {
+@EqualsAndHashCode(callSuper = true)
+public class UserRole extends AuditEntity {
     /**
      * 关联ID
      */
@@ -31,12 +32,6 @@ public class UserRole {
      */
     @TableField(value = "role_id")
     private Long roleId;
-
-    /**
-     * 创建时间
-     */
-    @TableField(value = "created_at")
-    private LocalDateTime createdAt;
 
     /**
      * 是否已删除

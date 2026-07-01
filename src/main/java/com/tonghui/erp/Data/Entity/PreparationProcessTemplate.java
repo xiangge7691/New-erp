@@ -5,8 +5,8 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 制剂工序模版表
@@ -14,7 +14,8 @@ import lombok.Data;
  */
 @TableName(value = "preparation_process_template")
 @Data
-public class PreparationProcessTemplate {
+@EqualsAndHashCode(callSuper = true)
+public class PreparationProcessTemplate extends AuditEntity {
     /**
      * 模版唯一标识
      */
@@ -74,30 +75,6 @@ public class PreparationProcessTemplate {
      */
     @TableField(value = "remark")
     private String remark;
-
-    /**
-     * 创建人ID
-     */
-    @TableField(value = "created_by")
-    private Long createdBy;
-
-    /**
-     * 更新人ID
-     */
-    @TableField(value = "updated_by")
-    private Long updatedBy;
-
-    /**
-     * 创建时间
-     */
-    @TableField(value = "created_at")
-    private LocalDateTime createdAt;
-
-    /**
-     * 更新时间
-     */
-    @TableField(value = "updated_at")
-    private LocalDateTime updatedAt;
 
     /**
      * 是否已删除

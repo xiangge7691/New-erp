@@ -1,12 +1,11 @@
 package com.tonghui.erp.Data.Entity;
 
-import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import java.time.LocalDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 文件信息表
@@ -14,7 +13,8 @@ import lombok.Data;
  */
 @TableName(value ="file_info")
 @Data
-public class FileInfo {
+@EqualsAndHashCode(callSuper = true)
+public class FileInfo extends AuditEntity {
     /**
      * 文件唯一标识
      */
@@ -98,24 +98,6 @@ public class FileInfo {
      */
     @TableField(value = "business_type")
     private String businessType;
-
-    /**
-     * 创建人ID
-     */
-    @TableField(value = "created_by", fill = FieldFill.INSERT)
-    private Long createdBy;
-
-    /**
-     * 创建时间
-     */
-    @TableField(value = "created_time", fill = FieldFill.INSERT)
-    private LocalDateTime createdTime;
-
-    /**
-     * 更新时间
-     */
-    @TableField(value = "updated_time", fill = FieldFill.INSERT_UPDATE)
-    private LocalDateTime updatedTime;
 
     /**
      * 是否已删除

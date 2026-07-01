@@ -140,7 +140,7 @@ public class RootUserInitializer {
             userRole = new UserRole();
             userRole.setUserId(user.getUserId());
             userRole.setRoleId(role.getRoleId());
-            userRole.setCreatedAt(LocalDateTime.now());
+            userRole.setCreatedTime(LocalDateTime.now());
             userRoleService.save(userRole);
         }
     }
@@ -171,7 +171,7 @@ public class RootUserInitializer {
                 RolePerm rolePerm = new RolePerm();
                 rolePerm.setRoleId(role.getRoleId());
                 rolePerm.setPermId(permission.getPermId());
-                rolePerm.setCreatedAt(LocalDateTime.now());
+                rolePerm.setCreatedTime(LocalDateTime.now());
                 rolePermService.save(rolePerm);
             }
         }

@@ -49,8 +49,8 @@ public class ProductionProcessRecordController extends BaseCrudController<Produc
         // 设置创建人 ID 和更新人 ID
         Long currentUserId = EntityUtils.getCurrentUserId();
         if (currentUserId != null) {
-            record.setCreatorId(currentUserId);
-            record.setUpdaterId(currentUserId);
+            record.setCreatedBy(currentUserId);
+            record.setUpdatedBy(currentUserId);
         }
         
         // 设置创建时间和更新时间
@@ -72,7 +72,7 @@ public class ProductionProcessRecordController extends BaseCrudController<Produc
         // 设置更新人 ID 和更新时间
         Long currentUserId = EntityUtils.getCurrentUserId();
         if (currentUserId != null) {
-            record.setUpdaterId(currentUserId);
+            record.setUpdatedBy(currentUserId);
         }
         record.setUpdatedTime(LocalDateTime.now());
 

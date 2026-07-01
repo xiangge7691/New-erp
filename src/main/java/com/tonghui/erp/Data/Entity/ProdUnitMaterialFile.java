@@ -1,12 +1,11 @@
 package com.tonghui.erp.Data.Entity;
 
-import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import java.time.LocalDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 生产单位材料文件表（Base64存储）
@@ -14,7 +13,8 @@ import lombok.Data;
  */
 @TableName(value ="prod_unit_material_file")
 @Data
-public class ProdUnitMaterialFile {
+@EqualsAndHashCode(callSuper = true)
+public class ProdUnitMaterialFile extends AuditEntity {
     /**
      * 材料文件唯一标识
      */
@@ -68,18 +68,6 @@ public class ProdUnitMaterialFile {
      */
     @TableField(value = "file_content")
     private String fileContent;
-
-    /**
-     * 创建人ID
-     */
-    @TableField(value = "created_by", fill = FieldFill.INSERT)
-    private Long createdBy;
-
-    /**
-     * 创建时间
-     */
-    @TableField(value = "created_time", fill = FieldFill.INSERT)
-    private LocalDateTime createdTime;
 
     /**
      * 是否已删除

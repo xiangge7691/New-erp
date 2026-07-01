@@ -4,8 +4,8 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import java.time.LocalDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 用户-部门关联表
@@ -13,7 +13,8 @@ import lombok.Data;
  */
 @TableName(value ="user_department")
 @Data
-public class UserDepartment {
+@EqualsAndHashCode(callSuper = true)
+public class UserDepartment extends AuditEntity {
     /**
      * 关联ID
      */
@@ -37,12 +38,6 @@ public class UserDepartment {
      */
     @TableField(value = "is_primary")
     private Integer isPrimary;
-
-    /**
-     * 创建时间
-     */
-    @TableField(value = "created_at")
-    private LocalDateTime createdAt;
 
     /**
      * 是否已删除

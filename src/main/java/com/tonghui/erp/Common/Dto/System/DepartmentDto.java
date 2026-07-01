@@ -33,13 +33,13 @@ public class DepartmentDto {
      * 创建时间
      * <p>部门记录的创建时间</p>
      */
-    private LocalDateTime createdAt;
+    private LocalDateTime createdTime;
     
     /**
      * 更新时间
      * <p>部门记录的最后更新时间</p>
      */
-    private LocalDateTime updatedAt;
+    private LocalDateTime updatedTime;
     
     //#endregion
 }

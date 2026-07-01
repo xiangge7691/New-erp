@@ -214,7 +214,7 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
         instance.setCancelReason(cancelReason);
         instance.setCancelledBy(userId);
         instance.setCancelledAt(LocalDateTime.now());
-        instance.setUpdatedAt(LocalDateTime.now());
+        instance.setUpdatedTime(LocalDateTime.now());
 
         boolean updated = updateById(instance);
         if (!updated) {
@@ -229,7 +229,7 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
             record.setAction("CANCEL");
             record.setComment(cancelReason);
             record.setApprovedAt(LocalDateTime.now());
-            record.setCreatedAt(LocalDateTime.now());
+            record.setCreatedTime(LocalDateTime.now());
             approvalRecordService.save(record);
         } catch (Exception e) {
             e.printStackTrace();
@@ -309,7 +309,7 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
             instance.setStatus("APPROVED");
         }
 
-        instance.setUpdatedAt(LocalDateTime.now());
+        instance.setUpdatedTime(LocalDateTime.now());
         updateById(instance);
     }
 
@@ -346,7 +346,7 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
             instance.setStatus("REJECTED");
         }
 
-        instance.setUpdatedAt(LocalDateTime.now());
+        instance.setUpdatedTime(LocalDateTime.now());
         updateById(instance);
     }
 
@@ -374,7 +374,7 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
 
         // 转交后实例状态变为TRANSFERRED，等待新处理人
         instance.setStatus("TRANSFERRED");
-        instance.setUpdatedAt(LocalDateTime.now());
+        instance.setUpdatedTime(LocalDateTime.now());
         updateById(instance);
     }
 
@@ -388,8 +388,8 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
         instance.setInitiatorId(initiatorId);
         instance.setStatus("PENDING");
         instance.setIsDeleted(0);
-        instance.setCreatedAt(LocalDateTime.now());
-        instance.setUpdatedAt(LocalDateTime.now());
+        instance.setCreatedTime(LocalDateTime.now());
+        instance.setUpdatedTime(LocalDateTime.now());
 
         // 获取流程的第一个节点
         List<ApprovalNode> nodes = approvalNodeService.getNodesByWorkflowId(workflowId);
@@ -434,7 +434,7 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
         record.setComment(remark);
         record.setTargetNodeId(targetNodeId);
         record.setApprovedAt(LocalDateTime.now());
-        record.setCreatedAt(LocalDateTime.now());
+        record.setCreatedTime(LocalDateTime.now());
         approvalRecordService.save(record);
     }
 }

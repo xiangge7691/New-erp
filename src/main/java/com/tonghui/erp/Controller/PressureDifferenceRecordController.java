@@ -77,7 +77,7 @@ public class PressureDifferenceRecordController extends BaseController {
     public ApiResponse<PressureDifferenceRecord> create(@PathVariable Integer roomId, @RequestBody PressureDifferenceRecord record) {
         try {
             record.setRoomId(roomId);
-            record.setCreatedAt(LocalDateTime.now());
+            record.setCreatedTime(LocalDateTime.now());
             record.setIsDeleted(0);
             pressureDifferenceRecordService.save(record);
             return success(record, "新增成功");

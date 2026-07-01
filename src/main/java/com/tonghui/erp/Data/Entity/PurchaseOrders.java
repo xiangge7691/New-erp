@@ -1,14 +1,13 @@
 package com.tonghui.erp.Data.Entity;
 
-import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 采购订单主表
@@ -16,7 +15,8 @@ import lombok.Data;
  */
 @TableName(value ="purchase_orders")
 @Data
-public class PurchaseOrders {
+@EqualsAndHashCode(callSuper = true)
+public class PurchaseOrders extends AuditEntity {
     /**
      * 主键ID
      */
@@ -112,30 +112,6 @@ public class PurchaseOrders {
      */
     @TableField(value = "approval_instance_id")
     private Long approvalInstanceId;
-
-    /**
-     * 创建人ID
-     */
-    @TableField(value = "created_by", fill = FieldFill.INSERT)
-    private Long createdBy;
-
-    /**
-     * 更新人ID
-     */
-    @TableField(value = "updated_by", fill = FieldFill.INSERT_UPDATE)
-    private Long updatedBy;
-
-    /**
-     * 创建时间
-     */
-    @TableField(value = "created_at", fill = FieldFill.INSERT)
-    private LocalDateTime createdAt;
-
-    /**
-     * 更新时间
-     */
-    @TableField(value = "updated_at", fill = FieldFill.INSERT_UPDATE)
-    private LocalDateTime updatedAt;
 
     /**
      * 是否已删除

@@ -4,8 +4,8 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import java.time.LocalDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 岗位信息表
@@ -13,7 +13,8 @@ import lombok.Data;
  */
 @TableName(value = "position")
 @Data
-public class Position {
+@EqualsAndHashCode(callSuper = true)
+public class Position extends AuditEntity {
     /**
      * 岗位唯一标识
      */
@@ -61,30 +62,6 @@ public class Position {
      */
     @TableField(value = "sort_order")
     private Integer sortOrder;
-
-    /**
-     * 创建人ID
-     */
-    @TableField(value = "created_by")
-    private Long createdBy;
-
-    /**
-     * 更新人ID
-     */
-    @TableField(value = "updated_by")
-    private Long updatedBy;
-
-    /**
-     * 创建时间
-     */
-    @TableField(value = "created_at")
-    private LocalDateTime createdAt;
-
-    /**
-     * 更新时间
-     */
-    @TableField(value = "updated_at")
-    private LocalDateTime updatedAt;
 
     /**
      * 是否已删除

@@ -4,8 +4,8 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import java.time.LocalDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 审批流程定义
@@ -13,7 +13,8 @@ import lombok.Data;
  */
 @TableName(value ="approval_workflow")
 @Data
-public class ApprovalWorkflow {
+@EqualsAndHashCode(callSuper = true)
+public class ApprovalWorkflow extends AuditEntity {
     /**
      * 主键ID
      */
@@ -37,18 +38,6 @@ public class ApprovalWorkflow {
      */
     @TableField(value = "status")
     private Integer status;
-
-    /**
-     * 创建时间
-     */
-    @TableField(value = "created_at")
-    private LocalDateTime createdAt;
-
-    /**
-     * 更新时间
-     */
-    @TableField(value = "updated_at")
-    private LocalDateTime updatedAt;
 
     /**
      * 是否已删除

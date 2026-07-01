@@ -1,12 +1,11 @@
 package com.tonghui.erp.Data.Entity;
 
-import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import java.time.LocalDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 工序类型表
@@ -14,7 +13,8 @@ import lombok.Data;
  */
 @TableName(value ="process_type")
 @Data
-public class ProcessType {
+@EqualsAndHashCode(callSuper = true)
+public class ProcessType extends AuditEntity {
     /**
      * 工序类型 ID，主键。唯一标识，自增长。
      */
@@ -44,30 +44,6 @@ public class ProcessType {
      */
     @TableField(value = "process_status")
     private Integer processStatus;
-
-    /**
-     * 创建人 ID。记录创建者 ID，关联用户表。
-     */
-    @TableField(value = "creator_id", fill = FieldFill.INSERT)
-    private Long creatorId;
-
-    /**
-     * 创建时间。记录插入时间，自动填充。
-     */
-    @TableField(value = "created_time", fill = FieldFill.INSERT)
-    private LocalDateTime createdTime;
-
-    /**
-     * 修改人 ID。记录最后修改者 ID，关联用户表。
-     */
-    @TableField(value = "updater_id", fill = FieldFill.INSERT_UPDATE)
-    private Long updaterId;
-
-    /**
-     * 最后修改时间。记录更新时自动更新。
-     */
-    @TableField(value = "updated_time", fill = FieldFill.INSERT_UPDATE)
-    private LocalDateTime updatedTime;
 
     /**
      * 是否已删除

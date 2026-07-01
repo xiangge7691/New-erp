@@ -5,8 +5,8 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 消毒管理记录表
@@ -14,7 +14,8 @@ import lombok.Data;
  */
 @TableName(value = "disinfection_record")
 @Data
-public class DisinfectionRecord {
+@EqualsAndHashCode(callSuper = true)
+public class DisinfectionRecord extends AuditEntity {
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
@@ -38,12 +39,6 @@ public class DisinfectionRecord {
 
     @TableField(value = "remark")
     private String remark;
-
-    @TableField(value = "created_at")
-    private LocalDateTime createdAt;
-
-    @TableField(value = "updated_at")
-    private LocalDateTime updatedAt;
 
     @TableField(value = "is_deleted")
     private Integer isDeleted;

@@ -51,8 +51,8 @@ public class ProcessTypeController extends BaseCrudController<ProcessType, Proce
         // 设置创建人 ID 和创建时间
         Long currentUserId = EntityUtils.getCurrentUserId();
         if (currentUserId != null) {
-            processType.setCreatorId(currentUserId);
-            processType.setUpdaterId(currentUserId);
+            processType.setCreatedBy(currentUserId);
+            processType.setUpdatedBy(currentUserId);
         }
         
         LocalDateTime now = LocalDateTime.now();
@@ -79,7 +79,7 @@ public class ProcessTypeController extends BaseCrudController<ProcessType, Proce
         // 设置更新人 ID 和更新时间
         Long currentUserId = EntityUtils.getCurrentUserId();
         if (currentUserId != null) {
-            processType.setUpdaterId(currentUserId);
+            processType.setUpdatedBy(currentUserId);
         }
         processType.setUpdatedTime(LocalDateTime.now());
 

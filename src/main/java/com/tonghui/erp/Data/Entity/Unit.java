@@ -4,8 +4,8 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import java.time.LocalDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 计量单位表
@@ -13,7 +13,8 @@ import lombok.Data;
  */
 @TableName(value ="unit")
 @Data
-public class Unit {
+@EqualsAndHashCode(callSuper = true)
+public class Unit extends AuditEntity {
     /**
      * 单位唯一标识
      */
@@ -37,18 +38,6 @@ public class Unit {
      */
     @TableField(value = "status")
     private Integer status;
-
-    /**
-     * 创建时间
-     */
-    @TableField(value = "created_at")
-    private LocalDateTime createdAt;
-
-    /**
-     * 更新时间
-     */
-    @TableField(value = "updated_at")
-    private LocalDateTime updatedAt;
 
     /**
      * 是否已删除

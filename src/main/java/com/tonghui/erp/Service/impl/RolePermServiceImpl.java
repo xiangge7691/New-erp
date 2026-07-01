@@ -85,7 +85,7 @@ public class RolePermServiceImpl extends ServiceImpl<RolePermMapper, RolePerm>
                     RolePerm rolePerm = new RolePerm();
                     rolePerm.setRoleId(roleId);
                     rolePerm.setPermId(permId);
-                    rolePerm.setCreatedAt(LocalDateTime.now());
+                    rolePerm.setCreatedTime(LocalDateTime.now());
                     this.save(rolePerm);
                 }
             }

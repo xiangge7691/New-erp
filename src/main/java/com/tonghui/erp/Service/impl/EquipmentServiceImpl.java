@@ -206,7 +206,7 @@ public class EquipmentServiceImpl extends ServiceImpl<EquipmentMapper, Equipment
         }
         
         equipment.setLastMaintenanceDate(maintenanceDate);
-        equipment.setUpdaterId(updaterId);
+        equipment.setUpdatedBy(updaterId);
         equipment.setUpdatedTime(LocalDateTime.now());
         
         return this.updateById(equipment);

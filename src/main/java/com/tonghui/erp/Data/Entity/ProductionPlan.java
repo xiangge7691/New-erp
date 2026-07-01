@@ -1,6 +1,5 @@
 package com.tonghui.erp.Data.Entity;
 
-import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -8,6 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 生产计划主表
@@ -15,7 +15,8 @@ import lombok.Data;
  */
 @TableName(value ="production_plan")
 @Data
-public class ProductionPlan {
+@EqualsAndHashCode(callSuper = true)
+public class ProductionPlan extends AuditEntity {
     /**
      * 计划唯一标识
      */
@@ -69,30 +70,6 @@ public class ProductionPlan {
      */
     @TableField(value = "current_status_date")
     private LocalDateTime currentStatusDate;
-
-    /**
-     * 创建时间
-     */
-    @TableField(value = "created_time", fill = FieldFill.INSERT)
-    private LocalDateTime createdTime;
-
-    /**
-     * 创建人员ID
-     */
-    @TableField(value = "created_by", fill = FieldFill.INSERT)
-    private Long createdBy;
-
-    /**
-     * 最后更新时间
-     */
-    @TableField(value = "updated_time", fill = FieldFill.INSERT_UPDATE)
-    private LocalDateTime updatedTime;
-
-    /**
-     * 最后更新人员ID
-     */
-    @TableField(value = "updated_by", fill = FieldFill.INSERT_UPDATE)
-    private Long updatedBy;
 
     /**
      * 备注信息
