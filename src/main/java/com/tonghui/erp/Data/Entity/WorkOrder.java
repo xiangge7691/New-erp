@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 工单表
@@ -14,7 +15,8 @@ import lombok.Data;
  */
 @TableName(value ="work_order")
 @Data
-public class WorkOrder {
+@EqualsAndHashCode(callSuper = true)
+public class WorkOrder extends AuditEntity {
     /**
      * 工单唯一标识
      */
@@ -134,30 +136,6 @@ public class WorkOrder {
      */
     @TableField(value = "return_amount")
     private BigDecimal returnAmount;
-
-    /**
-     * 创建人ID
-     */
-    @TableField(value = "created_by")
-    private Long createdBy;
-
-    /**
-     * 更新人ID
-     */
-    @TableField(value = "updated_by")
-    private Long updatedBy;
-
-    /**
-     * 创建时间
-     */
-    @TableField(value = "created_time")
-    private LocalDateTime createdTime;
-
-    /**
-     * 更新时间
-     */
-    @TableField(value = "updated_time")
-    private LocalDateTime updatedTime;
 
     /**
      * 是否已删除

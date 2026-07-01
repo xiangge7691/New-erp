@@ -4,8 +4,8 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import java.time.LocalDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 物料信息表（存储单位与分类名称，不用外键）
@@ -13,7 +13,8 @@ import lombok.Data;
  */
 @TableName(value ="material")
 @Data
-public class Material {
+@EqualsAndHashCode(callSuper = true)
+public class Material extends AuditEntity {
     /**
      * 物料唯一标识符
      */
@@ -61,30 +62,6 @@ public class Material {
      */
     @TableField(value = "remark")
     private String remark;
-
-    /**
-     * 创建人ID
-     */
-    @TableField(value = "created_by")
-    private Long createdBy;
-
-    /**
-     * 更新人ID
-     */
-    @TableField(value = "updated_by")
-    private Long updatedBy;
-
-    /**
-     * 创建时间
-     */
-    @TableField(value = "created_time")
-    private LocalDateTime createdTime;
-
-    /**
-     * 更新时间
-     */
-    @TableField(value = "updated_time")
-    private LocalDateTime updatedTime;
 
     /**
      * 是否已删除

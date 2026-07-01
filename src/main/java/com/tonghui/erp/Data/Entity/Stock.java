@@ -6,8 +6,8 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 库存表（统一管理物料和制剂库存，按生产单位分配）
@@ -15,7 +15,8 @@ import lombok.Data;
  */
 @TableName(value ="stock")
 @Data
-public class Stock {
+@EqualsAndHashCode(callSuper = true)
+public class Stock extends AuditEntity {
     /**
      * 库存唯一标识符
      */
@@ -123,30 +124,6 @@ public class Stock {
      */
     @TableField(value = "remark")
     private String remark;
-
-    /**
-     * 创建人ID
-     */
-    @TableField(value = "created_by")
-    private Long createdBy;
-
-    /**
-     * 创建时间
-     */
-    @TableField(value = "created_time")
-    private LocalDateTime createdTime;
-
-    /**
-     * 更新人ID
-     */
-    @TableField(value = "updated_by")
-    private Long updatedBy;
-
-    /**
-     * 更新时间
-     */
-    @TableField(value = "updated_time")
-    private LocalDateTime updatedTime;
 
     /**
      * 是否已删除

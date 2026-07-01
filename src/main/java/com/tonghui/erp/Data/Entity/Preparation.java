@@ -5,8 +5,8 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 制剂信息表
@@ -14,7 +14,8 @@ import lombok.Data;
  */
 @TableName(value ="preparation")
 @Data
-public class Preparation {
+@EqualsAndHashCode(callSuper = true)
+public class Preparation extends AuditEntity {
     /**
      * 制剂唯一标识
      */
@@ -116,30 +117,6 @@ public class Preparation {
      */
     @TableField(value = "status")
     private Integer status;
-
-    /**
-     * 创建人ID
-     */
-    @TableField(value = "created_by")
-    private Long createdBy;
-
-    /**
-     * 更新人ID
-     */
-    @TableField(value = "updated_by")
-    private Long updatedBy;
-
-    /**
-     * 创建时间
-     */
-    @TableField(value = "created_time")
-    private LocalDateTime createdTime;
-
-    /**
-     * 更新时间
-     */
-    @TableField(value = "updated_time")
-    private LocalDateTime updatedTime;
 
     /**
      * 是否已删除

@@ -6,8 +6,8 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 入库主表
@@ -15,7 +15,8 @@ import lombok.Data;
  */
 @TableName(value ="stock_in")
 @Data
-public class StockIn {
+@EqualsAndHashCode(callSuper = true)
+public class StockIn extends AuditEntity {
     /**
      * 入库单唯一标识
      */
@@ -81,30 +82,6 @@ public class StockIn {
      */
     @TableField(value = "approval_instance_id")
     private Long approvalInstanceId;
-
-    /**
-     * 创建人ID
-     */
-    @TableField(value = "created_by")
-    private Long createdBy;
-
-    /**
-     * 创建时间
-     */
-    @TableField(value = "created_time")
-    private LocalDateTime createdTime;
-
-    /**
-     * 更新人ID
-     */
-    @TableField(value = "updated_by")
-    private Long updatedBy;
-
-    /**
-     * 更新时间
-     */
-    @TableField(value = "updated_time")
-    private LocalDateTime updatedTime;
 
     /**
      * 是否已删除
