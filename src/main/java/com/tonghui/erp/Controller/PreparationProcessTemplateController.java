@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
-import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.PreparationProcessTemplate;
 import com.tonghui.erp.Data.Entity.ProcessType;
@@ -15,7 +14,6 @@ import com.tonghui.erp.Service.ProcessTypeService;
 import com.tonghui.erp.Service.UnitService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -46,27 +44,23 @@ public class PreparationProcessTemplateController extends BaseController {
             @RequestParam(required = false) Long preparationId,
             @RequestParam(defaultValue = "0") int pageIndex,
             @RequestParam(defaultValue = "10") int pageSize) {
-        try {
-            Page<PreparationProcessTemplate> page = new Page<>(pageIndex + 1, pageSize);
-            QueryWrapper<PreparationProcessTemplate> wrapper = new QueryWrapper<>();
-            
-            if (preparationId != null) {
-                wrapper.eq("preparation_id", preparationId);
-            }
-            wrapper.orderByAsc("step_order");
-            
-            Page<PreparationProcessTemplate> pageResult = templateService.page(page, wrapper);
-            fillNameFieldsForList(pageResult.getRecords());
-            PagedResult<PreparationProcessTemplate> pagedResult = new PagedResult<>();
-            pagedResult.setItems(pageResult.getRecords());
-            pagedResult.setTotalCount(pageResult.getTotal());
-            pagedResult.setPageIndex(pageIndex);
-            pagedResult.setPageSize(pageSize);
-            
-            return success(pagedResult);
-        } catch (Exception e) {
-            return exception(e, "操作");
+        Page<PreparationProcessTemplate> page = new Page<>(pageIndex + 1, pageSize);
+        QueryWrapper<PreparationProcessTemplate> wrapper = new QueryWrapper<>();
+        
+        if (preparationId != null) {
+            wrapper.eq("preparation_id", preparationId);
         }
+        wrapper.orderByAsc("step_order");
+        
+        Page<PreparationProcessTemplate> pageResult = templateService.page(page, wrapper);
+        fillNameFieldsForList(pageResult.getRecords());
+        PagedResult<PreparationProcessTemplate> pagedResult = new PagedResult<>();
+        pagedResult.setItems(pageResult.getRecords());
+        pagedResult.setTotalCount(pageResult.getTotal());
+        pagedResult.setPageIndex(pageIndex);
+        pagedResult.setPageSize(pageSize);
+        
+        return success(pagedResult);
     }
 
     /**
@@ -74,16 +68,12 @@ public class PreparationProcessTemplateController extends BaseController {
      */
     @GetMapping("/{id}")
     public ApiResponse<PreparationProcessTemplate> getById(@PathVariable Long id) {
-        try {
-            PreparationProcessTemplate template = templateService.getById(id);
-            if (template == null) {
-                return error("工序模版不存在");
-            }
-            fillNameFields(template);
-            return success(template);
-        } catch (Exception e) {
-            return exception(e, "操作");
+        PreparationProcessTemplate template = templateService.getById(id);
+        if (template == null) {
+            return error("工序模版不存在");
         }
+        fillNameFields(template);
+        return success(template);
     }
 
     /**
@@ -91,16 +81,10 @@ public class PreparationProcessTemplateController extends BaseController {
      */
     @PostMapping
     public ApiResponse<PreparationProcessTemplate> create(@RequestBody PreparationProcessTemplate template) {
-        try {
-            template.setCreatedBy(EntityUtils.getCurrentUserId());
-            template.setCreatedAt(LocalDateTime.now());
-            template.setIsDeleted(0);
-            template.setVersion(0);
-            templateService.save(template);
-            return success(template, "新增成功");
-        } catch (Exception e) {
-            return exception(e, "操作");
-        }
+        template.setIsDeleted(0);
+        template.setVersion(0);
+        templateService.save(template);
+        return success(template, "新增成功");
     }
 
     /**
@@ -108,19 +92,13 @@ public class PreparationProcessTemplateController extends BaseController {
      */
     @PutMapping("/{id}")
     public ApiResponse<PreparationProcessTemplate> update(@PathVariable Long id, @RequestBody PreparationProcessTemplate template) {
-        try {
-            PreparationProcessTemplate existing = templateService.getById(id);
-            if (existing == null) {
-                return error("工序模版不存在");
-            }
-            template.setTemplateId(id);
-            template.setUpdatedBy(EntityUtils.getCurrentUserId());
-            template.setUpdatedAt(LocalDateTime.now());
-            templateService.updateById(template);
-            return success(template, "修改成功");
-        } catch (Exception e) {
-            return exception(e, "操作");
+        PreparationProcessTemplate existing = templateService.getById(id);
+        if (existing == null) {
+            return error("工序模版不存在");
         }
+        template.setTemplateId(id);
+        templateService.updateById(template);
+        return success(template, "修改成功");
     }
 
     /**
@@ -128,12 +106,8 @@ public class PreparationProcessTemplateController extends BaseController {
      */
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
-        try {
-            templateService.removeById(id);
-            return success(null, "删除成功");
-        } catch (Exception e) {
-            return exception(e, "操作");
-        }
+        templateService.removeById(id);
+        return success(null, "删除成功");
     }
 
     /**
@@ -141,13 +115,9 @@ public class PreparationProcessTemplateController extends BaseController {
      */
     @GetMapping("/byPreparation/{prepId}")
     public ApiResponse<List<PreparationProcessTemplate>> getByPreparationId(@PathVariable Long prepId) {
-        try {
-            List<PreparationProcessTemplate> list = templateService.findByPreparationId(prepId);
-            fillNameFieldsForList(list);
-            return success(list);
-        } catch (Exception e) {
-            return exception(e, "操作");
-        }
+        List<PreparationProcessTemplate> list = templateService.findByPreparationId(prepId);
+        fillNameFieldsForList(list);
+        return success(list);
     }
 
     /**
@@ -158,16 +128,8 @@ public class PreparationProcessTemplateController extends BaseController {
     public ApiResponse<List<PreparationProcessTemplate>> batchSave(
             @RequestParam Long preparationId,
             @RequestBody List<PreparationProcessTemplate> templates) {
-        try {
-            Long userId = EntityUtils.getCurrentUserId();
-            for (PreparationProcessTemplate template : templates) {
-                template.setCreatedBy(userId);
-            }
-            templateService.batchSave(preparationId, templates);
-            return success(templates, "保存成功");
-        } catch (Exception e) {
-            return exception(e, "操作");
-        }
+        templateService.batchSave(preparationId, templates);
+        return success(templates, "保存成功");
     }
 
     /**

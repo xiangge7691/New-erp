@@ -70,7 +70,7 @@ public class UserDto {
      * 更新时间
      * <p>用户记录的最后更新时间</p>
      */
-    private LocalDateTime updateTime;
+    private LocalDateTime updatedTime;
     
     //#endregion
     

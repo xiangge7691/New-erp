@@ -5,12 +5,10 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
-import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.Position;
 import com.tonghui.erp.Service.PositionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -38,31 +36,27 @@ public class PositionController extends BaseController {
             @RequestParam(required = false) Integer status,
             @RequestParam(defaultValue = "0") int pageIndex,
             @RequestParam(defaultValue = "10") int pageSize) {
-        try {
-            Page<Position> page = new Page<>(pageIndex + 1, pageSize);
-            QueryWrapper<Position> wrapper = new QueryWrapper<>();
-            
-            // 关键词模糊查询
-            if (keyword != null && !keyword.isEmpty()) {
-                wrapper.like("position_name", keyword);
-            }
-            // 状态筛选
-            if (status != null) {
-                wrapper.eq("status", status);
-            }
-            wrapper.orderByAsc("sort_order");
-            
-            Page<Position> pageResult = positionService.page(page, wrapper);
-            PagedResult<Position> pagedResult = new PagedResult<>();
-            pagedResult.setItems(pageResult.getRecords());
-            pagedResult.setTotalCount(pageResult.getTotal());
-            pagedResult.setPageIndex(pageIndex);
-            pagedResult.setPageSize(pageSize);
-            
-            return success(pagedResult);
-        } catch (Exception e) {
-            return exception(e, "操作");
+        Page<Position> page = new Page<>(pageIndex + 1, pageSize);
+        QueryWrapper<Position> wrapper = new QueryWrapper<>();
+        
+        // 关键词模糊查询
+        if (keyword != null && !keyword.isEmpty()) {
+            wrapper.like("position_name", keyword);
         }
+        // 状态筛选
+        if (status != null) {
+            wrapper.eq("status", status);
+        }
+        wrapper.orderByAsc("sort_order");
+        
+        Page<Position> pageResult = positionService.page(page, wrapper);
+        PagedResult<Position> pagedResult = new PagedResult<>();
+        pagedResult.setItems(pageResult.getRecords());
+        pagedResult.setTotalCount(pageResult.getTotal());
+        pagedResult.setPageIndex(pageIndex);
+        pagedResult.setPageSize(pageSize);
+        
+        return success(pagedResult);
     }
 
     /**
@@ -70,15 +64,11 @@ public class PositionController extends BaseController {
      */
     @GetMapping("/{id}")
     public ApiResponse<Position> getById(@PathVariable Long id) {
-        try {
-            Position position = positionService.getById(id);
-            if (position == null) {
-                return error("岗位不存在");
-            }
-            return success(position);
-        } catch (Exception e) {
-            return exception(e, "操作");
+        Position position = positionService.getById(id);
+        if (position == null) {
+            return error("岗位不存在");
         }
+        return success(position);
     }
 
     /**
@@ -86,16 +76,10 @@ public class PositionController extends BaseController {
      */
     @PostMapping
     public ApiResponse<Position> create(@RequestBody Position position) {
-        try {
-            position.setCreatedBy(EntityUtils.getCurrentUserId());
-            position.setCreatedAt(LocalDateTime.now());
-            position.setIsDeleted(0);
-            position.setVersion(0);
-            positionService.save(position);
-            return success(position, "新增成功");
-        } catch (Exception e) {
-            return exception(e, "操作");
-        }
+        position.setIsDeleted(0);
+        position.setVersion(0);
+        positionService.save(position);
+        return success(position, "新增成功");
     }
 
     /**
@@ -103,19 +87,13 @@ public class PositionController extends BaseController {
      */
     @PutMapping("/{id}")
     public ApiResponse<Position> update(@PathVariable Long id, @RequestBody Position position) {
-        try {
-            Position existing = positionService.getById(id);
-            if (existing == null) {
-                return error("岗位不存在");
-            }
-            position.setPositionId(id);
-            position.setUpdatedBy(EntityUtils.getCurrentUserId());
-            position.setUpdatedAt(LocalDateTime.now());
-            positionService.updateById(position);
-            return success(position, "修改成功");
-        } catch (Exception e) {
-            return exception(e, "操作");
+        Position existing = positionService.getById(id);
+        if (existing == null) {
+            return error("岗位不存在");
         }
+        position.setPositionId(id);
+        positionService.updateById(position);
+        return success(position, "修改成功");
     }
 
     /**
@@ -123,12 +101,8 @@ public class PositionController extends BaseController {
      */
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
-        try {
-            positionService.removeById(id);
-            return success(null, "删除成功");
-        } catch (Exception e) {
-            return exception(e, "操作");
-        }
+        positionService.removeById(id);
+        return success(null, "删除成功");
     }
 
     /**
@@ -136,14 +110,10 @@ public class PositionController extends BaseController {
      */
     @GetMapping("/list")
     public ApiResponse<List<Position>> list() {
-        try {
-            QueryWrapper<Position> wrapper = new QueryWrapper<>();
-            wrapper.eq("status", 1)
-                   .orderByAsc("sort_order");
-            List<Position> list = positionService.list(wrapper);
-            return success(list);
-        } catch (Exception e) {
-            return exception(e, "操作");
-        }
+        QueryWrapper<Position> wrapper = new QueryWrapper<>();
+        wrapper.eq("status", 1)
+               .orderByAsc("sort_order");
+        List<Position> list = positionService.list(wrapper);
+        return success(list);
     }
 }

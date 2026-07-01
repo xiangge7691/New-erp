@@ -8,6 +8,8 @@ import com.tonghui.erp.Service.UserRoleService;
 import com.tonghui.erp.Data.mapper.UserRoleMapper;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.UserRoleDto;
+import com.tonghui.erp.Common.Mapper.Converters;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -28,6 +30,9 @@ import java.util.stream.Collectors;
 @Service
 public class UserRoleServiceImpl extends ServiceImpl<UserRoleMapper, UserRole>
     implements UserRoleService{
+
+    @Autowired
+    private Converters converters;
 
     //#region 基础查询接口
     // ===================================
@@ -72,7 +77,7 @@ public class UserRoleServiceImpl extends ServiceImpl<UserRoleMapper, UserRole>
     public List<UserRoleDto> getDtosByUserId(Long userId) {
         List<UserRole> userRoles = getByUserId(userId);
         return userRoles.stream()
-                .map(this::convertToDto)
+                .map(converters::toUserRoleDto)
                 .collect(Collectors.toList());
     }
 
@@ -86,7 +91,7 @@ public class UserRoleServiceImpl extends ServiceImpl<UserRoleMapper, UserRole>
     public List<UserRoleDto> getDtosByRoleId(Long roleId) {
         List<UserRole> userRoles = getByRoleId(roleId);
         return userRoles.stream()
-                .map(this::convertToDto)
+                .map(converters::toUserRoleDto)
                 .collect(Collectors.toList());
     }
     //#endregion
@@ -104,15 +109,7 @@ public class UserRoleServiceImpl extends ServiceImpl<UserRoleMapper, UserRole>
      */
     @Override
     public UserRoleDto convertToDto(UserRole entity) {
-        if (entity == null) return null;
-
-        UserRoleDto dto = new UserRoleDto();
-        dto.setId(entity.getRoleId());
-        dto.setUserId(entity.getUserId());
-        dto.setRoleId(entity.getRoleId());
-        dto.setCreatedAt(entity.getCreatedAt());
-        
-        return dto;
+        return converters.toUserRoleDto(entity);
     }
     //#endregion
 
@@ -183,7 +180,7 @@ public class UserRoleServiceImpl extends ServiceImpl<UserRoleMapper, UserRole>
         }
 
         List<UserRoleDto> userRoleDtos = userRoleEntities.stream()
-                .map(this::convertToDto)
+                .map(converters::toUserRoleDto)
                 .collect(Collectors.toList());
 
         PagedResult<UserRoleDto> pagedResult = new PagedResult<>();

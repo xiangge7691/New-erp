@@ -302,7 +302,7 @@ public class DashboardController extends BaseController {
             if (status != null && !status.isEmpty()) {
                 wrapper.eq("current_status", status);
             }
-            wrapper.orderByDesc("create_time");
+            wrapper.orderByDesc("created_time");
 
             List<ProductionPlan> plans = productionPlanService.list(wrapper);
             List<OrderTrackingDto> trackingList = plans.stream().map(plan -> {
@@ -313,8 +313,8 @@ public class DashboardController extends BaseController {
                 dto.setBatchNo(plan.getPlanNumber());
                 dto.setHospital(plan.getUnitName());
                 dto.setCurrentStatus(plan.getCurrentStatus());
-                if (plan.getCreateTime() != null) {
-                    dto.setOrderDate(plan.getCreateTime().format(DateTimeFormatter.ofPattern("MM-dd")));
+                if (plan.getCreatedTime() != null) {
+                    dto.setOrderDate(plan.getCreatedTime().format(DateTimeFormatter.ofPattern("MM-dd")));
                 }
                 if (plan.getProductionStartTime() != null) {
                     dto.setProductionDate(plan.getProductionStartTime().format(DateTimeFormatter.ofPattern("MM-dd")));
@@ -356,8 +356,8 @@ public class DashboardController extends BaseController {
             Map<String, Map<String, Double>> revenueByMonth = new LinkedHashMap<>();
 
             for (ProductionPlan plan : plans) {
-                String month = plan.getCreateTime() != null
-                    ? plan.getCreateTime().format(DateTimeFormatter.ofPattern("M月"))
+                String month = plan.getCreatedTime() != null
+                    ? plan.getCreatedTime().format(DateTimeFormatter.ofPattern("M月"))
                     : "未知";
 
                 deliveryByMonth.computeIfAbsent(month, k -> new LinkedHashMap<>())
@@ -409,11 +409,11 @@ public class DashboardController extends BaseController {
     private QueryWrapper<ProductionPlan> buildTimeWrapper(String startMonth, String endMonth) {
         QueryWrapper<ProductionPlan> wrapper = new QueryWrapper<>();
         if (startMonth != null && !startMonth.isEmpty()) {
-            wrapper.ge("create_time", startMonth + "-01 00:00:00");
+            wrapper.ge("created_time", startMonth + "-01 00:00:00");
         }
         if (endMonth != null && !endMonth.isEmpty()) {
             LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
-            wrapper.le("create_time", end.atTime(23, 59, 59));
+            wrapper.le("created_time", end.atTime(23, 59, 59));
         }
         return wrapper;
     }

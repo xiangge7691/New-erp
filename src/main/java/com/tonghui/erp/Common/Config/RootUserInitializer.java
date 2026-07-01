@@ -83,8 +83,8 @@ public class RootUserInitializer {
             role.setRoleName("root");
             role.setRoleDesc("超级管理员角色，拥有系统所有权限");
             role.setRoleStatus(1); // 启用状态
-            role.setCreateTime(LocalDateTime.now());
-            role.setUpdateTime(LocalDateTime.now());
+            role.setCreatedTime(LocalDateTime.now());
+            role.setUpdatedTime(LocalDateTime.now());
             roleService.save(role);
         }
 
@@ -114,7 +114,7 @@ public class RootUserInitializer {
             user.setGender(1); // 使用数字1表示男性，避免字符串长度问题
             user.setUserStatus(1); // 启用状态
             user.setCreatedTime(LocalDateTime.now());
-            user.setUpdateTime(LocalDateTime.now());
+            user.setUpdatedTime(LocalDateTime.now());
             userService.save(user);
         }
 

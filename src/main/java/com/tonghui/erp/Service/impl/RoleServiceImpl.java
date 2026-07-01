@@ -17,6 +17,7 @@ import com.tonghui.erp.Service.UserRoleService;
 import com.tonghui.erp.Service.RolePermService;
 import com.tonghui.erp.Service.UserService;
 import com.tonghui.erp.Service.PermissionService;
+import com.tonghui.erp.Common.Mapper.Converters;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
@@ -51,6 +52,9 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role>
     
     @Autowired
     private PermissionService permissionService;
+
+    @Autowired
+    private Converters converters;
 
     //#region 角色查询接口
     // ===================================
@@ -147,7 +151,7 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role>
         
         // 转换为DTO
         List<RoleDto> roleDtos = roleEntities.stream()
-                .map(this::convertToDto)
+                .map(converters::toRoleDto)
                 .collect(Collectors.toList());
         
         // 构建分页结果
@@ -213,49 +217,25 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role>
     public RoleDto convertToDto(Role roleEntity) {
         if (roleEntity == null) return null;
         
-        RoleDto roleDto = new RoleDto();
-        roleDto.setRoleId(roleEntity.getRoleId());
-        roleDto.setRoleName(roleEntity.getRoleName());
-        roleDto.setRoleDesc(roleEntity.getRoleDesc());
-        roleDto.setStatus(roleEntity.getRoleStatus());
-        roleDto.setCreateTime(roleEntity.getCreateTime());
-        roleDto.setUpdateTime(roleEntity.getUpdateTime());
+        RoleDto roleDto = converters.toRoleDto(roleEntity);
         
-        // 获取关联的用户
         List<UserRole> userRoles = userRoleService.list(new QueryWrapper<UserRole>().eq("role_id", roleEntity.getRoleId()));
         List<UserDto> userDtos = new ArrayList<>();
         for (UserRole userRole : userRoles) {
             User user = userService.getById(userRole.getUserId());
             if (user != null) {
-                UserDto userDto = new UserDto();
-                userDto.setId(user.getUserId());
-                userDto.setUserName(user.getUserName());
-                userDto.setName(user.getUserName());
-                userDto.setPhone(user.getPhone());
-                userDto.setGender(user.getGender());
-                userDto.setStatus(user.getUserStatus());
-                userDto.setNotes(user.getUserNotes());
-                userDto.setCreatedTime(user.getCreatedTime());
-                userDto.setUpdateTime(user.getUpdateTime());
+                UserDto userDto = converters.toUserDto(user);
                 userDtos.add(userDto);
             }
         }
         roleDto.setUsers(userDtos);
         
-        // 获取关联的权限
         List<RolePerm> rolePerms = rolePermService.list(new QueryWrapper<RolePerm>().eq("role_id", roleEntity.getRoleId()));
         List<PermissionDto> permissionDtos = new ArrayList<>();
         for (RolePerm rolePerm : rolePerms) {
             Permission permission = permissionService.getById(rolePerm.getPermId());
             if (permission != null) {
-                PermissionDto permissionDto = new PermissionDto();
-                permissionDto.setId(permission.getPermId());
-                permissionDto.setPermKey(permission.getPermKey());
-                permissionDto.setPermName(permission.getPermName());
-                permissionDto.setPermType((String) permission.getPermType());
-                permissionDto.setParentId(permission.getParentId());
-                permissionDto.setDisplayOrder(permission.getDisplayOrder());
-                permissionDto.setStatus(permission.getPermStatus());
+                PermissionDto permissionDto = converters.toPermissionDto(permission);
                 permissionDtos.add(permissionDto);
             }
         }

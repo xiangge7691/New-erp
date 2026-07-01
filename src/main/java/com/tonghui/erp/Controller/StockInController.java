@@ -5,7 +5,6 @@ import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Stock.StockInWithDetailsDto;
-import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.Entity.StockInDetail;
 import com.tonghui.erp.Service.StockInService;
@@ -54,13 +53,6 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
 
     @Override
     protected StockIn doCreate(StockIn stockIn) {
-        // 设置创建人和更新人
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            stockIn.setCreatedBy(currentUserId);
-            stockIn.setUpdatedBy(currentUserId);
-        }
-        
         // 创建时如果没有单号，则自动生成
         if (stockIn.getInCode() == null || stockIn.getInCode().isEmpty()) {
             stockIn.setInCode(stockInService.generateStockInCode());
@@ -71,12 +63,6 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
 
     @Override
     protected StockIn doUpdate(Long id, StockIn stockIn) {
-        // 设置更新人
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            stockIn.setUpdatedBy(currentUserId);
-        }
-        
         stockIn.setInId(id);
         // 只更新非 null 字段，支持部分更新
         stockInService.partialUpdateStockIn(stockIn);
@@ -209,12 +195,6 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
     @PostMapping("/withDetails")
     public ApiResponse<StockIn> createStockInWithDetails(@RequestBody StockIn stockIn,
                                             @RequestParam(required = false) List<StockInDetail> details) {
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            stockIn.setCreatedBy(currentUserId);
-            stockIn.setUpdatedBy(currentUserId);
-        }
-        
         if (stockIn.getInCode() == null || stockIn.getInCode().isEmpty()) {
             stockIn.setInCode(stockInService.generateStockInCode());
         }
@@ -234,12 +214,6 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
     public StockIn updateStockInWithDetails(@PathVariable Long id,
                                            @RequestBody StockIn stockIn,
                                            @RequestParam(required = false) List<StockInDetail> details) {
-        // 设置更新人
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            stockIn.setUpdatedBy(currentUserId);
-        }
-        
         stockIn.setInId(id);
         stockInService.updateStockIn(stockIn, details);
         return stockIn;

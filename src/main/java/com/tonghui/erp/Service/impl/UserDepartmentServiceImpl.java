@@ -8,6 +8,8 @@ import com.tonghui.erp.Service.UserDepartmentService;
 import com.tonghui.erp.Data.mapper.UserDepartmentMapper;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.UserDepartmentDto;
+import com.tonghui.erp.Common.Mapper.Converters;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -28,6 +30,9 @@ import java.util.stream.Collectors;
 @Service
 public class UserDepartmentServiceImpl extends ServiceImpl<UserDepartmentMapper, UserDepartment>
     implements UserDepartmentService{
+
+    @Autowired
+    private Converters converters;
 
     //#region 基础查询接口
     // ===================================
@@ -181,7 +186,7 @@ public class UserDepartmentServiceImpl extends ServiceImpl<UserDepartmentMapper,
         PagedResult<UserDepartment> pagedResult = getPaged(pageIndex, pageSize);
         
         List<UserDepartmentDto> dtoItems = pagedResult.getItems().stream()
-                .map(this::convertToDto)
+                .map(converters::toUserDepartmentDto)
                 .collect(Collectors.toList());
         
         PagedResult<UserDepartmentDto> dtoPagedResult = new PagedResult<>();
@@ -210,7 +215,7 @@ public class UserDepartmentServiceImpl extends ServiceImpl<UserDepartmentMapper,
         List<UserDepartment> userDepartments = getByUserId(userId);
         
         return userDepartments.stream()
-                .map(this::convertToDto)
+                .map(converters::toUserDepartmentDto)
                 .collect(Collectors.toList());
     }
 
@@ -225,7 +230,7 @@ public class UserDepartmentServiceImpl extends ServiceImpl<UserDepartmentMapper,
         List<UserDepartment> userDepartments = getByDepartmentId(departmentId);
         
         return userDepartments.stream()
-                .map(this::convertToDto)
+                .map(converters::toUserDepartmentDto)
                 .collect(Collectors.toList());
     }
 
@@ -243,7 +248,7 @@ public class UserDepartmentServiceImpl extends ServiceImpl<UserDepartmentMapper,
             return null;
         }
         
-        return convertToDto(primaryDepartment);
+        return converters.toUserDepartmentDto(primaryDepartment);
     }
     //#endregion
     
@@ -259,18 +264,7 @@ public class UserDepartmentServiceImpl extends ServiceImpl<UserDepartmentMapper,
      * @return UserDepartmentDto对象
      */
     public UserDepartmentDto convertToDto(UserDepartment entity) {
-        if (entity == null) {
-            return null;
-        }
-        
-        UserDepartmentDto dto = new UserDepartmentDto();
-        dto.setId(entity.getDepartmentId());
-        dto.setUserId(entity.getUserId());
-        dto.setDepartmentId(entity.getDepartmentId());
-        dto.setIsPrimary(entity.getIsPrimary());
-        dto.setCreatedAt(entity.getCreatedAt());
-        
-        return dto;
+        return converters.toUserDepartmentDto(entity);
     }
     //#endregion
 }

@@ -4,8 +4,8 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import java.time.LocalDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 生产单位发票信息表
@@ -13,7 +13,8 @@ import lombok.Data;
  */
 @TableName(value ="prod_unit_invoice")
 @Data
-public class ProdUnitInvoice {
+@EqualsAndHashCode(callSuper = true)
+public class ProdUnitInvoice extends AuditEntity {
     /**
      * 发票信息唯一标识
      */
@@ -31,30 +32,6 @@ public class ProdUnitInvoice {
      */
     @TableField(value = "prod_invoice_info")
     private String prodInvoiceInfo;
-
-    /**
-     * 创建人ID
-     */
-    @TableField(value = "created_by")
-    private Long createdBy;
-
-    /**
-     * 创建时间
-     */
-    @TableField(value = "created_time")
-    private LocalDateTime createdTime;
-
-    /**
-     * 更新人ID
-     */
-    @TableField(value = "updated_by")
-    private Long updatedBy;
-
-    /**
-     * 更新时间
-     */
-    @TableField(value = "update_time")
-    private LocalDateTime updateTime;
 
     /**
      * 是否已删除

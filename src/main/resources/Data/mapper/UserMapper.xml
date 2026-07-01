@@ -14,7 +14,7 @@
             <result property="userStatus" column="user_status" />
             <result property="userNotes" column="user_notes" />
             <result property="createdTime" column="created_time" />
-            <result property="updateTime" column="update_time" />
+            <result property="updatedTime" column="update_time" />
     </resultMap>
 
     <sql id="Base_Column_List">

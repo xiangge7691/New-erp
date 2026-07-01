@@ -4,8 +4,8 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import java.time.LocalDateTime;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 生产单位信息表
@@ -13,7 +13,8 @@ import lombok.Data;
  */
 @TableName(value ="production_unit")
 @Data
-public class ProductionUnit {
+@EqualsAndHashCode(callSuper = true)
+public class ProductionUnit extends AuditEntity {
     /**
      * 生产单位唯一标识
      */
@@ -61,30 +62,6 @@ public class ProductionUnit {
      */
     @TableField(value = "prod_unit_remark")
     private String prodUnitRemark;
-
-    /**
-     * 创建人ID
-     */
-    @TableField(value = "created_by")
-    private Long createdBy;
-
-    /**
-     * 创建时间
-     */
-    @TableField(value = "created_time")
-    private LocalDateTime createdTime;
-
-    /**
-     * 更新人ID
-     */
-    @TableField(value = "updated_by")
-    private Long updatedBy;
-
-    /**
-     * 更新时间
-     */
-    @TableField(value = "update_time")
-    private LocalDateTime updateTime;
 
     /**
      * 是否已删除

@@ -95,18 +95,18 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
         
         // Handle created time range query
         if (createdTimeStart != null) {
-            wrapper.ge("create_time", createdTimeStart);
+            wrapper.ge("created_time", createdTimeStart);
         }
         if (createdTimeEnd != null) {
-            wrapper.le("create_time", createdTimeEnd);
+            wrapper.le("created_time", createdTimeEnd);
         }
         
         // Handle updated time range query
         if (updatedTimeStart != null) {
-            wrapper.ge("update_time", updatedTimeStart);
+            wrapper.ge("updated_time", updatedTimeStart);
         }
         if (updatedTimeEnd != null) {
-            wrapper.le("update_time", updatedTimeEnd);
+            wrapper.le("updated_time", updatedTimeEnd);
         }
 
         // Handle production start time range query
@@ -247,7 +247,7 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
             
             plan.setCurrentStatus(newStatus);
             plan.setCurrentStatusDate(LocalDateTime.now());
-            plan.setUpdateUser(operatorId);
+            plan.setUpdatedBy(operatorId);
             plan.setFinishedQuantity(finishedQuantity);
             plan.setProductionCycle(productionCycle);
             plan.setYieldRate(yieldRate);
@@ -257,7 +257,7 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
             // 非出库状态的通用处理
             plan.setCurrentStatus(newStatus);
             plan.setCurrentStatusDate(LocalDateTime.now());
-            plan.setUpdateUser(operatorId);
+            plan.setUpdatedBy(operatorId);
         }
         
         // 更新生产计划主表
@@ -323,7 +323,7 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
         // 更新主表状态
         plan.setCurrentStatus(previousStatus);
         plan.setCurrentStatusDate(LocalDateTime.now());
-        plan.setUpdateUser(operatorId);
+        plan.setUpdatedBy(operatorId);
         this.updateById(plan);
         
         // 记录状态变更流水

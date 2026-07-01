@@ -8,6 +8,7 @@ import com.tonghui.erp.Data.mapper.DepartmentMapper;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.DepartmentDto;
 import com.tonghui.erp.Service.UserDepartmentService;
+import com.tonghui.erp.Common.Mapper.Converters;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -30,6 +31,9 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
     
     @Autowired
     private UserDepartmentService userDepartmentService;
+
+    @Autowired
+    private Converters converters;
     
     //#region 基础操作接口
     // ===================================
@@ -44,7 +48,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
     @Override
     public List<DepartmentDto> listDto() {
         return this.list().stream()
-                .map(this::convertToDto)
+                .map(converters::toDepartmentDto)
                 .collect(Collectors.toList());
     }
 
@@ -57,7 +61,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
     @Override
     public DepartmentDto getDtoById(Long id) {
         Department department = this.getById(id);
-        return department != null ? convertToDto(department) : null;
+        return department != null ? converters.toDepartmentDto(department) : null;
     }
     //#endregion
 
@@ -114,7 +118,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
         
         // 转换为DTO
         List<DepartmentDto> departmentDtos = departmentEntities.stream()
-                .map(this::convertToDto)
+                .map(converters::toDepartmentDto)
                 .collect(Collectors.toList());
         
         // 构建分页结果
@@ -146,12 +150,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
      */
     @Override
     public DepartmentDto convertToDto(Department department) {
-        if (department == null) return null;
-        
-        DepartmentDto dto = new DepartmentDto();
-        dto.setId(department.getDepartmentId());
-        dto.setDepartmentName(department.getDepartmentName());
-        return dto;
+        return converters.toDepartmentDto(department);
     }
     //#endregion
     
@@ -204,7 +203,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
     @Override
     public DepartmentDto getDepartmentDetails(Long departmentId) {
         Department department = this.getById(departmentId);
-        return department != null ? convertToDto(department) : null;
+        return department != null ? converters.toDepartmentDto(department) : null;
     }
     //#endregion
 }

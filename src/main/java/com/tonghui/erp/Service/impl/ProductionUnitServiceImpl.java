@@ -66,7 +66,7 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
         // 设置创建时间和更新时间
         java.time.LocalDateTime now = java.time.LocalDateTime.now();
         productionUnit.setCreatedTime(now);
-        productionUnit.setUpdateTime(now);
+        productionUnit.setUpdatedTime(now);
         
         // 获取当前用户ID
         Long currentUserId = EntityUtils.getCurrentUserId();
@@ -82,7 +82,7 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
     @Transactional
     public boolean updateProductionUnit(ProductionUnit productionUnit) {
         // 设置更新时间
-        productionUnit.setUpdateTime(java.time.LocalDateTime.now());
+        productionUnit.setUpdatedTime(java.time.LocalDateTime.now());
         
         // 获取当前用户ID
         Long currentUserId = EntityUtils.getCurrentUserId();
@@ -189,10 +189,10 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
         
         // 处理更新时间范围查询
         if (updatedTimeStart != null) {
-            wrapper.ge("update_time", updatedTimeStart);
+            wrapper.ge("updated_time", updatedTimeStart);
         }
         if (updatedTimeEnd != null) {
-            wrapper.le("update_time", updatedTimeEnd);
+            wrapper.le("updated_time", updatedTimeEnd);
         }
 
         return this.page(page, wrapper);

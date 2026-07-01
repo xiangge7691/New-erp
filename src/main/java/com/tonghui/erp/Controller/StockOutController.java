@@ -5,7 +5,6 @@ import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Stock.StockOutWithDetailsDto;
-import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.Entity.StockInDetail;
 import com.tonghui.erp.Data.Entity.StockOut;
@@ -57,13 +56,6 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
 
     @Override
     protected StockOut doCreate(StockOut stockOut) {
-        // 设置创建人和更新人
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            stockOut.setCreatedBy(currentUserId);
-            stockOut.setUpdatedBy(currentUserId);
-        }
-        
         // 创建时如果没有单号，则自动生成
         if (stockOut.getOutCode() == null || stockOut.getOutCode().isEmpty()) {
             stockOut.setOutCode(stockOutService.generateStockOutCode());
@@ -74,12 +66,6 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
 
     @Override
     protected StockOut doUpdate(Long id, StockOut stockOut) {
-        // 设置更新人
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            stockOut.setUpdatedBy(currentUserId);
-        }
-        
         stockOut.setOutId(id);
         // 只更新非 null 字段，支持部分更新
         stockOutService.partialUpdateStockOut(stockOut);
@@ -212,12 +198,6 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
     @PostMapping("/withDetails")
     public ApiResponse<StockOut> createStockOutWithDetails(@RequestBody StockOut stockOut,
                                               @RequestParam(required = false) List<StockOutDetail> details) {
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            stockOut.setCreatedBy(currentUserId);
-            stockOut.setUpdatedBy(currentUserId);
-        }
-        
         if (stockOut.getOutCode() == null || stockOut.getOutCode().isEmpty()) {
             stockOut.setOutCode(stockOutService.generateStockOutCode());
         }
@@ -237,12 +217,6 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
     public StockOut updateStockOutWithDetails(@PathVariable Long id,
                                              @RequestBody StockOut stockOut,
                                              @RequestParam(required = false) List<StockOutDetail> details) {
-        // 设置更新人
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            stockOut.setUpdatedBy(currentUserId);
-        }
-        
         stockOut.setOutId(id);
         stockOutService.updateStockOut(stockOut, details);
         return stockOut;

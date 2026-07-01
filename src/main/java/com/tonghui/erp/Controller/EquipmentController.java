@@ -10,7 +10,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -49,18 +48,6 @@ public class EquipmentController extends BaseCrudController<Equipment, Equipment
             throw new RuntimeException("固定资产编号已存在");
         }
 
-        // 设置创建人 ID 和更新人 ID
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            equipment.setCreatorId(currentUserId);
-            equipment.setUpdaterId(currentUserId);
-        }
-        
-        // 设置创建时间和更新时间
-        LocalDateTime now = LocalDateTime.now();
-        equipment.setCreatedTime(now);
-        equipment.setUpdatedTime(now);
-
         equipmentService.save(equipment);
         return equipment;
     }
@@ -77,13 +64,6 @@ public class EquipmentController extends BaseCrudController<Equipment, Equipment
         if (byCode != null && !byCode.getEquipmentId().equals(id)) {
             throw new RuntimeException("固定资产编号已存在");
         }
-
-        // 设置更新人 ID 和更新时间
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            equipment.setUpdaterId(currentUserId);
-        }
-        equipment.setUpdatedTime(LocalDateTime.now());
 
         equipment.setEquipmentId(id);
         equipmentService.updateById(equipment);
@@ -113,48 +93,44 @@ public class EquipmentController extends BaseCrudController<Equipment, Equipment
             @RequestParam(required = false) java.time.LocalDateTime updatedTimeStart,
             @RequestParam(required = false) java.time.LocalDateTime updatedTimeEnd,
             @ModelAttribute PageRequestDto pageRequest) {
-        try {
-            pageRequest = processPageRequest(pageRequest);
-            
-            // 当页码和页面大小都为 -1 时，返回所有结果
-            if (pageRequest.getPageIndex() == -1 && pageRequest.getPageSize() == -1) {
-                com.baomidou.mybatisplus.extension.plugins.pagination.Page<Equipment> pageResult = equipmentService.queryEquipments(
-                      equipment, 
-                        createdTimeStart,
-                        createdTimeEnd,
-                        updatedTimeStart,
-                        updatedTimeEnd,
-                        0,
-                        Integer.MAX_VALUE);
-                
-                // 转换为 PagedResult 格式
-                PagedResult<Equipment> result = new PagedResult<>();
-                result.setItems(pageResult.getRecords());
-                result.setTotalCount((int) pageResult.getTotal());
-                result.setPageIndex(0);
-                result.setPageSize((int) pageResult.getSize());
-                return success(result);
-            }
-            
+        pageRequest = processPageRequest(pageRequest);
+        
+        // 当页码和页面大小都为 -1 时，返回所有结果
+        if (pageRequest.getPageIndex() == -1 && pageRequest.getPageSize() == -1) {
             com.baomidou.mybatisplus.extension.plugins.pagination.Page<Equipment> pageResult = equipmentService.queryEquipments(
-                  equipment,
+                  equipment, 
                     createdTimeStart,
                     createdTimeEnd,
                     updatedTimeStart,
                     updatedTimeEnd,
-                    pageRequest.getPageIndex(),
-                    pageRequest.getPageSize());
-
+                    0,
+                    Integer.MAX_VALUE);
+            
             // 转换为 PagedResult 格式
             PagedResult<Equipment> result = new PagedResult<>();
             result.setItems(pageResult.getRecords());
             result.setTotalCount((int) pageResult.getTotal());
-            result.setPageIndex(pageRequest.getPageIndex());
+            result.setPageIndex(0);
             result.setPageSize((int) pageResult.getSize());
             return success(result);
-        } catch (Exception ex) {
-            return exception(ex, "搜索设备");
         }
+        
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<Equipment> pageResult = equipmentService.queryEquipments(
+              equipment,
+                createdTimeStart,
+                createdTimeEnd,
+                updatedTimeStart,
+                updatedTimeEnd,
+                pageRequest.getPageIndex(),
+                pageRequest.getPageSize());
+
+        // 转换为 PagedResult 格式
+        PagedResult<Equipment> result = new PagedResult<>();
+        result.setItems(pageResult.getRecords());
+        result.setTotalCount((int) pageResult.getTotal());
+        result.setPageIndex(pageRequest.getPageIndex());
+        result.setPageSize((int) pageResult.getSize());
+        return success(result);
     }
 
     /**
@@ -167,13 +143,9 @@ public class EquipmentController extends BaseCrudController<Equipment, Equipment
     public ApiResponse<PagedResult<Equipment>> searchByManufacturer(
             @RequestParam(required = false) String manufacturer,
             @ModelAttribute PageRequestDto pageRequest) {
-        try {
-            pageRequest = processPageRequest(pageRequest);
-            PagedResult<Equipment> result = equipmentService.searchByManufacturer(manufacturer, pageRequest);
-            return success(result);
-        } catch (Exception ex) {
-            return exception(ex, "按厂家搜索设备");
-        }
+        pageRequest = processPageRequest(pageRequest);
+        PagedResult<Equipment> result = equipmentService.searchByManufacturer(manufacturer, pageRequest);
+        return success(result);
     }
 
     /**
@@ -183,12 +155,8 @@ public class EquipmentController extends BaseCrudController<Equipment, Equipment
      */
     @GetMapping("/room/{roomId}")
     public ApiResponse<List<Equipment>> getByRoomId(@PathVariable Integer roomId) {
-        try {
-            List<Equipment> result = equipmentService.listByRoomId(roomId);
-            return success(result);
-        } catch (Exception ex) {
-            return exception(ex, "获取房间设备列表");
-        }
+        List<Equipment> result = equipmentService.listByRoomId(roomId);
+        return success(result);
     }
 
     /**
@@ -197,12 +165,8 @@ public class EquipmentController extends BaseCrudController<Equipment, Equipment
      */
     @GetMapping("/active")
     public ApiResponse<List<Equipment>> listActiveEquipments() {
-        try {
-            List<Equipment> result = equipmentService.listActive();
-            return success(result);
-        } catch (Exception ex) {
-            return exception(ex, "获取启用设备");
-        }
+        List<Equipment> result = equipmentService.listActive();
+        return success(result);
     }
 
     /**
@@ -217,20 +181,16 @@ public class EquipmentController extends BaseCrudController<Equipment, Equipment
             @PathVariable Integer id,
             @RequestParam LocalDate maintenanceDate,
             @RequestParam(required = false) Long updaterId) {
-        try {
-            // 如果没有提供更新人 ID，则使用当前登录用户 ID
-            if (updaterId == null) {
-                updaterId = EntityUtils.getCurrentUserId();
-            }
-            
-            boolean result = equipmentService.updateMaintenanceDate(id, maintenanceDate, updaterId);
-            if (result) {
-                return success(true, "更新维护日期成功");
-            } else {
-                return error("更新维护日期失败");
-            }
-        } catch (Exception ex) {
-            return exception(ex, "更新维护日期");
+        // 如果没有提供更新人 ID，则使用当前登录用户 ID
+        if (updaterId == null) {
+            updaterId = EntityUtils.getCurrentUserId();
+        }
+        
+        boolean result = equipmentService.updateMaintenanceDate(id, maintenanceDate, updaterId);
+        if (result) {
+            return success(true, "更新维护日期成功");
+        } else {
+            return error("更新维护日期失败");
         }
     }
 
@@ -246,27 +206,17 @@ public class EquipmentController extends BaseCrudController<Equipment, Equipment
             @PathVariable Integer id,
             @RequestParam Integer maintenanceCycle,
             @RequestParam Integer reminderDays) {
-        try {
-            Equipment existing = equipmentService.getById(id);
-            if (existing == null) {
-                return error("设备不存在");
-            }
-            
-            Equipment update = new Equipment();
-            update.setEquipmentId(id);
-            update.setMaintenanceCycle(maintenanceCycle);
-            update.setReminderDays(reminderDays);
-            update.setUpdatedTime(LocalDateTime.now());
-            
-            Long currentUserId = EntityUtils.getCurrentUserId();
-            if (currentUserId != null) {
-                update.setUpdaterId(currentUserId);
-            }
-            
-            equipmentService.updateById(update);
-            return success(true, "维保设置保存成功");
-        } catch (Exception ex) {
-            return exception(ex, "保存维保设置");
+        Equipment existing = equipmentService.getById(id);
+        if (existing == null) {
+            return error("设备不存在");
         }
+        
+        Equipment update = new Equipment();
+        update.setEquipmentId(id);
+        update.setMaintenanceCycle(maintenanceCycle);
+        update.setReminderDays(reminderDays);
+        
+        equipmentService.updateById(update);
+        return success(true, "维保设置保存成功");
     }
 }

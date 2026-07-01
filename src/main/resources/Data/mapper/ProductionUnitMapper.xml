@@ -16,7 +16,7 @@
             <result property="createdBy" column="created_by" />
             <result property="createdTime" column="created_time" />
             <result property="updatedBy" column="updated_by" />
-            <result property="updateTime" column="update_time" />
+            <result property="updatedTime" column="update_time" />
     </resultMap>
 
     <sql id="Base_Column_List">

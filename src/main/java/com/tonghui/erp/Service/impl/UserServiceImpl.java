@@ -91,7 +91,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             user.setPassword(PasswordHasher.hashPassword(user.getPassword()));
         }
         user.setCreatedTime(LocalDateTime.now());
-        user.setUpdateTime(LocalDateTime.now());
+        user.setUpdatedTime(LocalDateTime.now());
         return this.save(user);
     }
 
@@ -112,7 +112,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                 user.setPassword(existingUser.getPassword());
             }
         }
-        user.setUpdateTime(LocalDateTime.now());
+        user.setUpdatedTime(LocalDateTime.now());
         return this.updateById(user);
     }
     
@@ -150,7 +150,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         }
         // 如果密码为null，不设置password字段，这样就不会更新密码
         
-        updateWrapper.set("update_time", LocalDateTime.now());
+        updateWrapper.set("updated_time", LocalDateTime.now());
         
         return this.update(updateWrapper);
     }
@@ -457,7 +457,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         dto.setStatus(user.getUserStatus());
         dto.setNotes(user.getUserNotes());
         dto.setCreatedTime(user.getCreatedTime());
-        dto.setUpdateTime(user.getUpdateTime());
+        dto.setUpdatedTime(user.getUpdatedTime());
         return dto;
     }
 
@@ -510,8 +510,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                 roleDto.setRoleName(role.getRoleName());
                 roleDto.setRoleDesc(role.getRoleDesc());
                 roleDto.setStatus(role.getRoleStatus());
-                roleDto.setCreateTime(role.getCreateTime());
-                roleDto.setUpdateTime(role.getUpdateTime());
+                roleDto.setCreatedTime(role.getCreatedTime());
+                roleDto.setUpdatedTime(role.getUpdatedTime());
                 // 清除不需要的字段
                 roleDto.setUsers(null);
                 roleDtos.add(roleDto);

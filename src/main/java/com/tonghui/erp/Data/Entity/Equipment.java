@@ -1,5 +1,6 @@
 package com.tonghui.erp.Data.Entity;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -115,25 +116,25 @@ public class Equipment {
     /**
      * 创建人 ID。记录创建者 ID，关联用户表 (user.user_id)。
      */
-    @TableField(value = "creator_id")
+    @TableField(value = "creator_id", fill = FieldFill.INSERT)
     private Long creatorId;
 
     /**
      * 创建时间。记录插入时间，自动填充当前时间。
      */
-    @TableField(value = "created_time")
+    @TableField(value = "created_time", fill = FieldFill.INSERT)
     private LocalDateTime createdTime;
 
     /**
      * 修改人 ID。记录最后修改者 ID，关联用户表 (user.user_id)。
      */
-    @TableField(value = "updater_id")
+    @TableField(value = "updater_id", fill = FieldFill.INSERT_UPDATE)
     private Long updaterId;
 
     /**
      * 最后修改时间。记录更新时自动更新为当前时间。
      */
-    @TableField(value = "updated_time")
+    @TableField(value = "updated_time", fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updatedTime;
 
     /**

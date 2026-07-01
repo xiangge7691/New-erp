@@ -1,5 +1,6 @@
 package com.tonghui.erp.Data.Entity;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -72,26 +73,26 @@ public class ProductionPlan {
     /**
      * 创建时间
      */
-    @TableField(value = "create_time")
-    private LocalDateTime createTime;
+    @TableField(value = "created_time", fill = FieldFill.INSERT)
+    private LocalDateTime createdTime;
 
     /**
      * 创建人员ID
      */
-    @TableField(value = "create_user")
-    private Long createUser;
+    @TableField(value = "created_by", fill = FieldFill.INSERT)
+    private Long createdBy;
 
     /**
      * 最后更新时间
      */
-    @TableField(value = "update_time")
-    private LocalDateTime updateTime;
+    @TableField(value = "updated_time", fill = FieldFill.INSERT_UPDATE)
+    private LocalDateTime updatedTime;
 
     /**
      * 最后更新人员ID
      */
-    @TableField(value = "update_user")
-    private Long updateUser;
+    @TableField(value = "updated_by", fill = FieldFill.INSERT_UPDATE)
+    private Long updatedBy;
 
     /**
      * 备注信息

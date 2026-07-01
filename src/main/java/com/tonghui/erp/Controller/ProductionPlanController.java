@@ -57,13 +57,13 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
         // 设置创建人和更新人
         Long currentUserId = EntityUtils.getCurrentUserId();
         if (currentUserId != null) {
-            entity.setCreateUser(currentUserId);
-            entity.setUpdateUser(currentUserId);
+            entity.setCreatedBy(currentUserId);
+            entity.setUpdatedBy(currentUserId);
         }
         // 设置创建时间和更新时间
         LocalDateTime now = LocalDateTime.now();
-        entity.setCreateTime(now);
-        entity.setUpdateTime(now);
+        entity.setCreatedTime(now);
+        entity.setUpdatedTime(now);
         productionPlanService.save(entity);
         return entity;
     }
@@ -74,9 +74,9 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
         // 设置更新人和更新时间
         Long currentUserId = EntityUtils.getCurrentUserId();
         if (currentUserId != null) {
-            entity.setUpdateUser(currentUserId);
+            entity.setUpdatedBy(currentUserId);
         }
-        entity.setUpdateTime(LocalDateTime.now());
+        entity.setUpdatedTime(LocalDateTime.now());
         productionPlanService.updateById(entity);
         return entity;
     }

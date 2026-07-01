@@ -7,6 +7,7 @@ import com.tonghui.erp.Common.Dto.System.DepartmentDto;
 import com.tonghui.erp.Common.Dto.System.PermissionDto;
 import com.tonghui.erp.Common.Dto.System.RoleDto;
 import com.tonghui.erp.Common.Dto.System.UserDto;
+import com.tonghui.erp.Common.Mapper.Converters;
 import com.tonghui.erp.Common.utils.JwtHelper;
 import com.tonghui.erp.Common.utils.PasswordHasher;
 import com.tonghui.erp.Common.Config.JwtConfig;
@@ -37,6 +38,7 @@ public class LoginServiceImpl implements LoginService {
     private final RolePermService rolePermService;
     private final DepartmentService departmentService;
     private final JwtConfig jwtConfig;
+    private final Converters converters;
 
     @Autowired
     public LoginServiceImpl(UserService userService,
@@ -46,7 +48,8 @@ public class LoginServiceImpl implements LoginService {
                             UserDepartmentService userDepartmentService,
                             RolePermService rolePermService,
                             DepartmentService departmentService,
-                            JwtConfig jwtConfig) {
+                            JwtConfig jwtConfig,
+                            Converters converters) {
         this.userService = userService;
         this.roleService = roleService;
         this.permissionService = permissionService;
@@ -55,6 +58,7 @@ public class LoginServiceImpl implements LoginService {
         this.rolePermService = rolePermService;
         this.departmentService = departmentService;
         this.jwtConfig = jwtConfig;
+        this.converters = converters;
     }
 
     //#region 异步登录接口实现
@@ -119,7 +123,7 @@ public class LoginServiceImpl implements LoginService {
             }
 
             // 转换角色为RoleDto对象
-            List<RoleDto> roleDtos = roles.stream().map(this::convertRoleToDto).collect(Collectors.toList());
+            List<RoleDto> roleDtos = roles.stream().map(converters::toRoleDto).collect(Collectors.toList());
 
             // 获取用户权限（去重）
             Set<Long> permissionIds = new HashSet<>();
@@ -151,11 +155,18 @@ public class LoginServiceImpl implements LoginService {
             List<PermissionDto> permissionTree = buildPermissionTree(permissions);
 
             // 获取用户部门信息
-            List<DepartmentDto> departmentDtos = getUserDepartments(loginResult.getUser().getUserId());
+            List<DepartmentDto> departmentDtos = userDepartmentService.list(
+                    new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<com.tonghui.erp.Data.Entity.UserDepartment>()
+                            .eq("user_id", loginResult.getUser().getUserId()))
+                    .stream()
+                    .map(ud -> departmentService.getById(ud.getDepartmentId()))
+                    .filter(Objects::nonNull)
+                    .map(converters::toDepartmentDto)
+                    .collect(Collectors.toList());
 
             // 构建并返回完整登录响应
             LoginResponse response = new LoginResponse();
-            UserDto userDto = buildUserDto(loginResult.getUser());
+            UserDto userDto = converters.toUserDto(loginResult.getUser());
             userDto.setDepartments(departmentDtos);
 
             LoginResponse.LoginData data = new LoginResponse.LoginData();
@@ -281,85 +292,6 @@ public class LoginServiceImpl implements LoginService {
     }
 
     /**
-     * 将User实体转换为UserDto，屏蔽密码字段
-     *
-     * @param user User实体
-     * @return UserDto对象
-     */
-    private UserDto buildUserDto(User user) {
-        UserDto dto = new UserDto();
-        dto.setId(user.getUserId());
-        dto.setUserName(user.getUserAccount());
-        dto.setName(user.getUserName());
-        dto.setPhone(user.getPhone());
-        dto.setGender(user.getGender());
-        dto.setStatus(user.getUserStatus());
-        dto.setNotes(user.getUserNotes());
-        dto.setCreatedTime(user.getCreatedTime());
-        dto.setUpdateTime(user.getUpdateTime());
-        return dto;
-    }
-
-    /**
-     * 获取用户部门信息
-     *
-     * @param userId 用户ID
-     * @return 部门DTO列表
-     */
-    private List<DepartmentDto> getUserDepartments(Long userId) {
-        List<com.tonghui.erp.Data.Entity.UserDepartment> userDepartments = userDepartmentService.list(
-                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<com.tonghui.erp.Data.Entity.UserDepartment>()
-                        .eq("user_id", userId));
-
-        List<DepartmentDto> departmentDtos = new ArrayList<>();
-        for (com.tonghui.erp.Data.Entity.UserDepartment userDepartment : userDepartments) {
-            Department department = departmentService.getById(userDepartment.getDepartmentId());
-            if (department != null) {
-                DepartmentDto departmentDto = new DepartmentDto();
-                departmentDto.setId(department.getDepartmentId());
-                departmentDto.setDepartmentName(department.getDepartmentName());
-                departmentDtos.add(departmentDto);
-            }
-        }
-        return departmentDtos;
-    }
-
-    /**
-     * 将Role实体转换为RoleDto
-     *
-     * @param role Role实体
-     * @return RoleDto对象
-     */
-    private RoleDto convertRoleToDto(Role role) {
-        RoleDto dto = new RoleDto();
-        dto.setRoleId(role.getRoleId());
-        dto.setRoleName(role.getRoleName());
-        dto.setRoleDesc(role.getRoleDesc());
-        dto.setStatus(role.getRoleStatus());
-        dto.setCreateTime(role.getCreateTime());
-        dto.setUpdateTime(role.getUpdateTime());
-        return dto;
-    }
-
-    /**
-     * 将Permission实体转换为PermissionDto
-     *
-     * @param permission Permission实体
-     * @return PermissionDto对象
-     */
-    private PermissionDto convertPermissionToDto(Permission permission) {
-        PermissionDto dto = new PermissionDto();
-        dto.setId(permission.getPermId());
-        dto.setPermKey(permission.getPermKey());
-        dto.setPermName(permission.getPermName());
-        dto.setPermType((String) permission.getPermType());
-        dto.setParentId(permission.getParentId());
-        dto.setDisplayOrder(permission.getDisplayOrder());
-        dto.setStatus(permission.getPermStatus());
-        return dto;
-    }
-
-    /**
      * 构建权限树结构
      *
      * @param permissions 权限列表
@@ -368,7 +300,7 @@ public class LoginServiceImpl implements LoginService {
     private List<PermissionDto> buildPermissionTree(List<Permission> permissions) {
         // 将Permission实体转换为PermissionDto
         List<PermissionDto> permissionDtos = permissions.stream()
-                .map(this::convertPermissionToDto)
+                .map(converters::toPermissionDto)
                 .collect(Collectors.toList());
 
         // 构建树结构

@@ -9,8 +9,8 @@
             <result property="roleName" column="role_name" />
             <result property="roleDesc" column="role_desc" />
             <result property="roleStatus" column="role_status" />
-            <result property="createTime" column="create_time" />
-            <result property="updateTime" column="update_time" />
+            <result property="createdTime" column="create_time" />
+            <result property="updatedTime" column="update_time" />
     </resultMap>
 
     <sql id="Base_Column_List">

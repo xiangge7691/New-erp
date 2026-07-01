@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
-import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.PersonnelFile;
 import com.tonghui.erp.Data.Entity.Position;
 import com.tonghui.erp.Data.Entity.Department;
@@ -15,7 +14,6 @@ import com.tonghui.erp.Service.DepartmentService;
 import com.tonghui.erp.Service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -49,42 +47,38 @@ public class PersonnelFileController extends BaseController {
             @RequestParam(required = false) Integer status,
             @RequestParam(defaultValue = "0") int pageIndex,
             @RequestParam(defaultValue = "10") int pageSize) {
-        try {
-            Page<PersonnelFile> page = new Page<>(pageIndex + 1, pageSize);
-            QueryWrapper<PersonnelFile> wrapper = new QueryWrapper<>();
+        Page<PersonnelFile> page = new Page<>(pageIndex + 1, pageSize);
+        QueryWrapper<PersonnelFile> wrapper = new QueryWrapper<>();
 
-            if (keyword != null && !keyword.isEmpty()) {
-                wrapper.and(w -> w.like("name", keyword)
-                                  .or().like("employee_no", keyword)
-                                  .or().like("id_card_no", keyword));
-            }
-            if (departmentId != null) {
-                wrapper.eq("department_id", departmentId);
-            }
-            if (positionId != null) {
-                wrapper.eq("position_id", positionId);
-            }
-            if (qualification != null && !qualification.isEmpty()) {
-                wrapper.like("qualification", qualification);
-            }
-            if (status != null) {
-                wrapper.eq("status", status);
-            }
-            wrapper.orderByDesc("created_at");
-
-            Page<PersonnelFile> pageResult = personnelFileService.page(page, wrapper);
-            fillNameFieldsForList(pageResult.getRecords());
-
-            PagedResult<PersonnelFile> pagedResult = new PagedResult<>();
-            pagedResult.setItems(pageResult.getRecords());
-            pagedResult.setTotalCount(pageResult.getTotal());
-            pagedResult.setPageIndex(pageIndex);
-            pagedResult.setPageSize(pageSize);
-
-            return success(pagedResult);
-        } catch (Exception e) {
-            return exception(e, "操作");
+        if (keyword != null && !keyword.isEmpty()) {
+            wrapper.and(w -> w.like("name", keyword)
+                              .or().like("employee_no", keyword)
+                              .or().like("id_card_no", keyword));
         }
+        if (departmentId != null) {
+            wrapper.eq("department_id", departmentId);
+        }
+        if (positionId != null) {
+            wrapper.eq("position_id", positionId);
+        }
+        if (qualification != null && !qualification.isEmpty()) {
+            wrapper.like("qualification", qualification);
+        }
+        if (status != null) {
+            wrapper.eq("status", status);
+        }
+        wrapper.orderByDesc("created_at");
+
+        Page<PersonnelFile> pageResult = personnelFileService.page(page, wrapper);
+        fillNameFieldsForList(pageResult.getRecords());
+
+        PagedResult<PersonnelFile> pagedResult = new PagedResult<>();
+        pagedResult.setItems(pageResult.getRecords());
+        pagedResult.setTotalCount(pageResult.getTotal());
+        pagedResult.setPageIndex(pageIndex);
+        pagedResult.setPageSize(pageSize);
+
+        return success(pagedResult);
     }
 
     /**
@@ -92,16 +86,12 @@ public class PersonnelFileController extends BaseController {
      */
     @GetMapping("/{id}")
     public ApiResponse<PersonnelFile> getById(@PathVariable Long id) {
-        try {
-            PersonnelFile file = personnelFileService.getById(id);
-            if (file == null) {
-                return error("人员档案不存在");
-            }
-            fillNameFields(file);
-            return success(file);
-        } catch (Exception e) {
-            return exception(e, "操作");
+        PersonnelFile file = personnelFileService.getById(id);
+        if (file == null) {
+            return error("人员档案不存在");
         }
+        fillNameFields(file);
+        return success(file);
     }
 
     /**
@@ -109,16 +99,10 @@ public class PersonnelFileController extends BaseController {
      */
     @PostMapping
     public ApiResponse<PersonnelFile> create(@RequestBody PersonnelFile personnelFile) {
-        try {
-            personnelFile.setCreatedBy(EntityUtils.getCurrentUserId());
-            personnelFile.setCreatedAt(LocalDateTime.now());
-            personnelFile.setIsDeleted(0);
-            personnelFile.setVersion(0);
-            personnelFileService.save(personnelFile);
-            return success(personnelFile, "新增成功");
-        } catch (Exception e) {
-            return exception(e, "操作");
-        }
+        personnelFile.setIsDeleted(0);
+        personnelFile.setVersion(0);
+        personnelFileService.save(personnelFile);
+        return success(personnelFile, "新增成功");
     }
 
     /**
@@ -126,19 +110,13 @@ public class PersonnelFileController extends BaseController {
      */
     @PutMapping("/{id}")
     public ApiResponse<PersonnelFile> update(@PathVariable Long id, @RequestBody PersonnelFile personnelFile) {
-        try {
-            PersonnelFile existing = personnelFileService.getById(id);
-            if (existing == null) {
-                return error("人员档案不存在");
-            }
-            personnelFile.setPersonnelFileId(id);
-            personnelFile.setUpdatedBy(EntityUtils.getCurrentUserId());
-            personnelFile.setUpdatedAt(LocalDateTime.now());
-            personnelFileService.updateById(personnelFile);
-            return success(personnelFile, "修改成功");
-        } catch (Exception e) {
-            return exception(e, "操作");
+        PersonnelFile existing = personnelFileService.getById(id);
+        if (existing == null) {
+            return error("人员档案不存在");
         }
+        personnelFile.setPersonnelFileId(id);
+        personnelFileService.updateById(personnelFile);
+        return success(personnelFile, "修改成功");
     }
 
     /**
@@ -146,12 +124,8 @@ public class PersonnelFileController extends BaseController {
      */
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
-        try {
-            personnelFileService.removeById(id);
-            return success(null, "删除成功");
-        } catch (Exception e) {
-            return exception(e, "操作");
-        }
+        personnelFileService.removeById(id);
+        return success(null, "删除成功");
     }
 
     /**
@@ -160,13 +134,9 @@ public class PersonnelFileController extends BaseController {
     @GetMapping("/expiring")
     public ApiResponse<List<PersonnelFile>> expiring(
             @RequestParam(defaultValue = "30") int days) {
-        try {
-            List<PersonnelFile> list = personnelFileService.findExpiringHealthCerts(days);
-            fillNameFieldsForList(list);
-            return success(list);
-        } catch (Exception e) {
-            return exception(e, "操作");
-        }
+        List<PersonnelFile> list = personnelFileService.findExpiringHealthCerts(days);
+        fillNameFieldsForList(list);
+        return success(list);
     }
 
     /**
@@ -174,16 +144,12 @@ public class PersonnelFileController extends BaseController {
      */
     @GetMapping("/byUser/{userId}")
     public ApiResponse<PersonnelFile> getByUserId(@PathVariable Long userId) {
-        try {
-            PersonnelFile file = personnelFileService.findByUserId(userId);
-            if (file == null) {
-                return error("人员档案不存在");
-            }
-            fillNameFields(file);
-            return success(file);
-        } catch (Exception e) {
-            return exception(e, "操作");
+        PersonnelFile file = personnelFileService.findByUserId(userId);
+        if (file == null) {
+            return error("人员档案不存在");
         }
+        fillNameFields(file);
+        return success(file);
     }
 
     /**

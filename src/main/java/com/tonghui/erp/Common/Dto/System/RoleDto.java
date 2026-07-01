@@ -47,13 +47,13 @@ public class RoleDto {
      * 创建时间
      * <p>角色记录的创建时间</p>
      */
-    private LocalDateTime createTime;
+    private LocalDateTime createdTime;
     
     /**
      * 更新时间
      * <p>角色记录的最后更新时间</p>
      */
-    private LocalDateTime updateTime;
+    private LocalDateTime updatedTime;
     
     //#endregion
     
