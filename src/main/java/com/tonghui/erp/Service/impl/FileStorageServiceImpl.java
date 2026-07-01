@@ -245,6 +245,12 @@ public class FileStorageServiceImpl implements FileStorageService {
     @Override
     public FileInfo uploadFileWithBusinessPath(MultipartFile file, String businessType,
                                                 Long businessId, String entityName, String description) throws IOException {
+        return uploadFileWithBusinessPath(file, businessType, businessId, entityName, description, null);
+    }
+
+    @Override
+    public FileInfo uploadFileWithBusinessPath(MultipartFile file, String businessType,
+                                                Long businessId, String entityName, String description, String customPath) throws IOException {
         if (!isAllowedFileType(file)) {
             throw new IllegalArgumentException("不支持的文件类型: " + file.getContentType());
         }
@@ -256,7 +262,7 @@ public class FileStorageServiceImpl implements FileStorageService {
         String extension = getFileExtension(originalFilename);
         String storedName = generateStoredName(extension);
 
-        Path storagePath = determineBusinessPath(businessType, entityName, storedName);
+        Path storagePath = determineBusinessPath(businessType, entityName, storedName, customPath);
         Files.createDirectories(storagePath.getParent());
         Files.copy(file.getInputStream(), storagePath, StandardCopyOption.REPLACE_EXISTING);
 
@@ -277,6 +283,9 @@ public class FileStorageServiceImpl implements FileStorageService {
         if (StringUtils.hasText(businessType)) {
             fileInfo.setBusinessType(businessType);
         }
+        if (StringUtils.hasText(customPath)) {
+            fileInfo.setCustomPath(customPath);
+        }
 
         if (fileStorageConfig.isEnableMd5Check()) {
             fileInfo.setFileMd5(calculateMD5(file));
@@ -293,14 +302,18 @@ public class FileStorageServiceImpl implements FileStorageService {
 
     /**
      * 按业务类型+日期+实体名确定存储路径
-     * 格式：{basePath}/{中文目录}/{年}/{月}/{实体名}/{uuid.ext}
+     * 格式：{basePath}/{中文目录}/{customPath}/{年}/{月}/{实体名}/{uuid.ext}
      */
-    private Path determineBusinessPath(String businessType, String entityName, String storedName) {
+    private Path determineBusinessPath(String businessType, String entityName, String storedName, String customPath) {
         String basePath = resolveBasePath();
         String dir = fileStorageConfig.getBusinessTypeDir(businessType);
         String year = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy"));
         String month = LocalDateTime.now().format(DateTimeFormatter.ofPattern("MM"));
         String safeName = sanitizeFileName(entityName);
+        if (StringUtils.hasText(customPath)) {
+            String safeCustomPath = sanitizeFileName(customPath);
+            return Paths.get(basePath, dir, safeCustomPath, year, month, safeName, storedName);
+        }
         return Paths.get(basePath, dir, year, month, safeName, storedName);
     }
 

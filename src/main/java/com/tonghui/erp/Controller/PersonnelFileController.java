@@ -4,10 +4,12 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Data.Entity.FileInfo;
 import com.tonghui.erp.Data.Entity.PersonnelFile;
 import com.tonghui.erp.Data.Entity.Position;
 import com.tonghui.erp.Data.Entity.Department;
 import com.tonghui.erp.Data.Entity.User;
+import com.tonghui.erp.Service.FileInfoService;
 import com.tonghui.erp.Service.PersonnelFileService;
 import com.tonghui.erp.Service.PositionService;
 import com.tonghui.erp.Service.DepartmentService;
@@ -15,6 +17,8 @@ import com.tonghui.erp.Service.UserService;
 import com.tonghui.erp.Service.PersonnelCertificateService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import java.io.IOException;
 import java.util.List;
 
 /**
@@ -26,6 +30,9 @@ public class PersonnelFileController extends BaseController {
 
     @Autowired
     private PersonnelFileService personnelFileService;
+
+    @Autowired
+    private FileInfoService fileInfoService;
 
     @Autowired
     private PositionService positionService;
@@ -191,5 +198,81 @@ public class PersonnelFileController extends BaseController {
         for (PersonnelFile file : list) {
             fillNameFields(file);
         }
+    }
+
+    // ========== 文件管理端点 ==========
+
+    /**
+     * 上传健康档案文件
+     */
+    @PostMapping("/{id}/health-files")
+    public ApiResponse<FileInfo> uploadHealthFile(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(required = false) String customPath,
+            @RequestParam(required = false) String description) throws Exception {
+        PersonnelFile pf = personnelFileService.getById(id);
+        if (pf == null) {
+            return error("人员档案不存在");
+        }
+        String entityName = pf.getName() != null ? pf.getName() : "人员" + id;
+        FileInfo fileInfo = fileInfoService.uploadFileWithBusinessPath(
+                file, "PERSONNEL_HEALTH_FILE", id, entityName, description, customPath);
+        return success(fileInfo, "文件上传成功");
+    }
+
+    /**
+     * 获取健康档案文件列表
+     */
+    @GetMapping("/{id}/health-files")
+    public ApiResponse<List<FileInfo>> getHealthFiles(@PathVariable Long id) {
+        List<FileInfo> files = fileInfoService.getFilesByBusiness(id, "PERSONNEL_HEALTH_FILE");
+        return success(files);
+    }
+
+    /**
+     * 删除健康档案文件
+     */
+    @DeleteMapping("/{id}/health-files/{fileId}")
+    public ApiResponse<Void> deleteHealthFile(@PathVariable Long id, @PathVariable Long fileId) {
+        fileInfoService.deleteFile(fileId);
+        return success(null, "删除成功");
+    }
+
+    /**
+     * 上传附件文件
+     */
+    @PostMapping("/{id}/attachments")
+    public ApiResponse<FileInfo> uploadAttachment(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(required = false) String customPath,
+            @RequestParam(required = false) String description) throws Exception {
+        PersonnelFile pf = personnelFileService.getById(id);
+        if (pf == null) {
+            return error("人员档案不存在");
+        }
+        String entityName = pf.getName() != null ? pf.getName() : "人员" + id;
+        FileInfo fileInfo = fileInfoService.uploadFileWithBusinessPath(
+                file, "PERSONNEL_ATTACHMENT", id, entityName, description, customPath);
+        return success(fileInfo, "文件上传成功");
+    }
+
+    /**
+     * 获取附件文件列表
+     */
+    @GetMapping("/{id}/attachments")
+    public ApiResponse<List<FileInfo>> getAttachments(@PathVariable Long id) {
+        List<FileInfo> files = fileInfoService.getFilesByBusiness(id, "PERSONNEL_ATTACHMENT");
+        return success(files);
+    }
+
+    /**
+     * 删除附件文件
+     */
+    @DeleteMapping("/{id}/attachments/{fileId}")
+    public ApiResponse<Void> deleteAttachment(@PathVariable Long id, @PathVariable Long fileId) {
+        fileInfoService.deleteFile(fileId);
+        return success(null, "删除成功");
     }
 }

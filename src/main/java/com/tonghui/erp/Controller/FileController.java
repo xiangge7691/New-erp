@@ -167,9 +167,10 @@ public class FileController extends BaseController {
             @RequestParam String businessType,
             @RequestParam Long businessId,
             @RequestParam(required = false) String entityName,
-            @RequestParam(required = false) String description) {
+            @RequestParam(required = false) String description,
+            @RequestParam(required = false) String customPath) {
         try {
-            FileInfo fileInfo = fileInfoService.uploadFileWithBusinessPath(file, businessType, businessId, entityName, description);
+            FileInfo fileInfo = fileInfoService.uploadFileWithBusinessPath(file, businessType, businessId, entityName, description, customPath);
             return success(fileInfo, "文件上传成功");
         } catch (IOException e) {
             return exception(e, "文件上传");

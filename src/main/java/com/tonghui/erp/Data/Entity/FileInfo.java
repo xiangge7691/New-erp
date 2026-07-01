@@ -100,6 +100,12 @@ public class FileInfo extends AuditEntity {
     private String businessType;
 
     /**
+     * 自定义存储子目录
+     */
+    @TableField(value = "custom_path")
+    private String customPath;
+
+    /**
      * 是否已删除
      */
     @TableField(value = "is_deleted")

@@ -157,6 +157,13 @@ public class FileInfoServiceImpl extends ServiceImpl<FileInfoMapper, FileInfo>
     @Transactional
     public FileInfo uploadFileWithBusinessPath(MultipartFile file, String businessType,
                                                 Long businessId, String entityName, String description) throws IOException {
+        return uploadFileWithBusinessPath(file, businessType, businessId, entityName, description, null);
+    }
+
+    @Override
+    @Transactional
+    public FileInfo uploadFileWithBusinessPath(MultipartFile file, String businessType,
+                                                Long businessId, String entityName, String description, String customPath) throws IOException {
         if (!fileStorageService.isAllowedFileType(file)) {
             throw new IllegalArgumentException("不支持的文件类型: " + file.getContentType());
         }
@@ -165,7 +172,7 @@ public class FileInfoServiceImpl extends ServiceImpl<FileInfoMapper, FileInfo>
         }
 
         String fileMd5 = fileStorageService.calculateMD5(file);
-        FileInfo fileInfo = fileStorageService.uploadFileWithBusinessPath(file, businessType, businessId, entityName, description);
+        FileInfo fileInfo = fileStorageService.uploadFileWithBusinessPath(file, businessType, businessId, entityName, description, customPath);
         fileInfo.setFileMd5(fileMd5);
         fileInfo.setDescription(description);
 

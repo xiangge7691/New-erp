@@ -107,4 +107,7 @@ public interface FileStorageService {
      */
     FileInfo uploadFileWithBusinessPath(MultipartFile file, String businessType,
                                         Long businessId, String entityName, String description) throws IOException;
+
+    FileInfo uploadFileWithBusinessPath(MultipartFile file, String businessType,
+                                        Long businessId, String entityName, String description, String customPath) throws IOException;
 }

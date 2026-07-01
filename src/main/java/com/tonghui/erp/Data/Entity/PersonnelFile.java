@@ -131,18 +131,6 @@ public class PersonnelFile extends AuditEntity {
     private LocalDate lastCheckupDate;
 
     /**
-     * 健康档案（关联file_info.file_id）
-     */
-    @TableField(value = "health_file")
-    private Long healthFile;
-
-    /**
-     * 附件（关联file_info.file_id）
-     */
-    @TableField(value = "attachments")
-    private Long attachments;
-
-    /**
      * 状态：0离职/1在职
      */
     @TableField(value = "status")

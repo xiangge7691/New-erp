@@ -95,12 +95,6 @@ public class PersonnelCertificate extends AuditEntity {
     private String trainingRecord;
 
     /**
-     * 附件（关联file_info.file_id）
-     */
-    @TableField(value = "file_id")
-    private Long fileId;
-
-    /**
      * 状态：0失效/1有效
      */
     @TableField(value = "status")

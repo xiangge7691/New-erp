@@ -113,6 +113,7 @@ public class FileStorageConfig {
         put("QUALITY_CERTIFICATE", "质量证书");
         // 人员管理
         put("PERSONNEL_FILE", "人员档案");
+        put("PERSONNEL_CERTIFICATE", "人员档案/证书");
         put("PERSONNEL_HEALTH_CERT", "人员档案/健康证");
         put("PERSONNEL_HEALTH_FILE", "人员档案/健康档案");
         put("PERSONNEL_WORK_CERT", "人员档案/工作证");
