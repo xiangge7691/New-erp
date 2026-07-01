@@ -13,6 +13,10 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * 洁净检测记录控制器
+ * 提供洁净检测记录的CRUD操作
+ */
 @RestController
 @RequestMapping("/api/room/{roomId}/inspection")
 public class CleanInspectionRecordController extends BaseController {
@@ -23,6 +27,9 @@ public class CleanInspectionRecordController extends BaseController {
     @Autowired
     private RoomInfoService roomInfoService;
 
+    /**
+     * 分页查询洁净检测记录列表
+     */
     @GetMapping
     public ApiResponse<PagedResult<CleanInspectionRecord>> getAll(
             @PathVariable Integer roomId,
@@ -50,6 +57,9 @@ public class CleanInspectionRecordController extends BaseController {
         }
     }
 
+    /**
+     * 查询洁净检测记录列表（不分页）
+     */
     @GetMapping("/list")
     public ApiResponse<List<CleanInspectionRecord>> getList(@PathVariable Integer roomId) {
         try {
@@ -60,6 +70,9 @@ public class CleanInspectionRecordController extends BaseController {
         }
     }
 
+    /**
+     * 新增洁净检测记录
+     */
     @PostMapping
     public ApiResponse<CleanInspectionRecord> create(@PathVariable Integer roomId, @RequestBody CleanInspectionRecord record) {
         try {
@@ -73,6 +86,9 @@ public class CleanInspectionRecordController extends BaseController {
         }
     }
 
+    /**
+     * 修改洁净检测记录
+     */
     @PutMapping("/{id}")
     public ApiResponse<CleanInspectionRecord> update(@PathVariable Integer roomId, @PathVariable Long id, @RequestBody CleanInspectionRecord record) {
         try {
@@ -89,6 +105,9 @@ public class CleanInspectionRecordController extends BaseController {
         }
     }
 
+    /**
+     * 删除洁净检测记录（软删除）
+     */
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Integer roomId, @PathVariable Long id) {
         try {

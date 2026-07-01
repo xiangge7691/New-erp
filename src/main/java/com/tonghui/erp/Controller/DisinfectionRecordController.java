@@ -14,6 +14,10 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * 消毒管理记录控制器
+ * 提供消毒记录的CRUD操作
+ */
 @RestController
 @RequestMapping("/api/room/{roomId}/disinfection")
 public class DisinfectionRecordController extends BaseController {
@@ -24,6 +28,9 @@ public class DisinfectionRecordController extends BaseController {
     @Autowired
     private RoomInfoService roomInfoService;
 
+    /**
+     * 分页查询消毒记录列表
+     */
     @GetMapping
     public ApiResponse<PagedResult<DisinfectionRecord>> getAll(
             @PathVariable Integer roomId,
@@ -51,6 +58,9 @@ public class DisinfectionRecordController extends BaseController {
         }
     }
 
+    /**
+     * 查询消毒记录列表（不分页）
+     */
     @GetMapping("/list")
     public ApiResponse<List<DisinfectionRecord>> getList(@PathVariable Integer roomId) {
         try {
@@ -61,6 +71,10 @@ public class DisinfectionRecordController extends BaseController {
         }
     }
 
+    /**
+     * 新增消毒记录
+     * 自动计算下次消毒日期
+     */
     @PostMapping
     public ApiResponse<DisinfectionRecord> create(@PathVariable Integer roomId, @RequestBody DisinfectionRecord record) {
         try {
@@ -80,6 +94,9 @@ public class DisinfectionRecordController extends BaseController {
         }
     }
 
+    /**
+     * 修改消毒记录
+     */
     @PutMapping("/{id}")
     public ApiResponse<DisinfectionRecord> update(@PathVariable Integer roomId, @PathVariable Long id, @RequestBody DisinfectionRecord record) {
         try {
@@ -96,6 +113,9 @@ public class DisinfectionRecordController extends BaseController {
         }
     }
 
+    /**
+     * 删除消毒记录（软删除）
+     */
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Integer roomId, @PathVariable Long id) {
         try {
@@ -111,6 +131,9 @@ public class DisinfectionRecordController extends BaseController {
         }
     }
 
+    /**
+     * 查询即将到期的消毒提醒
+     */
     @GetMapping("/reminder")
     public ApiResponse<List<DisinfectionRecord>> reminder(
             @PathVariable Integer roomId,

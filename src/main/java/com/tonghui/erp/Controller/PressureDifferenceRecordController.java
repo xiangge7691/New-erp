@@ -13,6 +13,10 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * 压差记录控制器
+ * 提供压差记录的CRUD操作
+ */
 @RestController
 @RequestMapping("/api/room/{roomId}/pressure")
 public class PressureDifferenceRecordController extends BaseController {
@@ -23,6 +27,9 @@ public class PressureDifferenceRecordController extends BaseController {
     @Autowired
     private RoomInfoService roomInfoService;
 
+    /**
+     * 分页查询压差记录列表
+     */
     @GetMapping
     public ApiResponse<PagedResult<PressureDifferenceRecord>> getAll(
             @PathVariable Integer roomId,
@@ -50,6 +57,9 @@ public class PressureDifferenceRecordController extends BaseController {
         }
     }
 
+    /**
+     * 查询压差记录列表（不分页）
+     */
     @GetMapping("/list")
     public ApiResponse<List<PressureDifferenceRecord>> getList(@PathVariable Integer roomId) {
         try {
@@ -60,6 +70,9 @@ public class PressureDifferenceRecordController extends BaseController {
         }
     }
 
+    /**
+     * 新增压差记录
+     */
     @PostMapping
     public ApiResponse<PressureDifferenceRecord> create(@PathVariable Integer roomId, @RequestBody PressureDifferenceRecord record) {
         try {
@@ -73,6 +86,9 @@ public class PressureDifferenceRecordController extends BaseController {
         }
     }
 
+    /**
+     * 修改压差记录
+     */
     @PutMapping("/{id}")
     public ApiResponse<PressureDifferenceRecord> update(@PathVariable Integer roomId, @PathVariable Long id, @RequestBody PressureDifferenceRecord record) {
         try {
@@ -88,6 +104,9 @@ public class PressureDifferenceRecordController extends BaseController {
         }
     }
 
+    /**
+     * 删除压差记录（软删除）
+     */
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Integer roomId, @PathVariable Long id) {
         try {

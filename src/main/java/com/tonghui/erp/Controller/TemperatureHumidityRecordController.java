@@ -13,6 +13,10 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * 温湿度记录控制器
+ * 提供温湿度记录的CRUD操作
+ */
 @RestController
 @RequestMapping("/api/room/{roomId}/temperature-humidity")
 public class TemperatureHumidityRecordController extends BaseController {
@@ -23,6 +27,9 @@ public class TemperatureHumidityRecordController extends BaseController {
     @Autowired
     private RoomInfoService roomInfoService;
 
+    /**
+     * 分页查询温湿度记录列表
+     */
     @GetMapping
     public ApiResponse<PagedResult<TemperatureHumidityRecord>> getAll(
             @PathVariable Integer roomId,
@@ -50,6 +57,9 @@ public class TemperatureHumidityRecordController extends BaseController {
         }
     }
 
+    /**
+     * 查询温湿度记录列表（不分页）
+     */
     @GetMapping("/list")
     public ApiResponse<List<TemperatureHumidityRecord>> getList(@PathVariable Integer roomId) {
         try {
@@ -60,6 +70,9 @@ public class TemperatureHumidityRecordController extends BaseController {
         }
     }
 
+    /**
+     * 新增温湿度记录
+     */
     @PostMapping
     public ApiResponse<TemperatureHumidityRecord> create(@PathVariable Integer roomId, @RequestBody TemperatureHumidityRecord record) {
         try {
@@ -73,6 +86,9 @@ public class TemperatureHumidityRecordController extends BaseController {
         }
     }
 
+    /**
+     * 修改温湿度记录
+     */
     @PutMapping("/{id}")
     public ApiResponse<TemperatureHumidityRecord> update(@PathVariable Integer roomId, @PathVariable Long id, @RequestBody TemperatureHumidityRecord record) {
         try {
@@ -88,6 +104,9 @@ public class TemperatureHumidityRecordController extends BaseController {
         }
     }
 
+    /**
+     * 删除温湿度记录（软删除）
+     */
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Integer roomId, @PathVariable Long id) {
         try {
