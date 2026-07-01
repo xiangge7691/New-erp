@@ -1,6 +1,7 @@
 package com.tonghui.erp.Service;
 
 import com.tonghui.erp.Data.Entity.RoomInfo;
+import com.tonghui.erp.Common.Dto.Room.RoomInfoWithDetailsDto;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
@@ -46,4 +47,13 @@ public interface RoomInfoService extends IService<RoomInfo> {
      * @return 查询到的房间，不存在则返回 null
      */
     RoomInfo getByName(String roomName);
+
+    /**
+     * 搜索房间（带子表）
+     *
+     * @param roomName 房间名称（模糊匹配），为空时查询所有
+     * @param pageRequest 分页参数
+     * @return 分页结果（包含 4 个子表记录）
+     */
+    PagedResult<RoomInfoWithDetailsDto> searchWithDetails(String roomName, PageRequestDto pageRequest);
 }

@@ -3,6 +3,7 @@ package com.tonghui.erp.Controller;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Room.RoomInfoWithDetailsDto;
 import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.DisinfectionRecord;
 import com.tonghui.erp.Data.Entity.RoomInfo;
@@ -148,6 +149,25 @@ public class RoomInfoController extends BaseCrudController<RoomInfo, RoomInfo, I
             return success(result);
         } catch (Exception ex) {
             return exception(ex, "获取启用房间");
+        }
+    }
+
+    /**
+     * 搜索房间（带子表）
+     * @param roomName 房间名称（可选，支持模糊搜索）
+     * @param pageRequest 分页请求参数
+     * @return 房间列表（含温湿度、压差、洁净检测、消毒记录）
+     */
+    @GetMapping("/search-with-details")
+    public ApiResponse<PagedResult<RoomInfoWithDetailsDto>> searchWithDetails(
+            @RequestParam(required = false) String roomName,
+            @ModelAttribute PageRequestDto pageRequest) {
+        try {
+            pageRequest = processPageRequest(pageRequest);
+            PagedResult<RoomInfoWithDetailsDto> result = roomInfoService.searchWithDetails(roomName, pageRequest);
+            return success(result);
+        } catch (Exception ex) {
+            return exception(ex, "搜索房间");
         }
     }
 

@@ -1,15 +1,30 @@
 package com.tonghui.erp.Service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Data.Entity.RoomInfo;
+import com.tonghui.erp.Data.Entity.TemperatureHumidityRecord;
+import com.tonghui.erp.Data.Entity.PressureDifferenceRecord;
+import com.tonghui.erp.Data.Entity.CleanInspectionRecord;
+import com.tonghui.erp.Data.Entity.DisinfectionRecord;
 import com.tonghui.erp.Service.RoomInfoService;
+import com.tonghui.erp.Service.TemperatureHumidityRecordService;
+import com.tonghui.erp.Service.PressureDifferenceRecordService;
+import com.tonghui.erp.Service.CleanInspectionRecordService;
+import com.tonghui.erp.Service.DisinfectionRecordService;
 import com.tonghui.erp.Data.mapper.RoomInfoMapper;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Room.RoomInfoWithDetailsDto;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 房间信息服务实现类
@@ -20,6 +35,18 @@ import java.util.List;
 @Service
 public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoMapper, RoomInfo>
     implements RoomInfoService{
+
+    @Autowired
+    private TemperatureHumidityRecordService temperatureHumidityRecordService;
+
+    @Autowired
+    private PressureDifferenceRecordService pressureDifferenceRecordService;
+
+    @Autowired
+    private CleanInspectionRecordService cleanInspectionRecordService;
+
+    @Autowired
+    private DisinfectionRecordService disinfectionRecordService;
 
     //#region 房间信息查询实现方法
     // ===================================
@@ -151,6 +178,61 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoMapper, RoomInfo>
         return this.lambdaQuery()
                 .eq(RoomInfo::getRoomName, roomName)
                 .one();
+    }
+
+    /**
+     * 搜索房间（带子表）
+     */
+    @Override
+    public PagedResult<RoomInfoWithDetailsDto> searchWithDetails(String roomName, PageRequestDto pageRequest) {
+        PagedResult<RoomInfo> baseResult = searchByName(roomName, pageRequest);
+
+        PagedResult<RoomInfoWithDetailsDto> result = new PagedResult<>();
+        result.setTotalCount(baseResult.getTotalCount());
+        result.setPageIndex(baseResult.getPageIndex());
+        result.setPageSize(baseResult.getPageSize());
+
+        if (baseResult.getItems() == null || baseResult.getItems().isEmpty()) {
+            result.setItems(Collections.emptyList());
+            return result;
+        }
+
+        List<Integer> roomIds = baseResult.getItems().stream()
+                .map(RoomInfo::getRoomId)
+                .collect(Collectors.toList());
+
+        QueryWrapper<TemperatureHumidityRecord> thWrapper = new QueryWrapper<>();
+        thWrapper.in("room_id", roomIds);
+        Map<Integer, List<TemperatureHumidityRecord>> thMap = temperatureHumidityRecordService.list(thWrapper).stream()
+                .collect(Collectors.groupingBy(TemperatureHumidityRecord::getRoomId));
+
+        QueryWrapper<PressureDifferenceRecord> pdWrapper = new QueryWrapper<>();
+        pdWrapper.in("room_id", roomIds);
+        Map<Integer, List<PressureDifferenceRecord>> pdMap = pressureDifferenceRecordService.list(pdWrapper).stream()
+                .collect(Collectors.groupingBy(PressureDifferenceRecord::getRoomId));
+
+        QueryWrapper<CleanInspectionRecord> ciWrapper = new QueryWrapper<>();
+        ciWrapper.in("room_id", roomIds);
+        Map<Integer, List<CleanInspectionRecord>> ciMap = cleanInspectionRecordService.list(ciWrapper).stream()
+                .collect(Collectors.groupingBy(CleanInspectionRecord::getRoomId));
+
+        QueryWrapper<DisinfectionRecord> disWrapper = new QueryWrapper<>();
+        disWrapper.in("room_id", roomIds);
+        Map<Integer, List<DisinfectionRecord>> disMap = disinfectionRecordService.list(disWrapper).stream()
+                .collect(Collectors.groupingBy(DisinfectionRecord::getRoomId));
+
+        List<RoomInfoWithDetailsDto> dtos = baseResult.getItems().stream().map(room -> {
+            RoomInfoWithDetailsDto dto = new RoomInfoWithDetailsDto();
+            BeanUtils.copyProperties(room, dto);
+            dto.setTemperatureHumidityRecords(thMap.getOrDefault(room.getRoomId(), Collections.emptyList()));
+            dto.setPressureDifferenceRecords(pdMap.getOrDefault(room.getRoomId(), Collections.emptyList()));
+            dto.setCleanInspectionRecords(ciMap.getOrDefault(room.getRoomId(), Collections.emptyList()));
+            dto.setDisinfectionRecords(disMap.getOrDefault(room.getRoomId(), Collections.emptyList()));
+            return dto;
+        }).collect(Collectors.toList());
+
+        result.setItems(dtos);
+        return result;
     }
 
     //#endregion
