@@ -38,14 +38,72 @@ import java.util.List;
  * └────┴──────────────────────────┴────────┴─────────────────────────────────────┘
  *
  * 业务类型枚举（businessType）：
- * - EQUIPMENT_MAINTENANCE  → 维保记录
- * - EQUIPMENT_PHOTO        → 设备照片
- * - PREPARATION_DOCUMENT   → 制剂文档
- * - PRODUCTION_RECORD      → 生产记录
- * - PRODUCTION_PLAN        → 生产计划
- * - MATERIAL_FILE          → 物料文件
- * - QUALITY_RECORD         → 质量记录
- * - GENERAL                → 通用文件
+ * 
+ * 设备管理：
+ * - EQUIPMENT_MAINTENANCE    → 设备维保记录
+ * - EQUIPMENT_PHOTO          → 设备照片
+ * - EQUIPMENT_DOCUMENT       → 设备文档（说明书、合格证等）
+ * 
+ * 生产管理：
+ * - PRODUCTION_PLAN          → 生产计划
+ * - PRODUCTION_RECORD        → 生产记录
+ * - PRODUCTION_PROCESS       → 生产工序记录
+ * - PRODUCTION_REPORT        → 生产报告
+ * 
+ * 制剂管理：
+ * - PREPARATION_DOCUMENT     → 制剂文档
+ * - PREPARATION_FORMULA      → 制剂配方
+ * - PREPARATION_SPEC         → 制剂规格标准
+ * 
+ * 物料管理：
+ * - MATERIAL_FILE            → 物料文件
+ * - MATERIAL_CERTIFICATE     → 物料资质证书
+ * 
+ * 库存管理：
+ * - STOCK_IN_PURCHASE        → 原料入库单
+ * - STOCK_IN_AUXILIARY       → 辅料入库单
+ * - STOCK_IN_PACKAGING       → 包材入库单
+ * - STOCK_IN_PRODUCT         → 成品入库单
+ * - STOCK_OUT_SALES          → 销售出库单
+ * - STOCK_OUT_PRODUCTION     → 生产领料出库单
+ * - STOCK_OUT_RETURN         → 退货出库单
+ * 
+ * 采购管理：
+ * - PURCHASE_ORDER           → 采购订单
+ * - PURCHASE_CONTRACT        → 采购合同
+ * - PURCHASE_INVOICE         → 采购发票
+ * 
+ * 质量管理：
+ * - QUALITY_RECORD           → 质量记录
+ * - QUALITY_INSPECTION       → 质检报告
+ * - QUALITY_CERTIFICATE      → 质量证书
+ * 
+ * 人员管理：
+ * - PERSONNEL_FILE           → 人员档案
+ * - PERSONNEL_HEALTH_CERT    → 健康证
+ * - PERSONNEL_WORK_CERT      → 工作证
+ * - PERSONNEL_QUALIFICATION  → 资格证书
+ * - PERSONNEL_EDUCATION      → 学历证书
+ * - PERSONNEL_TRAINING       → 培训记录
+ * 
+ * 车间/环境管理：
+ * - ROOM_DOCUMENT            → 车间洁净规程
+ * - DISINFECTION_RECORD      → 消毒记录
+ * - CLEAN_INSPECTION_RECORD  → 洁净检测记录
+ * - TEMPERATURE_HUMIDITY_RECORD → 温湿度记录
+ * - PRESSURE_DIFFERENCE_RECORD  → 压差记录
+ * - ENVIRONMENT_LICENSE      → 环境许可证
+ * - ENVIRONMENT_REPORT       → 环境检测报告
+ * 
+ * 审批管理：
+ * - APPROVAL                 → 审批附件
+ * 
+ * 供应商/客户管理：
+ * - SUPPLIER_QUALIFICATION   → 供应商资质
+ * - CUSTOMER_QUALIFICATION   → 客户资质
+ * 
+ * 通用：
+ * - GENERAL                  → 通用文件
  */
 @RestController
 @RequestMapping("/api/files")
@@ -62,7 +120,7 @@ public class FileController extends BaseController {
      * 按业务路径上传文件（推荐使用）
      *
      * 文件存储路径格式：{basePath}/{中文目录}/{年}/{月}/{实体名}/{uuid.ext}
-     * 示例：uploaded-files/维保记录/2026/06/热风循环烘箱/a1b2c3d4.pdf
+     * 示例：uploaded-files/设备维保/2026/06/热风循环烘箱/a1b2c3d4.pdf
      *
      * @param file         文件对象（multipart/form-data，字段名 file）
      * @param businessType 业务类型（必填），见上方业务类型枚举
@@ -89,11 +147,11 @@ public class FileController extends BaseController {
      *     "fileId": 101,
      *     "originalName": "维修单.jpg",
      *     "storedName": "a1b2c3d4e5f6.jpg",
-     *     "filePath": "uploaded-files/维保记录/2026/06/热风循环烘箱/a1b2c3d4e5f6.jpg",
+     *     "filePath": "uploaded-files/设备维保/2026/06/热风循环烘箱/a1b2c3d4e5f6.jpg",
      *     "fileSize": 204800,
      *     "contentType": "image/jpeg",
      *     "fileExtension": "jpg",
-     *     "category": "维保记录",
+     *     "category": "设备维保",
      *     "description": "维修单据",
      *     "storageType": "LOCAL",
      *     "businessId": 1,

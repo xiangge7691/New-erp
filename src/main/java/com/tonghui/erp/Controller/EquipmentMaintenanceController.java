@@ -173,7 +173,7 @@ public class EquipmentMaintenanceController extends BaseController {
 
     /**
      * 上传维保附件
-     * 路径格式：uploaded-files/维保记录/{年}/{月}/{设备名}/{uuid.ext}
+     * 路径格式：uploaded-files/设备维保/{年}/{月}/{设备名}/{uuid.ext}
      */
     @PostMapping("/{id}/attachments")
     public ApiResponse<FileInfo> uploadAttachment(
