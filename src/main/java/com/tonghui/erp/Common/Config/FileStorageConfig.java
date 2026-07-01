@@ -114,7 +114,9 @@ public class FileStorageConfig {
         // 人员管理
         put("PERSONNEL_FILE", "人员档案");
         put("PERSONNEL_HEALTH_CERT", "人员档案/健康证");
+        put("PERSONNEL_HEALTH_FILE", "人员档案/健康档案");
         put("PERSONNEL_WORK_CERT", "人员档案/工作证");
+        put("PERSONNEL_ATTACHMENT", "人员档案/附件");
         put("PERSONNEL_QUALIFICATION", "人员档案/资格证书");
         put("PERSONNEL_EDUCATION", "人员档案/学历证书");
         put("PERSONNEL_TRAINING", "人员档案/培训记录");
