@@ -11,8 +11,10 @@ import com.tonghui.erp.Service.EquipmentMaintenanceService;
 import com.tonghui.erp.Service.EquipmentService;
 import com.tonghui.erp.Service.FileInfoService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -39,6 +41,11 @@ public class EquipmentMaintenanceController extends BaseController {
     public ApiResponse<PagedResult<EquipmentMaintenance>> getAll(
             @RequestParam(required = false) Long equipmentId,
             @RequestParam(required = false) String maintenanceType,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String maintainer,
+            @RequestParam(required = false) String maintenanceCompany,
+            @RequestParam(required = false) LocalDate maintenanceDateStart,
+            @RequestParam(required = false) LocalDate maintenanceDateEnd,
             @RequestParam(defaultValue = "0") int pageIndex,
             @RequestParam(defaultValue = "10") int pageSize) {
         Page<EquipmentMaintenance> page = new Page<>(pageIndex + 1, pageSize);
@@ -47,8 +54,23 @@ public class EquipmentMaintenanceController extends BaseController {
         if (equipmentId != null) {
             wrapper.eq("equipment_id", equipmentId);
         }
-        if (maintenanceType != null && !maintenanceType.isEmpty()) {
+        if (StringUtils.hasText(maintenanceType)) {
             wrapper.eq("maintenance_type", maintenanceType);
+        }
+        if (StringUtils.hasText(keyword)) {
+            wrapper.like("maintenance_content", keyword);
+        }
+        if (StringUtils.hasText(maintainer)) {
+            wrapper.like("maintainer", maintainer);
+        }
+        if (StringUtils.hasText(maintenanceCompany)) {
+            wrapper.like("maintenance_company", maintenanceCompany);
+        }
+        if (maintenanceDateStart != null) {
+            wrapper.ge("maintenance_date", maintenanceDateStart);
+        }
+        if (maintenanceDateEnd != null) {
+            wrapper.le("maintenance_date", maintenanceDateEnd);
         }
         wrapper.orderByDesc("maintenance_date");
         
