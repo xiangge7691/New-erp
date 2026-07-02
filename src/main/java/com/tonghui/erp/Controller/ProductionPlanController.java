@@ -35,6 +35,7 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
         ProductionPlan productionPlan = new ProductionPlan();
         Page<ProductionPlan> pageResult = productionPlanService.queryProductionPlans(productionPlan,
                 null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null,
                 safePageIndex, safePageSize);
 
         // 转换为PagedResult
@@ -145,6 +146,9 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
                                                                          @RequestParam(required = false) LocalDateTime outboundTimeEnd,
                                                                          @RequestParam(required = false) LocalDateTime archiveTimeStart,
                                                                          @RequestParam(required = false) LocalDateTime archiveTimeEnd,
+                                                                         @RequestParam(required = false) String timeFieldType,
+                                                                         @RequestParam(required = false) LocalDateTime timeStart,
+                                                                         @RequestParam(required = false) LocalDateTime timeEnd,
                                                                          @RequestParam int pageIndex,
                                                                          @RequestParam int pageSize) {
         try {
@@ -159,6 +163,7 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
                     productionStartTimeStart, productionStartTimeEnd, productionEndTimeStart, productionEndTimeEnd,
                     inspectionStartTimeStart, inspectionStartTimeEnd, inspectionEndTimeStart, inspectionEndTimeEnd,
                     outboundTimeStart, outboundTimeEnd, archiveTimeStart, archiveTimeEnd,
+                    timeFieldType, timeStart, timeEnd,
                     safePageIndex, safePageSize);
 
             // 转换为统一的PagedResult格式
@@ -220,6 +225,9 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
                                                                                      @RequestParam(required = false) LocalDateTime outboundTimeEnd,
                                                                                      @RequestParam(required = false) LocalDateTime archiveTimeStart,
                                                                                      @RequestParam(required = false) LocalDateTime archiveTimeEnd,
+                                                                                     @RequestParam(required = false) String timeFieldType,
+                                                                                     @RequestParam(required = false) LocalDateTime timeStart,
+                                                                                     @RequestParam(required = false) LocalDateTime timeEnd,
                                                                                      @RequestParam int pageIndex,
                                                                                      @RequestParam int pageSize) {
         try {
@@ -230,6 +238,7 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
                     productionStartTimeStart, productionStartTimeEnd, productionEndTimeStart, productionEndTimeEnd,
                     inspectionStartTimeStart, inspectionStartTimeEnd, inspectionEndTimeStart, inspectionEndTimeEnd,
                     outboundTimeStart, outboundTimeEnd, archiveTimeStart, archiveTimeEnd,
+                    timeFieldType, timeStart, timeEnd,
                     safePageIndex, safePageSize);
             return success(result);
         } catch (Exception ex) {

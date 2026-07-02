@@ -49,6 +49,7 @@ public interface ProductionPlanService extends IService<ProductionPlan> {
                                              LocalDateTime inspectionEndTimeStart, LocalDateTime inspectionEndTimeEnd,
                                              LocalDateTime outboundTimeStart, LocalDateTime outboundTimeEnd,
                                              LocalDateTime archiveTimeStart, LocalDateTime archiveTimeEnd,
+                                             String timeFieldType, LocalDateTime timeStart, LocalDateTime timeEnd,
                                              int pageNum, int pageSize);
     
     /**
@@ -110,6 +111,7 @@ public interface ProductionPlanService extends IService<ProductionPlan> {
                                                                 LocalDateTime inspectionEndTimeStart, LocalDateTime inspectionEndTimeEnd,
                                                                 LocalDateTime outboundTimeStart, LocalDateTime outboundTimeEnd,
                                                                 LocalDateTime archiveTimeStart, LocalDateTime archiveTimeEnd,
+                                                                String timeFieldType, LocalDateTime timeStart, LocalDateTime timeEnd,
                                                                 int pageNum, int pageSize);
     
     /**

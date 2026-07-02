@@ -8,6 +8,7 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.PersonnelFileWithDetailsDto;
 import com.tonghui.erp.Data.Entity.FileInfo;
 import com.tonghui.erp.Data.Entity.PersonnelFile;
+import com.tonghui.erp.Data.Entity.PersonnelCertificate;
 import com.tonghui.erp.Data.Entity.Position;
 import com.tonghui.erp.Data.Entity.Department;
 import com.tonghui.erp.Data.Entity.User;
@@ -22,6 +23,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 人员档案控制器
@@ -84,6 +87,19 @@ public class PersonnelFileController extends BaseController {
 
         Page<PersonnelFile> pageResult = personnelFileService.page(page, wrapper);
         fillNameFieldsForList(pageResult.getRecords());
+
+        // 批量填充证书列表
+        List<Long> ids = pageResult.getRecords().stream()
+                .map(PersonnelFile::getPersonnelFileId).collect(Collectors.toList());
+        if (!ids.isEmpty()) {
+            QueryWrapper<PersonnelCertificate> certWrapper = new QueryWrapper<>();
+            certWrapper.in("personnel_file_id", ids);
+            Map<Long, List<PersonnelCertificate>> certMap = personnelCertificateService
+                    .list(certWrapper).stream()
+                    .collect(Collectors.groupingBy(PersonnelCertificate::getPersonnelFileId));
+            pageResult.getRecords().forEach(f ->
+                    f.setCertificates(certMap.getOrDefault(f.getPersonnelFileId(), List.of())));
+        }
 
         PagedResult<PersonnelFile> pagedResult = new PagedResult<>();
         pagedResult.setItems(pageResult.getRecords());

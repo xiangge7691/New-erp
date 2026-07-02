@@ -64,6 +64,7 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
                                                      LocalDateTime inspectionEndTimeStart, LocalDateTime inspectionEndTimeEnd,
                                                      LocalDateTime outboundTimeStart, LocalDateTime outboundTimeEnd,
                                                      LocalDateTime archiveTimeStart, LocalDateTime archiveTimeEnd,
+                                                     String timeFieldType, LocalDateTime timeStart, LocalDateTime timeEnd,
                                                      int pageNum, int pageSize) {
         // 将页码从0开始转换为1开始
         int actualPageNum = pageNum + 1;
@@ -157,6 +158,25 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
             wrapper.le("archive_time", archiveTimeEnd);
         }
         
+        // 动态时间筛选
+        if (StringUtils.hasText(timeFieldType) && (timeStart != null || timeEnd != null)) {
+            String column = switch (timeFieldType) {
+                case "CREATED_TIME" -> "created_time";
+                case "UPDATED_TIME" -> "updated_time";
+                case "PRODUCTION_START_TIME" -> "production_start_time";
+                case "PRODUCTION_END_TIME" -> "production_end_time";
+                case "INSPECTION_START_TIME" -> "inspection_start_time";
+                case "INSPECTION_END_TIME" -> "inspection_end_time";
+                case "OUTBOUND_TIME" -> "outbound_time";
+                case "ARCHIVE_TIME" -> "archive_time";
+                default -> null;
+            };
+            if (column != null) {
+                if (timeStart != null) wrapper.ge(column, timeStart);
+                if (timeEnd != null) wrapper.le(column, timeEnd);
+            }
+        }
+        
         // 按编号倒序排列
         wrapper.orderByDesc("plan_number");
 
@@ -173,11 +193,12 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
                                                                        LocalDateTime inspectionEndTimeStart, LocalDateTime inspectionEndTimeEnd,
                                                                        LocalDateTime outboundTimeStart, LocalDateTime outboundTimeEnd,
                                                                        LocalDateTime archiveTimeStart, LocalDateTime archiveTimeEnd,
+                                                                       String timeFieldType, LocalDateTime timeStart, LocalDateTime timeEnd,
                                                                        int pageNum, int pageSize) {
         Page<ProductionPlan> parentPage = queryProductionPlans(productionPlan, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd,
                 productionStartTimeStart, productionStartTimeEnd, productionEndTimeStart, productionEndTimeEnd,
                 inspectionStartTimeStart, inspectionStartTimeEnd, inspectionEndTimeStart, inspectionEndTimeEnd,
-                outboundTimeStart, outboundTimeEnd, archiveTimeStart, archiveTimeEnd, pageNum, pageSize);
+                outboundTimeStart, outboundTimeEnd, archiveTimeStart, archiveTimeEnd, timeFieldType, timeStart, timeEnd, pageNum, pageSize);
         List<ProductionPlan> parents = parentPage.getRecords();
 
         PagedResult<ProductionPlanWithRecordsDto> result = new PagedResult<>();
