@@ -131,6 +131,7 @@ public class FileStorageConfig {
         put("INSPECTION", "质检");
         put("ATTACHMENT", "附件");
         put("CLEAN_INSPECTION", "洁净检测");
+        put("CLEANING_RECORD", "清洁记录");
         put("TEMPERATURE_HUMIDITY", "温湿度记录");
         put("PRESSURE_DIFFERENCE", "压差记录");
         put("DISINFECTION", "消毒记录");
