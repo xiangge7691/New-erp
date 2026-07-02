@@ -51,6 +51,9 @@ public class CleaningRecordController extends BaseController {
      */
     @PostMapping
     public ApiResponse<CleaningRecord> create(@RequestBody CleaningRecord record) {
+        if (record.getCleaningArea() == null || record.getCleaningArea().isEmpty()) {
+            return error("清洁区域不能为空");
+        }
         if (record.getCleaningDate() != null && record.getCleaningCycle() != null
                 && record.getNextCleaningDate() == null) {
             record.setNextCleaningDate(record.getCleaningDate().plusDays(record.getCleaningCycle()));
