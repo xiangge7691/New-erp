@@ -38,71 +38,71 @@ import java.util.List;
  * └────┴──────────────────────────┴────────┴─────────────────────────────────────┘
  *
  * 业务类型枚举（businessType）：
+ * 命名规范：{父类型}_{子类型}，目录结构：{顶级目录}/{子目录}
  * 
- * 设备管理：
- * - EQUIPMENT_MAINTENANCE    → 设备维保记录
- * - EQUIPMENT_PHOTO          → 设备照片
- * - EQUIPMENT_DOCUMENT       → 设备文档（说明书、合格证等）
+ * 设备管理（EQUIPMENT）：
+ * - EQUIPMENT_MAINTENANCE    → 设备管理/维保
+ * - EQUIPMENT_PHOTO          → 设备管理/照片
+ * - EQUIPMENT_DOCUMENT       → 设备管理/文档
  * 
- * 生产管理：
- * - PRODUCTION_PLAN          → 生产计划
- * - PRODUCTION_RECORD        → 生产记录
- * - PRODUCTION_PROCESS       → 生产工序记录
- * - PRODUCTION_REPORT        → 生产报告
+ * 生产管理（PRODUCTION）：
+ * - PRODUCTION_PLAN          → 生产管理/计划
+ * - PRODUCTION_RECORD        → 生产管理/记录
+ * - PRODUCTION_PROCESS       → 生产管理/工序
+ * - PRODUCTION_REPORT        → 生产管理/报告
  * 
- * 制剂管理：
- * - PREPARATION_DOCUMENT     → 制剂文档
- * - PREPARATION_FORMULA      → 制剂配方
- * - PREPARATION_SPEC         → 制剂规格标准
+ * 制剂管理（PREPARATION）：
+ * - PREPARATION_DOCUMENT     → 制剂管理/文档
+ * - PREPARATION_FORMULA      → 制剂管理/配方
+ * - PREPARATION_SPEC         → 制剂管理/规格
  * 
- * 物料管理：
- * - MATERIAL_FILE            → 物料文件
- * - MATERIAL_CERTIFICATE     → 物料资质证书
+ * 物料管理（MATERIAL）：
+ * - MATERIAL_FILE            → 物料管理/文件
+ * - MATERIAL_CERTIFICATE     → 物料管理/证书
  * 
- * 库存管理：
- * - STOCK_IN_PURCHASE        → 原料入库单
- * - STOCK_IN_AUXILIARY       → 辅料入库单
- * - STOCK_IN_PACKAGING       → 包材入库单
- * - STOCK_IN_PRODUCT         → 成品入库单
- * - STOCK_OUT_SALES          → 销售出库单
- * - STOCK_OUT_PRODUCTION     → 生产领料出库单
- * - STOCK_OUT_RETURN         → 退货出库单
+ * 库存管理（STOCK）：
+ * - STOCK_IN_PURCHASE        → 库存管理/入库单/原料
+ * - STOCK_IN_AUXILIARY       → 库存管理/入库单/辅料
+ * - STOCK_IN_PACKAGING       → 库存管理/入库单/包材
+ * - STOCK_IN_PRODUCT         → 库存管理/入库单/成品
+ * - STOCK_OUT_SALES          → 库存管理/出库单/销售
+ * - STOCK_OUT_PRODUCTION     → 库存管理/出库单/领料
+ * - STOCK_OUT_RETURN         → 库存管理/出库单/退货
  * 
- * 采购管理：
- * - PURCHASE_ORDER           → 采购订单
- * - PURCHASE_CONTRACT        → 采购合同
- * - PURCHASE_INVOICE         → 采购发票
+ * 采购管理（PURCHASE）：
+ * - PURCHASE_ORDER           → 采购管理/订单
+ * - PURCHASE_CONTRACT        → 采购管理/合同
+ * - PURCHASE_INVOICE         → 采购管理/发票
  * 
- * 质量管理：
- * - QUALITY_RECORD           → 质量记录
- * - QUALITY_INSPECTION       → 质检报告
- * - QUALITY_CERTIFICATE      → 质量证书
+ * 质量管理（QUALITY）：
+ * - QUALITY_RECORD           → 质量管理/记录
+ * - QUALITY_INSPECTION       → 质量管理/质检
+ * - QUALITY_CERTIFICATE      → 质量管理/证书
  * 
- * 人员管理：
- * - PERSONNEL_FILE           → 人员档案
- * - PERSONNEL_HEALTH_CERT    → 健康证
- * - PERSONNEL_WORK_CERT      → 工作证
- * - PERSONNEL_QUALIFICATION  → 资格证书
- * - PERSONNEL_EDUCATION      → 学历证书
- * - PERSONNEL_TRAINING       → 培训记录
+ * 人员管理（PERSONNEL）：
+ * - PERSONNEL_CERTIFICATE    → 人员管理/证书
+ * - PERSONNEL_ATTACHMENT     → 人员管理/附件
  * 
- * 车间/环境管理：
- * - ROOM_DOCUMENT            → 车间洁净规程
- * - DISINFECTION_RECORD      → 消毒记录
- * - CLEAN_INSPECTION_RECORD  → 洁净检测记录
- * - TEMPERATURE_HUMIDITY_RECORD → 温湿度记录
- * - PRESSURE_DIFFERENCE_RECORD  → 压差记录
- * - ENVIRONMENT_LICENSE      → 环境许可证
- * - ENVIRONMENT_REPORT       → 环境检测报告
+ * 车间环境（ROOM）：
+ * - ROOM_CLEAN_INSPECTION    → 车间环境/洁净检测
+ * - ROOM_TEMPERATURE_HUMIDITY → 车间环境/温湿度记录
+ * - ROOM_PRESSURE_DIFFERENCE → 车间环境/压差记录
+ * - ROOM_DISINFECTION        → 车间环境/消毒记录
  * 
- * 审批管理：
- * - APPROVAL                 → 审批附件
+ * 环境管理（ENVIRONMENT）：
+ * - ENVIRONMENT_LICENSE      → 环境管理/许可
+ * - ENVIRONMENT_REPORT       → 环境管理/报告
  * 
- * 供应商/客户管理：
- * - SUPPLIER_QUALIFICATION   → 供应商资质
- * - CUSTOMER_QUALIFICATION   → 客户资质
+ * 审批管理（APPROVAL）：
+ * - APPROVAL                 → 审批管理
  * 
- * 通用：
+ * 供应商管理（SUPPLIER）：
+ * - SUPPLIER_QUALIFICATION   → 供应商管理/资质
+ * 
+ * 客户管理（CUSTOMER）：
+ * - CUSTOMER_QUALIFICATION   → 客户管理/资质
+ * 
+ * 通用（GENERAL）：
  * - GENERAL                  → 通用文件
  */
 @RestController

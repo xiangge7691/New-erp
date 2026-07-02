@@ -75,76 +75,145 @@ public class FileStorageConfig {
      */
     private String archiveDir = "archives";
 
+    //#region 业务类型分级映射
+    // ===================================
+    // 业务类型分级映射
+    // ===================================
+
     /**
-     * 业务类型 -> 中文目录名映射
+     * 父类型 -> 顶级中文目录名
+     * 命名规范：{父类型}_{子类型}
+     * 目录结构：{顶级目录}/{子目录}
      */
     private Map<String, String> businessTypeDirMap = new HashMap<>() {{
-        // 设备管理
-        put("EQUIPMENT_MAINTENANCE", "设备维保");
-        put("EQUIPMENT_PHOTO", "设备照片");
-        put("EQUIPMENT_DOCUMENT", "设备文档");
-        // 生产管理
-        put("PRODUCTION_PLAN", "生产计划");
-        put("PRODUCTION_RECORD", "生产记录");
-        put("PRODUCTION_PROCESS", "生产工序");
-        put("PRODUCTION_REPORT", "生产报告");
-        // 制剂管理
-        put("PREPARATION_DOCUMENT", "制剂文档");
-        put("PREPARATION_FORMULA", "制剂配方");
-        put("PREPARATION_SPEC", "制剂规格");
-        // 物料管理
-        put("MATERIAL_FILE", "物料文件");
-        put("MATERIAL_CERTIFICATE", "物料证书");
-        // 库存管理
-        put("STOCK_IN_PURCHASE", "入库单/原料");
-        put("STOCK_IN_AUXILIARY", "入库单/辅料");
-        put("STOCK_IN_PACKAGING", "入库单/包材");
-        put("STOCK_IN_PRODUCT", "入库单/成品");
-        put("STOCK_OUT_SALES", "出库单/销售");
-        put("STOCK_OUT_PRODUCTION", "出库单/领料");
-        put("STOCK_OUT_RETURN", "出库单/退货");
-        // 采购管理
-        put("PURCHASE_ORDER", "采购订单");
-        put("PURCHASE_CONTRACT", "采购合同");
-        put("PURCHASE_INVOICE", "采购发票");
-        // 质量管理
-        put("QUALITY_RECORD", "质量记录");
-        put("QUALITY_INSPECTION", "质检报告");
-        put("QUALITY_CERTIFICATE", "质量证书");
-        // 人员管理
-        put("PERSONNEL_FILE", "人员档案");
-        put("PERSONNEL_CERTIFICATE", "人员档案/证书");
-        put("PERSONNEL_HEALTH_CERT", "人员档案/健康证");
-        put("PERSONNEL_HEALTH_FILE", "人员档案/健康档案");
-        put("PERSONNEL_WORK_CERT", "人员档案/工作证");
-        put("PERSONNEL_ATTACHMENT", "人员档案/附件");
-        put("PERSONNEL_QUALIFICATION", "人员档案/资格证书");
-        put("PERSONNEL_EDUCATION", "人员档案/学历证书");
-        put("PERSONNEL_TRAINING", "人员档案/培训记录");
-        // 车间/环境管理
-        put("ROOM_DOCUMENT", "车间文档");
-        put("DISINFECTION_RECORD", "消毒记录");
-        put("CLEAN_INSPECTION_RECORD", "洁净检测");
-        put("TEMPERATURE_HUMIDITY_RECORD", "温湿度记录");
-        put("PRESSURE_DIFFERENCE_RECORD", "压差记录");
-        put("ENVIRONMENT_LICENSE", "环境许可");
-        put("ENVIRONMENT_REPORT", "环境检测");
-        // 审批管理
-        put("APPROVAL", "审批附件");
-        // 供应商/客户管理
-        put("SUPPLIER_QUALIFICATION", "供应商资质");
-        put("CUSTOMER_QUALIFICATION", "客户资质");
-        // 通用
+        put("EQUIPMENT", "设备管理");
+        put("PRODUCTION", "生产管理");
+        put("PREPARATION", "制剂管理");
+        put("MATERIAL", "物料管理");
+        put("STOCK", "库存管理");
+        put("PURCHASE", "采购管理");
+        put("QUALITY", "质量管理");
+        put("PERSONNEL", "人员管理");
+        put("ROOM", "车间环境");
+        put("ENVIRONMENT", "环境管理");
+        put("APPROVAL", "审批管理");
+        put("SUPPLIER", "供应商管理");
+        put("CUSTOMER", "客户管理");
         put("GENERAL", "通用文件");
     }};
 
     /**
-     * 根据业务类型获取中文目录名，未映射时返回业务类型本身
+     * 子类型 -> 子目录名（全局统一，不含父目录前缀）
+     * 完整目录 = 父目录 + "/" + 子目录
+     */
+    private Map<String, String> subTypeDirMap = new HashMap<>() {{
+        put("MAINTENANCE", "维保");
+        put("PHOTO", "照片");
+        put("DOCUMENT", "文档");
+        put("PLAN", "计划");
+        put("RECORD", "记录");
+        put("PROCESS", "工序");
+        put("REPORT", "报告");
+        put("FORMULA", "配方");
+        put("SPEC", "规格");
+        put("FILE", "文件");
+        put("CERTIFICATE", "证书");
+        put("IN_PURCHASE", "入库单/原料");
+        put("IN_AUXILIARY", "入库单/辅料");
+        put("IN_PACKAGING", "入库单/包材");
+        put("IN_PRODUCT", "入库单/成品");
+        put("OUT_SALES", "出库单/销售");
+        put("OUT_PRODUCTION", "出库单/领料");
+        put("OUT_RETURN", "出库单/退货");
+        put("ORDER", "订单");
+        put("CONTRACT", "合同");
+        put("INVOICE", "发票");
+        put("INSPECTION", "质检");
+        put("ATTACHMENT", "附件");
+        put("CLEAN_INSPECTION", "洁净检测");
+        put("TEMPERATURE_HUMIDITY", "温湿度记录");
+        put("PRESSURE_DIFFERENCE", "压差记录");
+        put("DISINFECTION", "消毒记录");
+        put("LICENSE", "许可");
+    }};
+
+    //#endregion
+
+    //#region 目录解析方法
+    // ===================================
+    // 目录解析方法
+    // ===================================
+
+    /**
+     * 根据业务类型获取完整中文目录路径
+     * <p>
+     * 解析规则：按下划线拆分，第一段为父类型，剩余为子类型
+     * 示例：
+     * - "EQUIPMENT" → "设备管理"
+     * - "EQUIPMENT_MAINTENANCE" → "设备管理/维保"
+     * - "PERSONNEL_CERTIFICATE" → "人员管理/证书"
+     * - "STOCK_IN_PURCHASE" → "库存管理/入库单/原料"
+     * </p>
+     *
+     * @param businessType 业务类型（如 EQUIPMENT_MAINTENANCE）
+     * @return 中文目录路径
      */
     public String getBusinessTypeDir(String businessType) {
         if (businessType == null || businessType.isEmpty()) {
             return documentDir;
         }
-        return businessTypeDirMap.getOrDefault(businessType, businessType);
+
+        String[] parts = businessType.split("_", 2);
+        String parentType = parts[0];
+        String parentDir = businessTypeDirMap.get(parentType);
+
+        if (parentDir == null) {
+            return businessType;
+        }
+
+        if (parts.length == 1) {
+            return parentDir;
+        }
+
+        String subType = parts[1];
+        String subDir = subTypeDirMap.get(subType);
+        if (subDir != null) {
+            return parentDir + "/" + subDir;
+        }
+
+        return parentDir + "/" + subType;
     }
+
+    /**
+     * 获取父类型对应的顶级目录名
+     *
+     * @param businessType 业务类型
+     * @return 顶级中文目录名
+     */
+    public String getParentDir(String businessType) {
+        if (businessType == null || businessType.isEmpty()) {
+            return documentDir;
+        }
+        String parentType = businessType.split("_")[0];
+        return businessTypeDirMap.getOrDefault(parentType, parentType);
+    }
+
+    /**
+     * 获取子类型对应的子目录名
+     *
+     * @param businessType 业务类型
+     * @return 子目录名（不含父目录前缀）
+     */
+    public String getSubTypeDir(String businessType) {
+        if (businessType == null || businessType.isEmpty()) {
+            return null;
+        }
+        String[] parts = businessType.split("_", 2);
+        if (parts.length < 2) {
+            return null;
+        }
+        return subTypeDirMap.get(parts[1]);
+    }
+
+    //#endregion
 }
