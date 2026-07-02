@@ -274,6 +274,12 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
             plan.setYieldRate(yieldRate);
             plan.setUnitPrice(unitPrice);
             plan.setTotalAmount(totalAmount);
+        } else if ("ARCHIVED".equals(newStatus)) {
+            // 归档状态的特殊处理
+            plan.setCurrentStatus(newStatus);
+            plan.setCurrentStatusDate(LocalDateTime.now());
+            plan.setUpdatedBy(operatorId);
+            plan.setIsArchived(1);
         } else {
             // 非出库状态的通用处理
             plan.setCurrentStatus(newStatus);
@@ -370,20 +376,20 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
      */
     @Override
     public boolean validateStatusChange(String oldStatus, String newStatus) {
-        // 正常生产流程
-        if (("PLAN_ISSUED".equals(oldStatus) && "MATERIAL_PREP".equals(newStatus)) ||
-            ("MATERIAL_PREP".equals(oldStatus) && "IN_PRODUCTION".equals(newStatus)) ||
-            ("IN_PRODUCTION".equals(oldStatus) && "IN_INSPECTION".equals(newStatus)) ||
-            ("IN_INSPECTION".equals(oldStatus) && "OUTBOUND".equals(newStatus)) ||
-            // 返工流程
+        // 正常生产流程：已下单 → 生产中 → 已生产 → 检验中 → 已检验 → 已出库 → 已归档
+        if (("PLAN_ISSUED".equals(oldStatus) && "IN_PRODUCTION".equals(newStatus)) ||
+            ("IN_PRODUCTION".equals(oldStatus) && "PRODUCED".equals(newStatus)) ||
+            ("PRODUCED".equals(oldStatus) && "IN_INSPECTION".equals(newStatus)) ||
+            ("IN_INSPECTION".equals(oldStatus) && "INSPECTED".equals(newStatus)) ||
+            ("INSPECTED".equals(oldStatus) && "OUTBOUND".equals(newStatus)) ||
+            ("OUTBOUND".equals(oldStatus) && "ARCHIVED".equals(newStatus)) ||
+            // 返工流程：检验中 → 生产中
             ("IN_INSPECTION".equals(oldStatus) && "IN_PRODUCTION".equals(newStatus)) ||
             // 异常处理：暂停和取消
             "SUSPENDED".equals(newStatus) || 
             "CANCELLED".equals(newStatus) ||
             // 恢复机制：从暂停状态恢复到工作状态
-            ("SUSPENDED".equals(oldStatus) && "MATERIAL_PREP".equals(newStatus)) ||
-            ("SUSPENDED".equals(oldStatus) && "IN_PRODUCTION".equals(newStatus)) ||
-            ("SUSPENDED".equals(oldStatus) && "IN_INSPECTION".equals(newStatus))) {
+            ("SUSPENDED".equals(oldStatus) && "IN_PRODUCTION".equals(newStatus))) {
             return true;
         }
         

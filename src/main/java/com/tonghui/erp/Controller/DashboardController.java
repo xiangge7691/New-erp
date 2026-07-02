@@ -57,10 +57,14 @@ public class DashboardController extends BaseController {
 
             ProductionStatsDto productionStats = new ProductionStatsDto();
             productionStats.setTotalPlans(productionPlanService.count());
+            // 进行中：生产中 + 已生产 + 检验中 + 已检验
             productionStats.setInProgress(productionPlanService.count(
-                new QueryWrapper<ProductionPlan>().eq("current_status", "IN_PRODUCTION")));
+                new QueryWrapper<ProductionPlan>().in("current_status", 
+                    "IN_PRODUCTION", "PRODUCED", "IN_INSPECTION", "INSPECTED")));
+            // 已完成：已出库 + 已归档
             productionStats.setCompleted(productionPlanService.count(
-                new QueryWrapper<ProductionPlan>().eq("current_status", "OUTBOUND")));
+                new QueryWrapper<ProductionPlan>().in("current_status", "OUTBOUND", "ARCHIVED")));
+            // 待处理：已下单
             productionStats.setPending(productionPlanService.count(
                 new QueryWrapper<ProductionPlan>().eq("current_status", "PLAN_ISSUED")));
             summary.setProductionStats(productionStats);
@@ -136,10 +140,10 @@ public class DashboardController extends BaseController {
                 .sum();
             metrics.setTotalPurchaseAmount(Math.round(purchaseAmount * 100.0) / 100.0);
 
-            // 待生产数量：草稿+已确认
+            // 待生产数量：已下单
             long pending = productionPlanService.count(
                 new QueryWrapper<ProductionPlan>()
-                    .in("current_status", "PLAN_ISSUED", "MATERIAL_PREP"));
+                    .eq("current_status", "PLAN_ISSUED"));
             metrics.setPendingProduction(pending);
 
             return success(metrics);
