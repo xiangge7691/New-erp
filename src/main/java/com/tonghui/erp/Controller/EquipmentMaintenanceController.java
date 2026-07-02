@@ -152,8 +152,24 @@ public class EquipmentMaintenanceController extends BaseController {
      * 根据设备ID查询维保记录
      */
     @GetMapping("/byEquipment/{equipmentId}")
-    public ApiResponse<List<EquipmentMaintenance>> getByEquipmentId(@PathVariable Long equipmentId) {
-        List<EquipmentMaintenance> list = equipmentMaintenanceService.findByEquipmentId(equipmentId);
+    public ApiResponse<List<EquipmentMaintenance>> getByEquipmentId(
+            @PathVariable Long equipmentId,
+            @RequestParam(required = false) String maintenanceType,
+            @RequestParam(required = false) LocalDate maintenanceDateStart,
+            @RequestParam(required = false) LocalDate maintenanceDateEnd) {
+        QueryWrapper<EquipmentMaintenance> wrapper = new QueryWrapper<>();
+        wrapper.eq("equipment_id", equipmentId);
+        if (StringUtils.hasText(maintenanceType)) {
+            wrapper.eq("maintenance_type", maintenanceType);
+        }
+        if (maintenanceDateStart != null) {
+            wrapper.ge("maintenance_date", maintenanceDateStart);
+        }
+        if (maintenanceDateEnd != null) {
+            wrapper.le("maintenance_date", maintenanceDateEnd);
+        }
+        wrapper.orderByDesc("maintenance_date");
+        List<EquipmentMaintenance> list = equipmentMaintenanceService.list(wrapper);
         return success(list);
     }
 
