@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS cleaning_record (
     id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     room_id BIGINT NOT NULL COMMENT '关联车间ID',
     cleaning_date DATE NOT NULL COMMENT '清洁日期',
-    cleaning_area VARCHAR(255) NOT NULL COMMENT '清洁区域',
+    cleaning_area VARCHAR(255) DEFAULT NULL COMMENT '清洁区域',
     cleaning_method VARCHAR(100) NOT NULL COMMENT '清洁方式',
     cleaning_person VARCHAR(100) NOT NULL COMMENT '清洁执行人',
     cleaning_cycle INT NOT NULL DEFAULT 7 COMMENT '清洁周期(天)',
