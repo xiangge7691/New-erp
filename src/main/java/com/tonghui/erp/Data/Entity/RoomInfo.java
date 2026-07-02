@@ -65,12 +65,6 @@ public class RoomInfo extends AuditEntity {
     private String cleanGrade;
 
     /**
-     * 洁净规程文件ID，关联file_info表。
-     */
-    @TableField(value = "clean_procedure_file_id")
-    private Long cleanProcedureFileId;
-
-    /**
      * 备注。房间的附加说明信息，可为空。
      */
     @TableField(value = "remark")
@@ -89,22 +83,10 @@ public class RoomInfo extends AuditEntity {
     private Integer disinfectionCycle;
 
     /**
-     * 消毒规程文件名
-     */
-    @TableField(value = "disinfection_procedure")
-    private String disinfectionProcedure;
-
-    /**
      * 洁净检测周期(天)
      */
     @TableField(value = "clean_inspection_cycle")
     private Integer cleanInspectionCycle;
-
-    /**
-     * 洁净检测规程文件名
-     */
-    @TableField(value = "clean_inspection_procedure")
-    private String cleanInspectionProcedure;
 
     /**
      * 清洁周期(天)
