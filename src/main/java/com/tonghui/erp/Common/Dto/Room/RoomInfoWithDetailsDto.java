@@ -1,6 +1,7 @@
 package com.tonghui.erp.Common.Dto.Room;
 
 import com.tonghui.erp.Data.Entity.RoomInfo;
+import com.tonghui.erp.Data.Entity.Equipment;
 import com.tonghui.erp.Data.Entity.TemperatureHumidityRecord;
 import com.tonghui.erp.Data.Entity.PressureDifferenceRecord;
 import com.tonghui.erp.Data.Entity.CleanInspectionRecord;
@@ -13,6 +14,7 @@ import java.util.List;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class RoomInfoWithDetailsDto extends RoomInfo {
+    private List<Equipment> equipment;
     private List<TemperatureHumidityRecord> temperatureHumidityRecords;
     private List<PressureDifferenceRecord> pressureDifferenceRecords;
     private List<CleanInspectionRecord> cleanInspectionRecords;

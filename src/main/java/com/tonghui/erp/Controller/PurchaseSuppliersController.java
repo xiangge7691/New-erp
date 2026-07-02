@@ -3,6 +3,7 @@ package com.tonghui.erp.Controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Purchase.PurchaseSuppliersWithDetailsDto;
 import com.tonghui.erp.Data.Entity.PurchaseSuppliers;
 import com.tonghui.erp.Service.PurchaseSuppliersService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -109,6 +110,24 @@ public class PurchaseSuppliersController extends BaseCrudController<PurchaseSupp
             return success(pagedResult);
         } catch (Exception ex) {
             return exception(ex, "查询采购供应商");
+        }
+    }
+
+    // #endregion
+
+    // #region 带子表查询
+
+    @GetMapping("/search-with-details")
+    public ApiResponse<PagedResult<PurchaseSuppliersWithDetailsDto>> searchWithDetails(PurchaseSuppliers purchaseSuppliers,
+                                                                                       @RequestParam int pageIndex,
+                                                                                       @RequestParam int pageSize) {
+        try {
+            int safePageIndex = Math.max(0, pageIndex);
+            int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
+            PagedResult<PurchaseSuppliersWithDetailsDto> result = purchaseSuppliersService.searchWithDetails(purchaseSuppliers, safePageIndex, safePageSize);
+            return success(result);
+        } catch (Exception ex) {
+            return exception(ex, "查询失败");
         }
     }
 

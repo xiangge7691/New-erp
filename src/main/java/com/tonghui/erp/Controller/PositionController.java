@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.System.PositionWithDetailsDto;
 import com.tonghui.erp.Data.Entity.Position;
 import com.tonghui.erp.Service.PositionService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -116,4 +117,22 @@ public class PositionController extends BaseController {
         List<Position> list = positionService.list(wrapper);
         return success(list);
     }
+
+    // #region 带子表查询
+
+    @GetMapping("/search-with-details")
+    public ApiResponse<PagedResult<PositionWithDetailsDto>> searchWithDetails(Position position,
+                                                                              @RequestParam int pageIndex,
+                                                                              @RequestParam int pageSize) {
+        try {
+            int safePageIndex = Math.max(0, pageIndex);
+            int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
+            PagedResult<PositionWithDetailsDto> result = positionService.searchWithDetails(position, safePageIndex, safePageSize);
+            return success(result);
+        } catch (Exception ex) {
+            return exception(ex, "查询失败");
+        }
+    }
+
+    // #endregion
 }

@@ -38,6 +38,9 @@ public class TemperatureHumidityRecord extends AuditEntity {
     @TableField(value = "recorder")
     private String recorder;
 
+    @TableField(value = "remark")
+    private String remark;
+
     @TableField(value = "is_deleted")
     private Integer isDeleted;
 

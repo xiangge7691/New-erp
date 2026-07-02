@@ -1,18 +1,27 @@
 package com.tonghui.erp.Service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Data.Entity.Department;
 import com.tonghui.erp.Service.DepartmentService;
 import com.tonghui.erp.Data.mapper.DepartmentMapper;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.DepartmentDto;
+import com.tonghui.erp.Common.Dto.System.DepartmentWithDetailsDto;
+import com.tonghui.erp.Data.Entity.Position;
+import com.tonghui.erp.Data.Entity.UserDepartment;
 import com.tonghui.erp.Service.UserDepartmentService;
+import com.tonghui.erp.Service.PositionService;
 import com.tonghui.erp.Common.Mapper.Converters;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.StringUtils;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -31,6 +40,9 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
     
     @Autowired
     private UserDepartmentService userDepartmentService;
+
+    @Autowired
+    private PositionService positionService;
 
     @Autowired
     private Converters converters;
@@ -137,6 +149,74 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
     }
     //#endregion
     
+    //#region 高级查询接口
+    // ===================================
+    // 高级查询接口
+    // ===================================
+
+    @Override
+    public Page<Department> queryDepartments(Department department, int pageNum, int pageSize) {
+        int actualPageNum = pageNum + 1;
+        Page<Department> page = new Page<>(actualPageNum, pageSize);
+        QueryWrapper<Department> wrapper = new QueryWrapper<>();
+
+        if (department != null) {
+            if (department.getDepartmentId() != null) {
+                wrapper.eq("department_id", department.getDepartmentId());
+            }
+            if (StringUtils.hasText(department.getDepartmentName())) {
+                wrapper.like("department_name", department.getDepartmentName());
+            }
+            if (department.getStatus() != null) {
+                wrapper.eq("status", department.getStatus());
+            }
+        }
+        wrapper.orderByDesc("department_id");
+        return baseMapper.selectPage(page, wrapper);
+    }
+
+    @Override
+    public PagedResult<DepartmentWithDetailsDto> searchWithDetails(Department department, int pageNum, int pageSize) {
+        Page<Department> parentPage = queryDepartments(department, pageNum, pageSize);
+        List<Department> parents = parentPage.getRecords();
+
+        PagedResult<DepartmentWithDetailsDto> result = new PagedResult<>();
+        if (parents.isEmpty()) {
+            result.setItems(List.of());
+            result.setTotalCount(parentPage.getTotal());
+            result.setPageIndex(pageNum);
+            result.setPageSize(pageSize);
+            return result;
+        }
+
+        List<Long> parentIds = parents.stream().map(Department::getDepartmentId).collect(Collectors.toList());
+
+        QueryWrapper<Position> posWrapper = new QueryWrapper<>();
+        posWrapper.in("department_id", parentIds);
+        Map<Long, List<Position>> posMap = positionService.list(posWrapper).stream()
+                .collect(Collectors.groupingBy(Position::getDepartmentId));
+
+        QueryWrapper<UserDepartment> udWrapper = new QueryWrapper<>();
+        udWrapper.in("department_id", parentIds);
+        Map<Long, List<UserDepartment>> udMap = userDepartmentService.list(udWrapper).stream()
+                .collect(Collectors.groupingBy(UserDepartment::getDepartmentId));
+
+        List<DepartmentWithDetailsDto> dtos = parents.stream().map(parent -> {
+            DepartmentWithDetailsDto dto = new DepartmentWithDetailsDto();
+            BeanUtils.copyProperties(parent, dto);
+            dto.setPositions(posMap.getOrDefault(parent.getDepartmentId(), Collections.emptyList()));
+            dto.setUserDepartments(udMap.getOrDefault(parent.getDepartmentId(), Collections.emptyList()));
+            return dto;
+        }).collect(Collectors.toList());
+
+        result.setItems(dtos);
+        result.setTotalCount(parentPage.getTotal());
+        result.setPageIndex(pageNum);
+        result.setPageSize(pageSize);
+        return result;
+    }
+    //#endregion
+
     //#region 数据转换接口
     // ===================================
     // 数据转换接口

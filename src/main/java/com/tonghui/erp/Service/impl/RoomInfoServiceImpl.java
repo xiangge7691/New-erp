@@ -4,11 +4,13 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Data.Entity.RoomInfo;
+import com.tonghui.erp.Data.Entity.Equipment;
 import com.tonghui.erp.Data.Entity.TemperatureHumidityRecord;
 import com.tonghui.erp.Data.Entity.PressureDifferenceRecord;
 import com.tonghui.erp.Data.Entity.CleanInspectionRecord;
 import com.tonghui.erp.Data.Entity.DisinfectionRecord;
 import com.tonghui.erp.Service.RoomInfoService;
+import com.tonghui.erp.Service.EquipmentService;
 import com.tonghui.erp.Service.TemperatureHumidityRecordService;
 import com.tonghui.erp.Service.PressureDifferenceRecordService;
 import com.tonghui.erp.Service.CleanInspectionRecordService;
@@ -19,6 +21,7 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Room.RoomInfoWithDetailsDto;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
@@ -47,6 +50,10 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoMapper, RoomInfo>
 
     @Autowired
     private DisinfectionRecordService disinfectionRecordService;
+
+    @Autowired
+    @Lazy
+    private EquipmentService equipmentService;
 
     //#region 房间信息查询实现方法
     // ===================================
@@ -201,6 +208,11 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoMapper, RoomInfo>
                 .map(RoomInfo::getRoomId)
                 .collect(Collectors.toList());
 
+        QueryWrapper<Equipment> eqWrapper = new QueryWrapper<>();
+        eqWrapper.in("room_id", roomIds);
+        Map<Integer, List<Equipment>> eqMap = equipmentService.list(eqWrapper).stream()
+                .collect(Collectors.groupingBy(Equipment::getRoomId));
+
         QueryWrapper<TemperatureHumidityRecord> thWrapper = new QueryWrapper<>();
         thWrapper.in("room_id", roomIds);
         Map<Integer, List<TemperatureHumidityRecord>> thMap = temperatureHumidityRecordService.list(thWrapper).stream()
@@ -224,6 +236,7 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoMapper, RoomInfo>
         List<RoomInfoWithDetailsDto> dtos = baseResult.getItems().stream().map(room -> {
             RoomInfoWithDetailsDto dto = new RoomInfoWithDetailsDto();
             BeanUtils.copyProperties(room, dto);
+            dto.setEquipment(eqMap.getOrDefault(room.getRoomId(), Collections.emptyList()));
             dto.setTemperatureHumidityRecords(thMap.getOrDefault(room.getRoomId(), Collections.emptyList()));
             dto.setPressureDifferenceRecords(pdMap.getOrDefault(room.getRoomId(), Collections.emptyList()));
             dto.setCleanInspectionRecords(ciMap.getOrDefault(room.getRoomId(), Collections.emptyList()));

@@ -1,7 +1,9 @@
 package com.tonghui.erp.Service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.RoleDto;
+import com.tonghui.erp.Common.Dto.System.RoleWithDetailsDto;
 import com.tonghui.erp.Data.Entity.Role;
 import com.baomidou.mybatisplus.extension.service.IService;
 
@@ -68,6 +70,22 @@ public interface RoleService extends IService<Role> {
     RoleDto getRoleDetails(Long roleId);
     //#endregion
     
+    //#region 高级查询接口
+    // ===================================
+    // 高级查询接口
+    // ===================================
+
+    /**
+     * 查询角色（支持多条件分页）
+     */
+    Page<Role> queryRoles(Role role, int pageNum, int pageSize);
+
+    /**
+     * 带子表查询角色
+     */
+    PagedResult<RoleWithDetailsDto> searchWithDetails(Role role, int pageNum, int pageSize);
+    //#endregion
+
     //#region 数据转换接口
     // ===================================
     // 数据转换接口

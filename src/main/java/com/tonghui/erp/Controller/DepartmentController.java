@@ -4,6 +4,7 @@ import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.DepartmentDto;
+import com.tonghui.erp.Common.Dto.System.DepartmentWithDetailsDto;
 import com.tonghui.erp.Data.Entity.Department;
 import com.tonghui.erp.Service.DepartmentService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -144,5 +145,28 @@ public class DepartmentController extends BaseCrudController<Department, Departm
         }
     }
     
+    //#endregion
+
+    //#region 带子表查询接口
+    // ===================================
+    // 带子表查询接口
+    // ===================================
+
+    /**
+     * 查询部门（带子表：岗位、用户部门关联）
+     */
+    @GetMapping("/search-with-details")
+    public ApiResponse<PagedResult<DepartmentWithDetailsDto>> searchWithDetails(
+            Department department,
+            @ModelAttribute PageRequestDto pageRequest) {
+        try {
+            pageRequest = processPageRequest(pageRequest);
+            PagedResult<DepartmentWithDetailsDto> result = departmentService.searchWithDetails(
+                department, pageRequest.getPageIndex(), pageRequest.getPageSize());
+            return success(result);
+        } catch (Exception ex) {
+            return exception(ex, "searchWithDetails");
+        }
+    }
     //#endregion
 }

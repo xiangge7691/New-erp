@@ -1,6 +1,7 @@
 package com.tonghui.erp.Controller;
 
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.Dto.Approval.ApprovalNodeWithRecordsDto;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.ApprovalNode;
@@ -115,4 +116,22 @@ public class ApprovalNodeController extends BaseController {
             return exception(e, "删除审批节点");
         }
     }
+
+    // #region 带子表查询
+
+    @GetMapping("/search-with-details")
+    public ApiResponse<PagedResult<ApprovalNodeWithRecordsDto>> searchWithDetails(ApprovalNode approvalNode,
+                                                                                  @RequestParam int pageIndex,
+                                                                                  @RequestParam int pageSize) {
+        try {
+            int safePageIndex = Math.max(0, pageIndex);
+            int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
+            PagedResult<ApprovalNodeWithRecordsDto> result = approvalNodeService.searchWithDetails(approvalNode, safePageIndex, safePageSize);
+            return success(result);
+        } catch (Exception ex) {
+            return exception(ex, "查询失败");
+        }
+    }
+
+    // #endregion
 }

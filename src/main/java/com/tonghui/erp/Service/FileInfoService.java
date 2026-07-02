@@ -72,7 +72,7 @@ public interface FileInfoService extends IService<FileInfo> {
      * @param businessType 业务类型
      * @return 文件列表
      */
-    List<FileInfo> getFilesByBusiness(Long businessId, String businessType);
+    List<FileInfo> getFilesByBusiness(Long businessId, String businessType, String customPath);
 
     /**
      * 根据文件MD5查找是否存在相同文件

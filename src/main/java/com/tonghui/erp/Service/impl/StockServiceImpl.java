@@ -3,11 +3,19 @@ package com.tonghui.erp.Service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Stock.ExpiryWarningDTO;
 import com.tonghui.erp.Common.Dto.Stock.ExpiryWarningStatsDTO;
+import com.tonghui.erp.Common.Dto.Stock.StockWithDetailsDto;
 import com.tonghui.erp.Data.Entity.Stock;
-import com.tonghui.erp.Service.StockService;
+import com.tonghui.erp.Data.Entity.StockOutDetail;
+import com.tonghui.erp.Data.Entity.StockTransaction;
 import com.tonghui.erp.Data.mapper.StockMapper;
+import com.tonghui.erp.Data.mapper.StockOutDetailMapper;
+import com.tonghui.erp.Data.mapper.StockTransactionMapper;
+import com.tonghui.erp.Service.StockService;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -27,6 +35,12 @@ import java.util.stream.Collectors;
 @Service
 public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
     implements StockService{
+
+    @Autowired
+    private StockTransactionMapper stockTransactionMapper;
+
+    @Autowired
+    private StockOutDetailMapper stockOutDetailMapper;
 
     @Override
     public Page<Stock> queryStocks(Stock stock, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, int pageIndex, int pageSize) {
@@ -87,6 +101,53 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
         }
 
         return this.getBaseMapper().selectPage(page, wrapper);
+    }
+
+    @Override
+    public Page<Stock> queryStocks(Stock stock, int pageNum, int pageSize) {
+        return queryStocks(stock, null, null, null, null, pageNum, pageSize);
+    }
+
+    @Override
+    public PagedResult<StockWithDetailsDto> searchWithDetails(Stock stock, int pageNum, int pageSize) {
+        Page<Stock> parentPage = queryStocks(stock, pageNum, pageSize);
+        List<Stock> parents = parentPage.getRecords();
+
+        PagedResult<StockWithDetailsDto> result = new PagedResult<>();
+        if (parents.isEmpty()) {
+            result.setItems(List.of());
+            result.setTotalCount(parentPage.getTotal());
+            result.setPageIndex(pageNum);
+            result.setPageSize(pageSize);
+            return result;
+        }
+
+        List<Long> parentIds = parents.stream().map(Stock::getStockId).collect(Collectors.toList());
+        QueryWrapper<StockTransaction> transactionWrapper = new QueryWrapper<>();
+        transactionWrapper.in("stock_id", parentIds);
+        List<StockTransaction> allTransactions = stockTransactionMapper.selectList(transactionWrapper);
+        Map<Long, List<StockTransaction>> transactionsMap = allTransactions.stream()
+                .collect(Collectors.groupingBy(StockTransaction::getStockId));
+
+        QueryWrapper<StockOutDetail> outDetailWrapper = new QueryWrapper<>();
+        outDetailWrapper.in("stock_id", parentIds);
+        List<StockOutDetail> allOutDetails = stockOutDetailMapper.selectList(outDetailWrapper);
+        Map<Long, List<StockOutDetail>> outDetailsMap = allOutDetails.stream()
+                .collect(Collectors.groupingBy(StockOutDetail::getStockId));
+
+        List<StockWithDetailsDto> dtos = parents.stream().map(parent -> {
+            StockWithDetailsDto dto = new StockWithDetailsDto();
+            BeanUtils.copyProperties(parent, dto);
+            dto.setTransactions(transactionsMap.getOrDefault(parent.getStockId(), List.of()));
+            dto.setOutDetails(outDetailsMap.getOrDefault(parent.getStockId(), List.of()));
+            return dto;
+        }).collect(Collectors.toList());
+
+        result.setItems(dtos);
+        result.setTotalCount(parentPage.getTotal());
+        result.setPageIndex(pageNum);
+        result.setPageSize(pageSize);
+        return result;
     }
 
     @Override

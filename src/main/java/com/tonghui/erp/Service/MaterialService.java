@@ -1,6 +1,8 @@
 package com.tonghui.erp.Service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Dto.Material.MaterialWithDetailsDto;
+import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.Material;
 
 import java.util.List;
@@ -97,6 +99,8 @@ public interface MaterialService {
                                  java.time.LocalDateTime createdTimeStart, java.time.LocalDateTime createdTimeEnd,
                                  java.time.LocalDateTime updatedTimeStart, java.time.LocalDateTime updatedTimeEnd,
                                  int pageNum, int pageSize);
+
+    PagedResult<MaterialWithDetailsDto> searchWithDetails(Material material, int pageNum, int pageSize);
 
     // #endregion
 }

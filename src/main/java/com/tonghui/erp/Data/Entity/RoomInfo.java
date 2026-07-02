@@ -83,6 +83,36 @@ public class RoomInfo extends AuditEntity {
     private Integer roomStatus;
 
     /**
+     * 消毒周期(天)
+     */
+    @TableField(value = "disinfection_cycle")
+    private Integer disinfectionCycle;
+
+    /**
+     * 消毒规程文件名
+     */
+    @TableField(value = "disinfection_procedure")
+    private String disinfectionProcedure;
+
+    /**
+     * 洁净检测周期(天)
+     */
+    @TableField(value = "clean_inspection_cycle")
+    private Integer cleanInspectionCycle;
+
+    /**
+     * 洁净检测规程文件名
+     */
+    @TableField(value = "clean_inspection_procedure")
+    private String cleanInspectionProcedure;
+
+    /**
+     * 清洁周期(天)
+     */
+    @TableField(value = "cleaning_cycle")
+    private Integer cleaningCycle;
+
+    /**
      * 是否已删除
      */
     @TableField(value = "is_deleted")

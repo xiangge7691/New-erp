@@ -7,6 +7,7 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.UserCreateDto;
 import com.tonghui.erp.Common.Dto.System.UserDto;
 import com.tonghui.erp.Common.Dto.System.UserUpdateDto;
+import com.tonghui.erp.Common.Dto.System.UserWithDetailsDto;
 import com.tonghui.erp.Data.Entity.User;
 import com.tonghui.erp.Service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -234,5 +235,28 @@ public class UserController extends BaseCrudController<UserCreateDto, UserDto, L
         }
     }
     
+    //#endregion
+
+    //#region 带子表查询接口
+    // ===================================
+    // 带子表查询接口
+    // ===================================
+
+    /**
+     * 查询用户（带子表：角色、部门、人员档案）
+     */
+    @GetMapping("/search-with-details")
+    public ApiResponse<PagedResult<UserWithDetailsDto>> searchWithDetails(
+            User user,
+            @ModelAttribute PageRequestDto pageRequest) {
+        try {
+            pageRequest = processPageRequest(pageRequest);
+            PagedResult<UserWithDetailsDto> result = userService.searchWithDetails(
+                user, pageRequest.getPageIndex(), pageRequest.getPageSize());
+            return success(result);
+        } catch (Exception ex) {
+            return exception(ex, "searchWithDetails");
+        }
+    }
     //#endregion
 }

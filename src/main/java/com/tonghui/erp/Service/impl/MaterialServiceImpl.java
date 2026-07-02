@@ -2,22 +2,37 @@ package com.tonghui.erp.Service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Dto.Material.MaterialWithDetailsDto;
+import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.Material;
+import com.tonghui.erp.Data.Entity.PreparationFormula;
+import com.tonghui.erp.Data.Entity.PurchaseOrderItems;
 import com.tonghui.erp.Data.mapper.MaterialMapper;
+import com.tonghui.erp.Data.mapper.PreparationFormulaMapper;
+import com.tonghui.erp.Data.mapper.PurchaseOrderItemsMapper;
 import com.tonghui.erp.Service.MaterialService;
 import com.tonghui.erp.Common.utils.EntityUtils;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class MaterialServiceImpl implements MaterialService {
 
     @Autowired
     private MaterialMapper materialMapper;
+
+    @Autowired
+    private PreparationFormulaMapper preparationFormulaMapper;
+
+    @Autowired
+    private PurchaseOrderItemsMapper purchaseOrderItemsMapper;
 
     @Override
     public Material getMaterialById(Long id) {
@@ -213,4 +228,46 @@ public class MaterialServiceImpl implements MaterialService {
     }
 
     // #endregion
+
+    @Override
+    public PagedResult<MaterialWithDetailsDto> searchWithDetails(Material material, int pageNum, int pageSize) {
+        Page<Material> parentPage = queryMaterials(material, pageNum, pageSize);
+        List<Material> parents = parentPage.getRecords();
+
+        PagedResult<MaterialWithDetailsDto> result = new PagedResult<>();
+        if (parents.isEmpty()) {
+            result.setItems(List.of());
+            result.setTotalCount(parentPage.getTotal());
+            result.setPageIndex(pageNum);
+            result.setPageSize(pageSize);
+            return result;
+        }
+
+        List<Long> parentIds = parents.stream().map(Material::getMaterialId).collect(Collectors.toList());
+        QueryWrapper<PreparationFormula> formulaWrapper = new QueryWrapper<>();
+        formulaWrapper.in("material_id", parentIds);
+        List<PreparationFormula> allFormulas = preparationFormulaMapper.selectList(formulaWrapper);
+        Map<Long, List<PreparationFormula>> formulasMap = allFormulas.stream()
+                .collect(Collectors.groupingBy(PreparationFormula::getMaterialId));
+
+        QueryWrapper<PurchaseOrderItems> itemWrapper = new QueryWrapper<>();
+        itemWrapper.in("material_id", parentIds);
+        List<PurchaseOrderItems> allItems = purchaseOrderItemsMapper.selectList(itemWrapper);
+        Map<Long, List<PurchaseOrderItems>> itemsMap = allItems.stream()
+                .collect(Collectors.groupingBy(PurchaseOrderItems::getMaterialId));
+
+        List<MaterialWithDetailsDto> dtos = parents.stream().map(parent -> {
+            MaterialWithDetailsDto dto = new MaterialWithDetailsDto();
+            BeanUtils.copyProperties(parent, dto);
+            dto.setFormulas(formulasMap.getOrDefault(parent.getMaterialId(), List.of()));
+            dto.setItems(itemsMap.getOrDefault(parent.getMaterialId(), List.of()));
+            return dto;
+        }).collect(Collectors.toList());
+
+        result.setItems(dtos);
+        result.setTotalCount(parentPage.getTotal());
+        result.setPageIndex(pageNum);
+        result.setPageSize(pageSize);
+        return result;
+    }
 }

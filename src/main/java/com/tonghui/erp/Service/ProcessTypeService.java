@@ -1,9 +1,11 @@
 package com.tonghui.erp.Service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Data.Entity.ProcessType;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.ProcessTypeWithDetailsDto;
 
 /**
  * @author 87954
@@ -35,4 +37,8 @@ public interface ProcessTypeService extends IService<ProcessType> {
      * @return 启用的工序类型列表
      */
     java.util.List<ProcessType> listActive();
+
+    Page<ProcessType> queryProcessTypes(ProcessType processType, int pageNum, int pageSize);
+
+    PagedResult<ProcessTypeWithDetailsDto> searchWithDetails(ProcessType processType, int pageNum, int pageSize);
 }

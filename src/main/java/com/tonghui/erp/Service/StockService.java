@@ -1,8 +1,10 @@
 package com.tonghui.erp.Service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Stock.ExpiryWarningDTO;
 import com.tonghui.erp.Common.Dto.Stock.ExpiryWarningStatsDTO;
+import com.tonghui.erp.Common.Dto.Stock.StockWithDetailsDto;
 import com.tonghui.erp.Data.Entity.Stock;
 import com.baomidou.mybatisplus.extension.service.IService;
 
@@ -29,6 +31,10 @@ public interface StockService extends IService<Stock> {
      * @return 分页结果
      */
     Page<Stock> queryStocks(Stock stock, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, int pageNum, int pageSize);
+
+    Page<Stock> queryStocks(Stock stock, int pageNum, int pageSize);
+
+    PagedResult<StockWithDetailsDto> searchWithDetails(Stock stock, int pageNum, int pageSize);
 
     /**
      * 获取即将过期的库存列表（基于 FIFO 先进先出计算实际剩余数量）

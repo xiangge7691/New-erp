@@ -29,6 +29,9 @@ public class ProductionProcessRecord extends AuditEntity {
     @TableField(value = "plan_id")
     private Integer planId;
 
+    @TableField(value = "process_type_id")
+    private Long processTypeId;
+
     /**
      * 工序类型名称。
      */

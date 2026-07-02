@@ -82,6 +82,9 @@ public class Preparation extends AuditEntity {
     @TableField(value = "dosage_form")
     private String dosageForm;
 
+    @TableField(value = "dosage_form_id")
+    private Long dosageFormId;
+
     /**
      * 生产单位
      */

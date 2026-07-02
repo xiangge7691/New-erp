@@ -1,7 +1,9 @@
 package com.tonghui.erp.Service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.UserDto;
+import com.tonghui.erp.Common.Dto.System.UserWithDetailsDto;
 import com.tonghui.erp.Data.Entity.User;
 import com.baomidou.mybatisplus.extension.service.IService;
 
@@ -170,6 +172,22 @@ public interface UserService extends IService<User> {
     boolean deleteUserAssociations(Long userId);
     //#endregion
     
+    //#region 高级查询接口
+    // ===================================
+    // 高级查询接口
+    // ===================================
+
+    /**
+     * 查询用户（支持多条件分页）
+     */
+    Page<User> queryUsers(User user, int pageNum, int pageSize);
+
+    /**
+     * 带子表查询用户
+     */
+    PagedResult<UserWithDetailsDto> searchWithDetails(User user, int pageNum, int pageSize);
+    //#endregion
+
     //#region 数据转换接口
     // ===================================
     // 数据转换接口

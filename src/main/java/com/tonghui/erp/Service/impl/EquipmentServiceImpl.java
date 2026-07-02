@@ -4,19 +4,27 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Data.Entity.Equipment;
+import com.tonghui.erp.Data.Entity.EquipmentMaintenance;
 import com.tonghui.erp.Service.EquipmentService;
+import com.tonghui.erp.Service.EquipmentMaintenanceService;
 import com.tonghui.erp.Data.mapper.EquipmentMapper;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Equipment.EquipmentWithDetailsDto;
 import com.tonghui.erp.Data.Entity.RoomInfo;
 import com.tonghui.erp.Service.RoomInfoService;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 设备信息服务实现类
@@ -30,6 +38,10 @@ public class EquipmentServiceImpl extends ServiceImpl<EquipmentMapper, Equipment
 
     @Autowired
     private RoomInfoService roomInfoService;
+
+    @Autowired
+    @Lazy
+    private EquipmentMaintenanceService equipmentMaintenanceService;
 
     //#region 设备信息查询实现方法
     // ===================================
@@ -313,6 +325,50 @@ public class EquipmentServiceImpl extends ServiceImpl<EquipmentMapper, Equipment
         fillRoomNames(resultPage.getRecords());
 
         return resultPage;
+    }
+
+    @Override
+    public PagedResult<EquipmentWithDetailsDto> searchWithDetails(
+            Equipment equipment,
+            LocalDateTime createdTimeStart,
+            LocalDateTime createdTimeEnd,
+            LocalDateTime updatedTimeStart,
+            LocalDateTime updatedTimeEnd,
+            int pageNum,
+            int pageSize) {
+
+        Page<Equipment> parentPage = queryEquipments(equipment, createdTimeStart, createdTimeEnd,
+                updatedTimeStart, updatedTimeEnd, pageNum, pageSize);
+        List<Equipment> parents = parentPage.getRecords();
+
+        PagedResult<EquipmentWithDetailsDto> result = new PagedResult<>();
+        if (parents.isEmpty()) {
+            result.setItems(List.of());
+            result.setTotalCount(parentPage.getTotal());
+            result.setPageIndex(pageNum);
+            result.setPageSize(pageSize);
+            return result;
+        }
+
+        List<Integer> parentIds = parents.stream().map(Equipment::getEquipmentId).collect(Collectors.toList());
+
+        QueryWrapper<EquipmentMaintenance> maintWrapper = new QueryWrapper<>();
+        maintWrapper.in("equipment_id", parentIds);
+        Map<Integer, List<EquipmentMaintenance>> maintMap = equipmentMaintenanceService.list(maintWrapper).stream()
+                .collect(Collectors.groupingBy(m -> m.getEquipmentId().intValue()));
+
+        List<EquipmentWithDetailsDto> dtos = parents.stream().map(parent -> {
+            EquipmentWithDetailsDto dto = new EquipmentWithDetailsDto();
+            BeanUtils.copyProperties(parent, dto);
+            dto.setMaintenanceRecords(maintMap.getOrDefault(parent.getEquipmentId(), Collections.emptyList()));
+            return dto;
+        }).collect(Collectors.toList());
+
+        result.setItems(dtos);
+        result.setTotalCount(parentPage.getTotal());
+        result.setPageIndex(pageNum);
+        result.setPageSize(pageSize);
+        return result;
     }
 }
 

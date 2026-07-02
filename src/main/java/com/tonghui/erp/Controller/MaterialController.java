@@ -2,6 +2,7 @@ package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.Dto.Material.MaterialWithDetailsDto;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.Material;
@@ -136,6 +137,24 @@ public class MaterialController extends BaseCrudController<Material, Material, L
             return success(pagedResult);
         } catch (Exception ex) {
             return exception(ex, "搜索物料");
+        }
+    }
+
+    // #endregion
+
+    // #region 带子表查询
+
+    @GetMapping("/search-with-details")
+    public ApiResponse<PagedResult<MaterialWithDetailsDto>> searchWithDetails(Material material,
+                                                                              @RequestParam int pageIndex,
+                                                                              @RequestParam int pageSize) {
+        try {
+            int safePageIndex = Math.max(0, pageIndex);
+            int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
+            PagedResult<MaterialWithDetailsDto> result = materialService.searchWithDetails(material, safePageIndex, safePageSize);
+            return success(result);
+        } catch (Exception ex) {
+            return exception(ex, "查询失败");
         }
     }
 

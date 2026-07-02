@@ -106,7 +106,7 @@ public class EquipmentMaintenanceController extends BaseController {
      */
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
-        List<FileInfo> attachments = fileInfoService.getFilesByBusiness(id, "EQUIPMENT_MAINTENANCE");
+        List<FileInfo> attachments = fileInfoService.getFilesByBusiness(id, "EQUIPMENT_MAINTENANCE", null);
         for (FileInfo file : attachments) {
             fileInfoService.deleteFile(file.getFileId());
         }
@@ -169,7 +169,7 @@ public class EquipmentMaintenanceController extends BaseController {
      */
     @GetMapping("/{id}/attachments")
     public ApiResponse<List<FileInfo>> getAttachments(@PathVariable Long id) {
-        List<FileInfo> files = fileInfoService.getFilesByBusiness(id, "EQUIPMENT_MAINTENANCE");
+        List<FileInfo> files = fileInfoService.getFilesByBusiness(id, "EQUIPMENT_MAINTENANCE", null);
         return success(files);
     }
 

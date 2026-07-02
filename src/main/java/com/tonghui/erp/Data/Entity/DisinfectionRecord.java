@@ -40,6 +40,9 @@ public class DisinfectionRecord extends AuditEntity {
     @TableField(value = "remark")
     private String remark;
 
+    @TableField(value = "attachment")
+    private String attachment;
+
     @TableField(value = "is_deleted")
     private Integer isDeleted;
 

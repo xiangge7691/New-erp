@@ -3,6 +3,7 @@ package com.tonghui.erp.Controller;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.ProcessTypeWithDetailsDto;
 import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.ProcessType;
 import com.tonghui.erp.Service.ProcessTypeService;
@@ -125,4 +126,22 @@ public class ProcessTypeController extends BaseCrudController<ProcessType, Proce
             return exception(ex, "获取启用工序类型");
         }
     }
+
+    // #region 带子表查询
+
+    @GetMapping("/search-with-details")
+    public ApiResponse<PagedResult<ProcessTypeWithDetailsDto>> searchWithDetails(ProcessType processType,
+                                                                                 @RequestParam int pageIndex,
+                                                                                 @RequestParam int pageSize) {
+        try {
+            int safePageIndex = Math.max(0, pageIndex);
+            int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
+            PagedResult<ProcessTypeWithDetailsDto> result = processTypeService.searchWithDetails(processType, safePageIndex, safePageSize);
+            return success(result);
+        } catch (Exception ex) {
+            return exception(ex, "查询失败");
+        }
+    }
+
+    // #endregion
 }

@@ -1,9 +1,11 @@
 package com.tonghui.erp.Service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Data.Entity.Department;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.DepartmentDto;
+import com.tonghui.erp.Common.Dto.System.DepartmentWithDetailsDto;
 
 import java.util.List;
 
@@ -68,6 +70,22 @@ public interface DepartmentService extends IService<Department> {
     PagedResult<DepartmentDto> advancedSearchDepartments();
     //#endregion
     
+    //#region 高级查询接口
+    // ===================================
+    // 高级查询接口
+    // ===================================
+
+    /**
+     * 查询部门（支持多条件分页）
+     */
+    Page<Department> queryDepartments(Department department, int pageNum, int pageSize);
+
+    /**
+     * 带子表查询部门
+     */
+    PagedResult<DepartmentWithDetailsDto> searchWithDetails(Department department, int pageNum, int pageSize);
+    //#endregion
+
     //#region 数据转换接口
     // ===================================
     // 数据转换接口

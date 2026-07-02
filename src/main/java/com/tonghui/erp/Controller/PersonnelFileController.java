@@ -3,7 +3,9 @@ package com.tonghui.erp.Controller;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.PersonnelFileWithDetailsDto;
 import com.tonghui.erp.Data.Entity.FileInfo;
 import com.tonghui.erp.Data.Entity.PersonnelFile;
 import com.tonghui.erp.Data.Entity.Position;
@@ -90,6 +92,23 @@ public class PersonnelFileController extends BaseController {
         pagedResult.setPageSize(pageSize);
 
         return success(pagedResult);
+    }
+
+    /**
+     * 带子表查询人员档案列表
+     */
+    @GetMapping("/search-with-details")
+    public ApiResponse<PagedResult<PersonnelFileWithDetailsDto>> searchWithDetails(
+            PersonnelFile personnelFile,
+            @ModelAttribute PageRequestDto pageRequest) {
+        try {
+            pageRequest = processPageRequest(pageRequest);
+            PagedResult<PersonnelFileWithDetailsDto> result = personnelFileService.searchWithDetails(
+                personnelFile, pageRequest.getPageIndex(), pageRequest.getPageSize());
+            return success(result);
+        } catch (Exception ex) {
+            return exception(ex, "searchWithDetails");
+        }
     }
 
     /**
@@ -226,7 +245,7 @@ public class PersonnelFileController extends BaseController {
      */
     @GetMapping("/{id}/health-files")
     public ApiResponse<List<FileInfo>> getHealthFiles(@PathVariable Long id) {
-        List<FileInfo> files = fileInfoService.getFilesByBusiness(id, "PERSONNEL_HEALTH_FILE");
+        List<FileInfo> files = fileInfoService.getFilesByBusiness(id, "PERSONNEL_HEALTH_FILE", null);
         return success(files);
     }
 
@@ -263,7 +282,7 @@ public class PersonnelFileController extends BaseController {
      */
     @GetMapping("/{id}/attachments")
     public ApiResponse<List<FileInfo>> getAttachments(@PathVariable Long id) {
-        List<FileInfo> files = fileInfoService.getFilesByBusiness(id, "PERSONNEL_ATTACHMENT");
+        List<FileInfo> files = fileInfoService.getFilesByBusiness(id, "PERSONNEL_ATTACHMENT", null);
         return success(files);
     }
 

@@ -1,6 +1,9 @@
 package com.tonghui.erp.Service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.PersonnelFileWithDetailsDto;
 import com.tonghui.erp.Data.Entity.PersonnelFile;
 import java.util.List;
 
@@ -22,4 +25,14 @@ public interface PersonnelFileService extends IService<PersonnelFile> {
      * @return 人员档案
      */
     PersonnelFile findByUserId(Long userId);
+
+    /**
+     * 查询人员档案（支持多条件分页）
+     */
+    Page<PersonnelFile> queryPersonnelFiles(PersonnelFile personnelFile, int pageNum, int pageSize);
+
+    /**
+     * 带子表查询人员档案
+     */
+    PagedResult<PersonnelFileWithDetailsDto> searchWithDetails(PersonnelFile personnelFile, int pageNum, int pageSize);
 }

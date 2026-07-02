@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Purchase.PurchaseSuppliersWithDetailsDto;
 import com.tonghui.erp.Data.Entity.PurchaseSuppliers;
 
 import java.util.List;
@@ -96,6 +97,12 @@ public interface PurchaseSuppliersService extends IService<PurchaseSuppliers> {
      * @return 分页结果
      */
     Page<PurchaseSuppliers> queryPurchaseSuppliers(PurchaseSuppliers purchaseSuppliers, int pageNum, int pageSize);
+
+    // #endregion
+
+    // #region 带子表查询
+
+    PagedResult<PurchaseSuppliersWithDetailsDto> searchWithDetails(PurchaseSuppliers purchaseSuppliers, int pageNum, int pageSize);
 
     // #endregion
 }

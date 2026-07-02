@@ -3,6 +3,7 @@ package com.tonghui.erp.Controller;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Equipment.EquipmentWithDetailsDto;
 import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.Equipment;
 import com.tonghui.erp.Service.EquipmentService;
@@ -131,6 +132,28 @@ public class EquipmentController extends BaseCrudController<Equipment, Equipment
         result.setPageIndex(pageRequest.getPageIndex());
         result.setPageSize((int) pageResult.getSize());
         return success(result);
+    }
+
+    /**
+     * 搜索设备（带子表：维保记录）
+     */
+    @GetMapping("/search-with-details")
+    public ApiResponse<PagedResult<EquipmentWithDetailsDto>> searchWithDetails(
+            Equipment equipment,
+            @RequestParam(required = false) java.time.LocalDateTime createdTimeStart,
+            @RequestParam(required = false) java.time.LocalDateTime createdTimeEnd,
+            @RequestParam(required = false) java.time.LocalDateTime updatedTimeStart,
+            @RequestParam(required = false) java.time.LocalDateTime updatedTimeEnd,
+            @ModelAttribute PageRequestDto pageRequest) {
+        try {
+            pageRequest = processPageRequest(pageRequest);
+            PagedResult<EquipmentWithDetailsDto> result = equipmentService.searchWithDetails(
+                equipment, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd,
+                pageRequest.getPageIndex(), pageRequest.getPageSize());
+            return success(result);
+        } catch (Exception ex) {
+            return exception(ex, "searchWithDetails");
+        }
     }
 
     /**

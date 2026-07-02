@@ -102,7 +102,7 @@ public class PersonnelCertificateController extends BaseController {
      */
     @GetMapping("/{id}/attachments")
     public ApiResponse<List<FileInfo>> getAttachments(@PathVariable Long id) {
-        List<FileInfo> files = fileInfoService.getFilesByBusiness(id, "PERSONNEL_CERTIFICATE");
+        List<FileInfo> files = fileInfoService.getFilesByBusiness(id, "PERSONNEL_CERTIFICATE", null);
         return success(files);
     }
 

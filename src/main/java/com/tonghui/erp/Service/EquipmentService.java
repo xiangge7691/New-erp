@@ -4,6 +4,7 @@ import com.tonghui.erp.Data.Entity.Equipment;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Equipment.EquipmentWithDetailsDto;
 
 import java.util.List;
 
@@ -85,4 +86,16 @@ public interface EquipmentService extends IService<Equipment> {
      * @return 操作是否成功
      */
     boolean updateMaintenanceDate(Integer equipmentId, java.time.LocalDate maintenanceDate, Long updaterId);
+
+    /**
+     * 带子表查询设备
+     */
+    PagedResult<EquipmentWithDetailsDto> searchWithDetails(
+            Equipment equipment,
+            java.time.LocalDateTime createdTimeStart,
+            java.time.LocalDateTime createdTimeEnd,
+            java.time.LocalDateTime updatedTimeStart,
+            java.time.LocalDateTime updatedTimeEnd,
+            int pageNum,
+            int pageSize);
 }

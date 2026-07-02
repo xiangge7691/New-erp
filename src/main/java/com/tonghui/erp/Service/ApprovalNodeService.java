@@ -1,6 +1,8 @@
 package com.tonghui.erp.Service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.tonghui.erp.Common.Dto.Approval.ApprovalNodeWithRecordsDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.ApprovalNode;
 
@@ -32,4 +34,8 @@ public interface ApprovalNodeService extends IService<ApprovalNode> {
      * @return 分页结果
      */
     PagedResult<ApprovalNode> getNodes(int pageIndex, int pageSize);
+
+    Page<ApprovalNode> queryApprovalNodes(ApprovalNode approvalNode, int pageNum, int pageSize);
+
+    PagedResult<ApprovalNodeWithRecordsDto> searchWithDetails(ApprovalNode approvalNode, int pageNum, int pageSize);
 }

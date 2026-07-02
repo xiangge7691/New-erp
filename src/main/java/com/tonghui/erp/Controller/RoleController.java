@@ -5,6 +5,7 @@ import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.RoleCreateDto;
 import com.tonghui.erp.Common.Dto.System.RoleDto;
+import com.tonghui.erp.Common.Dto.System.RoleWithDetailsDto;
 import com.tonghui.erp.Data.Entity.Role;
 import com.tonghui.erp.Service.RoleService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -178,5 +179,28 @@ public class RoleController extends BaseCrudController<RoleCreateDto, RoleDto, L
         }
     }
     
+    //#endregion
+
+    //#region 带子表查询接口
+    // ===================================
+    // 带子表查询接口
+    // ===================================
+
+    /**
+     * 查询角色（带子表：权限、用户关联）
+     */
+    @GetMapping("/search-with-details")
+    public ApiResponse<PagedResult<RoleWithDetailsDto>> searchWithDetails(
+            Role role,
+            @ModelAttribute PageRequestDto pageRequest) {
+        try {
+            pageRequest = processPageRequest(pageRequest);
+            PagedResult<RoleWithDetailsDto> result = roleService.searchWithDetails(
+                role, pageRequest.getPageIndex(), pageRequest.getPageSize());
+            return success(result);
+        } catch (Exception ex) {
+            return exception(ex, "searchWithDetails");
+        }
+    }
     //#endregion
 }

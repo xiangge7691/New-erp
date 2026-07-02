@@ -1,13 +1,23 @@
 package com.tonghui.erp.Service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.tonghui.erp.Service.DosageFormService;
+import com.tonghui.erp.Common.Dto.DosageForm.DosageFormWithDetailsDto;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.DosageForm;
+import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.mapper.DosageFormMapper;
+import com.tonghui.erp.Data.mapper.PreparationMapper;
+import com.tonghui.erp.Service.DosageFormService;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 药品剂型服务实现类
@@ -18,6 +28,9 @@ import org.springframework.stereotype.Service;
 @Service
 public class DosageFormServiceImpl extends ServiceImpl<DosageFormMapper, DosageForm>
         implements DosageFormService{
+
+    @Autowired
+    private PreparationMapper preparationMapper;
 
     //#region 剂型查询实现方法
     // ===================================
@@ -76,4 +89,59 @@ public class DosageFormServiceImpl extends ServiceImpl<DosageFormMapper, DosageF
     }
 
     //#endregion
+
+    @Override
+    public Page<DosageForm> queryDosageForms(DosageForm dosageForm, int pageNum, int pageSize) {
+        int actualPageNum = pageNum + 1;
+
+        Page<DosageForm> page = new Page<>(actualPageNum, pageSize);
+        QueryWrapper<DosageForm> wrapper = new QueryWrapper<>();
+
+        if (dosageForm.getDosageId() != null) {
+            wrapper.eq("dosage_id", dosageForm.getDosageId());
+        }
+        if (dosageForm.getDosageName() != null && !dosageForm.getDosageName().isEmpty()) {
+            wrapper.like("dosage_name", dosageForm.getDosageName());
+        }
+        if (dosageForm.getStatus() != null) {
+            wrapper.eq("status", dosageForm.getStatus());
+        }
+
+        return this.page(page, wrapper);
+    }
+
+    @Override
+    public PagedResult<DosageFormWithDetailsDto> searchWithDetails(DosageForm dosageForm, int pageNum, int pageSize) {
+        Page<DosageForm> parentPage = queryDosageForms(dosageForm, pageNum, pageSize);
+        List<DosageForm> parents = parentPage.getRecords();
+
+        PagedResult<DosageFormWithDetailsDto> result = new PagedResult<>();
+        if (parents.isEmpty()) {
+            result.setItems(List.of());
+            result.setTotalCount(parentPage.getTotal());
+            result.setPageIndex(pageNum);
+            result.setPageSize(pageSize);
+            return result;
+        }
+
+        List<Long> parentIds = parents.stream().map(DosageForm::getDosageId).collect(Collectors.toList());
+        QueryWrapper<Preparation> wrapper = new QueryWrapper<>();
+        wrapper.in("dosage_form_id", parentIds);
+        List<Preparation> allPreparations = preparationMapper.selectList(wrapper);
+        Map<Long, List<Preparation>> preparationsMap = allPreparations.stream()
+                .collect(Collectors.groupingBy(Preparation::getDosageFormId));
+
+        List<DosageFormWithDetailsDto> dtos = parents.stream().map(parent -> {
+            DosageFormWithDetailsDto dto = new DosageFormWithDetailsDto();
+            BeanUtils.copyProperties(parent, dto);
+            dto.setPreparations(preparationsMap.getOrDefault(parent.getDosageId(), List.of()));
+            return dto;
+        }).collect(Collectors.toList());
+
+        result.setItems(dtos);
+        result.setTotalCount(parentPage.getTotal());
+        result.setPageIndex(pageNum);
+        result.setPageSize(pageSize);
+        return result;
+    }
 }

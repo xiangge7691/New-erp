@@ -395,9 +395,10 @@ public class FileController extends BaseController {
     @GetMapping("/business")
     public ApiResponse<List<FileInfo>> getFilesByBusiness(
             @RequestParam Long businessId,
-            @RequestParam String businessType) {
+            @RequestParam String businessType,
+            @RequestParam(required = false) String customPath) {
         try {
-            List<FileInfo> files = fileInfoService.getFilesByBusiness(businessId, businessType);
+            List<FileInfo> files = fileInfoService.getFilesByBusiness(businessId, businessType, customPath);
             return success(files);
         } catch (Exception e) {
             return exception(e, "查询业务相关文件");

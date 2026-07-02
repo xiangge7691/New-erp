@@ -138,10 +138,11 @@ public class FileInfoServiceImpl extends ServiceImpl<FileInfoMapper, FileInfo>
     }
     
     @Override
-    public List<FileInfo> getFilesByBusiness(Long businessId, String businessType) {
+    public List<FileInfo> getFilesByBusiness(Long businessId, String businessType, String customPath) {
         QueryWrapper<FileInfo> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("business_id", businessId)
                    .eq("business_type", businessType)
+                   .like(customPath != null && !customPath.isEmpty(), "custom_path", customPath)
                    .orderByDesc("created_time");
         return list(queryWrapper);
     }

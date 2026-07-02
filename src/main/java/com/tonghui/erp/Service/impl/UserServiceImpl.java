@@ -2,12 +2,14 @@ package com.tonghui.erp.Service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Data.Entity.User;
 import com.tonghui.erp.Service.UserService;
 import com.tonghui.erp.Data.mapper.UserMapper;
 import com.tonghui.erp.Common.Dto.System.UserDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.System.UserWithDetailsDto;
 import com.tonghui.erp.Common.Dto.System.DepartmentDto;
 import com.tonghui.erp.Common.Dto.System.RoleDto;
 import com.tonghui.erp.Common.utils.PasswordHasher;
@@ -15,15 +17,21 @@ import com.tonghui.erp.Data.Entity.UserDepartment;
 import com.tonghui.erp.Data.Entity.UserRole;
 import com.tonghui.erp.Data.Entity.Department;
 import com.tonghui.erp.Data.Entity.Role;
+import com.tonghui.erp.Data.Entity.PersonnelFile;
 import com.tonghui.erp.Service.UserDepartmentService;
 import com.tonghui.erp.Service.UserRoleService;
 import com.tonghui.erp.Service.DepartmentService;
 import com.tonghui.erp.Service.RoleService;
+import com.tonghui.erp.Service.PersonnelFileService;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -51,6 +59,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     @Autowired
     private RoleService roleService;
+
+    @Autowired
+    private PersonnelFileService personnelFileService;
 
     //#region 基础操作接口
     // ===================================
@@ -433,6 +444,83 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         } catch (Exception e) {
             return false;
         }
+    }
+    //#endregion
+
+    //#region 高级查询接口
+    // ===================================
+    // 高级查询接口
+    // ===================================
+
+    @Override
+    public Page<User> queryUsers(User user, int pageNum, int pageSize) {
+        int actualPageNum = pageNum + 1;
+        Page<User> page = new Page<>(actualPageNum, pageSize);
+        QueryWrapper<User> wrapper = new QueryWrapper<>();
+
+        if (user != null) {
+            if (user.getUserId() != null) {
+                wrapper.eq("user_id", user.getUserId());
+            }
+            if (StringUtils.hasText(user.getUserAccount())) {
+                wrapper.like("user_account", user.getUserAccount());
+            }
+            if (StringUtils.hasText(user.getUserName())) {
+                wrapper.like("user_name", user.getUserName());
+            }
+            if (user.getUserStatus() != null) {
+                wrapper.eq("user_status", user.getUserStatus());
+            }
+        }
+        wrapper.orderByDesc("user_id");
+        return baseMapper.selectPage(page, wrapper);
+    }
+
+    @Override
+    public PagedResult<UserWithDetailsDto> searchWithDetails(User user, int pageNum, int pageSize) {
+        Page<User> parentPage = queryUsers(user, pageNum, pageSize);
+        List<User> parents = parentPage.getRecords();
+
+        PagedResult<UserWithDetailsDto> result = new PagedResult<>();
+        if (parents.isEmpty()) {
+            result.setItems(List.of());
+            result.setTotalCount(parentPage.getTotal());
+            result.setPageIndex(pageNum);
+            result.setPageSize(pageSize);
+            return result;
+        }
+
+        List<Long> parentIds = parents.stream().map(User::getUserId).collect(Collectors.toList());
+
+        QueryWrapper<UserRole> roleWrapper = new QueryWrapper<>();
+        roleWrapper.in("user_id", parentIds);
+        Map<Long, List<UserRole>> rolesMap = userRoleService.list(roleWrapper).stream()
+                .collect(Collectors.groupingBy(UserRole::getUserId));
+
+        QueryWrapper<UserDepartment> deptWrapper = new QueryWrapper<>();
+        deptWrapper.in("user_id", parentIds);
+        Map<Long, List<UserDepartment>> deptsMap = userDepartmentService.list(deptWrapper).stream()
+                .collect(Collectors.groupingBy(UserDepartment::getUserId));
+
+        QueryWrapper<PersonnelFile> pfWrapper = new QueryWrapper<>();
+        pfWrapper.in("user_id", parentIds);
+        Map<Long, List<PersonnelFile>> pfMap = personnelFileService.list(pfWrapper).stream()
+                .collect(Collectors.groupingBy(PersonnelFile::getUserId));
+
+        List<UserWithDetailsDto> dtos = parents.stream().map(parent -> {
+            UserWithDetailsDto dto = new UserWithDetailsDto();
+            BeanUtils.copyProperties(parent, dto);
+            dto.setRoles(rolesMap.getOrDefault(parent.getUserId(), Collections.emptyList()));
+            dto.setDepartments(deptsMap.getOrDefault(parent.getUserId(), Collections.emptyList()));
+            dto.setPersonnelFiles(pfMap.getOrDefault(parent.getUserId(), Collections.emptyList()));
+            return dto;
+        }).collect(Collectors.toList());
+
+        result.setItems(dtos);
+        result.setTotalCount(parentPage.getTotal());
+        result.setPageIndex(pageNum);
+        result.setPageSize(pageSize);
+        return result;
     }
     //#endregion
 

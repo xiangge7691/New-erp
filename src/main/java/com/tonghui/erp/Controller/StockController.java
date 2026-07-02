@@ -3,6 +3,7 @@ package com.tonghui.erp.Controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Stock.StockWithDetailsDto;
 import com.tonghui.erp.Data.Entity.Stock;
 import com.tonghui.erp.Service.StockService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -85,6 +86,24 @@ public class StockController extends BaseController {
             return success(pagedResult);
         } catch (Exception ex) {
             return error("查询失败：" + ex.getMessage());
+        }
+    }
+
+    // #endregion
+
+    // #region 带子表查询
+
+    @GetMapping("/search-with-details")
+    public ApiResponse<PagedResult<StockWithDetailsDto>> searchWithDetails(Stock stock,
+                                                                           @RequestParam int pageIndex,
+                                                                           @RequestParam int pageSize) {
+        try {
+            int safePageIndex = Math.max(0, pageIndex);
+            int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
+            PagedResult<StockWithDetailsDto> result = stockService.searchWithDetails(stock, safePageIndex, safePageSize);
+            return success(result);
+        } catch (Exception ex) {
+            return exception(ex, "查询失败");
         }
     }
 

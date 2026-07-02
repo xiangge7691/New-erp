@@ -1,6 +1,8 @@
 package com.tonghui.erp.Service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.tonghui.erp.Common.Dto.DosageForm.DosageFormWithDetailsDto;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.DosageForm;
@@ -26,6 +28,10 @@ public interface DosageFormService extends IService<DosageForm> {
      * @return 分页结果，包含查询到的剂型列表和分页信息
      */
     PagedResult<DosageForm> searchByName(String dosageName, PageRequestDto pageRequest);
+    
+    Page<DosageForm> queryDosageForms(DosageForm dosageForm, int pageNum, int pageSize);
+
+    PagedResult<DosageFormWithDetailsDto> searchWithDetails(DosageForm dosageForm, int pageNum, int pageSize);
     
     //#endregion
 }

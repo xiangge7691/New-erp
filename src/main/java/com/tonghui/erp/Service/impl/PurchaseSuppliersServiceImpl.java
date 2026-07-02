@@ -5,14 +5,23 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Purchase.PurchaseSuppliersWithDetailsDto;
+import com.tonghui.erp.Data.Entity.PurchaseOrders;
 import com.tonghui.erp.Data.Entity.PurchaseSuppliers;
+import com.tonghui.erp.Data.Entity.StockIn;
+import com.tonghui.erp.Data.mapper.PurchaseOrdersMapper;
 import com.tonghui.erp.Data.mapper.PurchaseSuppliersMapper;
+import com.tonghui.erp.Data.mapper.StockInMapper;
 import com.tonghui.erp.Service.PurchaseSuppliersService;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
 * @author 87954
@@ -23,6 +32,12 @@ import java.util.List;
 public class PurchaseSuppliersServiceImpl extends ServiceImpl<PurchaseSuppliersMapper, PurchaseSuppliers>
     implements PurchaseSuppliersService{
     
+    @Autowired
+    private PurchaseOrdersMapper purchaseOrdersMapper;
+
+    @Autowired
+    private StockInMapper stockInMapper;
+
     @Override
     public PagedResult<PurchaseSuppliers> getPurchaseSupplierList(PageRequestDto pageRequestDto) {
         Page<PurchaseSuppliers> page = new Page<>(pageRequestDto.getPageIndex(), pageRequestDto.getPageSize());
@@ -131,6 +146,53 @@ public class PurchaseSuppliersServiceImpl extends ServiceImpl<PurchaseSuppliersM
         }
 
         return this.page(page, wrapper);
+    }
+
+    //#endregion
+
+    //#region 带子表查询
+
+    @Override
+    public PagedResult<PurchaseSuppliersWithDetailsDto> searchWithDetails(PurchaseSuppliers purchaseSuppliers, int pageNum, int pageSize) {
+        Page<PurchaseSuppliers> parentPage = queryPurchaseSuppliers(purchaseSuppliers, pageNum, pageSize);
+        List<PurchaseSuppliers> parents = parentPage.getRecords();
+
+        PagedResult<PurchaseSuppliersWithDetailsDto> result = new PagedResult<>();
+        if (parents.isEmpty()) {
+            result.setItems(List.of());
+            result.setTotalCount(parentPage.getTotal());
+            result.setPageIndex(pageNum);
+            result.setPageSize(pageSize);
+            return result;
+        }
+
+        List<Long> supplierIds = parents.stream().map(PurchaseSuppliers::getId).collect(Collectors.toList());
+
+        QueryWrapper<PurchaseOrders> orderWrapper = new QueryWrapper<>();
+        orderWrapper.in("supplier_id", supplierIds);
+        List<PurchaseOrders> allOrders = purchaseOrdersMapper.selectList(orderWrapper);
+        Map<Long, List<PurchaseOrders>> ordersMap = allOrders.stream()
+                .collect(Collectors.groupingBy(PurchaseOrders::getSupplierId));
+
+        QueryWrapper<StockIn> stockInWrapper = new QueryWrapper<>();
+        stockInWrapper.in("supplier_id", supplierIds);
+        List<StockIn> allStockIns = stockInMapper.selectList(stockInWrapper);
+        Map<Long, List<StockIn>> stockInsMap = allStockIns.stream()
+                .collect(Collectors.groupingBy(StockIn::getSupplierId));
+
+        List<PurchaseSuppliersWithDetailsDto> dtos = parents.stream().map(parent -> {
+            PurchaseSuppliersWithDetailsDto dto = new PurchaseSuppliersWithDetailsDto();
+            BeanUtils.copyProperties(parent, dto);
+            dto.setOrders(ordersMap.getOrDefault(parent.getId(), List.of()));
+            dto.setStockIns(stockInsMap.getOrDefault(parent.getId(), List.of()));
+            return dto;
+        }).collect(Collectors.toList());
+
+        result.setItems(dtos);
+        result.setTotalCount(parentPage.getTotal());
+        result.setPageIndex(pageNum);
+        result.setPageSize(pageSize);
+        return result;
     }
 
     //#endregion

@@ -2,6 +2,7 @@ package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.Dto.DosageForm.DosageFormWithDetailsDto;
 import com.tonghui.erp.Service.DosageFormService;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
@@ -127,5 +128,23 @@ public class DosageFormController extends BaseCrudController<DosageForm, DosageF
         }
     }
     
+    //#endregion
+
+    //#region 带子表查询
+
+    @GetMapping("/search-with-details")
+    public ApiResponse<PagedResult<DosageFormWithDetailsDto>> searchWithDetails(DosageForm dosageForm,
+                                                                                @RequestParam int pageIndex,
+                                                                                @RequestParam int pageSize) {
+        try {
+            int safePageIndex = Math.max(0, pageIndex);
+            int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
+            PagedResult<DosageFormWithDetailsDto> result = dosageFormService.searchWithDetails(dosageForm, safePageIndex, safePageSize);
+            return success(result);
+        } catch (Exception ex) {
+            return exception(ex, "查询失败");
+        }
+    }
+
     //#endregion
 }

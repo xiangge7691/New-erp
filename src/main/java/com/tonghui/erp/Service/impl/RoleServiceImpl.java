@@ -1,12 +1,14 @@
 package com.tonghui.erp.Service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Data.Entity.Role;
 import com.tonghui.erp.Service.RoleService;
 import com.tonghui.erp.Data.mapper.RoleMapper;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.RoleDto;
+import com.tonghui.erp.Common.Dto.System.RoleWithDetailsDto;
 import com.tonghui.erp.Common.Dto.System.UserDto;
 import com.tonghui.erp.Common.Dto.System.PermissionDto;
 import com.tonghui.erp.Data.Entity.UserRole;
@@ -18,12 +20,16 @@ import com.tonghui.erp.Service.RolePermService;
 import com.tonghui.erp.Service.UserService;
 import com.tonghui.erp.Service.PermissionService;
 import com.tonghui.erp.Common.Mapper.Converters;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.util.StringUtils;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -203,6 +209,74 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role>
     }
     //#endregion
     
+    //#region 高级查询接口
+    // ===================================
+    // 高级查询接口
+    // ===================================
+
+    @Override
+    public Page<Role> queryRoles(Role role, int pageNum, int pageSize) {
+        int actualPageNum = pageNum + 1;
+        Page<Role> page = new Page<>(actualPageNum, pageSize);
+        QueryWrapper<Role> wrapper = new QueryWrapper<>();
+
+        if (role != null) {
+            if (role.getRoleId() != null) {
+                wrapper.eq("role_id", role.getRoleId());
+            }
+            if (StringUtils.hasText(role.getRoleName())) {
+                wrapper.like("role_name", role.getRoleName());
+            }
+            if (role.getRoleStatus() != null) {
+                wrapper.eq("role_status", role.getRoleStatus());
+            }
+        }
+        wrapper.orderByDesc("role_id");
+        return baseMapper.selectPage(page, wrapper);
+    }
+
+    @Override
+    public PagedResult<RoleWithDetailsDto> searchWithDetails(Role role, int pageNum, int pageSize) {
+        Page<Role> parentPage = queryRoles(role, pageNum, pageSize);
+        List<Role> parents = parentPage.getRecords();
+
+        PagedResult<RoleWithDetailsDto> result = new PagedResult<>();
+        if (parents.isEmpty()) {
+            result.setItems(List.of());
+            result.setTotalCount(parentPage.getTotal());
+            result.setPageIndex(pageNum);
+            result.setPageSize(pageSize);
+            return result;
+        }
+
+        List<Long> parentIds = parents.stream().map(Role::getRoleId).collect(Collectors.toList());
+
+        QueryWrapper<RolePerm> permWrapper = new QueryWrapper<>();
+        permWrapper.in("role_id", parentIds);
+        Map<Long, List<RolePerm>> permsMap = rolePermService.list(permWrapper).stream()
+                .collect(Collectors.groupingBy(RolePerm::getRoleId));
+
+        QueryWrapper<UserRole> urWrapper = new QueryWrapper<>();
+        urWrapper.in("role_id", parentIds);
+        Map<Long, List<UserRole>> urMap = userRoleService.list(urWrapper).stream()
+                .collect(Collectors.groupingBy(UserRole::getRoleId));
+
+        List<RoleWithDetailsDto> dtos = parents.stream().map(parent -> {
+            RoleWithDetailsDto dto = new RoleWithDetailsDto();
+            BeanUtils.copyProperties(parent, dto);
+            dto.setPermissions(permsMap.getOrDefault(parent.getRoleId(), Collections.emptyList()));
+            dto.setUserRoles(urMap.getOrDefault(parent.getRoleId(), Collections.emptyList()));
+            return dto;
+        }).collect(Collectors.toList());
+
+        result.setItems(dtos);
+        result.setTotalCount(parentPage.getTotal());
+        result.setPageIndex(pageNum);
+        result.setPageSize(pageSize);
+        return result;
+    }
+    //#endregion
+
     //#region 数据转换接口
     // ===================================
     // 数据转换接口

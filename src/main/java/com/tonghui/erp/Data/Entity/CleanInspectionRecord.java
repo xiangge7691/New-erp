@@ -40,6 +40,12 @@ public class CleanInspectionRecord extends AuditEntity {
     @TableField(value = "report_file_id")
     private Long reportFileId;
 
+    @TableField(value = "next_inspection_date")
+    private LocalDate nextInspectionDate;
+
+    @TableField(value = "remark")
+    private String remark;
+
     @TableField(value = "is_deleted")
     private Integer isDeleted;
 
