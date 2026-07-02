@@ -187,4 +187,22 @@ public class ProductionProcessRecordController extends BaseCrudController<Produc
             return exception(ex, "作废旧记录");
         }
     }
+
+    /**
+     * 批量保存工序记录（先删后增）
+     * @param planId 生产计划ID
+     * @param records 工序记录列表
+     * @return 保存结果
+     */
+    @PostMapping("/batch/plan/{planId}")
+    public ApiResponse<List<ProductionProcessRecord>> batchSaveByPlanId(
+            @PathVariable Integer planId,
+            @RequestBody List<ProductionProcessRecord> records) {
+        try {
+            List<ProductionProcessRecord> result = productionProcessRecordService.batchSaveByPlanId(planId, records);
+            return success(result, "批量保存成功");
+        } catch (Exception ex) {
+            return exception(ex, "批量保存工序记录");
+        }
+    }
 }

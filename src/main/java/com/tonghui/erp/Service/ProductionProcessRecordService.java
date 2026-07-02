@@ -66,4 +66,13 @@ public interface ProductionProcessRecordService extends IService<ProductionProce
      * @return 操作是否成功
      */
     boolean cancelRecord(Long recordId, Long updaterId);
+
+    /**
+     * 批量保存工序记录（先删后增）
+     * 
+     * @param planId 生产计划ID
+     * @param records 工序记录列表
+     * @return 保存的记录列表
+     */
+    List<ProductionProcessRecord> batchSaveByPlanId(Integer planId, List<ProductionProcessRecord> records);
 }

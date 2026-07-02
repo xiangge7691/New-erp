@@ -2,12 +2,15 @@ package com.tonghui.erp.Service.impl;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.tonghui.erp.Data.Entity.ProductionProcessRecord;
 import com.tonghui.erp.Service.ProductionProcessRecordService;
 import com.tonghui.erp.Data.mapper.ProductionProcessRecordMapper;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.utils.EntityUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -256,6 +259,37 @@ public class ProductionProcessRecordServiceImpl extends ServiceImpl<ProductionPr
     }
 
     //#endregion
+
+    /**
+     * 批量保存工序记录（先删后增）
+     *
+     * @param planId 生产计划ID
+     * @param records 工序记录列表
+     * @return 保存的记录列表
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public List<ProductionProcessRecord> batchSaveByPlanId(Integer planId, List<ProductionProcessRecord> records) {
+        // 删除该计划下已有的工序记录
+        this.remove(new QueryWrapper<ProductionProcessRecord>().eq("plan_id", planId));
+
+        // 设置公共字段
+        Long currentUserId = EntityUtils.getCurrentUserId();
+        LocalDateTime now = LocalDateTime.now();
+        for (ProductionProcessRecord record : records) {
+            record.setPlanId(planId);
+            if (currentUserId != null) {
+                record.setCreatedBy(currentUserId);
+                record.setUpdatedBy(currentUserId);
+            }
+            record.setCreatedTime(now);
+            record.setUpdatedTime(now);
+        }
+
+        // 批量插入
+        this.saveBatch(records);
+        return records;
+    }
 }
 
 
