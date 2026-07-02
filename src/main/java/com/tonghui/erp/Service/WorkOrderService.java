@@ -6,6 +6,8 @@ import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.WorkOrder;
 
+import java.time.LocalDateTime;
+
 /**
 * @author 87954
 * @description 针对表【work_order(工单表)】的数据库操作Service
@@ -49,13 +51,20 @@ public interface WorkOrderService extends IService<WorkOrder> {
     WorkOrder getWorkOrderById(Long workOrderId);
 
     /**
-     * 查询工单（支持多条件 + 分页）
+     * 查询工单（支持多条件 + 分页 + 时间范围）
      * @param workOrder 查询条件
+     * @param createdTimeStart 创建时间起始
+     * @param createdTimeEnd 创建时间结束
+     * @param updatedTimeStart 更新时间起始
+     * @param updatedTimeEnd 更新时间结束
      * @param pageNum 页码
      * @param pageSize 每页大小
      * @return 分页结果
      */
-    Page<WorkOrder> queryWorkOrders(WorkOrder workOrder, int pageNum, int pageSize);
+    Page<WorkOrder> queryWorkOrders(WorkOrder workOrder,
+                                    LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
+                                    LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
+                                    int pageNum, int pageSize);
     
     /**
      * 生成工单编号

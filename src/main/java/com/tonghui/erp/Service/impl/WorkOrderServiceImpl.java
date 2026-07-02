@@ -113,7 +113,10 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
     //#region 高级查询
 
     @Override
-    public Page<WorkOrder> queryWorkOrders(WorkOrder workOrder, int pageNum, int pageSize) {
+    public Page<WorkOrder> queryWorkOrders(WorkOrder workOrder,
+                                           LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
+                                           LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
+                                           int pageNum, int pageSize) {
         int actualPageNum = pageNum + 1;
 
         Page<WorkOrder> page = new Page<>(actualPageNum, pageSize);
@@ -137,7 +140,6 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         if (StringUtils.hasText(workOrder.getPreparationName())) {
             wrapper.like("preparation_name", workOrder.getPreparationName());
         }
-        // 添加缺失的模糊查询字段
         if (workOrder.getBatchQty() != null) {
             wrapper.eq("batch_qty", workOrder.getBatchQty());
         }
@@ -186,11 +188,19 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         if (workOrder.getUpdatedBy() != null) {
             wrapper.eq("updated_by", workOrder.getUpdatedBy());
         }
-        if (workOrder.getCreatedTime() != null) {
-            wrapper.eq("created_time", workOrder.getCreatedTime());
+
+        // 时间范围查询
+        if (createdTimeStart != null) {
+            wrapper.ge("created_time", createdTimeStart);
         }
-        if (workOrder.getUpdatedTime() != null) {
-            wrapper.eq("updated_time", workOrder.getUpdatedTime());
+        if (createdTimeEnd != null) {
+            wrapper.le("created_time", createdTimeEnd);
+        }
+        if (updatedTimeStart != null) {
+            wrapper.ge("updated_time", updatedTimeStart);
+        }
+        if (updatedTimeEnd != null) {
+            wrapper.le("updated_time", updatedTimeEnd);
         }
 
         return this.page(page, wrapper);

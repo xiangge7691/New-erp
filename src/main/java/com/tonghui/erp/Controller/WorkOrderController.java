@@ -28,7 +28,8 @@ public class WorkOrderController extends BaseCrudController<WorkOrder, WorkOrder
 
         // 使用WorkOrderService的queryWorkOrders方法进行查询
         WorkOrder workOrder = new WorkOrder();
-        Page<WorkOrder> pageResult = workOrderService.queryWorkOrders(workOrder, safePageIndex, safePageSize);
+        Page<WorkOrder> pageResult = workOrderService.queryWorkOrders(workOrder,
+                null, null, null, null, safePageIndex, safePageSize);
 
         // 转换为PagedResult
         PagedResult<WorkOrder> pagedResult = new PagedResult<>();
@@ -90,6 +91,10 @@ public class WorkOrderController extends BaseCrudController<WorkOrder, WorkOrder
      */
     @GetMapping("/search")
     public ApiResponse<PagedResult<WorkOrder>> queryWorkOrders(WorkOrder workOrder,
+                                                               @RequestParam(required = false) java.time.LocalDateTime createdTimeStart,
+                                                               @RequestParam(required = false) java.time.LocalDateTime createdTimeEnd,
+                                                               @RequestParam(required = false) java.time.LocalDateTime updatedTimeStart,
+                                                               @RequestParam(required = false) java.time.LocalDateTime updatedTimeEnd,
                                                                @RequestParam int pageIndex,
                                                                @RequestParam int pageSize) {
         // 页码从0开始的处理，确保不为负数
@@ -98,7 +103,9 @@ public class WorkOrderController extends BaseCrudController<WorkOrder, WorkOrder
         int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
 
         // 获取分页结果
-        Page<WorkOrder> pageResult = workOrderService.queryWorkOrders(workOrder, safePageIndex, safePageSize);
+        Page<WorkOrder> pageResult = workOrderService.queryWorkOrders(workOrder,
+                createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd,
+                safePageIndex, safePageSize);
 
         // 转换为统一的PagedResult格式
         PagedResult<WorkOrder> pagedResult = new PagedResult<>();
