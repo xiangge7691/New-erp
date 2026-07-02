@@ -88,7 +88,14 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
             wrapper.like("preparation_name", productionPlan.getPreparationName());
         }
         if (StringUtils.hasText(productionPlan.getCurrentStatus())) {
-            wrapper.eq("current_status", productionPlan.getCurrentStatus());
+            wrapper.apply("CASE " +
+                "WHEN archive_time IS NOT NULL THEN 'ARCHIVED' " +
+                "WHEN outbound_time IS NOT NULL THEN 'OUTBOUND' " +
+                "WHEN inspection_end_time IS NOT NULL THEN 'INSPECTED' " +
+                "WHEN inspection_start_time IS NOT NULL THEN 'IN_INSPECTION' " +
+                "WHEN production_end_time IS NOT NULL THEN 'PRODUCED' " +
+                "WHEN production_start_time IS NOT NULL THEN 'IN_PRODUCTION' " +
+                "ELSE 'PLAN_ISSUED' END = {0}", productionPlan.getCurrentStatus());
         }
         if (productionPlan.getIsArchived() != null) {
             wrapper.eq("is_archived", productionPlan.getIsArchived());
@@ -232,7 +239,20 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
     }
     
     /**
-     * 更改生产计划状态
+     * 根据时间字段自动计算生产计划状态
+     */
+    private String computeStatus(ProductionPlan plan) {
+        if (plan.getArchiveTime() != null) return "ARCHIVED";
+        if (plan.getOutboundTime() != null) return "OUTBOUND";
+        if (plan.getInspectionEndTime() != null) return "INSPECTED";
+        if (plan.getInspectionStartTime() != null) return "IN_INSPECTION";
+        if (plan.getProductionEndTime() != null) return "PRODUCED";
+        if (plan.getProductionStartTime() != null) return "IN_PRODUCTION";
+        return "PLAN_ISSUED";
+    }
+
+    /**
+     * 更改生产计划状态（通过设置对应时间字段）
      *
      * @param planId 生产计划ID
      * @param newStatus 新状态
@@ -248,57 +268,49 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
     @Transactional(rollbackFor = Exception.class)
     public boolean changePlanStatus(Integer planId, String newStatus, Long operatorId, String remark, 
                                    BigDecimal finishedQuantity, Integer productionCycle, BigDecimal yieldRate, BigDecimal unitPrice) {
-        // 获取当前计划
         ProductionPlan plan = this.getById(planId);
         if (plan == null) {
             throw new RuntimeException("生产计划不存在");
         }
         
-        String oldStatus = plan.getCurrentStatus();
+        String oldStatus = computeStatus(plan);
         
-        // 验证状态变更是否符合业务规则
         if (!validateStatusChange(oldStatus, newStatus)) {
             throw new RuntimeException("状态流转不符合业务规则");
         }
         
-        // 根据目标状态决定如何更新主表
-        if ("OUTBOUND".equals(newStatus)) {
-            // 出库状态的特殊处理
-            BigDecimal totalAmount = finishedQuantity.multiply(unitPrice);
-            
-            plan.setCurrentStatus(newStatus);
-            plan.setCurrentStatusDate(LocalDateTime.now());
-            plan.setUpdatedBy(operatorId);
-            plan.setFinishedQuantity(finishedQuantity);
-            plan.setProductionCycle(productionCycle);
-            plan.setYieldRate(yieldRate);
-            plan.setUnitPrice(unitPrice);
-            plan.setTotalAmount(totalAmount);
-        } else if ("ARCHIVED".equals(newStatus)) {
-            // 归档状态的特殊处理
-            plan.setCurrentStatus(newStatus);
-            plan.setCurrentStatusDate(LocalDateTime.now());
-            plan.setUpdatedBy(operatorId);
-            plan.setIsArchived(1);
-        } else {
-            // 非出库状态的通用处理
-            plan.setCurrentStatus(newStatus);
-            plan.setCurrentStatusDate(LocalDateTime.now());
-            plan.setUpdatedBy(operatorId);
+        LocalDateTime now = LocalDateTime.now();
+        plan.setUpdatedBy(operatorId);
+        
+        switch (newStatus) {
+            case "IN_PRODUCTION" -> plan.setProductionStartTime(now);
+            case "PRODUCED" -> plan.setProductionEndTime(now);
+            case "IN_INSPECTION" -> plan.setInspectionStartTime(now);
+            case "INSPECTED" -> plan.setInspectionEndTime(now);
+            case "OUTBOUND" -> {
+                plan.setOutboundTime(now);
+                BigDecimal totalAmount = finishedQuantity.multiply(unitPrice);
+                plan.setFinishedQuantity(finishedQuantity);
+                plan.setProductionCycle(productionCycle);
+                plan.setYieldRate(yieldRate);
+                plan.setUnitPrice(unitPrice);
+                plan.setTotalAmount(totalAmount);
+            }
+            case "ARCHIVED" -> {
+                plan.setArchiveTime(now);
+                plan.setIsArchived(1);
+            }
         }
         
-        // 更新生产计划主表
         this.updateById(plan);
         
-        // 插入状态变更流水记录
         PlanStatusLog statusLog = new PlanStatusLog();
         statusLog.setPlanId(planId);
         statusLog.setFromStatus(oldStatus);
         statusLog.setToStatus(newStatus);
         statusLog.setOperator(operatorId);
         statusLog.setRemark(remark);
-        statusLog.setChangeTime(LocalDateTime.now());
-        
+        statusLog.setChangeTime(now);
         planStatusLogService.save(statusLog);
         
         return true;
@@ -315,20 +327,17 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean resumePlanStatus(Integer planId, Long operatorId, String remark) {
-        // 获取当前计划
         ProductionPlan plan = this.getById(planId);
         if (plan == null) {
             throw new RuntimeException("生产计划不存在");
         }
         
-        String oldStatus = plan.getCurrentStatus();
+        String oldStatus = computeStatus(plan);
         
-        // 验证当前状态必须是暂停状态
         if (!"SUSPENDED".equals(oldStatus)) {
             throw new RuntimeException("只有暂停状态才能恢复");
         }
         
-        // 查询暂停前的状态（从状态流水表获取最近一次暂停操作前的状态）
         QueryWrapper<PlanStatusLog> logQueryWrapper = new QueryWrapper<>();
         logQueryWrapper.eq("plan_id", planId)
                       .eq("to_status", "SUSPENDED")
@@ -342,18 +351,13 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
         
         String previousStatus = lastSuspendLog.getFromStatus();
         
-        // 验证状态变更的合法性
         if (!validateStatusChange("SUSPENDED", previousStatus)) {
             throw new RuntimeException("恢复状态不符合业务规则");
         }
         
-        // 更新主表状态
-        plan.setCurrentStatus(previousStatus);
-        plan.setCurrentStatusDate(LocalDateTime.now());
         plan.setUpdatedBy(operatorId);
         this.updateById(plan);
         
-        // 记录状态变更流水
         PlanStatusLog statusLog = new PlanStatusLog();
         statusLog.setPlanId(planId);
         statusLog.setFromStatus("SUSPENDED");
@@ -361,7 +365,6 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
         statusLog.setOperator(operatorId);
         statusLog.setRemark("恢复生产：" + remark);
         statusLog.setChangeTime(LocalDateTime.now());
-        
         planStatusLogService.save(statusLog);
         
         return true;

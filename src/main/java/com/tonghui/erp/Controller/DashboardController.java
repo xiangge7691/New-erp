@@ -57,16 +57,25 @@ public class DashboardController extends BaseController {
 
             ProductionStatsDto productionStats = new ProductionStatsDto();
             productionStats.setTotalPlans(productionPlanService.count());
+            String statusExpr = "CASE " +
+                "WHEN archive_time IS NOT NULL THEN 'ARCHIVED' " +
+                "WHEN outbound_time IS NOT NULL THEN 'OUTBOUND' " +
+                "WHEN inspection_end_time IS NOT NULL THEN 'INSPECTED' " +
+                "WHEN inspection_start_time IS NOT NULL THEN 'IN_INSPECTION' " +
+                "WHEN production_end_time IS NOT NULL THEN 'PRODUCED' " +
+                "WHEN production_start_time IS NOT NULL THEN 'IN_PRODUCTION' " +
+                "ELSE 'PLAN_ISSUED' END";
             // 进行中：生产中 + 已生产 + 检验中 + 已检验
             productionStats.setInProgress(productionPlanService.count(
-                new QueryWrapper<ProductionPlan>().in("current_status", 
+                new QueryWrapper<ProductionPlan>().apply(statusExpr + " IN ({0})",
                     "IN_PRODUCTION", "PRODUCED", "IN_INSPECTION", "INSPECTED")));
             // 已完成：已出库 + 已归档
             productionStats.setCompleted(productionPlanService.count(
-                new QueryWrapper<ProductionPlan>().in("current_status", "OUTBOUND", "ARCHIVED")));
+                new QueryWrapper<ProductionPlan>().apply(statusExpr + " IN ({0})",
+                    "OUTBOUND", "ARCHIVED")));
             // 待处理：已下单
             productionStats.setPending(productionPlanService.count(
-                new QueryWrapper<ProductionPlan>().eq("current_status", "PLAN_ISSUED")));
+                new QueryWrapper<ProductionPlan>().apply(statusExpr + " = {0}", "PLAN_ISSUED")));
             summary.setProductionStats(productionStats);
 
             StockWarningStatsDto stockWarnings = new StockWarningStatsDto();
@@ -141,9 +150,17 @@ public class DashboardController extends BaseController {
             metrics.setTotalPurchaseAmount(Math.round(purchaseAmount * 100.0) / 100.0);
 
             // 待生产数量：已下单
+            String statusExpr2 = "CASE " +
+                "WHEN archive_time IS NOT NULL THEN 'ARCHIVED' " +
+                "WHEN outbound_time IS NOT NULL THEN 'OUTBOUND' " +
+                "WHEN inspection_end_time IS NOT NULL THEN 'INSPECTED' " +
+                "WHEN inspection_start_time IS NOT NULL THEN 'IN_INSPECTION' " +
+                "WHEN production_end_time IS NOT NULL THEN 'PRODUCED' " +
+                "WHEN production_start_time IS NOT NULL THEN 'IN_PRODUCTION' " +
+                "ELSE 'PLAN_ISSUED' END";
             long pending = productionPlanService.count(
                 new QueryWrapper<ProductionPlan>()
-                    .eq("current_status", "PLAN_ISSUED"));
+                    .apply(statusExpr2 + " = {0}", "PLAN_ISSUED"));
             metrics.setPendingProduction(pending);
 
             return success(metrics);
@@ -304,7 +321,15 @@ public class DashboardController extends BaseController {
         try {
             QueryWrapper<ProductionPlan> wrapper = buildTimeWrapper(startMonth, endMonth);
             if (status != null && !status.isEmpty()) {
-                wrapper.eq("current_status", status);
+                String statusExpr = "CASE " +
+                    "WHEN archive_time IS NOT NULL THEN 'ARCHIVED' " +
+                    "WHEN outbound_time IS NOT NULL THEN 'OUTBOUND' " +
+                    "WHEN inspection_end_time IS NOT NULL THEN 'INSPECTED' " +
+                    "WHEN inspection_start_time IS NOT NULL THEN 'IN_INSPECTION' " +
+                    "WHEN production_end_time IS NOT NULL THEN 'PRODUCED' " +
+                    "WHEN production_start_time IS NOT NULL THEN 'IN_PRODUCTION' " +
+                    "ELSE 'PLAN_ISSUED' END";
+                wrapper.apply(statusExpr + " = {0}", status);
             }
             wrapper.orderByDesc("created_time");
 
@@ -316,7 +341,7 @@ public class DashboardController extends BaseController {
                 dto.setQuantity(plan.getPlanQuantity() != null ? plan.getPlanQuantity() + "" : "");
                 dto.setBatchNo(plan.getPlanNumber());
                 dto.setHospital(plan.getUnitName());
-                dto.setCurrentStatus(plan.getCurrentStatus());
+                dto.setCurrentStatus(computeStatusForPlan(plan));
                 if (plan.getCreatedTime() != null) {
                     dto.setOrderDate(plan.getCreatedTime().format(DateTimeFormatter.ofPattern("MM-dd")));
                 }
@@ -432,5 +457,15 @@ public class DashboardController extends BaseController {
             wrapper.le("in_date", end.toString());
         }
         return wrapper;
+    }
+
+    private String computeStatusForPlan(ProductionPlan plan) {
+        if (plan.getArchiveTime() != null) return "ARCHIVED";
+        if (plan.getOutboundTime() != null) return "OUTBOUND";
+        if (plan.getInspectionEndTime() != null) return "INSPECTED";
+        if (plan.getInspectionStartTime() != null) return "IN_INSPECTION";
+        if (plan.getProductionEndTime() != null) return "PRODUCED";
+        if (plan.getProductionStartTime() != null) return "IN_PRODUCTION";
+        return "PLAN_ISSUED";
     }
 }
