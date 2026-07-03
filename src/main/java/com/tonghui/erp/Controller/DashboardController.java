@@ -165,7 +165,7 @@ public class DashboardController extends BaseController {
         try {
             DashboardMetricsDto metrics = new DashboardMetricsDto();
 
-            // 预估产值/总订单量/总交付量：查 work_order 表
+            // 预估产值/总订单量：查 work_order 表（按 created_time 筛选）
             QueryWrapper<WorkOrder> woWrapper = buildWorkOrderTimeWrapper(startMonth, endMonth);
             List<WorkOrder> workOrders = workOrderService.list(woWrapper);
 
@@ -179,10 +179,9 @@ public class DashboardController extends BaseController {
             // 总订单量：COUNT(*)
             metrics.setTotalOrders((long) workOrders.size());
 
-            // 总交付量：delivery_time IS NOT NULL
-            long deliveries = workOrders.stream()
-                .filter(wo -> wo.getDeliveryTime() != null)
-                .count();
+            // 总交付量：查 work_order 表（按 delivery_time 筛选）
+            QueryWrapper<WorkOrder> deliveryWrapper = buildWorkOrderDeliveryTimeWrapper(startMonth, endMonth);
+            long deliveries = workOrderService.count(deliveryWrapper);
             metrics.setTotalDeliveries(deliveries);
 
             // 总采购额：入库金额求和
@@ -610,6 +609,26 @@ public class DashboardController extends BaseController {
         if (endMonth != null && !endMonth.isEmpty()) {
             LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
             wrapper.le("created_time", end.atTime(23, 59, 59));
+        }
+        return wrapper;
+    }
+
+    /**
+     * 构建工单交付时间范围查询条件
+     *
+     * @param startMonth 起始月份（格式：2026-01）
+     * @param endMonth   结束月份（格式：2026-06）
+     * @return 查询条件
+     */
+    private QueryWrapper<WorkOrder> buildWorkOrderDeliveryTimeWrapper(String startMonth, String endMonth) {
+        QueryWrapper<WorkOrder> wrapper = new QueryWrapper<>();
+        wrapper.eq("is_deleted", 0);
+        if (startMonth != null && !startMonth.isEmpty()) {
+            wrapper.ge("delivery_time", startMonth + "-01 00:00:00");
+        }
+        if (endMonth != null && !endMonth.isEmpty()) {
+            LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
+            wrapper.le("delivery_time", end.atTime(23, 59, 59));
         }
         return wrapper;
     }
