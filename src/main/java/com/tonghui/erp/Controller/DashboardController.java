@@ -196,10 +196,18 @@ public class DashboardController extends BaseController {
                 .sum();
             metrics.setTotalPurchaseAmount(Math.round(purchaseAmount * 100.0) / 100.0);
 
-            // 待生产数量：current_status IN ('DRAFT','CONFIRMED')
-            long pending = productionPlanService.count(
-                new QueryWrapper<ProductionPlan>()
-                    .in("current_status", "DRAFT", "CONFIRMED"));
+            // 待生产数量：current_status IN ('DRAFT','CONFIRMED') 且在时间范围内
+            QueryWrapper<ProductionPlan> pendingWrapper = new QueryWrapper<>();
+            pendingWrapper.eq("is_deleted", 0)
+                          .in("current_status", "DRAFT", "CONFIRMED");
+            if (startMonth != null && !startMonth.isEmpty()) {
+                pendingWrapper.ge("created_time", startMonth + "-01 00:00:00");
+            }
+            if (endMonth != null && !endMonth.isEmpty()) {
+                LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
+                pendingWrapper.le("created_time", end.atTime(23, 59, 59));
+            }
+            long pending = productionPlanService.count(pendingWrapper);
             metrics.setPendingProduction(pending);
 
             return success(metrics);
