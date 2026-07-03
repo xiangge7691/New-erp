@@ -352,7 +352,6 @@ public class DashboardController extends BaseController {
                 todo.setLink("人员档案.html");
                 allTodos.add(todo);
             }
-            typeCounts.put("人员管理", (long) expiringCerts.size());
 
             // 3.5 人员证书到期（从证书子表查询）
             List<PersonnelCertificate> expiringCertificates = personnelCertificateService.findExpiringCertificates(30);
@@ -385,6 +384,8 @@ public class DashboardController extends BaseController {
                 todo.setLink("人员档案.html");
                 allTodos.add(todo);
             }
+            // 更新人员管理计数（健康证 + 证书子表）
+            typeCounts.put("人员管理", (long) expiringCerts.size() + expiringCertificates.size());
 
             // 5. 环境管理（消毒到期提醒）
             List<DisinfectionRecord> upcomingDisinfection = disinfectionRecordService.findUpcomingDisinfection(30);
