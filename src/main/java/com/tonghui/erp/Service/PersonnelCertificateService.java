@@ -33,5 +33,12 @@ public interface PersonnelCertificateService extends IService<PersonnelCertifica
      */
     void saveCertificates(Long personnelFileId, List<PersonnelCertificate> certificates);
 
+    /**
+     * 查询即将到期和已过期的证书
+     * @param days 提前天数
+     * @return 证书列表
+     */
+    List<PersonnelCertificate> findExpiringCertificates(int days);
+
     // endregion
 }

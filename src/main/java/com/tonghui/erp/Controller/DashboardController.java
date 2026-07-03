@@ -66,6 +66,9 @@ public class DashboardController extends BaseController {
     private PreparationService preparationService;
 
     @Autowired
+    private PersonnelCertificateService personnelCertificateService;
+
+    @Autowired
     private EquipmentService equipmentService;
 
     @Autowired
@@ -342,6 +345,38 @@ public class DashboardController extends BaseController {
                 allTodos.add(todo);
             }
             typeCounts.put("人员管理", (long) expiringCerts.size());
+
+            // 3.5 人员证书到期（从证书子表查询）
+            List<PersonnelCertificate> expiringCertificates = personnelCertificateService.findExpiringCertificates(30);
+            // 批量查询人员名称
+            Set<Long> certPersonnelIds = expiringCertificates.stream()
+                .map(PersonnelCertificate::getPersonnelFileId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+            Map<Long, String> certPersonnelNameMap = new HashMap<>();
+            if (!certPersonnelIds.isEmpty()) {
+                personnelFileService.listByIds(certPersonnelIds).forEach(p ->
+                    certPersonnelNameMap.put(p.getPersonnelFileId(), p.getName()));
+            }
+            for (PersonnelCertificate cert : expiringCertificates) {
+                TodoItemDto todo = new TodoItemDto();
+                todo.setId(cert.getCertificateId());
+                todo.setTodoType("人员管理");
+                String personName = certPersonnelNameMap.getOrDefault(cert.getPersonnelFileId(), "人员" + cert.getPersonnelFileId());
+                String certName = cert.getCertificateName() != null ? cert.getCertificateName() : "证书";
+                if (cert.getExpiryDate() != null) {
+                    long days = java.time.temporal.ChronoUnit.DAYS.between(today, cert.getExpiryDate());
+                    if (days < 0) {
+                        todo.setContent(personName + "的" + certName + "已过期" + Math.abs(days) + "天");
+                    } else {
+                        todo.setContent(personName + "的" + certName + "还有" + days + "天到期");
+                    }
+                    todo.setDueDate(cert.getExpiryDate().toString());
+                }
+                todo.setSourceModule("人员管理");
+                todo.setLink("人员档案.html");
+                allTodos.add(todo);
+            }
 
             // 5. 环境管理（消毒到期提醒）
             List<DisinfectionRecord> upcomingDisinfection = disinfectionRecordService.findUpcomingDisinfection(30);

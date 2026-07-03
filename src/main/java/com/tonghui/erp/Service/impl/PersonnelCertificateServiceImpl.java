@@ -7,6 +7,7 @@ import com.tonghui.erp.Data.mapper.PersonnelCertificateMapper;
 import com.tonghui.erp.Service.PersonnelCertificateService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -37,6 +38,32 @@ public class PersonnelCertificateServiceImpl extends ServiceImpl<PersonnelCertif
         QueryWrapper<PersonnelCertificate> wrapper = new QueryWrapper<>();
         wrapper.eq("personnel_file_id", personnelFileId)
                .orderByDesc("created_time");
+        return list(wrapper);
+    }
+
+    // endregion
+
+    // region 查询操作
+    // ===================================
+    // 查询操作
+    // ===================================
+
+    /**
+     * 查询即将到期和已过期的证书
+     */
+    @Override
+    public List<PersonnelCertificate> findExpiringCertificates(int days) {
+        LocalDate today = LocalDate.now();
+        LocalDate deadline = today.plusDays(days);
+        LocalDate pastDeadline = today.minusDays(days);
+
+        QueryWrapper<PersonnelCertificate> wrapper = new QueryWrapper<>();
+        wrapper.eq("is_deleted", 0)
+               .eq("status", 1)
+               .isNotNull("expiry_date")
+               .ge("expiry_date", pastDeadline)
+               .le("expiry_date", deadline)
+               .orderByAsc("expiry_date");
         return list(wrapper);
     }
 
