@@ -65,6 +65,12 @@ public class DashboardController extends BaseController {
     @Autowired
     private PreparationService preparationService;
 
+    @Autowired
+    private EquipmentService equipmentService;
+
+    @Autowired
+    private RoomInfoService roomInfoService;
+
     // endregion
 
     // region 汇总和统计接口
@@ -227,11 +233,21 @@ public class DashboardController extends BaseController {
 
             // 1. 设备维保提醒
             List<EquipmentMaintenance> upcomingMaintenance = equipmentMaintenanceService.findUpcomingMaintenance(30);
+            // 批量查询设备名称
+            Set<Long> equipmentIds = upcomingMaintenance.stream()
+                .map(EquipmentMaintenance::getEquipmentId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+            Map<Long, String> equipmentNameMap = new HashMap<>();
+            if (!equipmentIds.isEmpty()) {
+                equipmentService.listByIds(equipmentIds).forEach(e ->
+                    equipmentNameMap.put(e.getEquipmentId().longValue(), e.getEquipmentName()));
+            }
             for (EquipmentMaintenance m : upcomingMaintenance) {
                 TodoItemDto todo = new TodoItemDto();
                 todo.setId(m.getMaintenanceId());
                 todo.setTodoType("设备维保");
-                String equipmentName = m.getEquipmentName() != null ? m.getEquipmentName() : "设备" + m.getEquipmentId();
+                String equipmentName = equipmentNameMap.getOrDefault(m.getEquipmentId(), "设备" + m.getEquipmentId());
                 if (m.getNextMaintenanceDate() != null) {
                     long days = java.time.temporal.ChronoUnit.DAYS.between(today, m.getNextMaintenanceDate());
                     if (days < 0) {
@@ -325,11 +341,21 @@ public class DashboardController extends BaseController {
 
             // 5. 环境管理（消毒到期提醒）
             List<DisinfectionRecord> upcomingDisinfection = disinfectionRecordService.findUpcomingDisinfection(30);
+            // 批量查询房间名称
+            Set<Integer> roomIds = upcomingDisinfection.stream()
+                .map(DisinfectionRecord::getRoomId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+            Map<Integer, String> roomNameMap = new HashMap<>();
+            if (!roomIds.isEmpty()) {
+                roomInfoService.listByIds(roomIds).forEach(r ->
+                    roomNameMap.put(r.getRoomId(), r.getRoomName()));
+            }
             for (DisinfectionRecord d : upcomingDisinfection) {
                 TodoItemDto todo = new TodoItemDto();
                 todo.setId(d.getId());
                 todo.setTodoType("环境管理");
-                String roomName = d.getRoomName() != null ? d.getRoomName() : "车间" + d.getRoomId();
+                String roomName = roomNameMap.getOrDefault(d.getRoomId(), "车间" + d.getRoomId());
                 if (d.getNextDisinfectionDate() != null) {
                     long days = java.time.temporal.ChronoUnit.DAYS.between(today, d.getNextDisinfectionDate());
                     if (days < 0) {
