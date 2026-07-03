@@ -262,6 +262,8 @@ public class DashboardController extends BaseController {
             // 2. 库存预警
             List<Stock> expiringStocks = stockService.list(
                 new QueryWrapper<Stock>()
+                    .eq("is_deleted", 0)
+                    .gt("quantity", 0)
                     .isNotNull("expiry_date")
                     .le("expiry_date", today.plusDays(30))
                     .orderByAsc("expiry_date"));
@@ -281,18 +283,19 @@ public class DashboardController extends BaseController {
                 todo.setLink("库存有效期预警.html");
                 allTodos.add(todo);
             }
-            typeCounts.put("库存", (long) expiringStocks.size());
+            typeCounts.put("库存预警", (long) expiringStocks.size());
 
             // 2.5 待入库
             List<StockIn> pendingStockIns = stockInService.list(
                 new QueryWrapper<StockIn>()
+                    .eq("is_deleted", 0)
                     .eq("in_status", "草稿")
                     .orderByDesc("created_time"));
             for (StockIn si : pendingStockIns) {
                 TodoItemDto todo = new TodoItemDto();
                 todo.setId(si.getInId());
                 todo.setTodoType("待入库");
-                todo.setContent((si.getInCode() != null ? si.getInCode() : "入库单" + si.getInId()) + "已完成检验，待入库");
+                todo.setContent((si.getInCode() != null ? si.getInCode() : "入库单" + si.getInId()) + "待审核");
                 todo.setDueDate(si.getInDate() != null ? si.getInDate().toString() : "");
                 todo.setSourceModule("库存管理");
                 todo.setLink("入库管理.html");
@@ -303,7 +306,8 @@ public class DashboardController extends BaseController {
             // 2.6 待确认
             List<StockIn> unconfirmedStockIns = stockInService.list(
                 new QueryWrapper<StockIn>()
-                    .eq("in_status", "已确认")
+                    .eq("is_deleted", 0)
+                    .eq("in_status", "已到货")
                     .orderByDesc("created_time"));
             for (StockIn si : unconfirmedStockIns) {
                 TodoItemDto todo = new TodoItemDto();
@@ -326,7 +330,11 @@ public class DashboardController extends BaseController {
                 String name = p.getName() != null ? p.getName() : "人员" + p.getPersonnelFileId();
                 if (p.getHealthCertExpire() != null) {
                     long days = java.time.temporal.ChronoUnit.DAYS.between(today, p.getHealthCertExpire());
-                    todo.setContent(name + "健康证还有" + days + "天到期");
+                    if (days < 0) {
+                        todo.setContent(name + "健康证已过期" + Math.abs(days) + "天");
+                    } else {
+                        todo.setContent(name + "健康证还有" + days + "天到期");
+                    }
                     todo.setDueDate(p.getHealthCertExpire().toString());
                 }
                 todo.setSourceModule("人员管理");

@@ -50,12 +50,14 @@ public class EquipmentMaintenanceServiceImpl extends ServiceImpl<EquipmentMainte
     public List<EquipmentMaintenance> findUpcomingMaintenance(int days) {
         LocalDate today = LocalDate.now();
         LocalDate deadline = today.plusDays(days);
+        LocalDate pastDeadline = today.minusDays(days);
         
         QueryWrapper<EquipmentMaintenance> wrapper = new QueryWrapper<>();
-        wrapper.isNotNull("next_maintenance_date")  // 下次维保日期不为空
-               .ge("next_maintenance_date", today)  // 大于等于今天
-               .le("next_maintenance_date", deadline)  // 小于等于截止日期
-               .orderByAsc("next_maintenance_date");  // 按下次维保日期升序
+        wrapper.eq("is_deleted", 0)
+               .isNotNull("next_maintenance_date")
+               .ge("next_maintenance_date", pastDeadline)
+               .le("next_maintenance_date", deadline)
+               .orderByAsc("next_maintenance_date");
         
         return list(wrapper);
     }

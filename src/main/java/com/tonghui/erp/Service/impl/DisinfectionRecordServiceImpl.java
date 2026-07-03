@@ -52,12 +52,13 @@ public class DisinfectionRecordServiceImpl extends ServiceImpl<DisinfectionRecor
     public List<DisinfectionRecord> findUpcomingDisinfection(int days) {
         LocalDate today = LocalDate.now();
         LocalDate deadline = today.plusDays(days);
+        LocalDate pastDeadline = today.minusDays(days);
 
         QueryWrapper<DisinfectionRecord> wrapper = new QueryWrapper<>();
-        wrapper.isNotNull("next_disinfection_date")
-               .ge("next_disinfection_date", today)
+        wrapper.eq("is_deleted", 0)
+               .isNotNull("next_disinfection_date")
+               .ge("next_disinfection_date", pastDeadline)
                .le("next_disinfection_date", deadline)
-               .eq("is_deleted", 0)
                .orderByAsc("next_disinfection_date");
         return list(wrapper);
     }
