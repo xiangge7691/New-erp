@@ -71,6 +71,9 @@ public class DashboardController extends BaseController {
     @Autowired
     private RoomInfoService roomInfoService;
 
+    @Autowired
+    private WorkOrderService workOrderService;
+
     // endregion
 
     // region 汇总和统计接口
@@ -161,22 +164,24 @@ public class DashboardController extends BaseController {
             @RequestParam(required = false) String endMonth) {
         try {
             DashboardMetricsDto metrics = new DashboardMetricsDto();
-            QueryWrapper<ProductionPlan> wrapper = buildTimeWrapper(startMonth, endMonth);
 
-            // 预估产值：总金额求和
-            List<ProductionPlan> plans = productionPlanService.list(wrapper);
-            double estimatedValue = plans.stream()
-                .filter(p -> p.getTotalAmount() != null)
-                .mapToDouble(p -> p.getTotalAmount().doubleValue())
+            // 预估产值/总订单量/总交付量：查 work_order 表
+            QueryWrapper<WorkOrder> woWrapper = buildWorkOrderTimeWrapper(startMonth, endMonth);
+            List<WorkOrder> workOrders = workOrderService.list(woWrapper);
+
+            // 预估产值：SUM(batch_qty * settlement_price)
+            double estimatedValue = workOrders.stream()
+                .filter(wo -> wo.getBatchQty() != null && wo.getSettlementPrice() != null)
+                .mapToDouble(wo -> wo.getBatchQty().doubleValue() * wo.getSettlementPrice().doubleValue())
                 .sum();
             metrics.setEstimatedOutputValue(Math.round(estimatedValue * 100.0) / 100.0);
 
-            // 总订单量
-            metrics.setTotalOrders((long) plans.size());
+            // 总订单量：COUNT(*)
+            metrics.setTotalOrders((long) workOrders.size());
 
-            // 总交付量：有出库时间的
-            long deliveries = plans.stream()
-                .filter(p -> p.getOutboundTime() != null)
+            // 总交付量：delivery_time IS NOT NULL
+            long deliveries = workOrders.stream()
+                .filter(wo -> wo.getDeliveryTime() != null)
                 .count();
             metrics.setTotalDeliveries(deliveries);
 
@@ -189,18 +194,10 @@ public class DashboardController extends BaseController {
                 .sum();
             metrics.setTotalPurchaseAmount(Math.round(purchaseAmount * 100.0) / 100.0);
 
-            // 待生产数量：已下单
-            String statusExpr2 = "CASE " +
-                "WHEN archive_time IS NOT NULL THEN 'ARCHIVED' " +
-                "WHEN outbound_time IS NOT NULL THEN 'OUTBOUND' " +
-                "WHEN inspection_end_time IS NOT NULL THEN 'INSPECTED' " +
-                "WHEN inspection_start_time IS NOT NULL THEN 'IN_INSPECTION' " +
-                "WHEN production_end_time IS NOT NULL THEN 'PRODUCED' " +
-                "WHEN production_start_time IS NOT NULL THEN 'IN_PRODUCTION' " +
-                "ELSE 'PLAN_ISSUED' END";
+            // 待生产数量：current_status IN ('DRAFT','CONFIRMED')
             long pending = productionPlanService.count(
                 new QueryWrapper<ProductionPlan>()
-                    .apply(statusExpr2 + " = {0}", "PLAN_ISSUED"));
+                    .in("current_status", "DRAFT", "CONFIRMED"));
             metrics.setPendingProduction(pending);
 
             return success(metrics);
@@ -593,6 +590,26 @@ public class DashboardController extends BaseController {
         if (endMonth != null && !endMonth.isEmpty()) {
             LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
             wrapper.le("in_date", end.toString());
+        }
+        return wrapper;
+    }
+
+    /**
+     * 构建工单时间范围查询条件
+     *
+     * @param startMonth 起始月份（格式：2026-01）
+     * @param endMonth   结束月份（格式：2026-06）
+     * @return 查询条件
+     */
+    private QueryWrapper<WorkOrder> buildWorkOrderTimeWrapper(String startMonth, String endMonth) {
+        QueryWrapper<WorkOrder> wrapper = new QueryWrapper<>();
+        wrapper.eq("is_deleted", 0);
+        if (startMonth != null && !startMonth.isEmpty()) {
+            wrapper.ge("created_time", startMonth + "-01 00:00:00");
+        }
+        if (endMonth != null && !endMonth.isEmpty()) {
+            LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
+            wrapper.le("created_time", end.atTime(23, 59, 59));
         }
         return wrapper;
     }
