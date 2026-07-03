@@ -62,6 +62,9 @@ public class DashboardController extends BaseController {
     @Autowired
     private DisinfectionRecordService disinfectionRecordService;
 
+    @Autowired
+    private PreparationService preparationService;
+
     // endregion
 
     // region 汇总和统计接口
@@ -452,8 +455,15 @@ public class DashboardController extends BaseController {
             QueryWrapper<ProductionPlan> wrapper = buildTimeWrapper(startMonth, endMonth);
             List<ProductionPlan> plans = productionPlanService.list(wrapper);
 
-            // 交付数量按剂型（简化：按制剂名称分组）
+            // 预加载制剂→剂型映射
+            Map<String, String> preparationDosageMap = new HashMap<>();
+            preparationService.list().forEach(p ->
+                preparationDosageMap.put(p.getPreparationCode(), p.getDosageForm() != null ? p.getDosageForm() : "其他")
+            );
+
+            // 交付数量按剂型（月度）
             Map<String, Map<String, Long>> deliveryByMonth = new LinkedHashMap<>();
+            // 预估产值按剂型（月度）
             Map<String, Map<String, Double>> revenueByMonth = new LinkedHashMap<>();
 
             for (ProductionPlan plan : plans) {
@@ -461,29 +471,38 @@ public class DashboardController extends BaseController {
                     ? plan.getCreatedTime().format(DateTimeFormatter.ofPattern("M月"))
                     : "未知";
 
-                deliveryByMonth.computeIfAbsent(month, k -> new LinkedHashMap<>())
-                    .merge(plan.getPreparationName() != null ? plan.getPreparationName() : "其他",
-                        plan.getOutboundTime() != null ? 1L : 0L, Long::sum);
+                String dosageForm = preparationDosageMap.getOrDefault(plan.getPreparationCode(), "其他");
 
+                deliveryByMonth.computeIfAbsent(month, k -> new LinkedHashMap<>())
+                    .merge(dosageForm, plan.getOutboundTime() != null ? 1L : 0L, Long::sum);
+
+                double amount = plan.getTotalAmount() != null ? plan.getTotalAmount().doubleValue() : 0.0;
                 revenueByMonth.computeIfAbsent(month, k -> new LinkedHashMap<>())
-                    .merge(plan.getPreparationName() != null ? plan.getPreparationName() : "其他",
-                        plan.getTotalAmount() != null ? plan.getTotalAmount().doubleValue() : 0.0, Double::sum);
+                    .merge(dosageForm, amount, Double::sum);
             }
 
+            // 组装交付数量结果（含总计）
             List<Map<String, Object>> deliveryList = new ArrayList<>();
             deliveryByMonth.forEach((month, data) -> {
                 Map<String, Object> item = new LinkedHashMap<>();
                 item.put("月份", month);
+                long total = 0;
+                for (Long v : data.values()) total += v;
                 item.putAll(data);
+                item.put("总计", total);
                 deliveryList.add(item);
             });
             chartData.setDeliveryByDosageForm(deliveryList);
 
+            // 组装预估产值结果（含总计，单位：万元）
             List<Map<String, Object>> revenueList = new ArrayList<>();
             revenueByMonth.forEach((month, data) -> {
                 Map<String, Object> item = new LinkedHashMap<>();
                 item.put("月份", month);
+                double total = 0;
+                for (Double v : data.values()) total += v;
                 data.forEach((k, v) -> item.put(k, Math.round(v * 100.0) / 100.0));
+                item.put("总计", Math.round(total * 100.0) / 100.0);
                 revenueList.add(item);
             });
             chartData.setRevenueByMonth(revenueList);
