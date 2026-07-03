@@ -15,6 +15,12 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class Permission extends AuditEntity {
+
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 权限唯一标识
      */
@@ -51,6 +57,13 @@ public class Permission extends AuditEntity {
     @TableField(value = "display_order")
     private Integer displayOrder;
 
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
     /**
      * 状态：0禁用/1启用
      */
@@ -73,4 +86,6 @@ public class Permission extends AuditEntity {
      */
     @TableField(value = "version")
     private Integer version;
+
+    // endregion
 }

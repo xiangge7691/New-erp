@@ -8,9 +8,6 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import java.util.List;
 
 /**
- * @author 87954
- * @description 针对表【production_process_record(生产工序记录表)】的数据库操作 Service
- * @createDate 2026-03-09 10:03:26
  */
 public interface ProductionProcessRecordService extends IService<ProductionProcessRecord> {
     

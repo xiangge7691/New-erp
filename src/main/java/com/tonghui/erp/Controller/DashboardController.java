@@ -20,11 +20,26 @@ import java.util.stream.Collectors;
 
 /**
  * 首页仪表盘控制器
- * 提供首页统计数据查询
+ *
+ * 接口清单：
+ * ┌────┬──────────────────────────────────────┬────────┬─────────────────────────────────────┐
+ * │ #  │ 接口                                 │ 方法   │ 说明                                │
+ * ├────┼──────────────────────────────────────┼────────┼─────────────────────────────────────┤
+ * │ 1  │ /api/dashboard/summary               │ GET   │ 获取首页汇总数据                    │
+ * │ 2  │ /api/dashboard/metrics               │ GET   │ 核心指标卡片数据                    │
+ * │ 3  │ /api/dashboard/todos                 │ GET   │ 待办事项列表                        │
+ * │ 4  │ /api/dashboard/order-tracking        │ GET   │ 订单跟踪看板                        │
+ * │ 5  │ /api/dashboard/charts                │ GET   │ 图表数据                            │
+ * └────┴──────────────────────────────────────┴────────┴─────────────────────────────────────┘
  */
 @RestController
 @RequestMapping("/api/dashboard")
 public class DashboardController extends BaseController {
+
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
 
     @Autowired
     private ProductionPlanService productionPlanService;
@@ -47,8 +62,20 @@ public class DashboardController extends BaseController {
     @Autowired
     private DisinfectionRecordService disinfectionRecordService;
 
+    // endregion
+
+    // region 汇总和统计接口
+    // ===================================
+    // 汇总和统计接口
+    // ===================================
+
     /**
      * 获取首页汇总数据（保留旧接口兼容）
+     *
+     * 示例请求：
+     * GET /api/dashboard/summary
+     *
+     * @return 汇总数据，包含生产统计、库存预警、审批统计等
      */
     @GetMapping("/summary")
     public ApiResponse<DashboardSummaryDto> getSummary() {
@@ -112,8 +139,12 @@ public class DashboardController extends BaseController {
     /**
      * 核心指标卡片数据
      *
+     * 示例请求：
+     * GET /api/dashboard/metrics?startMonth=2026-01&endMonth=2026-06
+     *
      * @param startMonth 起始月份（格式：2026-01）
      * @param endMonth   结束月份（格式：2026-06）
+     * @return 核心指标数据，包含预估产值、总订单量、总交付量、总采购额、待生产数量
      */
     @GetMapping("/metrics")
     public ApiResponse<DashboardMetricsDto> getMetrics(
@@ -169,8 +200,20 @@ public class DashboardController extends BaseController {
         }
     }
 
+    // endregion
+
+    // region 待办事项接口
+    // ===================================
+    // 待办事项接口
+    // ===================================
+
     /**
      * 待办事项列表
+     *
+     * 示例请求：
+     * GET /api/dashboard/todos
+     *
+     * @return 待办事项列表，包含设备维保、库存预警、人员健康证、环境管理等提醒
      */
     @GetMapping("/todos")
     public ApiResponse<TodoListDto> getTodos() {
@@ -310,8 +353,23 @@ public class DashboardController extends BaseController {
         }
     }
 
+    // endregion
+
+    // region 订单跟踪接口
+    // ===================================
+    // 订单跟踪接口
+    // ===================================
+
     /**
      * 订单跟踪看板
+     *
+     * 示例请求：
+     * GET /api/dashboard/order-tracking?startMonth=2026-01&endMonth=2026-06&status=IN_PRODUCTION
+     *
+     * @param startMonth 起始月份（格式：2026-01，可选）
+     * @param endMonth   结束月份（格式：2026-06，可选）
+     * @param status     订单状态（可选），如PLAN_ISSUED、IN_PRODUCTION、PRODUCED、IN_INSPECTION、INSPECTED、OUTBOUND、ARCHIVED
+     * @return 订单跟踪列表
      */
     @GetMapping("/order-tracking")
     public ApiResponse<List<OrderTrackingDto>> getOrderTracking(
@@ -366,8 +424,22 @@ public class DashboardController extends BaseController {
         }
     }
 
+    // endregion
+
+    // region 图表数据接口
+    // ===================================
+    // 图表数据接口
+    // ===================================
+
     /**
      * 图表数据
+     *
+     * 示例请求：
+     * GET /api/dashboard/charts?startMonth=2026-01&endMonth=2026-06
+     *
+     * @param startMonth 起始月份（格式：2026-01，可选）
+     * @param endMonth   结束月份（格式：2026-06，可选）
+     * @return 图表数据，包含交付数量、收入趋势、库存资金占用等
      */
     @GetMapping("/charts")
     public ApiResponse<ChartDataDto> getCharts(
@@ -435,6 +507,20 @@ public class DashboardController extends BaseController {
         }
     }
 
+    // endregion
+
+    // region 私有辅助方法
+    // ===================================
+    // 私有辅助方法
+    // ===================================
+
+    /**
+     * 构建生产计划时间范围查询条件
+     *
+     * @param startMonth 起始月份（格式：2026-01）
+     * @param endMonth   结束月份（格式：2026-06）
+     * @return 查询条件
+     */
     private QueryWrapper<ProductionPlan> buildTimeWrapper(String startMonth, String endMonth) {
         QueryWrapper<ProductionPlan> wrapper = new QueryWrapper<>();
         if (startMonth != null && !startMonth.isEmpty()) {
@@ -447,6 +533,13 @@ public class DashboardController extends BaseController {
         return wrapper;
     }
 
+    /**
+     * 构建入库单时间范围查询条件
+     *
+     * @param startMonth 起始月份（格式：2026-01）
+     * @param endMonth   结束月份（格式：2026-06）
+     * @return 查询条件
+     */
     private QueryWrapper<StockIn> buildStockInTimeWrapper(String startMonth, String endMonth) {
         QueryWrapper<StockIn> wrapper = new QueryWrapper<>();
         if (startMonth != null && !startMonth.isEmpty()) {
@@ -459,6 +552,12 @@ public class DashboardController extends BaseController {
         return wrapper;
     }
 
+    /**
+     * 计算生产计划状态
+     *
+     * @param plan 生产计划对象
+     * @return 状态字符串
+     */
     private String computeStatusForPlan(ProductionPlan plan) {
         if (plan.getArchiveTime() != null) return "ARCHIVED";
         if (plan.getOutboundTime() != null) return "OUTBOUND";
@@ -468,4 +567,6 @@ public class DashboardController extends BaseController {
         if (plan.getProductionStartTime() != null) return "IN_PRODUCTION";
         return "PLAN_ISSUED";
     }
+
+    // endregion
 }

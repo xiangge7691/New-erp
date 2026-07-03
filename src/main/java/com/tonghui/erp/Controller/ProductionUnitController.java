@@ -23,26 +23,60 @@ import java.util.List;
 
 /**
  * 生产单位控制器
+ *
+ * 接口清单：
+ * ┌────┬──────────────────────────────────────────────┬────────┬────────────────────────────────────┐
+ * │ #  │ 接口                                         │ 方法   │ 说明                               │
+ * ├────┼──────────────────────────────────────────────┼────────┼────────────────────────────────────┤
+ * │ 1  │ /api/production_unit                         │ GET    │ 分页查询生产单位列表               │
+ * │ 2  │ /api/production_unit/{id}                    │ GET    │ 获取生产单位详情                   │
+ * │ 3  │ /api/production_unit                         │ POST   │ 新增生产单位                       │
+ * │ 4  │ /api/production_unit/{id}                    │ PUT    │ 修改生产单位                       │
+ * │ 5  │ /api/production_unit/{id}                    │ DELETE │ 删除生产单位                       │
+ * │ 6  │ /api/production_unit/search                  │ GET    │ 高级查询生产单位（多条件+分页）     │
+ * │ 7  │ /api/production_unit/search-with-details     │ GET    │ 高级查询生产单位（含子表）          │
+ * │ 8  │ /api/production_unit/{id}/invoice            │ POST   │ 添加发票信息                       │
+ * │ 9  │ /api/production_unit/{id}/invoices           │ GET    │ 获取发票信息列表                   │
+ * │ 10 │ /api/production_unit/invoice/{invoiceId}     │ DELETE │ 删除发票信息                       │
+ * │ 11 │ /api/production_unit/{id}/material-file      │ POST   │ 添加材料文件                       │
+ * │ 12 │ /api/production_unit/{id}/material-files     │ GET    │ 获取材料文件列表                   │
+ * │ 13 │ /api/production_unit/material-file/{materialId}│ GET  │ 下载材料文件                       │
+ * │ 14 │ /api/production_unit/material-file/{materialId}│ DELETE│ 删除材料文件                      │
+ * │ 15 │ /api/production_unit/code/{prodUnitCode}     │ GET    │ 根据编码查询生产单位               │
+ * │ 16 │ /api/production_unit/enabled                 │ GET    │ 查询所有启用状态的生产单位          │
+ * │ 17 │ /api/production_unit/{id}/status/{status}    │ POST   │ 启用/停用生产单位                  │
+ * └────┴──────────────────────────────────────────────┴────────┴────────────────────────────────────┘
  */
 @RestController
 @RequestMapping("/api/production_unit")
 public class ProductionUnitController extends BaseCrudController<ProductionUnit, ProductionUnit, Long> {
 
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
+    /**
+     * 生产单位服务
+     */
     @Autowired
     private ProductionUnitService productionUnitService;
 
+    // endregion
+
+    // region CRUD基础方法实现
+    // ===================================
+    // CRUD基础方法实现
+    // ===================================
+
     @Override
     protected PagedResult<ProductionUnit> getAllData(int pageIndex, int pageSize) {
-        // 页码从0开始的处理，确保不为负数
         int safePageIndex = Math.max(0, pageIndex);
-        // 当pageSize<=0时，设置一个合理的默认值
         int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
 
-        // 使用ProductionUnitService的queryProductionUnits方法进行查询
         ProductionUnit productionUnit = new ProductionUnit();
         Page<ProductionUnit> pageResult = productionUnitService.queryProductionUnits(productionUnit, safePageIndex, safePageSize);
 
-        // 转换为PagedResult
         PagedResult<ProductionUnit> pagedResult = new PagedResult<>();
         pagedResult.setItems(pageResult.getRecords());
         pagedResult.setTotalCount(pageResult.getTotal());
@@ -80,32 +114,27 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
         }
     }
 
-    // #region 高级查询
+    // endregion
+
+    // region 高级查询
+    // ===================================
+    // 高级查询
+    // ===================================
 
     /**
      * 高级查询生产单位（支持多条件 + 分页）
      *
-     * 可选查询条件：
-     * - prodUnitCode：模糊匹配
-     * - prodUnitName：模糊匹配
-     * - prodUnitManager：模糊匹配
-     * - prodUnitStatus：state过滤
-     * - createdTimeStart：创建时间起始（大于等于）
-     * - createdTimeEnd：创建时间结束（小于等于）
-     * - updatedTimeStart：更新时间起始（大于等于）
-     * - updatedTimeEnd：更新时间结束（小于等于）
-     *
      * 示例请求：
-     *GET /production-unit/search?pageIndex=1&pageSize=20&prodUnitName=原料药&prodUnitManager=张&prodUnitStatus=1&createdTimeStart=2023-01-01T00:00:00&createdTimeEnd=2023-12-31T23:59:59
+     * GET /api/production_unit/search?pageIndex=1&pageSize=20&prodUnitName=原料药&prodUnitManager=张&prodUnitStatus=1&createdTimeStart=2023-01-01T00:00:00&createdTimeEnd=2023-12-31T23:59:59
      *
      * @param productionUnit 查询条件（自动从query参数映射）
      * @param createdTimeStart 创建时间起始
      * @param createdTimeEnd 创建时间结束
      * @param updatedTimeStart 更新时间起始
      * @param updatedTimeEnd 更新时间结束
-     * @param pageIndex      页码
-     * @param pageSize       每页大小
-     * @return 分页结果
+     * @param pageIndex 页码
+     * @param pageSize 每页大小
+     * @return ApiResponse&lt;PagedResult&lt;ProductionUnit&gt;&gt; 分页查询结果
      */
     @GetMapping("/search")
     public ApiResponse<PagedResult<ProductionUnit>> queryProductionUnits(ProductionUnit productionUnit,
@@ -137,21 +166,27 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
         }
     }
 
-    // #endregion
+    // endregion
 
-    // #region 带子表查询
+    // region 带子表查询
+    // ===================================
+    // 带子表查询
+    // ===================================
 
     /**
      * 高级查询生产单位（包含发票和材料文件子表）
      *
-     * @param productionUnit 查询条件
+     * 示例请求：
+     * GET /api/production_unit/search-with-details?pageIndex=1&pageSize=20&prodUnitName=原料药
+     *
+     * @param productionUnit 查询条件（自动从query参数映射）
      * @param createdTimeStart 创建时间起始
      * @param createdTimeEnd 创建时间结束
      * @param updatedTimeStart 更新时间起始
      * @param updatedTimeEnd 更新时间结束
      * @param pageIndex 页码
-     * @param pageSize  每页大小
-     * @return 分页结果（包含子表）
+     * @param pageSize 每页大小
+     * @return ApiResponse&lt;PagedResult&lt;ProductionUnitWithDetailsDto&gt;&gt; 分页结果（包含子表）
      */
     @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<ProductionUnitWithDetailsDto>> searchWithDetails(ProductionUnit productionUnit,
@@ -171,16 +206,24 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
         }
     }
 
-    // #endregion
+    // endregion
 
-    // #region 发票信息操作接口
+    // region 发票信息操作接口
+    // ===================================
+    // 发票信息操作接口
+    // ===================================
 
     /**
      * 为生产单位添加发票信息
      *
-     * @param prodUnitId      生产单位ID
+     * 示例请求：
+     * POST /api/production_unit/1/invoice
+     * Content-Type: application/json
+     * "发票内容"
+     *
+     * @param prodUnitId 生产单位ID
      * @param prodInvoiceInfo 发票信息
-     * @return 操作结果
+     * @return ApiResponse&lt;ProdUnitInvoice&gt; 添加的发票信息
      */
     @PostMapping("/{id}/invoice")
     public ApiResponse<ProdUnitInvoice> addProdUnitInvoice(@PathVariable("id")Long prodUnitId, @RequestBody String prodInvoiceInfo) {
@@ -195,8 +238,11 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
     /**
      * 获取生产单位的发票信息列表
      *
+     * 示例请求：
+     * GET /api/production_unit/1/invoices
+     *
      * @param prodUnitId 生产单位ID
-     * @return 发票信息列表
+     * @return ApiResponse&lt;List&lt;ProdUnitInvoice&gt;&gt; 发票信息列表
      */
     @GetMapping("/{id}/invoices")
     public ApiResponse<List<ProdUnitInvoice>> getProdUnitInvoices(@PathVariable("id")Long prodUnitId) {
@@ -211,8 +257,11 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
     /**
      * 删除发票信息
      *
+     * 示例请求：
+     * DELETE /api/production_unit/invoice/1
+     *
      * @param prodInvoiceId 发票信息ID
-     * @return 操作结果
+     * @return ApiResponse&lt;Boolean&gt; 操作结果
      */
     @DeleteMapping("/invoice/{invoiceId}")
     public ApiResponse<Boolean> deleteProdUnitInvoice(@PathVariable("invoiceId")Long prodInvoiceId) {
@@ -224,21 +273,29 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
         }
     }
 
-    // #endregion
+    // endregion
 
-    // #region 材料文件操作接口
+    // region 材料文件操作接口
+    // ===================================
+    // 材料文件操作接口
+    // ===================================
 
     /**
      * 为生产单位添加材料文件
      *
-     * @param prodUnitId    生产单位ID
-     * @param materialType  材料类型
-     * @param fileName      文件名
-     * @param fileMd5       文件MD5
-     * @param fileSize      文件大小
-     * @param description   描述
-     * @param fileContent   文件内容(base64)
-     * @return 操作结果
+     * 示例请求：
+     * POST /api/production_unit/1/material-file?materialType=原料&fileName=检验报告.pdf&fileMd5=abc123&fileSize=1024&description=质检报告
+     * Content-Type: application/json
+     * "base64编码的文件内容"
+     *
+     * @param prodUnitId 生产单位ID
+     * @param materialType 材料类型
+     * @param fileName 文件名
+     * @param fileMd5 文件MD5
+     * @param fileSize 文件大小
+     * @param description 描述
+     * @param fileContent 文件内容(base64)
+     * @return ApiResponse&lt;ProdUnitMaterialFile&gt; 添加的材料文件
      */
     @PostMapping("/{id}/material-file")
     public ApiResponse<ProdUnitMaterialFile> addProdUnitMaterialFile(
@@ -271,8 +328,11 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
     /**
      * 获取生产单位的材料文件列表
      *
+     * 示例请求：
+     * GET /api/production_unit/1/material-files
+     *
      * @param prodUnitId 生产单位ID
-     * @return 材料文件列表
+     * @return ApiResponse&lt;List&lt;ProdUnitMaterialFile&gt;&gt; 材料文件列表
      */
     @GetMapping("/{id}/material-files")
     public ApiResponse<List<ProdUnitMaterialFile>> getProdUnitMaterialFiles(@PathVariable("id")Long prodUnitId) {
@@ -287,8 +347,11 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
     /**
      * 下载材料文件
      *
+     * 示例请求：
+     * GET /api/production_unit/material-file/1
+     *
      * @param prodMaterialId 材料文件ID
-     * @return 文件流
+     * @return 文件流（二进制），HTTP响应头包含Content-Disposition触发下载
      */
     @GetMapping("/material-file/{materialId}")
     public ResponseEntity<Resource> downloadProdUnitMaterialFile(@PathVariable("materialId")Long prodMaterialId) {
@@ -324,8 +387,11 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
     /**
      * 删除材料文件
      *
+     * 示例请求：
+     * DELETE /api/production_unit/material-file/1
+     *
      * @param prodMaterialId 材料文件ID
-     * @return 操作结果
+     * @return ApiResponse&lt;Boolean&gt; 操作结果
      */
     @DeleteMapping("/material-file/{materialId}")
     public ApiResponse<Boolean> deleteProdUnitMaterialFile(@PathVariable("materialId")Long prodMaterialId) {
@@ -337,15 +403,21 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
         }
     }
 
-    // #endregion
+    // endregion
 
-    // #region 特殊业务方法
+    // region 特殊业务方法
+    // ===================================
+    // 特殊业务方法
+    // ===================================
 
     /**
      * 根据编码查询生产单位
      *
+     * 示例请求：
+     * GET /api/production_unit/code/PU001
+     *
      * @param prodUnitCode 生产单位编码
-     * @return 生产单位实体
+     * @return ApiResponse&lt;ProductionUnit&gt; 生产单位实体
      */
     @GetMapping("/code/{prodUnitCode}")
     public ApiResponse<ProductionUnit> getProductionUnitByCode(@PathVariable String prodUnitCode) {
@@ -363,7 +435,10 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
     /**
      * 查询所有启用状态的生产单位
      *
-     * @return 生产单位集合
+     * 示例请求：
+     * GET /api/production_unit/enabled
+     *
+     * @return ApiResponse&lt;PagedResult&lt;ProductionUnit&gt;&gt; 生产单位集合
      */
     @GetMapping("/enabled")
     public ApiResponse<PagedResult<ProductionUnit>>getEnabledProductionUnits() {
@@ -389,9 +464,12 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
     /**
      * 启用/停用生产单位
      *
-     * @param id     生产单位ID
+     * 示例请求：
+     * POST /api/production_unit/1/status/1
+     *
+     * @param id 生产单位ID
      * @param status 状态：1启用，0停用
-     * @return 操作结果
+     * @return ApiResponse&lt;Boolean&gt; 操作结果
      */
     @PostMapping("/{id}/status/{status}")
     public ApiResponse<Boolean>toggleProductionUnitStatus(@PathVariable Long id, @PathVariable Integer status) {
@@ -408,5 +486,5 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
         }
     }
 
-    // #endregion
+    // endregion
 }

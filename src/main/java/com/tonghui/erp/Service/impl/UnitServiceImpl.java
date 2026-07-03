@@ -19,7 +19,7 @@ import org.springframework.stereotype.Service;
 public class UnitServiceImpl extends ServiceImpl<UnitMapper, Unit>
     implements UnitService{
 
-    //#region 计量单位查询实现方法
+    // region 计量单位查询实现方法
     // ===================================
     // 计量单位查询实现方法
     // ===================================
@@ -75,7 +75,7 @@ public class UnitServiceImpl extends ServiceImpl<UnitMapper, Unit>
         return pagedResult;
     }
     
-    //#endregion
+    // endregion
 }
 
 

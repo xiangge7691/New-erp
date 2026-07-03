@@ -22,17 +22,27 @@ import java.util.stream.Collectors;
 /**
  * 药品剂型服务实现类
  * <p>
- * 针对表【dosage_form(药品剂型分类表)】的数据库操作Service实现，提供药品剂型的增删改查等业务逻辑的具体实现
+ * 实现DosageFormService接口，提供药品剂型相关的业务逻辑处理，包括剂型的
+ * 名称模糊查询、高级查询、带子表关联查询等功能的具体实现
  * </p>
+ *
  */
 @Service
 public class DosageFormServiceImpl extends ServiceImpl<DosageFormMapper, DosageForm>
         implements DosageFormService{
 
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
+    /** 制剂数据访问层，用于关联查询剂型关联的制剂信息 */
     @Autowired
     private PreparationMapper preparationMapper;
 
-    //#region 剂型查询实现方法
+    // endregion
+
+    // region 剂型查询实现方法
     // ===================================
     // 剂型查询实现方法
     // ===================================
@@ -88,8 +98,21 @@ public class DosageFormServiceImpl extends ServiceImpl<DosageFormMapper, DosageF
         return pagedResult;
     }
 
-    //#endregion
+    // endregion
 
+    // region 高级查询
+    // ===================================
+    // 高级查询
+    // ===================================
+
+    /**
+     * 高级查询药品剂型（支持按剂型ID、名称、状态条件组合查询）
+     *
+     * @param dosageForm 查询条件实体，非null字段将作为等值或模糊查询条件
+     * @param pageNum    页码，从0开始
+     * @param pageSize   每页数量
+     * @return 药品剂型分页结果
+     */
     @Override
     public Page<DosageForm> queryDosageForms(DosageForm dosageForm, int pageNum, int pageSize) {
         int actualPageNum = pageNum + 1;
@@ -110,8 +133,25 @@ public class DosageFormServiceImpl extends ServiceImpl<DosageFormMapper, DosageF
         return this.page(page, wrapper);
     }
 
+    // endregion
+
+    // region 带子表关联查询
+    // ===================================
+    // 带子表关联查询
+    // ===================================
+
+    /**
+     * 查询药品剂型列表并关联制剂信息
+     * <p>先分页查询剂型主表数据，再批量查询关联的制剂</p>
+     *
+     * @param dosageForm 查询条件实体
+     * @param pageNum    页码，从0开始
+     * @param pageSize   每页数量
+     * @return 带子表关联数据的药品剂型分页结果
+     */
     @Override
     public PagedResult<DosageFormWithDetailsDto> searchWithDetails(DosageForm dosageForm, int pageNum, int pageSize) {
+        // 查询剂型主表分页数据
         Page<DosageForm> parentPage = queryDosageForms(dosageForm, pageNum, pageSize);
         List<DosageForm> parents = parentPage.getRecords();
 
@@ -124,6 +164,7 @@ public class DosageFormServiceImpl extends ServiceImpl<DosageFormMapper, DosageF
             return result;
         }
 
+        // 批量查询关联的制剂
         List<Long> parentIds = parents.stream().map(DosageForm::getDosageId).collect(Collectors.toList());
         QueryWrapper<Preparation> wrapper = new QueryWrapper<>();
         wrapper.in("dosage_form_id", parentIds);
@@ -131,6 +172,7 @@ public class DosageFormServiceImpl extends ServiceImpl<DosageFormMapper, DosageF
         Map<Long, List<Preparation>> preparationsMap = allPreparations.stream()
                 .collect(Collectors.groupingBy(Preparation::getDosageFormId));
 
+        // 组装带子表数据的DTO
         List<DosageFormWithDetailsDto> dtos = parents.stream().map(parent -> {
             DosageFormWithDetailsDto dto = new DosageFormWithDetailsDto();
             BeanUtils.copyProperties(parent, dto);
@@ -144,4 +186,6 @@ public class DosageFormServiceImpl extends ServiceImpl<DosageFormMapper, DosageF
         result.setPageSize(pageSize);
         return result;
     }
+
+    // endregion
 }

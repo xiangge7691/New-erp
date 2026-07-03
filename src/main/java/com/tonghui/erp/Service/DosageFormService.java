@@ -15,7 +15,7 @@ import com.tonghui.erp.Data.Entity.DosageForm;
  */
 public interface DosageFormService extends IService<DosageForm> {
     
-    //#region 剂型查询方法
+    // region 剂型查询方法
     // ===================================
     // 剂型查询方法
     // ===================================
@@ -33,5 +33,5 @@ public interface DosageFormService extends IService<DosageForm> {
 
     PagedResult<DosageFormWithDetailsDto> searchWithDetails(DosageForm dosageForm, int pageNum, int pageSize);
     
-    //#endregion
+    // endregion
 }

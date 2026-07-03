@@ -14,7 +14,10 @@ import java.util.List;
  */
 public interface PreparationService extends IService<Preparation> {
 
-    // #region 基础操作
+    // region 基础操作
+    // ===================================
+    // 基础操作
+    // ===================================
 
     /**
      * 新增制剂
@@ -37,9 +40,12 @@ public interface PreparationService extends IService<Preparation> {
      */
     void deletePreparation(Long preparationId);
 
-    // #endregion
+    // endregion
 
-    // #region 查询操作
+    // region 查询操作
+    // ===================================
+    // 查询操作
+    // ===================================
 
     /**
      * 根据ID查询制剂
@@ -71,9 +77,12 @@ public interface PreparationService extends IService<Preparation> {
      */
     List<Preparation> getAllPreparations();
 
-    // #endregion
+    // endregion
 
-    // #region 高级查询
+    // region 高级查询
+    // ===================================
+    // 高级查询
+    // ===================================
 
     /**
      * 高级查询制剂（支持分页）
@@ -85,9 +94,12 @@ public interface PreparationService extends IService<Preparation> {
      */
     Page<Preparation> queryPreparations(Preparation preparation, int pageNum, int pageSize);
 
-    // #endregion
+    // endregion
 
-    // #region 带子表查询
+    // region 带子表查询
+    // ===================================
+    // 带子表查询
+    // ===================================
 
     /**
      * 高级查询制剂（包含处方、文档、工序模版子表）
@@ -99,9 +111,12 @@ public interface PreparationService extends IService<Preparation> {
      */
     PagedResult<PreparationWithDetailsDto> searchWithDetails(Preparation preparation, int pageNum, int pageSize);
 
-    // #endregion
+    // endregion
 
-    // #region 分页查询
+    // region 分页查询
+    // ===================================
+    // 分页查询
+    // ===================================
 
     /**
      * 获取制剂列表（分页）
@@ -111,5 +126,5 @@ public interface PreparationService extends IService<Preparation> {
      */
     PagedResult<Preparation> getPreparationList(PageRequestDto pageRequestDto);
 
-    // #endregion
+    // endregion
 }

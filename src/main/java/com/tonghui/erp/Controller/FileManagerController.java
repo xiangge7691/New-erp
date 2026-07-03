@@ -50,8 +50,20 @@ import java.util.Set;
 @RequestMapping("/api/file-manager")
 public class FileManagerController extends BaseController {
 
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
     @Autowired
     private FileManagerService fileManagerService;
+
+    // endregion
+
+    // region 目录操作接口
+    // ===================================
+    // 目录操作接口
+    // ===================================
 
     /**
      * 列出目录内容
@@ -169,6 +181,13 @@ public class FileManagerController extends BaseController {
         }
     }
 
+    // endregion
+
+    // region 文件操作接口
+    // ===================================
+    // 文件操作接口
+    // ===================================
+
     /**
      * 上传文件到指定目录
      *
@@ -273,4 +292,6 @@ public class FileManagerController extends BaseController {
             return exception(e, "搜索文件");
         }
     }
+
+    // endregion
 }

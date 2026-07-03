@@ -16,7 +16,10 @@ import java.util.List;
  */
 public interface StockInService extends IService<StockIn> {
 
-    // #region 基础操作
+    // region 基础操作
+    // ===================================
+    // 基础操作
+    // ===================================
 
     /**
      * 新增入库单（包含明细）
@@ -48,9 +51,12 @@ public interface StockInService extends IService<StockIn> {
      */
     void deleteStockIn(Long stockInId);
 
-    // #endregion
+    // endregion
 
-    // #region 查询操作
+    // region 查询操作
+    // ===================================
+    // 查询操作
+    // ===================================
 
     /**
      * 根据ID查询入库单
@@ -75,9 +81,12 @@ public interface StockInService extends IService<StockIn> {
      */
     List<StockIn> getAllStockIns();
 
-    // #endregion
+    // endregion
 
-    // #region 入库单明细操作
+    // region 入库单明细操作
+    // ===================================
+    // 入库单明细操作
+    // ===================================
 
     /**
      * 根据入库单ID获取明细列表
@@ -115,9 +124,12 @@ public interface StockInService extends IService<StockIn> {
      */
     void deleteStockInDetail(Long detailId);
 
-    // #endregion
+    // endregion
 
-    // #region 单号生成
+    // region 单号生成
+    // ===================================
+    // 单号生成
+    // ===================================
 
     /**
      * 生成入库单号
@@ -126,9 +138,12 @@ public interface StockInService extends IService<StockIn> {
      */
     String generateStockInCode();
 
-    // #endregion
+    // endregion
 
-    // #region 高级查询
+    // region 高级查询
+    // ===================================
+    // 高级查询
+    // ===================================
 
     /**
      * 高级查询入库单（支持分页）
@@ -146,9 +161,12 @@ public interface StockInService extends IService<StockIn> {
      */
     Page<StockIn> queryStockIns(StockIn stockIn, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, LocalDate startDate, LocalDate endDate, int pageNum, int pageSize);
 
-    // #endregion
+    // endregion
 
-    // #region 带子表查询
+    // region 带子表查询
+    // ===================================
+    // 带子表查询
+    // ===================================
 
     /**
      * 高级查询入库单（包含明细子表）
@@ -166,5 +184,5 @@ public interface StockInService extends IService<StockIn> {
      */
     PagedResult<StockInWithDetailsDto> searchWithDetails(StockIn stockIn, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, LocalDate startDate, LocalDate endDate, int pageNum, int pageSize);
 
-    // #endregion
+    // endregion
 }

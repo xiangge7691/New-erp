@@ -12,13 +12,10 @@ import java.util.List;
  * 提供角色权限关联相关的业务逻辑接口，包括角色权限关联的查询、管理等功能
  * </p>
  * 
- * @author 87954
- * @description 针对表【role_perm(角色-权限关联表)】的数据库操作Service
- * @createDate 2025-08-27 10:08:57
  */
 public interface RolePermService extends IService<RolePerm> {
     
-    //#region 权限查询接口
+    // region 权限查询接口
     // ===================================
     // 权限查询接口
     // ===================================
@@ -38,9 +35,9 @@ public interface RolePermService extends IService<RolePerm> {
      * @return 角色ID列表
      */
     List<Long> getRoleIdsByPermissionId(Long permId);
-    //#endregion
+    // endregion
     
-    //#region 权限分配接口
+    // region 权限分配接口
     // ===================================
     // 权限分配接口
     // ===================================
@@ -62,9 +59,9 @@ public interface RolePermService extends IService<RolePerm> {
      * @return 操作是否成功
      */
     boolean updateRolePermissions(Long roleId, List<Long> permIds);
-    //#endregion
+    // endregion
     
-    //#region 分页查询接口
+    // region 分页查询接口
     // ===================================
     // 分页查询接口
     // ===================================
@@ -77,9 +74,9 @@ public interface RolePermService extends IService<RolePerm> {
      * @return 分页结果
      */
     PagedResult<RolePerm> getPaged(int pageIndex, int pageSize);
-    //#endregion
+    // endregion
     
-    //#region 关联查询接口
+    // region 关联查询接口
     // ===================================
     // 关联查询接口
     // ===================================
@@ -99,5 +96,5 @@ public interface RolePermService extends IService<RolePerm> {
      * @return 角色权限关联列表
      */
     List<RolePerm> getByPermId(Long permId);
-    //#endregion
+    // endregion
 }

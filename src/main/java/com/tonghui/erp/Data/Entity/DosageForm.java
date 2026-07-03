@@ -15,6 +15,12 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class DosageForm extends AuditEntity {
+
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 剂型唯一标识
      */
@@ -27,11 +33,25 @@ public class DosageForm extends AuditEntity {
     @TableField(value = "dosage_name")
     private String dosageName;
 
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
+
     /**
      * 剂型特性备注
      */
     @TableField(value = "remark")
     private String remark;
+
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
 
     /**
      * 状态：0禁用/1启用
@@ -44,4 +64,6 @@ public class DosageForm extends AuditEntity {
      */
     @TableField(value = "is_deleted")
     private Integer isDeleted;
+
+    // endregion
 }

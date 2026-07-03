@@ -22,16 +22,37 @@ import java.util.stream.Collectors;
 
 /**
  * 人员档案服务实现类
+ * <p>
+ * 实现PersonnelFileService接口，提供人员档案相关的业务逻辑处理，包括档案的高级查询、
+ * 健康证到期预警查询、带子表关联查询等功能的具体实现
+ * </p>
+ *
  */
 @Service
 public class PersonnelFileServiceImpl extends ServiceImpl<PersonnelFileMapper, PersonnelFile> implements PersonnelFileService {
 
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
+    /** 人员证书服务，用于查询人员关联的证书信息 */
     @Autowired
     private PersonnelCertificateService personnelCertificateService;
 
+    // endregion
+
+    // region 预警查询
+    // ===================================
+    // 预警查询
+    // ===================================
+
     /**
      * 查询健康证即将到期的人员档案
-     * 查询条件：在职状态 + 健康证到期日期在今天到指定天数之间
+     * <p>查询条件：在职状态 + 健康证到期日期在今天到指定天数之间</p>
+     *
+     * @param days 预警天数范围，查询从今天起days天内将过期的健康证
+     * @return 健康证即将到期的人员档案列表，按到期日期升序排列
      */
     @Override
     public List<PersonnelFile> findExpiringHealthCerts(int days) {
@@ -48,8 +69,18 @@ public class PersonnelFileServiceImpl extends ServiceImpl<PersonnelFileMapper, P
         return list(wrapper);
     }
 
+    // endregion
+
+    // region 查询操作
+    // ===================================
+    // 查询操作
+    // ===================================
+
     /**
      * 根据用户ID查询人员档案
+     *
+     * @param userId 用户ID
+     * @return 人员档案实体，不存在则返回null
      */
     @Override
     public PersonnelFile findByUserId(Long userId) {
@@ -58,6 +89,21 @@ public class PersonnelFileServiceImpl extends ServiceImpl<PersonnelFileMapper, P
         return getOne(wrapper);
     }
 
+    // endregion
+
+    // region 高级查询
+    // ===================================
+    // 高级查询
+    // ===================================
+
+    /**
+     * 高级查询人员档案（支持按ID、姓名、工号、状态、部门ID条件组合查询）
+     *
+     * @param personnelFile 查询条件实体，非null字段将作为等值或模糊查询条件
+     * @param pageNum       页码，从0开始
+     * @param pageSize      每页数量
+     * @return 人员档案分页结果
+     */
     @Override
     public Page<PersonnelFile> queryPersonnelFiles(PersonnelFile personnelFile, int pageNum, int pageSize) {
         int actualPageNum = pageNum + 1;
@@ -85,8 +131,25 @@ public class PersonnelFileServiceImpl extends ServiceImpl<PersonnelFileMapper, P
         return baseMapper.selectPage(page, wrapper);
     }
 
+    // endregion
+
+    // region 带子表关联查询
+    // ===================================
+    // 带子表关联查询
+    // ===================================
+
+    /**
+     * 查询人员档案列表并关联证书信息
+     * <p>先分页查询档案主表数据，再批量查询关联的人员证书</p>
+     *
+     * @param personnelFile 查询条件实体
+     * @param pageNum       页码，从0开始
+     * @param pageSize      每页数量
+     * @return 带子表关联数据的人员档案分页结果
+     */
     @Override
     public PagedResult<PersonnelFileWithDetailsDto> searchWithDetails(PersonnelFile personnelFile, int pageNum, int pageSize) {
+        // 查询人员档案主表分页数据
         Page<PersonnelFile> parentPage = queryPersonnelFiles(personnelFile, pageNum, pageSize);
         List<PersonnelFile> parents = parentPage.getRecords();
 
@@ -99,6 +162,7 @@ public class PersonnelFileServiceImpl extends ServiceImpl<PersonnelFileMapper, P
             return result;
         }
 
+        // 批量查询关联的人员证书
         List<Long> parentIds = parents.stream().map(PersonnelFile::getPersonnelFileId).collect(Collectors.toList());
 
         QueryWrapper<PersonnelCertificate> certWrapper = new QueryWrapper<>();
@@ -106,6 +170,7 @@ public class PersonnelFileServiceImpl extends ServiceImpl<PersonnelFileMapper, P
         Map<Long, List<PersonnelCertificate>> certMap = personnelCertificateService.list(certWrapper).stream()
                 .collect(Collectors.groupingBy(PersonnelCertificate::getPersonnelFileId));
 
+        // 组装带子表数据的DTO
         List<PersonnelFileWithDetailsDto> dtos = parents.stream().map(parent -> {
             PersonnelFileWithDetailsDto dto = new PersonnelFileWithDetailsDto();
             BeanUtils.copyProperties(parent, dto);
@@ -119,4 +184,6 @@ public class PersonnelFileServiceImpl extends ServiceImpl<PersonnelFileMapper, P
         result.setPageSize(pageSize);
         return result;
     }
+
+    // endregion
 }

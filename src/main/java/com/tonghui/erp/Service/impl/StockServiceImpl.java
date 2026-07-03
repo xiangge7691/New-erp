@@ -28,20 +28,49 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
-* @author 87954
-* @description 针对表【stock(库存表（统一管理物料和制剂库存，按生产单位分配）)】的数据库操作Service实现
-* @createDate 2025-10-22 10:42:53
-*/
+ * 库存服务实现类
+ * <p>
+ * 实现StockService接口，提供库存相关的业务逻辑处理，包括库存的高级查询、
+ * 带子表关联查询、库存预警查询、预警统计等功能的具体实现
+ * </p>
+ *
+ */
 @Service
 public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
     implements StockService{
 
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
+    /** 库存交易记录数据访问层，用于关联查询库存交易流水 */
     @Autowired
     private StockTransactionMapper stockTransactionMapper;
 
+    /** 出库明细数据访问层，用于关联查询库存出库明细 */
     @Autowired
     private StockOutDetailMapper stockOutDetailMapper;
 
+    // endregion
+
+    // region 高级查询
+    // ===================================
+    // 高级查询
+    // ===================================
+
+    /**
+     * 高级查询库存（支持多条件组合查询和自定义时间范围筛选）
+     *
+     * @param stock             查询条件实体，非null字段将作为等值或模糊查询条件
+     * @param createdTimeStart  创建时间起始值（含）
+     * @param createdTimeEnd    创建时间结束值（含）
+     * @param updatedTimeStart  更新时间起始值（含）
+     * @param updatedTimeEnd    更新时间结束值（含）
+     * @param pageIndex         页码，从0开始
+     * @param pageSize          每页数量
+     * @return 库存分页结果
+     */
     @Override
     public Page<Stock> queryStocks(Stock stock, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, int pageIndex, int pageSize) {
         // 页码处理，MyBatis Plus Page页码从1开始
@@ -84,7 +113,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
             wrapper.like("storage_location", stock.getStorageLocation());
         }
         
-        // Handle created time range query
+        // 创建时间范围查询
         if (createdTimeStart != null) {
             wrapper.ge("created_time", createdTimeStart);
         }
@@ -92,7 +121,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
             wrapper.le("created_time", createdTimeEnd);
         }
         
-        // Handle updated time range query - 加强判断条件确保参数有效
+        // 更新时间范围查询
         if (updatedTimeStart != null) {
             wrapper.ge("updated_time", updatedTimeStart);
         }
@@ -103,13 +132,38 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
         return this.getBaseMapper().selectPage(page, wrapper);
     }
 
+    /**
+     * 高级查询库存（使用默认时间范围，即不过滤时间）
+     *
+     * @param stock    查询条件实体
+     * @param pageNum  页码，从0开始
+     * @param pageSize 每页数量
+     * @return 库存分页结果
+     */
     @Override
     public Page<Stock> queryStocks(Stock stock, int pageNum, int pageSize) {
         return queryStocks(stock, null, null, null, null, pageNum, pageSize);
     }
 
+    // endregion
+
+    // region 带子表关联查询
+    // ===================================
+    // 带子表关联查询
+    // ===================================
+
+    /**
+     * 查询库存列表并关联交易记录和出库明细信息
+     * <p>先分页查询库存主表数据，再批量查询关联的交易记录和出库明细</p>
+     *
+     * @param stock    查询条件实体
+     * @param pageNum  页码，从0开始
+     * @param pageSize 每页数量
+     * @return 带子表关联数据的库存分页结果
+     */
     @Override
     public PagedResult<StockWithDetailsDto> searchWithDetails(Stock stock, int pageNum, int pageSize) {
+        // 查询库存主表分页数据
         Page<Stock> parentPage = queryStocks(stock, pageNum, pageSize);
         List<Stock> parents = parentPage.getRecords();
 
@@ -122,6 +176,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
             return result;
         }
 
+        // 批量查询关联的库存交易记录
         List<Long> parentIds = parents.stream().map(Stock::getStockId).collect(Collectors.toList());
         QueryWrapper<StockTransaction> transactionWrapper = new QueryWrapper<>();
         transactionWrapper.in("stock_id", parentIds);
@@ -129,12 +184,14 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
         Map<Long, List<StockTransaction>> transactionsMap = allTransactions.stream()
                 .collect(Collectors.groupingBy(StockTransaction::getStockId));
 
+        // 批量查询关联的出库明细
         QueryWrapper<StockOutDetail> outDetailWrapper = new QueryWrapper<>();
         outDetailWrapper.in("stock_id", parentIds);
         List<StockOutDetail> allOutDetails = stockOutDetailMapper.selectList(outDetailWrapper);
         Map<Long, List<StockOutDetail>> outDetailsMap = allOutDetails.stream()
                 .collect(Collectors.groupingBy(StockOutDetail::getStockId));
 
+        // 组装带子表数据的DTO
         List<StockWithDetailsDto> dtos = parents.stream().map(parent -> {
             StockWithDetailsDto dto = new StockWithDetailsDto();
             BeanUtils.copyProperties(parent, dto);
@@ -150,11 +207,26 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
         return result;
     }
 
+    // endregion
+
+    // region 库存预警查询
+    // ===================================
+    // 库存预警查询
+    // ===================================
+
+    /**
+     * 查询即将过期的库存预警列表
+     * <p>查询有效期内且在指定天数内将过期的库存，自动计算剩余天数和预警级别</p>
+     *
+     * @param warningDays 预警天数范围，查询从今天起warningDays天内将过期的库存
+     * @return 即将过期的库存预警列表
+     */
     @Override
     public List<ExpiryWarningDTO> getExpiringStocks(int warningDays) {
         LocalDate startDate = LocalDate.now();
         LocalDate endDate = startDate.plusDays(warningDays);
         
+        // 查询即将过期的库存
         List<ExpiryWarningDTO> warnings = this.getBaseMapper().selectExpiringStocksWithDetail(
                 startDate, endDate, null, null);
         
@@ -164,6 +236,12 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
         return warnings;
     }
 
+    /**
+     * 获取库存过期预警统计信息
+     * <p>统计各级别预警数量：紧急(urgent)、警告(warning)、提示(info)和总数</p>
+     *
+     * @return 预警统计信息DTO
+     */
     @Override
     public ExpiryWarningStatsDTO getExpiryWarningStats() {
         Map<String, Object> statsMap = this.getBaseMapper().countExpiringStocksByLevel();
@@ -177,6 +255,17 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
         return stats;
     }
 
+    /**
+     * 高级查询即将过期的库存（支持按物品类型、生产单位、预警级别筛选和分页）
+     *
+     * @param warningDays  预警天数范围
+     * @param itemType     物品类型，可选值：MATERIAL(物料)、PREPARATION(制剂)
+     * @param prodUnitId   生产单位ID，筛选指定生产单位的库存
+     * @param warningLevel 预警级别，可选值：urgent、warning、info
+     * @param pageIndex    页码，从0开始
+     * @param pageSize     每页数量
+     * @return 预警库存分页结果
+     */
     @Override
     public Page<ExpiryWarningDTO> queryExpiringStocks(int warningDays, String itemType, 
                                                        Long prodUnitId, String warningLevel,
@@ -199,7 +288,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
                     .collect(Collectors.toList());
         }
         
-        // 内存分页
+        // 内存分页（因为预警级别是计算字段，需要先全量查询再分页）
         int fromIndex = pageIndex * pageSize;
         int toIndex = Math.min(fromIndex + pageSize, filteredWarnings.size());
         
@@ -214,15 +303,32 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
         return resultPage;
     }
 
+    // endregion
+
+    // region 私有工具方法
+    // ===================================
+    // 私有工具方法
+    // ===================================
+
     /**
      * 计算预警信息（剩余天数、预警级别）
+     * <p>
+     * 预警级别规则：
+     * - urgent：7天内过期
+     * - warning：30天内过期
+     * - info：90天内过期
+     * - normal：90天以上
+     * </p>
+     *
+     * @param dto 预警信息DTO，需要设置expiryDate字段
      */
     private void calculateWarningInfo(ExpiryWarningDTO dto) {
         if (dto.getExpiryDate() != null) {
+            // 计算距离过期的剩余天数
             long days = ChronoUnit.DAYS.between(LocalDate.now(), dto.getExpiryDate());
             dto.setRemainingDays((int) days);
             
-            // 确定预警级别
+            // 根据剩余天数确定预警级别
             if (days <= 7) {
                 dto.setWarningLevel("urgent");
             } else if (days <= 30) {
@@ -235,8 +341,5 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
         }
     }
 
+    // endregion
 }
-
-
-
-

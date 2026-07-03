@@ -8,6 +8,12 @@ import java.util.List;
  */
 @Data
 public class DirectoryListingDto {
+
+    // region 数据字段
+    // ===================================
+    // 数据字段
+    // ===================================
+
     /**
      * 当前路径
      */
@@ -27,4 +33,6 @@ public class DirectoryListingDto {
      * 文件列表
      */
     private List<FileItemDto> files;
+
+    // endregion
 }

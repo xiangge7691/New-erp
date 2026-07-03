@@ -15,6 +15,12 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class ProcessType extends AuditEntity {
+
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 工序类型 ID，主键。唯一标识，自增长。
      */
@@ -33,11 +39,25 @@ public class ProcessType extends AuditEntity {
     @TableField(value = "process_name")
     private String processName;
 
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
+
     /**
      * 工序类型说明。详细描述，可为空。
      */
     @TableField(value = "process_description")
     private String processDescription;
+
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
 
     /**
      * 状态。`1`-启用，`0`-未启用。默认启用。
@@ -56,4 +76,6 @@ public class ProcessType extends AuditEntity {
      */
     @TableField(value = "version")
     private Integer version;
+
+    // endregion
 }

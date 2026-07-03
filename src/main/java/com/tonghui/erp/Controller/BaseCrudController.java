@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
  */
 public abstract class BaseCrudController<T, D, ID> extends BaseController {
 
-    //#region CRUD操作接口方法
+    // region CRUD操作接口方法
     // ===================================
     // CRUD操作接口方法
     // ===================================
@@ -136,9 +136,9 @@ public abstract class BaseCrudController<T, D, ID> extends BaseController {
         }
     }
     
-    //#endregion
+    // endregion
 
-    //#region 抽象方法定义
+    // region 抽象方法定义
     // ===================================
     // 抽象方法定义
     // ===================================
@@ -185,5 +185,5 @@ public abstract class BaseCrudController<T, D, ID> extends BaseController {
      */
     protected abstract boolean doDelete(ID id);
     
-    //#endregion
+    // endregion
 }

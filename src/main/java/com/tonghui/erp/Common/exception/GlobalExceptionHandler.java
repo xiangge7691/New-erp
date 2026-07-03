@@ -21,7 +21,7 @@ public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-    //#region 业务异常处理
+    // region 业务异常处理
     // ===================================
     // 业务异常处理
     // ===================================
@@ -46,9 +46,9 @@ public class GlobalExceptionHandler {
         return ApiResponse.errorResponse(ApiResponse.BAD_REQUEST, ex.getMessage());
     }
 
-    //#endregion
+    // endregion
 
-    //#region 请求参数异常处理
+    // region 请求参数异常处理
     // ===================================
     // 请求参数异常处理
     // ===================================
@@ -67,9 +67,9 @@ public class GlobalExceptionHandler {
         return ApiResponse.errorResponse(ApiResponse.BAD_REQUEST, message);
     }
 
-    //#endregion
+    // endregion
 
-    //#region HTTP方法异常处理
+    // region HTTP方法异常处理
     // ===================================
     // HTTP方法异常处理
     // ===================================
@@ -84,9 +84,9 @@ public class GlobalExceptionHandler {
         return ApiResponse.errorResponse(ApiResponse.METHOD_NOT_ALLOWED, "不支持的请求方法: " + ex.getMethod());
     }
 
-    //#endregion
+    // endregion
 
-    //#region 兜底异常处理
+    // region 兜底异常处理
     // ===================================
     // 兜底异常处理
     // ===================================
@@ -101,5 +101,5 @@ public class GlobalExceptionHandler {
         return ApiResponse.errorResponse(ApiResponse.INTERNAL_ERROR, "系统内部错误: " + ex.getMessage());
     }
 
-    //#endregion
+    // endregion
 }

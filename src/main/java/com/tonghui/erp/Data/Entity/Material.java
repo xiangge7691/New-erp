@@ -15,6 +15,12 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class Material extends AuditEntity {
+
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 物料唯一标识符
      */
@@ -32,6 +38,13 @@ public class Material extends AuditEntity {
      */
     @TableField(value = "material_name")
     private String materialName;
+
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
 
     /**
      * 分类（如原料/辅料/包材等）
@@ -52,16 +65,23 @@ public class Material extends AuditEntity {
     private String spec;
 
     /**
-     * 状态：1启用/0禁用
-     */
-    @TableField(value = "material_status")
-    private Integer materialStatus;
-
-    /**
      * 备注信息
      */
     @TableField(value = "remark")
     private String remark;
+
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
+    /**
+     * 状态：1启用/0禁用
+     */
+    @TableField(value = "material_status")
+    private Integer materialStatus;
 
     /**
      * 是否已删除
@@ -74,4 +94,6 @@ public class Material extends AuditEntity {
      */
     @TableField(value = "version")
     private Integer version;
+
+    // endregion
 }

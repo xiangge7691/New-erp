@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @Data
 public class DepartmentDto {
     
-    //#region 部门基本信息字段
+    // region 部门基本信息字段
     // ===================================
     // 部门基本信息字段
     // ===================================
@@ -41,5 +41,5 @@ public class DepartmentDto {
      */
     private LocalDateTime updatedTime;
     
-    //#endregion
+    // endregion
 }

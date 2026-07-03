@@ -9,6 +9,11 @@ import java.time.LocalDate;
  */
 @Data
 public class ExpiryWarningDTO {
+
+    // region 物品基本信息
+    // ===================================
+    // 物品基本信息
+    // ===================================
     
     /**
      * 入库明细ID（作为预警记录的唯一标识）
@@ -54,6 +59,13 @@ public class ExpiryWarningDTO {
      * 批次号
      */
     private String batchNumber;
+
+    // endregion
+
+    // region 数量与有效期
+    // ===================================
+    // 数量与有效期
+    // ===================================
     
     /**
      * 入库数量（原始入库明细中的数量）
@@ -99,8 +111,13 @@ public class ExpiryWarningDTO {
      * 库位/货架号
      */
     private String storageLocation;
-    
-    // ========== 入库追溯信息 ==========
+
+    // endregion
+
+    // region 入库追溯信息
+    // ===================================
+    // 入库追溯信息
+    // ===================================
     
     /**
      * 入库单ID
@@ -121,4 +138,6 @@ public class ExpiryWarningDTO {
      * 入库单状态
      */
     private String inStatus;
+
+    // endregion
 }

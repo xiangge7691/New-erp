@@ -20,16 +20,32 @@ import java.util.List;
  * <p>
  * 提供用户相关的RESTful API接口，包括用户的增删改查、角色和部门分配等操作
  * </p>
+ *
+ * 接口清单：
+ * ┌────┬──────────────────────────────┬────────┬──────────────────────────────────┐
+ * │ #  │ 接口                         │ 方法   │ 说明                             │
+ * ├────┼──────────────────────────────┼────────┼──────────────────────────────────┤
+ * │ 1  │ /api/User                    │ GET    │ 分页查询所有用户                 │
+ * │ 2  │ /api/User/{id}               │ GET    │ 获取用户详情                     │
+ * │ 3  │ /api/User                    │ POST   │ 新增用户                         │
+ * │ 4  │ /api/User/{id}               │ PUT    │ 修改用户                         │
+ * │ 5  │ /api/User/{id}               │ DELETE │ 删除用户                         │
+ * │ 6  │ /api/User/search             │ GET    │ 多条件模糊查询用户               │
+ * │ 7  │ /api/User/search-with-details│ GET    │ 查询用户（带角色、部门子表）      │
+ * └────┴──────────────────────────────┴────────┴──────────────────────────────────┘
  */
 @RestController
 @RequestMapping("/api/User")
 public class UserController extends BaseCrudController<UserCreateDto, UserDto, Long> {
 
-    //#region 字段和构造方法
+    // region 服务依赖注入
     // ===================================
-    // 字段和构造方法
+    // 服务依赖注入
     // ===================================
     
+    /**
+     * 用户服务
+     */
     private UserService userService;
 
     @Autowired
@@ -37,11 +53,11 @@ public class UserController extends BaseCrudController<UserCreateDto, UserDto, L
         this.userService = userService;
     }
     
-    //#endregion
+    // endregion
 
-    //#region CRUD操作实现方法
+    // region 基础CRUD实现
     // ===================================
-    // CRUD操作实现方法
+    // 基础CRUD实现
     // ===================================
     
     @Override
@@ -187,23 +203,29 @@ public class UserController extends BaseCrudController<UserCreateDto, UserDto, L
         return userService.removeById(id);
     }
     
-    //#endregion
+    // endregion
 
-    //#region 用户查询接口方法
+    // region 用户查询接口
     // ===================================
-    // 用户查询接口方法
+    // 用户查询接口
     // ===================================
     
     /**
-     * 查询用户（支持按部门、角色、状态和用户名进行模糊查询）
-     * 支持多条件组合查询和分页
-     * 
-     * @param userName 用户名关键词
-     * @param departmentId 部门ID
-     * @param roleId 角色ID
-     * @param status 用户状态
+     * 查询用户（支持多条件组合查询）
+     * <p>
+     * 支持按用户名模糊查询、按部门ID、角色ID、状态进行精确筛选，支持分页。
+     * 当pageSize为-1时返回所有用户。
+     * </p>
+     *
+     * 示例请求：
+     * GET /api/User/search?userName=张&departmentId=1&roleId=2&status=1&pageIndex=0&pageSize=20
+     *
+     * @param userName 用户名关键词（可选）
+     * @param departmentId 部门ID（可选）
+     * @param roleId 角色ID（可选）
+     * @param status 用户状态（可选）
      * @param pageRequest 分页请求参数
-     * @return 符合条件的用户列表
+     * @return ApiResponse&lt;PagedResult&lt;UserDto&gt;&gt; 用户分页列表
      */
     @GetMapping("/search")
     public ApiResponse<PagedResult<UserDto>> searchUsers(
@@ -235,15 +257,25 @@ public class UserController extends BaseCrudController<UserCreateDto, UserDto, L
         }
     }
     
-    //#endregion
+    // endregion
 
-    //#region 带子表查询接口
+    // region 带子表查询接口
     // ===================================
     // 带子表查询接口
     // ===================================
 
     /**
      * 查询用户（带子表：角色、部门、人员档案）
+     * <p>
+     * 返回用户信息时同时包含关联的角色列表、部门列表和人员档案信息
+     * </p>
+     *
+     * 示例请求：
+     * GET /api/User/search-with-details?pageIndex=0&pageSize=20
+     *
+     * @param user 查询条件（自动从query参数映射）
+     * @param pageRequest 分页请求参数
+     * @return ApiResponse&lt;PagedResult&lt;UserWithDetailsDto&gt;&gt; 用户分页列表（包含子表）
      */
     @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<UserWithDetailsDto>> searchWithDetails(
@@ -258,5 +290,5 @@ public class UserController extends BaseCrudController<UserCreateDto, UserDto, L
             return exception(ex, "searchWithDetails");
         }
     }
-    //#endregion
+    // endregion
 }

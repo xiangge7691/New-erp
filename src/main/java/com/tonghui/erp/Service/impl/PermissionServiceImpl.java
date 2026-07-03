@@ -30,9 +30,6 @@ import java.util.stream.Collectors;
  * 实现PermissionService接口，提供权限相关的业务逻辑处理，包括权限的查询、管理、树形结构构建等功能的具体实现
  * </p>
  * 
- * @author 87954
- * @description 针对表【permission(系统权限表)】的数据库操作Service实现
- * @createDate 2025-08-27 10:08:57
  */
 @Service
 public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permission>
@@ -48,7 +45,7 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
     @Autowired
     private Converters converters;
 
-    //#region 权限查询接口
+    // region 权限查询接口
     // ===================================
     // 权限查询接口
     // ===================================
@@ -170,9 +167,9 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
         emptyResult.setPageSize(pageSize == -1 ? 0 : pageSize);
         return emptyResult;
     }
-    //#endregion
+    // endregion
     
-    //#region 权限详情接口
+    // region 权限详情接口
     // ===================================
     // 权限详情接口
     // ===================================
@@ -188,9 +185,9 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
         Permission permissionEntity = this.getById(permissionId);
         return permissionEntity != null ? convertToDto(permissionEntity) : null;
     }
-    //#endregion
+    // endregion
     
-    //#region 权限获取接口
+    // region 权限获取接口
     // ===================================
     // 权限获取接口
     // ===================================
@@ -215,9 +212,9 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
     public List<Permission> getByParentId(Long parentId) {
         return this.list(new QueryWrapper<Permission>().eq("parent_id", parentId));
     }
-    //#endregion
+    // endregion
     
-    //#region 权限树形结构接口
+    // region 权限树形结构接口
     // ===================================
     // 权限树形结构接口
     // ===================================
@@ -281,9 +278,9 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
             }
         }
     }
-    //#endregion
+    // endregion
     
-    //#region 数据转换接口
+    // region 数据转换接口
     // ===================================
     // 数据转换接口
     // ===================================
@@ -312,7 +309,7 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
         
         return permissionDto;
     }
-    //#endregion
+    // endregion
 }
 
 

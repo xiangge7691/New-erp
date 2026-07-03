@@ -12,7 +12,10 @@ import java.util.List;
  */
 public interface MaterialService {
 
-    // #region 基础操作
+    // region 基础操作
+    // ===================================
+    // 基础操作
+    // ===================================
 
     /**
      * 新增物料
@@ -35,9 +38,12 @@ public interface MaterialService {
      */
     void deleteMaterial(Long materialId);
 
-    // #endregion
+    // endregion
 
-    // #region 查询操作
+    // region 查询操作
+    // ===================================
+    // 查询操作
+    // ===================================
 
     /**
      * 根据ID查询物料
@@ -69,9 +75,12 @@ public interface MaterialService {
      */
     List<Material> getAllMaterials();
 
-    // #endregion
+    // endregion
 
-    // #region 高级查询
+    // region 高级查询
+    // ===================================
+    // 高级查询
+    // ===================================
 
     /**
      * 高级查询物料（支持分页）
@@ -102,5 +111,5 @@ public interface MaterialService {
 
     PagedResult<MaterialWithDetailsDto> searchWithDetails(Material material, int pageNum, int pageSize);
 
-    // #endregion
+    // endregion
 }

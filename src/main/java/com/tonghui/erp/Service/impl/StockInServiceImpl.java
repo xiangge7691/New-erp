@@ -25,14 +25,36 @@ import java.util.stream.Collectors;
 
 /**
  * 入库单业务实现类
+ * <p>
+ * 实现StockInService接口，提供入库单相关的业务逻辑处理，包括入库单及明细的增删改查、
+ * 部分更新、单号自动生成、高级查询、带子表关联查询等功能的具体实现
+ * </p>
+ *
  */
 @Service
 public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> implements StockInService {
 
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
+    /** 入库单数据访问层 */
     private final StockInMapper stockInMapper;
+
+    /** 入库单明细数据访问层 */
     private final StockInDetailMapper stockInDetailMapper;
+
+    /** 序列号生成服务，用于自动生成入库单号 */
     private final SequenceServiceImpl sequenceService;
 
+    /**
+     * 构造函数注入依赖
+     *
+     * @param stockInMapper      入库单数据访问层
+     * @param stockInDetailMapper 入库单明细数据访问层
+     * @param sequenceService    序列号生成服务
+     */
     @Autowired
     public StockInServiceImpl(StockInMapper stockInMapper,
                               StockInDetailMapper stockInDetailMapper,
@@ -42,10 +64,24 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
         this.sequenceService = sequenceService;
     }
 
+    // endregion
+
+    // region 基础CRUD操作
+    // ===================================
+    // 基础CRUD操作
+    // ===================================
+
+    /**
+     * 新增入库单（含明细）
+     * <p>自动生成入库单号（如果未提供），同时保存主表和明细数据</p>
+     *
+     * @param stockIn 入库单主表实体
+     * @param details 入库单明细列表，可为null
+     */
     @Override
     @Transactional
     public void addStockIn(StockIn stockIn, List<StockInDetail> details) {
-        // 生成入库单号（调用数据库存储过程）
+        // 自动生成入库单号（如果未提供）
         if (!StringUtils.hasText(stockIn.getInCode())) {
             stockIn.setInCode(sequenceService.generateStockInCode());
         }
@@ -62,9 +98,8 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
                 if (detail.getProductionDate() == null) {
                     detail.setProductionDate(defaultDate);
                 }
-                // 确保 expiry_date 不为空（如果也需要的话）
+                // 确保 expiry_date 不为空，如果未设置则默认1年有效期
                 if (detail.getExpiryDate() == null && detail.getProductionDate() != null) {
-                    // 默认设置 1 年有效期
                     detail.setExpiryDate(detail.getProductionDate().plusYears(1));
                 }
                 stockInDetailMapper.insert(detail);
@@ -72,6 +107,13 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
         }
     }
 
+    /**
+     * 更新入库单（含明细）
+     * <p>更新主表数据，如果提供了明细则先删除原有明细再重新插入</p>
+     *
+     * @param stockIn 入库单主表实体
+     * @param details 入库单明细列表，null表示不更新明细，空列表表示清空明细
+     */
     @Override
     @Transactional
     public void updateStockIn(StockIn stockIn, List<StockInDetail> details) {
@@ -94,7 +136,7 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
                     if (detail.getProductionDate() == null) {
                         detail.setProductionDate(defaultDate);
                     }
-                    // 确保 expiry_date 不为空（如果也需要的话）
+                    // 确保 expiry_date 不为空，如果未设置则默认1年有效期
                     if (detail.getExpiryDate() == null && detail.getProductionDate() != null) {
                         detail.setExpiryDate(detail.getProductionDate().plusYears(1));
                     }
@@ -105,6 +147,12 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
         // 如果 details 为 null，不处理明细，保持原样
     }
 
+    /**
+     * 部分更新入库单（仅更新非null字段）
+     * <p>使用UpdateWrapper实现动态字段更新，避免将null值覆盖已有数据</p>
+     *
+     * @param stockIn 入库单实体，仅非null字段会被更新
+     */
     @Override
     @Transactional
     public void partialUpdateStockIn(StockIn stockIn) {
@@ -144,13 +192,19 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
             updateWrapper.set("updated_by", stockIn.getUpdatedBy());
         }
         
-        // 执行更新，直接调用 update 方法，避免传入 null 实体对象
+        // 执行更新
         boolean updated = this.update(updateWrapper);
         if (!updated) {
             throw new RuntimeException("入库单不存在或未被更新");
         }
     }
 
+    /**
+     * 删除入库单（含明细）
+     * <p>先删除关联的入库明细，再删除入库单主表</p>
+     *
+     * @param stockInId 入库单ID
+     */
     @Override
     @Transactional
     public void deleteStockIn(Long stockInId) {
@@ -163,13 +217,18 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
         stockInMapper.deleteById(stockInId);
     }
 
-    // #region 查询操作
+    // endregion
+
+    // region 查询操作
+    // ===================================
+    // 查询操作
+    // ===================================
 
     /**
      * 根据入库单号查询入库单
      *
      * @param stockInCode 入库单号
-     * @return 入库单实体
+     * @return 入库单实体，不存在则返回null
      */
     @Override
     public StockIn getStockInByCode(String stockInCode) {
@@ -188,11 +247,23 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
         return stockInMapper.selectList(null);
     }
 
+    /**
+     * 根据ID查询入库单
+     *
+     * @param stockInId 入库单ID
+     * @return 入库单实体，不存在则返回null
+     */
     @Override
     public StockIn getStockInById(Long stockInId) {
         return stockInMapper.selectById(stockInId);
     }
 
+    /**
+     * 根据入库单ID查询所有入库明细
+     *
+     * @param stockInId 入库单ID
+     * @return 该入库单下所有明细的集合
+     */
     @Override
     public List<StockInDetail> getStockInDetailsByStockInId(Long stockInId) {
         QueryWrapper<StockInDetail> wrapper = new QueryWrapper<>();
@@ -200,6 +271,12 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
         return stockInDetailMapper.selectList(wrapper);
     }
 
+    /**
+     * 新增单条入库明细
+     * <p>自动设置生产日期为当前日期（如果未提供）</p>
+     *
+     * @param detail 入库明细实体
+     */
     @Override
     @Transactional
     public void addStockInDetail(StockInDetail detail) {
@@ -210,6 +287,12 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
         stockInDetailMapper.insert(detail);
     }
 
+    /**
+     * 批量新增入库明细
+     * <p>自动为每条明细设置生产日期为当前日期（如果未提供）</p>
+     *
+     * @param details 入库明细列表
+     */
     @Override
     @Transactional
     public void addStockInDetails(List<StockInDetail> details) {
@@ -223,6 +306,12 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
         }
     }
 
+    /**
+     * 更新入库明细
+     * <p>如果更新的生产日期为null，则保留原有值</p>
+     *
+     * @param detail 入库明细实体
+     */
     @Override
     @Transactional
     public void updateStockInDetail(StockInDetail detail) {
@@ -238,25 +327,55 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
         stockInDetailMapper.updateById(detail);
     }
 
+    /**
+     * 删除入库明细
+     *
+     * @param detailId 入库明细ID
+     */
     @Override
     public void deleteStockInDetail(Long detailId) {
         stockInDetailMapper.deleteById(detailId);
     }
 
-    // #endregion
+    // endregion
 
-    // #region 单号生成
+    // region 单号生成
+    // ===================================
+    // 单号生成
+    // ===================================
 
+    /**
+     * 生成入库单号
+     *
+     * @return 自动生成的唯一入库单号
+     */
     @Override
     public String generateStockInCode() {
-        // 调用数据库存储过程生成入库单号
+        // 调用序列号生成服务获取入库单号
         return sequenceService.generateStockInCode();
     }
 
-    // #endregion
+    // endregion
 
-    // #region 高级查询
+    // region 高级查询
+    // ===================================
+    // 高级查询
+    // ===================================
 
+    /**
+     * 高级查询入库单（支持多条件组合查询和时间范围筛选）
+     *
+     * @param stockIn           查询条件实体
+     * @param createdTimeStart  创建时间起始值（含）
+     * @param createdTimeEnd    创建时间结束值（含）
+     * @param updatedTimeStart  更新时间起始值（含）
+     * @param updatedTimeEnd    更新时间结束值（含）
+     * @param startDate         入库日期起始值（含）
+     * @param endDate           入库日期结束值（含）
+     * @param pageIndex         页码，从0开始
+     * @param pageSize          每页数量
+     * @return 入库单分页结果
+     */
     @Override
     public Page<StockIn> queryStockIns(StockIn stockIn, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, LocalDate startDate, LocalDate endDate, int pageIndex, int pageSize) {
         // 将页码从0开始转换为1开始
@@ -280,32 +399,32 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
         if (StringUtils.hasText(stockIn.getRelatedOrder())) {
             wrapper.like("related_order", stockIn.getRelatedOrder());
         }
-        // 添加创建时间范围查询条件
+        // 创建时间范围查询
         if (createdTimeStart != null) {
             wrapper.ge("created_time", createdTimeStart);
         }
         if (createdTimeEnd != null) {
             wrapper.le("created_time", createdTimeEnd);
         }
-        // 添加更新时间范围查询条件
+        // 更新时间范围查询
         if (updatedTimeStart != null) {
             wrapper.ge("updated_time", updatedTimeStart);
         }
         if (updatedTimeEnd != null) {
             wrapper.le("updated_time", updatedTimeEnd);
         }
-        // 添加创建人和更新人查询条件
+        // 创建人和更新人查询
         if (stockIn.getCreatedBy() != null) {
             wrapper.eq("created_by", stockIn.getCreatedBy());
         }
         if (stockIn.getUpdatedBy() != null) {
             wrapper.eq("updated_by", stockIn.getUpdatedBy());
         }
-        // 添加入库类型查询条件
+        // 入库类型查询
         if (stockIn.getInType() != null) {
             wrapper.eq("in_type", stockIn.getInType());
         }
-        // 添加入库状态查询条件
+        // 入库状态查询
         if (StringUtils.hasText(stockIn.getInStatus())) {
             wrapper.eq("in_status", stockIn.getInStatus());
         }
@@ -316,12 +435,31 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
         return stockInMapper.selectPage(page, wrapper);
     }
 
-    // #endregion
+    // endregion
 
-    // #region 带子表查询
+    // region 带子表关联查询
+    // ===================================
+    // 带子表关联查询
+    // ===================================
 
+    /**
+     * 查询入库单列表并关联入库明细信息
+     * <p>先分页查询入库单主表数据，再批量查询关联的入库明细</p>
+     *
+     * @param stockIn           查询条件实体
+     * @param createdTimeStart  创建时间起始值（含）
+     * @param createdTimeEnd    创建时间结束值（含）
+     * @param updatedTimeStart  更新时间起始值（含）
+     * @param updatedTimeEnd    更新时间结束值（含）
+     * @param startDate         入库日期起始值（含）
+     * @param endDate           入库日期结束值（含）
+     * @param pageNum           页码，从0开始
+     * @param pageSize          每页数量
+     * @return 带子表关联数据的入库单分页结果
+     */
     @Override
     public PagedResult<StockInWithDetailsDto> searchWithDetails(StockIn stockIn, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, LocalDate startDate, LocalDate endDate, int pageNum, int pageSize) {
+        // 查询入库单主表分页数据
         Page<StockIn> parentPage = queryStockIns(stockIn, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd, startDate, endDate, pageNum, pageSize);
         List<StockIn> parents = parentPage.getRecords();
 
@@ -334,6 +472,7 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
             return result;
         }
 
+        // 批量查询关联的入库明细
         List<Long> parentIds = parents.stream().map(StockIn::getInId).collect(Collectors.toList());
         QueryWrapper<StockInDetail> wrapper = new QueryWrapper<>();
         wrapper.in("in_id", parentIds);
@@ -341,6 +480,7 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
         Map<Long, List<StockInDetail>> detailsMap = allDetails.stream()
                 .collect(Collectors.groupingBy(StockInDetail::getInId));
 
+        // 组装带子表数据的DTO
         List<StockInWithDetailsDto> dtos = parents.stream().map(parent -> {
             StockInWithDetailsDto dto = new StockInWithDetailsDto();
             BeanUtils.copyProperties(parent, dto);
@@ -355,5 +495,5 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
         return result;
     }
 
-    // #endregion
+    // endregion
 }

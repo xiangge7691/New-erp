@@ -19,15 +19,12 @@ import java.util.stream.Collectors;
  * 实现RolePermService接口，提供角色权限关联相关的业务逻辑处理，包括角色权限关联的查询、管理等功能的具体实现
  * </p>
  * 
- * @author 87954
- * @description 针对表【role_perm(角色-权限关联表)】的数据库操作Service实现
- * @createDate 2025-08-27 10:08:57
  */
 @Service
 public class RolePermServiceImpl extends ServiceImpl<RolePermMapper, RolePerm>
     implements RolePermService{
 
-    //#region 权限查询接口
+    // region 权限查询接口
     // ===================================
     // 权限查询接口
     // ===================================
@@ -59,9 +56,9 @@ public class RolePermServiceImpl extends ServiceImpl<RolePermMapper, RolePerm>
                 .map(RolePerm::getRoleId)
                 .collect(Collectors.toList());
     }
-    //#endregion
+    // endregion
     
-    //#region 权限分配接口
+    // region 权限分配接口
     // ===================================
     // 权限分配接口
     // ===================================
@@ -106,9 +103,9 @@ public class RolePermServiceImpl extends ServiceImpl<RolePermMapper, RolePerm>
     public boolean updateRolePermissions(Long roleId, List<Long> permIds) {
         return assignPermissionsToRole(roleId, permIds);
     }
-    //#endregion
+    // endregion
     
-    //#region 分页查询接口
+    // region 分页查询接口
     // ===================================
     // 分页查询接口
     // ===================================
@@ -133,9 +130,9 @@ public class RolePermServiceImpl extends ServiceImpl<RolePermMapper, RolePerm>
         
         return pagedResult;
     }
-    //#endregion
+    // endregion
     
-    //#region 关联查询接口
+    // region 关联查询接口
     // ===================================
     // 关联查询接口
     // ===================================
@@ -161,7 +158,7 @@ public class RolePermServiceImpl extends ServiceImpl<RolePermMapper, RolePerm>
     public List<RolePerm> getByPermId(Long permId) {
         return this.list(new QueryWrapper<RolePerm>().eq("perm_id", permId));
     }
-    //#endregion
+    // endregion
 }
 
 

@@ -13,15 +13,30 @@ import lombok.Data;
 @TableName(value ="stock_in_sequence")
 @Data
 public class StockInSequence {
+
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 日期
      */
     @TableId(value = "seq_date")
     private LocalDate seqDate;
 
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
+
     /**
      * 序列号
      */
     @TableField(value = "seq_number")
     private Integer seqNumber;
+
+    // endregion
 }

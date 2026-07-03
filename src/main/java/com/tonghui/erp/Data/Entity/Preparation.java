@@ -16,6 +16,12 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class Preparation extends AuditEntity {
+
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 制剂唯一标识
      */
@@ -33,6 +39,13 @@ public class Preparation extends AuditEntity {
      */
     @TableField(value = "preparation_name")
     private String preparationName;
+
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
 
     /**
      * 规格描述
@@ -82,6 +95,9 @@ public class Preparation extends AuditEntity {
     @TableField(value = "dosage_form")
     private String dosageForm;
 
+    /**
+     * 剂型ID（关联剂型表主键）
+     */
     @TableField(value = "dosage_form_id")
     private Long dosageFormId;
 
@@ -115,6 +131,13 @@ public class Preparation extends AuditEntity {
     @TableField(value = "settlement_price")
     private BigDecimal settlementPrice;
 
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
     /**
      * 状态：1启用/0禁用
      */
@@ -132,4 +155,6 @@ public class Preparation extends AuditEntity {
      */
     @TableField(value = "version")
     private Integer version;
+
+    // endregion
 }

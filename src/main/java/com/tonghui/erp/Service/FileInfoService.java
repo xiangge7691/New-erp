@@ -13,6 +13,11 @@ import java.util.List;
  */
 public interface FileInfoService extends IService<FileInfo> {
 
+    // region 文件上传方法
+    // ===================================
+    // 文件上传方法
+    // ===================================
+
     /**
      * 上传文件
      *
@@ -23,7 +28,7 @@ public interface FileInfoService extends IService<FileInfo> {
      * @throws IOException IO异常
      */
     FileInfo uploadFile(MultipartFile file, String category, String description) throws IOException;
-    
+
     /**
      * 上传文件（带业务信息）
      *
@@ -37,6 +42,30 @@ public interface FileInfoService extends IService<FileInfo> {
      */
     FileInfo uploadFileWithBusiness(MultipartFile file, String category, String description,
                                   Long businessId, String businessType) throws IOException;
+
+    /**
+     * 按业务路径上传文件
+     *
+     * @param file 文件对象
+     * @param businessType 业务类型
+     * @param businessId 业务ID
+     * @param entityName 实体名称（用于目录名）
+     * @param description 文件描述
+     * @return 文件信息实体
+     * @throws IOException IO异常
+     */
+    FileInfo uploadFileWithBusinessPath(MultipartFile file, String businessType,
+                                        Long businessId, String entityName, String description) throws IOException;
+
+    FileInfo uploadFileWithBusinessPath(MultipartFile file, String businessType,
+                                        Long businessId, String entityName, String description, String customPath) throws IOException;
+
+    // endregion
+
+    // region 文件操作方法
+    // ===================================
+    // 文件操作方法
+    // ===================================
 
     /**
      * 根据ID获取文件输入流
@@ -54,6 +83,13 @@ public interface FileInfoService extends IService<FileInfo> {
      * @return 是否删除成功
      */
     boolean deleteFile(Long fileId);
+
+    // endregion
+
+    // region 文件查询方法
+    // ===================================
+    // 文件查询方法
+    // ===================================
 
     /**
      * 根据分类查询文件列表（分页）
@@ -82,20 +118,5 @@ public interface FileInfoService extends IService<FileInfo> {
      */
     List<FileInfo> getFilesByMd5(String fileMd5);
 
-    /**
-     * 按业务路径上传文件
-     *
-     * @param file 文件对象
-     * @param businessType 业务类型
-     * @param businessId 业务ID
-     * @param entityName 实体名称（用于目录名）
-     * @param description 文件描述
-     * @return 文件信息实体
-     * @throws IOException IO异常
-     */
-    FileInfo uploadFileWithBusinessPath(MultipartFile file, String businessType,
-                                        Long businessId, String entityName, String description) throws IOException;
-
-    FileInfo uploadFileWithBusinessPath(MultipartFile file, String businessType,
-                                        Long businessId, String entityName, String description, String customPath) throws IOException;
+    // endregion
 }

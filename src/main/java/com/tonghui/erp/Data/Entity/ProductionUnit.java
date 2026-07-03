@@ -15,6 +15,12 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class ProductionUnit extends AuditEntity {
+
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 生产单位唯一标识
      */
@@ -51,6 +57,13 @@ public class ProductionUnit extends AuditEntity {
     @TableField(value = "prod_unit_phone")
     private String prodUnitPhone;
 
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
+
     /**
      * 状态：0停用/1启用
      */
@@ -63,6 +76,13 @@ public class ProductionUnit extends AuditEntity {
     @TableField(value = "prod_unit_remark")
     private String prodUnitRemark;
 
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
     /**
      * 是否已删除
      */
@@ -74,4 +94,6 @@ public class ProductionUnit extends AuditEntity {
      */
     @TableField(value = "version")
     private Integer version;
+
+    // endregion
 }

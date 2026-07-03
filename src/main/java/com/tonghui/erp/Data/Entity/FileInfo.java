@@ -15,6 +15,11 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class FileInfo extends AuditEntity {
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 文件唯一标识
      */
@@ -63,6 +68,13 @@ public class FileInfo extends AuditEntity {
     @TableField(value = "file_md5")
     private String fileMd5;
 
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
+
     /**
      * 文件分类
      */
@@ -105,6 +117,13 @@ public class FileInfo extends AuditEntity {
     @TableField(value = "custom_path")
     private String customPath;
 
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
     /**
      * 是否已删除
      */
@@ -116,4 +135,6 @@ public class FileInfo extends AuditEntity {
      */
     @TableField(value = "version")
     private Integer version;
+
+    // endregion
 }

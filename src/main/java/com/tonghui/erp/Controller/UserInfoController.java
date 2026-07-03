@@ -15,11 +15,27 @@ import java.util.stream.Collectors;
 
 /**
  * 当前用户信息接口
- * 对齐 openapi: /api/user/info
+ *
+ * 接口清单：
+ * ┌────┬──────────────────────────────────────┬────────┬─────────────────────────────────────┐
+ * │ #  │ 接口                                 │ 方法   │ 说明                                │
+ * ├────┼──────────────────────────────────────┼────────┼─────────────────────────────────────┤
+ * │ 1  │ /api/user/info                       │ GET   │ 获取当前登录用户信息                │
+ * └────┴──────────────────────────────────────┴────────┴─────────────────────────────────────┘
+ *
+ * 说明：
+ * - 根据JWT令牌获取当前登录用户的详细信息
+ * - 包含用户ID、用户名、角色列表、权限按钮标识等
+ * - 需要JWT令牌认证
  */
 @RestController
 @RequestMapping("/api/user")
 public class UserInfoController {
+
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
 
     private final UserService userService;
     private final UserRoleService userRoleService;
@@ -40,6 +56,29 @@ public class UserInfoController {
         this.permissionService = permissionService;
     }
 
+    // endregion
+
+    // region 用户信息查询接口
+    // ===================================
+    // 用户信息查询接口
+    // ===================================
+
+    /**
+     * 获取当前登录用户信息
+     *
+     * 根据JWT令牌中的用户ID，获取用户的详细信息，包括：
+     * - 用户ID和用户名
+     * - 角色列表（以roleName作为code返回）
+     * - 权限按钮标识（返回permKey列表）
+     *
+     * 示例请求：
+     * GET /api/user/info
+     * Headers:
+     *   Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+     *
+     * @param request HTTP请求对象，用于获取认证后的用户信息
+     * @return 用户信息DTO，包含userId、userName、roles、buttons等字段
+     */
     @GetMapping("/info")
     public ApiResponse<UserInfoDto> getCurrentUserInfo(HttpServletRequest request) {
         try {
@@ -91,4 +130,6 @@ public class UserInfoController {
             return ApiResponse.errorResponse("查询用户信息失败: " + ex.getMessage());
         }
     }
+
+    // endregion
 }

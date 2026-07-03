@@ -28,7 +28,7 @@ public interface Converters {
 
     Converters INSTANCE = Mappers.getMapper(Converters.class);
 
-    //#region 用户转换
+    // region 用户转换
     // ===================================
     // 用户转换
     // ===================================
@@ -54,9 +54,9 @@ public interface Converters {
     @Mapping(source = "userNotes", target = "notes")
     UserDto toUserDtoWithAssociations(User user);
 
-    //#endregion
+    // endregion
 
-    //#region 角色转换
+    // region 角色转换
     // ===================================
     // 角色转换
     // ===================================
@@ -75,9 +75,9 @@ public interface Converters {
     @Mapping(source = "roleStatus", target = "status")
     RoleDto toRoleDtoWithAssociations(Role role);
 
-    //#endregion
+    // endregion
 
-    //#region 权限转换
+    // region 权限转换
     // ===================================
     // 权限转换
     // ===================================
@@ -100,9 +100,9 @@ public interface Converters {
     @Mapping(source = "permType", target = "permType", qualifiedByName = "objectToString")
     PermissionDto toPermissionDtoWithAssociations(Permission permission);
 
-    //#endregion
+    // endregion
 
-    //#region 部门转换
+    // region 部门转换
     // ===================================
     // 部门转换
     // ===================================
@@ -113,9 +113,9 @@ public interface Converters {
     @Mapping(source = "departmentId", target = "id")
     DepartmentDto toDepartmentDto(Department department);
 
-    //#endregion
+    // endregion
 
-    //#region 关联关系转换
+    // region 关联关系转换
     // ===================================
     // 关联关系转换
     // ===================================
@@ -130,9 +130,9 @@ public interface Converters {
      */
     UserDepartmentDto toUserDepartmentDto(UserDepartment userDepartment);
 
-    //#endregion
+    // endregion
 
-    //#region 类型转换方法
+    // region 类型转换方法
     // ===================================
     // 类型转换方法
     // ===================================
@@ -149,5 +149,5 @@ public interface Converters {
         return value.toString();
     }
 
-    //#endregion
+    // endregion
 }

@@ -11,7 +11,7 @@ import lombok.Data;
 @Data
 public class PageRequestDto {
     
-    //#region 分页参数字段
+    // region 分页参数字段
     // ===================================
     // 分页参数字段
     // ===================================
@@ -25,9 +25,9 @@ public class PageRequestDto {
      * 每页数量，-1表示全量数据
      */
     private int pageSize = -1;
-    //#endregion
+    // endregion
 
-    //#region 分页参数验证方法
+    // region 分页参数验证方法
     // ===================================
     // 分页参数验证方法
     // ===================================
@@ -50,5 +50,5 @@ public class PageRequestDto {
             this.pageSize = 10000;
         }
     }
-    //#endregion
+    // endregion
 }

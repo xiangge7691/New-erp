@@ -15,7 +15,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class MybatisPlusConfig {
     
-    //#region MyBatis-Plus拦截器配置
+    // region MyBatis-Plus拦截器配置
     // ===================================
     // MyBatis-Plus拦截器配置
     // ===================================
@@ -34,6 +34,6 @@ public class MybatisPlusConfig {
         interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.MYSQL));
         return interceptor;
     }
-    //#endregion
+    // endregion
 }
 

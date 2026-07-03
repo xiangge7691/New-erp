@@ -16,11 +16,24 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class PreparationProcessTemplate extends AuditEntity {
+
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 模版唯一标识
      */
     @TableId(value = "template_id", type = IdType.AUTO)
     private Long templateId;
+
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
 
     /**
      * 制剂ID
@@ -65,6 +78,12 @@ public class PreparationProcessTemplate extends AuditEntity {
     private String equipmentDesc;
 
     /**
+     * 设备关键参数
+     */
+    @TableField(value = "equipment_params")
+    private String equipmentParams;
+
+    /**
      * 配置室要求
      */
     @TableField(value = "room_desc")
@@ -75,6 +94,13 @@ public class PreparationProcessTemplate extends AuditEntity {
      */
     @TableField(value = "remark")
     private String remark;
+
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
 
     /**
      * 是否已删除
@@ -88,7 +114,12 @@ public class PreparationProcessTemplate extends AuditEntity {
     @TableField(value = "version")
     private Integer version;
 
-    // ========== 关联表显示字段（非数据库字段）==========
+    // endregion
+
+    // region 关联表显示字段
+    // ===================================
+    // 关联表显示字段
+    // ===================================
 
     /**
      * 制剂名称（关联preparation表）
@@ -113,4 +144,6 @@ public class PreparationProcessTemplate extends AuditEntity {
      */
     @TableField(exist = false)
     private String unitName;
+
+    // endregion
 }

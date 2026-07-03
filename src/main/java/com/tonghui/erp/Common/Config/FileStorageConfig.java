@@ -9,10 +9,22 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 文件存储配置类
+ * <p>
+ * 配置文件存储路径、大小限制、允许类型、业务类型目录映射等
+ * 支持通过application.yml或环境变量进行覆盖
+ * </p>
+ */
 @Data
 @Component
 @ConfigurationProperties(prefix = "file")
 public class FileStorageConfig {
+
+    // region 配置属性
+    // ===================================
+    // 配置属性
+    // ===================================
 
     /**
      * 文件存储基础路径
@@ -75,7 +87,9 @@ public class FileStorageConfig {
      */
     private String archiveDir = "archives";
 
-    //#region 业务类型分级映射
+    // endregion
+
+    // region 业务类型分级映射
     // ===================================
     // 业务类型分级映射
     // ===================================
@@ -138,9 +152,9 @@ public class FileStorageConfig {
         put("LICENSE", "许可");
     }};
 
-    //#endregion
+    // endregion
 
-    //#region 目录解析方法
+    // region 目录解析方法
     // ===================================
     // 目录解析方法
     // ===================================
@@ -216,5 +230,5 @@ public class FileStorageConfig {
         return subTypeDirMap.get(parts[1]);
     }
 
-    //#endregion
+    // endregion
 }

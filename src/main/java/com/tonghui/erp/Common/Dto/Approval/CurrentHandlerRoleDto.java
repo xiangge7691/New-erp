@@ -11,6 +11,11 @@ import java.util.List;
  */
 @Data
 public class CurrentHandlerRoleDto {
+
+    // region 角色信息
+    // ===================================
+    // 角色信息
+    // ===================================
     
     /**
      * 角色ID
@@ -32,6 +37,13 @@ public class CurrentHandlerRoleDto {
      * true表示当前实例正在该角色对应的节点上等待处理
      */
     private Boolean isCurrentNode;
+
+    // endregion
+
+    // region 节点信息
+    // ===================================
+    // 节点信息
+    // ===================================
     
     /**
      * 节点ID
@@ -47,6 +59,13 @@ public class CurrentHandlerRoleDto {
      * 节点顺序
      */
     private Integer nodeOrder;
+
+    // endregion
+
+    // region 其他信息
+    // ===================================
+    // 其他信息
+    // ===================================
     
     /**
      * 该角色下的用户列表（可选）
@@ -57,4 +76,6 @@ public class CurrentHandlerRoleDto {
      * 处理状态说明
      */
     private String statusDescription;
+
+    // endregion
 }

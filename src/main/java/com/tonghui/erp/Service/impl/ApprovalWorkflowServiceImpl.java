@@ -19,17 +19,39 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
-* @author 87954
-* @description 针对表【approval_workflow(审批流程定义)】的数据库操作Service实现
-* @createDate 2025-12-18 09:50:00
-*/
+ * 审批流程服务实现类
+ * <p>
+ * 实现ApprovalWorkflowService接口，提供审批流程定义的CRUD操作及带节点子表的联合查询
+ * </p>
+ */
 @Service
 public class ApprovalWorkflowServiceImpl extends ServiceImpl<ApprovalWorkflowMapper, ApprovalWorkflow>
     implements ApprovalWorkflowService{
 
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
+    /**
+     * 审批节点Mapper
+     */
     @Autowired
     private ApprovalNodeMapper approvalNodeMapper;
 
+    // endregion
+
+    // region 基础查询方法
+    // ===================================
+    // 基础查询方法
+    // ===================================
+
+    /**
+     * 根据流程类型获取审批流程
+     *
+     * @param workflowType 流程类型
+     * @return 审批流程
+     */
     @Override
     public ApprovalWorkflow getByWorkflowType(String workflowType) {
         QueryWrapper<ApprovalWorkflow> queryWrapper = new QueryWrapper<>();
@@ -37,11 +59,30 @@ public class ApprovalWorkflowServiceImpl extends ServiceImpl<ApprovalWorkflowMap
         return getOne(queryWrapper);
     }
     
+    /**
+     * 获取所有审批流程
+     *
+     * @return 审批流程列表
+     */
     @Override
     public List<ApprovalWorkflow> getAllWorkflows() {
         return list();
     }
 
+    // endregion
+
+    // region 带子表查询方法
+    // ===================================
+    // 带子表查询方法
+    // ===================================
+
+    /**
+     * 查询审批流程（包含节点子表）
+     *
+     * @param pageIndex 页码索引，-1为全量
+     * @param pageSize  每页数量，-1为全量
+     * @return 包含审批节点的分页结果
+     */
     @Override
     public PagedResult<ApprovalWorkflowWithNodesDto> searchWithDetails(int pageIndex, int pageSize) {
         boolean isAllData = (pageIndex == -1 || pageSize == -1);
@@ -66,6 +107,7 @@ public class ApprovalWorkflowServiceImpl extends ServiceImpl<ApprovalWorkflowMap
             return result;
         }
 
+        // 批量查询关联的审批节点
         List<Long> parentIds = parents.stream().map(ApprovalWorkflow::getId).collect(Collectors.toList());
         QueryWrapper<ApprovalNode> nodeWrapper = new QueryWrapper<>();
         nodeWrapper.in("workflow_id", parentIds);
@@ -73,6 +115,7 @@ public class ApprovalWorkflowServiceImpl extends ServiceImpl<ApprovalWorkflowMap
         Map<Long, List<ApprovalNode>> nodesMap = allNodes.stream()
                 .collect(Collectors.groupingBy(ApprovalNode::getWorkflowId));
 
+        // 组装DTO
         List<ApprovalWorkflowWithNodesDto> dtos = parents.stream().map(parent -> {
             ApprovalWorkflowWithNodesDto dto = new ApprovalWorkflowWithNodesDto();
             BeanUtils.copyProperties(parent, dto);
@@ -86,8 +129,6 @@ public class ApprovalWorkflowServiceImpl extends ServiceImpl<ApprovalWorkflowMap
         result.setPageSize(isAllData ? (int) parentPage.getTotal() : pageSize);
         return result;
     }
+
+    // endregion
 }
-
-
-
-

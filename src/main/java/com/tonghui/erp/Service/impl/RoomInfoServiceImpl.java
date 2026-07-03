@@ -55,7 +55,7 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoMapper, RoomInfo>
     @Lazy
     private EquipmentService equipmentService;
 
-    //#region 房间信息查询实现方法
+    // region 房间信息查询实现方法
     // ===================================
     // 房间信息查询实现方法
     // ===================================
@@ -248,7 +248,7 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoMapper, RoomInfo>
         return result;
     }
 
-    //#endregion
+    // endregion
 }
 
 

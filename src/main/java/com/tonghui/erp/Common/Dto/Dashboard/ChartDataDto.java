@@ -9,6 +9,12 @@ import java.util.Map;
  */
 @Data
 public class ChartDataDto {
+
+    // region 数据字段
+    // ===================================
+    // 数据字段
+    // ===================================
+
     /**
      * 交付数量按剂型（月度）
      * key: 月份, value: {剂型: 数量}
@@ -26,4 +32,6 @@ public class ChartDataDto {
      * key: 类别, value: 金额
      */
     private Map<String, Double> inventoryFundOccupation;
+
+    // endregion
 }

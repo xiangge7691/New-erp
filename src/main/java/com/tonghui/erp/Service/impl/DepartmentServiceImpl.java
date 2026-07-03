@@ -27,31 +27,38 @@ import java.util.stream.Collectors;
 /**
  * 部门服务实现类
  * <p>
- * 实现DepartmentService接口，提供部门相关的业务逻辑处理，包括部门的查询、管理等功能的具体实现
+ * 实现DepartmentService接口，提供部门相关的业务逻辑处理，包括部门的查询、
+ * 关联检查、详情获取、数据转换等功能的具体实现
  * </p>
- * 
- * @author 87954
- * @description 针对表【department(部门信息表)】的数据库操作Service实现
- * @createDate 2025-08-27 10:08:57
  */
 @Service
 public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Department>
     implements DepartmentService{
     
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
+    /** 用户部门关联服务，用于检查部门是否有关联用户 */
     @Autowired
     private UserDepartmentService userDepartmentService;
 
+    /** 岗位服务，用于获取部门关联的岗位信息 */
     @Autowired
     private PositionService positionService;
 
+    /** 实体转换工具，用于Entity到DTO的转换 */
     @Autowired
     private Converters converters;
     
-    //#region 基础操作接口
+    // endregion
+
+    // region 基础操作接口
     // ===================================
     // 部门基础操作接口
     // ===================================
-    
+
     /**
      * 获取所有部门DTO列表
      *
@@ -68,22 +75,24 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
      * 根据ID获取部门DTO
      *
      * @param id 部门ID
-     * @return 部门DTO对象
+     * @return 部门DTO对象，不存在则返回null
      */
     @Override
     public DepartmentDto getDtoById(Long id) {
         Department department = this.getById(id);
         return department != null ? converters.toDepartmentDto(department) : null;
     }
-    //#endregion
 
-    //#region 部门查询接口
+    // endregion
+
+    // region 部门查询接口
     // ===================================
     // 部门查询接口
     // ===================================
-    
+
     /**
-     * 高级查询部门（默认分页参数）
+     * 高级查询部门（默认分页参数，查询所有部门）
+     *
      * @return 部门列表的分页结果
      */
     @Override
@@ -93,12 +102,12 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
 
     /**
      * 高级查询部门（支持按名称、状态等条件查询）
-     * 当不传递任何参数时，返回所有部门
+     * <p>当不传递任何参数时，返回所有部门</p>
      *
      * @param departmentName 部门名称关键词，支持模糊查询
-     * @param status 部门状态
-     * @param pageIndex 页码，从0开始
-     * @param pageSize 每页数量，-1表示不分页返回所有结果
+     * @param status         部门状态
+     * @param pageIndex      页码，从0开始
+     * @param pageSize       每页数量，-1表示不分页返回所有结果
      * @return 部门列表的分页结果
      */
     @Override
@@ -147,13 +156,22 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
         
         return pagedResult;
     }
-    //#endregion
+
+    // endregion
     
-    //#region 高级查询接口
+    // region 高级查询接口
     // ===================================
     // 高级查询接口
     // ===================================
 
+    /**
+     * 高级查询部门（支持按部门ID、名称、状态条件组合查询）
+     *
+     * @param department 查询条件实体，非null字段将作为等值或模糊查询条件
+     * @param pageNum    页码，从0开始
+     * @param pageSize   每页数量
+     * @return 部门分页结果
+     */
     @Override
     public Page<Department> queryDepartments(Department department, int pageNum, int pageSize) {
         int actualPageNum = pageNum + 1;
@@ -175,8 +193,18 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
         return baseMapper.selectPage(page, wrapper);
     }
 
+    /**
+     * 查询部门列表并关联岗位和用户部门信息
+     * <p>先分页查询部门主表数据，再批量查询关联的岗位和用户部门</p>
+     *
+     * @param department 查询条件实体
+     * @param pageNum    页码，从0开始
+     * @param pageSize   每页数量
+     * @return 带子表关联数据的部门分页结果
+     */
     @Override
     public PagedResult<DepartmentWithDetailsDto> searchWithDetails(Department department, int pageNum, int pageSize) {
+        // 查询部门主表分页数据
         Page<Department> parentPage = queryDepartments(department, pageNum, pageSize);
         List<Department> parents = parentPage.getRecords();
 
@@ -189,6 +217,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
             return result;
         }
 
+        // 批量查询关联的岗位信息
         List<Long> parentIds = parents.stream().map(Department::getDepartmentId).collect(Collectors.toList());
 
         QueryWrapper<Position> posWrapper = new QueryWrapper<>();
@@ -196,11 +225,13 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
         Map<Long, List<Position>> posMap = positionService.list(posWrapper).stream()
                 .collect(Collectors.groupingBy(Position::getDepartmentId));
 
+        // 批量查询关联的用户部门信息
         QueryWrapper<UserDepartment> udWrapper = new QueryWrapper<>();
         udWrapper.in("department_id", parentIds);
         Map<Long, List<UserDepartment>> udMap = userDepartmentService.list(udWrapper).stream()
                 .collect(Collectors.groupingBy(UserDepartment::getDepartmentId));
 
+        // 组装带子表数据的DTO
         List<DepartmentWithDetailsDto> dtos = parents.stream().map(parent -> {
             DepartmentWithDetailsDto dto = new DepartmentWithDetailsDto();
             BeanUtils.copyProperties(parent, dto);
@@ -215,13 +246,14 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
         result.setPageSize(pageSize);
         return result;
     }
-    //#endregion
 
-    //#region 数据转换接口
+    // endregion
+
+    // region 数据转换接口
     // ===================================
     // 数据转换接口
     // ===================================
-    
+
     /**
      * 将Department实体转换为DepartmentDto
      *
@@ -232,58 +264,62 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
     public DepartmentDto convertToDto(Department department) {
         return converters.toDepartmentDto(department);
     }
-    //#endregion
+
+    // endregion
     
-    //#region 部门信息获取接口
+    // region 部门信息获取接口
     // ===================================
     // 部门信息获取接口
     // ===================================
-    
+
     /**
      * 根据部门名称获取部门
      *
      * @param departmentName 部门名称
-     * @return 部门实体
+     * @return 部门实体，不存在则返回null
      */
     @Override
     public Department getByDepartmentName(String departmentName) {
         return this.getOne(new QueryWrapper<Department>().eq("department_name", departmentName));
     }
-    //#endregion
+
+    // endregion
     
-    //#region 部门关联检查接口
+    // region 部门关联检查接口
     // ===================================
     // 部门关联检查接口
     // ===================================
-    
+
     /**
      * 检查部门是否有关联的用户
      *
      * @param departmentId 部门ID
-     * @return 是否有关联用户
+     * @return 是否有关联用户，true表示有，false表示没有
      */
     @Override
     public boolean hasUserDepartments(Long departmentId) {
         return userDepartmentService.count(new QueryWrapper<com.tonghui.erp.Data.Entity.UserDepartment>()
                 .eq("department_id", departmentId)) > 0;
     }
-    //#endregion
+
+    // endregion
     
-    //#region 部门详情接口
+    // region 部门详情接口
     // ===================================
     // 部门详情接口
     // ===================================
-    
+
     /**
-     * 获取部门详细信息
+     * 获取部门详细信息（DTO格式）
      *
      * @param departmentId 部门ID
-     * @return 部门详细信息
+     * @return 部门详细信息DTO，不存在则返回null
      */
     @Override
     public DepartmentDto getDepartmentDetails(Long departmentId) {
         Department department = this.getById(departmentId);
         return department != null ? converters.toDepartmentDto(department) : null;
     }
-    //#endregion
+
+    // endregion
 }

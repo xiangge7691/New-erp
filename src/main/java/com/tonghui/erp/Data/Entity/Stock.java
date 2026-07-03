@@ -17,6 +17,12 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class Stock extends AuditEntity {
+
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 库存唯一标识符
      */
@@ -64,6 +70,13 @@ public class Stock extends AuditEntity {
      */
     @TableField(value = "unit_name")
     private String unitName;
+
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
 
     /**
      * 库存数量
@@ -125,6 +138,13 @@ public class Stock extends AuditEntity {
     @TableField(value = "remark")
     private String remark;
 
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
     /**
      * 是否已删除
      */
@@ -136,4 +156,6 @@ public class Stock extends AuditEntity {
      */
     @TableField(value = "version")
     private Integer version;
+
+    // endregion
 }

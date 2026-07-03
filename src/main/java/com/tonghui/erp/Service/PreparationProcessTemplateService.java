@@ -9,12 +9,22 @@ import java.util.List;
  */
 public interface PreparationProcessTemplateService extends IService<PreparationProcessTemplate> {
 
+    // region 查询操作
+    // ===================================
+    // 查询操作
+    // ===================================
+
     /**
      * 根据制剂ID查询工序模版列表
      * @param preparationId 制剂ID
      * @return 工序模版列表（按工序顺序排序）
      */
     List<PreparationProcessTemplate> findByPreparationId(Long preparationId);
+
+    // region 查询操作
+    // ===================================
+    // 查询操作
+    // ===================================
 
     /**
      * 批量保存工序模版
@@ -23,4 +33,6 @@ public interface PreparationProcessTemplateService extends IService<PreparationP
      * @param templates 工序模版列表
      */
     void batchSave(Long preparationId, List<PreparationProcessTemplate> templates);
+
+    // endregion
 }

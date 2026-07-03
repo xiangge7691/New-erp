@@ -24,7 +24,7 @@ import jakarta.servlet.http.HttpServletResponse;
 @MapperScan("com.tonghui.erp.Data.mapper")
 public class ErpApplication {
 
-    //#region 应用启动方法
+    // region 应用启动方法
     // ===================================
     // 应用启动方法
     // ===================================
@@ -38,9 +38,9 @@ public class ErpApplication {
         SpringApplication.run(ErpApplication.class, args);
     }
     
-    //#endregion
+    // endregion
 
-    //#region Web配置
+    // region Web配置
     // ===================================
     // Web配置
     // ===================================
@@ -62,9 +62,9 @@ public class ErpApplication {
         };
     }
     
-    //#endregion
+    // endregion
 
-    //#region JWT拦截器内部类
+    // region JWT拦截器内部类
     // ===================================
     // JWT拦截器内部类
     // ===================================
@@ -77,7 +77,7 @@ public class ErpApplication {
      */
     static class JwtInterceptor implements HandlerInterceptor {
         
-        //#region JWT配置属性
+        // region JWT配置属性
         // ===================================
         // JWT配置属性
         // ===================================
@@ -103,9 +103,9 @@ public class ErpApplication {
         @Value("${jwt.audience:ErpSysUsers}")
         private String audience = "ErpSysUsers";
         
-        //#endregion
+        // endregion
 
-        //#region 请求拦截方法
+        // region 请求拦截方法
         // ===================================
         // 请求拦截方法
         // ===================================
@@ -162,8 +162,8 @@ public class ErpApplication {
             return true;
         }
         
-        //#endregion
+        // endregion
     }
     
-    //#endregion
+    // endregion
 }

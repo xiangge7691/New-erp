@@ -17,6 +17,12 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class Equipment extends AuditEntity {
+
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 设备 ID，主键。唯一标识，自增长。
      */
@@ -36,6 +42,25 @@ public class Equipment extends AuditEntity {
     private String equipmentModel;
 
     /**
+     * 固定资产编号。公司资产管理系统中的唯一编号。
+     */
+    @TableField(value = "fixed_asset_code")
+    private String fixedAssetCode;
+
+    /**
+     * 生产厂家。设备的生产制造商。
+     */
+    @TableField(value = "manufacturer")
+    private String manufacturer;
+
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
+
+    /**
      * 所在房间 ID。关联 room_info 表的 room_id 字段，标识设备所在房间。
      */
     @TableField(value = "room_id")
@@ -52,18 +77,6 @@ public class Equipment extends AuditEntity {
      */
     @TableField(value = "equipment_status")
     private Integer equipmentStatus;
-
-    /**
-     * 固定资产编号。公司资产管理系统中的唯一编号。
-     */
-    @TableField(value = "fixed_asset_code")
-    private String fixedAssetCode;
-
-    /**
-     * 生产厂家。设备的生产制造商。
-     */
-    @TableField(value = "manufacturer")
-    private String manufacturer;
 
     /**
      * 购置时间。设备购买的日期。
@@ -113,11 +126,25 @@ public class Equipment extends AuditEntity {
     @TableField(value = "remark")
     private String remark;
 
+    // endregion
+
+    // region 关联表显示字段
+    // ===================================
+    // 关联表显示字段
+    // ===================================
+
     /**
      * 房间名称（非数据库字段，用于查询结果展示）。
      */
     @TableField(exist = false)
     private String roomName;
+
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
 
     /**
      * 是否已删除
@@ -130,4 +157,6 @@ public class Equipment extends AuditEntity {
      */
     @TableField(value = "version")
     private Integer version;
+
+    // endregion
 }

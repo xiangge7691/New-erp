@@ -16,11 +16,24 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class PreparationDocument extends AuditEntity {
+
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 文档唯一标识
      */
     @TableId(value = "doc_id", type = IdType.AUTO)
     private Long docId;
+
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
 
     /**
      * 制剂ID
@@ -64,6 +77,13 @@ public class PreparationDocument extends AuditEntity {
     @TableField(value = "expire_date")
     private LocalDate expireDate;
 
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
     /**
      * 状态：0作废/1有效
      */
@@ -82,7 +102,12 @@ public class PreparationDocument extends AuditEntity {
     @TableField(value = "version")
     private Integer version;
 
-    // ========== 关联表显示字段（非数据库字段）==========
+    // endregion
+
+    // region 关联表显示字段
+    // ===================================
+    // 关联表显示字段
+    // ===================================
 
     /**
      * 制剂名称（关联preparation表）
@@ -95,4 +120,6 @@ public class PreparationDocument extends AuditEntity {
      */
     @TableField(exist = false)
     private String fileName;
+
+    // endregion
 }

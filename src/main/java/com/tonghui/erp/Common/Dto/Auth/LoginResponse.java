@@ -17,7 +17,7 @@ import java.util.ArrayList;
 @Data
 public class LoginResponse {
     
-    //#region 响应基本信息字段
+    // region 响应基本信息字段
     // ===================================
     // 响应基本信息字段
     // ===================================
@@ -46,9 +46,9 @@ public class LoginResponse {
      */
     private int code;
     
-    //#endregion
+    // endregion
     
-    //#region 内部数据类
+    // region 内部数据类
     // ===================================
     // 内部数据类
     // ===================================
@@ -60,7 +60,7 @@ public class LoginResponse {
     @Data
     public static class LoginData {
         
-        //#region 登录数据字段
+        // region 登录数据字段
         // ===================================
         // 登录数据字段
         // ===================================
@@ -95,7 +95,7 @@ public class LoginResponse {
          */
         private List<PermissionDto> permissionTree = new ArrayList<>();
         
-        //#endregion
+        // endregion
     }
     
     /**
@@ -105,7 +105,7 @@ public class LoginResponse {
     @Data
     public static class LoginResponseData {
         
-        //#region 响应数据字段
+        // region 响应数据字段
         // ===================================
         // 响应数据字段
         // ===================================
@@ -140,9 +140,9 @@ public class LoginResponse {
          */
         private List<PermissionDto> permissionTree;
         
-        //#endregion
+        // endregion
         
-        //#region 构造方法
+        // region 构造方法
         // ===================================
         // 构造方法
         // ===================================
@@ -160,8 +160,8 @@ public class LoginResponse {
             this.permissionTree = response.getData().getPermissionTree();
         }
         
-        //#endregion
+        // endregion
     }
     
-    //#endregion
+    // endregion
 }

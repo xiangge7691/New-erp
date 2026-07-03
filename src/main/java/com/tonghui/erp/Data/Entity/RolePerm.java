@@ -15,6 +15,11 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class RolePerm extends AuditEntity {
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 关联ID
      */
@@ -33,9 +38,18 @@ public class RolePerm extends AuditEntity {
     @TableField(value = "perm_id")
     private Long permId;
 
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
     /**
      * 是否已删除
      */
     @TableField(value = "is_deleted")
     private Integer isDeleted;
+
+    // endregion
 }

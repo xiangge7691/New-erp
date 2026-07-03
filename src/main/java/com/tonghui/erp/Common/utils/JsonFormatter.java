@@ -17,7 +17,7 @@ import java.io.IOException;
  */
 public class JsonFormatter {
     
-    //#region ObjectMapper实例定义
+    // region ObjectMapper实例定义
     // ===================================
     // ObjectMapper实例定义
     // ===================================
@@ -36,9 +36,9 @@ public class JsonFormatter {
         strictMapper.disable(JsonParser.Feature.ALLOW_TRAILING_COMMA);
     }
     
-    //#endregion
+    // endregion
     
-    //#region JSON序列化方法
+    // region JSON序列化方法
     // ===================================
     // JSON序列化方法
     // ===================================
@@ -60,9 +60,9 @@ public class JsonFormatter {
         }
     }
     
-    //#endregion
+    // endregion
     
-    //#region JSON反序列化方法
+    // region JSON反序列化方法
     // ===================================
     // JSON反序列化方法
     // ===================================
@@ -86,9 +86,9 @@ public class JsonFormatter {
         }
     }
     
-    //#endregion
+    // endregion
     
-    //#region JSON验证方法
+    // region JSON验证方法
     // ===================================
     // JSON验证方法
     // ===================================
@@ -111,9 +111,9 @@ public class JsonFormatter {
         }
     }
     
-    //#endregion
+    // endregion
     
-    //#region JSON格式化方法
+    // region JSON格式化方法
     // ===================================
     // JSON格式化方法
     // ===================================
@@ -138,9 +138,9 @@ public class JsonFormatter {
         }
     }
     
-    //#endregion
+    // endregion
     
-    //#region JSON压缩方法
+    // region JSON压缩方法
     // ===================================
     // JSON压缩方法
     // ===================================
@@ -167,5 +167,5 @@ public class JsonFormatter {
         }
     }
     
-    //#endregion
+    // endregion
 }

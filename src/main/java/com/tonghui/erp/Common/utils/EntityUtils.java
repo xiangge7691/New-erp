@@ -11,6 +11,11 @@ import org.springframework.stereotype.Component;
 @Component
 public class EntityUtils {
 
+    // region 方法定义
+    // ===================================
+    // 方法定义
+    // ===================================
+
     /**
      * 从安全上下文中获取当前用户ID
      *
@@ -39,4 +44,6 @@ public class EntityUtils {
         // 为了确保功能正常，暂时返回默认用户ID 1
         return 1L;
     }
+
+    // endregion
 }

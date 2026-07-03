@@ -16,7 +16,7 @@ import java.util.Base64;
  */
 public class PasswordHasher {
     
-    //#region 常量定义
+    // region 常量定义
     // ===================================
     // 常量定义
     // ===================================
@@ -25,9 +25,9 @@ public class PasswordHasher {
     private static final int SALT_LENGTH = 16;
     private static final int HASH_LENGTH = 32;
     
-    //#endregion
+    // endregion
     
-    //#region 密码哈希方法
+    // region 密码哈希方法
     // ===================================
     // 密码哈希方法
     // ===================================
@@ -75,9 +75,9 @@ public class PasswordHasher {
         return Base64.getEncoder().encodeToString(combinedBytes);
     }
     
-    //#endregion
+    // endregion
 
-    //#region 密码验证方法
+    // region 密码验证方法
     // ===================================
     // 密码验证方法
     // ===================================
@@ -136,5 +136,5 @@ public class PasswordHasher {
         }
     }
     
-    //#endregion
+    // endregion
 }

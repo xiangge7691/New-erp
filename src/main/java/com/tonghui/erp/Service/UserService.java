@@ -15,13 +15,10 @@ import java.util.List;
  * 提供用户相关的业务逻辑接口，包括用户的基本操作、查询、权限分配等功能
  * </p>
  * 
- * @author 87954
- * @description 针对表【user(用户信息表)】的数据库操作Service
- * @createDate 2025-08-27 10:08:57
  */
 public interface UserService extends IService<User> {
     
-    //#region 基础操作接口
+    // region 基础操作接口
     // ===================================
     // 用户基础操作接口
     // ===================================
@@ -59,9 +56,9 @@ public interface UserService extends IService<User> {
      * @return 是否更新成功
      */
     boolean updateWithHashedPasswordSelective(User user);
-    //#endregion
+    // endregion
     
-    //#region 查询接口
+    // region 查询接口
     // ===================================
     // 用户查询接口
     // ===================================
@@ -93,9 +90,9 @@ public interface UserService extends IService<User> {
      * @return 用户列表的分页结果
      */
     PagedResult<UserDto> advancedSearchUsers();
-    //#endregion
+    // endregion
     
-    //#region 验证接口
+    // region 验证接口
     // ===================================
     // 用户验证接口
     // ===================================
@@ -109,9 +106,9 @@ public interface UserService extends IService<User> {
      * @return 验证结果，true表示验证成功，false表示验证失败
      */
     boolean validateUserPassword(String userName, String password);
-    //#endregion
+    // endregion
     
-    //#region 权限分配接口
+    // region 权限分配接口
     // ===================================
     // 用户权限分配接口
     // ===================================
@@ -155,9 +152,9 @@ public interface UserService extends IService<User> {
      * @return 操作结果，true表示成功，false表示失败
      */
     boolean updateUserDepartments(Long userId, List<Long> departmentIds);
-    //#endregion
+    // endregion
     
-    //#region 关联信息管理接口
+    // region 关联信息管理接口
     // ===================================
     // 用户关联信息管理接口
     // ===================================
@@ -170,9 +167,9 @@ public interface UserService extends IService<User> {
      * @return 操作结果，true表示成功，false表示失败
      */
     boolean deleteUserAssociations(Long userId);
-    //#endregion
+    // endregion
     
-    //#region 高级查询接口
+    // region 高级查询接口
     // ===================================
     // 高级查询接口
     // ===================================
@@ -186,9 +183,9 @@ public interface UserService extends IService<User> {
      * 带子表查询用户
      */
     PagedResult<UserWithDetailsDto> searchWithDetails(User user, int pageNum, int pageSize);
-    //#endregion
+    // endregion
 
-    //#region 数据转换接口
+    // region 数据转换接口
     // ===================================
     // 数据转换接口
     // ===================================
@@ -200,5 +197,5 @@ public interface UserService extends IService<User> {
      * @return UserDto对象
      */
     UserDto convertToDto(User user);
-    //#endregion
+    // endregion
 }

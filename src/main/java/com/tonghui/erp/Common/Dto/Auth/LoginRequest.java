@@ -11,7 +11,7 @@ import lombok.Data;
 @Data
 public class LoginRequest {
     
-    //#region 登录凭证字段
+    // region 登录凭证字段
     // ===================================
     // 登录凭证字段
     // ===================================
@@ -28,5 +28,5 @@ public class LoginRequest {
      */
     private String password;
     
-    //#endregion
+    // endregion
 }

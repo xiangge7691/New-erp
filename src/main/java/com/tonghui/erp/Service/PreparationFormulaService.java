@@ -10,6 +10,11 @@ import java.util.List;
  */
 public interface PreparationFormulaService extends IService<PreparationFormula> {
 
+    // region 基础操作
+    // ===================================
+    // 基础操作
+    // ===================================
+
     /**
      * 新增处方明细
      *
@@ -30,6 +35,13 @@ public interface PreparationFormulaService extends IService<PreparationFormula> 
      * @param formulaId 处方明细ID
      */
     void deleteFormula(Long formulaId);
+
+    // endregion
+
+    // region 查询操作
+    // ===================================
+    // 查询操作
+    // ===================================
 
     /**
      * 根据ID查询处方明细
@@ -53,4 +65,6 @@ public interface PreparationFormulaService extends IService<PreparationFormula> 
      * @return 处方明细集合
      */
     List<PreparationFormula> getAllFormulas();
+
+    // endregion
 }

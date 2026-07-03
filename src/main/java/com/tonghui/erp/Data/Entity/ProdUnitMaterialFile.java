@@ -15,11 +15,24 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class ProdUnitMaterialFile extends AuditEntity {
+
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 材料文件唯一标识
      */
     @TableId(value = "prod_material_id", type = IdType.AUTO)
     private Long prodMaterialId;
+
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
 
     /**
      * 关联的生产单位ID
@@ -69,6 +82,13 @@ public class ProdUnitMaterialFile extends AuditEntity {
     @TableField(value = "file_content")
     private String fileContent;
 
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
     /**
      * 是否已删除
      */
@@ -80,4 +100,6 @@ public class ProdUnitMaterialFile extends AuditEntity {
      */
     @TableField(value = "version")
     private Integer version;
+
+    // endregion
 }

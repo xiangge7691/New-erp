@@ -12,26 +12,50 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * 制剂控制器
+ *
+ * 接口清单：
+ * ┌────┬───────────────────────────────┬────────┬─────────────────────────────────┐
+ * │ #  │ 接口                          │ 方法   │ 说明                            │
+ * ├────┼───────────────────────────────┼────────┼─────────────────────────────────┤
+ * │ 1  │ /api/preparation              │ GET    │ 分页查询制剂列表                │
+ * │ 2  │ /api/preparation/{id}         │ GET    │ 获取制剂详情                    │
+ * │ 3  │ /api/preparation              │ POST   │ 新增制剂                        │
+ * │ 4  │ /api/preparation/{id}         │ PUT    │ 修改制剂                        │
+ * │ 5  │ /api/preparation/{id}         │ DELETE │ 删除制剂                        │
+ * │ 6  │ /api/preparation/search       │ GET    │ 高级查询制剂（多条件+分页）      │
+ * │ 7  │ /api/preparation/search-with-details │ GET │ 高级查询制剂（含子表）        │
+ * └────┴───────────────────────────────┴────────┴─────────────────────────────────┘
  */
 @RestController
 @RequestMapping("/api/preparation")
 public class PreparationController extends BaseCrudController<Preparation, Preparation, Long> {
 
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
+    /**
+     * 制剂服务
+     */
     @Autowired
     private PreparationService preparationService;
 
+    // endregion
+
+    // region CRUD基础方法实现
+    // ===================================
+    // CRUD基础方法实现
+    // ===================================
+
     @Override
     protected PagedResult<Preparation> getAllData(int pageIndex, int pageSize) {
-        // 页码从0开始的处理，确保不为负数
         int safePageIndex = Math.max(0, pageIndex);
-        // 当pageSize<=0时，设置一个合理的默认值
         int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
 
-        // 使用PreparationService的queryPreparations方法进行查询
         Preparation preparation = new Preparation();
         Page<Preparation> pageResult = preparationService.queryPreparations(preparation, safePageIndex, safePageSize);
 
-        // 转换为PagedResult
         PagedResult<Preparation> pagedResult = new PagedResult<>();
         pagedResult.setItems(pageResult.getRecords());
         pagedResult.setTotalCount(pageResult.getTotal());
@@ -69,29 +93,18 @@ public class PreparationController extends BaseCrudController<Preparation, Prepa
         }
     }
 
-    // #region 高级查询
+    // endregion
+
+    // region 高级查询
+    // ===================================
+    // 高级查询
+    // ===================================
 
     /**
      * 高级查询制剂（支持多条件 + 分页）
      *
-     * 可选查询条件：
-     * - preparationCode：模糊匹配
-     * -preparationName：模糊匹配
-     * -spec：模糊匹配
-     * -processAttr：精确匹配
-     * -packageSpec：精确匹配
-     * -dosageForm：精确匹配
-     * -status：状态过滤
-     * -createdTime：开始时间（大于等于）
-     * -updatedTime：结束时间（小于等于）
-     * -unitName：单位名称（模糊匹配）
-     * -producer：生产商（模糊匹配）
-     * -recordInfo：制剂备案（模糊匹配）
-     * -functionMain：功能主治（模糊匹配）
-     * -method：制法（模糊匹配）
-     *
      * 示例请求：
-     * GET /preparation/search?pageIndex=1&pageSize=20&preparationCode=Z00&preparationName=感冒&spec=胶囊&processAttr=自制&status=1&unitName=株洲
+     * GET /api/preparation/search?pageIndex=1&pageSize=20&preparationCode=Z00&preparationName=感冒&spec=胶囊&processAttr=自制&status=1&unitName=株洲
      *
      * @param preparationCode 制剂编码（模糊匹配）
      * @param preparationName 制剂品名（模糊匹配）
@@ -105,9 +118,9 @@ public class PreparationController extends BaseCrudController<Preparation, Prepa
      * @param recordInfo 制剂备案（模糊匹配）
      * @param functionMain 功能主治（模糊匹配）
      * @param method 制法（模糊匹配）
-     * @param pageIndex   页码
-     * @param pageSize    每页大小
-     * @return 分页结果
+     * @param pageIndex 页码
+     * @param pageSize 每页大小
+     * @return ApiResponse&lt;PagedResult&lt;Preparation&gt;&gt; 分页查询结果
      */
     @GetMapping("/search")
     public ApiResponse<PagedResult<Preparation>> queryPreparations(
@@ -165,28 +178,34 @@ public class PreparationController extends BaseCrudController<Preparation, Prepa
         }
     }
 
-    // #endregion
+    // endregion
 
-    // #region 带子表查询
+    // region 带子表查询
+    // ===================================
+    // 带子表查询
+    // ===================================
 
     /**
      * 高级查询制剂（包含处方、文档、工序模版子表）
      *
-     * @param preparationCode 制剂编码
-     * @param preparationName 制剂品名
-     * @param spec 规格描述
-     * @param processAttr 加工性质
-     * @param packageSpec 包装规格
-     * @param dosageForm 剂型
-     * @param status 状态
-     * @param unitName 单位名称
-     * @param producer 生产商
-     * @param recordInfo 制剂备案
-     * @param functionMain 功能主治
-     * @param method 制法
+     * 示例请求：
+     * GET /api/preparation/search-with-details?pageIndex=1&pageSize=20&preparationName=感冒
+     *
+     * @param preparationCode 制剂编码（模糊匹配）
+     * @param preparationName 制剂品名（模糊匹配）
+     * @param spec 规格描述（模糊匹配）
+     * @param processAttr 加工性质（精确匹配）
+     * @param packageSpec 包装规格（精确匹配）
+     * @param dosageForm 剂型（精确匹配）
+     * @param status 状态（精确匹配）
+     * @param unitName 单位名称（模糊匹配）
+     * @param producer 生产商（模糊匹配）
+     * @param recordInfo 制剂备案（模糊匹配）
+     * @param functionMain 功能主治（模糊匹配）
+     * @param method 制法（模糊匹配）
      * @param pageIndex 页码
-     * @param pageSize  每页大小
-     * @return 分页结果（包含子表）
+     * @param pageSize 每页大小
+     * @return ApiResponse&lt;PagedResult&lt;PreparationWithDetailsDto&gt;&gt; 分页结果（包含子表）
      */
     @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<PreparationWithDetailsDto>> searchWithDetails(
@@ -228,5 +247,5 @@ public class PreparationController extends BaseCrudController<Preparation, Prepa
         }
     }
 
-    // #endregion
+    // endregion
 }

@@ -17,6 +17,11 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class ProductionProcessRecord extends AuditEntity {
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 记录 ID，主键。自增长，唯一标识。
      */
@@ -37,6 +42,13 @@ public class ProductionProcessRecord extends AuditEntity {
      */
     @TableField(value = "process_name")
     private String processName;
+
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
 
     /**
      * 操作人姓名。
@@ -75,6 +87,12 @@ public class ProductionProcessRecord extends AuditEntity {
     private String equipment;
 
     /**
+     * 设备关键参数
+     */
+    @TableField(value = "equipment_params")
+    private String equipmentParams;
+
+    /**
      * 工序开始时间。工序实际开始时间。
      */
     @TableField(value = "start_time")
@@ -111,16 +129,23 @@ public class ProductionProcessRecord extends AuditEntity {
     private LocalDateTime inspectionEnd;
 
     /**
-     * 记录状态。`1`-正常，`0`-作废。
-     */
-    @TableField(value = "record_status")
-    private Integer recordStatus;
-
-    /**
      * 备注信息。记录工序执行过程中的特殊说明。
      */
     @TableField(value = "remark")
     private String remark;
+
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
+    /**
+     * 记录状态。`1`-正常，`0`-作废。
+     */
+    @TableField(value = "record_status")
+    private Integer recordStatus;
 
     /**
      * 是否已删除
@@ -133,4 +158,6 @@ public class ProductionProcessRecord extends AuditEntity {
      */
     @TableField(value = "version")
     private Integer version;
+
+    // endregion
 }

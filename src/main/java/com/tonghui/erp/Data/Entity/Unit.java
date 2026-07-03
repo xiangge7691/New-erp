@@ -15,6 +15,12 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class Unit extends AuditEntity {
+
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 单位唯一标识
      */
@@ -27,11 +33,25 @@ public class Unit extends AuditEntity {
     @TableField(value = "unit_name")
     private String unitName;
 
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
+
     /**
      * 单位符号（区分大小写）
      */
     @TableField(value = "symbol")
     private String symbol;
+
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
 
     /**
      * 状态：0禁用/1启用
@@ -50,4 +70,6 @@ public class Unit extends AuditEntity {
      */
     @TableField(value = "version")
     private Integer version;
+
+    // endregion
 }

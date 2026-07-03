@@ -9,12 +9,31 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+/**
+ * Spring Security安全配置类
+ * <p>
+ * 配置HTTP安全策略，包括CSRF禁用、无状态会话管理、JWT认证过滤器
+ * 以及请求授权规则
+ * </p>
+ */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
+    // region 字段定义
+    // ===================================
+    // 字段定义
+    // ===================================
+
     @Autowired
     private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    // endregion
+
+    // region 方法定义
+    // ===================================
+    // 方法定义
+    // ===================================
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -45,4 +64,6 @@ public class SecurityConfig {
             
         return http.build();
     }
+
+    // endregion
 }

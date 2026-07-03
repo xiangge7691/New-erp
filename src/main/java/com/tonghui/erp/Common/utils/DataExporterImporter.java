@@ -22,7 +22,7 @@ import java.util.concurrent.CompletionException;
  */
 public class DataExporterImporter {
 
-    //#region Excel导出方法
+    // region Excel导出方法
     // ===================================
     // Excel导出方法
     // ===================================
@@ -126,9 +126,9 @@ public class DataExporterImporter {
         });
     }
     
-    //#endregion
+    // endregion
 
-    //#region TXT导出方法
+    // region TXT导出方法
     // ===================================
     // TXT导出方法
     // ===================================
@@ -207,9 +207,9 @@ public class DataExporterImporter {
         });
     }
     
-    //#endregion
+    // endregion
 
-    //#region TXT导入方法
+    // region TXT导入方法
     // ===================================
     // TXT导入方法
     // ===================================
@@ -280,9 +280,9 @@ public class DataExporterImporter {
         });
     }
     
-    //#endregion
+    // endregion
 
-    //#region 私有辅助方法
+    // region 私有辅助方法
     // ===================================
     // 私有辅助方法
     // ===================================
@@ -454,5 +454,5 @@ public class DataExporterImporter {
         return !type.isPrimitive();
     }
     
-    //#endregion
+    // endregion
 }

@@ -11,6 +11,11 @@ import java.io.InputStream;
  */
 public interface FileStorageService {
     
+    // region 文件编码方法
+    // ===================================
+    // 文件编码方法
+    // ===================================
+
     /**
      * 将文件转换为Base64字符串
      *
@@ -26,7 +31,14 @@ public interface FileStorageService {
      * @return MD5值
      */
     String calculateMD5(MultipartFile file);
-    
+
+    // endregion
+
+    // region 文件存储方法
+    // ===================================
+    // 文件存储方法
+    // ===================================
+
     /**
      * 上传文件到磁盘并保存元数据
      *
@@ -67,7 +79,14 @@ public interface FileStorageService {
      * @return 是否删除成功
      */
     boolean deleteFile(Long fileId);
-    
+
+    // endregion
+
+    // region 辅助方法
+    // ===================================
+    // 辅助方法
+    // ===================================
+
     /**
      * 验证文件类型是否允许
      *

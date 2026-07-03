@@ -14,6 +14,11 @@ import lombok.Data;
 @TableName(value ="purchase_order_items")
 @Data
 public class PurchaseOrderItems {
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 主键ID
      */
@@ -37,6 +42,13 @@ public class PurchaseOrderItems {
      */
     @TableField(value = "material_id")
     private Long materialId;
+
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
 
     /**
      * 制剂名称
@@ -92,6 +104,13 @@ public class PurchaseOrderItems {
     @TableField(value = "difference")
     private BigDecimal difference;
 
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
     /**
      * 是否已删除
      */
@@ -103,4 +122,6 @@ public class PurchaseOrderItems {
      */
     @TableField(value = "version")
     private Integer version;
+
+    // endregion
 }

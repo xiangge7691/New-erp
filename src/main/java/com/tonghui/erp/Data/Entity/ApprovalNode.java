@@ -15,6 +15,11 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class ApprovalNode extends AuditEntity {
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 主键ID
      */
@@ -44,6 +49,13 @@ public class ApprovalNode extends AuditEntity {
      */
     @TableField(value = "role_id")
     private Long roleId;
+
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
 
     /**
      * 是否需要绑定业务
@@ -87,8 +99,31 @@ public class ApprovalNode extends AuditEntity {
     @TableField(value = "reject_to_node_id")
     private Long rejectToNodeId;
 
+    // endregion
 
-// ========== 关联表显示字段（非数据库字段）==========
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
+    /**
+     * 是否已删除
+     */
+    @TableField(value = "is_deleted")
+    private Integer isDeleted;
+
+    /**
+     * 乐观锁版本号
+     */
+    @TableField(value = "version")
+    private Integer version;
+
+    // endregion
+
+    // region 关联表显示字段
+    // ===================================
+    // 关联表显示字段
+    // ===================================
 
     /**
      * 流程名称（关联approval_workflow表）
@@ -102,15 +137,5 @@ public class ApprovalNode extends AuditEntity {
     @TableField(exist = false)
     private String roleName;
 
-    /**
-     * 是否已删除
-     */
-    @TableField(value = "is_deleted")
-    private Integer isDeleted;
-
-    /**
-     * 乐观锁版本号
-     */
-    @TableField(value = "version")
-    private Integer version;
+    // endregion
 }

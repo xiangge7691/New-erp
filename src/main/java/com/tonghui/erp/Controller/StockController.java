@@ -16,19 +16,48 @@ import java.time.LocalDateTime;
 
 /**
  * 库存控制器
+ * <p>
+ * 提供库存的高级查询和带子表查询功能
+ * </p>
+ *
+ * 接口清单：
+ * ┌────┬──────────────────────────────┬────────┬──────────────────────────────┐
+ * │ #  │ 接口                         │ 方法   │ 说明                         │
+ * ├────┼──────────────────────────────┼────────┼──────────────────────────────┤
+ * │ 1  │ /api/stock/search            │ GET    │ 高级查询库存                 │
+ * │ 2  │ /api/stock/search-with-details │ GET  │ 带子表查询库存               │
+ * └────┴──────────────────────────────┴────────┴──────────────────────────────┘
  */
 @RestController
 @RequestMapping("/api/stock")
 public class StockController extends BaseController {
 
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
+    /**
+     * 库存服务
+     */
     private final StockService stockService;
 
+    /**
+     * 构造方法注入库存服务
+     *
+     * @param stockService 库存服务
+     */
     @Autowired
     public StockController(StockService stockService) {
         this.stockService = stockService;
     }
 
-    // #region 高级查询
+    // endregion
+
+    // region 高级查询
+    // ===================================
+    // 高级查询
+    // ===================================
 
     /**
      * 高级查询库存（支持多条件 + 分页）
@@ -55,6 +84,9 @@ public class StockController extends BaseController {
      * @param pageIndex  页码
      * @param pageSize   每页大小
      * @return 分页结果
+     *
+     * 示例请求：
+     * GET /api/stock/search?pageIndex=1&pageSize=20&itemName=瓶&categoryName=包材&quantity=100
      */
     @GetMapping("/search")
     public ApiResponse<PagedResult<Stock>> queryStocks(Stock stock,
@@ -89,10 +121,24 @@ public class StockController extends BaseController {
         }
     }
 
-    // #endregion
+    // endregion
 
-    // #region 带子表查询
+    // region 带子表查询
+    // ===================================
+    // 带子表查询
+    // ===================================
 
+    /**
+     * 带子表查询库存（支持多条件 + 分页）
+     *
+     * 示例请求：
+     * GET /api/stock/search-with-details?pageIndex=1&pageSize=20&itemName=瓶
+     *
+     * @param stock     查询条件（自动从query参数映射）
+     * @param pageIndex 页码
+     * @param pageSize  每页大小
+     * @return 分页结果（包含子表信息）
+     */
     @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<StockWithDetailsDto>> searchWithDetails(Stock stock,
                                                                            @RequestParam int pageIndex,
@@ -107,5 +153,5 @@ public class StockController extends BaseController {
         }
     }
 
-    // #endregion
+    // endregion
 }

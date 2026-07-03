@@ -14,7 +14,7 @@ import java.nio.file.Paths;
  */
 public class Base64 {
     
-    //#region 文件与Base64互转方法
+    // region 文件与Base64互转方法
     // ===================================
     // 文件与Base64互转方法
     // ===================================
@@ -52,9 +52,9 @@ public class Base64 {
         Files.write(path, fileBytes);
     }
     
-    //#endregion
+    // endregion
 
-    //#region 字节数组与Base64互转方法
+    // region 字节数组与Base64互转方法
     // ===================================
     // 字节数组与Base64互转方法
     // ===================================
@@ -89,5 +89,5 @@ public class Base64 {
         return java.util.Base64.getDecoder().decode(base64String);
     }
     
-    //#endregion
+    // endregion
 }

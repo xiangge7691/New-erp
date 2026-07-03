@@ -7,9 +7,6 @@ import com.tonghui.erp.Data.Entity.PlanStatusLog;
 import java.time.LocalDateTime;
 
 /**
-* @author 87954
-* @description 针对表【plan_status_log(计划状态流水表)】的数据库操作Service
-* @createDate 2025-12-08 14:02:29
 */
 public interface PlanStatusLogService extends IService<PlanStatusLog> {
     /**

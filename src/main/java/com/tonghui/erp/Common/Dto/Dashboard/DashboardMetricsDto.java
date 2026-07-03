@@ -7,6 +7,12 @@ import lombok.Data;
  */
 @Data
 public class DashboardMetricsDto {
+
+    // region 数据字段
+    // ===================================
+    // 数据字段
+    // ===================================
+
     /**
      * 预估产值（万元）
      */
@@ -31,4 +37,6 @@ public class DashboardMetricsDto {
      * 待生产数量（批）
      */
     private Long pendingProduction;
+
+    // endregion
 }

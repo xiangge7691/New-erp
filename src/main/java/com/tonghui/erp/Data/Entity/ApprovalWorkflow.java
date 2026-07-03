@@ -15,6 +15,11 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class ApprovalWorkflow extends AuditEntity {
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 主键ID
      */
@@ -33,6 +38,13 @@ public class ApprovalWorkflow extends AuditEntity {
     @TableField(value = "workflow_type")
     private String workflowType;
 
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
     /**
      * 状态：0停用/1启用
      */
@@ -50,4 +62,6 @@ public class ApprovalWorkflow extends AuditEntity {
      */
     @TableField(value = "version")
     private Integer version;
+
+    // endregion
 }

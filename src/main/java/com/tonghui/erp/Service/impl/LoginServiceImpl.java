@@ -61,7 +61,7 @@ public class LoginServiceImpl implements LoginService {
         this.converters = converters;
     }
 
-    //#region 异步登录接口实现
+    // region 异步登录接口实现
     // ===================================
     // 异步登录接口实现
     // ===================================
@@ -77,9 +77,9 @@ public class LoginServiceImpl implements LoginService {
     public CompletableFuture<LoginResponse> loginWithFullResponseAsync(String userName, String password) {
         return CompletableFuture.supplyAsync(() -> loginWithFullResponse(userName, password));
     }
-    //#endregion
+    // endregion
 
-    //#region 同步登录接口实现
+    // region 同步登录接口实现
     // ===================================
     // 同步登录接口实现
     // ===================================
@@ -191,9 +191,9 @@ public class LoginServiceImpl implements LoginService {
             return response;
         }
     }
-    //#endregion
+    // endregion
 
-    //#region 内部辅助方法
+    // region 内部辅助方法
     // ===================================
     // 内部辅助方法
     // ===================================
@@ -342,9 +342,9 @@ public class LoginServiceImpl implements LoginService {
             }
         }
     }
-    //#endregion
+    // endregion
     
-    //#region 令牌刷新方法
+    // region 令牌刷新方法
     // ===================================
     // 令牌刷新方法
     // ===================================
@@ -423,5 +423,5 @@ public class LoginServiceImpl implements LoginService {
         }
     }
     
-    //#endregion
+    // endregion
 }

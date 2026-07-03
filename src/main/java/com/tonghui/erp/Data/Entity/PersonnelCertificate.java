@@ -16,6 +16,11 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class PersonnelCertificate extends AuditEntity {
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 证书唯一标识
      */
@@ -45,6 +50,13 @@ public class PersonnelCertificate extends AuditEntity {
      */
     @TableField(value = "certificate_no")
     private String certificateNo;
+
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
 
     /**
      * 发证机构
@@ -95,16 +107,23 @@ public class PersonnelCertificate extends AuditEntity {
     private String trainingRecord;
 
     /**
-     * 状态：0失效/1有效
-     */
-    @TableField(value = "status")
-    private Integer status;
-
-    /**
      * 备注
      */
     @TableField(value = "remark")
     private String remark;
+
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
+    /**
+     * 状态：0失效/1有效
+     */
+    @TableField(value = "status")
+    private Integer status;
 
     /**
      * 是否已删除
@@ -117,4 +136,6 @@ public class PersonnelCertificate extends AuditEntity {
      */
     @TableField(value = "version")
     private Integer version;
+
+    // endregion
 }

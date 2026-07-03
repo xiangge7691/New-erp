@@ -37,39 +37,50 @@ import java.util.stream.Collectors;
 /**
  * 用户服务实现类
  * <p>
- * 实现UserService接口，提供用户相关的业务逻辑处理，包括用户的基本操作、查询、权限分配等功能的具体实现
+ * 实现UserService接口，提供用户相关的业务逻辑处理，包括用户的基本操作、查询、
+ * 权限分配、密码验证、关联信息管理等功能的具体实现
  * </p>
  *
- * @author 87954
- * @description 针对表【user(用户信息表)】的数据库操作Service实现
- * @createDate 2025-08-27 10:08:57
  */
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         implements UserService{
 
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
+    /** 用户部门关联服务，用于管理用户与部门的关联关系 */
     @Autowired
     private UserDepartmentService userDepartmentService;
 
+    /** 用户角色关联服务，用于管理用户与角色的关联关系 */
     @Autowired
     private UserRoleService userRoleService;
 
+    /** 部门服务，用于获取部门详细信息 */
     @Autowired
     private DepartmentService departmentService;
 
+    /** 角色服务，用于获取角色详细信息 */
     @Autowired
     private RoleService roleService;
 
+    /** 人员档案服务，用于获取用户关联的人员档案信息 */
     @Autowired
     private PersonnelFileService personnelFileService;
 
-    //#region 基础操作接口
+    // endregion
+
+    // region 基础操作接口
     // ===================================
     // 用户基础操作接口
     // ===================================
 
     /**
-     * 获取所有用户（不包含密码）
+     * 获取所有用户DTO列表（不包含密码等敏感信息）
+     *
      * @return 用户DTO列表
      */
     @Override
@@ -80,9 +91,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     /**
-     * 根据ID获取用户（不包含密码）
+     * 根据ID获取用户DTO（包含关联的角色和部门信息）
+     *
      * @param id 用户ID
-     * @return 用户DTO对象
+     * @return 用户DTO对象，不存在则返回null
      */
     @Override
     public UserDto getDtoById(Long id) {
@@ -92,7 +104,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     /**
      * 创建用户并哈希密码
-     * @param user 用户信息
+     * <p>自动对密码进行Argon2哈希处理，并设置创建时间和更新时间</p>
+     *
+     * @param user 用户信息，密码为明文
      * @return 是否创建成功
      */
     @Override
@@ -107,7 +121,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     /**
-     * 更新用户并哈希密码（如果提供了新密码）
+     * 更新用户信息并哈希密码（如果提供了新密码）
+     * <p>如果未提供密码，则保留数据库中原有密码不被覆盖</p>
+     *
      * @param user 用户信息
      * @return 是否更新成功
      */
@@ -126,7 +142,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         user.setUpdatedTime(LocalDateTime.now());
         return this.updateById(user);
     }
-    
+
+    /**
+     * 选择性更新用户信息（仅更新非null字段）
+     * <p>使用UpdateWrapper实现动态字段更新，密码字段单独处理哈希</p>
+     *
+     * @param user 用户信息，仅非null字段会被更新
+     * @return 是否更新成功
+     */
     @Override
     public boolean updateWithHashedPasswordSelective(User user) {
         // 使用UpdateWrapper进行选择性更新
@@ -165,24 +188,25 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         
         return this.update(updateWrapper);
     }
-    //#endregion
 
-    //#region 查询接口
+    // endregion
+
+    // region 查询接口
     // ===================================
     // 用户查询接口
     // ===================================
 
     /**
      * 高级查询用户（支持按部门、角色、状态和用户名进行模糊查询）
-     * 当不传递任何参数时，返回所有用户
+     * <p>当不传递任何参数时，返回所有用户</p>
      *
-     * @param userName 用户名关键词，支持模糊查询用户名称和真实姓名
+     * @param userName     用户名关键词，支持模糊查询用户名称和真实姓名
      * @param departmentId 部门ID，筛选指定部门的用户
-     * @param roleId 角色ID，筛选具有指定角色的用户
-     * @param status 用户状态，true为启用，false为禁用
-     * @param userId 用户ID，用于精确查询单个用户
-     * @param pageIndex 页码，从0开始
-     * @param pageSize 每页数量，-1表示不分页返回所有结果
+     * @param roleId       角色ID，筛选具有指定角色的用户
+     * @param status       用户状态，1为启用，0为禁用
+     * @param userId       用户ID，用于精确查询单个用户
+     * @param pageIndex    页码，从0开始
+     * @param pageSize     每页数量，-1表示不分页返回所有结果
      * @return 用户列表的分页结果
      */
     @Override
@@ -281,7 +305,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     /**
-     * 高级查询用户（默认分页参数）
+     * 高级查询用户（默认分页参数，查询所有用户）
+     *
      * @return 用户列表的分页结果
      */
     @Override
@@ -290,7 +315,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     /**
-     * 创建空的分页结果
+     * 创建空的分页结果对象
+     *
+     * @param pageIndex 页码
+     * @param pageSize  每页数量
+     * @return 空的分页结果
      */
     private PagedResult<UserDto> createEmptyPagedResult(int pageIndex, int pageSize) {
         PagedResult<UserDto> emptyResult = new PagedResult<>();
@@ -300,18 +329,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         emptyResult.setPageSize(pageSize == -1 ? 0 : pageSize);
         return emptyResult;
     }
-    //#endregion
 
-    //#region 验证接口
+    // endregion
+
+    // region 验证接口
     // ===================================
     // 用户验证接口
     // ===================================
 
     /**
      * 验证用户密码
-     * 通过用户名和密码验证用户身份
+     * <p>通过用户名查找用户，然后使用Argon2算法验证密码</p>
      *
-     * @param userName 用户名
+     * @param userName 用户名（登录账号）
      * @param password 明文密码
      * @return 验证结果，true表示验证成功，false表示验证失败
      */
@@ -323,19 +353,20 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         }
         return PasswordHasher.verifyPassword(password, user.getPassword());
     }
-    //#endregion
 
-    //#region 权限分配接口
+    // endregion
+
+    // region 权限分配接口
     // ===================================
     // 用户权限分配接口
     // ===================================
 
     /**
      * 为用户分配角色
-     * 创建用户与角色的关联关系
+     * <p>先删除用户现有的所有角色关联，再创建新的角色关联</p>
      *
-     * @param userId 用户ID
-     * @param roleIds 角色ID列表
+     * @param userId  用户ID
+     * @param roleIds 角色ID列表，为空时将清除所有角色关联
      * @return 操作结果，true表示成功，false表示失败
      */
     @Override
@@ -363,10 +394,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     /**
      * 为用户分配部门
-     * 创建用户与部门的关联关系，第一个部门将被设为主部门
+     * <p>先删除用户现有的所有部门关联，再创建新的部门关联，第一个部门将被设为主部门</p>
      *
-     * @param userId 用户ID
-     * @param departmentIds 部门ID列表
+     * @param userId         用户ID
+     * @param departmentIds  部门ID列表，为空时将清除所有部门关联
      * @return 操作结果，true表示成功，false表示失败
      */
     @Override
@@ -394,9 +425,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     /**
      * 更新用户角色关联
-     * 先删除用户现有的所有角色关联，然后创建新的角色关联
+     * <p>先删除用户现有的所有角色关联，然后创建新的角色关联</p>
      *
-     * @param userId 用户ID
+     * @param userId  用户ID
      * @param roleIds 角色ID列表
      * @return 操作结果，true表示成功，false表示失败
      */
@@ -407,26 +438,27 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     /**
      * 更新用户部门关联
-     * 先删除用户现有的所有部门关联，然后创建新的部门关联
+     * <p>先删除用户现有的所有部门关联，然后创建新的部门关联</p>
      *
-     * @param userId 用户ID
-     * @param departmentIds 部门ID列表
+     * @param userId         用户ID
+     * @param departmentIds  部门ID列表
      * @return 操作结果，true表示成功，false表示失败
      */
     @Override
     public boolean updateUserDepartments(Long userId, List<Long> departmentIds) {
         return assignDepartmentsToUser(userId, departmentIds);
     }
-    //#endregion
 
-    //#region 关联信息管理接口
+    // endregion
+
+    // region 关联信息管理接口
     // ===================================
     // 用户关联信息管理接口
     // ===================================
 
     /**
      * 删除用户相关的所有关联信息
-     * 删除用户的角色关联和部门关联信息
+     * <p>包括用户角色关联和用户部门关联</p>
      *
      * @param userId 用户ID
      * @return 操作结果，true表示成功，false表示失败
@@ -445,13 +477,22 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             return false;
         }
     }
-    //#endregion
 
-    //#region 高级查询接口
+    // endregion
+
+    // region 高级查询接口
     // ===================================
     // 高级查询接口
     // ===================================
 
+    /**
+     * 高级查询用户（支持按用户ID、账号、名称、状态条件组合查询）
+     *
+     * @param user     查询条件实体，非null字段将作为等值或模糊查询条件
+     * @param pageNum  页码，从0开始
+     * @param pageSize 每页数量
+     * @return 用户分页结果
+     */
     @Override
     public Page<User> queryUsers(User user, int pageNum, int pageSize) {
         int actualPageNum = pageNum + 1;
@@ -476,8 +517,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         return baseMapper.selectPage(page, wrapper);
     }
 
+    /**
+     * 查询用户列表并关联角色、部门和人员档案信息
+     * <p>先分页查询用户主表数据，再批量查询关联的角色、部门和人员档案</p>
+     *
+     * @param user     查询条件实体
+     * @param pageNum  页码，从0开始
+     * @param pageSize 每页数量
+     * @return 带子表关联数据的用户分页结果
+     */
     @Override
     public PagedResult<UserWithDetailsDto> searchWithDetails(User user, int pageNum, int pageSize) {
+        // 查询用户主表分页数据
         Page<User> parentPage = queryUsers(user, pageNum, pageSize);
         List<User> parents = parentPage.getRecords();
 
@@ -490,6 +541,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             return result;
         }
 
+        // 批量查询关联的角色信息
         List<Long> parentIds = parents.stream().map(User::getUserId).collect(Collectors.toList());
 
         QueryWrapper<UserRole> roleWrapper = new QueryWrapper<>();
@@ -497,16 +549,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         Map<Long, List<UserRole>> rolesMap = userRoleService.list(roleWrapper).stream()
                 .collect(Collectors.groupingBy(UserRole::getUserId));
 
+        // 批量查询关联的部门信息
         QueryWrapper<UserDepartment> deptWrapper = new QueryWrapper<>();
         deptWrapper.in("user_id", parentIds);
         Map<Long, List<UserDepartment>> deptsMap = userDepartmentService.list(deptWrapper).stream()
                 .collect(Collectors.groupingBy(UserDepartment::getUserId));
 
+        // 批量查询关联的人员档案信息
         QueryWrapper<PersonnelFile> pfWrapper = new QueryWrapper<>();
         pfWrapper.in("user_id", parentIds);
         Map<Long, List<PersonnelFile>> pfMap = personnelFileService.list(pfWrapper).stream()
                 .collect(Collectors.groupingBy(PersonnelFile::getUserId));
 
+        // 组装带子表数据的DTO
         List<UserWithDetailsDto> dtos = parents.stream().map(parent -> {
             UserWithDetailsDto dto = new UserWithDetailsDto();
             BeanUtils.copyProperties(parent, dto);
@@ -522,15 +577,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         result.setPageSize(pageSize);
         return result;
     }
-    //#endregion
 
-    //#region 数据转换接口
+    // endregion
+
+    // region 数据转换接口
     // ===================================
     // 数据转换接口
     // ===================================
 
     /**
-     * 将User实体转换为UserDto
+     * 将User实体转换为UserDto（不包含关联信息）
      *
      * @param user User实体
      * @return UserDto对象
@@ -551,8 +607,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     /**
      * 将User实体转换为UserDto，包含关联的角色和部门信息
+     *
      * @param user User实体
-     * @return UserDto对象
+     * @return UserDto对象，包含角色列表、部门列表和主部门信息
      */
     private UserDto convertToDtoWithAssociations(User user) {
         UserDto dto = convertToDto(user);
@@ -610,9 +667,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
         return dto;
     }
-    //#endregion
+
+    // endregion
 }
-
-
-
-

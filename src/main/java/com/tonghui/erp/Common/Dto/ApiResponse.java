@@ -13,7 +13,7 @@ import lombok.Data;
 @Data
 public class ApiResponse<T> {
 
-    //#region 错误码常量
+    // region 错误码常量
     // ===================================
     // 错误码常量
     // ===================================
@@ -32,9 +32,9 @@ public class ApiResponse<T> {
     public static final int METHOD_NOT_ALLOWED = 405;
     /** 服务器内部错误 */
     public static final int INTERNAL_ERROR = 500;
-    //#endregion
+    // endregion
 
-    //#region 响应字段
+    // region 响应字段
     // ===================================
     // 响应字段
     // ===================================
@@ -58,9 +58,9 @@ public class ApiResponse<T> {
      * 时间戳
      */
     private long timestamp = System.currentTimeMillis();
-    //#endregion
+    // endregion
 
-    //#region 成功响应构建方法
+    // region 成功响应构建方法
     // ===================================
     // 成功响应构建方法
     // ===================================
@@ -89,9 +89,9 @@ public class ApiResponse<T> {
     public static <T> ApiResponse<T> successResponse(T data) {
         return successResponse(data, null);
     }
-    //#endregion
+    // endregion
 
-    //#region 错误响应构建方法
+    // region 错误响应构建方法
     // ===================================
     // 错误响应构建方法
     // ===================================
@@ -119,9 +119,9 @@ public class ApiResponse<T> {
     public static <T> ApiResponse<T> errorResponse(String message) {
         return errorResponse(INTERNAL_ERROR, message);
     }
-    //#endregion
+    // endregion
 
-    //#region 便捷错误响应方法
+    // region 便捷错误响应方法
     // ===================================
     // 便捷错误响应方法
     // ===================================
@@ -153,5 +153,5 @@ public class ApiResponse<T> {
     public static <T> ApiResponse<T> notFound(String message) {
         return errorResponse(NOT_FOUND, message);
     }
-    //#endregion
+    // endregion
 }

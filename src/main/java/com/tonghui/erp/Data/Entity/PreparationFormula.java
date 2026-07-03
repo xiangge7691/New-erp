@@ -16,11 +16,24 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class PreparationFormula extends AuditEntity {
+
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 处方明细唯一标识
      */
     @TableId(value = "formula_id", type = IdType.AUTO)
     private Long formulaId;
+
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
 
     /**
      * 制剂ID，引用preparation表
@@ -82,6 +95,13 @@ public class PreparationFormula extends AuditEntity {
     @TableField(value = "unit_name")
     private String unitName;
 
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
     /**
      * 是否已删除
      */
@@ -93,4 +113,6 @@ public class PreparationFormula extends AuditEntity {
      */
     @TableField(value = "version")
     private Integer version;
+
+    // endregion
 }

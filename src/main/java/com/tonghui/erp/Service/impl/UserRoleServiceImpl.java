@@ -23,9 +23,6 @@ import java.util.stream.Collectors;
  * 实现UserRoleService接口，提供用户角色关联相关的业务逻辑处理，包括用户角色关联的查询、管理等功能的具体实现
  * </p>
  * 
- * @author 87954
- * @description 针对表【user_role(用户-角色关联表)】的数据库操作Service实现
- * @createDate 2025-08-27 10:08:57
  */
 @Service
 public class UserRoleServiceImpl extends ServiceImpl<UserRoleMapper, UserRole>
@@ -34,7 +31,7 @@ public class UserRoleServiceImpl extends ServiceImpl<UserRoleMapper, UserRole>
     @Autowired
     private Converters converters;
 
-    //#region 基础查询接口
+    // region 基础查询接口
     // ===================================
     // 基础查询接口
     // ===================================
@@ -60,9 +57,9 @@ public class UserRoleServiceImpl extends ServiceImpl<UserRoleMapper, UserRole>
     public List<UserRole> getByRoleId(Long roleId) {
         return this.list(new QueryWrapper<UserRole>().eq("role_id", roleId));
     }
-    //#endregion
+    // endregion
 
-    //#region DTO查询接口
+    // region DTO查询接口
     // ===================================
     // DTO查询接口
     // ===================================
@@ -94,9 +91,9 @@ public class UserRoleServiceImpl extends ServiceImpl<UserRoleMapper, UserRole>
                 .map(converters::toUserRoleDto)
                 .collect(Collectors.toList());
     }
-    //#endregion
+    // endregion
 
-    //#region 数据转换接口
+    // region 数据转换接口
     // ===================================
     // 数据转换接口
     // ===================================
@@ -111,9 +108,9 @@ public class UserRoleServiceImpl extends ServiceImpl<UserRoleMapper, UserRole>
     public UserRoleDto convertToDto(UserRole entity) {
         return converters.toUserRoleDto(entity);
     }
-    //#endregion
+    // endregion
 
-    //#region 高级查询接口
+    // region 高级查询接口
     // ===================================
     // 高级查询接口
     // ===================================
@@ -263,7 +260,7 @@ public class UserRoleServiceImpl extends ServiceImpl<UserRoleMapper, UserRole>
     public PagedResult<UserRoleDto> getPagedDto(int pageIndex, int pageSize) {
         return advancedSearchUserRoles(null, null, null, null, pageIndex, pageSize);
     }
-    //#endregion
+    // endregion
 }
 
 

@@ -13,13 +13,10 @@ import java.util.List;
  * 提供权限相关的业务逻辑接口，包括权限的查询、管理、树形结构构建等功能
  * </p>
  * 
- * @author 87954
- * @description 针对表【permission(系统权限表)】的数据库操作Service
- * @createDate 2025-08-27 10:08:57
  */
 public interface PermissionService extends IService<Permission> {
     
-    //#region 权限查询接口
+    // region 权限查询接口
     // ===================================
     // 权限查询接口
     // ===================================
@@ -51,9 +48,9 @@ public interface PermissionService extends IService<Permission> {
      * @return 权限列表的分页结果
      */
     PagedResult<PermissionDto> advancedSearchPermissions();
-    //#endregion
+    // endregion
     
-    //#region 权限详情接口
+    // region 权限详情接口
     // ===================================
     // 权限详情接口
     // ===================================
@@ -66,9 +63,9 @@ public interface PermissionService extends IService<Permission> {
      * @return 权限详细信息DTO
      */
     PermissionDto getPermissionDetails(Long permissionId);
-    //#endregion
+    // endregion
     
-    //#region 权限获取接口
+    // region 权限获取接口
     // ===================================
     // 权限获取接口
     // ===================================
@@ -89,9 +86,9 @@ public interface PermissionService extends IService<Permission> {
      * @return 权限列表
      */
     List<Permission> getByParentId(Long parentId);
-    //#endregion
+    // endregion
     
-    //#region 权限树形结构接口
+    // region 权限树形结构接口
     // ===================================
     // 权限树形结构接口
     // ===================================
@@ -103,9 +100,9 @@ public interface PermissionService extends IService<Permission> {
      * @return 权限树DTO列表
      */
     List<PermissionDto> getPermissionTree();
-    //#endregion
+    // endregion
     
-    //#region 数据转换接口
+    // region 数据转换接口
     // ===================================
     // 数据转换接口
     // ===================================
@@ -117,5 +114,5 @@ public interface PermissionService extends IService<Permission> {
      * @return PermissionDto对象
      */
     PermissionDto convertToDto(Permission permission);
-    //#endregion
+    // endregion
 }

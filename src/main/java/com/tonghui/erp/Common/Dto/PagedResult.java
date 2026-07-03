@@ -14,7 +14,7 @@ import java.util.List;
 @Data
 public class PagedResult<T> {
     
-    //#region 分页数据字段
+    // region 分页数据字段
     // ===================================
     // 分页数据字段
     // ===================================
@@ -43,9 +43,9 @@ public class PagedResult<T> {
      */
     private int pageSize;
     
-    //#endregion
+    // endregion
 
-    //#region 工具方法
+    // region 工具方法
     // ===================================
     // 工具方法
     // ===================================
@@ -80,5 +80,5 @@ public class PagedResult<T> {
         return pageIndex > 0;
     }
     
-    //#endregion
+    // endregion
 }

@@ -16,6 +16,11 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class ApprovalInstance extends AuditEntity {
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 主键ID
      */
@@ -47,6 +52,19 @@ public class ApprovalInstance extends AuditEntity {
     private Long currentNodeId;
 
     /**
+     * 发起人ID
+     */
+    @TableField(value = "initiator_id")
+    private Long initiatorId;
+
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
+    /**
      * 审批状态 (PENDING-待审批/APPROVED-已同意/REJECTED-已驳回/TRANSFERRED-已转交/ARCHIVED-已归档/CANCELLED-已作废)
      */
     @TableField(value = "status")
@@ -71,19 +89,23 @@ public class ApprovalInstance extends AuditEntity {
     private LocalDateTime cancelledAt;
 
     /**
-     * 发起人ID
-     */
-    @TableField(value = "initiator_id")
-    private Long initiatorId;
-
-    /**
      * 是否已删除
      */
     @TableField(value = "is_deleted")
     private Integer isDeleted;
 
+    /**
+     * 乐观锁版本号
+     */
+    @TableField(value = "version")
+    private Integer version;
 
-// ========== 关联表显示字段（非数据库字段）==========
+    // endregion
+
+    // region 关联表显示字段
+    // ===================================
+    // 关联表显示字段
+    // ===================================
 
     /**
      * 流程名称（关联approval_workflow表）
@@ -97,9 +119,5 @@ public class ApprovalInstance extends AuditEntity {
     @TableField(exist = false)
     private String currentNodeName;
 
-    /**
-     * 乐观锁版本号
-     */
-    @TableField(value = "version")
-    private Integer version;
+    // endregion
 }

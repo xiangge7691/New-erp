@@ -8,9 +8,27 @@ import com.tonghui.erp.Service.PressureDifferenceRecordService;
 import org.springframework.stereotype.Service;
 import java.util.List;
 
+/**
+ * 压差记录服务实现类
+ * <p>
+ * 实现PressureDifferenceRecordService接口，提供压差记录的业务逻辑处理，
+ * 包括按房间查询历史记录
+ * </p>
+ */
 @Service
 public class PressureDifferenceRecordServiceImpl extends ServiceImpl<PressureDifferenceRecordMapper, PressureDifferenceRecord> implements PressureDifferenceRecordService {
 
+    // region 业务查询方法
+    // ===================================
+    // 业务查询方法
+    // ===================================
+
+    /**
+     * 根据房间ID查询压差记录列表
+     *
+     * @param roomId 房间ID
+     * @return 该房间的压差记录列表，按记录日期倒序
+     */
     @Override
     public List<PressureDifferenceRecord> findByRoomId(Integer roomId) {
         QueryWrapper<PressureDifferenceRecord> wrapper = new QueryWrapper<>();
@@ -19,4 +37,6 @@ public class PressureDifferenceRecordServiceImpl extends ServiceImpl<PressureDif
                .orderByDesc("record_date");
         return list(wrapper);
     }
+
+    // endregion
 }

@@ -14,26 +14,52 @@ import java.util.List;
 
 /**
  * 采购订单控制器
+ *
+ * 接口清单：
+ * ┌────┬──────────────────────────────────────────┬────────┬─────────────────────────────────┐
+ * │ #  │ 接口                                     │ 方法   │ 说明                            │
+ * ├────┼──────────────────────────────────────────┼────────┼─────────────────────────────────┤
+ * │ 1  │ /api/purchase-orders                     │ GET    │ 分页查询采购订单列表            │
+ * │ 2  │ /api/purchase-orders/{id}                │ GET    │ 获取采购订单详情                │
+ * │ 3  │ /api/purchase-orders                     │ POST   │ 新增采购订单                    │
+ * │ 4  │ /api/purchase-orders/{id}                │ PUT    │ 修改采购订单                    │
+ * │ 5  │ /api/purchase-orders/{id}                │ DELETE │ 删除采购订单                    │
+ * │ 6  │ /api/purchase-orders/search              │ GET    │ 高级查询采购订单（多条件+分页）  │
+ * │ 7  │ /api/purchase-orders/search-with-details │ GET    │ 高级查询采购订单（含明细子表）   │
+ * │ 8  │ /api/purchase-orders/enabled             │ GET    │ 查询所有启用状态的采购订单       │
+ * │ 9  │ /api/purchase-orders/{id}/status/{status}│ POST   │ 启用/停用采购订单               │
+ * └────┴──────────────────────────────────────────┴────────┴─────────────────────────────────┘
  */
 @RestController
 @RequestMapping("/api/purchase-orders")
 public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders, PurchaseOrders, Long> {
 
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
+    /**
+     * 采购订单服务
+     */
     @Autowired
     private PurchaseOrdersService purchaseOrdersService;
 
+    // endregion
+
+    // region CRUD基础方法实现
+    // ===================================
+    // CRUD基础方法实现
+    // ===================================
+
     @Override
     protected PagedResult<PurchaseOrders> getAllData(int pageIndex, int pageSize) {
-        // 页码从0开始的处理，确保不为负数
         int safePageIndex = Math.max(0, pageIndex);
-        // 当pageSize<=0时，设置一个合理的默认值
         int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
 
-        // 使用PurchaseOrdersService的queryPurchaseOrders方法进行查询
         PurchaseOrders purchaseOrders = new PurchaseOrders();
         Page<PurchaseOrders> pageResult = purchaseOrdersService.queryPurchaseOrders(purchaseOrders, safePageIndex, safePageSize);
 
-        // 转换为PagedResult
         PagedResult<PurchaseOrders> pagedResult = new PagedResult<>();
         pagedResult.setItems(pageResult.getRecords());
         pagedResult.setTotalCount(pageResult.getTotal());
@@ -71,25 +97,23 @@ public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders,
         }
     }
 
-    // #region 高级查询
+    // endregion
+
+    // region 高级查询
+    // ===================================
+    // 高级查询
+    // ===================================
 
     /**
      * 高级查询采购订单（支持多条件 + 分页）
      *
-     * 可选查询条件：
-     * - purchaseNumber：模糊匹配
-     * - warehouse：模糊匹配
-     * - status：状态过滤
-     * - processingDate：处理日期（大于等于）
-     * - expectedDeliveryDate：预计到货日期（小于等于）
-     *
      * 示例请求：
-     * GET /purchase-orders/search?pageIndex=1&pageSize=20&purchaseNumber=PO&warehouse=原料库&status=1
+     * GET /api/purchase-orders/search?pageIndex=1&pageSize=20&purchaseNumber=PO&warehouse=原料库&status=1
      *
      * @param purchaseOrders 查询条件（自动从query参数映射）
-     * @param pageIndex      页码
-     * @param pageSize       每页大小
-     * @return 分页结果
+     * @param pageIndex 页码
+     * @param pageSize 每页大小
+     * @return PagedResult&lt;PurchaseOrders&gt; 分页查询结果
      */
     @GetMapping("/search")
     public PagedResult<PurchaseOrders> queryPurchaseOrders(PurchaseOrders purchaseOrders,
@@ -113,17 +137,23 @@ public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders,
         return pagedResult;
     }
 
-    // #endregion
+    // endregion
 
-    // #region 带子表查询
+    // region 带子表查询
+    // ===================================
+    // 带子表查询
+    // ===================================
 
     /**
      * 高级查询采购订单（包含明细子表）
      *
-     * @param purchaseOrders 查询条件
-     * @param pageIndex      页码
-     * @param pageSize       每页大小
-     * @return 分页结果（包含明细）
+     * 示例请求：
+     * GET /api/purchase-orders/search-with-details?pageIndex=1&pageSize=20&purchaseNumber=PO
+     *
+     * @param purchaseOrders 查询条件（自动从query参数映射）
+     * @param pageIndex 页码
+     * @param pageSize 每页大小
+     * @return ApiResponse&lt;PagedResult&lt;PurchaseOrdersWithItemsDto&gt;&gt; 分页结果（包含明细）
      */
     @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<PurchaseOrdersWithItemsDto>> searchWithDetails(PurchaseOrders purchaseOrders,
@@ -139,14 +169,20 @@ public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders,
         }
     }
 
-    // #endregion
+    // endregion
 
-    // #region 特殊业务方法
+    // region 特殊业务方法
+    // ===================================
+    // 特殊业务方法
+    // ===================================
 
     /**
      * 查询所有启用状态的采购订单
      *
-     * @return 采购订单集合
+     * 示例请求：
+     * GET /api/purchase-orders/enabled
+     *
+     * @return PagedResult&lt;PurchaseOrders&gt; 采购订单集合
      */
     @GetMapping("/enabled")
     public PagedResult<PurchaseOrders> getEnabledPurchaseOrders() {
@@ -168,9 +204,12 @@ public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders,
     /**
      * 启用/停用采购订单
      *
-     * @param id     采购订单ID
+     * 示例请求：
+     * POST /api/purchase-orders/1/status/1
+     *
+     * @param id 采购订单ID
      * @param status 状态：1启用，0停用
-     * @return 操作结果
+     * @return ApiResponse&lt;Boolean&gt; 操作结果
      */
     @PostMapping("/{id}/status/{status}")
     public ApiResponse<Boolean> togglePurchaseOrderStatus(@PathVariable Long id, @PathVariable Object status) {
@@ -187,5 +226,5 @@ public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders,
         }
     }
 
-    // #endregion
+    // endregion
 }

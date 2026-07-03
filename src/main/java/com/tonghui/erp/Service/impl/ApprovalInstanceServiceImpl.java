@@ -29,27 +29,65 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * 审批实例服务实现
+ * 审批实例服务实现类
+ * <p>
+ * 实现ApprovalInstanceService接口，提供审批实例的CRUD操作、审批流程引擎及权限验证。
+ * 核心功能包括：同意/驳回/转交审批、实例作废、处理人权限校验
+ * </p>
  */
 @Service
 public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMapper, ApprovalInstance>
     implements ApprovalInstanceService {
 
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
+    /**
+     * 审批节点服务
+     */
     @Autowired
     private ApprovalNodeService approvalNodeService;
 
+    /**
+     * 角色服务
+     */
     @Autowired
     private RoleService roleService;
 
+    /**
+     * 用户角色服务
+     */
     @Autowired
     private UserRoleService userRoleService;
 
+    /**
+     * 审批记录服务
+     */
     @Autowired
     private ApprovalRecordService approvalRecordService;
 
+    /**
+     * 审批记录Mapper
+     */
     @Autowired
     private ApprovalRecordMapper approvalRecordMapper;
 
+    // endregion
+
+    // region 基础查询方法
+    // ===================================
+    // 基础查询方法
+    // ===================================
+
+    /**
+     * 根据关联业务获取审批实例
+     *
+     * @param relatedId   业务单据ID
+     * @param relatedType 业务类型
+     * @return 审批实例
+     */
     @Override
     public ApprovalInstance getInstanceByRelated(Long relatedId, String relatedType) {
         QueryWrapper<ApprovalInstance> queryWrapper = new QueryWrapper<>();
@@ -58,6 +96,12 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
         return getOne(queryWrapper);
     }
 
+    /**
+     * 根据流程ID获取审批实例列表
+     *
+     * @param workflowId 审批流程ID
+     * @return 审批实例列表
+     */
     @Override
     public List<ApprovalInstance> getInstancesByWorkflowId(Long workflowId) {
         QueryWrapper<ApprovalInstance> queryWrapper = new QueryWrapper<>();
@@ -65,6 +109,12 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
         return list(queryWrapper);
     }
 
+    /**
+     * 根据状态获取审批实例列表
+     *
+     * @param status 审批状态
+     * @return 审批实例列表
+     */
     @Override
     public List<ApprovalInstance> getInstancesByStatus(String status) {
         QueryWrapper<ApprovalInstance> queryWrapper = new QueryWrapper<>();
@@ -72,6 +122,13 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
         return list(queryWrapper);
     }
 
+    /**
+     * 获取审批实例列表（分页或全量）
+     *
+     * @param pageIndex 页码索引，-1为全量
+     * @param pageSize  每页数量，-1为全量
+     * @return 分页结果
+     */
     @Override
     public PagedResult<ApprovalInstance> getInstances(int pageIndex, int pageSize) {
         Page<ApprovalInstance> page;
@@ -100,6 +157,22 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
         return pagedResult;
     }
 
+    // endregion
+
+    // region 权限与状态查询方法
+    // ===================================
+    // 权限与状态查询方法
+    // ===================================
+
+    /**
+     * 获取审批实例的当前处理角色列表
+     * <p>
+     * 遍历流程所有节点，构建角色信息列表，标记当前待处理节点
+     * </p>
+     *
+     * @param id 审批实例ID
+     * @return 当前处理角色列表
+     */
     @Override
     public List<CurrentHandlerRoleDto> getCurrentHandlerRoles(Long id) {
         List<CurrentHandlerRoleDto> result = new ArrayList<>();
@@ -123,6 +196,7 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
             return result;
         }
 
+        // 查找当前节点
         ApprovalNode currentNode = null;
         if (instance.getCurrentNodeId() != null) {
             currentNode = nodes.stream()
@@ -135,6 +209,7 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
             currentNode = nodes.get(0);
         }
 
+        // 构建角色信息列表
         for (ApprovalNode node : nodes) {
             if (node.getRoleId() == null) continue;
 
@@ -161,6 +236,7 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
                 roleDto.setStatusDescription("待处理");
             }
 
+            // 查询角色下的用户列表
             List<UserRole> userRoles = userRoleService.list(
                 new QueryWrapper<UserRole>().eq("role_id", role.getRoleId())
             );
@@ -177,6 +253,13 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
         return result;
     }
 
+    /**
+     * 检查用户是否为当前审批实例的处理人
+     *
+     * @param id     审批实例ID
+     * @param userId 用户ID
+     * @return true表示是当前处理人
+     */
     @Override
     public boolean isCurrentUserHandler(Long id, Long userId) {
         List<CurrentHandlerRoleDto> handlerRoles = getCurrentHandlerRoles(id);
@@ -199,6 +282,21 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
         return false;
     }
 
+    // endregion
+
+    // region 作废操作
+    // ===================================
+    // 作废操作
+    // ===================================
+
+    /**
+     * 作废审批实例
+     *
+     * @param instanceId   审批实例ID
+     * @param userId       作废操作人ID
+     * @param cancelReason 作废原因
+     * @return true表示作废成功
+     */
     @Override
     public boolean cancelInstance(Long instanceId, Long userId, String cancelReason) {
         ApprovalInstance instance = getById(instanceId);
@@ -206,6 +304,7 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
             return false;
         }
 
+        // 仅PENDING状态可作废
         if (!"PENDING".equals(instance.getStatus())) {
             return false;
         }
@@ -221,6 +320,7 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
             return false;
         }
 
+        // 记录作废操作到审批记录
         try {
             ApprovalRecord record = new ApprovalRecord();
             record.setInstanceId(instanceId);
@@ -238,6 +338,20 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
         return true;
     }
 
+    // endregion
+
+    // region 带子表查询方法
+    // ===================================
+    // 带子表查询方法
+    // ===================================
+
+    /**
+     * 查询审批实例（包含审批记录子表）
+     *
+     * @param pageIndex 页码索引
+     * @param pageSize  每页数量
+     * @return 包含审批记录的分页结果
+     */
     @Override
     public PagedResult<ApprovalInstanceWithRecordsDto> searchWithDetails(int pageIndex, int pageSize) {
         PagedResult<ApprovalInstance> parentPage = getInstances(pageIndex, pageSize);
@@ -252,6 +366,7 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
             return result;
         }
 
+        // 批量查询关联的审批记录
         List<Long> parentIds = parents.stream().map(ApprovalInstance::getId).collect(Collectors.toList());
         QueryWrapper<ApprovalRecord> wrapper = new QueryWrapper<>();
         wrapper.in("instance_id", parentIds);
@@ -259,6 +374,7 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
         Map<Long, List<ApprovalRecord>> recordsMap = allRecords.stream()
                 .collect(Collectors.groupingBy(ApprovalRecord::getInstanceId));
 
+        // 组装DTO
         List<ApprovalInstanceWithRecordsDto> dtos = parents.stream().map(parent -> {
             ApprovalInstanceWithRecordsDto dto = new ApprovalInstanceWithRecordsDto();
             BeanUtils.copyProperties(parent, dto);
@@ -273,8 +389,23 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
         return result;
     }
 
-    // ========== 审批流程引擎 ==========
+    // endregion
 
+    // region 审批流程引擎
+    // ===================================
+    // 审批流程引擎
+    // ===================================
+
+    /**
+     * 同意当前节点
+     * <p>
+     * 验证实例状态和操作人权限，记录同意操作，流转到下一节点或完成审批
+     * </p>
+     *
+     * @param instanceId 审批实例ID
+     * @param userId     审批人ID
+     * @param remark     审批意见
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void approve(Long instanceId, Long userId, String remark) {
@@ -313,6 +444,16 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
         updateById(instance);
     }
 
+    /**
+     * 驳回审批
+     * <p>
+     * 验证实例状态和操作人权限，记录驳回操作。若配置了驳回目标节点则回退，否则审批驳回
+     * </p>
+     *
+     * @param instanceId 审批实例ID
+     * @param userId     审批人ID
+     * @param remark     驳回原因
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void reject(Long instanceId, Long userId, String remark) {
@@ -350,6 +491,16 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
         updateById(instance);
     }
 
+    /**
+     * 转交审批
+     * <p>
+     * 验证实例状态和操作人权限，记录转交操作，实例状态变为TRANSFERRED
+     * </p>
+     *
+     * @param instanceId 审批实例ID
+     * @param userId     转交人ID
+     * @param remark     转交说明
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void transfer(Long instanceId, Long userId, String remark) {
@@ -378,6 +529,15 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
         updateById(instance);
     }
 
+    /**
+     * 创建审批实例并绑定业务
+     *
+     * @param relatedType 业务类型
+     * @param relatedId   业务ID
+     * @param workflowId  审批流程ID
+     * @param initiatorId 发起人ID
+     * @return 创建的审批实例
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public ApprovalInstance createWithBinding(String relatedType, Long relatedId, Long workflowId, Long initiatorId) {
@@ -402,8 +562,19 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
         return instance;
     }
 
-    // ========== 私有方法 ==========
+    // endregion
 
+    // region 私有辅助方法
+    // ===================================
+    // 私有辅助方法
+    // ===================================
+
+    /**
+     * 获取当前审批节点
+     *
+     * @param instance 审批实例
+     * @return 当前节点，不存在时返回null
+     */
     private ApprovalNode getCurrentNode(ApprovalInstance instance) {
         if (instance.getCurrentNodeId() == null) {
             return null;
@@ -411,6 +582,13 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
         return approvalNodeService.getById(instance.getCurrentNodeId());
     }
 
+    /**
+     * 获取下一个审批节点
+     *
+     * @param workflowId       流程ID
+     * @param currentNodeOrder 当前节点顺序
+     * @return 下一个节点，不存在时返回null
+     */
     private ApprovalNode getNextNode(Long workflowId, Integer currentNodeOrder) {
         List<ApprovalNode> nodes = approvalNodeService.getNodesByWorkflowId(workflowId);
         if (nodes == null || nodes.isEmpty()) {
@@ -425,6 +603,16 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
         return null;
     }
 
+    /**
+     * 保存审批操作记录
+     *
+     * @param instanceId   审批实例ID
+     * @param nodeId       节点ID
+     * @param userId       操作人ID
+     * @param action       操作类型（AGREE/REJECT/TRANSFER/CANCEL）
+     * @param remark       操作备注
+     * @param targetNodeId 转交目标节点ID（仅转交操作时使用）
+     */
     private void saveRecord(Long instanceId, Long nodeId, Long userId, String action, String remark, Long targetNodeId) {
         ApprovalRecord record = new ApprovalRecord();
         record.setInstanceId(instanceId);
@@ -437,4 +625,6 @@ public class ApprovalInstanceServiceImpl extends ServiceImpl<ApprovalInstanceMap
         record.setCreatedTime(LocalDateTime.now());
         approvalRecordService.save(record);
     }
+
+    // endregion
 }

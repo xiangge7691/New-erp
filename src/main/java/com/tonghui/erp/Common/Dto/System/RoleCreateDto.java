@@ -12,7 +12,7 @@ import java.util.List;
 @Data
 public class RoleCreateDto {
     
-    //#region 角色基本信息字段
+    // region 角色基本信息字段
     // ===================================
     // 角色基本信息字段
     // ===================================
@@ -35,9 +35,9 @@ public class RoleCreateDto {
      */
     private Integer status;
     
-    //#endregion
+    // endregion
     
-    //#region 权限关联字段
+    // region 权限关联字段
     // ===================================
     // 权限关联字段
     // ===================================
@@ -48,5 +48,5 @@ public class RoleCreateDto {
      */
     private List<Long> permissionIds;
     
-    //#endregion
+    // endregion
 }

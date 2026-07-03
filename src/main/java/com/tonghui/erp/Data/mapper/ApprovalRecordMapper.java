@@ -4,11 +4,8 @@ import com.tonghui.erp.Data.Entity.ApprovalRecord;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 
 /**
-* @author 87954
-* @description 针对表【approval_record(审批记录)】的数据库操作Mapper
-* @createDate 2025-12-18 09:50:00
-* @Entity com.tonghui.erp.Data.Entity.ApprovalRecord
-*/
+ * 审批记录数据访问Mapper接口
+ */
 public interface ApprovalRecordMapper extends BaseMapper<ApprovalRecord> {
 
 }

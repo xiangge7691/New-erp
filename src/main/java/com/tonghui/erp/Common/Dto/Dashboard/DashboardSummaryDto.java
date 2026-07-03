@@ -8,6 +8,12 @@ import lombok.Data;
  */
 @Data
 public class DashboardSummaryDto {
+
+    // region 数据字段
+    // ===================================
+    // 数据字段
+    // ===================================
+
     /**
      * 生产计划统计
      */
@@ -22,4 +28,6 @@ public class DashboardSummaryDto {
      * 审批统计
      */
     private ApprovalStatsDto approvalStats;
+
+    // endregion
 }

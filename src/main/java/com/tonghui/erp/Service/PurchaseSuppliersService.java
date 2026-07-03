@@ -10,13 +10,17 @@ import com.tonghui.erp.Data.Entity.PurchaseSuppliers;
 import java.util.List;
 
 /**
-* @author 87954
-* @description 针对表【purchase_suppliers(采购供应商信息表)】的数据库操作Service
-* @createDate 2025-10-30 10:16:11
-*/
+ * 采购供应商服务接口
+ * <p>
+ * 提供采购供应商的CRUD操作、查询及带子表的联合查询功能
+ * </p>
+ */
 public interface PurchaseSuppliersService extends IService<PurchaseSuppliers> {
-    
-    // #region 基础操作
+
+    // region 基础操作
+    // ===================================
+    // 基础操作
+    // ===================================
 
     /**
      * 新增采购供应商
@@ -42,9 +46,12 @@ public interface PurchaseSuppliersService extends IService<PurchaseSuppliers> {
      */
     boolean deletePurchaseSupplier(Long id);
 
-    // #endregion
+    // endregion
 
-    // #region 查询操作
+    // region 查询操作
+    // ===================================
+    // 查询操作
+    // ===================================
 
     /**
      * 根据ID查询采购供应商
@@ -84,9 +91,12 @@ public interface PurchaseSuppliersService extends IService<PurchaseSuppliers> {
      */
     PagedResult<PurchaseSuppliers> getPurchaseSupplierList(PageRequestDto pageRequestDto);
 
-    // #endregion
+    // endregion
 
-    // #region 高级查询
+    // region 高级查询
+    // ===================================
+    // 高级查询
+    // ===================================
 
     /**
      * 高级查询采购供应商（支持分页）
@@ -98,11 +108,22 @@ public interface PurchaseSuppliersService extends IService<PurchaseSuppliers> {
      */
     Page<PurchaseSuppliers> queryPurchaseSuppliers(PurchaseSuppliers purchaseSuppliers, int pageNum, int pageSize);
 
-    // #endregion
+    // endregion
 
-    // #region 带子表查询
+    // region 带子表查询
+    // ===================================
+    // 带子表查询
+    // ===================================
 
+    /**
+     * 查询采购供应商（包含关联订单和入库单）
+     *
+     * @param purchaseSuppliers 查询条件
+     * @param pageNum           页码
+     * @param pageSize          每页大小
+     * @return 包含关联数据的分页结果
+     */
     PagedResult<PurchaseSuppliersWithDetailsDto> searchWithDetails(PurchaseSuppliers purchaseSuppliers, int pageNum, int pageSize);
 
-    // #endregion
+    // endregion
 }

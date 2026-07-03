@@ -16,6 +16,11 @@ import java.time.LocalDateTime;
 @Data
 public abstract class AuditEntity {
 
+    // region 审计字段
+    // ===================================
+    // 审计字段
+    // ===================================
+
     /**
      * 创建人ID
      */
@@ -39,4 +44,6 @@ public abstract class AuditEntity {
      */
     @TableField(value = "updated_time", fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updatedTime;
+
+    // endregion
 }

@@ -16,7 +16,7 @@ import java.util.*;
  */
 public class JwtHelper {
     
-    //#region JWT令牌生成方法
+    // region JWT令牌生成方法
     // ===================================
     // JWT令牌生成方法
     // ===================================
@@ -67,9 +67,9 @@ public class JwtHelper {
         return builder.compact();
     }
     
-    //#endregion
+    // endregion
     
-    //#region JWT令牌验证方法
+    // region JWT令牌验证方法
     // ===================================
     // JWT令牌验证方法
     // ===================================
@@ -107,9 +107,9 @@ public class JwtHelper {
         }
     }
     
-    //#endregion
+    // endregion
     
-    //#region JWT令牌信息解析方法
+    // region JWT令牌信息解析方法
     // ===================================
     // JWT令牌信息解析方法
     // ===================================
@@ -207,9 +207,9 @@ public class JwtHelper {
         }
     }
     
-    //#endregion
+    // endregion
     
-    //#region JWT 令牌刷新方法
+    // region JWT 令牌刷新方法
     // ===================================
     // JWT 令牌刷新方法
     // ===================================
@@ -308,5 +308,5 @@ public class JwtHelper {
         return userInfo;
     }
     
-    //#endregion
+    // endregion
 }

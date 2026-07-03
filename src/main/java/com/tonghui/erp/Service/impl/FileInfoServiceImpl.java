@@ -30,9 +30,21 @@ import java.util.List;
 public class FileInfoServiceImpl extends ServiceImpl<FileInfoMapper, FileInfo> 
     implements FileInfoService {
     
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
     @Autowired
     private FileStorageService fileStorageService;
-    
+
+    // endregion
+
+    // region 文件上传方法
+    // ===================================
+    // 文件上传方法
+    // ===================================
+
     @Override
     @Transactional
     public FileInfo uploadFile(MultipartFile file, String category, String description) throws IOException {
@@ -79,6 +91,13 @@ public class FileInfoServiceImpl extends ServiceImpl<FileInfoMapper, FileInfo>
         return fileInfo;
     }
     
+    // endregion
+
+    // region 文件操作方法
+    // ===================================
+    // 文件操作方法
+    // ===================================
+
     @Override
     public InputStream getFileInputStream(Long fileId) throws IOException {
         FileInfo fileInfo = getById(fileId);
@@ -117,6 +136,13 @@ public class FileInfoServiceImpl extends ServiceImpl<FileInfoMapper, FileInfo>
         }
     }
     
+    // endregion
+
+    // region 文件查询方法
+    // ===================================
+    // 文件查询方法
+    // ===================================
+
     @Override
     public PagedResult<FileInfo> getFilesByCategory(String category, int pageIndex, int pageSize) {
         QueryWrapper<FileInfo> queryWrapper = new QueryWrapper<>();
@@ -189,4 +215,6 @@ public class FileInfoServiceImpl extends ServiceImpl<FileInfoMapper, FileInfo>
 
         return fileInfo;
     }
+
+    // endregion
 }

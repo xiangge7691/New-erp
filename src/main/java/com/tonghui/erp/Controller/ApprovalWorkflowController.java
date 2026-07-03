@@ -18,9 +18,21 @@ import java.util.List;
 @RequestMapping("/api/approval/workflow")
 public class ApprovalWorkflowController extends BaseController {
     
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
     @Autowired
     private ApprovalWorkflowService approvalWorkflowService;
-    
+
+    // endregion
+
+    // region 查询接口
+    // ===================================
+    // 查询接口
+    // ===================================
+
     /**
      * 获取审批流程列表
      * GET /api/approval/workflow
@@ -124,6 +136,13 @@ public class ApprovalWorkflowController extends BaseController {
         }
     }
     
+    // endregion
+
+    // region 增删改接口
+    // ===================================
+    // 增删改接口
+    // ===================================
+
     /**
      * 创建审批流程
      * POST /api/approval/workflow
@@ -226,6 +245,13 @@ public class ApprovalWorkflowController extends BaseController {
         }
     }
 
+    // endregion
+
+    // region 高级查询接口
+    // ===================================
+    // 高级查询接口
+    // ===================================
+
     /**
      * 查询审批流程（包含节点子表）
      *
@@ -246,4 +272,6 @@ public class ApprovalWorkflowController extends BaseController {
             return exception(e, "查询审批流程");
         }
     }
+
+    // endregion
 }

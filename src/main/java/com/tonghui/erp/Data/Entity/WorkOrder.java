@@ -17,6 +17,11 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class WorkOrder extends AuditEntity {
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 工单唯一标识
      */
@@ -52,6 +57,13 @@ public class WorkOrder extends AuditEntity {
      */
     @TableField(value = "preparation_name")
     private String preparationName;
+
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
 
     /**
      * 批量
@@ -137,6 +149,13 @@ public class WorkOrder extends AuditEntity {
     @TableField(value = "return_amount")
     private BigDecimal returnAmount;
 
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
     /**
      * 是否已删除
      */
@@ -148,4 +167,6 @@ public class WorkOrder extends AuditEntity {
      */
     @TableField(value = "version")
     private Integer version;
+
+    // endregion
 }

@@ -13,13 +13,10 @@ import java.util.List;
  * 提供用户角色关联相关的业务逻辑接口，包括用户角色关联的查询、管理等功能
  * </p>
  * 
- * @author 87954
- * @description 针对表【user_role(用户-角色关联表)】的数据库操作Service
- * @createDate 2025-08-27 10:08:57
  */
 public interface UserRoleService extends IService<UserRole> {
     
-    //#region 基础查询接口
+    // region 基础查询接口
     // ===================================
     // 基础查询接口
     // ===================================
@@ -39,9 +36,9 @@ public interface UserRoleService extends IService<UserRole> {
      * @return 用户角色关联列表
      */
     List<UserRole> getByRoleId(Long roleId);
-    //#endregion
+    // endregion
 
-    //#region DTO查询接口
+    // region DTO查询接口
     // ===================================
     // DTO查询接口
     // ===================================
@@ -61,9 +58,9 @@ public interface UserRoleService extends IService<UserRole> {
      * @return 用户角色关联DTO列表
      */
     List<UserRoleDto> getDtosByRoleId(Long roleId);
-    //#endregion
+    // endregion
 
-    //#region 数据转换接口
+    // region 数据转换接口
     // ===================================
     // 数据转换接口
     // ===================================
@@ -75,9 +72,9 @@ public interface UserRoleService extends IService<UserRole> {
      * @return 用户角色DTO
      */
     UserRoleDto convertToDto(UserRole entity);
-    //#endregion
+    // endregion
 
-    //#region 高级查询接口
+    // region 高级查询接口
     // ===================================
     // 高级查询接口
     // ===================================
@@ -129,5 +126,5 @@ public interface UserRoleService extends IService<UserRole> {
      * @return 分页结果
      */
     PagedResult<UserRoleDto> getPagedDto(int pageIndex, int pageSize);
-    //#endregion
+    // endregion
 }

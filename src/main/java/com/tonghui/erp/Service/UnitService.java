@@ -13,7 +13,7 @@ import com.tonghui.erp.Common.Dto.PagedResult;
  */
 public interface UnitService extends IService<Unit> {
     
-    //#region 计量单位查询方法
+    // region 计量单位查询方法
     // ===================================
     // 计量单位查询方法
     // ===================================
@@ -27,5 +27,5 @@ public interface UnitService extends IService<Unit> {
      */
     PagedResult<Unit> searchByName(String unitName, PageRequestDto pageRequest);
     
-    //#endregion
+    // endregion
 }

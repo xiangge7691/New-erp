@@ -14,14 +14,10 @@ import java.util.List;
  * <p>
  * 提供部门相关的业务逻辑接口，包括部门的查询、管理等功能
  * </p>
- * 
- * @author 87954
- * @description 针对表【department(部门信息表)】的数据库操作Service
- * @createDate 2025-08-27 10:08:57
  */
 public interface DepartmentService extends IService<Department> {
     
-    //#region 基础操作接口
+    // region 基础操作接口
     // ===================================
     // 部门基础操作接口
     // ===================================
@@ -40,9 +36,9 @@ public interface DepartmentService extends IService<Department> {
      * @return 部门DTO对象
      */
     DepartmentDto getDtoById(Long id);
-    //#endregion
+    // endregion
 
-    //#region 部门查询接口
+    // region 部门查询接口
     // ===================================
     // 部门查询接口
     // ===================================
@@ -68,9 +64,9 @@ public interface DepartmentService extends IService<Department> {
      * @return 部门列表的分页结果
      */
     PagedResult<DepartmentDto> advancedSearchDepartments();
-    //#endregion
+    // endregion
     
-    //#region 高级查询接口
+    // region 高级查询接口
     // ===================================
     // 高级查询接口
     // ===================================
@@ -84,9 +80,9 @@ public interface DepartmentService extends IService<Department> {
      * 带子表查询部门
      */
     PagedResult<DepartmentWithDetailsDto> searchWithDetails(Department department, int pageNum, int pageSize);
-    //#endregion
+    // endregion
 
-    //#region 数据转换接口
+    // region 数据转换接口
     // ===================================
     // 数据转换接口
     // ===================================
@@ -98,9 +94,9 @@ public interface DepartmentService extends IService<Department> {
      * @return DepartmentDto对象
      */
     DepartmentDto convertToDto(Department department);
-    //#endregion
+    // endregion
     
-    //#region 部门信息获取接口
+    // region 部门信息获取接口
     // ===================================
     // 部门信息获取接口
     // ===================================
@@ -112,9 +108,9 @@ public interface DepartmentService extends IService<Department> {
      * @return 部门实体
      */
     Department getByDepartmentName(String departmentName);
-    //#endregion
+    // endregion
     
-    //#region 部门关联检查接口
+    // region 部门关联检查接口
     // ===================================
     // 部门关联检查接口
     // ===================================
@@ -126,9 +122,9 @@ public interface DepartmentService extends IService<Department> {
      * @return 是否有关联用户
      */
     boolean hasUserDepartments(Long departmentId);
-    //#endregion
+    // endregion
     
-    //#region 部门详情接口
+    // region 部门详情接口
     // ===================================
     // 部门详情接口
     // ===================================
@@ -140,5 +136,5 @@ public interface DepartmentService extends IService<Department> {
      * @return 部门详细信息
      */
     DepartmentDto getDepartmentDetails(Long departmentId);
-    //#endregion
+    // endregion
 }

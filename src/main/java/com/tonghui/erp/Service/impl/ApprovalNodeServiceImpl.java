@@ -20,15 +20,39 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * 针对表【approval_node(审批节点)】的数据库操作Service实现
+ * 审批节点服务实现类
+ * <p>
+ * 实现ApprovalNodeService接口，提供审批节点的CRUD操作、条件查询及带子表的联合查询功能
+ * </p>
  */
 @Service
 public class ApprovalNodeServiceImpl extends ServiceImpl<ApprovalNodeMapper, ApprovalNode>
     implements ApprovalNodeService {
 
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
+    /**
+     * 审批记录Mapper
+     */
     @Autowired
     private ApprovalRecordMapper approvalRecordMapper;
 
+    // endregion
+
+    // region 基础查询方法
+    // ===================================
+    // 基础查询方法
+    // ===================================
+
+    /**
+     * 根据流程ID获取审批节点列表
+     *
+     * @param workflowId 流程ID
+     * @return 审批节点列表，按nodeOrder升序
+     */
     @Override
     public List<ApprovalNode> getNodesByWorkflowId(Long workflowId) {
         QueryWrapper<ApprovalNode> queryWrapper = new QueryWrapper<>();
@@ -37,6 +61,13 @@ public class ApprovalNodeServiceImpl extends ServiceImpl<ApprovalNodeMapper, App
         return list(queryWrapper);
     }
 
+    /**
+     * 根据流程ID和节点顺序获取审批节点
+     *
+     * @param workflowId 流程ID
+     * @param nodeOrder  节点顺序
+     * @return 审批节点
+     */
     @Override
     public ApprovalNode getNodeByWorkflowIdAndOrder(Long workflowId, Integer nodeOrder) {
         QueryWrapper<ApprovalNode> queryWrapper = new QueryWrapper<>();
@@ -45,6 +76,13 @@ public class ApprovalNodeServiceImpl extends ServiceImpl<ApprovalNodeMapper, App
         return getOne(queryWrapper);
     }
 
+    /**
+     * 获取审批节点列表（分页）
+     *
+     * @param pageIndex 页码索引
+     * @param pageSize  每页数量
+     * @return 分页结果
+     */
     @Override
     public PagedResult<ApprovalNode> getNodes(int pageIndex, int pageSize) {
         Page<ApprovalNode> page = new Page<>(pageIndex + 1, pageSize);
@@ -62,6 +100,21 @@ public class ApprovalNodeServiceImpl extends ServiceImpl<ApprovalNodeMapper, App
         return pagedResult;
     }
 
+    // endregion
+
+    // region 条件查询方法
+    // ===================================
+    // 条件查询方法
+    // ===================================
+
+    /**
+     * 条件查询审批节点（分页）
+     *
+     * @param approvalNode 查询条件对象
+     * @param pageNum      页码（从0开始）
+     * @param pageSize     每页数量
+     * @return MyBatis Plus分页结果
+     */
     @Override
     public Page<ApprovalNode> queryApprovalNodes(ApprovalNode approvalNode, int pageNum, int pageSize) {
         int actualPageNum = pageNum + 1;
@@ -87,6 +140,21 @@ public class ApprovalNodeServiceImpl extends ServiceImpl<ApprovalNodeMapper, App
         return this.page(page, wrapper);
     }
 
+    // endregion
+
+    // region 带子表查询方法
+    // ===================================
+    // 带子表查询方法
+    // ===================================
+
+    /**
+     * 查询审批节点（包含审批记录子表）
+     *
+     * @param approvalNode 查询条件对象
+     * @param pageNum      页码（从0开始）
+     * @param pageSize     每页数量
+     * @return 包含审批记录的分页结果
+     */
     @Override
     public PagedResult<ApprovalNodeWithRecordsDto> searchWithDetails(ApprovalNode approvalNode, int pageNum, int pageSize) {
         Page<ApprovalNode> parentPage = queryApprovalNodes(approvalNode, pageNum, pageSize);
@@ -101,6 +169,7 @@ public class ApprovalNodeServiceImpl extends ServiceImpl<ApprovalNodeMapper, App
             return result;
         }
 
+        // 批量查询关联的审批记录
         List<Long> nodeIds = parents.stream().map(ApprovalNode::getId).collect(Collectors.toList());
         QueryWrapper<ApprovalRecord> recordWrapper = new QueryWrapper<>();
         recordWrapper.in("node_id", nodeIds);
@@ -108,6 +177,7 @@ public class ApprovalNodeServiceImpl extends ServiceImpl<ApprovalNodeMapper, App
         Map<Long, List<ApprovalRecord>> recordsMap = allRecords.stream()
                 .collect(Collectors.groupingBy(ApprovalRecord::getNodeId));
 
+        // 组装DTO
         List<ApprovalNodeWithRecordsDto> dtos = parents.stream().map(parent -> {
             ApprovalNodeWithRecordsDto dto = new ApprovalNodeWithRecordsDto();
             BeanUtils.copyProperties(parent, dto);
@@ -121,4 +191,6 @@ public class ApprovalNodeServiceImpl extends ServiceImpl<ApprovalNodeMapper, App
         result.setPageSize(pageSize);
         return result;
     }
+
+    // endregion
 }

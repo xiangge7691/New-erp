@@ -17,6 +17,12 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class StockOut extends AuditEntity {
+
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 出库单唯一标识
      */
@@ -53,6 +59,13 @@ public class StockOut extends AuditEntity {
     @TableField(value = "related_order")
     private String relatedOrder;
 
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
+
     /**
      * 出库日期
      */
@@ -83,6 +96,13 @@ public class StockOut extends AuditEntity {
     @TableField(value = "approval_instance_id")
     private Long approvalInstanceId;
 
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
     /**
      * 是否已删除
      */
@@ -94,4 +114,6 @@ public class StockOut extends AuditEntity {
      */
     @TableField(value = "version")
     private Integer version;
+
+    // endregion
 }

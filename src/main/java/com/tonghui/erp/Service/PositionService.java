@@ -11,7 +11,14 @@ import com.tonghui.erp.Data.Entity.Position;
  */
 public interface PositionService extends IService<Position> {
 
+    // region 查询操作
+    // ===================================
+    // 查询操作
+    // ===================================
+
     Page<Position> queryPositions(Position position, int pageNum, int pageSize);
 
     PagedResult<PositionWithDetailsDto> searchWithDetails(Position position, int pageNum, int pageSize);
+
+    // endregion
 }

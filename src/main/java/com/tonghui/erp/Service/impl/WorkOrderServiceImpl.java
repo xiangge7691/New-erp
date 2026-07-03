@@ -20,13 +20,40 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
+/**
+ * 工单服务实现类
+ * <p>
+ * 实现WorkOrderService接口，提供工单相关的业务逻辑处理，包括工单的增删改查、
+ * 工单编号自动生成、高级查询等功能的具体实现
+ * </p>
+ *
+ */
 @Service
 public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder>
         implements WorkOrderService {
     
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
+    /** 制剂服务，用于获取制剂信息 */
     @Autowired
     private PreparationService preparationService;
 
+    // endregion
+
+    // region 分页查询方法
+    // ===================================
+    // 分页查询方法
+    // ===================================
+
+    /**
+     * 分页查询工单列表
+     *
+     * @param pageRequestDto 分页请求参数，包含页码和每页数量
+     * @return 工单分页结果
+     */
     @Override
     public PagedResult<WorkOrder> getWorkOrderList(PageRequestDto pageRequestDto) {
         Page<WorkOrder> page = new Page<>(pageRequestDto.getPageIndex(), pageRequestDto.getPageSize());
@@ -41,8 +68,23 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         return pagedResult;
     }
 
-    //#region 基础操作
+    // endregion
 
+    // region 基础CRUD操作
+    // ===================================
+    // 基础CRUD操作
+    // ===================================
+
+    /**
+     * 新增工单
+     * <p>
+     * 自动根据preparationId填充制剂编码和名称，设置创建时间和更新时间，
+     * 以及当前操作用户作为创建人和更新人
+     * </p>
+     *
+     * @param workOrder 工单实体
+     * @return 操作是否成功
+     */
     @Override
     @Transactional
     public boolean addWorkOrder(WorkOrder workOrder) {
@@ -78,6 +120,13 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         return this.save(workOrder);
     }
 
+    /**
+     * 更新工单
+     * <p>自动更新更新时间和更新人信息</p>
+     *
+     * @param workOrder 工单实体，包含要更新的字段信息
+     * @return 操作是否成功
+     */
     @Override
     @Transactional
     public boolean updateWorkOrder(WorkOrder workOrder) {
@@ -93,25 +142,55 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         return this.updateById(workOrder);
     }
 
+    /**
+     * 删除工单
+     *
+     * @param workOrderId 工单ID
+     * @return 操作是否成功
+     */
     @Override
     @Transactional
     public boolean deleteWorkOrder(Long workOrderId) {
         return this.removeById(workOrderId);
     }
 
-    //#endregion
+    // endregion
 
-    //#region 查询操作
+    // region 查询操作
+    // ===================================
+    // 查询操作
+    // ===================================
 
+    /**
+     * 根据ID查询工单
+     *
+     * @param workOrderId 工单ID
+     * @return 工单实体，不存在则返回null
+     */
     @Override
     public WorkOrder getWorkOrderById(Long workOrderId) {
         return this.getById(workOrderId);
     }
 
-    //#endregion
+    // endregion
 
-    //#region 高级查询
+    // region 高级查询
+    // ===================================
+    // 高级查询
+    // ===================================
 
+    /**
+     * 高级查询工单（支持多条件组合查询和时间范围筛选）
+     *
+     * @param workOrder 查询条件实体，非null字段将作为等值或模糊查询条件
+     * @param createdTimeStart 创建时间起始值（含）
+     * @param createdTimeEnd   创建时间结束值（含）
+     * @param updatedTimeStart 更新时间起始值（含）
+     * @param updatedTimeEnd   更新时间结束值（含）
+     * @param pageNum          页码，从0开始
+     * @param pageSize         每页数量
+     * @return 工单分页结果
+     */
     @Override
     public Page<WorkOrder> queryWorkOrders(WorkOrder workOrder,
                                            LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
@@ -206,13 +285,25 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         return this.page(page, wrapper);
     }
 
-    //#endregion
+    // endregion
     
-    //#region 工单编号生成
-    
+    // region 工单编号生成
+    // ===================================
+    // 工单编号生成
+    // ===================================
+
+    /**
+     * 自动生成工单编号
+     * <p>
+     * 编号格式：GD + 年月日(8位) + 序号(4位)，例如：GD202512010001
+     * 序号根据当天已有的最大编号自动递增
+     * </p>
+     *
+     * @return 生成的唯一工单编号
+     */
     @Override
     public String generateWorkOrderCode() {
-        // 生成工单编号格式: WO + 年月日 + 4位序号，例如: WO202512010001
+        // 生成工单编号格式: GD + 年月日 + 4位序号，例如: GD202512010001
         LocalDate today = LocalDate.now();
         String dateStr = today.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String prefix = "GD" + dateStr;
@@ -240,9 +331,5 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         return String.format("%s%04d", prefix, nextSeq);
     }
     
-    //#endregion
+    // endregion
 }
-
-
-
-

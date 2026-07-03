@@ -17,6 +17,11 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class ProductionPlan extends AuditEntity {
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 计划唯一标识
      */
@@ -47,6 +52,13 @@ public class ProductionPlan extends AuditEntity {
     @TableField(value = "preparation_name")
     private String preparationName;
 
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
+
     /**
      * 计划数量（批量）
      */
@@ -58,18 +70,6 @@ public class ProductionPlan extends AuditEntity {
      */
     @TableField(value = "plan_type")
     private Object planType;
-
-    /**
-     * 当前状态
-     */
-    @TableField(value = "current_status")
-    private String currentStatus;
-
-    /**
-     * 当前状态时间
-     */
-    @TableField(value = "current_status_date")
-    private LocalDateTime currentStatusDate;
 
     /**
      * 备注信息
@@ -161,6 +161,25 @@ public class ProductionPlan extends AuditEntity {
     @TableField(value = "archive_time")
     private LocalDateTime archiveTime;
 
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
+    /**
+     * 当前状态
+     */
+    @TableField(value = "current_status")
+    private String currentStatus;
+
+    /**
+     * 当前状态时间
+     */
+    @TableField(value = "current_status_date")
+    private LocalDateTime currentStatusDate;
+
     /**
      * 是否已删除
      */
@@ -172,4 +191,6 @@ public class ProductionPlan extends AuditEntity {
      */
     @TableField(value = "version")
     private Integer version;
+
+    // endregion
 }

@@ -28,11 +28,27 @@ import java.util.ArrayList;
 
 /**
  * 系统菜单接口（简化）
- * 对齐 openapi: /api/system/menus/simple
+ *
+ * 接口清单：
+ * ┌────┬──────────────────────────────────────┬────────┬─────────────────────────────────────┐
+ * │ #  │ 接口                                 │ 方法   │ 说明                                │
+ * ├────┼──────────────────────────────────────┼────────┼─────────────────────────────────────┤
+ * │ 1  │ /api/system/menus/simple             │ GET   │ 获取用户菜单权限列表                │
+ * └────┴──────────────────────────────────────┴────────┴─────────────────────────────────────┘
+ *
+ * 说明：
+ * - 根据当前登录用户的角色权限，过滤并返回该用户有权限访问的菜单
+ * - 菜单权限树结构，支持多级嵌套
+ * - 需要JWT令牌认证
  */
 @RestController
 @RequestMapping("/api/system/menus")
 public class SystemMenuController {
+
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
 
     private final PermissionService permissionService;
     private final UserService userService;
@@ -53,6 +69,27 @@ public class SystemMenuController {
         this.jwtConfig = jwtConfig;
     }
 
+    // endregion
+
+    // region 菜单查询接口
+    // ===================================
+    // 菜单查询接口
+    // ===================================
+
+    /**
+     * 获取用户菜单权限列表
+     *
+     * 根据当前登录用户的JWT令牌，获取该用户有权限访问的菜单列表。
+     * 菜单权限通过用户-角色-权限的关联关系进行过滤。
+     *
+     * 示例请求：
+     * GET /api/system/menus/simple
+     * Headers:
+     *   Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+     *
+     * @param request HTTP请求对象，用于获取认证头信息
+     * @return 菜单路由记录列表，包含菜单名称、路径、子菜单等信息
+     */
     @GetMapping("/simple")
     public ApiResponse<List<AppRouteRecordDto>> getSimpleMenus(HttpServletRequest request) {
         try {
@@ -92,8 +129,16 @@ public class SystemMenuController {
         }
     }
 
+    // endregion
+
+    // region 私有辅助方法
+    // ===================================
+    // 私有辅助方法
+    // ===================================
+
     /**
      * 获取用户拥有的权限ID集合
+     *
      * @param userId 用户ID
      * @return 权限ID集合
      */
@@ -123,6 +168,7 @@ public class SystemMenuController {
 
     /**
      * 根据用户权限过滤权限树
+     *
      * @param permissions 权限列表
      * @param userPermissionIds 用户拥有的权限ID集合
      * @return 过滤后的权限列表
@@ -162,6 +208,7 @@ public class SystemMenuController {
     
     /**
      * 过滤权限及其子权限
+     *
      * @param permission 权限
      * @param userPermissionIds 用户拥有的权限ID集合
      * @return 过滤后的权限，如果没有子权限则返回null
@@ -181,6 +228,7 @@ public class SystemMenuController {
     
     /**
      * 复制权限对象但不复制其子权限
+     *
      * @param source 源权限对象
      * @return 复制的权限对象
      */
@@ -198,6 +246,12 @@ public class SystemMenuController {
         return copy;
     }
 
+    /**
+     * 获取第一个叶子节点路径
+     *
+     * @param routes 路由记录列表
+     * @return 第一个叶子节点路径
+     */
     private String getFirstLeafPath(List<AppRouteRecordDto> routes) {
         if (routes == null || routes.isEmpty()) return null;
         for (AppRouteRecordDto r : routes) {
@@ -210,6 +264,12 @@ public class SystemMenuController {
         return null;
     }
 
+    /**
+     * 将权限对象转换为路由记录
+     *
+     * @param p 权限对象
+     * @return 路由记录
+     */
     private AppRouteRecordDto toRouteRecord(PermissionDto p) {
         AppRouteRecordDto route = new AppRouteRecordDto();
         String path = p.getPermKey() != null ? "/" + p.getPermKey() : "/" + (p.getId() != null ? p.getId() : "route");
@@ -231,4 +291,6 @@ public class SystemMenuController {
         route.setChildren(children);
         return route;
     }
+
+    // endregion
 }

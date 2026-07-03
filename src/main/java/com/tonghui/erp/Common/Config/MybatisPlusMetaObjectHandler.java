@@ -8,13 +8,18 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 
 /**
- * MyBatis-Plus 自动填充处理器
+ * MyBatis-Plus自动填充处理器
  * <p>
  * 自动填充审计字段：createdBy、updatedBy、createdTime、updatedTime
  * </p>
  */
 @Component
 public class MybatisPlusMetaObjectHandler implements MetaObjectHandler {
+
+    // region 方法定义
+    // ===================================
+    // 方法定义
+    // ===================================
 
     /**
      * 插入操作自动填充
@@ -41,4 +46,6 @@ public class MybatisPlusMetaObjectHandler implements MetaObjectHandler {
         this.strictUpdateFill(metaObject, "updatedBy", Long.class, currentUserId);
         this.strictUpdateFill(metaObject, "updatedTime", LocalDateTime.class, now);
     }
+
+    // endregion
 }

@@ -15,6 +15,11 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class UserDepartment extends AuditEntity {
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 关联ID
      */
@@ -39,9 +44,18 @@ public class UserDepartment extends AuditEntity {
     @TableField(value = "is_primary")
     private Integer isPrimary;
 
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
     /**
      * 是否已删除
      */
     @TableField(value = "is_deleted")
     private Integer isDeleted;
+
+    // endregion
 }

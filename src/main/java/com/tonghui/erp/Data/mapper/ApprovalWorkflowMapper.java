@@ -4,11 +4,8 @@ import com.tonghui.erp.Data.Entity.ApprovalWorkflow;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 
 /**
-* @author 87954
-* @description 针对表【approval_workflow(审批流程定义)】的数据库操作Mapper
-* @createDate 2025-12-18 09:50:00
-* @Entity com.tonghui.erp.Data.Entity.ApprovalWorkflow
-*/
+ * 审批工作流数据访问Mapper接口
+ */
 public interface ApprovalWorkflowMapper extends BaseMapper<ApprovalWorkflow> {
 
 }

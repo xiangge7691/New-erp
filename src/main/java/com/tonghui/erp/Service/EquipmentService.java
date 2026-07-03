@@ -9,9 +9,6 @@ import com.tonghui.erp.Common.Dto.Equipment.EquipmentWithDetailsDto;
 import java.util.List;
 
 /**
- * @author 87954
- * @description 针对表【equipment(设备表，记录设备详细信息。)】的数据库操作 Service
- * @createDate 2026-03-09 10:03:26
  */
 public interface EquipmentService extends IService<Equipment> {
     

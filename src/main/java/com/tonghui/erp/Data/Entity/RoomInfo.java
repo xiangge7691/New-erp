@@ -16,6 +16,12 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class RoomInfo extends AuditEntity {
+
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 房间 ID，主键。唯一标识，自增长。
      */
@@ -33,6 +39,13 @@ public class RoomInfo extends AuditEntity {
      */
     @TableField(value = "room_location")
     private String roomLocation;
+
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
 
     /**
      * 面积。房间的面积，单位为平方米（㎡）。
@@ -94,6 +107,13 @@ public class RoomInfo extends AuditEntity {
     @TableField(value = "cleaning_cycle")
     private Integer cleaningCycle;
 
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
     /**
      * 是否已删除
      */
@@ -105,4 +125,6 @@ public class RoomInfo extends AuditEntity {
      */
     @TableField(value = "version")
     private Integer version;
+
+    // endregion
 }

@@ -10,9 +10,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
-* @author 87954
-* @description 针对表【production_plan(生产计划主表)】的数据库操作Service
-* @createDate 2025-12-08 14:02:29
 */
 public interface ProductionPlanService extends IService<ProductionPlan> {
 

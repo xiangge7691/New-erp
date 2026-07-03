@@ -13,13 +13,10 @@ import java.util.List;
  * 提供用户部门关联相关的业务逻辑接口，包括用户部门关联的查询、管理等功能
  * </p>
  * 
- * @author 87954
- * @description 针对表【user_department(用户-部门关联表)】的数据库操作Service
- * @createDate 2025-08-27 10:08:57
  */
 public interface UserDepartmentService extends IService<UserDepartment> {
     
-    //#region 基础查询接口
+    // region 基础查询接口
     // ===================================
     // 基础查询接口
     // ===================================
@@ -39,9 +36,9 @@ public interface UserDepartmentService extends IService<UserDepartment> {
      * @return 用户部门关联列表
      */
     List<UserDepartment> getByDepartmentId(Long departmentId);
-    //#endregion
+    // endregion
 
-    //#region 主部门查询接口
+    // region 主部门查询接口
     // ===================================
     // 主部门查询接口
     // ===================================
@@ -53,9 +50,9 @@ public interface UserDepartmentService extends IService<UserDepartment> {
      * @return 主部门关联
      */
     UserDepartment getPrimaryDepartment(Long userId);
-    //#endregion
+    // endregion
 
-    //#region 分页查询接口
+    // region 分页查询接口
     // ===================================
     // 分页查询接口
     // ===================================
@@ -87,9 +84,9 @@ public interface UserDepartmentService extends IService<UserDepartment> {
             String createdEndTime,
             int pageIndex,
             int pageSize);
-    //#endregion
+    // endregion
 
-    //#region DTO分页查询接口
+    // region DTO分页查询接口
     // ===================================
     // DTO分页查询接口
     // ===================================
@@ -102,9 +99,9 @@ public interface UserDepartmentService extends IService<UserDepartment> {
      * @return 分页结果
      */
     PagedResult<UserDepartmentDto> getPagedDto(int pageIndex, int pageSize);
-    //#endregion
+    // endregion
 
-    //#region DTO查询接口
+    // region DTO查询接口
     // ===================================
     // DTO查询接口
     // ===================================
@@ -132,9 +129,9 @@ public interface UserDepartmentService extends IService<UserDepartment> {
      * @return 主部门关联DTO
      */
     UserDepartmentDto getPrimaryDepartmentDto(Long userId);
-    //#endregion
+    // endregion
     
-    //#region 数据转换接口
+    // region 数据转换接口
     // ===================================
     // 数据转换接口
     // ===================================
@@ -146,5 +143,5 @@ public interface UserDepartmentService extends IService<UserDepartment> {
      * @return UserDepartmentDto对象
      */
     UserDepartmentDto convertToDto(UserDepartment entity);
-    //#endregion
+    // endregion
 }

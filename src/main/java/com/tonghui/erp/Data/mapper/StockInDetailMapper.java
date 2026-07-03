@@ -4,11 +4,8 @@ import com.tonghui.erp.Data.Entity.StockInDetail;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 
 /**
-* @author 87954
-* @description 针对表【stock_in_detail(入库明细表)】的数据库操作Mapper
-* @createDate 2025-10-22 10:57:45
-* @Entity com.tonghui.erp.Data.Entity.StockInDetail
-*/
+ * 入库明细数据访问Mapper接口
+ */
 public interface StockInDetailMapper extends BaseMapper<StockInDetail> {
 
 }

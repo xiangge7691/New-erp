@@ -14,7 +14,10 @@ import java.util.List;
  */
 public interface PurchaseOrdersService extends IService<PurchaseOrders> {
 
-    // #region 基础操作
+    // region 基础操作
+    // ===================================
+    // 基础操作
+    // ===================================
 
     /**
      * 新增采购订单
@@ -40,9 +43,12 @@ public interface PurchaseOrdersService extends IService<PurchaseOrders> {
      */
     boolean deletePurchaseOrder(Long orderId);
 
-    // #endregion
+    // endregion
 
-    // #region 查询操作
+    // region 查询操作
+    // ===================================
+    // 查询操作
+    // ===================================
 
     /**
      * 根据ID查询采购订单
@@ -60,9 +66,12 @@ public interface PurchaseOrdersService extends IService<PurchaseOrders> {
      */
     PagedResult<PurchaseOrders> getPurchaseOrderList(PageRequestDto pageRequestDto);
 
-    // #endregion
+    // endregion
 
-    // #region 高级查询
+    // region 高级查询
+    // ===================================
+    // 高级查询
+    // ===================================
 
     /**
      * 高级查询采购订单（支持分页）
@@ -74,9 +83,12 @@ public interface PurchaseOrdersService extends IService<PurchaseOrders> {
      */
     Page<PurchaseOrders> queryPurchaseOrders(PurchaseOrders purchaseOrders, int pageNum, int pageSize);
 
-    // #endregion
+    // endregion
 
-    // #region 带子表查询
+    // region 带子表查询
+    // ===================================
+    // 带子表查询
+    // ===================================
 
     /**
      * 高级查询采购订单（包含明细子表）
@@ -88,5 +100,5 @@ public interface PurchaseOrdersService extends IService<PurchaseOrders> {
      */
     PagedResult<PurchaseOrdersWithItemsDto> searchWithDetails(PurchaseOrders purchaseOrders, int pageNum, int pageSize);
 
-    // #endregion
+    // endregion
 }

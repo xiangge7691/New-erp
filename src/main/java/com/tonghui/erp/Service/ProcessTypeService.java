@@ -8,9 +8,6 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.ProcessTypeWithDetailsDto;
 
 /**
- * @author 87954
- * @description 针对表【process_type(工序类型表)】的数据库操作 Service
- * @createDate 2026-03-09 10:03:25
  */
 public interface ProcessTypeService extends IService<ProcessType> {
     

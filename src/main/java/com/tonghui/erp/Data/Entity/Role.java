@@ -15,6 +15,12 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class Role extends AuditEntity {
+
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 角色唯一标识
      */
@@ -33,6 +39,13 @@ public class Role extends AuditEntity {
     @TableField(value = "role_desc")
     private String roleDesc;
 
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
     /**
      * 状态：1启用,0禁用
      */
@@ -50,4 +63,6 @@ public class Role extends AuditEntity {
      */
     @TableField(value = "version")
     private Integer version;
+
+    // endregion
 }

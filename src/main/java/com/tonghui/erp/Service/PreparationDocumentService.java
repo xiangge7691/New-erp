@@ -9,6 +9,11 @@ import java.util.List;
  */
 public interface PreparationDocumentService extends IService<PreparationDocument> {
 
+    // region 查询操作
+    // ===================================
+    // 查询操作
+    // ===================================
+
     /**
      * 根据制剂ID查询文档列表
      * @param preparationId 制剂ID
@@ -16,10 +21,17 @@ public interface PreparationDocumentService extends IService<PreparationDocument
      */
     List<PreparationDocument> findByPreparationId(Long preparationId);
 
+    // region 查询操作
+    // ===================================
+    // 查询操作
+    // ===================================
+
     /**
      * 根据文档类型查询文档列表
      * @param docType 文档类型
      * @return 文档列表
      */
     List<PreparationDocument> findByDocType(String docType);
+
+    // endregion
 }

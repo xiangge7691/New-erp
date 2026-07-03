@@ -9,6 +9,11 @@ import java.util.List;
  */
 public interface PersonnelCertificateService extends IService<PersonnelCertificate> {
 
+    // region 查询操作
+    // ===================================
+    // 查询操作
+    // ===================================
+
     /**
      * 根据人员档案ID查询所有证书
      * @param personnelFileId 人员档案ID
@@ -16,10 +21,17 @@ public interface PersonnelCertificateService extends IService<PersonnelCertifica
      */
     List<PersonnelCertificate> getByPersonnelFileId(Long personnelFileId);
 
+    // region 查询操作
+    // ===================================
+    // 查询操作
+    // ===================================
+
     /**
      * 保存人员证书列表（先删后插）
      * @param personnelFileId 人员档案ID
      * @param certificates 证书列表
      */
     void saveCertificates(Long personnelFileId, List<PersonnelCertificate> certificates);
+
+    // endregion
 }

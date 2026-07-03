@@ -14,7 +14,7 @@ import java.util.List;
 @Data
 public class LoginResult {
     
-    //#region 登录结果基础字段
+    // region 登录结果基础字段
     // ===================================
     // 登录结果基础字段
     // ===================================
@@ -55,9 +55,9 @@ public class LoginResult {
      */
     private String message;
     
-    //#endregion
+    // endregion
     
-    //#region 内部数据类
+    // region 内部数据类
     // ===================================
     // 内部数据类
     // ===================================
@@ -69,7 +69,7 @@ public class LoginResult {
     @Data
     public static class LoginResultData {
         
-        //#region 结果数据字段
+        // region 结果数据字段
         // ===================================
         // 结果数据字段
         // ===================================
@@ -98,9 +98,9 @@ public class LoginResult {
          */
         private List<Role> roles;
         
-        //#endregion
+        // endregion
         
-        //#region 构造方法
+        // region 构造方法
         // ===================================
         // 构造方法
         // ===================================
@@ -117,8 +117,8 @@ public class LoginResult {
             this.roles = result.getRoles();
         }
         
-        //#endregion
+        // endregion
     }
     
-    //#endregion
+    // endregion
 }

@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.ModelAttribute;
  */
 public abstract class BaseController {
 
-    //#region 分页处理方法
+    // region 分页处理方法
     // ===================================
     // 分页处理方法
     // ===================================
@@ -44,9 +44,9 @@ public abstract class BaseController {
         return result;
     }
     
-    //#endregion
+    // endregion
 
-    //#region 响应构建方法
+    // region 响应构建方法
     // ===================================
     // 响应构建方法
     // ===================================
@@ -97,5 +97,5 @@ public abstract class BaseController {
         return ApiResponse.errorResponse(operation + "失败: " + ex.getMessage());
     }
     
-    //#endregion
+    // endregion
 }

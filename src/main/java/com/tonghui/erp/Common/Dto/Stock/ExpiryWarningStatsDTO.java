@@ -11,6 +11,11 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ExpiryWarningStatsDTO {
+
+    // region 数据字段
+    // ===================================
+    // 数据字段
+    // ===================================
     
     /**
      * 紧急预警数量（≤7天）
@@ -31,4 +36,6 @@ public class ExpiryWarningStatsDTO {
      * 总预警数量
      */
     private Integer totalCount = 0;
+
+    // endregion
 }

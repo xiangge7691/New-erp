@@ -12,9 +12,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
-* @author 87954
-* @description 针对表【stock(库存表（统一管理物料和制剂库存，按生产单位分配）)】的数据库操作Service
-* @createDate 2025-10-22 10:42:53
 */
 public interface StockService extends IService<Stock> {
 

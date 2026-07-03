@@ -4,10 +4,22 @@ import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+/**
+ * JWT配置类
+ * <p>
+ * 从application.yml中读取JWT相关配置属性，包括密钥、签发者、
+ * 受众、过期时间等
+ * </p>
+ */
 @Data
 @Component
 @ConfigurationProperties(prefix = "jwt")
 public class JwtConfig {
+    
+    // region 配置属性
+    // ===================================
+    // 配置属性
+    // ===================================
     
     /**
      * JWT密钥 - 用于签名和验证JWT令牌
@@ -37,4 +49,6 @@ public class JwtConfig {
      * 计算方式：7天 * 24小时/天 * 60分钟/小时 = 10080分钟
      */
     private int refreshExpiresInMinutes = 10080; // 默认7天
+
+    // endregion
 }

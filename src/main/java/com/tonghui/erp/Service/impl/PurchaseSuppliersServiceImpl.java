@@ -24,20 +24,43 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
-* @author 87954
-* @description 针对表【purchase_suppliers(采购供应商信息表)】的数据库操作Service实现
-* @createDate 2025-10-30 10:16:11
-*/
+ * 采购供应商服务实现类
+ * <p>
+ * 实现PurchaseSuppliersService接口，提供采购供应商相关的业务逻辑处理，包括供应商的增删改查、
+ * 高级查询、带子表关联查询等功能的具体实现
+ * </p>
+ *
+ */
 @Service
 public class PurchaseSuppliersServiceImpl extends ServiceImpl<PurchaseSuppliersMapper, PurchaseSuppliers>
     implements PurchaseSuppliersService{
     
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
+    /** 采购订单数据访问层，用于关联查询供应商关联的采购订单 */
     @Autowired
     private PurchaseOrdersMapper purchaseOrdersMapper;
 
+    /** 入库单数据访问层，用于关联查询供应商关联的入库单 */
     @Autowired
     private StockInMapper stockInMapper;
 
+    // endregion
+
+    // region 分页查询方法
+    // ===================================
+    // 分页查询方法
+    // ===================================
+
+    /**
+     * 分页查询采购供应商列表
+     *
+     * @param pageRequestDto 分页请求参数，包含页码和每页数量
+     * @return 采购供应商分页结果
+     */
     @Override
     public PagedResult<PurchaseSuppliers> getPurchaseSupplierList(PageRequestDto pageRequestDto) {
         Page<PurchaseSuppliers> page = new Page<>(pageRequestDto.getPageIndex(), pageRequestDto.getPageSize());
@@ -52,35 +75,73 @@ public class PurchaseSuppliersServiceImpl extends ServiceImpl<PurchaseSuppliersM
         return pagedResult;
     }
 
-    //#region 基础操作
+    // endregion
 
+    // region 基础CRUD操作
+    // ===================================
+    // 基础CRUD操作
+    // ===================================
+
+    /**
+     * 新增采购供应商
+     *
+     * @param purchaseSuppliers 采购供应商实体
+     * @return 操作是否成功
+     */
     @Override
     @Transactional
     public boolean addPurchaseSupplier(PurchaseSuppliers purchaseSuppliers) {
         return this.save(purchaseSuppliers);
     }
 
+    /**
+     * 更新采购供应商
+     *
+     * @param purchaseSuppliers 采购供应商实体，包含要更新的字段信息
+     * @return 操作是否成功
+     */
     @Override
     @Transactional
     public boolean updatePurchaseSupplier(PurchaseSuppliers purchaseSuppliers) {
         return this.updateById(purchaseSuppliers);
     }
 
+    /**
+     * 删除采购供应商
+     *
+     * @param id 采购供应商ID
+     * @return 操作是否成功
+     */
     @Override
     @Transactional
     public boolean deletePurchaseSupplier(Long id) {
         return this.removeById(id);
     }
 
-    //#endregion
+    // endregion
 
-    //#region 查询操作
+    // region 查询操作
+    // ===================================
+    // 查询操作
+    // ===================================
 
+    /**
+     * 根据ID查询采购供应商
+     *
+     * @param id 采购供应商ID
+     * @return 采购供应商实体，不存在则返回null
+     */
     @Override
     public PurchaseSuppliers getPurchaseSupplierById(Long id) {
         return this.getById(id);
     }
 
+    /**
+     * 根据供应商编号查询采购供应商
+     *
+     * @param supplierNumber 供应商编号
+     * @return 采购供应商实体，不存在则返回null
+     */
     @Override
     public PurchaseSuppliers getPurchaseSupplierByNumber(String supplierNumber) {
         QueryWrapper<PurchaseSuppliers> wrapper = new QueryWrapper<>();
@@ -88,6 +149,11 @@ public class PurchaseSuppliersServiceImpl extends ServiceImpl<PurchaseSuppliersM
         return this.getOne(wrapper);
     }
 
+    /**
+     * 查询所有启用状态的采购供应商
+     *
+     * @return 启用状态的采购供应商集合
+     */
     @Override
     public List<PurchaseSuppliers> getEnabledPurchaseSuppliers() {
         QueryWrapper<PurchaseSuppliers> wrapper = new QueryWrapper<>();
@@ -95,15 +161,32 @@ public class PurchaseSuppliersServiceImpl extends ServiceImpl<PurchaseSuppliersM
         return this.list(wrapper);
     }
 
+    /**
+     * 查询所有采购供应商
+     *
+     * @return 全部采购供应商集合
+     */
     @Override
     public List<PurchaseSuppliers> getAllPurchaseSuppliers() {
         return this.list();
     }
 
-    //#endregion
+    // endregion
 
-    //#region 高级查询
+    // region 高级查询
+    // ===================================
+    // 高级查询
+    // ===================================
 
+    /**
+     * 高级查询采购供应商（支持多条件组合查询）
+     * <p>支持按供应商编号、名称、分类、联系人、电话、邮箱、地址、银行信息、状态等条件筛选</p>
+     *
+     * @param purchaseSuppliers 查询条件实体，非null字段将作为等值或模糊查询条件
+     * @param pageNum           页码，从0开始
+     * @param pageSize          每页数量
+     * @return 采购供应商分页结果
+     */
     @Override
     public Page<PurchaseSuppliers> queryPurchaseSuppliers(PurchaseSuppliers purchaseSuppliers, int pageNum, int pageSize) {
         int actualPageNum = pageNum + 1;
@@ -148,12 +231,25 @@ public class PurchaseSuppliersServiceImpl extends ServiceImpl<PurchaseSuppliersM
         return this.page(page, wrapper);
     }
 
-    //#endregion
+    // endregion
 
-    //#region 带子表查询
+    // region 带子表关联查询
+    // ===================================
+    // 带子表关联查询
+    // ===================================
 
+    /**
+     * 查询采购供应商列表并关联采购订单和入库单信息
+     * <p>先分页查询供应商主表数据，再批量查询关联的采购订单和入库单</p>
+     *
+     * @param purchaseSuppliers 查询条件实体
+     * @param pageNum           页码，从0开始
+     * @param pageSize          每页数量
+     * @return 带子表关联数据的采购供应商分页结果
+     */
     @Override
     public PagedResult<PurchaseSuppliersWithDetailsDto> searchWithDetails(PurchaseSuppliers purchaseSuppliers, int pageNum, int pageSize) {
+        // 查询供应商主表分页数据
         Page<PurchaseSuppliers> parentPage = queryPurchaseSuppliers(purchaseSuppliers, pageNum, pageSize);
         List<PurchaseSuppliers> parents = parentPage.getRecords();
 
@@ -166,6 +262,7 @@ public class PurchaseSuppliersServiceImpl extends ServiceImpl<PurchaseSuppliersM
             return result;
         }
 
+        // 批量查询关联的采购订单
         List<Long> supplierIds = parents.stream().map(PurchaseSuppliers::getId).collect(Collectors.toList());
 
         QueryWrapper<PurchaseOrders> orderWrapper = new QueryWrapper<>();
@@ -174,12 +271,14 @@ public class PurchaseSuppliersServiceImpl extends ServiceImpl<PurchaseSuppliersM
         Map<Long, List<PurchaseOrders>> ordersMap = allOrders.stream()
                 .collect(Collectors.groupingBy(PurchaseOrders::getSupplierId));
 
+        // 批量查询关联的入库单
         QueryWrapper<StockIn> stockInWrapper = new QueryWrapper<>();
         stockInWrapper.in("supplier_id", supplierIds);
         List<StockIn> allStockIns = stockInMapper.selectList(stockInWrapper);
         Map<Long, List<StockIn>> stockInsMap = allStockIns.stream()
                 .collect(Collectors.groupingBy(StockIn::getSupplierId));
 
+        // 组装带子表数据的DTO
         List<PurchaseSuppliersWithDetailsDto> dtos = parents.stream().map(parent -> {
             PurchaseSuppliersWithDetailsDto dto = new PurchaseSuppliersWithDetailsDto();
             BeanUtils.copyProperties(parent, dto);
@@ -195,9 +294,5 @@ public class PurchaseSuppliersServiceImpl extends ServiceImpl<PurchaseSuppliersM
         return result;
     }
 
-    //#endregion
+    // endregion
 }
-
-
-
-

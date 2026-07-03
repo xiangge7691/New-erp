@@ -14,7 +14,7 @@ import java.util.ArrayList;
 @Data
 public class RoleDto {
     
-    //#region 角色基本信息字段
+    // region 角色基本信息字段
     // ===================================
     // 角色基本信息字段
     // ===================================
@@ -55,9 +55,9 @@ public class RoleDto {
      */
     private LocalDateTime updatedTime;
     
-    //#endregion
+    // endregion
     
-    //#region 关联关系字段
+    // region 关联关系字段
     // ===================================
     // 关联关系字段
     // ===================================
@@ -74,5 +74,5 @@ public class RoleDto {
      */
     private List<PermissionDto> permissions = new ArrayList<>();
     
-    //#endregion
+    // endregion
 }

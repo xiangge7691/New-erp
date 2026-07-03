@@ -16,6 +16,11 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class ApprovalRecord extends AuditEntity {
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 主键ID
      */
@@ -39,6 +44,13 @@ public class ApprovalRecord extends AuditEntity {
      */
     @TableField(value = "approver_id")
     private Long approverId;
+
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
 
     /**
      * 审批动作 (AGREE-同意/REJECT-驳回/TRANSFER-转交/CANCEL-作废)
@@ -64,8 +76,31 @@ public class ApprovalRecord extends AuditEntity {
     @TableField(value = "approved_at")
     private LocalDateTime approvedAt;
 
+    // endregion
 
-// ========== 关联表显示字段（非数据库字段）==========
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
+    /**
+     * 是否已删除
+     */
+    @TableField(value = "is_deleted")
+    private Integer isDeleted;
+
+    /**
+     * 乐观锁版本号
+     */
+    @TableField(value = "version")
+    private Integer version;
+
+    // endregion
+
+    // region 关联表显示字段
+    // ===================================
+    // 关联表显示字段
+    // ===================================
 
     /**
      * 节点名称（关联approval_node表）
@@ -85,15 +120,5 @@ public class ApprovalRecord extends AuditEntity {
     @TableField(exist = false)
     private String targetNodeName;
 
-    /**
-     * 是否已删除
-     */
-    @TableField(value = "is_deleted")
-    private Integer isDeleted;
-
-    /**
-     * 乐观锁版本号
-     */
-    @TableField(value = "version")
-    private Integer version;
+    // endregion
 }

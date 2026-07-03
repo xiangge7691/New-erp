@@ -27,9 +27,21 @@ import java.util.UUID;
 @Service
 public class FileStorageServiceImpl implements FileStorageService {
     
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
     @Autowired
     private FileStorageConfig fileStorageConfig;
-    
+
+    // endregion
+
+    // region 文件编码方法
+    // ===================================
+    // 文件编码方法
+    // ===================================
+
     @Override
     public String encodeFileToBase64(MultipartFile file) {
         try {
@@ -62,6 +74,13 @@ public class FileStorageServiceImpl implements FileStorageService {
         }
     }
     
+    // endregion
+
+    // region 文件存储方法
+    // ===================================
+    // 文件存储方法
+    // ===================================
+
     @Override
     public FileInfo uploadFile(MultipartFile file, String category, String description) throws IOException {
         return uploadFileWithBusiness(file, category, description, null, null);
@@ -130,6 +149,13 @@ public class FileStorageServiceImpl implements FileStorageService {
         return fileInfo;
     }
     
+    // endregion
+
+    // region 文件删除方法
+    // ===================================
+    // 文件删除方法
+    // ===================================
+
     @Override
     public InputStream getFileInputStream(Long fileId) throws IOException {
         // 这里应该从数据库查询文件路径，然后返回文件流
@@ -144,6 +170,13 @@ public class FileStorageServiceImpl implements FileStorageService {
         return false;
     }
     
+    // endregion
+
+    // region 辅助方法
+    // ===================================
+    // 辅助方法
+    // ===================================
+
     @Override
     public boolean isAllowedFileType(MultipartFile file) {
         String contentType = file.getContentType();

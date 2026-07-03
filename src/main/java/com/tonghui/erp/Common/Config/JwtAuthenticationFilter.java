@@ -14,11 +14,30 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
+/**
+ * JWT认证过滤器
+ * <p>
+ * 每次请求时从Authorization头中提取JWT令牌，验证有效性后
+ * 将用户信息设置到Spring Security上下文中
+ * </p>
+ */
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    // region 字段定义
+    // ===================================
+    // 字段定义
+    // ===================================
+
     @Autowired
     private JwtConfig jwtConfig;
+
+    // endregion
+
+    // region 方法定义
+    // ===================================
+    // 方法定义
+    // ===================================
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -43,4 +62,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         filterChain.doFilter(request, response);
     }
+
+    // endregion
 }

@@ -7,6 +7,12 @@ import lombok.Data;
  */
 @Data
 public class OrderTrackingDto {
+
+    // region 订单基本信息
+    // ===================================
+    // 订单基本信息
+    // ===================================
+
     /**
      * 订单ID
      */
@@ -37,6 +43,13 @@ public class OrderTrackingDto {
      */
     private String currentStatus;
 
+    // endregion
+
+    // region 日期信息
+    // ===================================
+    // 日期信息
+    // ===================================
+
     /**
      * 下单日期
      */
@@ -66,4 +79,6 @@ public class OrderTrackingDto {
      * 归档日期
      */
     private String archiveDate;
+
+    // endregion
 }

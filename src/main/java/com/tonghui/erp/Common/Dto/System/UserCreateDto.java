@@ -12,7 +12,7 @@ import java.util.List;
 @Data
 public class UserCreateDto {
     
-    //#region 用户基本信息字段
+    // region 用户基本信息字段
     // ===================================
     // 用户基本信息字段
     // ===================================
@@ -59,9 +59,9 @@ public class UserCreateDto {
      */
     private String notes;
     
-    //#endregion
+    // endregion
     
-    //#region 关联关系字段
+    // region 关联关系字段
     // ===================================
     // 关联关系字段
     // ===================================
@@ -78,5 +78,5 @@ public class UserCreateDto {
      */
     private List<Long> departmentIds;
     
-    //#endregion
+    // endregion
 }

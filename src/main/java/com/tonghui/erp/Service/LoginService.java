@@ -17,7 +17,7 @@ import java.util.concurrent.CompletableFuture;
  */
 public interface LoginService {
     
-    //#region 异步登录接口
+    // region 异步登录接口
     // ===================================
     // 异步登录接口
     // ===================================
@@ -34,9 +34,9 @@ public interface LoginService {
      * @return 返回登录响应对象，包含验证状态、访问令牌、用户详细信息、角色列表和权限树
      */
     CompletableFuture<LoginResponse> loginWithFullResponseAsync(String userName, String password);
-    //#endregion
+    // endregion
     
-    //#region 同步登录接口
+    // region 同步登录接口
     // ===================================
     // 同步登录接口
     // ===================================
@@ -53,9 +53,9 @@ public interface LoginService {
      * @return 返回登录响应对象，包含验证状态、访问令牌、用户详细信息、角色列表和权限树
      */
     LoginResponse loginWithFullResponse(String userName, String password);
-    //#endregion
+    // endregion
     
-    //#region 令牌刷新接口
+    // region 令牌刷新接口
     // ===================================
     // 令牌刷新接口
     // ===================================
@@ -71,5 +71,5 @@ public interface LoginService {
      * @return 包含新访问令牌和刷新令牌的响应对象，刷新失败时返回 null
      */
     AuthLoginResponse refreshAccessToken(String refreshToken);
-    //#endregion
+    // endregion
 }

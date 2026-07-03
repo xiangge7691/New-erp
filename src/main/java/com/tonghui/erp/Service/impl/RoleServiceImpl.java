@@ -35,40 +35,51 @@ import java.util.stream.Collectors;
 /**
  * 角色服务实现类
  * <p>
- * 实现RoleService接口，提供角色相关的业务逻辑处理，包括角色的查询、权限分配等功能的具体实现
+ * 实现RoleService接口，提供角色相关的业务逻辑处理，包括角色的查询、
+ * 权限分配、数据转换等功能的具体实现
  * </p>
- * 
- * @author 87954
- * @description 针对表【role(系统角色表)】的数据库操作Service实现
- * @createDate 2025-08-27 10:08:57
+ *
  */
 @Service
 public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role>
     implements RoleService{
     
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
+    /** 用户角色关联服务，用于查询角色关联的用户 */
     @Autowired
     private UserRoleService userRoleService;
     
+    /** 角色权限关联服务，用于查询和分配角色的权限 */
     @Autowired
     private RolePermService rolePermService;
     
+    /** 用户服务，用于获取角色关联的用户信息（使用@Lazy避免循环依赖） */
     @Autowired
     @Lazy
     private UserService userService;
     
+    /** 权限服务，用于获取权限详细信息 */
     @Autowired
     private PermissionService permissionService;
 
+    /** 实体转换工具，用于Entity到DTO的转换 */
     @Autowired
     private Converters converters;
 
-    //#region 角色查询接口
+    // endregion
+
+    // region 角色查询接口
     // ===================================
     // 角色查询接口
     // ===================================
-    
+
     /**
-     * 高级查询角色（默认分页参数）
+     * 高级查询角色（默认分页参数，查询所有角色）
+     *
      * @return 角色列表的分页结果
      */
     @Override
@@ -77,16 +88,16 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role>
     }
 
     /**
-     * 高级查询角色（支持按名称、状态和ID进行查询）
-     * 当不传递任何参数时，返回所有角色
-     * 
-     * @param roleName 角色名称关键词，支持模糊查询
-     * @param roleId 角色ID，用于精确查询单个角色
-     * @param status 角色状态，1为启用，0为禁用
-     * @param userId 用户ID，筛选具有指定用户的角色
+     * 高级查询角色（支持按名称、状态、用户ID和权限ID进行查询）
+     * <p>当不传递任何参数时，返回所有角色</p>
+     *
+     * @param roleName     角色名称关键词，支持模糊查询
+     * @param roleId       角色ID，用于精确查询单个角色
+     * @param status       角色状态，1为启用，0为禁用
+     * @param userId       用户ID，筛选具有指定用户的角色
      * @param permissionId 权限ID，筛选具有指定权限的角色
-     * @param pageIndex 页码，从0开始
-     * @param pageSize 每页数量，-1表示不分页返回所有结果
+     * @param pageIndex    页码，从0开始
+     * @param pageSize     每页数量，-1表示不分页返回所有结果
      * @return 角色列表的分页结果
      */
     @Override
@@ -118,7 +129,7 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role>
         
         // 用户筛选
         if (userId != null) {
-            // 这里需要通过关联表查询
+            // 通过关联表查询拥有指定用户的角色
             List<UserRole> userRoles = userRoleService.list(new QueryWrapper<UserRole>().eq("user_id", userId));
             if (!userRoles.isEmpty()) {
                 List<Long> roleIds = userRoles.stream().map(UserRole::getRoleId).collect(Collectors.toList());
@@ -131,7 +142,7 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role>
         
         // 权限筛选
         if (permissionId != null) {
-            // 这里需要通过关联表查询
+            // 通过关联表查询拥有指定权限的角色
             List<RolePerm> rolePerms = rolePermService.list(new QueryWrapper<RolePerm>().eq("perm_id", permissionId));
             if (!rolePerms.isEmpty()) {
                 List<Long> roleIds = rolePerms.stream().map(RolePerm::getRoleId).collect(Collectors.toList());
@@ -176,9 +187,10 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role>
     }
     
     /**
-     * 创建空的分页结果
+     * 创建空的分页结果对象
+     *
      * @param pageIndex 页码
-     * @param pageSize 每页数量
+     * @param pageSize  每页数量
      * @return 空的分页结果
      */
     private PagedResult<RoleDto> createEmptyPagedResult(int pageIndex, int pageSize) {
@@ -189,31 +201,42 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role>
         emptyResult.setPageSize(pageSize == -1 ? 0 : pageSize);
         return emptyResult;
     }
-    //#endregion
+
+    // endregion
     
-    //#region 角色详情接口
+    // region 角色详情接口
     // ===================================
     // 角色详情接口
     // ===================================
-    
+
     /**
      * 获取角色详细信息
-     * 根据角色ID获取该角色的完整信息，包括关联的用户和权限信息
+     * <p>根据角色ID获取该角色的完整信息，包括关联的用户和权限信息</p>
+     *
      * @param roleId 角色ID
-     * @return 角色详细信息DTO
+     * @return 角色详细信息DTO，不存在则返回null
      */
     @Override
     public RoleDto getRoleDetails(Long roleId) {
         Role roleEntity = this.getById(roleId);
         return roleEntity != null ? convertToDto(roleEntity) : null;
     }
-    //#endregion
+
+    // endregion
     
-    //#region 高级查询接口
+    // region 高级查询接口
     // ===================================
     // 高级查询接口
     // ===================================
 
+    /**
+     * 高级查询角色（支持按角色ID、名称、状态条件组合查询）
+     *
+     * @param role     查询条件实体，非null字段将作为等值或模糊查询条件
+     * @param pageNum  页码，从0开始
+     * @param pageSize 每页数量
+     * @return 角色分页结果
+     */
     @Override
     public Page<Role> queryRoles(Role role, int pageNum, int pageSize) {
         int actualPageNum = pageNum + 1;
@@ -235,8 +258,18 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role>
         return baseMapper.selectPage(page, wrapper);
     }
 
+    /**
+     * 查询角色列表并关联权限和用户角色信息
+     * <p>先分页查询角色主表数据，再批量查询关联的权限和用户角色</p>
+     *
+     * @param role     查询条件实体
+     * @param pageNum  页码，从0开始
+     * @param pageSize 每页数量
+     * @return 带子表关联数据的角色分页结果
+     */
     @Override
     public PagedResult<RoleWithDetailsDto> searchWithDetails(Role role, int pageNum, int pageSize) {
+        // 查询角色主表分页数据
         Page<Role> parentPage = queryRoles(role, pageNum, pageSize);
         List<Role> parents = parentPage.getRecords();
 
@@ -249,6 +282,7 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role>
             return result;
         }
 
+        // 批量查询关联的权限信息
         List<Long> parentIds = parents.stream().map(Role::getRoleId).collect(Collectors.toList());
 
         QueryWrapper<RolePerm> permWrapper = new QueryWrapper<>();
@@ -256,11 +290,13 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role>
         Map<Long, List<RolePerm>> permsMap = rolePermService.list(permWrapper).stream()
                 .collect(Collectors.groupingBy(RolePerm::getRoleId));
 
+        // 批量查询关联的用户角色信息
         QueryWrapper<UserRole> urWrapper = new QueryWrapper<>();
         urWrapper.in("role_id", parentIds);
         Map<Long, List<UserRole>> urMap = userRoleService.list(urWrapper).stream()
                 .collect(Collectors.groupingBy(UserRole::getRoleId));
 
+        // 组装带子表数据的DTO
         List<RoleWithDetailsDto> dtos = parents.stream().map(parent -> {
             RoleWithDetailsDto dto = new RoleWithDetailsDto();
             BeanUtils.copyProperties(parent, dto);
@@ -275,24 +311,28 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role>
         result.setPageSize(pageSize);
         return result;
     }
-    //#endregion
 
-    //#region 数据转换接口
+    // endregion
+
+    // region 数据转换接口
     // ===================================
     // 数据转换接口
     // ===================================
-    
+
     /**
-     * 将角色实体转换为DTO
+     * 将角色实体转换为DTO（包含关联的用户和权限信息）
+     *
      * @param roleEntity 角色实体
-     * @return 角色DTO对象
+     * @return 角色DTO对象，包含用户列表和权限列表
      */
     @Override
     public RoleDto convertToDto(Role roleEntity) {
         if (roleEntity == null) return null;
         
+        // 基础字段转换
         RoleDto roleDto = converters.toRoleDto(roleEntity);
         
+        // 查询并设置关联的用户信息
         List<UserRole> userRoles = userRoleService.list(new QueryWrapper<UserRole>().eq("role_id", roleEntity.getRoleId()));
         List<UserDto> userDtos = new ArrayList<>();
         for (UserRole userRole : userRoles) {
@@ -304,6 +344,7 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role>
         }
         roleDto.setUsers(userDtos);
         
+        // 查询并设置关联的权限信息
         List<RolePerm> rolePerms = rolePermService.list(new QueryWrapper<RolePerm>().eq("role_id", roleEntity.getRoleId()));
         List<PermissionDto> permissionDtos = new ArrayList<>();
         for (RolePerm rolePerm : rolePerms) {
@@ -317,17 +358,18 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role>
         
         return roleDto;
     }
-    //#endregion
+
+    // endregion
     
-    //#region 权限分配接口
+    // region 权限分配接口
     // ===================================
     // 权限分配接口
     // ===================================
-    
+
     /**
      * 为角色分配权限
      *
-     * @param roleId 角色ID
+     * @param roleId        角色ID
      * @param permissionIds 权限ID列表
      * @return 操作是否成功
      */
@@ -335,9 +377,6 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role>
     public boolean assignPermissionsToRole(Long roleId, List<Long> permissionIds) {
         return rolePermService.assignPermissionsToRole(roleId, permissionIds);
     }
-    //#endregion
+
+    // endregion
 }
-
-
-
-

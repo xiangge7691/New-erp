@@ -7,6 +7,12 @@ import lombok.Data;
  */
 @Data
 public class CancelRequest {
+
+    // region 数据字段
+    // ===================================
+    // 数据字段
+    // ===================================
+
     /**
      * 作废人用户 ID
      */
@@ -16,4 +22,6 @@ public class CancelRequest {
      * 作废原因
      */
     private String cancelReason;
+
+    // endregion
 }

@@ -9,6 +9,12 @@ import java.util.Map;
  */
 @Data
 public class TodoListDto {
+
+    // region 数据字段
+    // ===================================
+    // 数据字段
+    // ===================================
+
     /**
      * 待办事项列表
      */
@@ -18,4 +24,6 @@ public class TodoListDto {
      * 各类型计数
      */
     private Map<String, Long> typeCounts;
+
+    // endregion
 }

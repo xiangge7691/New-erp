@@ -12,6 +12,11 @@ import java.util.List;
  */
 public interface PersonnelFileService extends IService<PersonnelFile> {
 
+    // region 查询操作
+    // ===================================
+    // 查询操作
+    // ===================================
+
     /**
      * 查询健康证即将到期的人员档案
      * @param days 提前天数
@@ -35,4 +40,6 @@ public interface PersonnelFileService extends IService<PersonnelFile> {
      * 带子表查询人员档案
      */
     PagedResult<PersonnelFileWithDetailsDto> searchWithDetails(PersonnelFile personnelFile, int pageNum, int pageSize);
+
+    // endregion
 }

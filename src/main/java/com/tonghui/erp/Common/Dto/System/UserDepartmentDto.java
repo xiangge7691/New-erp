@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @Data
 public class UserDepartmentDto {
     
-    //#region 关联关系基本信息字段
+    // region 关联关系基本信息字段
     // ===================================
     // 关联关系基本信息字段
     // ===================================
@@ -47,5 +47,5 @@ public class UserDepartmentDto {
      */
     private LocalDateTime createdTime;
     
-    //#endregion
+    // endregion
 }

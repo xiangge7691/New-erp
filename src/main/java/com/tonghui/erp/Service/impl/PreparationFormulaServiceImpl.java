@@ -14,12 +14,33 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * 制剂处方明细服务实现类
+ * <p>
+ * 实现PreparationFormulaService接口，提供制剂处方明细相关的业务逻辑处理，
+ * 包括处方明细的增删改查等功能的具体实现
+ * </p>
+ *
+ */
 @Service
 public class PreparationFormulaServiceImpl extends ServiceImpl<PreparationFormulaMapper, PreparationFormula> implements PreparationFormulaService {
 
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
+    // endregion
+
+    // region 私有工具方法
+    // ===================================
+    // 私有工具方法
+    // ===================================
+
     /**
-     * 获取当前用户ID
-     * 
+     * 获取当前登录用户的用户ID
+     * <p>从Spring Security上下文中提取认证信息，解析出当前用户的ID</p>
+     *
      * @return 当前用户ID，如果无法获取则返回默认值1L
      */
     private Long getCurrentUserId() {
@@ -38,10 +59,18 @@ public class PreparationFormulaServiceImpl extends ServiceImpl<PreparationFormul
         return 1L;
     }
 
+    // endregion
+
+    // region 基础CRUD操作
+    // ===================================
+    // 基础CRUD操作
+    // ===================================
+
     /**
-     * 新增处方明细
+     * 新增制剂处方明细
+     * <p>自动设置创建人、更新人、创建时间和更新时间</p>
      *
-     * @param formula 处方明细实体
+     * @param formula 制剂处方明细实体，包含处方关联的制剂编码、物料信息和用量等
      */
     @Override
     public void addFormula(PreparationFormula formula) {
@@ -63,9 +92,10 @@ public class PreparationFormulaServiceImpl extends ServiceImpl<PreparationFormul
     }
 
     /**
-     * 更新处方明细
+     * 更新制剂处方明细
+     * <p>自动更新更新时间和更新人信息</p>
      *
-     * @param formula 处方明细实体
+     * @param formula 制剂处方明细实体，包含要更新的字段信息
      */
     @Override
     public void updateFormula(PreparationFormula formula) {
@@ -79,9 +109,9 @@ public class PreparationFormulaServiceImpl extends ServiceImpl<PreparationFormul
     }
 
     /**
-     * 删除处方明细
+     * 删除制剂处方明细
      *
-     * @param formulaId 处方明细ID
+     * @param formulaId 制剂处方明细ID
      */
     @Override
     public void deleteFormula(Long formulaId) {
@@ -89,21 +119,28 @@ public class PreparationFormulaServiceImpl extends ServiceImpl<PreparationFormul
     }
 
     /**
-     * 根据ID查询处方明细
+     * 根据ID查询制剂处方明细
      *
-     * @param formulaId 处方明细ID
-     * @return 处方明细实体
+     * @param formulaId 制剂处方明细ID
+     * @return 制剂处方明细实体，不存在则返回null
      */
     @Override
     public PreparationFormula getFormulaById(Long formulaId) {
         return this.baseMapper.selectById(formulaId);
     }
 
+    // endregion
+
+    // region 业务查询方法
+    // ===================================
+    // 业务查询方法
+    // ===================================
+
     /**
-     * 根据制剂编码查询所有处方明细
+     * 根据制剂编码查询所有关联的处方明细
      *
      * @param preparationCode 制剂编码
-     * @return 处方明细集合
+     * @return 该制剂编码下所有处方明细的集合
      */
     @Override
     public List<PreparationFormula> getFormulasByPreparationCode(String preparationCode) {
@@ -113,12 +150,14 @@ public class PreparationFormulaServiceImpl extends ServiceImpl<PreparationFormul
     }
 
     /**
-     * 查询所有处方明细
+     * 查询所有制剂处方明细
      *
-     * @return 处方明细集合
+     * @return 全部处方明细的集合
      */
     @Override
     public List<PreparationFormula> getAllFormulas() {
         return this.baseMapper.selectList(null);
     }
+
+    // endregion
 }

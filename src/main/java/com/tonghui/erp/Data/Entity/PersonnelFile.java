@@ -16,6 +16,11 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class PersonnelFile extends AuditEntity {
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 人员档案唯一标识
      */
@@ -51,6 +56,13 @@ public class PersonnelFile extends AuditEntity {
      */
     @TableField(value = "department_id")
     private Long departmentId;
+
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
 
     /**
      * 人员资格认定
@@ -131,16 +143,23 @@ public class PersonnelFile extends AuditEntity {
     private LocalDate lastCheckupDate;
 
     /**
-     * 状态：0离职/1在职
-     */
-    @TableField(value = "status")
-    private Integer status;
-
-    /**
      * 备注
      */
     @TableField(value = "remark")
     private String remark;
+
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
+    /**
+     * 状态：0离职/1在职
+     */
+    @TableField(value = "status")
+    private Integer status;
 
     /**
      * 是否已删除
@@ -154,7 +173,12 @@ public class PersonnelFile extends AuditEntity {
     @TableField(value = "version")
     private Integer version;
 
-    // ========== 关联表显示字段（非数据库字段）==========
+    // endregion
+
+    // region 关联表显示字段
+    // ===================================
+    // 关联表显示字段
+    // ===================================
 
     /**
      * 用户姓名（关联user表）
@@ -179,4 +203,6 @@ public class PersonnelFile extends AuditEntity {
      */
     @TableField(exist = false)
     private java.util.List<PersonnelCertificate> certificates;
+
+    // endregion
 }

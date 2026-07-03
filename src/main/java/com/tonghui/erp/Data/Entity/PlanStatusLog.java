@@ -14,6 +14,11 @@ import lombok.Data;
 @TableName(value ="plan_status_log")
 @Data
 public class PlanStatusLog {
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 流水ID
      */
@@ -25,6 +30,13 @@ public class PlanStatusLog {
      */
     @TableField(value = "plan_id")
     private Integer planId;
+
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
 
     /**
      * 变更前状态
@@ -56,8 +68,31 @@ public class PlanStatusLog {
     @TableField(value = "remark")
     private String remark;
 
+    // endregion
 
-// ========== 关联表显示字段（非数据库字段）==========
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
+    /**
+     * 是否已删除
+     */
+    @TableField(value = "is_deleted")
+    private Integer isDeleted;
+
+    /**
+     * 乐观锁版本号
+     */
+    @TableField(value = "version")
+    private Integer version;
+
+    // endregion
+
+    // region 关联表显示字段
+    // ===================================
+    // 关联表显示字段
+    // ===================================
 
     /**
      * 计划编号（关联production_plan表）
@@ -71,15 +106,5 @@ public class PlanStatusLog {
     @TableField(exist = false)
     private String operatorName;
 
-    /**
-     * 是否已删除
-     */
-    @TableField(value = "is_deleted")
-    private Integer isDeleted;
-
-    /**
-     * 乐观锁版本号
-     */
-    @TableField(value = "version")
-    private Integer version;
+    // endregion
 }

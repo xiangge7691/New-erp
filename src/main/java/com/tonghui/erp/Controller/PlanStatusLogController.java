@@ -12,26 +12,49 @@ import java.time.LocalDateTime;
 
 /**
  * 计划状态日志控制器
+ * <p>
+ * 处理计划状态变更日志相关的HTTP请求，提供RESTful API接口，包括日志的增删改查及高级查询操作
+ * </p>
+ *
+ * 接口清单：
+ * ┌────┬───────────────────────────────────────┬────────┬──────────────────────────────┐
+ * │ #  │ 接口                                  │ 方法   │ 说明                         │
+ * ├────┼───────────────────────────────────────┼────────┼──────────────────────────────┤
+ * │ 1  │ /api/plan-status-logs                 │ GET    │ 分页查询日志列表             │
+ * │ 2  │ /api/plan-status-logs/{id}            │ GET    │ 获取日志详情                 │
+ * │ 3  │ /api/plan-status-logs                 │ POST   │ 新增日志                     │
+ * │ 4  │ /api/plan-status-logs/{id}            │ PUT    │ 修改日志                     │
+ * │ 5  │ /api/plan-status-logs/{id}            │ DELETE │ 删除日志                     │
+ * │ 6  │ /api/plan-status-logs/search          │ GET    │ 高级查询日志（多条件+分页）  │
+ * └────┴───────────────────────────────────────┴────────┴──────────────────────────────┘
  */
 @RestController
 @RequestMapping("/api/plan-status-logs")
 public class PlanStatusLogController extends BaseCrudController<PlanStatusLog, PlanStatusLog, Integer> {
 
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
     @Autowired
     private PlanStatusLogService planStatusLogService;
 
+    // endregion
+
+    // region CRUD操作实现方法
+    // ===================================
+    // CRUD操作实现方法
+    // ===================================
+
     @Override
     protected PagedResult<PlanStatusLog> getAllData(int pageIndex, int pageSize) {
-        // 页码从0开始的处理，确保不为负数
         int safePageIndex = Math.max(0, pageIndex);
-        // 当pageSize<=0时，设置一个合理的默认值
         int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
 
-        // 使用PlanStatusLogService的queryPlanStatusLogs方法进行查询
         PlanStatusLog planStatusLog = new PlanStatusLog();
         Page<PlanStatusLog> pageResult = planStatusLogService.queryPlanStatusLogs(planStatusLog, null, null, safePageIndex, safePageSize);
 
-        // 转换为PagedResult
         PagedResult<PlanStatusLog> pagedResult = new PagedResult<>();
         pagedResult.setItems(pageResult.getRecords());
         pagedResult.setTotalCount((int) pageResult.getTotal());
@@ -64,28 +87,28 @@ public class PlanStatusLogController extends BaseCrudController<PlanStatusLog, P
         return planStatusLogService.removeById(id);
     }
 
-    // #region 高级查询
+    // endregion
+
+    // region 搜索与查询
+    // ===================================
+    // 搜索与查询
+    // ===================================
 
     /**
      * 高级查询计划状态日志（支持多条件 + 分页）
-     *
-     * 可选查询条件：
-     * - planId：精确匹配
-     * - fromStatus：精确匹配
-     * - toStatus：精确匹配
-     * - operator：精确匹配
-     * - changeTimeStart：变更时间起始（大于等于）
-     * - changeTimeEnd：变更时间结束（小于等于）
+     * <p>
+     * 可选查询条件：计划ID、来源状态、目标状态、操作人、变更时间范围
+     * </p>
      *
      * 示例请求：
-     * GET /api/plan-status-logs/search?pageIndex=1&pageSize=20&planId=1001&toStatus=completed&changeTimeStart=2025-01-01T00:00:00&changeTimeEnd=2025-12-31T23:59:59
+     * GET /api/plan-status-logs/search?pageIndex=0&pageSize=20&planId=1001&toStatus=completed&changeTimeStart=2025-01-01T00:00:00&changeTimeEnd=2025-12-31T23:59:59
      *
      * @param planStatusLog 查询条件（自动从query参数映射）
-     * @param changeTimeStart 变更时间起始
-     * @param changeTimeEnd 变更时间结束
-     * @param pageIndex 页码
+     * @param changeTimeStart 变更时间起始（可选）
+     * @param changeTimeEnd 变更时间结束（可选）
+     * @param pageIndex 页码，从0开始
      * @param pageSize 每页大小
-     * @return 分页结果
+     * @return ApiResponse&lt;PagedResult&lt;PlanStatusLog&gt;&gt; 计划状态日志分页列表
      */
     @GetMapping("/search")
     public ApiResponse<PagedResult<PlanStatusLog>> queryPlanStatusLogs(PlanStatusLog planStatusLog,
@@ -115,5 +138,5 @@ public class PlanStatusLogController extends BaseCrudController<PlanStatusLog, P
         }
     }
 
-    // #endregion
+    // endregion
 }

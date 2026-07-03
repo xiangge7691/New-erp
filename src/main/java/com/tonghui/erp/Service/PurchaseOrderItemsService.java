@@ -10,7 +10,10 @@ import java.util.List;
  */
 public interface PurchaseOrderItemsService extends IService<PurchaseOrderItems> {
 
-    // #region 基础操作
+    // region 基础操作
+    // ===================================
+    // 基础操作
+    // ===================================
 
     /**
      * 新增采购订单明细
@@ -36,9 +39,12 @@ public interface PurchaseOrderItemsService extends IService<PurchaseOrderItems> 
      */
     boolean deletePurchaseOrderItem(Long itemId);
 
-    // #endregion
+    // endregion
 
-    // #region 查询操作
+    // region 查询操作
+    // ===================================
+    // 查询操作
+    // ===================================
 
     /**
      * 根据ID查询采购订单明细
@@ -56,5 +62,5 @@ public interface PurchaseOrderItemsService extends IService<PurchaseOrderItems> 
      */
     List<PurchaseOrderItems> getPurchaseOrderItemsByOrderId(Long orderId);
 
-    // #endregion
+    // endregion
 }

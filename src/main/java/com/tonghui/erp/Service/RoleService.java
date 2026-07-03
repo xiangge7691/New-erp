@@ -15,13 +15,10 @@ import java.util.List;
  * 提供角色相关的业务逻辑接口，包括角色的查询、权限分配等功能
  * </p>
  * 
- * @author 87954
- * @description 针对表【role(系统角色表)】的数据库操作Service
- * @createDate 2025-08-27 10:08:57
  */
 public interface RoleService extends IService<Role> {
     
-    //#region 角色查询接口
+    // region 角色查询接口
     // ===================================
     // 角色查询接口
     // ===================================
@@ -53,9 +50,9 @@ public interface RoleService extends IService<Role> {
      * @return 角色列表的分页结果
      */
     PagedResult<RoleDto> advancedSearchRoles();
-    //#endregion
+    // endregion
     
-    //#region 角色详情接口
+    // region 角色详情接口
     // ===================================
     // 角色详情接口
     // ===================================
@@ -68,9 +65,9 @@ public interface RoleService extends IService<Role> {
      * @return 角色详细信息DTO
      */
     RoleDto getRoleDetails(Long roleId);
-    //#endregion
+    // endregion
     
-    //#region 高级查询接口
+    // region 高级查询接口
     // ===================================
     // 高级查询接口
     // ===================================
@@ -84,9 +81,9 @@ public interface RoleService extends IService<Role> {
      * 带子表查询角色
      */
     PagedResult<RoleWithDetailsDto> searchWithDetails(Role role, int pageNum, int pageSize);
-    //#endregion
+    // endregion
 
-    //#region 数据转换接口
+    // region 数据转换接口
     // ===================================
     // 数据转换接口
     // ===================================
@@ -98,9 +95,9 @@ public interface RoleService extends IService<Role> {
      * @return RoleDto对象
      */
     RoleDto convertToDto(Role role);
-    //#endregion
+    // endregion
     
-    //#region 权限分配接口
+    // region 权限分配接口
     // ===================================
     // 权限分配接口
     // ===================================
@@ -113,5 +110,5 @@ public interface RoleService extends IService<Role> {
      * @return 操作是否成功
      */
     boolean assignPermissionsToRole(Long roleId, List<Long> permissionIds);
-    //#endregion
+    // endregion
 }

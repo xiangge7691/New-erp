@@ -25,20 +25,31 @@ import java.util.stream.Collectors;
 /**
  * 工序类型服务实现类
  * <p>
- * 针对表【process_type(工序类型表)】的数据库操作 Service 实现，提供工序类型的增删改查等业务逻辑的具体实现
+ * 实现ProcessTypeService接口，提供工序类型相关的业务逻辑处理，包括工序类型的名称模糊查询、
+ * 编码查询、启用状态查询、高级查询、带子表关联查询等功能的具体实现
  * </p>
+ *
  */
 @Service
 public class ProcessTypeServiceImpl extends ServiceImpl<ProcessTypeMapper, ProcessType>
     implements ProcessTypeService{
 
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
+    /** 生产过程记录数据访问层，用于关联查询工序类型关联的生产过程记录 */
     @Autowired
     private ProductionProcessRecordMapper productionProcessRecordMapper;
 
+    /** 制剂工序模板数据访问层，用于关联查询工序类型关联的制剂工序模板 */
     @Autowired
     private PreparationProcessTemplateMapper preparationProcessTemplateMapper;
 
-    //#region 工序类型查询实现方法
+    // endregion
+
+    // region 工序类型查询实现方法
     // ===================================
     // 工序类型查询实现方法
     // ===================================
@@ -114,7 +125,7 @@ public class ProcessTypeServiceImpl extends ServiceImpl<ProcessTypeMapper, Proce
     /**
      * 获取所有启用的工序类型
      *
-     * @return 启用的工序类型列表
+     * @return 启用的工序类型列表，按名称升序排列
      */
     @Override
     public List<ProcessType> listActive() {
@@ -124,8 +135,21 @@ public class ProcessTypeServiceImpl extends ServiceImpl<ProcessTypeMapper, Proce
                 .list();
     }
 
-    //#endregion
+    // endregion
 
+    // region 高级查询
+    // ===================================
+    // 高级查询
+    // ===================================
+
+    /**
+     * 高级查询工序类型（支持按工序ID、编码、名称、状态条件组合查询）
+     *
+     * @param processType 查询条件实体，非null字段将作为等值或模糊查询条件
+     * @param pageNum     页码，从0开始
+     * @param pageSize    每页数量
+     * @return 工序类型分页结果
+     */
     @Override
     public Page<ProcessType> queryProcessTypes(ProcessType processType, int pageNum, int pageSize) {
         int actualPageNum = pageNum + 1;
@@ -149,8 +173,25 @@ public class ProcessTypeServiceImpl extends ServiceImpl<ProcessTypeMapper, Proce
         return this.page(page, wrapper);
     }
 
+    // endregion
+
+    // region 带子表关联查询
+    // ===================================
+    // 带子表关联查询
+    // ===================================
+
+    /**
+     * 查询工序类型列表并关联生产过程记录和制剂工序模板
+     * <p>先分页查询工序类型主表数据，再批量查询关联的生产过程记录和制剂工序模板</p>
+     *
+     * @param processType 查询条件实体
+     * @param pageNum     页码，从0开始
+     * @param pageSize    每页数量
+     * @return 带子表关联数据的工序类型分页结果
+     */
     @Override
     public PagedResult<ProcessTypeWithDetailsDto> searchWithDetails(ProcessType processType, int pageNum, int pageSize) {
+        // 查询工序类型主表分页数据
         Page<ProcessType> parentPage = queryProcessTypes(processType, pageNum, pageSize);
         List<ProcessType> parents = parentPage.getRecords();
 
@@ -163,6 +204,7 @@ public class ProcessTypeServiceImpl extends ServiceImpl<ProcessTypeMapper, Proce
             return result;
         }
 
+        // 批量查询关联的生产过程记录
         List<Integer> parentIds = parents.stream().map(ProcessType::getProcessId).collect(Collectors.toList());
         QueryWrapper<ProductionProcessRecord> recordWrapper = new QueryWrapper<>();
         recordWrapper.in("process_type_id", parentIds);
@@ -171,12 +213,14 @@ public class ProcessTypeServiceImpl extends ServiceImpl<ProcessTypeMapper, Proce
                 .filter(r -> r.getProcessTypeId() != null)
                 .collect(Collectors.groupingBy(ProductionProcessRecord::getProcessTypeId));
 
+        // 批量查询关联的制剂工序模板
         QueryWrapper<PreparationProcessTemplate> templateWrapper = new QueryWrapper<>();
         templateWrapper.in("process_type_id", parentIds);
         List<PreparationProcessTemplate> allTemplates = preparationProcessTemplateMapper.selectList(templateWrapper);
         Map<Long, List<PreparationProcessTemplate>> templatesMap = allTemplates.stream()
                 .collect(Collectors.groupingBy(PreparationProcessTemplate::getProcessTypeId));
 
+        // 组装带子表数据的DTO
         List<ProcessTypeWithDetailsDto> dtos = parents.stream().map(parent -> {
             ProcessTypeWithDetailsDto dto = new ProcessTypeWithDetailsDto();
             BeanUtils.copyProperties(parent, dto);
@@ -191,8 +235,6 @@ public class ProcessTypeServiceImpl extends ServiceImpl<ProcessTypeMapper, Proce
         result.setPageSize(pageSize);
         return result;
     }
+
+    // endregion
 }
-
-
-
-

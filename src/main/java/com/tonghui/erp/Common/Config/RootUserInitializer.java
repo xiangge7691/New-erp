@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * 系统初始化类
+ * 系统根用户初始化器
  * <p>
  * 在系统启动时自动检测是否存在root用户和角色，
  * 如果不存在则自动创建包含所有权限的root用户和角色
@@ -22,11 +22,23 @@ import java.util.stream.Collectors;
 @Component
 public class RootUserInitializer {
 
+    // region 字段定义
+    // ===================================
+    // 字段定义
+    // ===================================
+
     private final UserService userService;
     private final RoleService roleService;
     private final PermissionService permissionService;
     private final UserRoleService userRoleService;
     private final RolePermService rolePermService;
+
+    // endregion
+
+    // region 构造方法
+    // ===================================
+    // 构造方法
+    // ===================================
 
     @Autowired
     public RootUserInitializer(@Lazy UserService userService, 
@@ -40,6 +52,13 @@ public class RootUserInitializer {
         this.userRoleService = userRoleService;
         this.rolePermService = rolePermService;
     }
+
+    // endregion
+
+    // region 方法定义
+    // ===================================
+    // 方法定义
+    // ===================================
 
     /**
      * 系统启动后自动执行初始化逻辑
@@ -64,6 +83,13 @@ public class RootUserInitializer {
             e.printStackTrace();
         }
     }
+
+    // endregion
+
+    // region 私有方法
+    // ===================================
+    // 私有方法
+    // ===================================
 
     /**
      * 确保root角色存在

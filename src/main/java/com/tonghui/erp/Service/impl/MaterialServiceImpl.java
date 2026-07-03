@@ -22,23 +22,58 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * 物料服务实现类
+ * <p>
+ * 实现MaterialService接口，提供物料相关的业务逻辑处理，包括物料的增删改查、
+ * 高级查询、带子表关联查询等功能的具体实现
+ * </p>
+ *
+ */
 @Service
 public class MaterialServiceImpl implements MaterialService {
 
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
+    /** 物料数据访问层 */
     @Autowired
     private MaterialMapper materialMapper;
 
+    /** 制剂处方明细数据访问层，用于关联查询物料关联的处方信息 */
     @Autowired
     private PreparationFormulaMapper preparationFormulaMapper;
 
+    /** 采购订单明细数据访问层，用于关联查询物料关联的采购订单项 */
     @Autowired
     private PurchaseOrderItemsMapper purchaseOrderItemsMapper;
 
+    // endregion
+
+    // region 基础CRUD操作
+    // ===================================
+    // 基础CRUD操作
+    // ===================================
+
+    /**
+     * 根据ID查询物料
+     *
+     * @param id 物料ID
+     * @return 物料实体，不存在则返回null
+     */
     @Override
     public Material getMaterialById(Long id) {
         return materialMapper.selectById(id);
     }
 
+    /**
+     * 新增物料
+     * <p>自动设置创建时间、更新时间、创建人和更新人</p>
+     *
+     * @param material 物料实体
+     */
     @Override
     public void addMaterial(Material material) {
         // 设置创建时间和更新时间
@@ -56,6 +91,12 @@ public class MaterialServiceImpl implements MaterialService {
         materialMapper.insert(material);
     }
 
+    /**
+     * 更新物料
+     * <p>自动更新更新时间和更新人</p>
+     *
+     * @param material 物料实体，包含要更新的字段信息
+     */
     @Override
     public void updateMaterial(Material material) {
         // 设置更新时间
@@ -70,18 +111,28 @@ public class MaterialServiceImpl implements MaterialService {
         materialMapper.updateById(material);
     }
 
+    /**
+     * 删除物料
+     *
+     * @param id 物料ID
+     */
     @Override
     public void deleteMaterial(Long id) {
         materialMapper.deleteById(id);
     }
 
-    // #region 查询操作
+    // endregion
+
+    // region 查询操作
+    // ===================================
+    // 查询操作
+    // ===================================
 
     /**
      * 根据编码查询物料
      *
      * @param materialCode 物料编码
-     * @return 物料实体
+     * @return 物料实体，不存在则返回null
      */
     @Override
     public Material getMaterialByCode(String materialCode) {
@@ -93,7 +144,7 @@ public class MaterialServiceImpl implements MaterialService {
     /**
      * 查询所有启用状态的物料
      *
-     * @return 物料集合
+     * @return 启用状态物料集合
      */
     @Override
     public List<Material> getEnabledMaterials() {
@@ -105,17 +156,29 @@ public class MaterialServiceImpl implements MaterialService {
     /**
      * 查询所有物料
      *
-     * @return 物料集合
+     * @return 全部物料集合
      */
     @Override
     public List<Material> getAllMaterials() {
         return materialMapper.selectList(null);
     }
 
-    // #endregion
+    // endregion
 
-    // #region 高级查询
+    // region 高级查询
+    // ===================================
+    // 高级查询
+    // ===================================
 
+    /**
+     * 高级查询物料（支持多条件组合查询，使用内置时间字段）
+     * <p>支持按物料编码、名称、分类、单位、规格、状态等条件筛选，默认按编码倒序排列</p>
+     *
+     * @param material  查询条件实体，非null字段将作为等值或模糊查询条件
+     * @param pageIndex 页码，从0开始
+     * @param pageSize  每页数量
+     * @return 物料分页结果
+     */
     @Override
     public Page<Material> queryMaterials(Material material, int pageIndex, int pageSize) {
         // 将页码从0开始转换为1开始
@@ -165,7 +228,20 @@ public class MaterialServiceImpl implements MaterialService {
 
         return materialMapper.selectPage(page, wrapper);
     }
-    
+
+    /**
+     * 高级查询物料（支持多条件组合查询，支持自定义时间范围筛选）
+     * <p>与queryMaterials(Material, int, int)类似，但支持自定义创建时间和更新时间的范围</p>
+     *
+     * @param material          查询条件实体
+     * @param createdTimeStart  创建时间起始值（含）
+     * @param createdTimeEnd    创建时间结束值（含）
+     * @param updatedTimeStart  更新时间起始值（含）
+     * @param updatedTimeEnd    更新时间结束值（含）
+     * @param pageIndex         页码，从0开始
+     * @param pageSize          每页数量
+     * @return 物料分页结果
+     */
     @Override
     public Page<Material> queryMaterials(Material material,
                                  java.time.LocalDateTime createdTimeStart, java.time.LocalDateTime createdTimeEnd,
@@ -227,10 +303,25 @@ public class MaterialServiceImpl implements MaterialService {
         return materialMapper.selectPage(page, wrapper);
     }
 
-    // #endregion
+    // endregion
 
+    // region 带子表关联查询
+    // ===================================
+    // 带子表关联查询
+    // ===================================
+
+    /**
+     * 查询物料列表并关联处方明细和采购订单项信息
+     * <p>先分页查询物料主表数据，再批量查询关联的处方明细和采购订单明细</p>
+     *
+     * @param material 查询条件实体
+     * @param pageNum  页码，从0开始
+     * @param pageSize 每页数量
+     * @return 带子表关联数据的物料分页结果
+     */
     @Override
     public PagedResult<MaterialWithDetailsDto> searchWithDetails(Material material, int pageNum, int pageSize) {
+        // 查询物料主表分页数据
         Page<Material> parentPage = queryMaterials(material, pageNum, pageSize);
         List<Material> parents = parentPage.getRecords();
 
@@ -243,6 +334,7 @@ public class MaterialServiceImpl implements MaterialService {
             return result;
         }
 
+        // 批量查询关联的处方明细
         List<Long> parentIds = parents.stream().map(Material::getMaterialId).collect(Collectors.toList());
         QueryWrapper<PreparationFormula> formulaWrapper = new QueryWrapper<>();
         formulaWrapper.in("material_id", parentIds);
@@ -250,12 +342,14 @@ public class MaterialServiceImpl implements MaterialService {
         Map<Long, List<PreparationFormula>> formulasMap = allFormulas.stream()
                 .collect(Collectors.groupingBy(PreparationFormula::getMaterialId));
 
+        // 批量查询关联的采购订单明细
         QueryWrapper<PurchaseOrderItems> itemWrapper = new QueryWrapper<>();
         itemWrapper.in("material_id", parentIds);
         List<PurchaseOrderItems> allItems = purchaseOrderItemsMapper.selectList(itemWrapper);
         Map<Long, List<PurchaseOrderItems>> itemsMap = allItems.stream()
                 .collect(Collectors.groupingBy(PurchaseOrderItems::getMaterialId));
 
+        // 组装带子表数据的DTO
         List<MaterialWithDetailsDto> dtos = parents.stream().map(parent -> {
             MaterialWithDetailsDto dto = new MaterialWithDetailsDto();
             BeanUtils.copyProperties(parent, dto);
@@ -270,4 +364,6 @@ public class MaterialServiceImpl implements MaterialService {
         result.setPageSize(pageSize);
         return result;
     }
+
+    // endregion
 }

@@ -17,11 +17,24 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class EquipmentMaintenance extends AuditEntity {
+
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 维保记录唯一标识
      */
     @TableId(value = "maintenance_id", type = IdType.AUTO)
     private Long maintenanceId;
+
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
 
     /**
      * 关联设备ID
@@ -89,6 +102,26 @@ public class EquipmentMaintenance extends AuditEntity {
     @TableField(value = "remark")
     private String remark;
 
+    // endregion
+
+    // region 关联表显示字段
+    // ===================================
+    // 关联表显示字段
+    // ===================================
+
+    /**
+     * 设备名称（关联equipment表）
+     */
+    @TableField(exist = false)
+    private String equipmentName;
+
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
     /**
      * 是否已删除
      */
@@ -101,11 +134,5 @@ public class EquipmentMaintenance extends AuditEntity {
     @TableField(value = "version")
     private Integer version;
 
-    // ========== 关联表显示字段（非数据库字段）==========
-
-    /**
-     * 设备名称（关联equipment表）
-     */
-    @TableField(exist = false)
-    private String equipmentName;
+    // endregion
 }

@@ -9,9 +9,6 @@ import com.tonghui.erp.Data.Entity.WorkOrder;
 import java.time.LocalDateTime;
 
 /**
-* @author 87954
-* @description 针对表【work_order(工单表)】的数据库操作Service
-* @createDate 2025-12-01 13:48:18
 */
 public interface WorkOrderService extends IService<WorkOrder> {
     

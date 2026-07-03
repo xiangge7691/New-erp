@@ -11,14 +11,54 @@ import java.util.List;
 
 /**
  * 制剂处方信息控制器
+ * <p>
+ * 提供制剂处方信息的CRUD操作及按制剂编码查询功能，用于制剂生产中的配方管理
+ * </p>
+ *
+ * 接口清单：
+ * ┌────┬──────────────────────────────────────┬────────┬─────────────────────────────────────┐
+ * │ #  │ 接口                                 │ 方法   │ 说明                                │
+ * ├────┼──────────────────────────────────────┼────────┼─────────────────────────────────────┤
+ * │ 1  │ /api/preparation/formula             │ GET   │ 获取所有处方信息（分页）            │
+ * │ 2  │ /api/preparation/formula/{id}        │ GET   │ 根据ID获取处方详情                  │
+ * │ 3  │ /api/preparation/formula             │ POST  │ 新增处方信息                        │
+ * │ 4  │ /api/preparation/formula/{id}        │ PUT   │ 修改处方信息                        │
+ * │ 5  │ /api/preparation/formula/{id}        │ DELETE│ 删除处方信息                        │
+ * │ 6  │ /api/preparation/formula/byPreparationCode │ GET │ 根据制剂编码查询处方信息      │
+ * └────┴──────────────────────────────────────┴────────┴─────────────────────────────────────┘
  */
 @RestController
 @RequestMapping("/api/preparation/formula")
 public class PreparationFormulaController extends BaseCrudController<PreparationFormula, PreparationFormula, Long> {
 
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
+    /**
+     * 制剂处方服务
+     */
     @Autowired
     private PreparationFormulaService preparationFormulaService;
 
+    // endregion
+
+    // region CRUD操作实现
+    // ===================================
+    // CRUD操作实现
+    // ===================================
+
+    /**
+     * 获取所有处方信息（分页）
+     *
+     * 示例请求：
+     * GET /api/preparation/formula?pageIndex=0&pageSize=10
+     *
+     * @param pageIndex 页码，从0开始
+     * @param pageSize 每页大小
+     * @return PagedResult&lt;PreparationFormula&gt; 分页结果，包含处方信息列表
+     */
     @Override
     protected PagedResult<PreparationFormula> getAllData(int pageIndex, int pageSize) {
         // 页码从0开始的处理
@@ -54,17 +94,56 @@ public class PreparationFormulaController extends BaseCrudController<Preparation
         return pagedResult;
     }
 
+    /**
+     * 根据ID获取处方详情
+     *
+     * 示例请求：
+     * GET /api/preparation/formula/1
+     *
+     * @param id 处方ID
+     * @return PreparationFormula 处方详情
+     */
     @Override
     protected PreparationFormula getDataById(Long id) {
         return preparationFormulaService.getFormulaById(id);
     }
 
+    /**
+     * 新增处方信息
+     *
+     * 示例请求：
+     * POST /api/preparation/formula
+     * Content-Type: application/json
+     * {
+     *   "preparationCode": "Z000001",
+     *   "materialName": "原料A",
+     *   "quantity": 100.00,
+     *   "unit": "kg"
+     * }
+     *
+     * @param preparationFormula 处方实体对象
+     * @return PreparationFormula 新增的处方
+     */
     @Override
     protected PreparationFormula doCreate(PreparationFormula preparationFormula) {
         preparationFormulaService.addFormula(preparationFormula);
         return preparationFormula;
     }
 
+    /**
+     * 修改处方信息
+     *
+     * 示例请求：
+     * PUT /api/preparation/formula/1
+     * Content-Type: application/json
+     * {
+     *   "quantity": 200.00
+     * }
+     *
+     * @param id 处方ID
+     * @param preparationFormula 处方实体对象
+     * @return PreparationFormula 修改后的处方
+     */
     @Override
     protected PreparationFormula doUpdate(Long id, PreparationFormula preparationFormula) {
         preparationFormula.setFormulaId(id);
@@ -72,6 +151,15 @@ public class PreparationFormulaController extends BaseCrudController<Preparation
         return preparationFormula;
     }
 
+    /**
+     * 删除处方信息
+     *
+     * 示例请求：
+     * DELETE /api/preparation/formula/1
+     *
+     * @param id 处方ID
+     * @return boolean 删除结果
+     */
     @Override
     protected boolean doDelete(Long id) {
         try {
@@ -82,16 +170,21 @@ public class PreparationFormulaController extends BaseCrudController<Preparation
         }
     }
 
-    // #region 高级查询
+    // endregion
+
+    // region 高级查询接口
+    // ===================================
+    // 高级查询接口
+    // ===================================
 
     /**
      * 根据制剂编码查询处方信息
      *
      * 示例请求：
-     * GET /preparation/formula/byPreparationCode?preparationCode=Z000001
+     * GET /api/preparation/formula/byPreparationCode?preparationCode=Z000001
      *
      * @param preparationCode 制剂编码
-     * @return 处方信息列表
+     * @return ApiResponse&lt;List&lt;PreparationFormula&gt;&gt; 处方信息列表
      */
     @GetMapping("/byPreparationCode")
     public ApiResponse<List<PreparationFormula>> getFormulasByPreparationCode(@RequestParam String preparationCode) {
@@ -103,5 +196,5 @@ public class PreparationFormulaController extends BaseCrudController<Preparation
         }
     }
 
-    // #endregion
+    // endregion
 }

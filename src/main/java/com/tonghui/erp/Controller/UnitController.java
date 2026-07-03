@@ -12,18 +12,33 @@ import org.springframework.web.bind.annotation.*;
 /**
  * 计量单位管理控制器
  * <p>
- * 提供计量单位的增删改查和模糊查询功能
+ * 提供计量单位的增删改查和模糊查询功能，用于管理系统中使用的各种计量单位
  * </p>
+ *
+ * 接口清单：
+ * ┌────┬──────────────────────┬────────┬──────────────────────────────────┐
+ * │ #  │ 接口                 │ 方法   │ 说明                             │
+ * ├────┼──────────────────────┼────────┼──────────────────────────────────┤
+ * │ 1  │ /api/Unit            │ GET    │ 分页查询所有计量单位             │
+ * │ 2  │ /api/Unit/{id}       │ GET    │ 获取计量单位详情                 │
+ * │ 3  │ /api/Unit            │ POST   │ 新增计量单位                     │
+ * │ 4  │ /api/Unit/{id}       │ PUT    │ 修改计量单位                     │
+ * │ 5  │ /api/Unit/{id}       │ DELETE │ 删除计量单位                     │
+ * │ 6  │ /api/Unit/search     │ GET    │ 模糊查询计量单位                 │
+ * └────┴──────────────────────┴────────┴──────────────────────────────────┘
  */
 @RestController
 @RequestMapping("/api/Unit")
 public class UnitController extends BaseCrudController<Unit, Unit, Long> {
     
-    //#region 字段和构造方法
+    // region 服务依赖注入
     // ===================================
-    // 字段和构造方法
+    // 服务依赖注入
     // ===================================
     
+    /**
+     * 计量单位服务
+     */
     private final UnitService unitService;
 
     @Autowired
@@ -31,11 +46,11 @@ public class UnitController extends BaseCrudController<Unit, Unit, Long> {
         this.unitService = unitService;
     }
     
-    //#endregion
+    // endregion
 
-    //#region CRUD操作实现方法
+    // region 基础CRUD实现
     // ===================================
-    // CRUD操作实现方法
+    // 基础CRUD实现
     // ===================================
     
     @Override
@@ -99,20 +114,25 @@ public class UnitController extends BaseCrudController<Unit, Unit, Long> {
         return unitService.removeById(id);
     }
     
-    //#endregion
+    // endregion
 
-    //#region 计量单位查询接口方法
+    // region 计量单位查询接口
     // ===================================
-    // 计量单位查询接口方法
+    // 计量单位查询接口
     // ===================================
     
     /**
      * 根据计量单位名称模糊查询计量单位
+     * <p>
      * 支持按计量单位名称进行模糊查询和分页
+     * </p>
      *
-     * @param unitName 计量单位名称关键词
+     * 示例请求：
+     * GET /api/Unit/search?unitName=千克&pageIndex=0&pageSize=20
+     *
+     * @param unitName 计量单位名称关键词（可选）
      * @param pageRequest 分页请求参数
-     * @return 计量单位列表
+     * @return ApiResponse&lt;PagedResult&lt;Unit&gt;&gt; 计量单位分页列表
      */
     @GetMapping("/search")
     public ApiResponse<PagedResult<Unit>> searchUnits(
@@ -127,5 +147,5 @@ public class UnitController extends BaseCrudController<Unit, Unit, Long> {
         }
     }
     
-    //#endregion
+    // endregion
 }

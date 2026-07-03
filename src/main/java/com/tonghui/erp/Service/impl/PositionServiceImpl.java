@@ -21,13 +21,39 @@ import java.util.stream.Collectors;
 
 /**
  * 岗位信息服务实现类
+ * <p>
+ * 实现PositionService接口，提供岗位信息相关的业务逻辑处理，包括岗位的
+ * 高级查询、带子表关联查询等功能的具体实现
+ * </p>
+ *
  */
 @Service
 public class PositionServiceImpl extends ServiceImpl<PositionMapper, Position> implements PositionService {
 
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
+    /** 人员档案数据访问层，用于关联查询岗位关联的人员档案 */
     @Autowired
     private PersonnelFileMapper personnelFileMapper;
 
+    // endregion
+
+    // region 高级查询
+    // ===================================
+    // 高级查询
+    // ===================================
+
+    /**
+     * 高级查询岗位（支持按岗位ID、编码、名称、部门ID、状态条件组合查询）
+     *
+     * @param position  查询条件实体，非null字段将作为等值或模糊查询条件
+     * @param pageNum   页码，从0开始
+     * @param pageSize  每页数量
+     * @return 岗位分页结果
+     */
     @Override
     public Page<Position> queryPositions(Position position, int pageNum, int pageSize) {
         int actualPageNum = pageNum + 1;
@@ -54,8 +80,25 @@ public class PositionServiceImpl extends ServiceImpl<PositionMapper, Position> i
         return this.page(page, wrapper);
     }
 
+    // endregion
+
+    // region 带子表关联查询
+    // ===================================
+    // 带子表关联查询
+    // ===================================
+
+    /**
+     * 查询岗位列表并关联人员档案信息
+     * <p>先分页查询岗位主表数据，再批量查询关联的人员档案</p>
+     *
+     * @param position  查询条件实体
+     * @param pageNum   页码，从0开始
+     * @param pageSize  每页数量
+     * @return 带子表关联数据的岗位分页结果
+     */
     @Override
     public PagedResult<PositionWithDetailsDto> searchWithDetails(Position position, int pageNum, int pageSize) {
+        // 查询岗位主表分页数据
         Page<Position> parentPage = queryPositions(position, pageNum, pageSize);
         List<Position> parents = parentPage.getRecords();
 
@@ -68,6 +111,7 @@ public class PositionServiceImpl extends ServiceImpl<PositionMapper, Position> i
             return result;
         }
 
+        // 批量查询关联的人员档案
         List<Long> parentIds = parents.stream().map(Position::getPositionId).collect(Collectors.toList());
         QueryWrapper<PersonnelFile> wrapper = new QueryWrapper<>();
         wrapper.in("position_id", parentIds);
@@ -75,6 +119,7 @@ public class PositionServiceImpl extends ServiceImpl<PositionMapper, Position> i
         Map<Long, List<PersonnelFile>> filesMap = allFiles.stream()
                 .collect(Collectors.groupingBy(PersonnelFile::getPositionId));
 
+        // 组装带子表数据的DTO
         List<PositionWithDetailsDto> dtos = parents.stream().map(parent -> {
             PositionWithDetailsDto dto = new PositionWithDetailsDto();
             BeanUtils.copyProperties(parent, dto);
@@ -88,4 +133,6 @@ public class PositionServiceImpl extends ServiceImpl<PositionMapper, Position> i
         result.setPageSize(pageSize);
         return result;
     }
+
+    // endregion
 }

@@ -15,6 +15,12 @@ import lombok.Data;
 @TableName(value ="stock_in_detail")
 @Data
 public class StockInDetail {
+
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 入库明细唯一标识
      */
@@ -62,6 +68,13 @@ public class StockInDetail {
      */
     @TableField(value = "unit_name")
     private String unitName;
+
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
 
     /**
      * 批次号
@@ -111,6 +124,13 @@ public class StockInDetail {
     @TableField(value = "remark")
     private String remark;
 
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
     /**
      * 是否已删除
      */
@@ -122,4 +142,6 @@ public class StockInDetail {
      */
     @TableField(value = "version")
     private Integer version;
+
+    // endregion
 }

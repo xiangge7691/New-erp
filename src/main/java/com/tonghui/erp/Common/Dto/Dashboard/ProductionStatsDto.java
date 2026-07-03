@@ -7,6 +7,12 @@ import lombok.Data;
  */
 @Data
 public class ProductionStatsDto {
+
+    // region 数据字段
+    // ===================================
+    // 数据字段
+    // ===================================
+
     /**
      * 计划总数
      */
@@ -26,4 +32,6 @@ public class ProductionStatsDto {
      * 待处理数量
      */
     private long pending;
+
+    // endregion
 }

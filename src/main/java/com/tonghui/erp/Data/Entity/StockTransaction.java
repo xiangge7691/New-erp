@@ -17,6 +17,12 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class StockTransaction extends AuditEntity {
+
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 交易记录唯一标识
      */
@@ -40,6 +46,13 @@ public class StockTransaction extends AuditEntity {
      */
     @TableField(value = "transaction_date")
     private LocalDateTime transactionDate;
+
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
 
     /**
      * 关联单据ID（入库单ID/出库单ID）
@@ -83,6 +96,13 @@ public class StockTransaction extends AuditEntity {
     @TableField(value = "remark")
     private String remark;
 
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
     /**
      * 是否已删除
      */
@@ -94,4 +114,6 @@ public class StockTransaction extends AuditEntity {
      */
     @TableField(value = "version")
     private Integer version;
+
+    // endregion
 }

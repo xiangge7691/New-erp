@@ -19,7 +19,10 @@ import java.util.List;
  */
 public interface ProductionUnitService extends IService<ProductionUnit> {
 
-    // #region 基础操作
+    // region 基础操作
+    // ===================================
+    // 基础操作
+    // ===================================
 
     /**
      * 新增生产单位
@@ -45,9 +48,12 @@ public interface ProductionUnitService extends IService<ProductionUnit> {
      */
     boolean deleteProductionUnit(Long prodUnitId);
 
-    // #endregion
+    // endregion
 
-    // #region 查询操作
+    // region 查询操作
+    // ===================================
+    // 查询操作
+    // ===================================
 
     /**
      * 根据ID查询生产单位
@@ -87,9 +93,12 @@ public interface ProductionUnitService extends IService<ProductionUnit> {
      */
     PagedResult<ProductionUnit> getProductionUnitList(PageRequestDto pageRequestDto);
 
-    // #endregion
+    // endregion
 
-    // #region 高级查询
+    // region 高级查询
+    // ===================================
+    // 高级查询
+    // ===================================
 
     /**
      * 高级查询生产单位（支持分页）
@@ -118,9 +127,12 @@ public interface ProductionUnitService extends IService<ProductionUnit> {
                                                LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
                                                int pageNum, int pageSize);
 
-    // #endregion
+    // endregion
 
-    // #region 带子表查询
+    // region 带子表查询
+    // ===================================
+    // 带子表查询
+    // ===================================
 
     /**
      * 高级查询生产单位（包含发票和材料文件子表）
@@ -139,9 +151,12 @@ public interface ProductionUnitService extends IService<ProductionUnit> {
                                                                  LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
                                                                  int pageNum, int pageSize);
 
-    // #endregion
+    // endregion
 
-    // #region 生产单位发票信息操作
+    // region 生产单位发票信息操作
+    // ===================================
+    // 生产单位发票信息操作
+    // ===================================
 
     /**
      * 添加生产单位发票信息
@@ -168,9 +183,12 @@ public interface ProductionUnitService extends IService<ProductionUnit> {
      */
     boolean deleteProdUnitInvoice(Long prodInvoiceId);
 
-    // #endregion
+    // endregion
 
-    // #region 生产单位材料文件操作
+    // region 生产单位材料文件操作
+    // ===================================
+    // 生产单位材料文件操作
+    // ===================================
 
     /**
      * 添加生产单位材料文件
@@ -236,5 +254,5 @@ public interface ProductionUnitService extends IService<ProductionUnit> {
      */
     boolean deleteProdUnitMaterialFile(Long prodMaterialId);
 
-    // #endregion
+    // endregion
 }

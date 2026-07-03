@@ -7,6 +7,12 @@ import lombok.Data;
  */
 @Data
 public class StockWarningStatsDto {
+
+    // region 数据字段
+    // ===================================
+    // 数据字段
+    // ===================================
+
     /**
      * 库存不足数量
      */
@@ -21,4 +27,6 @@ public class StockWarningStatsDto {
      * 已过期数量
      */
     private long expired;
+
+    // endregion
 }

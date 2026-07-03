@@ -16,29 +16,56 @@ import java.time.LocalDateTime;
 
 /**
  * 生产计划控制器
+ *
+ * 接口清单：
+ * ┌────┬────────────────────────────────────────────┬────────┬─────────────────────────────────┐
+ * │ #  │ 接口                                       │ 方法   │ 说明                            │
+ * ├────┼────────────────────────────────────────────┼────────┼─────────────────────────────────┤
+ * │ 1  │ /api/production-plans                      │ GET    │ 分页查询生产计划列表            │
+ * │ 2  │ /api/production-plans/{id}                 │ GET    │ 获取生产计划详情                │
+ * │ 3  │ /api/production-plans                      │ POST   │ 新增生产计划                    │
+ * │ 4  │ /api/production-plans/{id}                 │ PUT    │ 修改生产计划                    │
+ * │ 5  │ /api/production-plans/{id}                 │ DELETE │ 删除生产计划                    │
+ * │ 6  │ /api/production-plans/search               │ GET    │ 高级查询生产计划（多条件+分页）  │
+ * │ 7  │ /api/production-plans/search-with-details  │ GET    │ 高级查询生产计划（含工序记录）   │
+ * │ 8  │ /api/production-plans/generate-plan-number │ GET    │ 自动生成计划编号                │
+ * │ 9  │ /api/production-plans/{planId}/status/change│ POST  │ 更改生产计划状态                │
+ * │ 10 │ /api/production-plans/{planId}/status/resume│ POST  │ 恢复暂停的生产计划状态          │
+ * └────┴────────────────────────────────────────────┴────────┴─────────────────────────────────┘
  */
 @RestController
 @RequestMapping("/api/production-plans")
 public class ProductionPlanController extends BaseCrudController<ProductionPlan, ProductionPlan, Integer> {
 
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
+    /**
+     * 生产计划服务
+     */
     @Autowired
     private ProductionPlanService productionPlanService;
 
+    // endregion
+
+    // region CRUD基础方法实现
+    // ===================================
+    // CRUD基础方法实现
+    // ===================================
+
     @Override
     protected PagedResult<ProductionPlan> getAllData(int pageIndex, int pageSize) {
-        // 页码从0开始的处理，确保不为负数
         int safePageIndex = Math.max(0, pageIndex);
-        // 当pageSize<=0时，设置一个合理的默认值
         int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
 
-        // 使用ProductionPlanService的queryProductionPlans方法进行查询
         ProductionPlan productionPlan = new ProductionPlan();
         Page<ProductionPlan> pageResult = productionPlanService.queryProductionPlans(productionPlan,
                 null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
                 null, null, null,
                 safePageIndex, safePageSize);
 
-        // 转换为PagedResult
         PagedResult<ProductionPlan> pagedResult = new PagedResult<>();
         pagedResult.setItems(pageResult.getRecords());
         pagedResult.setTotalCount((int) pageResult.getTotal());
@@ -55,13 +82,11 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
 
     @Override
     protected ProductionPlan doCreate(ProductionPlan entity) {
-        // 设置创建人和更新人
         Long currentUserId = EntityUtils.getCurrentUserId();
         if (currentUserId != null) {
             entity.setCreatedBy(currentUserId);
             entity.setUpdatedBy(currentUserId);
         }
-        // 设置创建时间和更新时间
         LocalDateTime now = LocalDateTime.now();
         entity.setCreatedTime(now);
         entity.setUpdatedTime(now);
@@ -72,7 +97,6 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
     @Override
     protected ProductionPlan doUpdate(Integer id, ProductionPlan entity) {
         entity.setId(id);
-        // 设置更新人和更新时间
         Long currentUserId = EntityUtils.getCurrentUserId();
         if (currentUserId != null) {
             entity.setUpdatedBy(currentUserId);
@@ -87,22 +111,15 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
         return productionPlanService.removeById(id);
     }
 
-    // #region 高级查询
+    // endregion
+
+    // region 高级查询
+    // ===================================
+    // 高级查询
+    // ===================================
 
     /**
      * 高级查询生产计划（支持多条件 + 分页）
-     *
-     * 可选查询条件：
-     * - planNumber：模糊匹配
-     * - relatedOrder：模糊匹配
-     * - preparationCode：模糊匹配
-     * - preparationName：模糊匹配
-     * - currentStatus：精确匹配
-     * - isArchived：精确匹配
-     * - createdTimeStart：创建时间起始（大于等于）
-     * - createdTimeEnd：创建时间结束（小于等于）
-     * - updatedTimeStart：更新时间起始（大于等于）
-     * - updatedTimeEnd：更新时间结束（小于等于）
      *
      * 示例请求：
      * GET /api/production-plans/search?pageIndex=1&pageSize=20&planNumber=PP2025&currentStatus=active&createdTimeStart=2025-01-01T00:00:00&createdTimeEnd=2025-12-31T23:59:59
@@ -124,9 +141,12 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
      * @param outboundTimeEnd 出库时间结束
      * @param archiveTimeStart 归档时间起始
      * @param archiveTimeEnd 归档时间结束
+     * @param timeFieldType 时间字段类型
+     * @param timeStart 通用时间起始
+     * @param timeEnd 通用时间结束
      * @param pageIndex 页码
      * @param pageSize 每页大小
-     * @return 分页结果
+     * @return ApiResponse&lt;PagedResult&lt;ProductionPlan&gt;&gt; 分页查询结果
      */
     @GetMapping("/search")
     public ApiResponse<PagedResult<ProductionPlan>> queryProductionPlans(ProductionPlan productionPlan,
@@ -179,14 +199,20 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
         }
     }
 
-    // #endregion
+    // endregion
 
-    // #region 带子表查询
+    // region 带子表查询
+    // ===================================
+    // 带子表查询
+    // ===================================
 
     /**
      * 高级查询生产计划（包含工序记录子表）
      *
-     * @param productionPlan 查询条件
+     * 示例请求：
+     * GET /api/production-plans/search-with-details?pageIndex=1&pageSize=20&planNumber=PP2025
+     *
+     * @param productionPlan 查询条件（自动从query参数映射）
      * @param createdTimeStart 创建时间起始
      * @param createdTimeEnd 创建时间结束
      * @param updatedTimeStart 更新时间起始
@@ -203,9 +229,12 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
      * @param outboundTimeEnd 出库时间结束
      * @param archiveTimeStart 归档时间起始
      * @param archiveTimeEnd 归档时间结束
+     * @param timeFieldType 时间字段类型
+     * @param timeStart 通用时间起始
+     * @param timeEnd 通用时间结束
      * @param pageIndex 页码
-     * @param pageSize  每页大小
-     * @return 分页结果（包含工序记录）
+     * @param pageSize 每页大小
+     * @return ApiResponse&lt;PagedResult&lt;ProductionPlanWithRecordsDto&gt;&gt; 分页结果（包含工序记录）
      */
     @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<ProductionPlanWithRecordsDto>> searchWithDetails(ProductionPlan productionPlan,
@@ -246,14 +275,20 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
         }
     }
 
-    // #endregion
+    // endregion
     
-    // #region 自动生成计划编号接口
-    
+    // region 自动生成计划编号接口
+    // ===================================
+    // 自动生成计划编号接口
+    // ===================================
+
     /**
      * 自动生成生产计划编号
      *
-     * @return 生成的计划编号
+     * 示例请求：
+     * GET /api/production-plans/generate-plan-number
+     *
+     * @return ApiResponse&lt;String&gt; 生成的计划编号
      */
     @GetMapping("/generate-plan-number")
     public ApiResponse<String> generatePlanNumber() {
@@ -292,21 +327,28 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
         }
     }
     
-    // #endregion
+    // endregion
     
-    // #region 状态管理接口
+    // region 状态管理接口
+    // ===================================
+    // 状态管理接口
+    // ===================================
 
     /**
      * 更改生产计划状态
      *
+     * 示例请求：
+     * POST /api/production-plans/1/status/change?newStatus=进行中&operatorId=1&remark=开始生产
+     *
      * @param planId 生产计划ID
      * @param newStatus 新状态
+     * @param operatorId 操作员ID
      * @param remark 备注
      * @param finishedQuantity 成品数量（仅在出库状态时使用）
      * @param productionCycle 生产周期（仅在出库状态时使用）
      * @param yieldRate 得率（仅在出库状态时使用）
      * @param unitPrice 单价（仅在出库状态时使用）
-     * @return 操作结果
+     * @return ApiResponse&lt;Boolean&gt; 操作结果
      */
     @PostMapping("/{planId}/status/change")
     public ApiResponse<Boolean> changePlanStatus(
@@ -331,10 +373,13 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
     /**
      * 恢复暂停的生产计划状态
      *
+     * 示例请求：
+     * POST /api/production-plans/1/status/resume?operatorId=1&remark=恢复生产
+     *
      * @param planId 生产计划ID
      * @param operatorId 操作员ID
      * @param remark 备注
-     * @return 操作结果
+     * @return ApiResponse&lt;Boolean&gt; 操作结果
      */
     @PostMapping("/{planId}/status/resume")
     public ApiResponse<Boolean> resumePlanStatus(
@@ -349,5 +394,5 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
         }
     }
 
-    // #endregion
+    // endregion
 }

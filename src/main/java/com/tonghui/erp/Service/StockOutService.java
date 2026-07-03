@@ -16,7 +16,10 @@ import java.util.List;
  */
 public interface StockOutService extends IService<StockOut> {
 
-    // #region 基础操作
+    // region 基础操作
+    // ===================================
+    // 基础操作
+    // ===================================
 
     /**
      * 新增出库单（包含明细）
@@ -48,9 +51,12 @@ public interface StockOutService extends IService<StockOut> {
      */
     void deleteStockOut(Long stockOutId);
 
-    // #endregion
+    // endregion
 
-    // #region 查询操作
+    // region 查询操作
+    // ===================================
+    // 查询操作
+    // ===================================
 
     /**
      * 根据ID查询出库单
@@ -75,9 +81,12 @@ public interface StockOutService extends IService<StockOut> {
      */
     List<StockOut> getAllStockOuts();
 
-    // #endregion
+    // endregion
 
-    // #region 出库单明细操作
+    // region 出库单明细操作
+    // ===================================
+    // 出库单明细操作
+    // ===================================
 
     /**
      * 根据出库单ID获取明细列表
@@ -115,9 +124,12 @@ public interface StockOutService extends IService<StockOut> {
      */
     void deleteStockOutDetail(Long detailId);
 
-    // #endregion
+    // endregion
 
-    // #region 单号生成
+    // region 单号生成
+    // ===================================
+    // 单号生成
+    // ===================================
 
     /**
      * 生成出库单号
@@ -126,9 +138,12 @@ public interface StockOutService extends IService<StockOut> {
      */
     String generateStockOutCode();
 
-    // #endregion
+    // endregion
 
-    // #region 高级查询
+    // region 高级查询
+    // ===================================
+    // 高级查询
+    // ===================================
 
     /**
      * 高级查询出库单（支持分页）
@@ -146,9 +161,12 @@ public interface StockOutService extends IService<StockOut> {
      */
     Page<StockOut> queryStockOuts(StockOut stockOut, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, LocalDate startDate, LocalDate endDate, int pageNum, int pageSize);
 
-    // #endregion
+    // endregion
 
-    // #region 带子表查询
+    // region 带子表查询
+    // ===================================
+    // 带子表查询
+    // ===================================
 
     /**
      * 高级查询出库单（包含明细子表）
@@ -166,5 +184,5 @@ public interface StockOutService extends IService<StockOut> {
      */
     PagedResult<StockOutWithDetailsDto> searchWithDetails(StockOut stockOut, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, LocalDate startDate, LocalDate endDate, int pageNum, int pageSize);
 
-    // #endregion
+    // endregion
 }

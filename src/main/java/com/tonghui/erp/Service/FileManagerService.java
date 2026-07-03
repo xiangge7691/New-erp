@@ -14,6 +14,11 @@ import java.util.List;
  */
 public interface FileManagerService {
 
+    // region 目录操作
+    // ===================================
+    // 目录操作
+    // ===================================
+
     /**
      * 列出目录内容
      *
@@ -61,6 +66,13 @@ public interface FileManagerService {
      */
     void delete(String relativePath);
 
+    // endregion
+
+    // region 文件操作
+    // ===================================
+    // 文件操作
+    // ===================================
+
     /**
      * 上传文件到指定目录
      *
@@ -94,4 +106,6 @@ public interface FileManagerService {
      * @return 匹配的文件列表
      */
     List<FileItemDto> searchFiles(String keyword, String relativePath);
+
+    // endregion
 }

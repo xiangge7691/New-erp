@@ -62,7 +62,10 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
         return pagedResult;
     }
 
-    // #region 基础操作
+    // region 基础操作
+    // ===================================
+    // 基础操作
+    // ===================================
 
     /**
      * 新增制剂
@@ -115,9 +118,12 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
         this.baseMapper.deleteById(preparationId);
     }
 
-    // #endregion
+    // endregion
 
-    // #region 查询操作
+    // region 查询操作
+    // ===================================
+    // 查询操作
+    // ===================================
 
     /**
      * 根据ID查询制剂
@@ -165,9 +171,12 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
         return this.baseMapper.selectList(null);
     }
 
-    // #endregion
+    // endregion
 
-    //#region 高级查询
+    // region 高级查询
+    // ===================================
+    // 高级查询
+    // ===================================
 
     /**
      * 高级查询制剂（支持分页）
@@ -383,5 +392,5 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
         // 实际部署时应移除此行并确保能正确获取用户ID
         return null;
     }
-//#endregion
+// endregion
 }

@@ -23,9 +23,6 @@ import java.util.stream.Collectors;
  * 实现UserDepartmentService接口，提供用户部门关联相关的业务逻辑处理，包括用户部门关联的查询、管理等功能的具体实现
  * </p>
  * 
- * @author 87954
- * @description 针对表【user_department(用户-部门关联表)】的数据库操作Service实现
- * @createDate 2025-08-27 10:08:57
  */
 @Service
 public class UserDepartmentServiceImpl extends ServiceImpl<UserDepartmentMapper, UserDepartment>
@@ -34,7 +31,7 @@ public class UserDepartmentServiceImpl extends ServiceImpl<UserDepartmentMapper,
     @Autowired
     private Converters converters;
 
-    //#region 基础查询接口
+    // region 基础查询接口
     // ===================================
     // 基础查询接口
     // ===================================
@@ -60,9 +57,9 @@ public class UserDepartmentServiceImpl extends ServiceImpl<UserDepartmentMapper,
     public List<UserDepartment> getByDepartmentId(Long departmentId) {
         return this.list(new QueryWrapper<UserDepartment>().eq("department_id", departmentId));
     }
-    //#endregion
+    // endregion
 
-    //#region 主部门查询接口
+    // region 主部门查询接口
     // ===================================
     // 主部门查询接口
     // ===================================
@@ -79,9 +76,9 @@ public class UserDepartmentServiceImpl extends ServiceImpl<UserDepartmentMapper,
                 .eq("user_id", userId)
                 .eq("is_primary", 1));
     }
-    //#endregion
+    // endregion
 
-    //#region 分页查询接口
+    // region 分页查询接口
     // ===================================
     // 分页查询接口
     // ===================================
@@ -167,9 +164,9 @@ public class UserDepartmentServiceImpl extends ServiceImpl<UserDepartmentMapper,
         
         return pagedResult;
     }
-    //#endregion
+    // endregion
 
-    //#region DTO分页查询接口
+    // region DTO分页查询接口
     // ===================================
     // DTO分页查询接口
     // ===================================
@@ -197,9 +194,9 @@ public class UserDepartmentServiceImpl extends ServiceImpl<UserDepartmentMapper,
         
         return dtoPagedResult;
     }
-    //#endregion
+    // endregion
 
-    //#region DTO查询接口
+    // region DTO查询接口
     // ===================================
     // DTO查询接口
     // ===================================
@@ -250,9 +247,9 @@ public class UserDepartmentServiceImpl extends ServiceImpl<UserDepartmentMapper,
         
         return converters.toUserDepartmentDto(primaryDepartment);
     }
-    //#endregion
+    // endregion
     
-    //#region 数据转换接口
+    // region 数据转换接口
     // ===================================
     // 数据转换接口
     // ===================================
@@ -266,7 +263,7 @@ public class UserDepartmentServiceImpl extends ServiceImpl<UserDepartmentMapper,
     public UserDepartmentDto convertToDto(UserDepartment entity) {
         return converters.toUserDepartmentDto(entity);
     }
-    //#endregion
+    // endregion
 }
 
 

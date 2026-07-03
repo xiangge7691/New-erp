@@ -14,12 +14,24 @@ import org.springframework.web.bind.annotation.*;
  * <p>
  * 处理权限相关的HTTP请求，提供RESTful API接口，包括权限的增删改查操作
  * </p>
+ *
+ * 接口清单：
+ * ┌────┬────────────────────────────────┬────────┬──────────────────────────────┐
+ * │ #  │ 接口                           │ 方法   │ 说明                         │
+ * ├────┼────────────────────────────────┼────────┼──────────────────────────────┤
+ * │ 1  │ /api/Permission                │ GET    │ 分页查询权限列表             │
+ * │ 2  │ /api/Permission/{id}           │ GET    │ 获取权限详情                 │
+ * │ 3  │ /api/Permission                │ POST   │ 新增权限                     │
+ * │ 4  │ /api/Permission/{id}           │ PUT    │ 修改权限                     │
+ * │ 5  │ /api/Permission/{id}           │ DELETE │ 删除权限                     │
+ * │ 6  │ /api/Permission/search         │ GET    │ 按名称模糊搜索权限           │
+ * └────┴────────────────────────────────┴────────┴──────────────────────────────┘
  */
 @RestController
 @RequestMapping("/api/Permission")
 public class PermissionController extends BaseCrudController<Permission, PermissionDto, Long> {
 
-    //#region 字段和构造方法
+    // region 字段和构造方法
     // ===================================
     // 字段和构造方法
     // ===================================
@@ -31,9 +43,9 @@ public class PermissionController extends BaseCrudController<Permission, Permiss
         this.permissionService = permissionService;
     }
     
-    //#endregion
+    // endregion
 
-    //#region CRUD操作实现方法
+    // region CRUD操作实现方法
     // ===================================
     // CRUD操作实现方法
     // ===================================
@@ -125,20 +137,25 @@ public class PermissionController extends BaseCrudController<Permission, Permiss
         return permissionService.removeById(id);
     }
     
-    //#endregion
+    // endregion
 
-    //#region 权限查询接口方法
+    // region 搜索与查询
     // ===================================
-    // 权限查询接口方法
+    // 搜索与查询
     // ===================================
     
     /**
      * 根据权限名称模糊查询权限
-     * 支持按权限名称进行模糊查询和分页
+     * <p>
+     * 支持按权限名称进行模糊查询和分页，当pageSize为-1时返回所有权限
+     * </p>
      *
-     * @param permissionName 权限名称关键词
+     * 示例请求：
+     * GET /api/Permission/search?pageIndex=0&pageSize=20&permissionName=查看
+     *
+     * @param permissionName 权限名称关键词（可选）
      * @param pageRequest 分页请求参数
-     * @return 权限列表
+     * @return ApiResponse&lt;PagedResult&lt;PermissionDto&gt;&gt; 权限分页列表
      */
     @GetMapping("/search")
     public ApiResponse<PagedResult<PermissionDto>> searchPermissions(
@@ -166,5 +183,5 @@ public class PermissionController extends BaseCrudController<Permission, Permiss
         }
     }
     
-    //#endregion
+    // endregion
 }

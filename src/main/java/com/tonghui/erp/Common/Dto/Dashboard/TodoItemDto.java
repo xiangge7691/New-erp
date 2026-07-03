@@ -7,6 +7,12 @@ import lombok.Data;
  */
 @Data
 public class TodoItemDto {
+
+    // region 数据字段
+    // ===================================
+    // 数据字段
+    // ===================================
+
     /**
      * 唯一标识
      */
@@ -36,4 +42,6 @@ public class TodoItemDto {
      * 跳转链接
      */
     private String link;
+
+    // endregion
 }

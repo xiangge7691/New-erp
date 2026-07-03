@@ -13,7 +13,7 @@ import java.util.List;
 @Data
 public class UserDto {
     
-    //#region 用户基本信息字段
+    // region 用户基本信息字段
     // ===================================
     // 用户基本信息字段
     // ===================================
@@ -72,9 +72,9 @@ public class UserDto {
      */
     private LocalDateTime updatedTime;
     
-    //#endregion
+    // endregion
     
-    //#region 关联关系字段
+    // region 关联关系字段
     // ===================================
     // 关联关系字段
     // ===================================
@@ -97,5 +97,5 @@ public class UserDto {
      */
     private List<RoleDto> roles;
     
-    //#endregion
+    // endregion
 }

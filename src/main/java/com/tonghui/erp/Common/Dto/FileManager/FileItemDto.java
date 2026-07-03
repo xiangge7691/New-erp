@@ -7,6 +7,12 @@ import lombok.Data;
  */
 @Data
 public class FileItemDto {
+
+    // region 基本信息
+    // ===================================
+    // 基本信息
+    // ===================================
+
     /**
      * 文件/文件夹名称
      */
@@ -41,4 +47,6 @@ public class FileItemDto {
      * 文件类型图标类型（folder/image/document/video/audio/archive/other）
      */
     private String iconType;
+
+    // endregion
 }

@@ -10,14 +10,26 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 /**
-* @author 87954
-* @description 针对表【approval_record(审批记录)】的数据库操作Service实现
-* @createDate 2025-12-18 09:50:00
-*/
+ * 审批记录服务实现类
+ * <p>
+ * 实现ApprovalRecordService接口，提供审批记录的CRUD操作及按实例/节点查询功能
+ * </p>
+ */
 @Service
 public class ApprovalRecordServiceImpl extends ServiceImpl<ApprovalRecordMapper, ApprovalRecord>
     implements ApprovalRecordService{
     
+    // region 查询方法
+    // ===================================
+    // 查询方法
+    // ===================================
+
+    /**
+     * 根据实例ID获取审批记录列表
+     *
+     * @param instanceId 审批实例ID
+     * @return 审批记录列表，按createdTime倒序
+     */
     @Override
     public List<ApprovalRecord> getRecordsByInstanceId(Long instanceId) {
         QueryWrapper<ApprovalRecord> queryWrapper = new QueryWrapper<>();
@@ -26,6 +38,12 @@ public class ApprovalRecordServiceImpl extends ServiceImpl<ApprovalRecordMapper,
         return list(queryWrapper);
     }
     
+    /**
+     * 根据节点ID获取审批记录列表
+     *
+     * @param nodeId 审批节点ID
+     * @return 审批记录列表，按createdTime倒序
+     */
     @Override
     public List<ApprovalRecord> getRecordsByNodeId(Long nodeId) {
         QueryWrapper<ApprovalRecord> queryWrapper = new QueryWrapper<>();
@@ -33,8 +51,6 @@ public class ApprovalRecordServiceImpl extends ServiceImpl<ApprovalRecordMapper,
         queryWrapper.orderByDesc("created_time");
         return list(queryWrapper);
     }
+
+    // endregion
 }
-
-
-
-

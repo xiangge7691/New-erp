@@ -28,11 +28,23 @@ import java.util.stream.Stream;
 @Service
 public class FileManagerServiceImpl implements FileManagerService {
 
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
     @Autowired
     private FileStorageConfig fileStorageConfig;
 
     @Autowired
     private FileInfoMapper fileInfoMapper;
+
+    // endregion
+
+    // region 目录操作
+    // ===================================
+    // 目录操作
+    // ===================================
 
     @Override
     public DirectoryListingDto listDirectory(String relativePath) {
@@ -158,6 +170,13 @@ public class FileManagerServiceImpl implements FileManagerService {
         }
     }
 
+    // endregion
+
+    // region 文件操作
+    // ===================================
+    // 文件操作
+    // ===================================
+
     @Override
     public FileInfo uploadFile(MultipartFile file, String relativeDir) throws IOException {
         Path dir = resolveSafePath(relativeDir);
@@ -254,7 +273,12 @@ public class FileManagerServiceImpl implements FileManagerService {
         return results;
     }
 
-    // ========== 私有方法 ==========
+    // endregion
+
+    // region 私有方法
+    // ===================================
+    // 私有方法
+    // ===================================
 
     private String resolveBasePath() {
         String envPath = System.getenv("ERP_FILE_STORAGE_PATH");
@@ -353,4 +377,6 @@ public class FileManagerServiceImpl implements FileManagerService {
             });
         }
     }
+
+    // endregion
 }

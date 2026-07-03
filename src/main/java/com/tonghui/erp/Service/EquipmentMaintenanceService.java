@@ -9,6 +9,11 @@ import java.util.List;
  */
 public interface EquipmentMaintenanceService extends IService<EquipmentMaintenance> {
 
+    // region 查询操作
+    // ===================================
+    // 查询操作
+    // ===================================
+
     /**
      * 查询即将到期的维保提醒
      * @param days 提前天数
@@ -23,6 +28,13 @@ public interface EquipmentMaintenanceService extends IService<EquipmentMaintenan
      */
     List<EquipmentMaintenance> findByEquipmentId(Long equipmentId);
 
+    // endregion
+
+    // region 保存操作
+    // ===================================
+    // 保存操作
+    // ===================================
+
     /**
      * 新增维保记录（含自动计算逻辑）
      * 保养类型：自动按维保周期计算下次维保时间
@@ -31,4 +43,6 @@ public interface EquipmentMaintenanceService extends IService<EquipmentMaintenan
      * @return 保存后的记录
      */
     EquipmentMaintenance saveWithAutoCalc(EquipmentMaintenance maintenance);
+
+    // endregion
 }

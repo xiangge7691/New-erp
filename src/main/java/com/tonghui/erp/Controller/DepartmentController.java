@@ -15,12 +15,25 @@ import org.springframework.web.bind.annotation.*;
  * <p>
  * 处理部门相关的HTTP请求，提供RESTful API接口，包括部门的增删改查操作
  * </p>
+ *
+ * 接口清单：
+ * ┌────┬──────────────────────────────────┬────────┬──────────────────────────────┐
+ * │ #  │ 接口                             │ 方法   │ 说明                         │
+ * ├────┼──────────────────────────────────┼────────┼──────────────────────────────┤
+ * │ 1  │ /api/Department                  │ GET    │ 分页查询部门列表             │
+ * │ 2  │ /api/Department/{id}             │ GET    │ 获取部门详情                 │
+ * │ 3  │ /api/Department                  │ POST   │ 新增部门                     │
+ * │ 4  │ /api/Department/{id}             │ PUT    │ 修改部门                     │
+ * │ 5  │ /api/Department/{id}             │ DELETE │ 删除部门                     │
+ * │ 6  │ /api/Department/search           │ GET    │ 按名称模糊搜索部门           │
+ * │ 7  │ /api/Department/search-with-details │ GET │ 查询部门（带子表：岗位、用户）│
+ * └────┴──────────────────────────────────┴────────┴──────────────────────────────┘
  */
 @RestController
 @RequestMapping("/api/Department")
 public class DepartmentController extends BaseCrudController<Department, DepartmentDto, Long> {
     
-    //#region 字段和构造方法
+    // region 字段和构造方法
     // ===================================
     // 字段和构造方法
     // ===================================
@@ -32,9 +45,9 @@ public class DepartmentController extends BaseCrudController<Department, Departm
         this.departmentService = departmentService;
     }
     
-    //#endregion
+    // endregion
 
-    //#region CRUD操作实现方法
+    // region CRUD操作实现方法
     // ===================================
     // CRUD操作实现方法
     // ===================================
@@ -102,20 +115,25 @@ public class DepartmentController extends BaseCrudController<Department, Departm
         return departmentService.removeById(id);
     }
     
-    //#endregion
+    // endregion
 
-    //#region 部门查询接口方法
+    // region 搜索与查询
     // ===================================
-    // 部门查询接口方法
+    // 搜索与查询
     // ===================================
     
     /**
      * 根据部门名称模糊查询部门
-     * 支持按部门名称进行模糊查询和分页
+     * <p>
+     * 支持按部门名称进行模糊查询和分页，当pageSize为-1时返回所有部门
+     * </p>
      *
-     * @param departmentName 部门名称关键词
+     * 示例请求：
+     * GET /api/Department/search?pageIndex=0&pageSize=20&departmentName=生产
+     *
+     * @param departmentName 部门名称关键词（可选）
      * @param pageRequest 分页请求参数
-     * @return 部门列表
+     * @return ApiResponse&lt;PagedResult&lt;DepartmentDto&gt;&gt; 部门分页列表
      */
     @GetMapping("/search")
     public ApiResponse<PagedResult<DepartmentDto>> searchDepartments(
@@ -145,15 +163,25 @@ public class DepartmentController extends BaseCrudController<Department, Departm
         }
     }
     
-    //#endregion
+    // endregion
 
-    //#region 带子表查询接口
+    // region 带子表查询
     // ===================================
-    // 带子表查询接口
+    // 带子表查询
     // ===================================
 
     /**
      * 查询部门（带子表：岗位、用户部门关联）
+     * <p>
+     * 返回部门信息及其关联的岗位和用户部门关联数据
+     * </p>
+     *
+     * 示例请求：
+     * GET /api/Department/search-with-details?pageIndex=0&pageSize=20
+     *
+     * @param department 部门查询条件
+     * @param pageRequest 分页请求参数
+     * @return ApiResponse&lt;PagedResult&lt;DepartmentWithDetailsDto&gt;&gt; 部门详情分页列表
      */
     @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<DepartmentWithDetailsDto>> searchWithDetails(
@@ -168,5 +196,5 @@ public class DepartmentController extends BaseCrudController<Department, Departm
             return exception(ex, "searchWithDetails");
         }
     }
-    //#endregion
+    // endregion
 }

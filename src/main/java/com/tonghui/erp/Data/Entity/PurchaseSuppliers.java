@@ -15,6 +15,11 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class PurchaseSuppliers extends AuditEntity {
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 主键ID
      */
@@ -63,6 +68,13 @@ public class PurchaseSuppliers extends AuditEntity {
     @TableField(value = "address")
     private String address;
 
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
+
     /**
      * 银行账户
      */
@@ -82,16 +94,23 @@ public class PurchaseSuppliers extends AuditEntity {
     private String remark;
 
     /**
-     * 状态
-     */
-    @TableField(value = "status")
-    private Object status;
-
-    /**
      * 材料信息
      */
     @TableField(value = "material_info")
     private String materialInfo;
+
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
+    /**
+     * 状态
+     */
+    @TableField(value = "status")
+    private Object status;
 
     /**
      * 是否已删除
@@ -104,4 +123,6 @@ public class PurchaseSuppliers extends AuditEntity {
      */
     @TableField(value = "version")
     private Integer version;
+
+    // endregion
 }

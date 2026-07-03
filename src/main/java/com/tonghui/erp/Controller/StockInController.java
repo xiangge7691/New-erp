@@ -17,14 +17,60 @@ import java.util.List;
 
 /**
  * 入库单控制器
+ * <p>
+ * 提供入库单的CRUD操作、高级查询、带子表查询、明细管理及单号生成等功能
+ * </p>
+ *
+ * 接口清单：
+ * ┌────┬─────────────────────────────────────┬────────┬──────────────────────────────┐
+ * │ #  │ 接口                                │ 方法   │ 说明                         │
+ * ├────┼─────────────────────────────────────┼────────┼──────────────────────────────┤
+ * │ 1  │ /api/stockin                        │ GET    │ 分页查询入库单列表           │
+ * │ 2  │ /api/stockin/{id}                   │ GET    │ 获取入库单详情               │
+ * │ 3  │ /api/stockin                        │ POST   │ 新增入库单                   │
+ * │ 4  │ /api/stockin/{id}                   │ PUT    │ 修改入库单                   │
+ * │ 5  │ /api/stockin/{id}                   │ DELETE │ 删除入库单                   │
+ * │ 6  │ /api/stockin/search                 │ GET    │ 高级查询入库单               │
+ * │ 7  │ /api/stockin/search-with-details    │ GET    │ 带子表查询入库单             │
+ * │ 8  │ /api/stockin/withDetails            │ POST   │ 创建入库单（包含明细）       │
+ * │ 9  │ /api/stockin/{id}/withDetails       │ PUT    │ 更新入库单（包含明细）       │
+ * │ 10 │ /api/stockin/{id}/details           │ GET    │ 获取入库单明细列表           │
+ * │ 11 │ /api/stockin/detail                 │ POST   │ 添加入库明细                 │
+ * │ 12 │ /api/stockin/details                │ POST   │ 批量添加入库明细             │
+ * │ 13 │ /api/stockin/detail                 │ PUT    │ 更新入库明细                 │
+ * │ 14 │ /api/stockin/detail/{id}            │ DELETE │ 删除入库明细                 │
+ * │ 15 │ /api/stockin/generateCode           │ GET    │ 生成入库单号                 │
+ * └────┴─────────────────────────────────────┴────────┴──────────────────────────────┘
  */
 @RestController
 @RequestMapping("/api/stockin")
 public class StockInController extends BaseCrudController<StockIn, StockIn, Long> {
 
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
+    /**
+     * 入库单服务
+     */
     @Autowired
     private StockInService stockInService;
 
+    // endregion
+
+    // region CRUD操作实现方法
+    // ===================================
+    // CRUD操作实现方法
+    // ===================================
+
+    /**
+     * 获取所有入库单数据（分页）
+     *
+     * @param pageIndex 页码
+     * @param pageSize  每页大小
+     * @return 分页结果
+     */
     @Override
     protected PagedResult<StockIn> getAllData(int pageIndex, int pageSize) {
         // 页码从0开始的处理，确保不为负数
@@ -46,11 +92,23 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
         return pagedResult;
     }
 
+    /**
+     * 根据ID获取入库单
+     *
+     * @param id 入库单ID
+     * @return 入库单实体
+     */
     @Override
     protected StockIn getDataById(Long id) {
         return stockInService.getStockInById(id);
     }
 
+    /**
+     * 创建入库单
+     *
+     * @param stockIn 入库单信息
+     * @return 创建后的入库单
+     */
     @Override
     protected StockIn doCreate(StockIn stockIn) {
         // 创建时如果没有单号，则自动生成
@@ -61,6 +119,13 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
         return stockIn;
     }
 
+    /**
+     * 更新入库单
+     *
+     * @param id      入库单ID
+     * @param stockIn 入库单信息
+     * @return 更新后的入库单
+     */
     @Override
     protected StockIn doUpdate(Long id, StockIn stockIn) {
         stockIn.setInId(id);
@@ -69,6 +134,12 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
         return stockIn;
     }
 
+    /**
+     * 删除入库单
+     *
+     * @param id 入库单ID
+     * @return 是否删除成功
+     */
     @Override
     protected boolean doDelete(Long id) {
         try {
@@ -79,7 +150,12 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
         }
     }
 
-    // #region 高级查询
+    // endregion
+
+    // region 高级查询
+    // ===================================
+    // 高级查询
+    // ===================================
 
     /**
      * 高级查询入库单（支持多条件 + 分页 + 时间范围）
@@ -143,12 +219,18 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
         return pagedResult;
     }
 
-    // #endregion
+    // endregion
 
-    // #region 带子表查询
+    // region 带子表查询
+    // ===================================
+    // 带子表查询
+    // ===================================
 
     /**
      * 高级查询入库单（包含明细子表）
+     *
+     * 示例请求：
+     * GET /api/stockin/search-with-details?pageIndex=1&pageSize=20&inCode=IN2025
      *
      * @param stockIn   查询条件
      * @param createdTimeStart 创建时间起始
@@ -181,12 +263,25 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
         }
     }
 
-    // #endregion
+    // endregion
 
-    // #region 专门的入库单创建和更新接口（包含明细）
+    // region 专门的入库单创建和更新接口（包含明细）
+    // ===================================
+    // 专门的入库单创建和更新接口（包含明细）
+    // ===================================
 
     /**
      * 创建入库单（包含明细）
+     *
+     * 示例请求：
+     * POST /api/stockin/withDetails
+     * Content-Type: application/json
+     * {
+     *   "inDate": "2026-07-01",
+     *   "supplierId": 1,
+     *   "prodUnitId": 1,
+     *   "inType": "原料入库"
+     * }
      *
      * @param stockIn 入库单信息
      * @param details 入库明细列表
@@ -205,7 +300,16 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
     /**
      * 更新入库单（包含明细）
      *
-     * @param id 入库单ID
+     * 示例请求：
+     * PUT /api/stockin/1/withDetails
+     * Content-Type: application/json
+     * {
+     *   "inDate": "2026-07-01",
+     *   "supplierId": 1,
+     *   "inStatus": 1
+     * }
+     *
+     * @param id      入库单ID
      * @param stockIn 入库单信息
      * @param details 入库明细列表
      * @return 入库单信息
@@ -219,12 +323,18 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
         return stockIn;
     }
 
-    // #endregion
+    // endregion
 
-    // #region 入库单明细相关接口
+    // region 入库单明细相关接口
+    // ===================================
+    // 入库单明细相关接口
+    // ===================================
 
     /**
      * 根据入库单ID获取明细列表
+     *
+     * 示例请求：
+     * GET /api/stockin/1/details
      *
      * @param stockInId 入库单ID
      * @return 明细列表
@@ -242,6 +352,16 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
     /**
      * 添加入库明细
      *
+     * 示例请求：
+     * POST /api/stockin/detail
+     * Content-Type: application/json
+     * {
+     *   "stockInId": 1,
+     *   "itemId": 1,
+     *   "quantity": 100,
+     *   "unitPrice": 10.50
+     * }
+     *
      * @param detail 入库明细
      * @return 入库明细
      */
@@ -257,6 +377,14 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
 
     /**
      * 批量添加入库明细
+     *
+     * 示例请求：
+     * POST /api/stockin/details
+     * Content-Type: application/json
+     * [
+     *   {"stockInId": 1, "itemId": 1, "quantity": 100},
+     *   {"stockInId": 1, "itemId": 2, "quantity": 200}
+     * ]
      *
      * @param details 入库明细列表
      * @return 入库明细列表
@@ -274,6 +402,16 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
     /**
      * 更新入库明细
      *
+     * 示例请求：
+     * PUT /api/stockin/detail
+     * Content-Type: application/json
+     * {
+     *   "detailId": 1,
+     *   "stockInId": 1,
+     *   "quantity": 150,
+     *   "unitPrice": 10.50
+     * }
+     *
      * @param detail 入库明细
      * @return 入库明细
      */
@@ -290,6 +428,9 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
     /**
      * 删除入库明细
      *
+     * 示例请求：
+     * DELETE /api/stockin/detail/1
+     *
      * @param detailId 明细ID
      * @return 是否删除成功
      */
@@ -303,12 +444,18 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
         }
     }
 
-    // #endregion
+    // endregion
 
-    // #region 单号生成接口
+    // region 单号生成接口
+    // ===================================
+    // 单号生成接口
+    // ===================================
 
     /**
      * 生成入库单号
+     *
+     * 示例请求：
+     * GET /api/stockin/generateCode
      *
      * @return 入库单号
      */
@@ -322,5 +469,5 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
         }
     }
 
-    // #endregion
+    // endregion
 }

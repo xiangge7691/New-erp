@@ -15,6 +15,11 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class Department extends AuditEntity {
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 部门唯一标识
      */
@@ -26,6 +31,13 @@ public class Department extends AuditEntity {
      */
     @TableField(value = "department_name")
     private String departmentName;
+
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
 
     /**
      * 父部门ID（0为顶级）
@@ -45,6 +57,13 @@ public class Department extends AuditEntity {
     @TableField(value = "sort_order")
     private Integer sortOrder;
 
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
     /**
      * 是否已删除
      */
@@ -56,4 +75,6 @@ public class Department extends AuditEntity {
      */
     @TableField(value = "version")
     private Integer version;
+
+    // endregion
 }

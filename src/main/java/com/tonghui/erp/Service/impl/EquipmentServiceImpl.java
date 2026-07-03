@@ -43,7 +43,7 @@ public class EquipmentServiceImpl extends ServiceImpl<EquipmentMapper, Equipment
     @Lazy
     private EquipmentMaintenanceService equipmentMaintenanceService;
 
-    //#region 设备信息查询实现方法
+    // region 设备信息查询实现方法
     // ===================================
     // 设备信息查询实现方法
     // ===================================

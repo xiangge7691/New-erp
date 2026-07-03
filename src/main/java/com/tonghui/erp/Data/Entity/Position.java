@@ -15,6 +15,11 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class Position extends AuditEntity {
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
     /**
      * 岗位唯一标识
      */
@@ -32,6 +37,13 @@ public class Position extends AuditEntity {
      */
     @TableField(value = "position_name")
     private String positionName;
+
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
 
     /**
      * 所属部门ID
@@ -63,6 +75,13 @@ public class Position extends AuditEntity {
     @TableField(value = "sort_order")
     private Integer sortOrder;
 
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
     /**
      * 是否已删除
      */
@@ -75,12 +94,18 @@ public class Position extends AuditEntity {
     @TableField(value = "version")
     private Integer version;
 
+    // endregion
 
-// ========== 关联表显示字段（非数据库字段）==========
+    // region 关联表显示字段
+    // ===================================
+    // 关联表显示字段
+    // ===================================
 
     /**
      * 部门名称（关联department表）
      */
     @TableField(exist = false)
     private String departmentName;
+
+    // endregion
 }
