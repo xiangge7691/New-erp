@@ -61,11 +61,12 @@ public class PersonnelFileServiceImpl extends ServiceImpl<PersonnelFileMapper, P
         LocalDate pastDeadline = today.minusDays(days);
         
         QueryWrapper<PersonnelFile> wrapper = new QueryWrapper<>();
-        wrapper.eq("status", 1)  // 在职状态
-               .isNotNull("health_cert_expire")  // 健康证到期日期不为空
-               .ge("health_cert_expire", pastDeadline)  // 大于等于过去N天（包含已过期）
-               .le("health_cert_expire", deadline)  // 小于等于截止日期
-               .orderByAsc("health_cert_expire");  // 按到期日期升序
+        wrapper.eq("is_deleted", 0)
+               .eq("status", 1)
+               .isNotNull("health_cert_expire")
+               .ge("health_cert_expire", pastDeadline)
+               .le("health_cert_expire", deadline)
+               .orderByAsc("health_cert_expire");
         
         return list(wrapper);
     }
