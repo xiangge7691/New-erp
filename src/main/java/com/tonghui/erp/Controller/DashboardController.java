@@ -524,34 +524,24 @@ public class DashboardController extends BaseController {
         try {
             ChartDataDto chartData = new ChartDataDto();
 
-            // 按月统计交付数量和产值
-            QueryWrapper<ProductionPlan> wrapper = buildTimeWrapper(startMonth, endMonth);
-            List<ProductionPlan> plans = productionPlanService.list(wrapper);
-
             // 预加载制剂→剂型映射
             Map<String, String> preparationDosageMap = new HashMap<>();
             preparationService.list().forEach(p ->
                 preparationDosageMap.put(p.getPreparationCode(), p.getDosageForm() != null ? p.getDosageForm() : "其他")
             );
 
-            // 交付数量按剂型（月度）
+            // === 交付数量按剂型（月度）：查 work_order（按 delivery_time 筛选） ===
+            QueryWrapper<WorkOrder> deliveryWrapper = buildWorkOrderDeliveryTimeWrapper(startMonth, endMonth);
+            List<WorkOrder> deliveryOrders = workOrderService.list(deliveryWrapper);
+
             Map<String, Map<String, Long>> deliveryByMonth = new LinkedHashMap<>();
-            // 预估产值按剂型（月度）
-            Map<String, Map<String, Double>> revenueByMonth = new LinkedHashMap<>();
-
-            for (ProductionPlan plan : plans) {
-                String month = plan.getCreatedTime() != null
-                    ? plan.getCreatedTime().format(DateTimeFormatter.ofPattern("M月"))
+            for (WorkOrder wo : deliveryOrders) {
+                String month = wo.getDeliveryTime() != null
+                    ? wo.getDeliveryTime().format(DateTimeFormatter.ofPattern("M月"))
                     : "未知";
-
-                String dosageForm = preparationDosageMap.getOrDefault(plan.getPreparationCode(), "其他");
-
+                String dosageForm = preparationDosageMap.getOrDefault(wo.getPreparationCode(), "其他");
                 deliveryByMonth.computeIfAbsent(month, k -> new LinkedHashMap<>())
-                    .merge(dosageForm, plan.getOutboundTime() != null ? 1L : 0L, Long::sum);
-
-                double amount = plan.getTotalAmount() != null ? plan.getTotalAmount().doubleValue() : 0.0;
-                revenueByMonth.computeIfAbsent(month, k -> new LinkedHashMap<>())
-                    .merge(dosageForm, amount, Double::sum);
+                    .merge(dosageForm, 1L, Long::sum);
             }
 
             // 组装交付数量结果（含总计）
@@ -567,7 +557,24 @@ public class DashboardController extends BaseController {
             });
             chartData.setDeliveryByDosageForm(deliveryList);
 
-            // 组装预估产值结果（含总计，单位：万元）
+            // === 预估产值按剂型（月度）：查 work_order（按 created_time 筛选） ===
+            QueryWrapper<WorkOrder> revenueWrapper = buildWorkOrderTimeWrapper(startMonth, endMonth);
+            List<WorkOrder> revenueOrders = workOrderService.list(revenueWrapper);
+
+            Map<String, Map<String, Double>> revenueByMonth = new LinkedHashMap<>();
+            for (WorkOrder wo : revenueOrders) {
+                String month = wo.getCreatedTime() != null
+                    ? wo.getCreatedTime().format(DateTimeFormatter.ofPattern("M月"))
+                    : "未知";
+                String dosageForm = preparationDosageMap.getOrDefault(wo.getPreparationCode(), "其他");
+                double amount = (wo.getBatchQty() != null && wo.getSettlementPrice() != null)
+                    ? wo.getBatchQty().doubleValue() * wo.getSettlementPrice().doubleValue()
+                    : 0.0;
+                revenueByMonth.computeIfAbsent(month, k -> new LinkedHashMap<>())
+                    .merge(dosageForm, amount, Double::sum);
+            }
+
+            // 组装预估产值结果（含总计）
             List<Map<String, Object>> revenueList = new ArrayList<>();
             revenueByMonth.forEach((month, data) -> {
                 Map<String, Object> item = new LinkedHashMap<>();
@@ -580,9 +587,10 @@ public class DashboardController extends BaseController {
             });
             chartData.setRevenueByMonth(revenueList);
 
-            // 库存资金占用（按分类分组，计算金额=数量*单价）
+            // === 库存资金占用（按分类分组，计算金额=数量*单价） ===
             List<Stock> allStocks = stockService.list();
             Map<String, Double> fundOccupation = allStocks.stream()
+                .filter(s -> s.getIsDeleted() == null || s.getIsDeleted() == 0)
                 .collect(Collectors.groupingBy(
                     s -> s.getCategoryName() != null ? s.getCategoryName() : "其他",
                     Collectors.summingDouble(s -> {
