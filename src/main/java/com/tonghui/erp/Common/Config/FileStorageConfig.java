@@ -113,6 +113,7 @@ public class FileStorageConfig {
         put("APPROVAL", "审批管理");
         put("SUPPLIER", "供应商管理");
         put("CUSTOMER", "客户管理");
+        put("ORGANIZATION", "机构管理");
         put("GENERAL", "通用文件");
     }};
 

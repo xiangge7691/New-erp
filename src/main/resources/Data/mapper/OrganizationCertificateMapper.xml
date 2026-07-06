@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.OrganizationCertificateMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.OrganizationCertificate">
+        <id property="id" column="id" />
+        <result property="organizationId" column="organization_id" />
+        <result property="certificateName" column="certificate_name" />
+        <result property="certificateNo" column="certificate_no" />
+        <result property="certificateType" column="certificate_type" />
+        <result property="issuingAuthority" column="issuing_authority" />
+        <result property="issueDate" column="issue_date" />
+        <result property="expiryDate" column="expiry_date" />
+        <result property="remark" column="remark" />
+        <result property="isDeleted" column="is_deleted" />
+        <result property="version" column="version" />
+        <result property="createdBy" column="created_by" />
+        <result property="updatedBy" column="updated_by" />
+        <result property="createdTime" column="created_time" />
+        <result property="updatedTime" column="updated_time" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,organization_id,certificate_name,certificate_no,certificate_type,
+        issuing_authority,issue_date,expiry_date,remark,
+        is_deleted,version,created_by,updated_by,created_time,updated_time
+    </sql>
+
+</mapper>
