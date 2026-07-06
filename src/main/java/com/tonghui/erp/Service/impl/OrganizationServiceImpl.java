@@ -110,6 +110,32 @@ public class OrganizationServiceImpl extends ServiceImpl<OrganizationMapper, Org
     // ===================================
 
     /**
+     * 新增机构信息（单机构模式，仅允许创建一条）
+     */
+    @Override
+    @Transactional
+    public Organization createOrganization(Organization organization) {
+        // 检查是否已存在机构
+        Organization existing = getCurrentOrganization();
+        if (existing != null) {
+            throw new RuntimeException("已存在机构信息，请使用更新接口");
+        }
+
+        // 自动计算有效期至 = 发证日期 + 5年
+        if (organization.getIssueDate() != null) {
+            organization.setExpiryDate(organization.getIssueDate().plusYears(5));
+        }
+
+        // 设置默认状态
+        organization.setLicenseStatus("有效");
+        organization.setIsDeleted(0);
+        organization.setVersion(0);
+
+        save(organization);
+        return organization;
+    }
+
+    /**
      * 更新机构信息（自动计算有效期至）
      */
     @Override

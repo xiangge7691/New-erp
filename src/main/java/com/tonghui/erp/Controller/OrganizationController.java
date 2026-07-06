@@ -23,11 +23,12 @@ import java.util.List;
  * ┌────┬────────────────────────────────────┬────────┬──────────────────────────────────────┐
  * │ #  │ 接口                               │ 方法   │ 说明                                 │
  * ├────┼────────────────────────────────────┼────────┼──────────────────────────────────────┤
- * │ 1  │ /api/organization                  │ GET   │ 获取当前机构信息（含证书+实时状态）  │
- * │ 2  │ /api/organization                  │ PUT   │ 更新机构信息                         │
- * │ 3  │ /api/organization/scan-file        │ POST  │ 上传许可证扫描件                     │
- * │ 4  │ /api/organization/scan-file/{fileId}│ DELETE│ 删除许可证扫描件                    │
- * │ 5  │ /api/organization/expiring         │ GET   │ 到期预警查询                         │
+ * │ 1  │ /api/organization                  │ POST  │ 新增机构信息                         │
+ * │ 2  │ /api/organization                  │ GET   │ 获取当前机构信息（含证书+实时状态）  │
+ * │ 3  │ /api/organization                  │ PUT   │ 更新机构信息                         │
+ * │ 4  │ /api/organization/scan-file        │ POST  │ 上传许可证扫描件                     │
+ * │ 5  │ /api/organization/scan-file/{fileId}│ DELETE│ 删除许可证扫描件                    │
+ * │ 6  │ /api/organization/expiring         │ GET   │ 到期预警查询                         │
  * └────┴────────────────────────────────────┴────────┴──────────────────────────────────────┘
  */
 @RestController
@@ -57,6 +58,44 @@ public class OrganizationController extends BaseController {
     // ===================================
     // 机构信息CRUD接口
     // ===================================
+
+    /**
+     * 新增机构信息
+     * <p>
+     * 单机构模式，仅允许创建一条机构记录。
+     * 自动计算有效期至 = 发证日期 + 5年，默认状态为"有效"。
+     * </p>
+     *
+     * 示例请求：
+     * POST /api/organization
+     * Content-Type: application/json
+     * {
+     *   "licenseNo": "湘20260001",
+     *   "orgName": "长好医院",
+     *   "orgCategory": "医院",
+     *   "unifiedSocialCreditCode": "91430100MA******",
+     *   "practiceLicenseNo": "430**********",
+     *   "legalRepresentative": "张三",
+     *   "enterpriseLeader": "李四",
+     *   "prepRoomLeader": "王五",
+     *   "preparationAddress": "XX省XX市XX区XX路XX号",
+     *   "preparationScope": "丸剂(z)、颗粒剂(z)、片剂(z)、胶囊剂(z)",
+     *   "issuingAuthority": "XX省药品监督管理局",
+     *   "issueDate": "2026-01-01"
+     * }
+     *
+     * @param organization 机构信息实体对象
+     * @return ApiResponse&lt;Organization&gt; 新增的机构信息
+     */
+    @PostMapping
+    public ApiResponse<Organization> createOrganization(@RequestBody Organization organization) {
+        try {
+            Organization created = organizationService.createOrganization(organization);
+            return success(created, "新增成功");
+        } catch (Exception ex) {
+            return exception(ex, "新增机构信息");
+        }
+    }
 
     /**
      * 获取当前机构信息（含证书列表+实时状态）

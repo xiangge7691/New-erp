@@ -48,6 +48,18 @@ public interface OrganizationService extends IService<Organization> {
     // ===================================
 
     /**
+     * 新增机构信息
+     * <p>
+     * 单机构模式，仅允许创建一条机构记录。
+     * 自动计算有效期至 = 发证日期 + 5年，默认状态为"有效"。
+     * </p>
+     *
+     * @param organization 机构信息实体
+     * @return 新增的机构信息
+     */
+    Organization createOrganization(Organization organization);
+
+    /**
      * 更新机构信息
      * <p>
      * 自动计算有效期至 = 发证日期 + 5年
