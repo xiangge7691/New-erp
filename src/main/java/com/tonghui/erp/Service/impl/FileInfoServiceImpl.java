@@ -121,19 +121,9 @@ public class FileInfoServiceImpl extends ServiceImpl<FileInfoMapper, FileInfo>
             return false;
         }
         
-        try {
-            // 删除磁盘文件
-            Path filePath = Paths.get(fileInfo.getFilePath());
-            if (Files.exists(filePath)) {
-                Files.delete(filePath);
-            }
-            
-            // 删除数据库记录
-            removeById(fileId);
-            return true;
-        } catch (IOException e) {
-            throw new RuntimeException("删除文件失败: " + e.getMessage(), e);
-        }
+        // 软删除数据库记录
+        removeById(fileId);
+        return true;
     }
     
     // endregion

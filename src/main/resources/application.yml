@@ -35,6 +35,10 @@ mybatis-plus:
     db-config:
       # 分页配置
       pagination: true
+      # 全局软删除配置
+      logic-delete-field: isDeleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
 
 # ===================================
 # JWT配置

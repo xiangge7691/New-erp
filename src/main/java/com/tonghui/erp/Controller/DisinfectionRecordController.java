@@ -254,8 +254,7 @@ public class DisinfectionRecordController extends BaseController {
             if (existing == null || !existing.getRoomId().equals(roomId)) {
                 return error("记录不存在");
             }
-            existing.setIsDeleted(1);
-            disinfectionRecordService.updateById(existing);
+            disinfectionRecordService.removeById(id);
             return success(null, "删除成功");
         } catch (Exception e) {
             return exception(e, "删除消毒记录");
