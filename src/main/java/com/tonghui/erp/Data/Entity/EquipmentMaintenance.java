@@ -115,6 +115,12 @@ public class EquipmentMaintenance extends AuditEntity {
     @TableField(exist = false)
     private String equipmentName;
 
+    /**
+     * 设备编码（关联equipment表）
+     */
+    @TableField(exist = false)
+    private String fixedAssetCode;
+
     // endregion
 
     // region 状态与审计字段

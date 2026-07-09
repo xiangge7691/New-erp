@@ -15,7 +15,10 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 设备维保记录控制器
@@ -131,6 +134,7 @@ public class EquipmentMaintenanceController extends BaseController {
         wrapper.orderByDesc("maintenance_date");
         
         Page<EquipmentMaintenance> pageResult = equipmentMaintenanceService.page(page, wrapper);
+        fillEquipmentInfo(pageResult.getRecords());
         PagedResult<EquipmentMaintenance> pagedResult = new PagedResult<>();
         pagedResult.setItems(pageResult.getRecords());
         pagedResult.setTotalCount(pageResult.getTotal());
@@ -155,6 +159,7 @@ public class EquipmentMaintenanceController extends BaseController {
         if (maintenance == null) {
             return error("维保记录不存在");
         }
+        fillEquipmentInfo(Collections.singletonList(maintenance));
         return success(maintenance);
     }
 
@@ -256,6 +261,7 @@ public class EquipmentMaintenanceController extends BaseController {
     public ApiResponse<List<EquipmentMaintenance>> reminder(
             @RequestParam(defaultValue = "7") int days) {
         List<EquipmentMaintenance> list = equipmentMaintenanceService.findUpcomingMaintenance(days);
+        fillEquipmentInfo(list);
         return success(list);
     }
 
@@ -290,6 +296,7 @@ public class EquipmentMaintenanceController extends BaseController {
         }
         wrapper.orderByDesc("maintenance_date");
         List<EquipmentMaintenance> list = equipmentMaintenanceService.list(wrapper);
+        fillEquipmentInfo(list);
         return success(list);
     }
 
@@ -367,6 +374,46 @@ public class EquipmentMaintenanceController extends BaseController {
     public ApiResponse<Void> deleteAttachment(@PathVariable Long id, @PathVariable Long fileId) {
         fileInfoService.deleteFile(fileId);
         return success(null, "附件删除成功");
+    }
+
+    // endregion
+
+    // region 私有辅助方法
+    // ===================================
+    // 私有辅助方法
+    // ===================================
+
+    /**
+     * 根据equipmentId批量查询设备信息，填充equipmentName和fixedAssetCode
+     *
+     * @param maintenanceList 维保记录列表
+     */
+    private void fillEquipmentInfo(List<EquipmentMaintenance> maintenanceList) {
+        if (maintenanceList == null || maintenanceList.isEmpty()) {
+            return;
+        }
+        List<Long> equipmentIds = maintenanceList.stream()
+                .map(EquipmentMaintenance::getEquipmentId)
+                .filter(id -> id != null)
+                .distinct()
+                .collect(Collectors.toList());
+        if (equipmentIds.isEmpty()) {
+            return;
+        }
+        List<Integer> intIds = equipmentIds.stream()
+                .map(Long::intValue)
+                .collect(Collectors.toList());
+        Map<Integer, Equipment> equipmentMap = equipmentService.listByIds(intIds).stream()
+                .collect(Collectors.toMap(Equipment::getEquipmentId, e -> e));
+        for (EquipmentMaintenance maintenance : maintenanceList) {
+            if (maintenance.getEquipmentId() != null) {
+                Equipment equipment = equipmentMap.get(maintenance.getEquipmentId().intValue());
+                if (equipment != null) {
+                    maintenance.setEquipmentName(equipment.getEquipmentName());
+                    maintenance.setFixedAssetCode(equipment.getFixedAssetCode());
+                }
+            }
+        }
     }
 
     // endregion
