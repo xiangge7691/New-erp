@@ -289,7 +289,7 @@ public class FileManagerServiceImpl implements FileManagerService {
     }
 
     private Path resolveSafePath(String relativePath) {
-        Path basePath = Paths.get(resolveBasePath());
+        Path basePath = Paths.get(resolveBasePath()).toAbsolutePath().normalize();
         if (!StringUtils.hasText(relativePath) || "/".equals(relativePath.trim())) {
             return basePath;
         }
