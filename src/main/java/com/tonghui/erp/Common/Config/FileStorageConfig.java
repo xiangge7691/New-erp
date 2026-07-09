@@ -34,6 +34,12 @@ public class FileStorageConfig {
     private String basePath = "./uploaded-files";
 
     /**
+     * 自定义文件目录名
+     * 与 basePath 同级，用于存放用户自定义文件
+     */
+    private String customDir = "custom-files";
+
+    /**
      * 最大文件大小（字节）
      * 默认10MB
      */
@@ -229,6 +235,21 @@ public class FileStorageConfig {
             return null;
         }
         return subTypeDirMap.get(parts[1]);
+    }
+
+    /**
+     * 获取自定义文件的完整路径
+     * 与 basePath 同级目录
+     *
+     * @return 自定义文件目录完整路径
+     */
+    public String getCustomPath() {
+        java.nio.file.Path basePathObj = java.nio.file.Paths.get(basePath).toAbsolutePath().normalize();
+        java.nio.file.Path parent = basePathObj.getParent();
+        if (parent == null) {
+            return "./" + customDir;
+        }
+        return parent.resolve(customDir).toString();
     }
 
     // endregion

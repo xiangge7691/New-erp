@@ -41,15 +41,28 @@ public class FileManagerServiceImpl implements FileManagerService {
 
     // endregion
 
+    // region 常量定义
+    // ===================================
+    // 常量定义
+    // ===================================
+
+    /** 业务文件根目录类型 */
+    private static final String ROOT_BUSINESS = "business";
+
+    /** 自定义文件根目录类型 */
+    private static final String ROOT_CUSTOM = "custom";
+
+    // endregion
+
     // region 目录操作
     // ===================================
     // 目录操作
     // ===================================
 
     @Override
-    public DirectoryListingDto listDirectory(String relativePath) {
-        Path basePath = Paths.get(resolveBasePath()).toAbsolutePath().normalize();
-        Path targetDir = resolveSafePath(relativePath);
+    public DirectoryListingDto listDirectory(String relativePath, String root) {
+        Path basePath = resolveRootPath(root);
+        Path targetDir = resolveSafePath(relativePath, root);
 
         DirectoryListingDto result = new DirectoryListingDto();
         result.setCurrentPath(normalizePath(relativePath));
@@ -105,9 +118,9 @@ public class FileManagerServiceImpl implements FileManagerService {
     }
 
     @Override
-    public void createFolder(String parentPath, String folderName) {
+    public void createFolder(String parentPath, String folderName, String root) {
         validatePath(folderName);
-        Path dir = resolveSafePath(parentPath).resolve(folderName);
+        Path dir = resolveSafePath(parentPath, root).resolve(folderName);
         try {
             Files.createDirectories(dir);
         } catch (IOException e) {
@@ -116,9 +129,10 @@ public class FileManagerServiceImpl implements FileManagerService {
     }
 
     @Override
-    public void rename(String relativePath, String newName) {
+    public void rename(String relativePath, String newName, String root) {
+        checkNotBusiness(root, "重命名");
         validatePath(newName);
-        Path source = resolveSafePath(relativePath);
+        Path source = resolveSafePath(relativePath, root);
         Path target = source.getParent().resolve(newName);
         try {
             Files.move(source, target, StandardCopyOption.ATOMIC_MOVE);
@@ -128,9 +142,10 @@ public class FileManagerServiceImpl implements FileManagerService {
     }
 
     @Override
-    public void move(String sourcePath, String targetDirectory) {
-        Path source = resolveSafePath(sourcePath);
-        Path targetDir = resolveSafePath(targetDirectory);
+    public void move(String sourcePath, String targetDirectory, String root) {
+        checkNotBusiness(root, "移动");
+        Path source = resolveSafePath(sourcePath, root);
+        Path targetDir = resolveSafePath(targetDirectory, root);
         Path target = targetDir.resolve(source.getFileName().toString());
         try {
             Files.createDirectories(targetDir);
@@ -141,9 +156,10 @@ public class FileManagerServiceImpl implements FileManagerService {
     }
 
     @Override
-    public void copy(String sourcePath, String targetDirectory) {
-        Path source = resolveSafePath(sourcePath);
-        Path targetDir = resolveSafePath(targetDirectory);
+    public void copy(String sourcePath, String targetDirectory, String root) {
+        checkNotBusiness(root, "复制");
+        Path source = resolveSafePath(sourcePath, root);
+        Path targetDir = resolveSafePath(targetDirectory, root);
         try {
             Files.createDirectories(targetDir);
             if (Files.isDirectory(source)) {
@@ -157,8 +173,9 @@ public class FileManagerServiceImpl implements FileManagerService {
     }
 
     @Override
-    public void delete(String relativePath) {
-        Path target = resolveSafePath(relativePath);
+    public void delete(String relativePath, String root) {
+        checkNotBusiness(root, "删除");
+        Path target = resolveSafePath(relativePath, root);
         try {
             if (Files.isDirectory(target)) {
                 deleteDirectory(target);
@@ -178,8 +195,8 @@ public class FileManagerServiceImpl implements FileManagerService {
     // ===================================
 
     @Override
-    public FileInfo uploadFile(MultipartFile file, String relativeDir) throws IOException {
-        Path dir = resolveSafePath(relativeDir);
+    public FileInfo uploadFile(MultipartFile file, String relativeDir, String root) throws IOException {
+        Path dir = resolveSafePath(relativeDir, root);
         Files.createDirectories(dir);
 
         String originalName = file.getOriginalFilename();
@@ -212,8 +229,8 @@ public class FileManagerServiceImpl implements FileManagerService {
     }
 
     @Override
-    public InputStream downloadFile(String relativePath) throws IOException {
-        Path file = resolveSafePath(relativePath);
+    public InputStream downloadFile(String relativePath, String root) throws IOException {
+        Path file = resolveSafePath(relativePath, root);
         if (!Files.exists(file) || Files.isDirectory(file)) {
             throw new IOException("文件不存在: " + relativePath);
         }
@@ -221,13 +238,14 @@ public class FileManagerServiceImpl implements FileManagerService {
     }
 
     @Override
-    public InputStream previewFile(String relativePath) throws IOException {
-        return downloadFile(relativePath);
+    public InputStream previewFile(String relativePath, String root) throws IOException {
+        return downloadFile(relativePath, root);
     }
 
     @Override
-    public List<FileItemDto> searchFiles(String keyword, String relativePath) {
-        Path searchRoot = resolveSafePath(relativePath);
+    public List<FileItemDto> searchFiles(String keyword, String relativePath, String root) {
+        Path searchRoot = resolveSafePath(relativePath, root);
+        Path basePath = resolveRootPath(root);
         List<FileItemDto> results = new ArrayList<>();
 
         if (!Files.exists(searchRoot)) {
@@ -241,7 +259,6 @@ public class FileManagerServiceImpl implements FileManagerService {
             }).forEach(path -> {
                 FileItemDto item = new FileItemDto();
                 item.setName(path.getFileName().toString());
-                Path basePath = Paths.get(resolveBasePath()).toAbsolutePath().normalize();
                 item.setPath(normalizePath(basePath.relativize(path).toString()));
 
                 if (Files.isDirectory(path)) {
@@ -280,6 +297,31 @@ public class FileManagerServiceImpl implements FileManagerService {
     // 私有方法
     // ===================================
 
+    /**
+     * 根据根目录类型获取对应的基础路径
+     *
+     * @param root 根目录类型："business" 或 "custom"
+     * @return 对应的基础路径
+     */
+    private Path resolveRootPath(String root) {
+        if (ROOT_CUSTOM.equals(root)) {
+            return Paths.get(fileStorageConfig.getCustomPath()).toAbsolutePath().normalize();
+        }
+        return Paths.get(resolveBasePath()).toAbsolutePath().normalize();
+    }
+
+    /**
+     * 检查是否为业务文件，是则抛出异常
+     *
+     * @param root   根目录类型
+     * @param action 操作名称
+     */
+    private void checkNotBusiness(String root, String action) {
+        if (ROOT_BUSINESS.equals(root)) {
+            throw new SecurityException("业务文件不允许" + action);
+        }
+    }
+
     private String resolveBasePath() {
         String envPath = System.getenv("ERP_FILE_STORAGE_PATH");
         if (StringUtils.hasText(envPath)) return envPath;
@@ -288,8 +330,8 @@ public class FileManagerServiceImpl implements FileManagerService {
         return fileStorageConfig.getBasePath();
     }
 
-    private Path resolveSafePath(String relativePath) {
-        Path basePath = Paths.get(resolveBasePath()).toAbsolutePath().normalize();
+    private Path resolveSafePath(String relativePath, String root) {
+        Path basePath = resolveRootPath(root);
         if (!StringUtils.hasText(relativePath) || "/".equals(relativePath.trim())) {
             return basePath;
         }

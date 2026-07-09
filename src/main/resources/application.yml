@@ -54,6 +54,7 @@ jwt:
 # 在现有配置基础上添加
 file:
   base-path: ${ERP_FILE_STORAGE_PATH:./uploaded-files}
+  custom-dir: custom-files
   max-size: 10485760  # 10MB
   allowed-types:
     - image/jpeg

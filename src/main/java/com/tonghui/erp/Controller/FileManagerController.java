@@ -41,10 +41,9 @@ import java.util.Set;
  * │ 10 │ /api/file-manager/search     │ GET    │ 搜索文件         │
  * └────┴──────────────────────────────┴────────┴──────────────────┘
  *
- * 安全说明：
- * - 所有路径操作限制在 uploaded-files 目录内
- * - 禁止使用 .. 访问上级目录
- * - 文件类型复用 FileStorageConfig.allowedTypes
+ * root 参数说明：
+ * - "business"：业务文件（uploaded-files），仅允许 list/download/preview
+ * - "custom"：自定义文件（custom-files），允许所有操作（默认值）
  */
 @RestController
 @RequestMapping("/api/file-manager")
@@ -68,16 +67,18 @@ public class FileManagerController extends BaseController {
     /**
      * 列出目录内容
      *
-     * @param path 目录相对路径（为空时列出根目录）
-     * @return 目录列表（文件夹在前，文件在后）
+     * 示例请求：GET /api/file-manager/list?path=文档&root=custom
      *
-     * 请求示例：GET /api/file-manager/list?path=维保记录/2026/06
+     * @param path 目录相对路径（为空时列出根目录）
+     * @param root 根目录类型："business"（业务文件）或 "custom"（自定义文件，默认）
+     * @return 目录列表（文件夹在前，文件在后）
      */
     @GetMapping("/list")
     public ApiResponse<DirectoryListingDto> listDirectory(
-            @RequestParam(required = false, defaultValue = "") String path) {
+            @RequestParam(required = false, defaultValue = "") String path,
+            @RequestParam(defaultValue = "custom") String root) {
         try {
-            DirectoryListingDto result = fileManagerService.listDirectory(path);
+            DirectoryListingDto result = fileManagerService.listDirectory(path, root);
             return success(result);
         } catch (Exception e) {
             return exception(e, "列出目录");
@@ -87,17 +88,19 @@ public class FileManagerController extends BaseController {
     /**
      * 新建文件夹
      *
+     * 示例请求：POST /api/file-manager/mkdir?parentPath=文档&folderName=新建文件夹&root=custom
+     *
      * @param parentPath 父目录相对路径
      * @param folderName 文件夹名称
-     *
-     * 请求示例：POST /api/file-manager/mkdir?parentPath=维保记录/2026/06&folderName=热风循环烘箱
+     * @param root       根目录类型
      */
     @PostMapping("/mkdir")
     public ApiResponse<Void> createFolder(
             @RequestParam String parentPath,
-            @RequestParam String folderName) {
+            @RequestParam String folderName,
+            @RequestParam(defaultValue = "custom") String root) {
         try {
-            fileManagerService.createFolder(parentPath, folderName);
+            fileManagerService.createFolder(parentPath, folderName, root);
             return success(null, "文件夹创建成功");
         } catch (Exception e) {
             return exception(e, "创建文件夹");
@@ -105,19 +108,21 @@ public class FileManagerController extends BaseController {
     }
 
     /**
-     * 重命名文件或文件夹
+     * 重命名文件或文件夹（仅自定义文件允许）
+     *
+     * 示例请求：PUT /api/file-manager/rename?path=文档/old_name&newName=new_name&root=custom
      *
      * @param path    文件/文件夹的相对路径
      * @param newName 新名称
-     *
-     * 请求示例：PUT /api/file-manager/rename?path=维保记录/2026/06/old_name&newName=new_name
+     * @param root    根目录类型
      */
     @PutMapping("/rename")
     public ApiResponse<Void> rename(
             @RequestParam String path,
-            @RequestParam String newName) {
+            @RequestParam String newName,
+            @RequestParam(defaultValue = "custom") String root) {
         try {
-            fileManagerService.rename(path, newName);
+            fileManagerService.rename(path, newName, root);
             return success(null, "重命名成功");
         } catch (Exception e) {
             return exception(e, "重命名");
@@ -125,19 +130,21 @@ public class FileManagerController extends BaseController {
     }
 
     /**
-     * 移动文件或文件夹
+     * 移动文件或文件夹（仅自定义文件允许）
+     *
+     * 示例请求：PUT /api/file-manager/move?sourcePath=文档/file.jpg&targetDirectory=备份&root=custom
      *
      * @param sourcePath      源相对路径
      * @param targetDirectory 目标目录相对路径
-     *
-     * 请求示例：PUT /api/file-manager/move?sourcePath=维保记录/file.jpg&targetDirectory=设备照片/
+     * @param root            根目录类型
      */
     @PutMapping("/move")
     public ApiResponse<Void> move(
             @RequestParam String sourcePath,
-            @RequestParam String targetDirectory) {
+            @RequestParam String targetDirectory,
+            @RequestParam(defaultValue = "custom") String root) {
         try {
-            fileManagerService.move(sourcePath, targetDirectory);
+            fileManagerService.move(sourcePath, targetDirectory, root);
             return success(null, "移动成功");
         } catch (Exception e) {
             return exception(e, "移动");
@@ -145,19 +152,21 @@ public class FileManagerController extends BaseController {
     }
 
     /**
-     * 复制文件或文件夹
+     * 复制文件或文件夹（仅自定义文件允许）
+     *
+     * 示例请求：POST /api/file-manager/copy?sourcePath=文档/file.jpg&targetDirectory=备份&root=custom
      *
      * @param sourcePath      源相对路径
      * @param targetDirectory 目标目录相对路径
-     *
-     * 请求示例：POST /api/file-manager/copy?sourcePath=维保记录/file.jpg&targetDirectory=备份/
+     * @param root            根目录类型
      */
     @PostMapping("/copy")
     public ApiResponse<Void> copy(
             @RequestParam String sourcePath,
-            @RequestParam String targetDirectory) {
+            @RequestParam String targetDirectory,
+            @RequestParam(defaultValue = "custom") String root) {
         try {
-            fileManagerService.copy(sourcePath, targetDirectory);
+            fileManagerService.copy(sourcePath, targetDirectory, root);
             return success(null, "复制成功");
         } catch (Exception e) {
             return exception(e, "复制");
@@ -165,16 +174,19 @@ public class FileManagerController extends BaseController {
     }
 
     /**
-     * 删除文件或文件夹
+     * 删除文件或文件夹（仅自定义文件允许）
+     *
+     * 示例请求：DELETE /api/file-manager/delete?path=文档/file.jpg&root=custom
      *
      * @param path 文件/文件夹的相对路径
-     *
-     * 请求示例：DELETE /api/file-manager/delete?path=维保记录/file.jpg
+     * @param root 根目录类型
      */
     @DeleteMapping("/delete")
-    public ApiResponse<Void> delete(@RequestParam String path) {
+    public ApiResponse<Void> delete(
+            @RequestParam String path,
+            @RequestParam(defaultValue = "custom") String root) {
         try {
-            fileManagerService.delete(path);
+            fileManagerService.delete(path, root);
             return success(null, "删除成功");
         } catch (Exception e) {
             return exception(e, "删除");
@@ -191,18 +203,20 @@ public class FileManagerController extends BaseController {
     /**
      * 上传文件到指定目录
      *
+     * 示例请求：POST /api/file-manager/upload?dirPath=文档&root=custom (multipart/form-data)
+     *
      * @param file    文件对象
      * @param dirPath 目标目录相对路径
+     * @param root    根目录类型
      * @return 上传的文件信息
-     *
-     * 请求示例：POST /api/file-manager/upload (multipart/form-data)
      */
     @PostMapping("/upload")
     public ApiResponse<FileInfo> uploadFile(
             @RequestParam("file") MultipartFile file,
-            @RequestParam(required = false, defaultValue = "") String dirPath) {
+            @RequestParam(required = false, defaultValue = "") String dirPath,
+            @RequestParam(defaultValue = "custom") String root) {
         try {
-            FileInfo fileInfo = fileManagerService.uploadFile(file, dirPath);
+            FileInfo fileInfo = fileManagerService.uploadFile(file, dirPath, root);
             return success(fileInfo, "上传成功");
         } catch (IOException e) {
             return exception(e, "上传文件");
@@ -212,18 +226,20 @@ public class FileManagerController extends BaseController {
     /**
      * 下载文件
      *
-     * @param path 文件相对路径
-     * @return 文件流
+     * 示例请求：GET /api/file-manager/download?path=文档/uuid.jpg&root=custom
      *
-     * 请求示例：GET /api/file-manager/download?path=维保记录/2026/06/uuid.jpg
+     * @param path 文件相对路径
+     * @param root 根目录类型
+     * @return 文件流
      */
     @GetMapping("/download")
-    public ResponseEntity<Resource> downloadFile(@RequestParam String path) {
+    public ResponseEntity<Resource> downloadFile(
+            @RequestParam String path,
+            @RequestParam(defaultValue = "custom") String root) {
         try {
-            FileInfo fileInfo = null;
             String filename = path.contains("/") ? path.substring(path.lastIndexOf('/') + 1) : path;
 
-            InputStream inputStream = fileManagerService.downloadFile(path);
+            InputStream inputStream = fileManagerService.downloadFile(path, root);
             InputStreamResource resource = new InputStreamResource(inputStream);
 
             String encodedFilename = URLEncoder.encode(filename, StandardCharsets.UTF_8);
@@ -240,15 +256,18 @@ public class FileManagerController extends BaseController {
     /**
      * 预览文件
      *
-     * @param path 文件相对路径
-     * @return 文件流（用于前端预览）
+     * 示例请求：GET /api/file-manager/preview?path=文档/uuid.jpg&root=custom
      *
-     * 请求示例：GET /api/file-manager/preview?path=维保记录/2026/06/uuid.jpg
+     * @param path 文件相对路径
+     * @param root 根目录类型
+     * @return 文件流（用于前端预览）
      */
     @GetMapping("/preview")
-    public ResponseEntity<Resource> previewFile(@RequestParam String path) {
+    public ResponseEntity<Resource> previewFile(
+            @RequestParam String path,
+            @RequestParam(defaultValue = "custom") String root) {
         try {
-            InputStream inputStream = fileManagerService.previewFile(path);
+            InputStream inputStream = fileManagerService.previewFile(path, root);
             InputStreamResource resource = new InputStreamResource(inputStream);
 
             String filename = path.contains("/") ? path.substring(path.lastIndexOf('/') + 1) : path;
@@ -275,18 +294,20 @@ public class FileManagerController extends BaseController {
     /**
      * 搜索文件
      *
+     * 示例请求：GET /api/file-manager/search?keyword=维修单&path=文档&root=custom
+     *
      * @param keyword 搜索关键词（文件名模糊匹配）
      * @param path    搜索范围的相对路径（为空则搜索全部）
+     * @param root    根目录类型
      * @return 匹配的文件列表
-     *
-     * 请求示例：GET /api/file-manager/search?keyword=维修单&path=维保记录
      */
     @GetMapping("/search")
     public ApiResponse<List<FileItemDto>> searchFiles(
             @RequestParam String keyword,
-            @RequestParam(required = false, defaultValue = "") String path) {
+            @RequestParam(required = false, defaultValue = "") String path,
+            @RequestParam(defaultValue = "custom") String root) {
         try {
-            List<FileItemDto> results = fileManagerService.searchFiles(keyword, path);
+            List<FileItemDto> results = fileManagerService.searchFiles(keyword, path, root);
             return success(results);
         } catch (Exception e) {
             return exception(e, "搜索文件");
