@@ -102,6 +102,12 @@ public class EquipmentMaintenance extends AuditEntity {
     @TableField(value = "remark")
     private String remark;
 
+    /**
+     * 记录人ID（关联personnel_file表）
+     */
+    @TableField(value = "recorder_id")
+    private Long recorderId;
+
     // endregion
 
     // region 关联表显示字段
@@ -110,16 +116,16 @@ public class EquipmentMaintenance extends AuditEntity {
     // ===================================
 
     /**
-     * 设备名称（关联equipment表）
+     * 关联设备信息（关联equipment表）
      */
     @TableField(exist = false)
-    private String equipmentName;
+    private Equipment equipment;
 
     /**
-     * 设备编码（关联equipment表）
+     * 记录人姓名（关联personnel_file表，由recorderId查出）
      */
     @TableField(exist = false)
-    private String fixedAssetCode;
+    private String recorderName;
 
     // endregion
 

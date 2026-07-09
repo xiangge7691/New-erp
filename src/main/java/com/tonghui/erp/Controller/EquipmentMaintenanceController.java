@@ -7,9 +7,11 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.Equipment;
 import com.tonghui.erp.Data.Entity.EquipmentMaintenance;
 import com.tonghui.erp.Data.Entity.FileInfo;
+import com.tonghui.erp.Data.Entity.PersonnelFile;
 import com.tonghui.erp.Service.EquipmentMaintenanceService;
 import com.tonghui.erp.Service.EquipmentService;
 import com.tonghui.erp.Service.FileInfoService;
+import com.tonghui.erp.Service.PersonnelFileService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
@@ -68,6 +70,12 @@ public class EquipmentMaintenanceController extends BaseController {
      */
     @Autowired
     private EquipmentService equipmentService;
+
+    /**
+     * 人员档案服务
+     */
+    @Autowired
+    private PersonnelFileService personnelFileService;
 
     // endregion
 
@@ -384,7 +392,7 @@ public class EquipmentMaintenanceController extends BaseController {
     // ===================================
 
     /**
-     * 根据equipmentId批量查询设备信息，填充equipmentName和fixedAssetCode
+     * 根据关联ID批量查询设备信息和记录人姓名，填充关联字段
      *
      * @param maintenanceList 维保记录列表
      */
@@ -392,25 +400,43 @@ public class EquipmentMaintenanceController extends BaseController {
         if (maintenanceList == null || maintenanceList.isEmpty()) {
             return;
         }
+
+        // 批量查询设备信息
         List<Long> equipmentIds = maintenanceList.stream()
                 .map(EquipmentMaintenance::getEquipmentId)
                 .filter(id -> id != null)
                 .distinct()
                 .collect(Collectors.toList());
-        if (equipmentIds.isEmpty()) {
-            return;
-        }
-        List<Integer> intIds = equipmentIds.stream()
-                .map(Long::intValue)
-                .collect(Collectors.toList());
-        Map<Integer, Equipment> equipmentMap = equipmentService.listByIds(intIds).stream()
-                .collect(Collectors.toMap(Equipment::getEquipmentId, e -> e));
+        Map<Integer, Equipment> equipmentMap = equipmentIds.isEmpty()
+                ? java.util.Collections.emptyMap()
+                : equipmentService.listByIds(equipmentIds.stream().map(Long::intValue).collect(Collectors.toList()))
+                        .stream()
+                        .collect(Collectors.toMap(Equipment::getEquipmentId, e -> e));
         for (EquipmentMaintenance maintenance : maintenanceList) {
             if (maintenance.getEquipmentId() != null) {
                 Equipment equipment = equipmentMap.get(maintenance.getEquipmentId().intValue());
                 if (equipment != null) {
-                    maintenance.setEquipmentName(equipment.getEquipmentName());
-                    maintenance.setFixedAssetCode(equipment.getFixedAssetCode());
+                    maintenance.setEquipment(equipment);
+                }
+            }
+        }
+
+        // 批量查询记录人姓名
+        List<Long> recorderIds = maintenanceList.stream()
+                .map(EquipmentMaintenance::getRecorderId)
+                .filter(id -> id != null)
+                .distinct()
+                .collect(Collectors.toList());
+        if (!recorderIds.isEmpty()) {
+            Map<Long, PersonnelFile> personnelMap = personnelFileService.listByIds(recorderIds)
+                    .stream()
+                    .collect(Collectors.toMap(PersonnelFile::getPersonnelFileId, p -> p));
+            for (EquipmentMaintenance maintenance : maintenanceList) {
+                if (maintenance.getRecorderId() != null) {
+                    PersonnelFile personnel = personnelMap.get(maintenance.getRecorderId());
+                    if (personnel != null) {
+                        maintenance.setRecorderName(personnel.getName());
+                    }
                 }
             }
         }
