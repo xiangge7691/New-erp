@@ -1,13 +1,16 @@
 package com.tonghui.erp.Service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Config.FileStorageConfig;
 import com.tonghui.erp.Common.Dto.FileManager.DirectoryListingDto;
 import com.tonghui.erp.Common.Dto.FileManager.FileItemDto;
 import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.FileInfo;
+import com.tonghui.erp.Data.Entity.FileOperationLog;
 import com.tonghui.erp.Data.mapper.FileInfoMapper;
 import com.tonghui.erp.Service.FileManagerService;
+import com.tonghui.erp.Service.FileOperationLogService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -39,6 +42,9 @@ public class FileManagerServiceImpl implements FileManagerService {
     @Autowired
     private FileInfoMapper fileInfoMapper;
 
+    @Autowired
+    private FileOperationLogService fileOperationLogService;
+
     // endregion
 
     // region 常量定义
@@ -51,6 +57,17 @@ public class FileManagerServiceImpl implements FileManagerService {
 
     /** 自定义文件根目录类型 */
     private static final String ROOT_CUSTOM = "custom";
+
+    /** 操作类型常量 */
+    private static final String OP_UPLOAD = "UPLOAD";
+    private static final String OP_DOWNLOAD = "DOWNLOAD";
+    private static final String OP_PREVIEW = "PREVIEW";
+    private static final String OP_CREATE_FOLDER = "CREATE_FOLDER";
+    private static final String OP_DELETE = "DELETE";
+    private static final String OP_RESTORE = "RESTORE";
+    private static final String OP_RENAME = "RENAME";
+    private static final String OP_MOVE = "MOVE";
+    private static final String OP_COPY = "COPY";
 
     // endregion
 
@@ -126,6 +143,8 @@ public class FileManagerServiceImpl implements FileManagerService {
         } catch (IOException e) {
             throw new RuntimeException("创建文件夹失败: " + e.getMessage());
         }
+        String path = normalizePath(StringUtils.hasText(parentPath) ? parentPath + "/" + folderName : folderName);
+        fileOperationLogService.log(null, folderName, path, OP_CREATE_FOLDER, root, null);
     }
 
     @Override
@@ -134,11 +153,13 @@ public class FileManagerServiceImpl implements FileManagerService {
         validatePath(newName);
         Path source = resolveSafePath(relativePath, root);
         Path target = source.getParent().resolve(newName);
+        String oldName = source.getFileName().toString();
         try {
             Files.move(source, target, StandardCopyOption.ATOMIC_MOVE);
         } catch (IOException e) {
             throw new RuntimeException("重命名失败: " + e.getMessage());
         }
+        fileOperationLogService.log(null, oldName, relativePath, OP_RENAME, root, oldName + " → " + newName);
     }
 
     @Override
@@ -153,6 +174,7 @@ public class FileManagerServiceImpl implements FileManagerService {
         } catch (IOException e) {
             throw new RuntimeException("移动失败: " + e.getMessage());
         }
+        fileOperationLogService.log(null, source.getFileName().toString(), sourcePath, OP_MOVE, root, "→ " + targetDirectory);
     }
 
     @Override
@@ -170,21 +192,116 @@ public class FileManagerServiceImpl implements FileManagerService {
         } catch (IOException e) {
             throw new RuntimeException("复制失败: " + e.getMessage());
         }
+        fileOperationLogService.log(null, source.getFileName().toString(), sourcePath, OP_COPY, root, "→ " + targetDirectory);
     }
 
     @Override
     public void delete(String relativePath, String root) {
         checkNotBusiness(root, "删除");
+        Path basePath = resolveRootPath(root);
         Path target = resolveSafePath(relativePath, root);
-        try {
-            if (Files.isDirectory(target)) {
-                deleteDirectory(target);
-            } else {
-                Files.deleteIfExists(target);
+        String fileName = target.getFileName().toString();
+
+        if (Files.isDirectory(target)) {
+            // 文件夹：遍历子文件，软删除所有 file_info 记录
+            try (Stream<Path> walk = Files.walk(target)) {
+                walk.filter(Files::isRegularFile).forEach(path -> {
+                    String filePath = normalizePath(basePath.relativize(path).toString());
+                    FileInfo fi = findFileInfoByPath(path.toString());
+                    if (fi != null) {
+                        softDeleteFileInfo(fi);
+                    }
+                });
+            } catch (IOException e) {
+                throw new RuntimeException("删除失败: " + e.getMessage());
             }
-        } catch (IOException e) {
-            throw new RuntimeException("删除失败: " + e.getMessage());
+        } else {
+            // 文件：软删除 file_info 记录
+            FileInfo fi = findFileInfoByPath(target.toString());
+            if (fi != null) {
+                softDeleteFileInfo(fi);
+            }
         }
+
+        fileOperationLogService.log(null, fileName, normalizePath(relativePath), OP_DELETE, root, null);
+    }
+
+    @Override
+    public void restore(String relativePath, String root) {
+        checkNotBusiness(root, "恢复");
+        Path basePath = resolveRootPath(root);
+        Path target = resolveSafePath(relativePath, root);
+        String fileName = target.getFileName().toString();
+
+        if (Files.isDirectory(target)) {
+            try (Stream<Path> walk = Files.walk(target)) {
+                walk.filter(Files::isRegularFile).forEach(path -> {
+                    FileInfo fi = findFileInfoByPath(path.toString());
+                    if (fi != null) {
+                        restoreFileInfo(fi);
+                    }
+                });
+            } catch (IOException e) {
+                throw new RuntimeException("恢复失败: " + e.getMessage());
+            }
+        } else {
+            FileInfo fi = findFileInfoByPath(target.toString());
+            if (fi != null) {
+                restoreFileInfo(fi);
+            }
+        }
+
+        fileOperationLogService.log(null, fileName, normalizePath(relativePath), OP_RESTORE, root, null);
+    }
+
+    @Override
+    public void permanentDelete(String relativePath, String root) {
+        checkNotBusiness(root, "永久删除");
+        Path basePath = resolveRootPath(root);
+        Path target = resolveSafePath(relativePath, root);
+        String fileName = target.getFileName().toString();
+
+        if (Files.isDirectory(target)) {
+            try (Stream<Path> walk = Files.walk(target)) {
+                walk.filter(Files::isRegularFile).forEach(path -> {
+                    FileInfo fi = findFileInfoByPath(path.toString());
+                    if (fi != null) {
+                        fileInfoMapper.deleteById(fi.getFileId());
+                    }
+                });
+            } catch (IOException e) {
+                throw new RuntimeException("永久删除失败: " + e.getMessage());
+            }
+            // 物理删除磁盘文件夹
+            try {
+                deleteDirectory(target);
+            } catch (IOException e) {
+                throw new RuntimeException("永久删除失败: " + e.getMessage());
+            }
+        } else {
+            FileInfo fi = findFileInfoByPath(target.toString());
+            if (fi != null) {
+                fileInfoMapper.deleteById(fi.getFileId());
+            }
+            try {
+                Files.deleteIfExists(target);
+            } catch (IOException e) {
+                throw new RuntimeException("永久删除失败: " + e.getMessage());
+            }
+        }
+
+        fileOperationLogService.log(null, fileName, normalizePath(relativePath), OP_DELETE, root, "永久删除");
+    }
+
+    @Override
+    public List<FileInfo> listRecycleBin(int pageIndex, int pageSize) {
+        Page<FileInfo> page = new Page<>(pageIndex + 1, pageSize);
+        QueryWrapper<FileInfo> wrapper = new QueryWrapper<>();
+        wrapper.eq("is_deleted", 1)
+               .isNotNull("deleted_at")
+               .orderByDesc("deleted_at");
+        Page<FileInfo> result = fileInfoMapper.selectPage(page, wrapper);
+        return result.getRecords();
     }
 
     // endregion
@@ -225,6 +342,9 @@ public class FileManagerServiceImpl implements FileManagerService {
         fileInfo.setFileUrl("/api/files/" + fileInfo.getFileId());
         fileInfoMapper.updateById(fileInfo);
 
+        String path = normalizePath(StringUtils.hasText(relativeDir) ? relativeDir + "/" + originalName : originalName);
+        fileOperationLogService.log(fileInfo.getFileId(), originalName, path, OP_UPLOAD, root, null);
+
         return fileInfo;
     }
 
@@ -234,12 +354,22 @@ public class FileManagerServiceImpl implements FileManagerService {
         if (!Files.exists(file) || Files.isDirectory(file)) {
             throw new IOException("文件不存在: " + relativePath);
         }
+        String fileName = file.getFileName().toString();
+        FileInfo fi = findFileInfoByPath(file.toString());
+        fileOperationLogService.log(fi != null ? fi.getFileId() : null, fileName, normalizePath(relativePath), OP_DOWNLOAD, root, null);
         return Files.newInputStream(file);
     }
 
     @Override
     public InputStream previewFile(String relativePath, String root) throws IOException {
-        return downloadFile(relativePath, root);
+        Path file = resolveSafePath(relativePath, root);
+        if (!Files.exists(file) || Files.isDirectory(file)) {
+            throw new IOException("文件不存在: " + relativePath);
+        }
+        String fileName = file.getFileName().toString();
+        FileInfo fi = findFileInfoByPath(file.toString());
+        fileOperationLogService.log(fi != null ? fi.getFileId() : null, fileName, normalizePath(relativePath), OP_PREVIEW, root, null);
+        return Files.newInputStream(file);
     }
 
     @Override
@@ -299,9 +429,6 @@ public class FileManagerServiceImpl implements FileManagerService {
 
     /**
      * 根据根目录类型获取对应的基础路径
-     *
-     * @param root 根目录类型："business" 或 "custom"
-     * @return 对应的基础路径
      */
     private Path resolveRootPath(String root) {
         if (ROOT_CUSTOM.equals(root)) {
@@ -312,14 +439,40 @@ public class FileManagerServiceImpl implements FileManagerService {
 
     /**
      * 检查是否为业务文件，是则抛出异常
-     *
-     * @param root   根目录类型
-     * @param action 操作名称
      */
     private void checkNotBusiness(String root, String action) {
         if (ROOT_BUSINESS.equals(root)) {
             throw new SecurityException("业务文件不允许" + action);
         }
+    }
+
+    /**
+     * 根据文件路径查找对应的 FileInfo 记录
+     */
+    private FileInfo findFileInfoByPath(String filePath) {
+        QueryWrapper<FileInfo> wrapper = new QueryWrapper<>();
+        wrapper.eq("file_path", filePath);
+        return fileInfoMapper.selectOne(wrapper);
+    }
+
+    /**
+     * 软删除 FileInfo 记录（移入回收站）
+     */
+    private void softDeleteFileInfo(FileInfo fi) {
+        fi.setIsDeleted(1);
+        fi.setDeletedAt(LocalDateTime.now());
+        fi.setDeletedBy(EntityUtils.getCurrentUserId());
+        fileInfoMapper.updateById(fi);
+    }
+
+    /**
+     * 恢复 FileInfo 记录（从回收站恢复）
+     */
+    private void restoreFileInfo(FileInfo fi) {
+        fi.setIsDeleted(0);
+        fi.setDeletedAt(null);
+        fi.setDeletedBy(null);
+        fileInfoMapper.updateById(fi);
     }
 
     private String resolveBasePath() {

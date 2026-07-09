@@ -1,10 +1,13 @@
 package com.tonghui.erp.Controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.FileManager.DirectoryListingDto;
 import com.tonghui.erp.Common.Dto.FileManager.FileItemDto;
 import com.tonghui.erp.Data.Entity.FileInfo;
+import com.tonghui.erp.Data.Entity.FileOperationLog;
 import com.tonghui.erp.Service.FileManagerService;
+import com.tonghui.erp.Service.FileOperationLogService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
@@ -56,6 +59,9 @@ public class FileManagerController extends BaseController {
 
     @Autowired
     private FileManagerService fileManagerService;
+
+    @Autowired
+    private FileOperationLogService fileOperationLogService;
 
     // endregion
 
@@ -190,6 +196,106 @@ public class FileManagerController extends BaseController {
             return success(null, "删除成功");
         } catch (Exception e) {
             return exception(e, "删除");
+        }
+    }
+
+    // endregion
+
+    // region 回收站接口
+    // ===================================
+    // 回收站接口
+    // ===================================
+
+    /**
+     * 查看回收站
+     *
+     * 示例请求：GET /api/file-manager/recycle-bin?pageIndex=0&pageSize=20
+     *
+     * @param pageIndex 页码
+     * @param pageSize  每页大小
+     * @return 已删除的文件列表
+     */
+    @GetMapping("/recycle-bin")
+    public ApiResponse<List<FileInfo>> listRecycleBin(
+            @RequestParam(defaultValue = "0") int pageIndex,
+            @RequestParam(defaultValue = "20") int pageSize) {
+        try {
+            List<FileInfo> result = fileManagerService.listRecycleBin(pageIndex, pageSize);
+            return success(result);
+        } catch (Exception e) {
+            return exception(e, "查看回收站");
+        }
+    }
+
+    /**
+     * 恢复文件（从回收站恢复）
+     *
+     * 示例请求：POST /api/file-manager/restore?path=文档/file.jpg&root=custom
+     *
+     * @param path 文件/文件夹的相对路径
+     * @param root 根目录类型
+     */
+    @PostMapping("/restore")
+    public ApiResponse<Void> restore(
+            @RequestParam String path,
+            @RequestParam(defaultValue = "custom") String root) {
+        try {
+            fileManagerService.restore(path, root);
+            return success(null, "恢复成功");
+        } catch (Exception e) {
+            return exception(e, "恢复文件");
+        }
+    }
+
+    /**
+     * 永久删除（从回收站彻底删除）
+     *
+     * 示例请求：DELETE /api/file-manager/permanent-delete?path=文档/file.jpg&root=custom
+     *
+     * @param path 文件/文件夹的相对路径
+     * @param root 根目录类型
+     */
+    @DeleteMapping("/permanent-delete")
+    public ApiResponse<Void> permanentDelete(
+            @RequestParam String path,
+            @RequestParam(defaultValue = "custom") String root) {
+        try {
+            fileManagerService.permanentDelete(path, root);
+            return success(null, "永久删除成功");
+        } catch (Exception e) {
+            return exception(e, "永久删除");
+        }
+    }
+
+    // endregion
+
+    // region 操作日志接口
+    // ===================================
+    // 操作日志接口
+    // ===================================
+
+    /**
+     * 查询文件操作日志
+     *
+     * 示例请求：GET /api/file-manager/operation-log?operationType=UPLOAD&pageIndex=0&pageSize=20
+     *
+     * @param operationType 操作类型（可选）：UPLOAD/DOWNLOAD/PREVIEW/CREATE_FOLDER/DELETE/RESTORE/RENAME/MOVE/COPY
+     * @param userId        操作人ID（可选）
+     * @param pageIndex     页码
+     * @param pageSize      每页大小
+     * @return 操作日志列表
+     */
+    @GetMapping("/operation-log")
+    public ApiResponse<Page<FileOperationLog>> queryOperationLog(
+            @RequestParam(required = false) String operationType,
+            @RequestParam(required = false) Long userId,
+            @RequestParam(defaultValue = "0") int pageIndex,
+            @RequestParam(defaultValue = "20") int pageSize) {
+        try {
+            Page<FileOperationLog> result = fileOperationLogService.queryLogs(operationType, userId, pageIndex, pageSize);
+            return success(result);
+        } catch (Exception e) {
+            return exception(e, "查询操作日志");
         }
     }
 

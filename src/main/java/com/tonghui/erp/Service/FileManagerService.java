@@ -65,12 +65,37 @@ public interface FileManagerService {
     void copy(String sourcePath, String targetDirectory, String root);
 
     /**
-     * 删除文件或文件夹（仅自定义文件允许）
+     * 删除文件或文件夹（仅自定义文件允许，移入回收站）
      *
      * @param relativePath 相对路径
      * @param root         根目录类型
      */
     void delete(String relativePath, String root);
+
+    /**
+     * 从回收站恢复文件或文件夹
+     *
+     * @param relativePath 相对路径
+     * @param root         根目录类型
+     */
+    void restore(String relativePath, String root);
+
+    /**
+     * 永久删除文件或文件夹（从回收站彻底删除）
+     *
+     * @param relativePath 相对路径
+     * @param root         根目录类型
+     */
+    void permanentDelete(String relativePath, String root);
+
+    /**
+     * 列出回收站内容
+     *
+     * @param pageIndex 页码
+     * @param pageSize  每页大小
+     * @return 已删除的文件列表
+     */
+    List<FileInfo> listRecycleBin(int pageIndex, int pageSize);
 
     // endregion
 

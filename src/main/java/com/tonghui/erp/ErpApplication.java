@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -22,6 +23,7 @@ import jakarta.servlet.http.HttpServletResponse;
  */
 @SpringBootApplication
 @MapperScan("com.tonghui.erp.Data.mapper")
+@EnableScheduling
 public class ErpApplication {
 
     // region 应用启动方法

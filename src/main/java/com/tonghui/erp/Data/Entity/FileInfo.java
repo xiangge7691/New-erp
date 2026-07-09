@@ -7,6 +7,8 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.time.LocalDateTime;
+
 /**
  * 文件信息表
  * @TableName file_info
@@ -129,6 +131,18 @@ public class FileInfo extends AuditEntity {
      */
     @TableField(value = "is_deleted")
     private Integer isDeleted;
+
+    /**
+     * 删除时间（用于回收站）
+     */
+    @TableField(value = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    /**
+     * 删除人ID
+     */
+    @TableField(value = "deleted_by")
+    private Long deletedBy;
 
     /**
      * 乐观锁版本号
