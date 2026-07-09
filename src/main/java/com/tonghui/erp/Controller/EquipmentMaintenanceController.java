@@ -8,10 +8,12 @@ import com.tonghui.erp.Data.Entity.Equipment;
 import com.tonghui.erp.Data.Entity.EquipmentMaintenance;
 import com.tonghui.erp.Data.Entity.FileInfo;
 import com.tonghui.erp.Data.Entity.PersonnelFile;
+import com.tonghui.erp.Data.Entity.RoomInfo;
 import com.tonghui.erp.Service.EquipmentMaintenanceService;
 import com.tonghui.erp.Service.EquipmentService;
 import com.tonghui.erp.Service.FileInfoService;
 import com.tonghui.erp.Service.PersonnelFileService;
+import com.tonghui.erp.Service.RoomInfoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
@@ -76,6 +78,12 @@ public class EquipmentMaintenanceController extends BaseController {
      */
     @Autowired
     private PersonnelFileService personnelFileService;
+
+    /**
+     * 房间信息服务
+     */
+    @Autowired
+    private RoomInfoService roomInfoService;
 
     // endregion
 
@@ -417,6 +425,26 @@ public class EquipmentMaintenanceController extends BaseController {
                 Equipment equipment = equipmentMap.get(maintenance.getEquipmentId().intValue());
                 if (equipment != null) {
                     maintenance.setEquipment(equipment);
+                }
+            }
+        }
+
+        // 批量查询房间名称填充到设备信息
+        List<Integer> roomIds = equipmentMap.values().stream()
+                .map(Equipment::getRoomId)
+                .filter(id -> id != null)
+                .distinct()
+                .collect(Collectors.toList());
+        if (!roomIds.isEmpty()) {
+            Map<Integer, RoomInfo> roomMap = roomInfoService.listByIds(roomIds).stream()
+                    .collect(Collectors.toMap(RoomInfo::getRoomId, r -> r));
+            for (EquipmentMaintenance maintenance : maintenanceList) {
+                Equipment equipment = maintenance.getEquipment();
+                if (equipment != null && equipment.getRoomId() != null) {
+                    RoomInfo room = roomMap.get(equipment.getRoomId());
+                    if (room != null) {
+                        equipment.setRoomName(room.getRoomName());
+                    }
                 }
             }
         }
