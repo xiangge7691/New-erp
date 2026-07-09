@@ -48,7 +48,7 @@ public class FileManagerServiceImpl implements FileManagerService {
 
     @Override
     public DirectoryListingDto listDirectory(String relativePath) {
-        Path basePath = Paths.get(resolveBasePath());
+        Path basePath = Paths.get(resolveBasePath()).toAbsolutePath().normalize();
         Path targetDir = resolveSafePath(relativePath);
 
         DirectoryListingDto result = new DirectoryListingDto();
@@ -241,7 +241,7 @@ public class FileManagerServiceImpl implements FileManagerService {
             }).forEach(path -> {
                 FileItemDto item = new FileItemDto();
                 item.setName(path.getFileName().toString());
-                Path basePath = Paths.get(resolveBasePath());
+                Path basePath = Paths.get(resolveBasePath()).toAbsolutePath().normalize();
                 item.setPath(normalizePath(basePath.relativize(path).toString()));
 
                 if (Files.isDirectory(path)) {
