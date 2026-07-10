@@ -145,6 +145,12 @@ public class FileInfo extends AuditEntity {
     private Long deletedBy;
 
     /**
+     * 原始路径（回收站恢复用，记录删除前的文件路径）
+     */
+    @TableField(value = "original_path")
+    private String originalPath;
+
+    /**
      * 乐观锁版本号
      */
     @TableField(value = "version")

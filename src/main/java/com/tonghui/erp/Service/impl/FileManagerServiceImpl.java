@@ -156,6 +156,7 @@ public class FileManagerServiceImpl implements FileManagerService {
     public void rename(String relativePath, String newName, String root) {
         checkNotBusiness(root, "重命名");
         validatePath(newName);
+        Path basePath = resolveRootPath(root);
         Path source = resolveSafePath(relativePath, root);
         Path target = source.getParent().resolve(newName);
         String oldName = source.getFileName().toString();
@@ -164,12 +165,15 @@ public class FileManagerServiceImpl implements FileManagerService {
         } catch (IOException e) {
             throw new RuntimeException("重命名失败: " + e.getMessage());
         }
-        fileOperationLogService.log(null, getOriginalName(source, oldName), relativePath, OP_RENAME, root, oldName + " → " + newName);
+        // 更新 file_info 中的 filePath 和 originalPath
+        updateFileInfoPaths(source, target, basePath);
+        fileOperationLogService.log(null, getOriginalName(target, oldName), relativePath, OP_RENAME, root, oldName + " → " + newName);
     }
 
     @Override
     public void move(String sourcePath, String targetDirectory, String root) {
         checkNotBusiness(root, "移动");
+        Path basePath = resolveRootPath(root);
         Path source = resolveSafePath(sourcePath, root);
         Path targetDir = resolveSafePath(targetDirectory, root);
         Path target = targetDir.resolve(source.getFileName().toString());
@@ -179,7 +183,9 @@ public class FileManagerServiceImpl implements FileManagerService {
         } catch (IOException e) {
             throw new RuntimeException("移动失败: " + e.getMessage());
         }
-        fileOperationLogService.log(null, getOriginalName(source, source.getFileName().toString()), sourcePath, OP_MOVE, root, "→ " + targetDirectory);
+        // 更新 file_info 中的 filePath 和 originalPath
+        updateFileInfoPaths(source, target, basePath);
+        fileOperationLogService.log(null, getOriginalName(target, source.getFileName().toString()), sourcePath, OP_MOVE, root, "→ " + targetDirectory);
     }
 
     @Override
@@ -207,6 +213,7 @@ public class FileManagerServiceImpl implements FileManagerService {
         Path target = resolveSafePath(relativePath, root);
         Path recycleBin = basePath.resolve(RECYCLE_BIN_DIR);
         String fileName = target.getFileName().toString();
+        String originalPath = normalizePath(basePath.relativize(target).toString());
 
         // 确保回收站目录存在
         try {
@@ -223,7 +230,7 @@ public class FileManagerServiceImpl implements FileManagerService {
             throw new RuntimeException("删除失败: " + e.getMessage());
         }
 
-        // 软删除 file_info 记录并更新路径
+        // 软删除 file_info 记录，保存原始路径并更新当前路径
         if (Files.isDirectory(recycleTarget)) {
             try (Stream<Path> walk = Files.walk(recycleTarget)) {
                 walk.filter(Files::isRegularFile).forEach(path -> {
@@ -232,6 +239,7 @@ public class FileManagerServiceImpl implements FileManagerService {
                         fi = findFileInfoByPath(path.toString());
                     }
                     if (fi != null) {
+                        fi.setOriginalPath(fi.getFilePath());
                         fi.setFilePath(path.toString());
                         softDeleteFileInfo(fi);
                     }
@@ -242,6 +250,7 @@ public class FileManagerServiceImpl implements FileManagerService {
         } else {
             FileInfo fi = findFileInfoByPath(target.toString());
             if (fi != null) {
+                fi.setOriginalPath(fi.getFilePath());
                 fi.setFilePath(recycleTarget.toString());
                 softDeleteFileInfo(fi);
             }
@@ -257,12 +266,28 @@ public class FileManagerServiceImpl implements FileManagerService {
         Path recycleBin = basePath.resolve(RECYCLE_BIN_DIR);
         String fileName = Paths.get(relativePath).getFileName().toString();
         Path source = recycleBin.resolve(fileName);
-        String originalDir = Paths.get(relativePath).getParent() != null
-                ? Paths.get(relativePath).getParent().toString() : "";
-        Path target = resolveSafePath(originalDir, root).resolve(fileName);
 
         if (!Files.exists(source)) {
             throw new RuntimeException("恢复失败: 回收站中不存在该文件");
+        }
+
+        // 从 file_info 获取原始路径
+        String originalPath = null;
+        if (Files.isRegularFile(source)) {
+            FileInfo fi = findFileInfoByPath(source.toString());
+            if (fi != null && StringUtils.hasText(fi.getOriginalPath())) {
+                originalPath = fi.getOriginalPath();
+            }
+        }
+
+        // 确定恢复目标路径
+        Path target;
+        if (StringUtils.hasText(originalPath)) {
+            target = basePath.resolve(originalPath).normalize();
+        } else {
+            String fallback = Paths.get(relativePath).getParent() != null
+                    ? Paths.get(relativePath).getParent().toString() : "";
+            target = resolveSafePath(fallback, root).resolve(fileName);
         }
 
         try {
@@ -282,6 +307,7 @@ public class FileManagerServiceImpl implements FileManagerService {
                     }
                     if (fi != null) {
                         fi.setFilePath(path.toString());
+                        fi.setOriginalPath(null);
                         restoreFileInfo(fi);
                     }
                 });
@@ -292,6 +318,7 @@ public class FileManagerServiceImpl implements FileManagerService {
             FileInfo fi = findFileInfoByPath(source.toString());
             if (fi != null) {
                 fi.setFilePath(target.toString());
+                fi.setOriginalPath(null);
                 restoreFileInfo(fi);
             }
         }
@@ -513,6 +540,40 @@ public class FileManagerServiceImpl implements FileManagerService {
     private String getOriginalName(Path filePath, String fallbackName) {
         FileInfo fi = findFileInfoByPath(filePath.toString());
         return (fi != null && StringUtils.hasText(fi.getOriginalName())) ? fi.getOriginalName() : fallbackName;
+    }
+
+    /**
+     * 文件移动/重命名后，更新 file_info 中的 filePath 和 originalPath
+     *
+     * @param oldPath 移动前的路径
+     * @param newPath 移动后的路径
+     * @param basePath 基础路径
+     */
+    private void updateFileInfoPaths(Path oldPath, Path newPath, Path basePath) {
+        if (Files.isDirectory(newPath)) {
+            try (Stream<Path> walk = Files.walk(newPath)) {
+                walk.filter(Files::isRegularFile).forEach(path -> {
+                    Path oldFilePath = oldPath.resolve(newPath.relativize(path));
+                    FileInfo fi = findFileInfoByPath(oldFilePath.toString());
+                    if (fi == null) {
+                        fi = findFileInfoByPath(path.toString());
+                    }
+                    if (fi != null) {
+                        fi.setFilePath(path.toString());
+                        fi.setOriginalPath(basePath.relativize(path).toString());
+                        fileInfoMapper.updateById(fi);
+                    }
+                });
+            } catch (IOException ignored) {
+            }
+        } else {
+            FileInfo fi = findFileInfoByPath(oldPath.toString());
+            if (fi != null) {
+                fi.setFilePath(newPath.toString());
+                fi.setOriginalPath(basePath.relativize(newPath).toString());
+                fileInfoMapper.updateById(fi);
+            }
+        }
     }
 
     /**

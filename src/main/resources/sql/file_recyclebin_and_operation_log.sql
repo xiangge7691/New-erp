@@ -5,6 +5,7 @@
 -- file_info 表新增回收站字段
 ALTER TABLE file_info ADD COLUMN deleted_at DATETIME NULL COMMENT '删除时间（用于回收站）' AFTER is_deleted;
 ALTER TABLE file_info ADD COLUMN deleted_by BIGINT NULL COMMENT '删除人ID' AFTER deleted_at;
+ALTER TABLE file_info ADD COLUMN original_path VARCHAR(500) NULL COMMENT '原始路径（回收站恢复用）' AFTER deleted_by;
 
 -- 新建文件操作日志表
 CREATE TABLE file_operation_log (
