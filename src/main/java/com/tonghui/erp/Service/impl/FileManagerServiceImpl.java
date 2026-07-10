@@ -97,7 +97,9 @@ public class FileManagerServiceImpl implements FileManagerService {
                     .sorted(Comparator.comparing(p -> p.getFileName().toString()))
                     .forEach(path -> {
                         FileItemDto item = new FileItemDto();
-                        item.setName(path.getFileName().toString());
+                        String diskName = path.getFileName().toString();
+                        String displayName = Files.isDirectory(path) ? diskName : getOriginalName(path, diskName);
+                        item.setName(displayName);
                         item.setPath(normalizePath(basePath.relativize(path).toString()));
 
                         if (Files.isDirectory(path)) {
@@ -117,8 +119,7 @@ public class FileManagerServiceImpl implements FileManagerService {
                             } catch (IOException e) {
                                 item.setSize(0L);
                             }
-                            String name = path.getFileName().toString();
-                            item.setExtension(getExtension(name));
+                            item.setExtension(getExtension(displayName));
                             item.setIconType(getIconType(item.getExtension()));
                             try {
                                 item.setModifiedTime(formatTime(Files.getLastModifiedTime(path)));
@@ -163,7 +164,7 @@ public class FileManagerServiceImpl implements FileManagerService {
         } catch (IOException e) {
             throw new RuntimeException("重命名失败: " + e.getMessage());
         }
-        fileOperationLogService.log(null, oldName, relativePath, OP_RENAME, root, oldName + " → " + newName);
+        fileOperationLogService.log(null, getOriginalName(source, oldName), relativePath, OP_RENAME, root, oldName + " → " + newName);
     }
 
     @Override
@@ -178,7 +179,7 @@ public class FileManagerServiceImpl implements FileManagerService {
         } catch (IOException e) {
             throw new RuntimeException("移动失败: " + e.getMessage());
         }
-        fileOperationLogService.log(null, source.getFileName().toString(), sourcePath, OP_MOVE, root, "→ " + targetDirectory);
+        fileOperationLogService.log(null, getOriginalName(source, source.getFileName().toString()), sourcePath, OP_MOVE, root, "→ " + targetDirectory);
     }
 
     @Override
@@ -196,7 +197,7 @@ public class FileManagerServiceImpl implements FileManagerService {
         } catch (IOException e) {
             throw new RuntimeException("复制失败: " + e.getMessage());
         }
-        fileOperationLogService.log(null, source.getFileName().toString(), sourcePath, OP_COPY, root, "→ " + targetDirectory);
+        fileOperationLogService.log(null, getOriginalName(source, source.getFileName().toString()), sourcePath, OP_COPY, root, "→ " + targetDirectory);
     }
 
     @Override
@@ -246,7 +247,7 @@ public class FileManagerServiceImpl implements FileManagerService {
             }
         }
 
-        fileOperationLogService.log(null, fileName, normalizePath(relativePath), OP_DELETE, root, null);
+        fileOperationLogService.log(null, getOriginalName(target, fileName), normalizePath(relativePath), OP_DELETE, root, null);
     }
 
     @Override
@@ -295,7 +296,7 @@ public class FileManagerServiceImpl implements FileManagerService {
             }
         }
 
-        fileOperationLogService.log(null, fileName, normalizePath(relativePath), OP_RESTORE, root, null);
+        fileOperationLogService.log(null, getOriginalName(target, fileName), normalizePath(relativePath), OP_RESTORE, root, null);
     }
 
     @Override
@@ -327,7 +328,7 @@ public class FileManagerServiceImpl implements FileManagerService {
                .like("file_path", fileName);
         fileInfoMapper.delete(wrapper);
 
-        fileOperationLogService.log(null, fileName, normalizePath(relativePath), OP_DELETE, root, "永久删除");
+        fileOperationLogService.log(null, getOriginalName(target, fileName), normalizePath(relativePath), OP_DELETE, root, "永久删除");
     }
 
     @Override
@@ -428,7 +429,7 @@ public class FileManagerServiceImpl implements FileManagerService {
         }
         String fileName = file.getFileName().toString();
         FileInfo fi = findFileInfoByPath(file.toString());
-        fileOperationLogService.log(fi != null ? fi.getFileId() : null, fileName, normalizePath(relativePath), OP_DOWNLOAD, root, null);
+        fileOperationLogService.log(fi != null ? fi.getFileId() : null, getOriginalName(file, fileName), normalizePath(relativePath), OP_DOWNLOAD, root, null);
         return Files.newInputStream(file);
     }
 
@@ -440,7 +441,7 @@ public class FileManagerServiceImpl implements FileManagerService {
         }
         String fileName = file.getFileName().toString();
         FileInfo fi = findFileInfoByPath(file.toString());
-        fileOperationLogService.log(fi != null ? fi.getFileId() : null, fileName, normalizePath(relativePath), OP_PREVIEW, root, null);
+        fileOperationLogService.log(fi != null ? fi.getFileId() : null, getOriginalName(file, fileName), normalizePath(relativePath), OP_PREVIEW, root, null);
         return Files.newInputStream(file);
     }
 
@@ -460,7 +461,9 @@ public class FileManagerServiceImpl implements FileManagerService {
                 return name.contains(keyword.toLowerCase());
             }).forEach(path -> {
                 FileItemDto item = new FileItemDto();
-                item.setName(path.getFileName().toString());
+                String diskName = path.getFileName().toString();
+                String displayName = Files.isDirectory(path) ? diskName : getOriginalName(path, diskName);
+                item.setName(displayName);
                 item.setPath(normalizePath(basePath.relativize(path).toString()));
 
                 if (Files.isDirectory(path)) {
@@ -474,7 +477,7 @@ public class FileManagerServiceImpl implements FileManagerService {
                     } catch (IOException e) {
                         item.setSize(0L);
                     }
-                    String ext = getExtension(item.getName());
+                    String ext = getExtension(displayName);
                     item.setExtension(ext);
                     item.setIconType(getIconType(ext));
                 }
@@ -498,6 +501,19 @@ public class FileManagerServiceImpl implements FileManagerService {
     // ===================================
     // 私有方法
     // ===================================
+
+    /**
+     * 根据磁盘文件路径查找原始文件名
+     * 优先从 file_info 表获取 originalName，找不到时返回磁盘文件名
+     *
+     * @param filePath     磁盘文件路径
+     * @param fallbackName 兜底文件名
+     * @return 原始文件名或兜底文件名
+     */
+    private String getOriginalName(Path filePath, String fallbackName) {
+        FileInfo fi = findFileInfoByPath(filePath.toString());
+        return (fi != null && StringUtils.hasText(fi.getOriginalName())) ? fi.getOriginalName() : fallbackName;
+    }
 
     /**
      * 根据根目录类型获取对应的基础路径
