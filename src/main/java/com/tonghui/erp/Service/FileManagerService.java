@@ -89,13 +89,11 @@ public interface FileManagerService {
     void permanentDelete(String relativePath, String root);
 
     /**
-     * 列出回收站内容
+     * 列出回收站内容（扫描 .recycle-bin 目录）
      *
-     * @param pageIndex 页码
-     * @param pageSize  每页大小
      * @return 已删除的文件列表
      */
-    List<FileInfo> listRecycleBin(int pageIndex, int pageSize);
+    List<FileItemDto> listRecycleBin();
 
     // endregion
 

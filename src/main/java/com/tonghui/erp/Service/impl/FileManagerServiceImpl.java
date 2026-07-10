@@ -331,14 +331,49 @@ public class FileManagerServiceImpl implements FileManagerService {
     }
 
     @Override
-    public List<FileInfo> listRecycleBin(int pageIndex, int pageSize) {
-        Page<FileInfo> page = new Page<>(pageIndex + 1, pageSize);
-        QueryWrapper<FileInfo> wrapper = new QueryWrapper<>();
-        wrapper.eq("is_deleted", 1)
-               .isNotNull("deleted_at")
-               .orderByDesc("deleted_at");
-        Page<FileInfo> result = fileInfoMapper.selectPage(page, wrapper);
-        return result.getRecords();
+    public List<FileItemDto> listRecycleBin() {
+        Path basePath = resolveRootPath(ROOT_CUSTOM);
+        Path recycleBin = basePath.resolve(RECYCLE_BIN_DIR);
+        List<FileItemDto> results = new ArrayList<>();
+
+        if (!Files.exists(recycleBin) || !Files.isDirectory(recycleBin)) {
+            return results;
+        }
+
+        try (Stream<Path> stream = Files.list(recycleBin)) {
+            stream.sorted(Comparator.comparing(p -> p.getFileName().toString()))
+                .forEach(path -> {
+                    FileItemDto item = new FileItemDto();
+                    item.setName(path.getFileName().toString());
+                    item.setPath(normalizePath(RECYCLE_BIN_DIR + "/" + path.getFileName().toString()));
+
+                    if (Files.isDirectory(path)) {
+                        item.setDirectory(true);
+                        item.setSize(0L);
+                        item.setIconType("folder");
+                    } else {
+                        item.setDirectory(false);
+                        try {
+                            item.setSize(Files.size(path));
+                        } catch (IOException e) {
+                            item.setSize(0L);
+                        }
+                        String ext = getExtension(item.getName());
+                        item.setExtension(ext);
+                        item.setIconType(getIconType(ext));
+                    }
+                    try {
+                        item.setModifiedTime(formatTime(Files.getLastModifiedTime(path)));
+                    } catch (IOException e) {
+                        item.setModifiedTime("");
+                    }
+                    results.add(item);
+                });
+        } catch (IOException e) {
+            throw new RuntimeException("读取回收站失败: " + e.getMessage());
+        }
+
+        return results;
     }
 
     // endregion

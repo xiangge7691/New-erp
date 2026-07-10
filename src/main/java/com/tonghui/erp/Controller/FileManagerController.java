@@ -209,18 +209,14 @@ public class FileManagerController extends BaseController {
     /**
      * 查看回收站
      *
-     * 示例请求：GET /api/file-manager/recycle-bin?pageIndex=0&pageSize=20
+     * 示例请求：GET /api/file-manager/recycle-bin
      *
-     * @param pageIndex 页码
-     * @param pageSize  每页大小
      * @return 已删除的文件列表
      */
     @GetMapping("/recycle-bin")
-    public ApiResponse<List<FileInfo>> listRecycleBin(
-            @RequestParam(defaultValue = "0") int pageIndex,
-            @RequestParam(defaultValue = "20") int pageSize) {
+    public ApiResponse<List<FileItemDto>> listRecycleBin() {
         try {
-            List<FileInfo> result = fileManagerService.listRecycleBin(pageIndex, pageSize);
+            List<FileItemDto> result = fileManagerService.listRecycleBin();
             return success(result);
         } catch (Exception e) {
             return exception(e, "查看回收站");
