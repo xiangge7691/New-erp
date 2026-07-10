@@ -6,9 +6,12 @@ import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.FileOperationLog;
 import com.tonghui.erp.Data.mapper.FileOperationLogMapper;
 import com.tonghui.erp.Service.FileOperationLogService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.LocalDateTime;
 
@@ -30,9 +33,28 @@ public class FileOperationLogServiceImpl implements FileOperationLogService {
         log.setOperationType(operationType);
         log.setRootType(rootType);
         log.setUserId(EntityUtils.getCurrentUserId());
+        log.setUserName(getCurrentUserName());
         log.setDetail(detail);
         log.setCreatedTime(LocalDateTime.now());
         fileOperationLogMapper.insert(log);
+    }
+
+    /**
+     * 从请求上下文中获取当前用户名
+     */
+    private String getCurrentUserName() {
+        try {
+            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attributes != null) {
+                HttpServletRequest request = attributes.getRequest();
+                Object username = request.getAttribute("username");
+                if (username != null) {
+                    return username.toString();
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
     }
 
     @Override
