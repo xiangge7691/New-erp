@@ -58,6 +58,9 @@ public class FileManagerServiceImpl implements FileManagerService {
     /** 自定义文件根目录类型 */
     private static final String ROOT_CUSTOM = "custom";
 
+    /** 回收站目录名（隐藏目录） */
+    private static final String RECYCLE_BIN_DIR = ".recycle-bin";
+
     /** 操作类型常量 */
     private static final String OP_UPLOAD = "UPLOAD";
     private static final String OP_DOWNLOAD = "DOWNLOAD";
@@ -90,7 +93,8 @@ public class FileManagerServiceImpl implements FileManagerService {
 
         if (Files.exists(targetDir) && Files.isDirectory(targetDir)) {
             try (Stream<Path> stream = Files.list(targetDir)) {
-                stream.sorted(Comparator.comparing(p -> p.getFileName().toString()))
+                stream.filter(path -> !path.getFileName().toString().equals(RECYCLE_BIN_DIR))
+                    .sorted(Comparator.comparing(p -> p.getFileName().toString()))
                     .forEach(path -> {
                         FileItemDto item = new FileItemDto();
                         item.setName(path.getFileName().toString());
@@ -200,15 +204,34 @@ public class FileManagerServiceImpl implements FileManagerService {
         checkNotBusiness(root, "删除");
         Path basePath = resolveRootPath(root);
         Path target = resolveSafePath(relativePath, root);
+        Path recycleBin = basePath.resolve(RECYCLE_BIN_DIR);
         String fileName = target.getFileName().toString();
 
-        if (Files.isDirectory(target)) {
-            // 文件夹：遍历子文件，软删除所有 file_info 记录
-            try (Stream<Path> walk = Files.walk(target)) {
+        // 确保回收站目录存在
+        try {
+            Files.createDirectories(recycleBin);
+        } catch (IOException e) {
+            throw new RuntimeException("创建回收站目录失败: " + e.getMessage());
+        }
+
+        // 移动到回收站
+        Path recycleTarget = recycleBin.resolve(fileName);
+        try {
+            Files.move(target, recycleTarget, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            throw new RuntimeException("删除失败: " + e.getMessage());
+        }
+
+        // 软删除 file_info 记录并更新路径
+        if (Files.isDirectory(recycleTarget)) {
+            try (Stream<Path> walk = Files.walk(recycleTarget)) {
                 walk.filter(Files::isRegularFile).forEach(path -> {
-                    String filePath = normalizePath(basePath.relativize(path).toString());
-                    FileInfo fi = findFileInfoByPath(path.toString());
+                    FileInfo fi = findFileInfoByPath(target.resolve(basePath.relativize(path).toString()).toString());
+                    if (fi == null) {
+                        fi = findFileInfoByPath(path.toString());
+                    }
                     if (fi != null) {
+                        fi.setFilePath(path.toString());
                         softDeleteFileInfo(fi);
                     }
                 });
@@ -216,9 +239,9 @@ public class FileManagerServiceImpl implements FileManagerService {
                 throw new RuntimeException("删除失败: " + e.getMessage());
             }
         } else {
-            // 文件：软删除 file_info 记录
             FileInfo fi = findFileInfoByPath(target.toString());
             if (fi != null) {
+                fi.setFilePath(recycleTarget.toString());
                 softDeleteFileInfo(fi);
             }
         }
@@ -230,14 +253,34 @@ public class FileManagerServiceImpl implements FileManagerService {
     public void restore(String relativePath, String root) {
         checkNotBusiness(root, "恢复");
         Path basePath = resolveRootPath(root);
-        Path target = resolveSafePath(relativePath, root);
-        String fileName = target.getFileName().toString();
+        Path recycleBin = basePath.resolve(RECYCLE_BIN_DIR);
+        String fileName = Paths.get(relativePath).getFileName().toString();
+        Path source = recycleBin.resolve(fileName);
+        String originalDir = Paths.get(relativePath).getParent() != null
+                ? Paths.get(relativePath).getParent().toString() : "";
+        Path target = resolveSafePath(originalDir, root).resolve(fileName);
 
+        if (!Files.exists(source)) {
+            throw new RuntimeException("恢复失败: 回收站中不存在该文件");
+        }
+
+        try {
+            Files.createDirectories(target.getParent());
+            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            throw new RuntimeException("恢复失败: " + e.getMessage());
+        }
+
+        // 恢复 file_info 记录并更新路径
         if (Files.isDirectory(target)) {
             try (Stream<Path> walk = Files.walk(target)) {
                 walk.filter(Files::isRegularFile).forEach(path -> {
-                    FileInfo fi = findFileInfoByPath(path.toString());
+                    FileInfo fi = findFileInfoByPath(source.resolve(target.relativize(path).toString()).toString());
+                    if (fi == null) {
+                        fi = findFileInfoByPath(path.toString());
+                    }
                     if (fi != null) {
+                        fi.setFilePath(path.toString());
                         restoreFileInfo(fi);
                     }
                 });
@@ -245,8 +288,9 @@ public class FileManagerServiceImpl implements FileManagerService {
                 throw new RuntimeException("恢复失败: " + e.getMessage());
             }
         } else {
-            FileInfo fi = findFileInfoByPath(target.toString());
+            FileInfo fi = findFileInfoByPath(source.toString());
             if (fi != null) {
+                fi.setFilePath(target.toString());
                 restoreFileInfo(fi);
             }
         }
@@ -258,37 +302,30 @@ public class FileManagerServiceImpl implements FileManagerService {
     public void permanentDelete(String relativePath, String root) {
         checkNotBusiness(root, "永久删除");
         Path basePath = resolveRootPath(root);
-        Path target = resolveSafePath(relativePath, root);
-        String fileName = target.getFileName().toString();
+        Path recycleBin = basePath.resolve(RECYCLE_BIN_DIR);
+        String fileName = Paths.get(relativePath).getFileName().toString();
+        Path target = recycleBin.resolve(fileName);
 
-        if (Files.isDirectory(target)) {
-            try (Stream<Path> walk = Files.walk(target)) {
-                walk.filter(Files::isRegularFile).forEach(path -> {
-                    FileInfo fi = findFileInfoByPath(path.toString());
-                    if (fi != null) {
-                        fileInfoMapper.deleteById(fi.getFileId());
-                    }
-                });
-            } catch (IOException e) {
-                throw new RuntimeException("永久删除失败: " + e.getMessage());
-            }
-            // 物理删除磁盘文件夹
-            try {
-                deleteDirectory(target);
-            } catch (IOException e) {
-                throw new RuntimeException("永久删除失败: " + e.getMessage());
-            }
-        } else {
-            FileInfo fi = findFileInfoByPath(target.toString());
-            if (fi != null) {
-                fileInfoMapper.deleteById(fi.getFileId());
-            }
-            try {
-                Files.deleteIfExists(target);
-            } catch (IOException e) {
-                throw new RuntimeException("永久删除失败: " + e.getMessage());
-            }
+        if (!Files.exists(target)) {
+            throw new RuntimeException("永久删除失败: 回收站中不存在该文件");
         }
+
+        // 物理删除磁盘文件
+        try {
+            if (Files.isDirectory(target)) {
+                deleteDirectory(target);
+            } else {
+                Files.deleteIfExists(target);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("永久删除失败: " + e.getMessage());
+        }
+
+        // 物理删除 file_info 记录
+        QueryWrapper<FileInfo> wrapper = new QueryWrapper<>();
+        wrapper.eq("is_deleted", 1)
+               .like("file_path", fileName);
+        fileInfoMapper.delete(wrapper);
 
         fileOperationLogService.log(null, fileName, normalizePath(relativePath), OP_DELETE, root, "永久删除");
     }
