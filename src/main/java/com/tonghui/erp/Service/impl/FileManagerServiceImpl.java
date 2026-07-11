@@ -377,8 +377,10 @@ public class FileManagerServiceImpl implements FileManagerService {
             stream.sorted(Comparator.comparing(p -> p.getFileName().toString()))
                 .forEach(path -> {
                     FileItemDto item = new FileItemDto();
-                    item.setName(path.getFileName().toString());
-                    item.setPath(normalizePath(RECYCLE_BIN_DIR + "/" + path.getFileName().toString()));
+                    String diskName = path.getFileName().toString();
+                    String displayName = getOriginalName(path, diskName);
+                    item.setName(displayName);
+                    item.setPath(normalizePath(RECYCLE_BIN_DIR + "/" + diskName));
 
                     if (Files.isDirectory(path)) {
                         item.setDirectory(true);
@@ -391,7 +393,7 @@ public class FileManagerServiceImpl implements FileManagerService {
                         } catch (IOException e) {
                             item.setSize(0L);
                         }
-                        String ext = getExtension(item.getName());
+                        String ext = getExtension(displayName);
                         item.setExtension(ext);
                         item.setIconType(getIconType(ext));
                     }
