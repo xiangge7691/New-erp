@@ -2,6 +2,8 @@ package com.tonghui.erp.Service;
 
 import com.tonghui.erp.Common.Dto.FileManager.DirectoryListingDto;
 import com.tonghui.erp.Common.Dto.FileManager.FileItemDto;
+import com.tonghui.erp.Common.Dto.FileManager.FileSearchRequestDto;
+import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.FileInfo;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -132,13 +134,14 @@ public interface FileManagerService {
 
     /**
      * 搜索文件
+     * <p>
+     * 支持文件名关键词搜索、路径模糊匹配、文件大小筛选、修改日期筛选
+     * </p>
      *
-     * @param keyword      搜索关键词
-     * @param relativePath 搜索范围的相对路径，为空则搜索全部
-     * @param root         根目录类型
-     * @return 匹配的文件列表
+     * @param request 搜索请求参数
+     * @return 分页搜索结果
      */
-    List<FileItemDto> searchFiles(String keyword, String relativePath, String root);
+    PagedResult<FileItemDto> searchFiles(FileSearchRequestDto request);
 
     // endregion
 }

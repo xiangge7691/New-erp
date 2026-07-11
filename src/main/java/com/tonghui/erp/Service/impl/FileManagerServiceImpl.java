@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Config.FileStorageConfig;
 import com.tonghui.erp.Common.Dto.FileManager.DirectoryListingDto;
 import com.tonghui.erp.Common.Dto.FileManager.FileItemDto;
+import com.tonghui.erp.Common.Dto.FileManager.FileSearchRequestDto;
+import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.FileInfo;
 import com.tonghui.erp.Data.Entity.FileOperationLog;
@@ -19,8 +21,11 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.*;
+import java.nio.file.attribute.FileTime;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -104,7 +109,7 @@ public class FileManagerServiceImpl implements FileManagerService {
 
                         if (Files.isDirectory(path)) {
                             item.setDirectory(true);
-                            item.setSize(0L);
+                            item.setSize(calculateFolderSize(path));
                             item.setIconType("folder");
                             try {
                                 item.setModifiedTime(formatTime(Files.getLastModifiedTime(path)));
@@ -377,7 +382,7 @@ public class FileManagerServiceImpl implements FileManagerService {
 
                     if (Files.isDirectory(path)) {
                         item.setDirectory(true);
-                        item.setSize(0L);
+                        item.setSize(calculateFolderSize(path));
                         item.setIconType("folder");
                     } else {
                         item.setDirectory(false);
@@ -473,19 +478,60 @@ public class FileManagerServiceImpl implements FileManagerService {
     }
 
     @Override
-    public List<FileItemDto> searchFiles(String keyword, String relativePath, String root) {
-        Path searchRoot = resolveSafePath(relativePath, root);
+    public PagedResult<FileItemDto> searchFiles(FileSearchRequestDto request) {
+        String keyword = request.getKeyword();
+        String searchPath = request.getPath();
+        String root = request.getRoot();
+        Long minSize = request.getMinSize();
+        Long maxSize = request.getMaxSize();
+        LocalDateTime modifiedAfter = parseDateTime(request.getModifiedAfter());
+        LocalDateTime modifiedBefore = parseDateTime(request.getModifiedBefore());
+
+        Path searchRoot = resolveSafePath(searchPath, root);
         Path basePath = resolveRootPath(root);
-        List<FileItemDto> results = new ArrayList<>();
+        List<FileItemDto> allResults = new ArrayList<>();
 
         if (!Files.exists(searchRoot)) {
-            return results;
+            return buildPagedResult(allResults, request);
         }
 
         try (Stream<Path> walk = Files.walk(searchRoot)) {
             walk.filter(path -> {
-                String name = path.getFileName().toString().toLowerCase();
-                return name.contains(keyword.toLowerCase());
+                // 文件名关键词匹配（可选）
+                if (StringUtils.hasText(keyword)) {
+                    String name = path.getFileName().toString().toLowerCase();
+                    if (!name.contains(keyword.toLowerCase())) {
+                        return false;
+                    }
+                }
+                // 路径模糊匹配（可选）
+                if (StringUtils.hasText(searchPath)) {
+                    String relativePath = normalizePath(basePath.relativize(path).toString()).toLowerCase();
+                    String searchLower = searchPath.toLowerCase();
+                    if (!relativePath.contains(searchLower)) {
+                        return false;
+                    }
+                }
+                // 文件大小筛选（仅文件）
+                if (Files.isRegularFile(path)) {
+                    try {
+                        long size = Files.size(path);
+                        if (minSize != null && size < minSize) return false;
+                        if (maxSize != null && size > maxSize) return false;
+                    } catch (IOException e) {
+                        return false;
+                    }
+                }
+                // 修改日期筛选
+                try {
+                    FileTime ft = Files.getLastModifiedTime(path);
+                    LocalDateTime ldt = LocalDateTime.ofInstant(ft.toInstant(), ZoneId.systemDefault());
+                    if (modifiedAfter != null && ldt.isBefore(modifiedAfter)) return false;
+                    if (modifiedBefore != null && ldt.isAfter(modifiedBefore)) return false;
+                } catch (IOException e) {
+                    return false;
+                }
+                return true;
             }).forEach(path -> {
                 FileItemDto item = new FileItemDto();
                 String diskName = path.getFileName().toString();
@@ -495,7 +541,7 @@ public class FileManagerServiceImpl implements FileManagerService {
 
                 if (Files.isDirectory(path)) {
                     item.setDirectory(true);
-                    item.setSize(0L);
+                    item.setSize(calculateFolderSize(path));
                     item.setIconType("folder");
                 } else {
                     item.setDirectory(false);
@@ -513,13 +559,13 @@ public class FileManagerServiceImpl implements FileManagerService {
                 } catch (IOException e) {
                     item.setModifiedTime("");
                 }
-                results.add(item);
+                allResults.add(item);
             });
         } catch (IOException e) {
             throw new RuntimeException("搜索失败: " + e.getMessage());
         }
 
-        return results;
+        return buildPagedResult(allResults, request);
     }
 
     // endregion
@@ -528,6 +574,75 @@ public class FileManagerServiceImpl implements FileManagerService {
     // ===================================
     // 私有方法
     // ===================================
+
+    /**
+     * 递归计算文件夹大小
+     * <p>
+     * 遍历文件夹下所有文件，累加文件大小
+     * </p>
+     *
+     * @param folder 文件夹路径
+     * @return 文件夹内所有文件的总大小（字节）
+     */
+    private long calculateFolderSize(Path folder) {
+        if (!Files.exists(folder) || !Files.isDirectory(folder)) {
+            return 0L;
+        }
+        long[] size = {0L};
+        try (Stream<Path> walk = Files.walk(folder)) {
+            walk.filter(Files::isRegularFile).forEach(path -> {
+                try {
+                    size[0] += Files.size(path);
+                } catch (IOException ignored) {
+                }
+            });
+        } catch (IOException ignored) {
+        }
+        return size[0];
+    }
+
+    /**
+     * 解析日期时间字符串
+     *
+     * @param dateTimeStr 日期时间字符串，格式：yyyy-MM-dd HH:mm:ss
+     * @return LocalDateTime 对象，解析失败返回 null
+     */
+    private LocalDateTime parseDateTime(String dateTimeStr) {
+        if (!StringUtils.hasText(dateTimeStr)) {
+            return null;
+        }
+        try {
+            return LocalDateTime.parse(dateTimeStr, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        } catch (DateTimeParseException e) {
+            return null;
+        }
+    }
+
+    /**
+     * 构建分页结果
+     *
+     * @param allResults 全部结果列表
+     * @param request    搜索请求参数（含分页信息）
+     * @return 分页结果
+     */
+    private PagedResult<FileItemDto> buildPagedResult(List<FileItemDto> allResults, FileSearchRequestDto request) {
+        int pageIndex = request.getPageIndex();
+        int pageSize = request.getPageSize();
+        long totalCount = allResults.size();
+        int fromIndex = pageIndex * pageSize;
+        int toIndex = Math.min(fromIndex + pageSize, allResults.size());
+
+        List<FileItemDto> pageItems = fromIndex < allResults.size()
+            ? allResults.subList(fromIndex, toIndex)
+            : new ArrayList<>();
+
+        PagedResult<FileItemDto> pagedResult = new PagedResult<>();
+        pagedResult.setItems(pageItems);
+        pagedResult.setTotalCount(totalCount);
+        pagedResult.setPageIndex(pageIndex);
+        pagedResult.setPageSize(pageSize);
+        return pagedResult;
+    }
 
     /**
      * 根据磁盘文件路径查找原始文件名

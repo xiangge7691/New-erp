@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.FileManager.DirectoryListingDto;
 import com.tonghui.erp.Common.Dto.FileManager.FileItemDto;
+import com.tonghui.erp.Common.Dto.FileManager.FileSearchRequestDto;
+import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.FileInfo;
 import com.tonghui.erp.Data.Entity.FileOperationLog;
 import com.tonghui.erp.Service.FileManagerService;
@@ -396,20 +398,21 @@ public class FileManagerController extends BaseController {
     /**
      * 搜索文件
      *
-     * 示例请求：GET /api/file-manager/search?keyword=维修单&path=文档&root=custom
+     * 支持文件名关键词搜索、路径模糊匹配、文件大小筛选、修改日期筛选、分页
      *
-     * @param keyword 搜索关键词（文件名模糊匹配）
-     * @param path    搜索范围的相对路径（为空则搜索全部）
-     * @param root    根目录类型
-     * @return 匹配的文件列表
+     * 示例请求：
+     * GET /api/file-manager/search?keyword=维修单&path=文档&root=custom&minSize=1024&maxSize=1048576&modifiedAfter=2026-01-01 00:00:00&pageIndex=0&pageSize=20
+     *
+     * @param request 搜索请求参数
+     * @return 分页搜索结果
      */
     @GetMapping("/search")
-    public ApiResponse<List<FileItemDto>> searchFiles(
-            @RequestParam String keyword,
-            @RequestParam(required = false, defaultValue = "") String path,
-            @RequestParam(defaultValue = "custom") String root) {
+    public ApiResponse<PagedResult<FileItemDto>> searchFiles(FileSearchRequestDto request) {
         try {
-            List<FileItemDto> results = fileManagerService.searchFiles(keyword, path, root);
+            if (request.getRoot() == null) {
+                request.setRoot("custom");
+            }
+            PagedResult<FileItemDto> results = fileManagerService.searchFiles(request);
             return success(results);
         } catch (Exception e) {
             return exception(e, "搜索文件");

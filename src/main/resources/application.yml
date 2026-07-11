@@ -19,7 +19,7 @@ spring:
   # 包含数据库地址、端口、数据库名以及连接参数
   datasource:
     url: jdbc:mysql://localhost:3306/erp_db?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=GMT%2B8&allowPublicKeyRetrieval=true
-    username: root
+    username: erp_db
     password: 89749050
     driver-class-name: com.mysql.cj.jdbc.Driver
 
@@ -53,7 +53,9 @@ jwt:
 
 # 在现有配置基础上添加
 file:
-  base-path: ${ERP_FILE_STORAGE_PATH:./uploaded-files}
+#  base-path: ${ERP_FILE_STORAGE_PATH:./uploaded-files}
+#  custom-dir: custom-files
+  base-path: /www/wwwroot/file-storage/uploaded-files
   custom-dir: custom-files
   max-size: 10485760  # 10MB
   allowed-types:
