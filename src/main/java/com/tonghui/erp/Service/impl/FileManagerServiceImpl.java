@@ -254,6 +254,9 @@ public class FileManagerServiceImpl implements FileManagerService {
             }
         } else {
             FileInfo fi = findFileInfoByPath(target.toString());
+            if (fi == null) {
+                fi = findFileInfoByStoredName(fileName);
+            }
             if (fi != null) {
                 fi.setOriginalPath(fi.getFilePath());
                 fi.setFilePath(recycleTarget.toString());
@@ -656,7 +659,15 @@ public class FileManagerServiceImpl implements FileManagerService {
      */
     private String getOriginalName(Path filePath, String fallbackName) {
         FileInfo fi = findFileInfoByPath(filePath.toString());
-        return (fi != null && StringUtils.hasText(fi.getOriginalName())) ? fi.getOriginalName() : fallbackName;
+        if (fi != null && StringUtils.hasText(fi.getOriginalName())) {
+            return fi.getOriginalName();
+        }
+        String diskFileName = filePath.getFileName().toString();
+        fi = findFileInfoByStoredName(diskFileName);
+        if (fi != null && StringUtils.hasText(fi.getOriginalName())) {
+            return fi.getOriginalName();
+        }
+        return fallbackName;
     }
 
     /**
@@ -718,6 +729,15 @@ public class FileManagerServiceImpl implements FileManagerService {
     private FileInfo findFileInfoByPath(String filePath) {
         QueryWrapper<FileInfo> wrapper = new QueryWrapper<>();
         wrapper.eq("file_path", filePath);
+        return fileInfoMapper.selectOne(wrapper);
+    }
+
+    /**
+     * 根据存储文件名（UUID）查找 FileInfo 记录
+     */
+    private FileInfo findFileInfoByStoredName(String storedName) {
+        QueryWrapper<FileInfo> wrapper = new QueryWrapper<>();
+        wrapper.eq("stored_name", storedName);
         return fileInfoMapper.selectOne(wrapper);
     }
 
