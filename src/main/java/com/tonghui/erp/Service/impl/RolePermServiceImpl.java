@@ -73,8 +73,8 @@ public class RolePermServiceImpl extends ServiceImpl<RolePermMapper, RolePerm>
     @Override
     public boolean assignPermissionsToRole(Long roleId, List<Long> permIds) {
         try {
-            // 先删除现有权限关联
-            this.remove(new QueryWrapper<RolePerm>().eq("role_id", roleId));
+            // 先物理删除现有权限关联（绕过逻辑删除，避免唯一键冲突）
+            this.getBaseMapper().physicalDeleteByRoleId(roleId);
             
             // 添加新权限关联
             if (permIds != null && !permIds.isEmpty()) {
@@ -82,6 +82,7 @@ public class RolePermServiceImpl extends ServiceImpl<RolePermMapper, RolePerm>
                     RolePerm rolePerm = new RolePerm();
                     rolePerm.setRoleId(roleId);
                     rolePerm.setPermId(permId);
+                    rolePerm.setIsDeleted(0);
                     rolePerm.setCreatedTime(LocalDateTime.now());
                     this.save(rolePerm);
                 }
@@ -157,6 +158,23 @@ public class RolePermServiceImpl extends ServiceImpl<RolePermMapper, RolePerm>
     @Override
     public List<RolePerm> getByPermId(Long permId) {
         return this.list(new QueryWrapper<RolePerm>().eq("perm_id", permId));
+    }
+    // endregion
+    
+    // region 数据清理接口
+    // ===================================
+    // 数据清理接口
+    // ===================================
+    
+    /**
+     * 清理指定角色下已被软删除的记录（释放唯一键约束）
+     *
+     * @param roleId 角色ID
+     * @return 清理的记录数
+     */
+    @Override
+    public int cleanSoftDeletedByRoleId(Long roleId) {
+        return this.getBaseMapper().cleanSoftDeletedByRoleId(roleId);
     }
     // endregion
 }

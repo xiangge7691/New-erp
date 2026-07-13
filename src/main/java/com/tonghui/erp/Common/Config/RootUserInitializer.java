@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -193,26 +194,26 @@ public class RootUserInitializer {
             return;
         }
 
-        // 获取当前角色已有的权限
+        // 清理可能存在的软删除脏数据（释放唯一键约束）
+        rolePermService.cleanSoftDeletedByRoleId(role.getRoleId());
+
+        // 查询当前已有的有效权限ID
         List<RolePerm> existingRolePerms = rolePermService.list(
                 new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<RolePerm>()
                         .eq("role_id", role.getRoleId())
         );
-
-        // 获取已存在的权限ID列表
-        List<Long> existingPermIds = existingRolePerms.stream()
+        Set<Long> existingPermIds = existingRolePerms.stream()
                 .map(RolePerm::getPermId)
-                .collect(Collectors.toList());
+                .collect(Collectors.toSet());
 
-        // 记录新增的权限数量
+        // 只插入缺失的权限
         int addedCount = 0;
-
-        // 为每个权限检查是否已分配给root角色，如果没有则分配
         for (Permission permission : allPermissions) {
             if (!existingPermIds.contains(permission.getPermId())) {
                 RolePerm rolePerm = new RolePerm();
                 rolePerm.setRoleId(role.getRoleId());
                 rolePerm.setPermId(permission.getPermId());
+                rolePerm.setIsDeleted(0);
                 rolePerm.setCreatedTime(LocalDateTime.now());
                 rolePermService.save(rolePerm);
                 addedCount++;

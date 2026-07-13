@@ -97,4 +97,18 @@ public interface RolePermService extends IService<RolePerm> {
      */
     List<RolePerm> getByPermId(Long permId);
     // endregion
+    
+    // region 数据清理接口
+    // ===================================
+    // 数据清理接口
+    // ===================================
+    
+    /**
+     * 清理指定角色下已被软删除的记录（释放唯一键约束）
+     *
+     * @param roleId 角色ID
+     * @return 清理的记录数
+     */
+    int cleanSoftDeletedByRoleId(Long roleId);
+    // endregion
 }
