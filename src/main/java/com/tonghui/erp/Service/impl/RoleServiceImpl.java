@@ -30,6 +30,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -170,6 +172,35 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role>
         List<RoleDto> roleDtos = roleEntities.stream()
                 .map(converters::toRoleDto)
                 .collect(Collectors.toList());
+
+        // 批量加载权限信息并填充到DTO
+        List<Long> roleIds = roleEntities.stream().map(Role::getRoleId).collect(Collectors.toList());
+        if (!roleIds.isEmpty()) {
+            QueryWrapper<RolePerm> permQuery = new QueryWrapper<>();
+            permQuery.in("role_id", roleIds);
+            Map<Long, List<RolePerm>> rolePermsMap = rolePermService.list(permQuery).stream()
+                    .collect(Collectors.groupingBy(RolePerm::getRoleId));
+
+            // 批量加载权限详情
+            Set<Long> allPermIds = rolePermsMap.values().stream()
+                    .flatMap(List::stream)
+                    .map(RolePerm::getPermId)
+                    .collect(Collectors.toSet());
+            Map<Long, Permission> permMap = allPermIds.isEmpty() ? java.util.Map.of()
+                    : permissionService.listByIds(allPermIds).stream()
+                    .collect(Collectors.toMap(Permission::getPermId, p -> p));
+
+            // 填充每个角色的权限列表
+            for (RoleDto dto : roleDtos) {
+                List<RolePerm> rolePerms = rolePermsMap.getOrDefault(dto.getRoleId(), Collections.emptyList());
+                List<PermissionDto> permDtos = rolePerms.stream()
+                        .map(rp -> permMap.get(rp.getPermId()))
+                        .filter(java.util.Objects::nonNull)
+                        .map(converters::toPermissionDto)
+                        .collect(Collectors.toList());
+                dto.setPermissions(permDtos);
+            }
+        }
         
         // 构建分页结果
         PagedResult<RoleDto> pagedResult = new PagedResult<>();
@@ -290,6 +321,15 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role>
         Map<Long, List<RolePerm>> permsMap = rolePermService.list(permWrapper).stream()
                 .collect(Collectors.groupingBy(RolePerm::getRoleId));
 
+        // 批量查询权限详情
+        Set<Long> allPermIds = permsMap.values().stream()
+                .flatMap(List::stream)
+                .map(RolePerm::getPermId)
+                .collect(Collectors.toSet());
+        Map<Long, Permission> permDetailsMap = allPermIds.isEmpty() ? java.util.Map.of()
+                : permissionService.listByIds(allPermIds).stream()
+                .collect(Collectors.toMap(Permission::getPermId, p -> p));
+
         // 批量查询关联的用户角色信息
         QueryWrapper<UserRole> urWrapper = new QueryWrapper<>();
         urWrapper.in("role_id", parentIds);
@@ -300,7 +340,16 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role>
         List<RoleWithDetailsDto> dtos = parents.stream().map(parent -> {
             RoleWithDetailsDto dto = new RoleWithDetailsDto();
             BeanUtils.copyProperties(parent, dto);
-            dto.setPermissions(permsMap.getOrDefault(parent.getRoleId(), Collections.emptyList()));
+            
+            // 将RolePerm转换为PermissionDto
+            List<RolePerm> rolePerms = permsMap.getOrDefault(parent.getRoleId(), Collections.emptyList());
+            List<PermissionDto> permDtos = rolePerms.stream()
+                    .map(rp -> permDetailsMap.get(rp.getPermId()))
+                    .filter(Objects::nonNull)
+                    .map(converters::toPermissionDto)
+                    .collect(Collectors.toList());
+            dto.setPermissions(permDtos);
+            
             dto.setUserRoles(urMap.getOrDefault(parent.getRoleId(), Collections.emptyList()));
             return dto;
         }).collect(Collectors.toList());
