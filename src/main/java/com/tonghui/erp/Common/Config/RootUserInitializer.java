@@ -3,9 +3,10 @@ package com.tonghui.erp.Common.Config;
 import com.tonghui.erp.Common.utils.PasswordHasher;
 import com.tonghui.erp.Data.Entity.*;
 import com.tonghui.erp.Service.*;
-import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -15,8 +16,9 @@ import java.util.stream.Collectors;
 /**
  * 系统根用户初始化器
  * <p>
- * 在系统启动时自动检测是否存在root用户和角色，
- * 如果不存在则自动创建包含所有权限的root用户和角色
+ * 在系统启动完成后自动检测是否存在root用户和角色，
+ * 如果不存在则自动创建包含所有权限的root用户和角色。
+ * 同时确保root角色始终拥有系统中的所有权限。
  * </p>
  */
 @Component
@@ -61,9 +63,12 @@ public class RootUserInitializer {
     // ===================================
 
     /**
-     * 系统启动后自动执行初始化逻辑
+     * 系统启动完成后自动执行初始化逻辑
+     * <p>
+     * 使用 @EventListener(ApplicationReadyEvent.class) 确保在所有 Bean 初始化完成后再执行
+     * </p>
      */
-    @PostConstruct
+    @EventListener(ApplicationReadyEvent.class)
     public void initializeRootUserAndRole() {
         try {
             // 检查并创建root角色
@@ -77,6 +82,8 @@ public class RootUserInitializer {
 
             // 确保root角色拥有所有权限
             ensureRootRoleHasAllPermissions(rootRole);
+            
+            System.out.println("root用户和角色初始化完成，已同步所有权限");
         } catch (Exception e) {
             // 记录错误但不中断应用启动
             System.err.println("初始化root用户和角色时发生错误: " + e.getMessage());
@@ -180,6 +187,12 @@ public class RootUserInitializer {
         // 获取所有权限
         List<Permission> allPermissions = permissionService.list();
 
+        // 如果没有权限，直接返回
+        if (allPermissions.isEmpty()) {
+            System.out.println("当前系统没有权限数据，跳过权限同步");
+            return;
+        }
+
         // 获取当前角色已有的权限
         List<RolePerm> existingRolePerms = rolePermService.list(
                 new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<RolePerm>()
@@ -191,6 +204,9 @@ public class RootUserInitializer {
                 .map(RolePerm::getPermId)
                 .collect(Collectors.toList());
 
+        // 记录新增的权限数量
+        int addedCount = 0;
+
         // 为每个权限检查是否已分配给root角色，如果没有则分配
         for (Permission permission : allPermissions) {
             if (!existingPermIds.contains(permission.getPermId())) {
@@ -199,7 +215,10 @@ public class RootUserInitializer {
                 rolePerm.setPermId(permission.getPermId());
                 rolePerm.setCreatedTime(LocalDateTime.now());
                 rolePermService.save(rolePerm);
+                addedCount++;
             }
         }
+
+        System.out.println("root角色权限同步完成，共有 " + allPermissions.size() + " 个权限，新增 " + addedCount + " 个");
     }
 }
