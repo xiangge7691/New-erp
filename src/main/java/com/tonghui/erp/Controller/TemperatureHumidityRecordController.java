@@ -12,6 +12,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 温湿度记录控制器
@@ -20,18 +23,18 @@ import java.util.List;
  * </p>
  *
  * 接口清单：
- * ┌────┬──────────────────────────────────────────────────┬────────┬──────────────────────────────┐
- * │ #  │ 接口                                             │ 方法   │ 说明                         │
- * ├────┼──────────────────────────────────────────────────┼────────┼──────────────────────────────┤
- * │ 1  │ /api/room/{roomId}/temperature-humidity          │ GET    │ 分页查询温湿度记录列表        │
- * │ 2  │ /api/room/{roomId}/temperature-humidity/list     │ GET    │ 查询温湿度记录列表（不分页）   │
- * │ 3  │ /api/room/{roomId}/temperature-humidity          │ POST   │ 新增温湿度记录               │
- * │ 4  │ /api/room/{roomId}/temperature-humidity/{id}     │ PUT    │ 修改温湿度记录               │
- * │ 5  │ /api/room/{roomId}/temperature-humidity/{id}     │ DELETE │ 删除温湿度记录（软删除）      │
- * └────┴──────────────────────────────────────────────────┴────────┴──────────────────────────────┘
+ * ┌────┬──────────────────────────────────────────┬────────┬──────────────────────────────┐
+ * │ #  │ 接口                                     │ 方法   │ 说明                         │
+ * ├────┼──────────────────────────────────────────┼────────┼──────────────────────────────┤
+ * │ 1  │ /api/temperatureHumidityRecord           │ GET    │ 分页查询温湿度记录列表        │
+ * │ 2  │ /api/temperatureHumidityRecord/list      │ GET    │ 查询温湿度记录列表（不分页）   │
+ * │ 3  │ /api/temperatureHumidityRecord           │ POST   │ 新增温湿度记录               │
+ * │ 4  │ /api/temperatureHumidityRecord/{id}      │ PUT    │ 修改温湿度记录               │
+ * │ 5  │ /api/temperatureHumidityRecord/{id}      │ DELETE │ 删除温湿度记录（软删除）      │
+ * └────┴──────────────────────────────────────────┴────────┴──────────────────────────────┘
  */
 @RestController
-@RequestMapping("/api/room/{roomId}/temperature-humidity")
+@RequestMapping("/api/temperatureHumidityRecord")
 public class TemperatureHumidityRecordController extends BaseController {
 
     // region 服务依赖注入
@@ -61,32 +64,45 @@ public class TemperatureHumidityRecordController extends BaseController {
     /**
      * 分页查询温湿度记录列表
      * <p>
-     * 查询指定房间的温湿度检测记录，支持分页，自动填充房间名称
+     * 查询温湿度检测记录，支持分页和按房间筛选。roomId为可选参数：
+     * 传入时按房间过滤，不传入时返回所有房间的记录
      * </p>
      *
      * 示例请求：
-     * GET /api/room/1/temperature-humidity?pageIndex=0&pageSize=10
-     * GET /api/room/1/temperature-humidity
+     * GET /api/temperatureHumidityRecord?pageIndex=0&pageSize=10
+     * GET /api/temperatureHumidityRecord?roomId=1&pageIndex=0&pageSize=10
      *
-     * @param roomId    房间ID（路径参数）
+     * @param roomId    房间ID（可选），不传则返回所有记录
      * @param pageIndex 页码索引，从0开始（默认0）
      * @param pageSize  每页数量（默认10）
      * @return ApiResponse&lt;PagedResult&lt;TemperatureHumidityRecord&gt;&gt; 分页结果
      */
     @GetMapping
     public ApiResponse<PagedResult<TemperatureHumidityRecord>> getAll(
-            @PathVariable Integer roomId,
+            @RequestParam(required = false) Integer roomId,
             @RequestParam(defaultValue = "0") int pageIndex,
             @RequestParam(defaultValue = "10") int pageSize) {
         try {
             Page<TemperatureHumidityRecord> page = new Page<>(pageIndex + 1, pageSize);
             QueryWrapper<TemperatureHumidityRecord> wrapper = new QueryWrapper<>();
-            wrapper.eq("room_id", roomId).eq("is_deleted", 0).orderByDesc("record_date");
+            wrapper.eq("is_deleted", 0);
+            if (roomId != null) {
+                wrapper.eq("room_id", roomId);
+            }
+            wrapper.orderByDesc("record_date");
             Page<TemperatureHumidityRecord> pageResult = temperatureHumidityRecordService.page(page, wrapper);
 
-            RoomInfo room = roomInfoService.getById(roomId);
-            if (room != null) {
-                pageResult.getRecords().forEach(r -> r.setRoomName(room.getRoomName()));
+            // 批量填充房间名称
+            Set<Integer> roomIds = pageResult.getRecords().stream()
+                    .map(TemperatureHumidityRecord::getRoomId)
+                    .collect(Collectors.toSet());
+            if (!roomIds.isEmpty()) {
+                Map<Integer, RoomInfo> roomMap = roomInfoService.listByIds(roomIds).stream()
+                        .collect(Collectors.toMap(RoomInfo::getRoomId, r -> r));
+                pageResult.getRecords().forEach(r -> {
+                    RoomInfo room = roomMap.get(r.getRoomId());
+                    if (room != null) r.setRoomName(room.getRoomName());
+                });
             }
 
             PagedResult<TemperatureHumidityRecord> result = new PagedResult<>();
@@ -103,19 +119,42 @@ public class TemperatureHumidityRecordController extends BaseController {
     /**
      * 查询温湿度记录列表（不分页）
      * <p>
-     * 查询指定房间的所有温湿度检测记录，按记录日期倒序排列
+     * 查询所有温湿度检测记录，按记录日期倒序排列。roomId为可选参数：
+     * 传入时按房间过滤，不传入时返回所有房间的记录
      * </p>
      *
      * 示例请求：
-     * GET /api/room/1/temperature-humidity/list
+     * GET /api/temperatureHumidityRecord/list
+     * GET /api/temperatureHumidityRecord/list?roomId=1
      *
-     * @param roomId 房间ID（路径参数）
+     * @param roomId 房间ID（可选），不传则返回所有记录
      * @return ApiResponse&lt;List&lt;TemperatureHumidityRecord&gt;&gt; 温湿度记录列表
      */
     @GetMapping("/list")
-    public ApiResponse<List<TemperatureHumidityRecord>> getList(@PathVariable Integer roomId) {
+    public ApiResponse<List<TemperatureHumidityRecord>> getList(
+            @RequestParam(required = false) Integer roomId) {
         try {
-            List<TemperatureHumidityRecord> list = temperatureHumidityRecordService.findByRoomId(roomId);
+            QueryWrapper<TemperatureHumidityRecord> wrapper = new QueryWrapper<>();
+            wrapper.eq("is_deleted", 0);
+            if (roomId != null) {
+                wrapper.eq("room_id", roomId);
+            }
+            wrapper.orderByDesc("record_date");
+            List<TemperatureHumidityRecord> list = temperatureHumidityRecordService.list(wrapper);
+
+            // 批量填充房间名称
+            Set<Integer> roomIds = list.stream()
+                    .map(TemperatureHumidityRecord::getRoomId)
+                    .collect(Collectors.toSet());
+            if (!roomIds.isEmpty()) {
+                Map<Integer, RoomInfo> roomMap = roomInfoService.listByIds(roomIds).stream()
+                        .collect(Collectors.toMap(RoomInfo::getRoomId, r -> r));
+                list.forEach(r -> {
+                    RoomInfo room = roomMap.get(r.getRoomId());
+                    if (room != null) r.setRoomName(room.getRoomName());
+                });
+            }
+
             return success(list);
         } catch (Exception e) {
             return exception(e, "查询温湿度记录");
@@ -133,7 +172,7 @@ public class TemperatureHumidityRecordController extends BaseController {
      * 新增温湿度记录
      *
      * 示例请求：
-     * POST /api/room/1/temperature-humidity
+     * POST /api/temperatureHumidityRecord?roomId=1
      * Content-Type: application/json
      * {
      *   "recordDate": "2026-07-01",
@@ -144,12 +183,14 @@ public class TemperatureHumidityRecordController extends BaseController {
      *   "remark": "环境正常"
      * }
      *
-     * @param roomId 房间ID（路径参数）
+     * @param roomId 房间ID（必填）
      * @param record 温湿度记录信息
      * @return ApiResponse&lt;TemperatureHumidityRecord&gt; 新增的温湿度记录
      */
     @PostMapping
-    public ApiResponse<TemperatureHumidityRecord> create(@PathVariable Integer roomId, @RequestBody TemperatureHumidityRecord record) {
+    public ApiResponse<TemperatureHumidityRecord> create(
+            @RequestParam Integer roomId,
+            @RequestBody TemperatureHumidityRecord record) {
         try {
             record.setRoomId(roomId);
             record.setCreatedTime(LocalDateTime.now());
@@ -172,7 +213,7 @@ public class TemperatureHumidityRecordController extends BaseController {
      * 修改温湿度记录
      *
      * 示例请求：
-     * PUT /api/room/1/temperature-humidity/10
+     * PUT /api/temperatureHumidityRecord/10?roomId=1
      * Content-Type: application/json
      * {
      *   "temperature": 23.0,
@@ -180,13 +221,16 @@ public class TemperatureHumidityRecordController extends BaseController {
      *   "remark": "温度略有升高"
      * }
      *
-     * @param roomId 房间ID（路径参数）
+     * @param roomId 房间ID（必填）
      * @param id     记录ID（路径参数）
      * @param record 更新的温湿度记录信息
      * @return ApiResponse&lt;TemperatureHumidityRecord&gt; 修改后的温湿度记录
      */
     @PutMapping("/{id}")
-    public ApiResponse<TemperatureHumidityRecord> update(@PathVariable Integer roomId, @PathVariable Long id, @RequestBody TemperatureHumidityRecord record) {
+    public ApiResponse<TemperatureHumidityRecord> update(
+            @RequestParam Integer roomId,
+            @PathVariable Long id,
+            @RequestBody TemperatureHumidityRecord record) {
         try {
             TemperatureHumidityRecord existing = temperatureHumidityRecordService.getById(id);
             if (existing == null || !existing.getRoomId().equals(roomId)) {
@@ -204,14 +248,16 @@ public class TemperatureHumidityRecordController extends BaseController {
      * 删除温湿度记录（软删除）
      *
      * 示例请求：
-     * DELETE /api/room/1/temperature-humidity/10
+     * DELETE /api/temperatureHumidityRecord/10?roomId=1
      *
-     * @param roomId 房间ID（路径参数）
+     * @param roomId 房间ID（必填）
      * @param id     记录ID（路径参数）
      * @return ApiResponse&lt;Void&gt; 删除结果
      */
     @DeleteMapping("/{id}")
-    public ApiResponse<Void> delete(@PathVariable Integer roomId, @PathVariable Long id) {
+    public ApiResponse<Void> delete(
+            @RequestParam Integer roomId,
+            @PathVariable Long id) {
         try {
             TemperatureHumidityRecord existing = temperatureHumidityRecordService.getById(id);
             if (existing == null || !existing.getRoomId().equals(roomId)) {

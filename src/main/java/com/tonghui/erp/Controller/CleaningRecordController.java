@@ -5,10 +5,15 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.CleaningRecord;
+import com.tonghui.erp.Data.Entity.RoomInfo;
 import com.tonghui.erp.Service.CleaningRecordService;
+import com.tonghui.erp.Service.RoomInfoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 清洁记录控制器
@@ -42,6 +47,12 @@ public class CleaningRecordController extends BaseController {
     @Autowired
     private CleaningRecordService cleaningRecordService;
 
+    /**
+     * 房间信息服务
+     */
+    @Autowired
+    private RoomInfoService roomInfoService;
+
     // endregion
 
     // region 查询接口
@@ -72,6 +83,20 @@ public class CleaningRecordController extends BaseController {
         }
         wrapper.orderByDesc("cleaning_date");
         List<CleaningRecord> list = cleaningRecordService.list(wrapper);
+
+        // 批量填充房间名称
+        Set<Integer> roomIds = list.stream()
+                .map(r -> r.getRoomId().intValue())
+                .collect(Collectors.toSet());
+        if (!roomIds.isEmpty()) {
+            Map<Integer, RoomInfo> roomMap = roomInfoService.listByIds(roomIds).stream()
+                    .collect(Collectors.toMap(RoomInfo::getRoomId, r -> r));
+            list.forEach(r -> {
+                RoomInfo room = roomMap.get(r.getRoomId().intValue());
+                if (room != null) r.setRoomName(room.getRoomName());
+            });
+        }
+
         return success(list);
     }
 
