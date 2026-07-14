@@ -120,6 +120,7 @@ public class FileStorageConfig {
         put("SUPPLIER", "供应商管理");
         put("CUSTOMER", "客户管理");
         put("ORGANIZATION", "机构管理");
+        put("TRAINING", "培训管理");
         put("GENERAL", "通用文件");
     }};
 
@@ -157,6 +158,7 @@ public class FileStorageConfig {
         put("PRESSURE_DIFFERENCE", "压差记录");
         put("DISINFECTION", "消毒记录");
         put("LICENSE", "许可");
+        put("AUDIT", "审核");
     }};
 
     // endregion
