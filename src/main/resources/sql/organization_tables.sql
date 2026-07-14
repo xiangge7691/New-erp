@@ -1,1 +1,0 @@
-ALTER TABLE equipment_maintenance ADD COLUMN recorder_id BIGINT NULL COMMENT '记录人ID（关联personnel_file表）' AFTER remark;
