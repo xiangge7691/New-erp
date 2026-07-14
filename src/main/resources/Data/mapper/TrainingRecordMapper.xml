@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.TrainingRecordMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.TrainingRecord">
+        <id property="id" column="id"/>
+        <result property="trainingNo" column="training_no"/>
+        <result property="trainingName" column="training_name"/>
+        <result property="trainingCategory" column="training_category"/>
+        <result property="trainingForm" column="training_form"/>
+        <result property="trainingContent" column="training_content"/>
+        <result property="trainingDate" column="training_date"/>
+        <result property="trainingDuration" column="training_duration"/>
+        <result property="trainingLocation" column="training_location"/>
+        <result property="trainer" column="trainer"/>
+        <result property="trainingUnit" column="training_unit"/>
+        <result property="trainingCycle" column="training_cycle"/>
+        <result property="nextTrainingDate" column="next_training_date"/>
+        <result property="remark" column="remark"/>
+        <result property="isDeleted" column="is_deleted"/>
+        <result property="version" column="version"/>
+        <result property="createdBy" column="created_by"/>
+        <result property="updatedBy" column="updated_by"/>
+        <result property="createdTime" column="created_time"/>
+        <result property="updatedTime" column="updated_time"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,training_no,training_name,training_category,training_form,
+        training_content,training_date,training_duration,training_location,
+        trainer,training_unit,training_cycle,next_training_date,remark,
+        is_deleted,version,created_by,updated_by,created_time,updated_time
+    </sql>
+
+</mapper>

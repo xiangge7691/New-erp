@@ -39,7 +39,7 @@ public class PurchaseSuppliers extends AuditEntity {
     private String supplierName;
 
     /**
-     * 类别
+     * 供应类型（原料/辅料/包材/其他）
      */
     @TableField(value = "category")
     private String category;
