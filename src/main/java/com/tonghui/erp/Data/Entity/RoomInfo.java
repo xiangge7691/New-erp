@@ -29,6 +29,12 @@ public class RoomInfo extends AuditEntity {
     private Integer roomId;
 
     /**
+     * 房间编码（唯一编号，如 RJ-001、QJ-001）
+     */
+    @TableField(value = "room_code")
+    private String roomCode;
+
+    /**
      * 房间名。唯一标识房间的名称，如"提取一室"、"动力机房"。
      */
     @TableField(value = "room_name")

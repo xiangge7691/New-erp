@@ -63,16 +63,12 @@ public class TemperatureHumidityRecordController extends BaseController {
 
     /**
      * 分页查询温湿度记录列表
-     * <p>
-     * 查询温湿度检测记录，支持分页和按房间筛选。roomId为可选参数：
-     * 传入时按房间过滤，不传入时返回所有房间的记录
-     * </p>
      *
-     * 示例请求：
-     * GET /api/temperatureHumidityRecord?pageIndex=0&pageSize=10
-     * GET /api/temperatureHumidityRecord?roomId=1&pageIndex=0&pageSize=10
-     *
-     * @param roomId    房间ID（可选），不传则返回所有记录
+     * @param roomId    房间ID（可选）
+     * @param roomName  房间名称（可选，模糊匹配）
+     * @param roomCode  房间编码（可选，精确匹配）
+     * @param startDate 开始日期（可选，格式：yyyy-MM-dd）
+     * @param endDate   结束日期（可选，格式：yyyy-MM-dd）
      * @param pageIndex 页码索引，从0开始（默认0）
      * @param pageSize  每页数量（默认10）
      * @return ApiResponse&lt;PagedResult&lt;TemperatureHumidityRecord&gt;&gt; 分页结果
@@ -80,30 +76,51 @@ public class TemperatureHumidityRecordController extends BaseController {
     @GetMapping
     public ApiResponse<PagedResult<TemperatureHumidityRecord>> getAll(
             @RequestParam(required = false) Integer roomId,
+            @RequestParam(required = false) String roomName,
+            @RequestParam(required = false) String roomCode,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
             @RequestParam(defaultValue = "0") int pageIndex,
             @RequestParam(defaultValue = "10") int pageSize) {
         try {
+            if (roomName != null || roomCode != null) {
+                QueryWrapper<RoomInfo> roomWrapper = new QueryWrapper<>();
+                roomWrapper.eq("is_deleted", 0);
+                if (roomName != null) roomWrapper.like("room_name", roomName);
+                if (roomCode != null) roomWrapper.eq("room_code", roomCode);
+                List<RoomInfo> rooms = roomInfoService.list(roomWrapper);
+                if (rooms.isEmpty()) return success(new PagedResult<>());
+                List<Integer> roomIds = rooms.stream().map(RoomInfo::getRoomId).collect(Collectors.toList());
+                if (roomId != null) {
+                    if (!roomIds.contains(roomId)) return success(new PagedResult<>());
+                    roomIds = List.of(roomId);
+                }
+                QueryWrapper<TemperatureHumidityRecord> wrapper = new QueryWrapper<>();
+                wrapper.eq("is_deleted", 0);
+                wrapper.in("room_id", roomIds);
+                if (startDate != null) wrapper.ge("record_date", startDate);
+                if (endDate != null) wrapper.le("record_date", endDate);
+                wrapper.orderByDesc("record_date");
+                Page<TemperatureHumidityRecord> page = new Page<>(pageIndex + 1, pageSize);
+                temperatureHumidityRecordService.page(page, wrapper);
+                fillRoomInfo(page.getRecords());
+                PagedResult<TemperatureHumidityRecord> result = new PagedResult<>();
+                result.setItems(page.getRecords());
+                result.setTotalCount(page.getTotal());
+                result.setPageIndex(pageIndex);
+                result.setPageSize(pageSize);
+                return success(result);
+            }
+
             Page<TemperatureHumidityRecord> page = new Page<>(pageIndex + 1, pageSize);
             QueryWrapper<TemperatureHumidityRecord> wrapper = new QueryWrapper<>();
             wrapper.eq("is_deleted", 0);
-            if (roomId != null) {
-                wrapper.eq("room_id", roomId);
-            }
+            if (roomId != null) wrapper.eq("room_id", roomId);
+            if (startDate != null) wrapper.ge("record_date", startDate);
+            if (endDate != null) wrapper.le("record_date", endDate);
             wrapper.orderByDesc("record_date");
             Page<TemperatureHumidityRecord> pageResult = temperatureHumidityRecordService.page(page, wrapper);
-
-            // 批量填充房间名称
-            Set<Integer> roomIds = pageResult.getRecords().stream()
-                    .map(TemperatureHumidityRecord::getRoomId)
-                    .collect(Collectors.toSet());
-            if (!roomIds.isEmpty()) {
-                Map<Integer, RoomInfo> roomMap = roomInfoService.listByIds(roomIds).stream()
-                        .collect(Collectors.toMap(RoomInfo::getRoomId, r -> r));
-                pageResult.getRecords().forEach(r -> {
-                    RoomInfo room = roomMap.get(r.getRoomId());
-                    if (room != null) r.setRoomName(room.getRoomName());
-                });
-            }
+            fillRoomInfo(pageResult.getRecords());
 
             PagedResult<TemperatureHumidityRecord> result = new PagedResult<>();
             result.setItems(pageResult.getRecords());
@@ -116,18 +133,25 @@ public class TemperatureHumidityRecordController extends BaseController {
         }
     }
 
+    private void fillRoomInfo(List<TemperatureHumidityRecord> list) {
+        Set<Integer> roomIds = list.stream().map(TemperatureHumidityRecord::getRoomId).collect(Collectors.toSet());
+        if (!roomIds.isEmpty()) {
+            Map<Integer, RoomInfo> roomMap = roomInfoService.listByIds(roomIds).stream()
+                    .collect(Collectors.toMap(RoomInfo::getRoomId, r -> r));
+            list.forEach(r -> {
+                RoomInfo room = roomMap.get(r.getRoomId());
+                if (room != null) {
+                    r.setRoomName(room.getRoomName());
+                    r.setRoomCode(room.getRoomCode());
+                }
+            });
+        }
+    }
+
     /**
      * 查询温湿度记录列表（不分页）
-     * <p>
-     * 查询所有温湿度检测记录，按记录日期倒序排列。roomId为可选参数：
-     * 传入时按房间过滤，不传入时返回所有房间的记录
-     * </p>
      *
-     * 示例请求：
-     * GET /api/temperatureHumidityRecord/list
-     * GET /api/temperatureHumidityRecord/list?roomId=1
-     *
-     * @param roomId 房间ID（可选），不传则返回所有记录
+     * @param roomId 房间ID（可选）
      * @return ApiResponse&lt;List&lt;TemperatureHumidityRecord&gt;&gt; 温湿度记录列表
      */
     @GetMapping("/list")
@@ -136,25 +160,10 @@ public class TemperatureHumidityRecordController extends BaseController {
         try {
             QueryWrapper<TemperatureHumidityRecord> wrapper = new QueryWrapper<>();
             wrapper.eq("is_deleted", 0);
-            if (roomId != null) {
-                wrapper.eq("room_id", roomId);
-            }
+            if (roomId != null) wrapper.eq("room_id", roomId);
             wrapper.orderByDesc("record_date");
             List<TemperatureHumidityRecord> list = temperatureHumidityRecordService.list(wrapper);
-
-            // 批量填充房间名称
-            Set<Integer> roomIds = list.stream()
-                    .map(TemperatureHumidityRecord::getRoomId)
-                    .collect(Collectors.toSet());
-            if (!roomIds.isEmpty()) {
-                Map<Integer, RoomInfo> roomMap = roomInfoService.listByIds(roomIds).stream()
-                        .collect(Collectors.toMap(RoomInfo::getRoomId, r -> r));
-                list.forEach(r -> {
-                    RoomInfo room = roomMap.get(r.getRoomId());
-                    if (room != null) r.setRoomName(room.getRoomName());
-                });
-            }
-
+            fillRoomInfo(list);
             return success(list);
         } catch (Exception e) {
             return exception(e, "查询温湿度记录");

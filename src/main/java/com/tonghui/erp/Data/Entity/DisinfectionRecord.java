@@ -121,5 +121,11 @@ public class DisinfectionRecord extends AuditEntity {
     @TableField(exist = false)
     private String roomName;
 
+    /**
+     * 房间编码（关联查询时填充，不存储到数据库）
+     */
+    @TableField(exist = false)
+    private String roomCode;
+
     // endregion
 }

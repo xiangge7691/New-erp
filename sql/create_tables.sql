@@ -60,3 +60,11 @@ CREATE TABLE IF NOT EXISTS `supplier_audit` (
 -- 3. 修改现有供应商表的category字段注释
 ALTER TABLE `purchase_suppliers`
 MODIFY COLUMN `category` VARCHAR(50) COMMENT '供应类型（原料/辅料/包材/其他）';
+
+-- 4. 房间信息表添加唯一编码字段
+ALTER TABLE `room_info`
+ADD COLUMN `room_code` VARCHAR(50) DEFAULT NULL COMMENT '房间编码（唯一）' AFTER `room_id`;
+
+-- 添加唯一索引
+ALTER TABLE `room_info`
+ADD UNIQUE INDEX `uk_room_code` (`room_code`);

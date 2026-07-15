@@ -61,30 +61,100 @@ public class CleaningRecordController extends BaseController {
     // ===================================
 
     /**
-     * 查询清洁记录列表
+     * 查询清洁记录列表（分页）
      * <p>
-     * 支持按房间ID筛选，返回所有未删除的清洁记录，按清洁日期倒序排列
+     * 支持按房间ID、房间名称、房间编码、日期范围筛选，返回分页结果，按清洁日期倒序排列
      * </p>
      *
      * 示例请求：
-     * GET /api/cleaningRecord?roomId=1
-     * GET /api/cleaningRecord
+     * GET /api/cleaningRecord?pageIndex=1&pageSize=20
+     * GET /api/cleaningRecord?pageIndex=1&pageSize=20&roomId=1
+     * GET /api/cleaningRecord?pageIndex=1&pageSize=20&roomName=洁净&startDate=2026-01-01&endDate=2026-12-31
      *
-     * @param roomId 房间ID（可选），按房间筛选清洁记录
-     * @return ApiResponse&lt;List&lt;CleaningRecord&gt;&gt; 清洁记录列表
+     * @param roomId    房间ID（可选）
+     * @param roomName  房间名称（可选，模糊匹配）
+     * @param roomCode  房间编码（可选，精确匹配）
+     * @param startDate 开始日期（可选，格式：yyyy-MM-dd）
+     * @param endDate   结束日期（可选，格式：yyyy-MM-dd）
+     * @param pageIndex 页码
+     * @param pageSize  每页大小
+     * @return ApiResponse&lt;PagedResult&lt;CleaningRecord&gt;&gt; 分页清洁记录列表
      */
     @GetMapping
-    public ApiResponse<List<CleaningRecord>> getAll(
-            @RequestParam(required = false) Long roomId) {
-        QueryWrapper<CleaningRecord> wrapper = new QueryWrapper<>();
-        wrapper.eq("is_deleted", 0);
-        if (roomId != null) {
-            wrapper.eq("room_id", roomId);
-        }
-        wrapper.orderByDesc("cleaning_date");
-        List<CleaningRecord> list = cleaningRecordService.list(wrapper);
+    public ApiResponse<PagedResult<CleaningRecord>> getAll(
+            @RequestParam(required = false) Long roomId,
+            @RequestParam(required = false) String roomName,
+            @RequestParam(required = false) String roomCode,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(defaultValue = "1") int pageIndex,
+            @RequestParam(defaultValue = "20") int pageSize) {
+        try {
+            // 如果有房间名称或房间编码筛选，先查出符合条件的房间ID
+            if (roomName != null || roomCode != null) {
+                QueryWrapper<RoomInfo> roomWrapper = new QueryWrapper<>();
+                roomWrapper.eq("is_deleted", 0);
+                if (roomName != null) {
+                    roomWrapper.like("room_name", roomName);
+                }
+                if (roomCode != null) {
+                    roomWrapper.eq("room_code", roomCode);
+                }
+                List<RoomInfo> rooms = roomInfoService.list(roomWrapper);
+                if (rooms.isEmpty()) {
+                    return success(new PagedResult<>());
+                }
+                List<Integer> roomIds = rooms.stream().map(RoomInfo::getRoomId).collect(Collectors.toList());
+                // 如果同时有roomId筛选，取交集
+                if (roomId != null) {
+                    if (!roomIds.contains(roomId.intValue())) {
+                        return success(new PagedResult<>());
+                    }
+                    roomIds = List.of(roomId.intValue());
+                }
+                // 用IN查询
+                QueryWrapper<CleaningRecord> wrapper = new QueryWrapper<>();
+                wrapper.eq("is_deleted", 0);
+                wrapper.in("room_id", roomIds);
+                if (startDate != null) {
+                    wrapper.ge("cleaning_date", startDate);
+                }
+                if (endDate != null) {
+                    wrapper.le("cleaning_date", endDate);
+                }
+                wrapper.orderByDesc("cleaning_date");
+                Page<CleaningRecord> page = new Page<>(pageIndex, pageSize);
+                cleaningRecordService.page(page, wrapper);
+                fillRoomInfo(page.getRecords());
+                return success(toPagedResult(page));
+            }
 
-        // 批量填充房间名称
+            // 无房间名称/编码筛选
+            QueryWrapper<CleaningRecord> wrapper = new QueryWrapper<>();
+            wrapper.eq("is_deleted", 0);
+            if (roomId != null) {
+                wrapper.eq("room_id", roomId);
+            }
+            if (startDate != null) {
+                wrapper.ge("cleaning_date", startDate);
+            }
+            if (endDate != null) {
+                wrapper.le("cleaning_date", endDate);
+            }
+            wrapper.orderByDesc("cleaning_date");
+            Page<CleaningRecord> page = new Page<>(pageIndex, pageSize);
+            cleaningRecordService.page(page, wrapper);
+            fillRoomInfo(page.getRecords());
+            return success(toPagedResult(page));
+        } catch (Exception ex) {
+            return exception(ex, "查询清洁记录");
+        }
+    }
+
+    /**
+     * 填充房间名称和房间编码
+     */
+    private void fillRoomInfo(List<CleaningRecord> list) {
         Set<Integer> roomIds = list.stream()
                 .map(r -> r.getRoomId().intValue())
                 .collect(Collectors.toSet());
@@ -93,11 +163,24 @@ public class CleaningRecordController extends BaseController {
                     .collect(Collectors.toMap(RoomInfo::getRoomId, r -> r));
             list.forEach(r -> {
                 RoomInfo room = roomMap.get(r.getRoomId().intValue());
-                if (room != null) r.setRoomName(room.getRoomName());
+                if (room != null) {
+                    r.setRoomName(room.getRoomName());
+                    r.setRoomCode(room.getRoomCode());
+                }
             });
         }
+    }
 
-        return success(list);
+    /**
+     * Page转PagedResult
+     */
+    private <T> PagedResult<T> toPagedResult(Page<T> page) {
+        PagedResult<T> result = new PagedResult<>();
+        result.setItems(page.getRecords());
+        result.setTotalCount(page.getTotal());
+        result.setPageIndex((int) page.getCurrent());
+        result.setPageSize((int) page.getSize());
+        return result;
     }
 
     /**

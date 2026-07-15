@@ -64,16 +64,16 @@ public class DisinfectionRecordController extends BaseController {
 
     /**
      * 分页查询消毒记录列表
-     * <p>
-     * 查询消毒操作记录，支持分页和按房间筛选。roomId为可选参数：
-     * 传入时按房间过滤，不传入时返回所有房间的记录
-     * </p>
      *
      * 示例请求：
      * GET /api/disinfectionRecord?pageIndex=0&pageSize=10
-     * GET /api/disinfectionRecord?roomId=1&pageIndex=0&pageSize=10
+     * GET /api/disinfectionRecord?pageIndex=0&pageSize=10&roomName=洁净&roomCode=QJ-001&startDate=2026-01-01&endDate=2026-12-31
      *
-     * @param roomId    房间ID（可选），不传则返回所有记录
+     * @param roomId    房间ID（可选）
+     * @param roomName  房间名称（可选，模糊匹配）
+     * @param roomCode  房间编码（可选，精确匹配）
+     * @param startDate 开始日期（可选，格式：yyyy-MM-dd）
+     * @param endDate   结束日期（可选，格式：yyyy-MM-dd）
      * @param pageIndex 页码索引，从0开始（默认0）
      * @param pageSize  每页数量（默认10）
      * @return ApiResponse&lt;PagedResult&lt;DisinfectionRecord&gt;&gt; 分页结果
@@ -81,30 +81,70 @@ public class DisinfectionRecordController extends BaseController {
     @GetMapping
     public ApiResponse<PagedResult<DisinfectionRecord>> getAll(
             @RequestParam(required = false) Integer roomId,
+            @RequestParam(required = false) String roomName,
+            @RequestParam(required = false) String roomCode,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
             @RequestParam(defaultValue = "0") int pageIndex,
             @RequestParam(defaultValue = "10") int pageSize) {
         try {
+            // 如果有房间名称或房间编码筛选，先查出符合条件的房间ID
+            if (roomName != null || roomCode != null) {
+                QueryWrapper<RoomInfo> roomWrapper = new QueryWrapper<>();
+                roomWrapper.eq("is_deleted", 0);
+                if (roomName != null) {
+                    roomWrapper.like("room_name", roomName);
+                }
+                if (roomCode != null) {
+                    roomWrapper.eq("room_code", roomCode);
+                }
+                List<RoomInfo> rooms = roomInfoService.list(roomWrapper);
+                if (rooms.isEmpty()) {
+                    return success(new PagedResult<>());
+                }
+                List<Integer> roomIds = rooms.stream().map(RoomInfo::getRoomId).collect(Collectors.toList());
+                if (roomId != null) {
+                    if (!roomIds.contains(roomId)) {
+                        return success(new PagedResult<>());
+                    }
+                    roomIds = List.of(roomId);
+                }
+                QueryWrapper<DisinfectionRecord> wrapper = new QueryWrapper<>();
+                wrapper.eq("is_deleted", 0);
+                wrapper.in("room_id", roomIds);
+                if (startDate != null) {
+                    wrapper.ge("disinfection_date", startDate);
+                }
+                if (endDate != null) {
+                    wrapper.le("disinfection_date", endDate);
+                }
+                wrapper.orderByDesc("disinfection_date");
+                Page<DisinfectionRecord> page = new Page<>(pageIndex + 1, pageSize);
+                disinfectionRecordService.page(page, wrapper);
+                fillRoomInfo(page.getRecords());
+                PagedResult<DisinfectionRecord> result = new PagedResult<>();
+                result.setItems(page.getRecords());
+                result.setTotalCount(page.getTotal());
+                result.setPageIndex(pageIndex);
+                result.setPageSize(pageSize);
+                return success(result);
+            }
+
             Page<DisinfectionRecord> page = new Page<>(pageIndex + 1, pageSize);
             QueryWrapper<DisinfectionRecord> wrapper = new QueryWrapper<>();
             wrapper.eq("is_deleted", 0);
             if (roomId != null) {
                 wrapper.eq("room_id", roomId);
             }
+            if (startDate != null) {
+                wrapper.ge("disinfection_date", startDate);
+            }
+            if (endDate != null) {
+                wrapper.le("disinfection_date", endDate);
+            }
             wrapper.orderByDesc("disinfection_date");
             Page<DisinfectionRecord> pageResult = disinfectionRecordService.page(page, wrapper);
-
-            // 批量填充房间名称
-            Set<Integer> roomIds = pageResult.getRecords().stream()
-                    .map(DisinfectionRecord::getRoomId)
-                    .collect(Collectors.toSet());
-            if (!roomIds.isEmpty()) {
-                Map<Integer, RoomInfo> roomMap = roomInfoService.listByIds(roomIds).stream()
-                        .collect(Collectors.toMap(RoomInfo::getRoomId, r -> r));
-                pageResult.getRecords().forEach(r -> {
-                    RoomInfo room = roomMap.get(r.getRoomId());
-                    if (room != null) r.setRoomName(room.getRoomName());
-                });
-            }
+            fillRoomInfo(pageResult.getRecords());
 
             PagedResult<DisinfectionRecord> result = new PagedResult<>();
             result.setItems(pageResult.getRecords());
@@ -117,18 +157,27 @@ public class DisinfectionRecordController extends BaseController {
         }
     }
 
+    private void fillRoomInfo(List<DisinfectionRecord> list) {
+        Set<Integer> roomIds = list.stream()
+                .map(DisinfectionRecord::getRoomId)
+                .collect(Collectors.toSet());
+        if (!roomIds.isEmpty()) {
+            Map<Integer, RoomInfo> roomMap = roomInfoService.listByIds(roomIds).stream()
+                    .collect(Collectors.toMap(RoomInfo::getRoomId, r -> r));
+            list.forEach(r -> {
+                RoomInfo room = roomMap.get(r.getRoomId());
+                if (room != null) {
+                    r.setRoomName(room.getRoomName());
+                    r.setRoomCode(room.getRoomCode());
+                }
+            });
+        }
+    }
+
     /**
      * 查询消毒记录列表（不分页）
-     * <p>
-     * 查询所有消毒操作记录，按消毒日期倒序排列。roomId为可选参数：
-     * 传入时按房间过滤，不传入时返回所有房间的记录
-     * </p>
      *
-     * 示例请求：
-     * GET /api/disinfectionRecord/list
-     * GET /api/disinfectionRecord/list?roomId=1
-     *
-     * @param roomId 房间ID（可选），不传则返回所有记录
+     * @param roomId 房间ID（可选）
      * @return ApiResponse&lt;List&lt;DisinfectionRecord&gt;&gt; 消毒记录列表
      */
     @GetMapping("/list")
@@ -142,20 +191,7 @@ public class DisinfectionRecordController extends BaseController {
             }
             wrapper.orderByDesc("disinfection_date");
             List<DisinfectionRecord> list = disinfectionRecordService.list(wrapper);
-
-            // 批量填充房间名称
-            Set<Integer> roomIds = list.stream()
-                    .map(DisinfectionRecord::getRoomId)
-                    .collect(Collectors.toSet());
-            if (!roomIds.isEmpty()) {
-                Map<Integer, RoomInfo> roomMap = roomInfoService.listByIds(roomIds).stream()
-                        .collect(Collectors.toMap(RoomInfo::getRoomId, r -> r));
-                list.forEach(r -> {
-                    RoomInfo room = roomMap.get(r.getRoomId());
-                    if (room != null) r.setRoomName(room.getRoomName());
-                });
-            }
-
+            fillRoomInfo(list);
             return success(list);
         } catch (Exception e) {
             return exception(e, "查询消毒记录");
@@ -164,15 +200,8 @@ public class DisinfectionRecordController extends BaseController {
 
     /**
      * 查询即将到期的消毒提醒
-     * <p>
-     * 查询在未来指定天数内需要进行消毒的记录，用于到期提醒
-     * </p>
      *
-     * 示例请求：
-     * GET /api/disinfectionRecord/reminder?days=30
-     * GET /api/disinfectionRecord/reminder
-     *
-     * @param days 提前天数（默认30天），查询从今天起至指定天数内的待消毒记录
+     * @param days 提前天数（默认30天）
      * @return ApiResponse&lt;List&lt;DisinfectionRecord&gt;&gt; 即将到期的消毒记录列表
      */
     @GetMapping("/reminder")
@@ -180,20 +209,7 @@ public class DisinfectionRecordController extends BaseController {
             @RequestParam(defaultValue = "30") int days) {
         try {
             List<DisinfectionRecord> list = disinfectionRecordService.findUpcomingDisinfection(days);
-
-            // 批量填充房间名称
-            Set<Integer> roomIds = list.stream()
-                    .map(DisinfectionRecord::getRoomId)
-                    .collect(Collectors.toSet());
-            if (!roomIds.isEmpty()) {
-                Map<Integer, RoomInfo> roomMap = roomInfoService.listByIds(roomIds).stream()
-                        .collect(Collectors.toMap(RoomInfo::getRoomId, r -> r));
-                list.forEach(r -> {
-                    RoomInfo room = roomMap.get(r.getRoomId());
-                    if (room != null) r.setRoomName(room.getRoomName());
-                });
-            }
-
+            fillRoomInfo(list);
             return success(list);
         } catch (Exception e) {
             return exception(e, "查询消毒提醒");
