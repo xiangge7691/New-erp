@@ -12,6 +12,15 @@ spring:
       max-request-size: 10MB
 
   # ===================================
+  # Jackson配置（日期时区）
+  # ===================================
+  jackson:
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd
+    serialization:
+      write-dates-as-timestamps: false
+
+  # ===================================
   # 数据库配置
   # ===================================
 

@@ -50,8 +50,10 @@ public class SupplierAuditServiceImpl extends ServiceImpl<SupplierAuditMapper, S
     @Override
     @Transactional
     public boolean addSupplierAudit(SupplierAudit supplierAudit) {
-        // 计算下次审核日期
-        if (supplierAudit.getAuditDate() != null && supplierAudit.getAuditCycle() != null) {
+        // 如果前端未传入下次审核日期，则根据周期自动计算
+        if (supplierAudit.getNextAuditDate() == null
+                && supplierAudit.getAuditDate() != null
+                && supplierAudit.getAuditCycle() != null) {
             supplierAudit.setNextAuditDate(
                     calculateNextAuditDate(supplierAudit.getAuditDate(), supplierAudit.getAuditCycle())
             );
@@ -69,8 +71,10 @@ public class SupplierAuditServiceImpl extends ServiceImpl<SupplierAuditMapper, S
     @Override
     @Transactional
     public boolean updateSupplierAudit(SupplierAudit supplierAudit) {
-        // 重新计算下次审核日期
-        if (supplierAudit.getAuditDate() != null && supplierAudit.getAuditCycle() != null) {
+        // 如果前端未传入下次审核日期，则根据周期自动计算
+        if (supplierAudit.getNextAuditDate() == null
+                && supplierAudit.getAuditDate() != null
+                && supplierAudit.getAuditCycle() != null) {
             supplierAudit.setNextAuditDate(
                     calculateNextAuditDate(supplierAudit.getAuditDate(), supplierAudit.getAuditCycle())
             );
