@@ -94,27 +94,23 @@ public class EquipmentMaintenanceController extends BaseController {
 
     /**
      * 分页查询维保记录列表
-     * <p>
-     * 支持按设备ID、维保类型、关键词、维保人、维保公司、维保日期范围等条件筛选，按维保日期倒序排列
-     * </p>
-     *
-     * 示例请求：
-     * GET /api/equipmentMaintenance?equipmentId=1&maintenanceType=保养&keyword=检查&maintainer=张三&maintenanceCompany=维修公司&maintenanceDateStart=2026-01-01&maintenanceDateEnd=2026-12-31&pageIndex=0&pageSize=10
      *
      * @param equipmentId 设备ID（可选）
-     * @param maintenanceType 维保类型（可选），如"保养"、"维修"
+     * @param equipmentType 设备类型（可选）：设备/仪器/公共设施，通过关联equipment表筛选
+     * @param maintenanceType 维保类型（可选）
      * @param keyword 关键词（可选），模糊匹配维保内容
      * @param maintainer 维保人（可选）
      * @param maintenanceCompany 维保公司（可选）
      * @param maintenanceDateStart 维保日期起始（可选）
      * @param maintenanceDateEnd 维保日期结束（可选）
-     * @param pageIndex 页码，从0开始（默认0）
+     * @param pageIndex 页码（默认0）
      * @param pageSize 每页大小（默认10）
-     * @return ApiResponse&lt;PagedResult&lt;EquipmentMaintenance&gt;&gt; 分页结果，包含维保记录列表和分页信息
+     * @return ApiResponse&lt;PagedResult&lt;EquipmentMaintenance&gt;&gt; 分页结果
      */
     @GetMapping
     public ApiResponse<PagedResult<EquipmentMaintenance>> getAll(
             @RequestParam(required = false) Long equipmentId,
+            @RequestParam(required = false) String equipmentType,
             @RequestParam(required = false) String maintenanceType,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String maintainer,
@@ -123,8 +119,22 @@ public class EquipmentMaintenanceController extends BaseController {
             @RequestParam(required = false) LocalDate maintenanceDateEnd,
             @RequestParam(defaultValue = "0") int pageIndex,
             @RequestParam(defaultValue = "10") int pageSize) {
-        Page<EquipmentMaintenance> page = new Page<>(pageIndex + 1, pageSize);
         QueryWrapper<EquipmentMaintenance> wrapper = new QueryWrapper<>();
+        
+        // 如果按设备类型筛选，先查询符合条件的设备ID
+        if (StringUtils.hasText(equipmentType)) {
+            QueryWrapper<Equipment> eqWrapper = new QueryWrapper<>();
+            eqWrapper.eq("is_deleted", 0);
+            eqWrapper.eq("equipment_type", equipmentType);
+            List<Equipment> equipments = equipmentService.list(eqWrapper);
+            if (equipments.isEmpty()) {
+                return success(new PagedResult<>());
+            }
+            List<Integer> equipmentIds = equipments.stream()
+                    .map(Equipment::getEquipmentId)
+                    .collect(Collectors.toList());
+            wrapper.in("equipment_id", equipmentIds);
+        }
         
         if (equipmentId != null) {
             wrapper.eq("equipment_id", equipmentId);
@@ -149,6 +159,7 @@ public class EquipmentMaintenanceController extends BaseController {
         }
         wrapper.orderByDesc("maintenance_date");
         
+        Page<EquipmentMaintenance> page = new Page<>(pageIndex + 1, pageSize);
         Page<EquipmentMaintenance> pageResult = equipmentMaintenanceService.page(page, wrapper);
         fillEquipmentInfo(pageResult.getRecords());
         PagedResult<EquipmentMaintenance> pagedResult = new PagedResult<>();

@@ -294,6 +294,9 @@ public class EquipmentServiceImpl extends ServiceImpl<EquipmentMapper, Equipment
         if (StringUtils.hasText(equipment.getManufacturer())) {
             wrapper.like("manufacturer", equipment.getManufacturer());
         }
+        if (StringUtils.hasText(equipment.getEquipmentType())) {
+            wrapper.eq("equipment_type", equipment.getEquipmentType());
+        }
         if (equipment.getPurchaseDate() != null) {
             wrapper.eq("purchase_date", equipment.getPurchaseDate());
         }

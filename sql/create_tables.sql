@@ -68,3 +68,5 @@ ADD COLUMN `room_code` VARCHAR(50) DEFAULT NULL COMMENT '房间编码（唯一�
 -- 添加唯一索引
 ALTER TABLE `room_info`
 ADD UNIQUE INDEX `uk_room_code` (`room_code`);
+
+-- 5. 设备类型从equipment表关联获取，无需在equipment_maintenance表中冗余存储
