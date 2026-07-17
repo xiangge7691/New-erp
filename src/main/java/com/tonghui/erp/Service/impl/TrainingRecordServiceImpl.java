@@ -54,6 +54,12 @@ public class TrainingRecordServiceImpl extends ServiceImpl<TrainingRecordMapper,
         // 自动生成培训编号
         if (!StringUtils.hasText(trainingRecord.getTrainingNo())) {
             trainingRecord.setTrainingNo(generateTrainingNo());
+        } else {
+            // 检查编号是否已存在
+            TrainingRecord existing = getTrainingRecordByNo(trainingRecord.getTrainingNo());
+            if (existing != null) {
+                throw new RuntimeException("培训编号已存在：" + trainingRecord.getTrainingNo());
+            }
         }
 
         // 计算下次培训日期
