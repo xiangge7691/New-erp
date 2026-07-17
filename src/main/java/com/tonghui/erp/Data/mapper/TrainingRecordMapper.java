@@ -21,7 +21,7 @@ public interface TrainingRecordMapper extends BaseMapper<TrainingRecord> {
      * @param year 年份（如2026）
      * @return 最大序号
      */
-    @Select("SELECT IFNULL(MAX(CAST(SUBSTRING(training_no, LENGTH(#{year}) + 7) AS UNSIGNED)), 0) " +
+    @Select("SELECT IFNULL(MAX(CAST(SUBSTRING(training_no, LENGTH(#{year}) + 8) AS UNSIGNED)), 0) " +
             "FROM training_record " +
             "WHERE training_no LIKE CONCAT('TRAIN-', #{year}, '-%') AND is_deleted = 0")
     Integer getMaxSeqByYear(@Param("year") String year);
