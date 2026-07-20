@@ -119,12 +119,7 @@ public class SupplierAuditController extends BaseCrudController<SupplierAudit, S
      */
     @Override
     protected boolean doDelete(Long id) {
-        try {
-            supplierAuditService.deleteSupplierAudit(id);
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
+        return supplierAuditService.deleteSupplierAudit(id);
     }
 
     // endregion

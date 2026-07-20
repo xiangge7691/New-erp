@@ -92,12 +92,7 @@ public class SupplierAuditServiceImpl extends ServiceImpl<SupplierAuditMapper, S
     @Override
     @Transactional
     public boolean deleteSupplierAudit(Long id) {
-        SupplierAudit supplierAudit = this.getById(id);
-        if (supplierAudit != null) {
-            supplierAudit.setIsDeleted(1);
-            return this.updateById(supplierAudit);
-        }
-        return false;
+        return this.removeById(id);
     }
 
     // endregion
