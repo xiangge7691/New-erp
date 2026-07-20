@@ -217,10 +217,10 @@ public class SupplierAuditServiceImpl extends ServiceImpl<SupplierAuditMapper, S
     // ===================================
 
     /**
-     * 查询即将到期的审核记录
+     * 查询到期及已过期的审核记录，按供应商分组取下次审核日期最新的一条
      *
      * @param days 提前天数
-     * @return 即将到期的审核记录列表
+     * @return 到期的审核记录列表
      */
     @Override
     public List<SupplierAudit> getExpiringAudits(int days) {
@@ -230,7 +230,7 @@ public class SupplierAuditServiceImpl extends ServiceImpl<SupplierAuditMapper, S
         cal.add(Calendar.DAY_OF_MONTH, days);
         Date warningDate = cal.getTime();
 
-        return supplierAuditMapper.selectExpiringAudits(today, warningDate);
+        return supplierAuditMapper.selectExpiringAudits(warningDate);
     }
 
     // endregion

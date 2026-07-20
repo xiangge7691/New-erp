@@ -16,15 +16,18 @@ import java.util.List;
 public interface SupplierAuditMapper extends BaseMapper<SupplierAudit> {
 
     /**
-     * 查询指定时间段内到期的审核记录
+     * 查询到期及已过期的审核记录，按供应商分组取下次审核日期最新的一条
      *
-     * @param today       今天日期
      * @param warningDate 截止日期
      * @return 到期的审核记录列表
      */
-    @Select("SELECT * FROM supplier_audit " +
-            "WHERE next_audit_date BETWEEN #{today} AND #{warningDate} " +
+    @Select("SELECT * FROM ( " +
+            "SELECT *, ROW_NUMBER() OVER (PARTITION BY supplier_id ORDER BY next_audit_date DESC) as rn " +
+            "FROM supplier_audit " +
+            "WHERE next_audit_date <= #{warningDate} " +
             "AND is_deleted = 0 " +
+            ") ranked " +
+            "WHERE rn = 1 " +
             "ORDER BY next_audit_date ASC")
-    List<SupplierAudit> selectExpiringAudits(@Param("today") Date today, @Param("warningDate") Date warningDate);
+    List<SupplierAudit> selectExpiringAudits(@Param("warningDate") Date warningDate);
 }
