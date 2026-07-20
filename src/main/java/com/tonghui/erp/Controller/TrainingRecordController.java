@@ -119,12 +119,7 @@ public class TrainingRecordController extends BaseCrudController<TrainingRecord,
      */
     @Override
     protected boolean doDelete(Long id) {
-        try {
-            trainingRecordService.deleteTrainingRecord(id);
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
+        return trainingRecordService.deleteTrainingRecord(id);
     }
 
     // endregion
@@ -197,6 +192,34 @@ public class TrainingRecordController extends BaseCrudController<TrainingRecord,
             return success(expiringList);
         } catch (Exception ex) {
             return exception(ex, "查询到期培训");
+        }
+    }
+
+    /**
+     * 更新培训记录预警状态
+     *
+     * 示例请求：
+     * PUT /api/training-record/1/reminder-status?status=1
+     *
+     * @param id     培训记录ID（路径参数）
+     * @param status 预警状态（0未处理/1已处理/2不再提醒）
+     * @return 操作结果
+     */
+    @PutMapping("/{id}/reminder-status")
+    public ApiResponse<Void> updateReminderStatus(@PathVariable Long id,
+                                                  @RequestParam Integer status) {
+        try {
+            if (status == null || status < 0 || status > 2) {
+                return error("预警状态值无效，应为0、1或2");
+            }
+            boolean result = trainingRecordService.updateReminderStatus(id, status);
+            if (result) {
+                return success(null, "更新成功");
+            } else {
+                return error("记录不存在");
+            }
+        } catch (Exception ex) {
+            return exception(ex, "更新预警状态");
         }
     }
 

@@ -27,15 +27,15 @@ public interface TrainingRecordMapper extends BaseMapper<TrainingRecord> {
     Integer getMaxSeqByYear(@Param("year") String year);
 
     /**
-     * 查询指定时间段内到期的培训记录
+     * 查询到期及已过期的培训记录，排除不再提醒的记录
      *
-     * @param today       今天日期
      * @param warningDate 截止日期
      * @return 到期的培训记录列表
      */
     @Select("SELECT * FROM training_record " +
-            "WHERE next_training_date BETWEEN #{today} AND #{warningDate} " +
+            "WHERE next_training_date <= #{warningDate} " +
             "AND is_deleted = 0 " +
+            "AND (reminder_status IS NULL OR reminder_status != 2) " +
             "ORDER BY next_training_date ASC")
-    List<TrainingRecord> selectExpiringTrainings(@Param("today") Date today, @Param("warningDate") Date warningDate);
+    List<TrainingRecord> selectExpiringTrainings(@Param("warningDate") Date warningDate);
 }

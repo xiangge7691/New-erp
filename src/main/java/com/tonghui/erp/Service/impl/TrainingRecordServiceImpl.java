@@ -100,12 +100,7 @@ public class TrainingRecordServiceImpl extends ServiceImpl<TrainingRecordMapper,
     @Override
     @Transactional
     public boolean deleteTrainingRecord(Long id) {
-        TrainingRecord trainingRecord = this.getById(id);
-        if (trainingRecord != null) {
-            trainingRecord.setIsDeleted(1);
-            return this.updateById(trainingRecord);
-        }
-        return false;
+        return this.removeById(id);
     }
 
     // endregion
@@ -271,7 +266,25 @@ public class TrainingRecordServiceImpl extends ServiceImpl<TrainingRecordMapper,
         cal.add(Calendar.DAY_OF_MONTH, days);
         Date warningDate = cal.getTime();
 
-        return trainingRecordMapper.selectExpiringTrainings(today, warningDate);
+        return trainingRecordMapper.selectExpiringTrainings(warningDate);
+    }
+
+    /**
+     * 更新预警状态
+     *
+     * @param id     培训记录ID
+     * @param status 预警状态（0未处理/1已处理/2不再提醒）
+     * @return 是否成功
+     */
+    @Override
+    @Transactional
+    public boolean updateReminderStatus(Long id, Integer status) {
+        TrainingRecord trainingRecord = this.getById(id);
+        if (trainingRecord == null) {
+            return false;
+        }
+        trainingRecord.setReminderStatus(status);
+        return this.updateById(trainingRecord);
     }
 
     // endregion

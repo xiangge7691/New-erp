@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS `training_record` (
     `training_cycle` INT COMMENT '培训周期（月）',
     `next_training_date` DATE COMMENT '下次培训日期',
     `remark` VARCHAR(500) COMMENT '备注',
+    `reminder_status` INT DEFAULT 0 COMMENT '预警状态（0未处理/1已处理/2不再提醒）',
     `is_deleted` INT DEFAULT 0 COMMENT '是否已删除（0否1是）',
     `version` INT DEFAULT 1 COMMENT '乐观锁版本号',
     `created_by` BIGINT COMMENT '创建人ID',

@@ -132,5 +132,14 @@ public interface TrainingRecordService extends IService<TrainingRecord> {
      */
     List<TrainingRecord> getExpiringTrainings(int days);
 
+    /**
+     * 更新预警状态
+     *
+     * @param id     培训记录ID
+     * @param status 预警状态（0未处理/1已处理/2不再提醒）
+     * @return 是否成功
+     */
+    boolean updateReminderStatus(Long id, Integer status);
+
     // endregion
 }

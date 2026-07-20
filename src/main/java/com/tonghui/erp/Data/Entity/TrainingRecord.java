@@ -137,6 +137,19 @@ public class TrainingRecord extends AuditEntity {
 
     // endregion
 
+    // region 预警状态字段
+    // ===================================
+    // 预警状态字段
+    // ===================================
+
+    /**
+     * 预警状态（0未处理/1已处理/2不再提醒）
+     */
+    @TableField(value = "reminder_status")
+    private Integer reminderStatus;
+
+    // endregion
+
     // region 状态与审计字段
     // ===================================
     // 状态与审计字段
