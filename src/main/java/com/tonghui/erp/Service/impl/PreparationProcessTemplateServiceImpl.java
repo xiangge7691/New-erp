@@ -66,6 +66,7 @@ public class PreparationProcessTemplateServiceImpl extends ServiceImpl<Preparati
         if (templates != null && !templates.isEmpty()) {
             for (PreparationProcessTemplate template : templates) {
                 template.setPreparationId(preparationId);
+                template.setTemplateId(null);
             }
             saveBatch(templates);
         }

@@ -182,7 +182,10 @@ public class PreparationFormulaServiceImpl extends ServiceImpl<PreparationFormul
         remove(wrapper);
 
         if (formulas != null && !formulas.isEmpty()) {
-            formulas.forEach(f -> f.setPreparationId(preparationId));
+            formulas.forEach(f -> {
+                f.setPreparationId(preparationId);
+                f.setFormulaId(null);
+            });
             saveBatch(formulas);
         }
     }

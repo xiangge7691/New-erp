@@ -77,7 +77,10 @@ public class PreparationDocumentServiceImpl extends ServiceImpl<PreparationDocum
         remove(wrapper);
 
         if (documents != null && !documents.isEmpty()) {
-            documents.forEach(d -> d.setPreparationId(preparationId));
+            documents.forEach(d -> {
+                d.setPreparationId(preparationId);
+                d.setDocId(null);
+            });
             saveBatch(documents);
         }
     }
