@@ -145,6 +145,10 @@ public class VerificationRecordServiceImpl extends ServiceImpl<VerificationRecor
             wrapper.like("related_object", verificationRecord.getRelatedObject());
         }
 
+        if (StringUtils.hasText(verificationRecord.getExecutor())) {
+            wrapper.like("executor", verificationRecord.getExecutor());
+        }
+
         if (verificationRecord.getExecuteDate() != null) {
             wrapper.ge("execute_date", verificationRecord.getExecuteDate());
         }
