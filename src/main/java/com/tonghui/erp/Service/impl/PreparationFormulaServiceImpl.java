@@ -2,11 +2,14 @@ package com.tonghui.erp.Service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.PreparationFormula;
 import com.tonghui.erp.Data.mapper.PreparationFormulaMapper;
 import com.tonghui.erp.Service.PreparationFormulaService;
+import com.tonghui.erp.Service.PreparationService;
 import com.tonghui.erp.Common.utils.JwtHelper;
 import com.tonghui.erp.Common.Config.JwtConfig;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
@@ -30,6 +33,9 @@ public class PreparationFormulaServiceImpl extends ServiceImpl<PreparationFormul
     // ===================================
     // 服务依赖注入
     // ===================================
+
+    @Autowired
+    private PreparationService preparationService;
 
     // endregion
 
@@ -182,9 +188,15 @@ public class PreparationFormulaServiceImpl extends ServiceImpl<PreparationFormul
         remove(wrapper);
 
         if (formulas != null && !formulas.isEmpty()) {
+            Preparation preparation = preparationService.getById(preparationId);
+            String prepCode = preparation != null ? preparation.getPreparationCode() : null;
+            String prepName = preparation != null ? preparation.getPreparationName() : null;
+
             formulas.forEach(f -> {
                 f.setPreparationId(preparationId);
                 f.setFormulaId(null);
+                f.setPreparationCode(prepCode);
+                f.setPreparationName(prepName);
             });
             saveBatch(formulas);
         }
