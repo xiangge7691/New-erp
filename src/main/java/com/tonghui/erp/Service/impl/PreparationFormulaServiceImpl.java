@@ -5,8 +5,8 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.PreparationFormula;
 import com.tonghui.erp.Data.mapper.PreparationFormulaMapper;
+import com.tonghui.erp.Data.mapper.PreparationMapper;
 import com.tonghui.erp.Service.PreparationFormulaService;
-import com.tonghui.erp.Service.PreparationService;
 import com.tonghui.erp.Common.utils.JwtHelper;
 import com.tonghui.erp.Common.Config.JwtConfig;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,7 +35,7 @@ public class PreparationFormulaServiceImpl extends ServiceImpl<PreparationFormul
     // ===================================
 
     @Autowired
-    private PreparationService preparationService;
+    private PreparationMapper preparationMapper;
 
     // endregion
 
@@ -188,7 +188,7 @@ public class PreparationFormulaServiceImpl extends ServiceImpl<PreparationFormul
         remove(wrapper);
 
         if (formulas != null && !formulas.isEmpty()) {
-            Preparation preparation = preparationService.getById(preparationId);
+            Preparation preparation = preparationMapper.selectById(preparationId);
             String prepCode = preparation != null ? preparation.getPreparationCode() : null;
             String prepName = preparation != null ? preparation.getPreparationName() : null;
 
