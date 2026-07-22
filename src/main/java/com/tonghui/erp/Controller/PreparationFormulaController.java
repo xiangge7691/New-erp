@@ -16,16 +16,17 @@ import java.util.List;
  * </p>
  *
  * 接口清单：
- * ┌────┬──────────────────────────────────────┬────────┬─────────────────────────────────────┐
- * │ #  │ 接口                                 │ 方法   │ 说明                                │
- * ├────┼──────────────────────────────────────┼────────┼─────────────────────────────────────┤
- * │ 1  │ /api/preparation/formula             │ GET   │ 获取所有处方信息（分页）            │
- * │ 2  │ /api/preparation/formula/{id}        │ GET   │ 根据ID获取处方详情                  │
- * │ 3  │ /api/preparation/formula             │ POST  │ 新增处方信息                        │
- * │ 4  │ /api/preparation/formula/{id}        │ PUT   │ 修改处方信息                        │
- * │ 5  │ /api/preparation/formula/{id}        │ DELETE│ 删除处方信息                        │
+ * ┌────┬──────────────────────────────────────────┬────────┬─────────────────────────────────────┐
+ * │ #  │ 接口                                     │ 方法   │ 说明                                │
+ * ├────┼──────────────────────────────────────────┼────────┼─────────────────────────────────────┤
+ * │ 1  │ /api/preparation/formula                 │ GET   │ 获取所有处方信息（分页）            │
+ * │ 2  │ /api/preparation/formula/{id}            │ GET   │ 根据ID获取处方详情                  │
+ * │ 3  │ /api/preparation/formula                 │ POST  │ 新增处方信息                        │
+ * │ 4  │ /api/preparation/formula/{id}            │ PUT   │ 修改处方信息                        │
+ * │ 5  │ /api/preparation/formula/{id}            │ DELETE│ 删除处方信息                        │
  * │ 6  │ /api/preparation/formula/byPreparationCode │ GET │ 根据制剂编码查询处方信息      │
- * └────┴──────────────────────────────────────┴────────┴─────────────────────────────────────┘
+ * │ 7  │ /api/preparation/formula/batch           │ POST  │ 批量保存处方明细                    │
+ * └────┴──────────────────────────────────────────┴────────┴─────────────────────────────────────┘
  */
 @RestController
 @RequestMapping("/api/preparation/formula")
@@ -193,6 +194,52 @@ public class PreparationFormulaController extends BaseCrudController<Preparation
             return success(formulas);
         } catch (Exception ex) {
             return exception(ex, "根据制剂编码查询处方信息");
+        }
+    }
+
+    /**
+     * 批量保存处方明细
+     * <p>
+     * 先删除指定制剂下的原有处方，再批量插入新的处方列表
+     * </p>
+     *
+     * 示例请求：
+     * POST /api/preparation/formula/batch?preparationId=1
+     * Content-Type: application/json
+     * [
+     *   {
+     *     "materialId": 1,
+     *     "materialCode": "YL001",
+     *     "materialName": "原料A",
+     *     "materialCategory": "原料",
+     *     "dosage": 100,
+     *     "unitId": 1,
+     *     "unitName": "kg"
+     *   },
+     *   {
+     *     "materialId": 2,
+     *     "materialCode": "YL002",
+     *     "materialName": "辅料B",
+     *     "materialCategory": "辅料",
+     *     "dosage": 50,
+     *     "unitId": 2,
+     *     "unitName": "g"
+     *   }
+     * ]
+     *
+     * @param preparationId 制剂ID（请求参数）
+     * @param formulas 处方明细列表
+     * @return ApiResponse&lt;List&lt;PreparationFormula&gt;&gt; 保存后的处方明细列表
+     */
+    @PostMapping("/batch")
+    public ApiResponse<List<PreparationFormula>> batchSave(
+            @RequestParam Long preparationId,
+            @RequestBody List<PreparationFormula> formulas) {
+        try {
+            preparationFormulaService.batchSave(preparationId, formulas);
+            return success(formulas, "保存成功");
+        } catch (Exception ex) {
+            return exception(ex, "批量保存处方");
         }
     }
 
