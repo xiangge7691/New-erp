@@ -72,9 +72,7 @@ public class PreparationDocumentServiceImpl extends ServiceImpl<PreparationDocum
     @Override
     @Transactional
     public void batchSave(Long preparationId, List<PreparationDocument> documents) {
-        QueryWrapper<PreparationDocument> wrapper = new QueryWrapper<>();
-        wrapper.eq("preparation_id", preparationId);
-        baseMapper.delete(wrapper);
+        baseMapper.physicalDeleteByPreparationId(preparationId);
 
         if (documents != null && !documents.isEmpty()) {
             documents.forEach(d -> {

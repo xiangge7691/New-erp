@@ -57,10 +57,7 @@ public class PreparationProcessTemplateServiceImpl extends ServiceImpl<Preparati
     @Override
     @Transactional
     public void batchSave(Long preparationId, List<PreparationProcessTemplate> templates) {
-        // 删除该制剂原有的工序模版
-        QueryWrapper<PreparationProcessTemplate> deleteWrapper = new QueryWrapper<>();
-        deleteWrapper.eq("preparation_id", preparationId);
-        baseMapper.delete(deleteWrapper);
+        baseMapper.physicalDeleteByPreparationId(preparationId);
         
         // 设置制剂ID并批量保存
         if (templates != null && !templates.isEmpty()) {
