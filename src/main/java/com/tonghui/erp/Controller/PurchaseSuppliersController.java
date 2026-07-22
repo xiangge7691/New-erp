@@ -145,10 +145,16 @@ public class PurchaseSuppliersController extends BaseCrudController<PurchaseSupp
      * 高级查询采购供应商（支持多条件 + 分页）
      *
      * 可选查询条件：
-     * - supplierNumber：模糊匹配
-     * - supplierName：模糊匹配
-     * - contactPerson：模糊匹配
-     * - status：状态过滤
+     * - supplierNumber：供应商编号（模糊匹配）
+     * - supplierName：供应商名称（模糊匹配）
+     * - category：供应商分类（模糊匹配）
+     * - contactPerson：联系人（模糊匹配）
+     * - phone：联系电话（模糊匹配）
+     * - email：邮箱（模糊匹配）
+     * - address：地址（模糊匹配）
+     * - bankAccount：银行账号（模糊匹配）
+     * - bankName：银行名称（模糊匹配）
+     * - status：状态过滤（精确匹配）
      *
      * 示例请求：
      * GET /api/purchase-suppliers/search?pageIndex=1&pageSize=20&supplierName=原料&contactPerson=张&status=1

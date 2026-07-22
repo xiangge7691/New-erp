@@ -136,7 +136,7 @@ public class TrainingRecordController extends BaseCrudController<TrainingRecord,
      * - trainingName：模糊匹配
      * - trainingCategory：精确匹配
      * - trainingForm：精确匹配
-     * - trainingDate：起始日期
+     * - trainingDate：培训日期（范围查询，查询大于等于该日期的记录）
      *
      * 示例请求：
      * GET /api/training-record/search?pageIndex=1&pageSize=20&trainingName=GMP&trainingCategory=岗前培训

@@ -139,7 +139,7 @@ public class VerificationRecordController extends BaseCrudController<Verificatio
      * - verificationNo：验证编号（模糊匹配）
      * - verificationName：验证名称（模糊匹配）
      * - relatedObject：关联对象（模糊匹配）
-     * - executeDate：起始日期
+     * - executeDate：执行日期（范围查询，查询大于等于该日期的记录）
      *
      * 示例请求：
      * GET /api/verification-record/search?pageIndex=1&pageSize=20&category=equipment&verificationName=确认

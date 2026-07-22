@@ -178,7 +178,7 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
      * - inType：入库类型（精确匹配）
      *
      * 示例请求：
-     * GET /stockin/search?pageIndex=1&pageSize=20&inCode=IN2025&prodUnitId=1&createdTimeStart=2025-01-01%2000:00:00&createdTimeEnd=2025-09-01%2023:59:59
+     * GET /api/stockin/search?pageIndex=1&pageSize=20&inCode=IN2025&prodUnitId=1&createdTimeStart=2025-01-01%2000:00:00&createdTimeEnd=2025-09-01%2023:59:59
      *
      * @param stockIn   查询条件（自动从query参数映射）
      * @param createdTimeStart 创建时间起始

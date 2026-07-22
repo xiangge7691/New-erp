@@ -136,7 +136,7 @@ public class SupplierAuditController extends BaseCrudController<SupplierAudit, S
      * - supplierId：供应商ID
      * - supplyType：供应类型
      * - auditResult：审核结果
-     * - auditDate：起始日期
+     * - auditDate：审核日期（范围查询，查询大于等于该日期的记录）
      *
      * 示例请求：
      * GET /api/supplier-audit/search?pageIndex=1&pageSize=20&supplierId=1&supplyType=包材&auditResult=合格

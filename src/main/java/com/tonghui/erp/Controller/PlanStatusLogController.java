@@ -97,7 +97,7 @@ public class PlanStatusLogController extends BaseCrudController<PlanStatusLog, P
     /**
      * 高级查询计划状态日志（支持多条件 + 分页）
      * <p>
-     * 可选查询条件：计划ID、来源状态、目标状态、操作人、变更时间范围
+     * 可选查询条件：ID、计划ID、来源状态、目标状态、操作人、变更时间范围
      * </p>
      *
      * 示例请求：

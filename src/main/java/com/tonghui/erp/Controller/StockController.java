@@ -74,7 +74,7 @@ public class StockController extends BaseController {
      * - updatedTimeEnd：更新时间结束（小于等于）
      *
      * 示例请求：
-     * GET /stock/search?pageIndex=1&pageSize=20&itemName=瓶&categoryName=包材&unitName=个&quantity=100&prodUnitId=1&createdTimeStart=2025-01-01%2000:00:00&createdTimeEnd=2025-09-01%2023:59:59
+     * GET /api/stock/search?pageIndex=1&pageSize=20&itemName=瓶&categoryName=包材&unitName=个&quantity=100&prodUnitId=1&createdTimeStart=2025-01-01%2000:00:00&createdTimeEnd=2025-09-01%2023:59:59
      *
      * @param stock      查询条件（自动从query参数映射）
      * @param createdTimeStart 创建时间起始
@@ -84,9 +84,6 @@ public class StockController extends BaseController {
      * @param pageIndex  页码
      * @param pageSize   每页大小
      * @return 分页结果
-     *
-     * 示例请求：
-     * GET /api/stock/search?pageIndex=1&pageSize=20&itemName=瓶&categoryName=包材&quantity=100
      */
     @GetMapping("/search")
     public ApiResponse<PagedResult<Stock>> queryStocks(Stock stock,
