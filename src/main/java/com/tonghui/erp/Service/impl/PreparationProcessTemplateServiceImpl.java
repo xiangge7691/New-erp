@@ -60,7 +60,7 @@ public class PreparationProcessTemplateServiceImpl extends ServiceImpl<Preparati
         // 删除该制剂原有的工序模版
         QueryWrapper<PreparationProcessTemplate> deleteWrapper = new QueryWrapper<>();
         deleteWrapper.eq("preparation_id", preparationId);
-        remove(deleteWrapper);
+        baseMapper.delete(deleteWrapper);
         
         // 设置制剂ID并批量保存
         if (templates != null && !templates.isEmpty()) {

@@ -185,7 +185,7 @@ public class PreparationFormulaServiceImpl extends ServiceImpl<PreparationFormul
     public void batchSave(Long preparationId, List<PreparationFormula> formulas) {
         QueryWrapper<PreparationFormula> wrapper = new QueryWrapper<>();
         wrapper.eq("preparation_id", preparationId);
-        remove(wrapper);
+        baseMapper.delete(wrapper);
 
         if (formulas != null && !formulas.isEmpty()) {
             Preparation preparation = preparationMapper.selectById(preparationId);
