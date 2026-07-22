@@ -9,7 +9,12 @@ import com.tonghui.erp.Data.Entity.WorkOrder;
 import java.time.LocalDateTime;
 
 /**
-*/
+ * 工单服务接口
+ * <p>
+ * 提供工单相关的业务逻辑接口，包括工单的增删改查、
+ * 工单编号自动生成、高级查询等功能
+ * </p>
+ */
 public interface WorkOrderService extends IService<WorkOrder> {
     
     /**

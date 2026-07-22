@@ -12,7 +12,12 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
-*/
+ * 库存服务接口
+ * <p>
+ * 提供库存相关的业务逻辑接口，包括库存的高级查询、带子表关联查询、
+ * 库存预警查询、预警统计等功能
+ * </p>
+ */
 public interface StockService extends IService<Stock> {
 
     /**
@@ -29,8 +34,24 @@ public interface StockService extends IService<Stock> {
      */
     Page<Stock> queryStocks(Stock stock, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, int pageNum, int pageSize);
 
+    /**
+     * 高级查询库存（支持分页）
+     *
+     * @param stock     查询条件
+     * @param pageNum   页码
+     * @param pageSize  每页大小
+     * @return 分页结果
+     */
     Page<Stock> queryStocks(Stock stock, int pageNum, int pageSize);
 
+    /**
+     * 高级查询库存（包含关联子表数据）
+     *
+     * @param stock     查询条件
+     * @param pageNum   页码
+     * @param pageSize  每页大小
+     * @return 分页结果（包含关联子表）
+     */
     PagedResult<StockWithDetailsDto> searchWithDetails(Stock stock, int pageNum, int pageSize);
 
     /**

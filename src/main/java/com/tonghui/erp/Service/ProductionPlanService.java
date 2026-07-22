@@ -10,7 +10,12 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
-*/
+ * 生产计划服务接口
+ * <p>
+ * 提供生产计划相关的业务逻辑接口，包括计划的高级查询、
+ * 带子表关联查询、状态变更、暂停恢复、状态验证等功能
+ * </p>
+ */
 public interface ProductionPlanService extends IService<ProductionPlan> {
 
     /**

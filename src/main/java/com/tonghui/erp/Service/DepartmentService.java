@@ -73,11 +73,21 @@ public interface DepartmentService extends IService<Department> {
 
     /**
      * 查询部门（支持多条件分页）
+     *
+     * @param department 查询条件
+     * @param pageNum    页码
+     * @param pageSize   每页大小
+     * @return 分页结果
      */
     Page<Department> queryDepartments(Department department, int pageNum, int pageSize);
 
     /**
-     * 带子表查询部门
+     * 带子表查询部门（包含关联子表数据）
+     *
+     * @param department 查询条件
+     * @param pageNum    页码
+     * @param pageSize   每页大小
+     * @return 分页结果（包含关联子表）
      */
     PagedResult<DepartmentWithDetailsDto> searchWithDetails(Department department, int pageNum, int pageSize);
     // endregion

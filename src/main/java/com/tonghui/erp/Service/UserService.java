@@ -70,7 +70,7 @@ public interface UserService extends IService<User> {
      * @param userName 用户名关键词，支持模糊查询用户名称和真实姓名
      * @param departmentId 部门ID，筛选指定部门的用户
      * @param roleId 角色ID，筛选具有指定角色的用户
-     * @param status 用户状态，true为启用，false为禁用
+     * @param status 用户状态，1为启用，0为禁用
      * @param userId 用户ID，用于精确查询单个用户
      * @param pageIndex 页码，从0开始
      * @param pageSize 每页数量，-1表示不分页返回所有结果

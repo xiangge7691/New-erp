@@ -74,11 +74,21 @@ public interface RoleService extends IService<Role> {
 
     /**
      * 查询角色（支持多条件分页）
+     *
+     * @param role      查询条件
+     * @param pageNum   页码
+     * @param pageSize  每页大小
+     * @return 分页结果
      */
     Page<Role> queryRoles(Role role, int pageNum, int pageSize);
 
     /**
-     * 带子表查询角色
+     * 带子表查询角色（包含关联子表数据）
+     *
+     * @param role      查询条件
+     * @param pageNum   页码
+     * @param pageSize  每页大小
+     * @return 分页结果（包含关联子表）
      */
     PagedResult<RoleWithDetailsDto> searchWithDetails(Role role, int pageNum, int pageSize);
     // endregion
