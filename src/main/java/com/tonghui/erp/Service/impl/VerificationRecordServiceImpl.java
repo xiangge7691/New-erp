@@ -153,6 +153,10 @@ public class VerificationRecordServiceImpl extends ServiceImpl<VerificationRecor
             wrapper.ge("execute_date", verificationRecord.getExecuteDate());
         }
 
+        if (verificationRecord.getExecuteDateEnd() != null) {
+            wrapper.le("execute_date", verificationRecord.getExecuteDateEnd());
+        }
+
         wrapper.orderByDesc("execute_date");
 
         return this.page(page, wrapper);
