@@ -71,3 +71,32 @@ ALTER TABLE `room_info`
 ADD UNIQUE INDEX `uk_room_code` (`room_code`);
 
 -- 5. 设备类型从equipment表关联获取，无需在equipment_maintenance表中冗余存储
+
+-- ===================================
+-- 验证管理模块建表SQL
+-- ===================================
+
+-- 6. 验证记录表
+CREATE TABLE IF NOT EXISTS `verification_record` (
+    `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+    `category` VARCHAR(20) NOT NULL COMMENT '验证类别（equipment/building/process/cleaning/facility/method）',
+    `verification_no` VARCHAR(50) NOT NULL COMMENT '验证编号',
+    `verification_name` VARCHAR(200) NOT NULL COMMENT '验证名称',
+    `related_object` VARCHAR(100) NOT NULL COMMENT '关联对象',
+    `execute_date` DATE NOT NULL COMMENT '执行日期',
+    `next_verify_date` DATE COMMENT '下次验证日期',
+    `executor` VARCHAR(50) COMMENT '执行人',
+    `auditor` VARCHAR(50) COMMENT '审核人',
+    `remark` VARCHAR(500) COMMENT '备注',
+    `reminder_status` INT DEFAULT 0 COMMENT '预警状态（0未处理/1已处理/2不再提醒）',
+    `is_deleted` INT DEFAULT 0 COMMENT '是否已删除（0否1是）',
+    `version` INT DEFAULT 1 COMMENT '乐观锁版本号',
+    `created_by` BIGINT COMMENT '创建人ID',
+    `updated_by` BIGINT COMMENT '更新人ID',
+    `created_time` DATETIME COMMENT '创建时间',
+    `updated_time` DATETIME COMMENT '更新时间',
+    UNIQUE KEY `uk_verification_no` (`verification_no`),
+    INDEX `idx_category` (`category`),
+    INDEX `idx_execute_date` (`execute_date`),
+    INDEX `idx_next_verify_date` (`next_verify_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='验证记录表';
