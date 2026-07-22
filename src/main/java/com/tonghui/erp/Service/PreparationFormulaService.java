@@ -62,9 +62,25 @@ public interface PreparationFormulaService extends IService<PreparationFormula> 
     /**
      * 查询所有处方明细
      *
-     * @return 处方明细集合
+     * @return 全部处方明细的集合
      */
     List<PreparationFormula> getAllFormulas();
+
+    // endregion
+
+    // region 批量操作
+    // ===================================
+    // 批量操作
+    // ===================================
+
+    /**
+     * 批量保存处方明细
+     * <p>先删除该制剂原有的处方，再批量插入新处方</p>
+     *
+     * @param preparationId 制剂ID
+     * @param formulas      处方明细列表
+     */
+    void batchSave(Long preparationId, List<PreparationFormula> formulas);
 
     // endregion
 }

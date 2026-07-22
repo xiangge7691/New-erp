@@ -14,17 +14,19 @@ import org.springframework.web.bind.annotation.*;
  * 制剂控制器
  *
  * 接口清单：
- * ┌────┬───────────────────────────────┬────────┬─────────────────────────────────┐
- * │ #  │ 接口                          │ 方法   │ 说明                            │
- * ├────┼───────────────────────────────┼────────┼─────────────────────────────────┤
- * │ 1  │ /api/preparation              │ GET    │ 分页查询制剂列表                │
- * │ 2  │ /api/preparation/{id}         │ GET    │ 获取制剂详情                    │
- * │ 3  │ /api/preparation              │ POST   │ 新增制剂                        │
- * │ 4  │ /api/preparation/{id}         │ PUT    │ 修改制剂                        │
- * │ 5  │ /api/preparation/{id}         │ DELETE │ 删除制剂                        │
- * │ 6  │ /api/preparation/search       │ GET    │ 高级查询制剂（多条件+分页）      │
- * │ 7  │ /api/preparation/search-with-details │ GET │ 高级查询制剂（含子表）        │
- * └────┴───────────────────────────────┴────────┴─────────────────────────────────┘
+ * ┌────┬─────────────────────────────────────────┬────────┬─────────────────────────────────┐
+ * │ #  │ 接口                                    │ 方法   │ 说明                            │
+ * ├────┼─────────────────────────────────────────┼────────┼─────────────────────────────────┤
+ * │ 1  │ /api/preparation                        │ GET    │ 分页查询制剂列表                │
+ * │ 2  │ /api/preparation/{id}                   │ GET    │ 获取制剂详情                    │
+ * │ 3  │ /api/preparation                        │ POST   │ 新增制剂                        │
+ * │ 4  │ /api/preparation/{id}                   │ PUT    │ 修改制剂                        │
+ * │ 5  │ /api/preparation/{id}                   │ DELETE │ 删除制剂（含子表）              │
+ * │ 6  │ /api/preparation/search                 │ GET    │ 高级查询制剂（多条件+分页）      │
+ * │ 7  │ /api/preparation/search-with-details    │ GET    │ 高级查询制剂（含子表）           │
+ * │ 8  │ /api/preparation/save-with-details      │ POST   │ 一键保存制剂及所有子表          │
+ * │ 9  │ /api/preparation/{id}/details           │ GET    │ 获取制剂详情（含所有子表）      │
+ * └────┴─────────────────────────────────────────┴────────┴─────────────────────────────────┘
  */
 @RestController
 @RequestMapping("/api/preparation")
@@ -85,12 +87,8 @@ public class PreparationController extends BaseCrudController<Preparation, Prepa
 
     @Override
     protected boolean doDelete(Long id) {
-        try {
-            preparationService.deletePreparation(id);
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
+        preparationService.deleteWithDetails(id);
+        return true;
     }
 
     // endregion
@@ -244,6 +242,62 @@ public class PreparationController extends BaseCrudController<Preparation, Prepa
             return success(result);
         } catch (Exception ex) {
             return exception(ex, "查询失败");
+        }
+    }
+
+    // endregion
+
+    // region 带子表的保存与查询
+    // ===================================
+    // 带子表的保存与查询
+    // ===================================
+
+    /**
+     * 一键保存制剂及所有子表（处方、工序模版、文档）
+     * <p>在同一事务中保存主表和所有子表</p>
+     *
+     * 示例请求：
+     * POST /api/preparation/save-with-details
+     * {
+     *   "preparationName": "感冒灵颗粒",
+     *   "preparationCode": "Z0001",
+     *   "formulas": [...],
+     *   "processTemplates": [...],
+     *   "documents": [...]
+     * }
+     *
+     * @param dto 制剂及子表数据
+     * @return 操作结果
+     */
+    @PostMapping("/save-with-details")
+    public ApiResponse<Void> saveWithDetails(@RequestBody PreparationWithDetailsDto dto) {
+        try {
+            preparationService.saveWithDetails(dto);
+            return success(null, "保存成功");
+        } catch (Exception ex) {
+            return exception(ex, "保存制剂");
+        }
+    }
+
+    /**
+     * 获取制剂详情（含所有子表）
+     *
+     * 示例请求：
+     * GET /api/preparation/1/details
+     *
+     * @param id 制剂ID（路径参数）
+     * @return 制剂及子表数据
+     */
+    @GetMapping("/{id}/details")
+    public ApiResponse<PreparationWithDetailsDto> getWithDetails(@PathVariable Long id) {
+        try {
+            PreparationWithDetailsDto dto = preparationService.getWithDetails(id);
+            if (dto == null) {
+                return error("制剂不存在");
+            }
+            return success(dto);
+        } catch (Exception ex) {
+            return exception(ex, "查询制剂详情");
         }
     }
 

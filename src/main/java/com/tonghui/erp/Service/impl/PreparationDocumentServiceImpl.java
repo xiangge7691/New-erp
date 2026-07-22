@@ -6,6 +6,7 @@ import com.tonghui.erp.Data.Entity.PreparationDocument;
 import com.tonghui.erp.Data.mapper.PreparationDocumentMapper;
 import com.tonghui.erp.Service.PreparationDocumentService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 /**
@@ -52,6 +53,33 @@ public class PreparationDocumentServiceImpl extends ServiceImpl<PreparationDocum
         wrapper.eq("doc_type", docType)
                .orderByDesc("created_time");
         return list(wrapper);
+    }
+
+    // endregion
+
+    // region 批量操作
+    // ===================================
+    // 批量操作
+    // ===================================
+
+    /**
+     * 批量保存文档
+     * <p>先删除该制剂原有的文档，再批量插入新文档</p>
+     *
+     * @param preparationId 制剂ID
+     * @param documents     文档列表
+     */
+    @Override
+    @Transactional
+    public void batchSave(Long preparationId, List<PreparationDocument> documents) {
+        QueryWrapper<PreparationDocument> wrapper = new QueryWrapper<>();
+        wrapper.eq("preparation_id", preparationId);
+        remove(wrapper);
+
+        if (documents != null && !documents.isEmpty()) {
+            documents.forEach(d -> d.setPreparationId(preparationId));
+            saveBatch(documents);
+        }
     }
 
     // endregion

@@ -10,6 +10,7 @@ import com.tonghui.erp.Common.Config.JwtConfig;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -157,6 +158,33 @@ public class PreparationFormulaServiceImpl extends ServiceImpl<PreparationFormul
     @Override
     public List<PreparationFormula> getAllFormulas() {
         return this.baseMapper.selectList(null);
+    }
+
+    // endregion
+
+    // region 批量操作
+    // ===================================
+    // 批量操作
+    // ===================================
+
+    /**
+     * 批量保存处方明细
+     * <p>先删除该制剂原有的处方，再批量插入新处方</p>
+     *
+     * @param preparationId 制剂ID
+     * @param formulas      处方明细列表
+     */
+    @Override
+    @Transactional
+    public void batchSave(Long preparationId, List<PreparationFormula> formulas) {
+        QueryWrapper<PreparationFormula> wrapper = new QueryWrapper<>();
+        wrapper.eq("preparation_id", preparationId);
+        remove(wrapper);
+
+        if (formulas != null && !formulas.isEmpty()) {
+            formulas.forEach(f -> f.setPreparationId(preparationId));
+            saveBatch(formulas);
+        }
     }
 
     // endregion

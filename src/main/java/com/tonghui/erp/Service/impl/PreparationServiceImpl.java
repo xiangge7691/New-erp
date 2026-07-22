@@ -15,6 +15,9 @@ import com.tonghui.erp.Data.mapper.PreparationDocumentMapper;
 import com.tonghui.erp.Data.mapper.PreparationFormulaMapper;
 import com.tonghui.erp.Data.mapper.PreparationMapper;
 import com.tonghui.erp.Data.mapper.PreparationProcessTemplateMapper;
+import com.tonghui.erp.Service.PreparationDocumentService;
+import com.tonghui.erp.Service.PreparationFormulaService;
+import com.tonghui.erp.Service.PreparationProcessTemplateService;
 import com.tonghui.erp.Service.PreparationService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +26,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import com.tonghui.erp.Common.utils.JwtHelper;
 
@@ -47,6 +51,15 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
 
     @Autowired
     private PreparationProcessTemplateMapper preparationProcessTemplateMapper;
+
+    @Autowired
+    private PreparationFormulaService preparationFormulaService;
+
+    @Autowired
+    private PreparationDocumentService preparationDocumentService;
+
+    @Autowired
+    private PreparationProcessTemplateService preparationProcessTemplateService;
 
     @Override
     public PagedResult<Preparation> getPreparationList(PageRequestDto pageRequestDto) {
@@ -114,8 +127,9 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
      * @param preparationId 制剂ID
      */
     @Override
+    @Transactional
     public void deletePreparation(Long preparationId) {
-        this.baseMapper.deleteById(preparationId);
+        deleteWithDetails(preparationId);
     }
 
     // endregion
@@ -392,5 +406,88 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
         // 实际部署时应移除此行并确保能正确获取用户ID
         return null;
     }
-// endregion
+    // endregion
+
+    // region 带子表的保存与删除
+    // ===================================
+    // 带子表的保存与删除
+    // ===================================
+
+    /**
+     * 一键保存制剂及所有子表
+     * <p>在同一事务中保存主表和所有子表（处方、工序模版、文档）</p>
+     *
+     * @param dto 制剂及子表数据
+     */
+    @Override
+    @Transactional
+    public void saveWithDetails(PreparationWithDetailsDto dto) {
+        if (dto.getPreparationId() == null) {
+            addPreparation(dto);
+        } else {
+            updatePreparation(dto);
+        }
+        Long prepId = dto.getPreparationId();
+
+        preparationFormulaService.batchSave(prepId, dto.getFormulas());
+        preparationProcessTemplateService.batchSave(prepId, dto.getProcessTemplates());
+        preparationDocumentService.batchSave(prepId, dto.getDocuments());
+    }
+
+    /**
+     * 删除制剂及所有子表
+     * <p>先删除子表，再删除主表</p>
+     *
+     * @param preparationId 制剂ID
+     */
+    @Override
+    @Transactional
+    public void deleteWithDetails(Long preparationId) {
+        QueryWrapper<PreparationFormula> fw = new QueryWrapper<>();
+        fw.eq("preparation_id", preparationId);
+        preparationFormulaMapper.delete(fw);
+
+        QueryWrapper<PreparationProcessTemplate> tw = new QueryWrapper<>();
+        tw.eq("preparation_id", preparationId);
+        preparationProcessTemplateMapper.delete(tw);
+
+        QueryWrapper<PreparationDocument> dw = new QueryWrapper<>();
+        dw.eq("preparation_id", preparationId);
+        preparationDocumentMapper.delete(dw);
+
+        this.removeById(preparationId);
+    }
+
+    /**
+     * 获取制剂详情（含所有子表）
+     *
+     * @param preparationId 制剂ID
+     * @return 制剂及子表数据，不存在则返回null
+     */
+    @Override
+    public PreparationWithDetailsDto getWithDetails(Long preparationId) {
+        Preparation prep = this.getById(preparationId);
+        if (prep == null) {
+            return null;
+        }
+
+        PreparationWithDetailsDto dto = new PreparationWithDetailsDto();
+        BeanUtils.copyProperties(prep, dto);
+
+        QueryWrapper<PreparationFormula> fw = new QueryWrapper<>();
+        fw.eq("preparation_id", preparationId);
+        dto.setFormulas(preparationFormulaMapper.selectList(fw));
+
+        QueryWrapper<PreparationProcessTemplate> tw = new QueryWrapper<>();
+        tw.eq("preparation_id", preparationId).orderByAsc("step_order");
+        dto.setProcessTemplates(preparationProcessTemplateMapper.selectList(tw));
+
+        QueryWrapper<PreparationDocument> dw = new QueryWrapper<>();
+        dw.eq("preparation_id", preparationId).orderByDesc("created_time");
+        dto.setDocuments(preparationDocumentMapper.selectList(dw));
+
+        return dto;
+    }
+
+    // endregion
 }

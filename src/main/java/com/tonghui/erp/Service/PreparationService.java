@@ -127,4 +127,35 @@ public interface PreparationService extends IService<Preparation> {
     PagedResult<Preparation> getPreparationList(PageRequestDto pageRequestDto);
 
     // endregion
+
+    // region 带子表的保存与删除
+    // ===================================
+    // 带子表的保存与删除
+    // ===================================
+
+    /**
+     * 一键保存制剂及所有子表（处方、工序模版、文档）
+     * <p>在同一事务中保存主表和所有子表</p>
+     *
+     * @param dto 制剂及子表数据
+     */
+    void saveWithDetails(PreparationWithDetailsDto dto);
+
+    /**
+     * 删除制剂及所有子表
+     * <p>先删除子表，再删除主表</p>
+     *
+     * @param preparationId 制剂ID
+     */
+    void deleteWithDetails(Long preparationId);
+
+    /**
+     * 获取制剂详情（含所有子表）
+     *
+     * @param preparationId 制剂ID
+     * @return 制剂及子表数据，不存在则返回null
+     */
+    PreparationWithDetailsDto getWithDetails(Long preparationId);
+
+    // endregion
 }
