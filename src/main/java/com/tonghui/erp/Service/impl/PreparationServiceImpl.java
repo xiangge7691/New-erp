@@ -238,11 +238,19 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
         if (preparation.getStatus() != null) {
             wrapper.eq("status", preparation.getStatus());
         }
-        if (preparation.getCreatedTime() != null) {
-            wrapper.ge("created_time", preparation.getCreatedTime());
+        // 创建时间范围查询
+        if (preparation.getCreatedTimeStart() != null) {
+            wrapper.ge("created_time", preparation.getCreatedTimeStart());
         }
-        if (preparation.getUpdatedTime() != null) {
-            wrapper.le("updated_time", preparation.getUpdatedTime());
+        if (preparation.getCreatedTimeEnd() != null) {
+            wrapper.le("created_time", preparation.getCreatedTimeEnd());
+        }
+        // 更新时间范围查询
+        if (preparation.getUpdatedTimeStart() != null) {
+            wrapper.ge("updated_time", preparation.getUpdatedTimeStart());
+        }
+        if (preparation.getUpdatedTimeEnd() != null) {
+            wrapper.le("updated_time", preparation.getUpdatedTimeEnd());
         }
         
         // 添加单位名称过滤条件

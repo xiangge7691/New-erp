@@ -78,6 +78,12 @@ public class VerificationRecord extends AuditEntity {
     private Date executeDate;
 
     /**
+     * 执行日期开始（用于范围查询，不映射数据库）
+     */
+    @TableField(exist = false)
+    private Date executeDateStart;
+
+    /**
      * 执行日期结束（用于范围查询，不映射数据库）
      */
     @TableField(exist = false)

@@ -80,6 +80,18 @@ public class TrainingRecord extends AuditEntity {
     private Date trainingDate;
 
     /**
+     * 培训日期开始（用于范围查询，不映射数据库）
+     */
+    @TableField(exist = false)
+    private Date trainingDateStart;
+
+    /**
+     * 培训日期结束（用于范围查询，不映射数据库）
+     */
+    @TableField(exist = false)
+    private Date trainingDateEnd;
+
+    /**
      * 培训时长（小时）
      */
     @TableField(value = "training_duration")

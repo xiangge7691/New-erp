@@ -215,12 +215,18 @@ public class MaterialServiceImpl implements MaterialService {
             wrapper.eq("material_status", material.getMaterialStatus());
         }
         // 创建时间范围筛选
-        if (material.getCreatedTime() != null) {
-            wrapper.ge("created_time", material.getCreatedTime());
+        if (material.getCreatedTimeStart() != null) {
+            wrapper.ge("created_time", material.getCreatedTimeStart());
+        }
+        if (material.getCreatedTimeEnd() != null) {
+            wrapper.le("created_time", material.getCreatedTimeEnd());
         }
         // 更新时间范围筛选
-        if (material.getUpdatedTime() != null) {
-            wrapper.le("updated_time", material.getUpdatedTime());
+        if (material.getUpdatedTimeStart() != null) {
+            wrapper.ge("updated_time", material.getUpdatedTimeStart());
+        }
+        if (material.getUpdatedTimeEnd() != null) {
+            wrapper.le("updated_time", material.getUpdatedTimeEnd());
         }
         
         // 默认按照物料编码倒序排列

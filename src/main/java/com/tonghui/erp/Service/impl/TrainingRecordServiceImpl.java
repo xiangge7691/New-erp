@@ -190,8 +190,11 @@ public class TrainingRecordServiceImpl extends ServiceImpl<TrainingRecordMapper,
         }
 
         // 培训日期范围查询
-        if (trainingRecord.getTrainingDate() != null) {
-            wrapper.ge("training_date", trainingRecord.getTrainingDate());
+        if (trainingRecord.getTrainingDateStart() != null) {
+            wrapper.ge("training_date", trainingRecord.getTrainingDateStart());
+        }
+        if (trainingRecord.getTrainingDateEnd() != null) {
+            wrapper.le("training_date", trainingRecord.getTrainingDateEnd());
         }
 
         // 按培训日期降序排列

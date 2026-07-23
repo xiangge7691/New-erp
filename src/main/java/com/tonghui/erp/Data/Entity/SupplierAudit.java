@@ -68,6 +68,18 @@ public class SupplierAudit extends AuditEntity {
     private Date auditDate;
 
     /**
+     * 审核日期开始（用于范围查询，不映射数据库）
+     */
+    @TableField(exist = false)
+    private Date auditDateStart;
+
+    /**
+     * 审核日期结束（用于范围查询，不映射数据库）
+     */
+    @TableField(exist = false)
+    private Date auditDateEnd;
+
+    /**
      * 审核内容
      */
     @TableField(value = "audit_content")

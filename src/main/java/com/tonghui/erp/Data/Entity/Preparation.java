@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -155,6 +156,37 @@ public class Preparation extends AuditEntity {
      */
     @TableField(value = "version")
     private Integer version;
+
+    // endregion
+
+    // region 查询辅助字段（不映射数据库）
+    // ===================================
+    // 查询辅助字段（不映射数据库）
+    // ===================================
+
+    /**
+     * 创建时间开始（用于范围查询，不映射数据库）
+     */
+    @TableField(exist = false)
+    private LocalDateTime createdTimeStart;
+
+    /**
+     * 创建时间结束（用于范围查询，不映射数据库）
+     */
+    @TableField(exist = false)
+    private LocalDateTime createdTimeEnd;
+
+    /**
+     * 更新时间开始（用于范围查询，不映射数据库）
+     */
+    @TableField(exist = false)
+    private LocalDateTime updatedTimeStart;
+
+    /**
+     * 更新时间结束（用于范围查询，不映射数据库）
+     */
+    @TableField(exist = false)
+    private LocalDateTime updatedTimeEnd;
 
     // endregion
 }

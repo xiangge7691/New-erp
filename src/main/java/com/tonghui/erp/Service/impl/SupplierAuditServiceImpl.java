@@ -168,8 +168,11 @@ public class SupplierAuditServiceImpl extends ServiceImpl<SupplierAuditMapper, S
         }
 
         // 审核日期范围查询
-        if (supplierAudit.getAuditDate() != null) {
-            wrapper.ge("audit_date", supplierAudit.getAuditDate());
+        if (supplierAudit.getAuditDateStart() != null) {
+            wrapper.ge("audit_date", supplierAudit.getAuditDateStart());
+        }
+        if (supplierAudit.getAuditDateEnd() != null) {
+            wrapper.le("audit_date", supplierAudit.getAuditDateEnd());
         }
 
         // 按审核日期降序排列
