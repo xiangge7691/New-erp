@@ -6,8 +6,10 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.SupplierAudit;
 import com.tonghui.erp.Service.SupplierAuditService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -136,25 +138,29 @@ public class SupplierAuditController extends BaseCrudController<SupplierAudit, S
      * - supplierId：供应商ID
      * - supplyType：供应类型
      * - auditResult：审核结果
-     * - auditDate：审核日期（范围查询，查询大于等于该日期的记录）
+     * - auditDateStart/End：审核日期范围
      *
      * 示例请求：
-     * GET /api/supplier-audit/search?pageIndex=1&pageSize=20&supplierId=1&supplyType=包材&auditResult=合格
+     * GET /api/supplier-audit/search?pageIndex=0&pageSize=20&supplierId=1&auditDateStart=2026-01-01T00:00:00&auditDateEnd=2026-12-31T23:59:59
      *
-     * @param supplierAudit 查询条件（自动从query参数映射）
-     * @param pageIndex     页码
-     * @param pageSize      每页大小
+     * @param supplierAudit  查询条件（自动从query参数映射）
+     * @param auditDateStart 审核日期开始（可选）
+     * @param auditDateEnd   审核日期结束（可选）
+     * @param pageIndex      页码
+     * @param pageSize       每页大小
      * @return 分页结果
      */
     @GetMapping("/search")
     public ApiResponse<PagedResult<SupplierAudit>> querySupplierAudits(SupplierAudit supplierAudit,
+                                                                       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime auditDateStart,
+                                                                       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime auditDateEnd,
                                                                        @RequestParam int pageIndex,
                                                                        @RequestParam int pageSize) {
         try {
             int safePageIndex = Math.max(0, pageIndex);
             int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
 
-            Page<SupplierAudit> pageResult = supplierAuditService.querySupplierAudits(supplierAudit, safePageIndex, safePageSize);
+            Page<SupplierAudit> pageResult = supplierAuditService.querySupplierAudits(supplierAudit, auditDateStart, auditDateEnd, safePageIndex, safePageSize);
 
             PagedResult<SupplierAudit> pagedResult = new PagedResult<>();
             pagedResult.setItems(pageResult.getRecords());

@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import org.springframework.format.annotation.DateTimeFormat;
 
 import java.util.Date;
 
@@ -81,13 +82,13 @@ public class VerificationRecord extends AuditEntity {
      * 执行日期开始（用于范围查询，不映射数据库）
      */
     @TableField(exist = false)
-    private Date executeDateStart;
+    private String executeDateStart;
 
     /**
      * 执行日期结束（用于范围查询，不映射数据库）
      */
     @TableField(exist = false)
-    private Date executeDateEnd;
+    private String executeDateEnd;
 
     /**
      * 下次验证日期

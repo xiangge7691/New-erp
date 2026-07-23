@@ -6,8 +6,10 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.VerificationRecord;
 import com.tonghui.erp.Service.VerificationRecordService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -139,25 +141,50 @@ public class VerificationRecordController extends BaseCrudController<Verificatio
      * - verificationNo：验证编号（模糊匹配）
      * - verificationName：验证名称（模糊匹配）
      * - relatedObject：关联对象（模糊匹配）
-     * - executeDate：执行日期（范围查询，查询大于等于该日期的记录）
+     * - executor：执行人（模糊匹配）
+     * - auditor：审核人（模糊匹配）
+     * - executeDateStart/End：执行日期范围
+     * - nextVerifyDateStart/End：下次验证日期范围
+     * - createdTimeStart/End：创建时间范围
+     * - updatedTimeStart/End：更新时间范围
      *
      * 示例请求：
-     * GET /api/verification-record/search?pageIndex=1&pageSize=20&category=equipment&verificationName=确认
+     * GET /api/verification-record/search?pageIndex=0&pageSize=20&category=equipment&executeDateStart=2026-01-01T00:00:00&executeDateEnd=2026-12-31T23:59:59
      *
      * @param verificationRecord 查询条件（自动从query参数映射）
+     * @param executeDateStart   执行日期开始（可选）
+     * @param executeDateEnd     执行日期结束（可选）
+     * @param nextVerifyDateStart 下次验证日期开始（可选）
+     * @param nextVerifyDateEnd   下次验证日期结束（可选）
+     * @param createdTimeStart   创建时间开始（可选）
+     * @param createdTimeEnd     创建时间结束（可选）
+     * @param updatedTimeStart   更新时间开始（可选）
+     * @param updatedTimeEnd     更新时间结束（可选）
      * @param pageIndex          页码
      * @param pageSize           每页大小
      * @return 分页结果
      */
     @GetMapping("/search")
     public ApiResponse<PagedResult<VerificationRecord>> queryVerificationRecords(VerificationRecord verificationRecord,
+                                                                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime executeDateStart,
+                                                                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime executeDateEnd,
+                                                                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime nextVerifyDateStart,
+                                                                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime nextVerifyDateEnd,
+                                                                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime createdTimeStart,
+                                                                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime createdTimeEnd,
+                                                                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime updatedTimeStart,
+                                                                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime updatedTimeEnd,
                                                                                    @RequestParam int pageIndex,
                                                                                    @RequestParam int pageSize) {
         try {
             int safePageIndex = Math.max(0, pageIndex);
             int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
 
-            Page<VerificationRecord> pageResult = verificationRecordService.queryVerificationRecords(verificationRecord, safePageIndex, safePageSize);
+            Page<VerificationRecord> pageResult = verificationRecordService.queryVerificationRecords(
+                    verificationRecord, executeDateStart, executeDateEnd,
+                    nextVerifyDateStart, nextVerifyDateEnd,
+                    createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd,
+                    safePageIndex, safePageSize);
 
             PagedResult<VerificationRecord> pagedResult = new PagedResult<>();
             pagedResult.setItems(pageResult.getRecords());

@@ -6,8 +6,10 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.TrainingRecord;
 import com.tonghui.erp.Service.TrainingRecordService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -136,25 +138,29 @@ public class TrainingRecordController extends BaseCrudController<TrainingRecord,
      * - trainingName：模糊匹配
      * - trainingCategory：精确匹配
      * - trainingForm：精确匹配
-     * - trainingDate：培训日期（范围查询，查询大于等于该日期的记录）
+     * - trainingDateStart/End：培训日期范围
      *
      * 示例请求：
-     * GET /api/training-record/search?pageIndex=1&pageSize=20&trainingName=GMP&trainingCategory=岗前培训
+     * GET /api/training-record/search?pageIndex=0&pageSize=20&trainingName=GMP&trainingDateStart=2026-01-01T00:00:00&trainingDateEnd=2026-12-31T23:59:59
      *
-     * @param trainingRecord 查询条件（自动从query参数映射）
-     * @param pageIndex      页码
-     * @param pageSize       每页大小
+     * @param trainingRecord    查询条件（自动从query参数映射）
+     * @param trainingDateStart 培训日期开始（可选）
+     * @param trainingDateEnd   培训日期结束（可选）
+     * @param pageIndex         页码
+     * @param pageSize          每页大小
      * @return 分页结果
      */
     @GetMapping("/search")
     public ApiResponse<PagedResult<TrainingRecord>> queryTrainingRecords(TrainingRecord trainingRecord,
+                                                                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime trainingDateStart,
+                                                                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime trainingDateEnd,
                                                                          @RequestParam int pageIndex,
                                                                          @RequestParam int pageSize) {
         try {
             int safePageIndex = Math.max(0, pageIndex);
             int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
 
-            Page<TrainingRecord> pageResult = trainingRecordService.queryTrainingRecords(trainingRecord, safePageIndex, safePageSize);
+            Page<TrainingRecord> pageResult = trainingRecordService.queryTrainingRecords(trainingRecord, trainingDateStart, trainingDateEnd, safePageIndex, safePageSize);
 
             PagedResult<TrainingRecord> pagedResult = new PagedResult<>();
             pagedResult.setItems(pageResult.getRecords());

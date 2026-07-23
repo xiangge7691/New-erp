@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.tonghui.erp.Data.Entity.SupplierAudit;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
 
@@ -78,12 +79,16 @@ public interface SupplierAuditService extends IService<SupplierAudit> {
     /**
      * 高级查询供应商审核记录（支持多条件 + 分页）
      *
-     * @param supplierAudit 查询条件
-     * @param pageIndex     页码
-     * @param pageSize      每页大小
+     * @param supplierAudit  查询条件
+     * @param auditDateStart 审核日期开始
+     * @param auditDateEnd   审核日期结束
+     * @param pageIndex      页码
+     * @param pageSize       每页大小
      * @return 分页结果
      */
-    Page<SupplierAudit> querySupplierAudits(SupplierAudit supplierAudit, int pageIndex, int pageSize);
+    Page<SupplierAudit> querySupplierAudits(SupplierAudit supplierAudit,
+                                             LocalDateTime auditDateStart, LocalDateTime auditDateEnd,
+                                             int pageIndex, int pageSize);
 
     // endregion
 

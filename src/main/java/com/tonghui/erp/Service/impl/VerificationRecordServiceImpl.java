@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDateTime;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -118,12 +119,25 @@ public class VerificationRecordServiceImpl extends ServiceImpl<VerificationRecor
      * 高级查询验证记录（支持多条件 + 分页）
      *
      * @param verificationRecord 查询条件
+     * @param executeDateStart   执行日期开始
+     * @param executeDateEnd     执行日期结束
+     * @param nextVerifyDateStart 下次验证日期开始
+     * @param nextVerifyDateEnd   下次验证日期结束
+     * @param createdTimeStart   创建时间开始
+     * @param createdTimeEnd     创建时间结束
+     * @param updatedTimeStart   更新时间开始
+     * @param updatedTimeEnd     更新时间结束
      * @param pageIndex          页码
      * @param pageSize           每页大小
      * @return 分页结果
      */
     @Override
-    public Page<VerificationRecord> queryVerificationRecords(VerificationRecord verificationRecord, int pageIndex, int pageSize) {
+    public Page<VerificationRecord> queryVerificationRecords(VerificationRecord verificationRecord,
+                                                              LocalDateTime executeDateStart, LocalDateTime executeDateEnd,
+                                                              LocalDateTime nextVerifyDateStart, LocalDateTime nextVerifyDateEnd,
+                                                              LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
+                                                              LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
+                                                              int pageIndex, int pageSize) {
         Page<VerificationRecord> page = new Page<>(pageIndex, pageSize);
         QueryWrapper<VerificationRecord> wrapper = new QueryWrapper<>();
 
@@ -149,12 +163,40 @@ public class VerificationRecordServiceImpl extends ServiceImpl<VerificationRecor
             wrapper.like("executor", verificationRecord.getExecutor());
         }
 
-        if (verificationRecord.getExecuteDateStart() != null) {
-            wrapper.ge("execute_date", verificationRecord.getExecuteDateStart());
+        if (StringUtils.hasText(verificationRecord.getAuditor())) {
+            wrapper.like("auditor", verificationRecord.getAuditor());
         }
 
-        if (verificationRecord.getExecuteDateEnd() != null) {
-            wrapper.le("execute_date", verificationRecord.getExecuteDateEnd());
+        // 执行日期范围查询
+        if (executeDateStart != null) {
+            wrapper.ge("execute_date", executeDateStart);
+        }
+        if (executeDateEnd != null) {
+            wrapper.le("execute_date", executeDateEnd);
+        }
+
+        // 下次验证日期范围查询
+        if (nextVerifyDateStart != null) {
+            wrapper.ge("next_verify_date", nextVerifyDateStart);
+        }
+        if (nextVerifyDateEnd != null) {
+            wrapper.le("next_verify_date", nextVerifyDateEnd);
+        }
+
+        // 创建时间范围查询
+        if (createdTimeStart != null) {
+            wrapper.ge("created_time", createdTimeStart);
+        }
+        if (createdTimeEnd != null) {
+            wrapper.le("created_time", createdTimeEnd);
+        }
+
+        // 更新时间范围查询
+        if (updatedTimeStart != null) {
+            wrapper.ge("updated_time", updatedTimeStart);
+        }
+        if (updatedTimeEnd != null) {
+            wrapper.le("updated_time", updatedTimeEnd);
         }
 
         wrapper.orderByDesc("execute_date");

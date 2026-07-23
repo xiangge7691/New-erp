@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.tonghui.erp.Data.Entity.TrainingRecord;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
 
@@ -86,12 +87,16 @@ public interface TrainingRecordService extends IService<TrainingRecord> {
     /**
      * 高级查询培训记录（支持多条件 + 分页）
      *
-     * @param trainingRecord 查询条件
-     * @param pageIndex      页码
-     * @param pageSize       每页大小
+     * @param trainingRecord    查询条件
+     * @param trainingDateStart 培训日期开始
+     * @param trainingDateEnd   培训日期结束
+     * @param pageIndex         页码
+     * @param pageSize          每页大小
      * @return 分页结果
      */
-    Page<TrainingRecord> queryTrainingRecords(TrainingRecord trainingRecord, int pageIndex, int pageSize);
+    Page<TrainingRecord> queryTrainingRecords(TrainingRecord trainingRecord,
+                                               LocalDateTime trainingDateStart, LocalDateTime trainingDateEnd,
+                                               int pageIndex, int pageSize);
 
     // endregion
 

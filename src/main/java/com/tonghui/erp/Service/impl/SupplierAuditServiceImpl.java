@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDateTime;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -139,13 +140,17 @@ public class SupplierAuditServiceImpl extends ServiceImpl<SupplierAuditMapper, S
     /**
      * 高级查询供应商审核记录（支持多条件 + 分页）
      *
-     * @param supplierAudit 查询条件
-     * @param pageIndex     页码
-     * @param pageSize      每页大小
+     * @param supplierAudit  查询条件
+     * @param auditDateStart 审核日期开始
+     * @param auditDateEnd   审核日期结束
+     * @param pageIndex      页码
+     * @param pageSize       每页大小
      * @return 分页结果
      */
     @Override
-    public Page<SupplierAudit> querySupplierAudits(SupplierAudit supplierAudit, int pageIndex, int pageSize) {
+    public Page<SupplierAudit> querySupplierAudits(SupplierAudit supplierAudit,
+                                                    LocalDateTime auditDateStart, LocalDateTime auditDateEnd,
+                                                    int pageIndex, int pageSize) {
         Page<SupplierAudit> page = new Page<>(pageIndex, pageSize);
         QueryWrapper<SupplierAudit> wrapper = new QueryWrapper<>();
 
@@ -168,11 +173,11 @@ public class SupplierAuditServiceImpl extends ServiceImpl<SupplierAuditMapper, S
         }
 
         // 审核日期范围查询
-        if (supplierAudit.getAuditDateStart() != null) {
-            wrapper.ge("audit_date", supplierAudit.getAuditDateStart());
+        if (auditDateStart != null) {
+            wrapper.ge("audit_date", auditDateStart);
         }
-        if (supplierAudit.getAuditDateEnd() != null) {
-            wrapper.le("audit_date", supplierAudit.getAuditDateEnd());
+        if (auditDateEnd != null) {
+            wrapper.le("audit_date", auditDateEnd);
         }
 
         // 按审核日期降序排列

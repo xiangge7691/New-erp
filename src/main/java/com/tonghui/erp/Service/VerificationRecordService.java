@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.tonghui.erp.Data.Entity.VerificationRecord;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -78,11 +79,24 @@ public interface VerificationRecordService extends IService<VerificationRecord> 
      * 高级查询验证记录（支持多条件 + 分页）
      *
      * @param verificationRecord 查询条件
+     * @param executeDateStart   执行日期开始
+     * @param executeDateEnd     执行日期结束
+     * @param nextVerifyDateStart 下次验证日期开始
+     * @param nextVerifyDateEnd   下次验证日期结束
+     * @param createdTimeStart   创建时间开始
+     * @param createdTimeEnd     创建时间结束
+     * @param updatedTimeStart   更新时间开始
+     * @param updatedTimeEnd     更新时间结束
      * @param pageIndex          页码
      * @param pageSize           每页大小
      * @return 分页结果
      */
-    Page<VerificationRecord> queryVerificationRecords(VerificationRecord verificationRecord, int pageIndex, int pageSize);
+    Page<VerificationRecord> queryVerificationRecords(VerificationRecord verificationRecord,
+                                                       LocalDateTime executeDateStart, LocalDateTime executeDateEnd,
+                                                       LocalDateTime nextVerifyDateStart, LocalDateTime nextVerifyDateEnd,
+                                                       LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
+                                                       LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
+                                                       int pageIndex, int pageSize);
 
     // endregion
 

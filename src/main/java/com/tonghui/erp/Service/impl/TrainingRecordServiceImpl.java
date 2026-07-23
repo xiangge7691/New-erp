@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -161,13 +162,17 @@ public class TrainingRecordServiceImpl extends ServiceImpl<TrainingRecordMapper,
     /**
      * 高级查询培训记录（支持多条件 + 分页）
      *
-     * @param trainingRecord 查询条件
-     * @param pageIndex      页码
-     * @param pageSize       每页大小
+     * @param trainingRecord    查询条件
+     * @param trainingDateStart 培训日期开始
+     * @param trainingDateEnd   培训日期结束
+     * @param pageIndex         页码
+     * @param pageSize          每页大小
      * @return 分页结果
      */
     @Override
-    public Page<TrainingRecord> queryTrainingRecords(TrainingRecord trainingRecord, int pageIndex, int pageSize) {
+    public Page<TrainingRecord> queryTrainingRecords(TrainingRecord trainingRecord,
+                                                      LocalDateTime trainingDateStart, LocalDateTime trainingDateEnd,
+                                                      int pageIndex, int pageSize) {
         Page<TrainingRecord> page = new Page<>(pageIndex, pageSize);
         QueryWrapper<TrainingRecord> wrapper = new QueryWrapper<>();
 
@@ -190,11 +195,11 @@ public class TrainingRecordServiceImpl extends ServiceImpl<TrainingRecordMapper,
         }
 
         // 培训日期范围查询
-        if (trainingRecord.getTrainingDateStart() != null) {
-            wrapper.ge("training_date", trainingRecord.getTrainingDateStart());
+        if (trainingDateStart != null) {
+            wrapper.ge("training_date", trainingDateStart);
         }
-        if (trainingRecord.getTrainingDateEnd() != null) {
-            wrapper.le("training_date", trainingRecord.getTrainingDateEnd());
+        if (trainingDateEnd != null) {
+            wrapper.le("training_date", trainingDateEnd);
         }
 
         // 按培训日期降序排列

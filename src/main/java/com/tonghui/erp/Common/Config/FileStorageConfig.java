@@ -121,6 +121,7 @@ public class FileStorageConfig {
         put("CUSTOMER", "客户管理");
         put("ORGANIZATION", "机构管理");
         put("TRAINING", "培训管理");
+        put("DOSAGE_FORM", "剂型信息");
         put("GENERAL", "通用文件");
     }};
 

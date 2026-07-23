@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import org.springframework.format.annotation.DateTimeFormat;
 
 import java.util.Date;
 
@@ -66,18 +67,6 @@ public class SupplierAudit extends AuditEntity {
      */
     @TableField(value = "audit_date")
     private Date auditDate;
-
-    /**
-     * 审核日期开始（用于范围查询，不映射数据库）
-     */
-    @TableField(exist = false)
-    private Date auditDateStart;
-
-    /**
-     * 审核日期结束（用于范围查询，不映射数据库）
-     */
-    @TableField(exist = false)
-    private Date auditDateEnd;
 
     /**
      * 审核内容
