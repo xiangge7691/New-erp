@@ -8,12 +8,16 @@ import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.ProductionUnitWithDetailsDto;
 import com.tonghui.erp.Common.utils.EntityUtils;
+import com.tonghui.erp.Data.Entity.Material;
 import com.tonghui.erp.Data.Entity.ProdUnitMaterialFile;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Data.Entity.ProdUnitInvoice;
+import com.tonghui.erp.Data.Entity.Stock;
+import com.tonghui.erp.Data.mapper.MaterialMapper;
 import com.tonghui.erp.Data.mapper.ProdUnitMaterialFileMapper;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Data.mapper.ProdUnitInvoiceMapper;
+import com.tonghui.erp.Data.mapper.StockMapper;
 import com.tonghui.erp.Service.FileStorageService;
 import com.tonghui.erp.Service.ProductionUnitService;
 import org.springframework.beans.BeanUtils;
@@ -61,6 +65,14 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
     @Autowired
     private FileStorageService fileStorageService;
 
+    /** 物料数据访问层，用于查询所有物料 */
+    @Autowired
+    private MaterialMapper materialMapper;
+
+    /** 库存数据访问层，用于创建生产单位时自动生成库存记录 */
+    @Autowired
+    private StockMapper stockMapper;
+
     // endregion
 
     // region 分页查询方法
@@ -97,7 +109,8 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
 
     /**
      * 新增生产单位
-     * <p>自动设置创建时间、更新时间、创建人和更新人</p>
+     * <p>自动设置创建时间、更新时间、创建人和更新人。
+     * 创建成功后自动为每个物料创建库存基础记录。</p>
      *
      * @param productionUnit 生产单位实体
      * @return 操作是否成功
@@ -109,15 +122,66 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
         java.time.LocalDateTime now = java.time.LocalDateTime.now();
         productionUnit.setCreatedTime(now);
         productionUnit.setUpdatedTime(now);
-        
+
         // 获取当前用户ID
         Long currentUserId = EntityUtils.getCurrentUserId();
         if (currentUserId != null) {
             productionUnit.setCreatedBy(currentUserId);
             productionUnit.setUpdatedBy(currentUserId);
         }
-        
-        return this.save(productionUnit);
+
+        boolean result = this.save(productionUnit);
+
+        if (result) {
+            // 为每个物料创建库存基础记录
+            createStockRecordsForAllMaterials(productionUnit);
+        }
+
+        return result;
+    }
+
+    /**
+     * 为所有未删除的物料创建该生产单位的库存记录
+     *
+     * @param productionUnit 已插入的生产单位实体
+     */
+    private void createStockRecordsForAllMaterials(ProductionUnit productionUnit) {
+        // 查询所有未删除的物料
+        QueryWrapper<Material> materialWrapper = new QueryWrapper<>();
+        materialWrapper.eq("is_deleted", 0);
+        List<Material> materials = materialMapper.selectList(materialWrapper);
+
+        if (materials.isEmpty()) {
+            return;
+        }
+
+        // 为每个物料创建库存记录
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        java.time.LocalDate today = java.time.LocalDate.now();
+        for (Material material : materials) {
+            Stock stock = new Stock();
+            stock.setProdUnitId(productionUnit.getProdUnitId());
+            stock.setItemType("material");
+            stock.setItemId(material.getMaterialId());
+            stock.setItemCode(material.getMaterialCode());
+            stock.setItemName(material.getMaterialName());
+            stock.setCategoryName(material.getCategoryName());
+            stock.setUnitName(material.getUnitName());
+            stock.setQuantity(java.math.BigDecimal.ZERO);
+            stock.setBatchNumber("");
+            stock.setProductionDate(today);
+            stock.setExpiryDate(today.plusYears(5));
+            stock.setStorageLocation("");
+            stock.setRemark("");
+            stock.setStockStatus(1);
+            stock.setIsDeleted(0);
+            stock.setVersion(1);
+            stock.setCreatedBy(productionUnit.getCreatedBy());
+            stock.setUpdatedBy(productionUnit.getUpdatedBy());
+            stock.setCreatedTime(now);
+            stock.setUpdatedTime(now);
+            stockMapper.insert(stock);
+        }
     }
 
     /**

@@ -57,6 +57,18 @@ public class ProductionUnit extends AuditEntity {
     @TableField(value = "prod_unit_phone")
     private String prodUnitPhone;
 
+    /**
+     * 位置
+     */
+    @TableField(value = "location")
+    private String location;
+
+    /**
+     * 使用面积（平方米）
+     */
+    @TableField(value = "usage_area")
+    private java.math.BigDecimal usageArea;
+
     // endregion
 
     // region 业务字段
