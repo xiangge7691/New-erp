@@ -138,6 +138,7 @@ public class MaterialServiceImpl implements MaterialService {
             stock.setCategoryName(material.getCategoryName());
             stock.setUnitName(material.getUnitName());
             stock.setQuantity(java.math.BigDecimal.ZERO);
+            stock.setBatchNumber("");
             stock.setStockStatus(1);
             stock.setIsDeleted(0);
             stock.setVersion(1);
