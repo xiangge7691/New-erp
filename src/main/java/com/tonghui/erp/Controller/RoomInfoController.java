@@ -128,6 +128,13 @@ public class RoomInfoController extends BaseCrudController<RoomInfo, RoomInfo, I
             throw new RuntimeException("房间名称已存在");
         }
 
+        // 清理已软删除的相同名称记录（避免唯一键冲突）
+        roomInfoService.cleanSoftDeletedByRoomName(roomInfo.getRoomName());
+        // 如果房间编码不为空，也清理已软删除的相同编码记录
+        if (roomInfo.getRoomCode() != null && !roomInfo.getRoomCode().isEmpty()) {
+            roomInfoService.cleanSoftDeletedByRoomCode(roomInfo.getRoomCode());
+        }
+
         // 设置创建人 ID 和更新人 ID
         Long currentUserId = EntityUtils.getCurrentUserId();
         if (currentUserId != null) {

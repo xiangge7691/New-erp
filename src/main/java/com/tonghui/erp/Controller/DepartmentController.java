@@ -70,6 +70,9 @@ public class DepartmentController extends BaseCrudController<Department, Departm
             throw new RuntimeException("部门名已存在");
         }
 
+        // 清理已软删除的相同部门名记录（避免唯一键冲突）
+        departmentService.cleanSoftDeletedByDepartmentName(department.getDepartmentName());
+
         // 添加部门到数据库
         boolean result = departmentService.save(department);
         

@@ -32,6 +32,14 @@ public interface DosageFormService extends IService<DosageForm> {
     Page<DosageForm> queryDosageForms(DosageForm dosageForm, int pageNum, int pageSize);
 
     PagedResult<DosageFormWithDetailsDto> searchWithDetails(DosageForm dosageForm, int pageNum, int pageSize);
-    
+
+    /**
+     * 清理指定剂型名称下已被软删除的记录（释放唯一键约束）
+     *
+     * @param dosageName 剂型名称
+     * @return 清理的记录数
+     */
+    int cleanSoftDeletedByDosageName(String dosageName);
+
     // endregion
 }

@@ -19,6 +19,23 @@ import org.springframework.stereotype.Service;
 public class UnitServiceImpl extends ServiceImpl<UnitMapper, Unit>
     implements UnitService{
 
+    // region 数据清理接口
+    // ===================================
+    // 数据清理接口
+    // ===================================
+
+    /**
+     * 清理指定单位名称下已被软删除的记录（释放唯一键约束）
+     *
+     * @param unitName 单位名称
+     * @return 清理的记录数
+     */
+    public int cleanSoftDeletedByUnitName(String unitName) {
+        return baseMapper.physicalDeleteByUnitName(unitName);
+    }
+
+    // endregion
+
     // region 计量单位查询实现方法
     // ===================================
     // 计量单位查询实现方法

@@ -73,6 +73,23 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     // endregion
 
+    // region 数据清理接口
+    // ===================================
+    // 数据清理接口
+    // ===================================
+
+    /**
+     * 清理指定用户名下已被软删除的记录（释放唯一键约束）
+     *
+     * @param userAccount 用户名
+     * @return 清理的记录数
+     */
+    public int cleanSoftDeletedByUserAccount(String userAccount) {
+        return baseMapper.physicalDeleteByUserAccount(userAccount);
+    }
+
+    // endregion
+
     // region 基础操作接口
     // ===================================
     // 用户基础操作接口

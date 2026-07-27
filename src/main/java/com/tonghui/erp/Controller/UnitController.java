@@ -75,6 +75,9 @@ public class UnitController extends BaseCrudController<Unit, Unit, Long> {
             throw new RuntimeException("计量单位名称已存在");
         }
 
+        // 清理已软删除的相同单位名称记录（避免唯一键冲突）
+        unitService.cleanSoftDeletedByUnitName(unit.getUnitName());
+
         // 添加计量单位到数据库
         boolean result = unitService.save(unit);
         

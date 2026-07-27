@@ -55,6 +55,33 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoMapper, RoomInfo>
     @Lazy
     private EquipmentService equipmentService;
 
+    // region 数据清理接口
+    // ===================================
+    // 数据清理接口
+    // ===================================
+
+    /**
+     * 清理指定房间编码下已被软删除的记录（释放唯一键约束）
+     *
+     * @param roomCode 房间编码
+     * @return 清理的记录数
+     */
+    public int cleanSoftDeletedByRoomCode(String roomCode) {
+        return baseMapper.physicalDeleteByRoomCode(roomCode);
+    }
+
+    /**
+     * 清理指定房间名称下已被软删除的记录（释放唯一键约束）
+     *
+     * @param roomName 房间名称
+     * @return 清理的记录数
+     */
+    public int cleanSoftDeletedByRoomName(String roomName) {
+        return baseMapper.physicalDeleteByRoomName(roomName);
+    }
+
+    // endregion
+
     // region 房间信息查询实现方法
     // ===================================
     // 房间信息查询实现方法

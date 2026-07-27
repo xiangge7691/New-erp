@@ -53,4 +53,20 @@ public interface RoomInfoService extends IService<RoomInfo> {
      * @return 分页结果（包含 4 个子表记录）
      */
     PagedResult<RoomInfoWithDetailsDto> searchWithDetails(String roomName, PageRequestDto pageRequest);
+
+    /**
+     * 清理指定房间编码下已被软删除的记录（释放唯一键约束）
+     *
+     * @param roomCode 房间编码
+     * @return 清理的记录数
+     */
+    int cleanSoftDeletedByRoomCode(String roomCode);
+
+    /**
+     * 清理指定房间名称下已被软删除的记录（释放唯一键约束）
+     *
+     * @param roomName 房间名称
+     * @return 清理的记录数
+     */
+    int cleanSoftDeletedByRoomName(String roomName);
 }

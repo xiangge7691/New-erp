@@ -111,7 +111,7 @@ public interface RoleService extends IService<Role> {
     // ===================================
     // 权限分配接口
     // ===================================
-    
+
     /**
      * 为角色分配权限
      *
@@ -120,5 +120,19 @@ public interface RoleService extends IService<Role> {
      * @return 操作是否成功
      */
     boolean assignPermissionsToRole(Long roleId, List<Long> permissionIds);
+    // endregion
+
+    // region 数据清理接口
+    // ===================================
+    // 数据清理接口
+    // ===================================
+
+    /**
+     * 清理指定角色名称下已被软删除的记录（释放唯一键约束）
+     *
+     * @param roleName 角色名称
+     * @return 清理的记录数
+     */
+    int cleanSoftDeletedByRoleName(String roleName);
     // endregion
 }

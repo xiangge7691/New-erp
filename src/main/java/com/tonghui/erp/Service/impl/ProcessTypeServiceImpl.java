@@ -49,6 +49,23 @@ public class ProcessTypeServiceImpl extends ServiceImpl<ProcessTypeMapper, Proce
 
     // endregion
 
+    // region 数据清理接口
+    // ===================================
+    // 数据清理接口
+    // ===================================
+
+    /**
+     * 清理指定工序编码下已被软删除的记录（释放唯一键约束）
+     *
+     * @param processCode 工序编码
+     * @return 清理的记录数
+     */
+    public int cleanSoftDeletedByProcessCode(String processCode) {
+        return baseMapper.physicalDeleteByProcessCode(processCode);
+    }
+
+    // endregion
+
     // region 工序类型查询实现方法
     // ===================================
     // 工序类型查询实现方法

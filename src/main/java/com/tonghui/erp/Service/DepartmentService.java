@@ -120,6 +120,20 @@ public interface DepartmentService extends IService<Department> {
     Department getByDepartmentName(String departmentName);
     // endregion
     
+    // region 数据清理接口
+    // ===================================
+    // 数据清理接口
+    // ===================================
+
+    /**
+     * 清理指定部门名称下已被软删除的记录（释放唯一键约束）
+     *
+     * @param departmentName 部门名称
+     * @return 清理的记录数
+     */
+    int cleanSoftDeletedByDepartmentName(String departmentName);
+    // endregion
+
     // region 部门关联检查接口
     // ===================================
     // 部门关联检查接口

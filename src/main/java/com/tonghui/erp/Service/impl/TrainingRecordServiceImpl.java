@@ -38,6 +38,23 @@ public class TrainingRecordServiceImpl extends ServiceImpl<TrainingRecordMapper,
 
     // endregion
 
+    // region 数据清理接口
+    // ===================================
+    // 数据清理接口
+    // ===================================
+
+    /**
+     * 清理指定培训编号下已被软删除的记录（释放唯一键约束）
+     *
+     * @param trainingNo 培训编号
+     * @return 清理的记录数
+     */
+    public int cleanSoftDeletedByTrainingNo(String trainingNo) {
+        return trainingRecordMapper.physicalDeleteByTrainingNo(trainingNo);
+    }
+
+    // endregion
+
     // region 基础CRUD操作
     // ===================================
     // 基础CRUD操作
@@ -61,6 +78,8 @@ public class TrainingRecordServiceImpl extends ServiceImpl<TrainingRecordMapper,
             if (existing != null) {
                 throw new RuntimeException("培训编号已存在：" + trainingRecord.getTrainingNo());
             }
+            // 清理已软删除的相同编号记录（避免唯一键冲突）
+            cleanSoftDeletedByTrainingNo(trainingRecord.getTrainingNo());
         }
 
         // 计算下次培训日期

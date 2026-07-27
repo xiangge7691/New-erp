@@ -45,6 +45,23 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
     @Autowired
     private Converters converters;
 
+    // region 数据清理接口
+    // ===================================
+    // 数据清理接口
+    // ===================================
+
+    /**
+     * 清理指定权限键下已被软删除的记录（释放唯一键约束）
+     *
+     * @param permKey 权限键
+     * @return 清理的记录数
+     */
+    public int cleanSoftDeletedByPermKey(String permKey) {
+        return baseMapper.physicalDeleteByPermKey(permKey);
+    }
+
+    // endregion
+
     // region 权限查询接口
     // ===================================
     // 权限查询接口

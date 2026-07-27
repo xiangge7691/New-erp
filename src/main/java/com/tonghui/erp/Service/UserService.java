@@ -189,7 +189,7 @@ public interface UserService extends IService<User> {
     // ===================================
     // 数据转换接口
     // ===================================
-    
+
     /**
      * 将User实体转换为UserDto
      *
@@ -197,5 +197,19 @@ public interface UserService extends IService<User> {
      * @return UserDto对象
      */
     UserDto convertToDto(User user);
+    // endregion
+
+    // region 数据清理接口
+    // ===================================
+    // 数据清理接口
+    // ===================================
+
+    /**
+     * 清理指定用户名下已被软删除的记录（释放唯一键约束）
+     *
+     * @param userAccount 用户名
+     * @return 清理的记录数
+     */
+    int cleanSoftDeletedByUserAccount(String userAccount);
     // endregion
 }

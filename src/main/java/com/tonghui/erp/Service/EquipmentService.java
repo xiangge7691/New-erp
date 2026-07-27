@@ -95,4 +95,12 @@ public interface EquipmentService extends IService<Equipment> {
             java.time.LocalDateTime updatedTimeEnd,
             int pageNum,
             int pageSize);
+
+    /**
+     * 清理指定固定资产编号下已被软删除的记录（释放唯一键约束）
+     *
+     * @param fixedAssetCode 固定资产编号
+     * @return 清理的记录数
+     */
+    int cleanSoftDeletedByFixedAssetCode(String fixedAssetCode);
 }

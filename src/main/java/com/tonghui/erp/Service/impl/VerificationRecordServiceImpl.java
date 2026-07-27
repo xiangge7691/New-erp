@@ -33,6 +33,23 @@ public class VerificationRecordServiceImpl extends ServiceImpl<VerificationRecor
 
     // endregion
 
+    // region 数据清理接口
+    // ===================================
+    // 数据清理接口
+    // ===================================
+
+    /**
+     * 清理指定验证编号下已被软删除的记录（释放唯一键约束）
+     *
+     * @param verificationNo 验证编号
+     * @return 清理的记录数
+     */
+    public int cleanSoftDeletedByVerificationNo(String verificationNo) {
+        return baseMapper.physicalDeleteByVerificationNo(verificationNo);
+    }
+
+    // endregion
+
     // region 基础CRUD操作
     // ===================================
     // 基础CRUD操作
@@ -47,6 +64,10 @@ public class VerificationRecordServiceImpl extends ServiceImpl<VerificationRecor
     @Override
     @Transactional
     public boolean addVerificationRecord(VerificationRecord verificationRecord) {
+        // 如果验证编号不为空，清理已软删除的相同编号记录（避免唯一键冲突）
+        if (verificationRecord.getVerificationNo() != null && !verificationRecord.getVerificationNo().isEmpty()) {
+            cleanSoftDeletedByVerificationNo(verificationRecord.getVerificationNo());
+        }
         return this.save(verificationRecord);
     }
 

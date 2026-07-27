@@ -42,6 +42,23 @@ public class DosageFormServiceImpl extends ServiceImpl<DosageFormMapper, DosageF
 
     // endregion
 
+    // region 数据清理接口
+    // ===================================
+    // 数据清理接口
+    // ===================================
+
+    /**
+     * 清理指定剂型名称下已被软删除的记录（释放唯一键约束）
+     *
+     * @param dosageName 剂型名称
+     * @return 清理的记录数
+     */
+    public int cleanSoftDeletedByDosageName(String dosageName) {
+        return baseMapper.physicalDeleteByDosageName(dosageName);
+    }
+
+    // endregion
+
     // region 剂型查询实现方法
     // ===================================
     // 剂型查询实现方法

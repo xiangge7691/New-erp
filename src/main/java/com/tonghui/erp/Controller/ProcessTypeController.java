@@ -117,6 +117,11 @@ public class ProcessTypeController extends BaseCrudController<ProcessType, Proce
             throw new RuntimeException("工序类型编码已存在");
         }
 
+        // 清理已软删除的相同编码记录（避免唯一键冲突）
+        if (processType.getProcessCode() != null && !processType.getProcessCode().isEmpty()) {
+            processTypeService.cleanSoftDeletedByProcessCode(processType.getProcessCode());
+        }
+
         // 设置创建人 ID 和创建时间
         Long currentUserId = EntityUtils.getCurrentUserId();
         if (currentUserId != null) {

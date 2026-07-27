@@ -91,6 +91,9 @@ public class RoleController extends BaseCrudController<RoleCreateDto, RoleDto, L
             throw new RuntimeException("角色名已存在");
         }
 
+        // 清理已软删除的相同角色名记录（避免唯一键冲突）
+        roleService.cleanSoftDeletedByRoleName(roleCreateDto.getRoleName());
+
         // 创建角色实体
         Role role = new Role();
         role.setRoleName(roleCreateDto.getRoleName());

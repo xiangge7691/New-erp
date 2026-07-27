@@ -54,6 +54,23 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
     
     // endregion
 
+    // region 数据清理接口
+    // ===================================
+    // 数据清理接口
+    // ===================================
+
+    /**
+     * 清理指定部门名称下已被软删除的记录（释放唯一键约束）
+     *
+     * @param departmentName 部门名称
+     * @return 清理的记录数
+     */
+    public int cleanSoftDeletedByDepartmentName(String departmentName) {
+        return baseMapper.physicalDeleteByDepartmentName(departmentName);
+    }
+
+    // endregion
+
     // region 基础操作接口
     // ===================================
     // 部门基础操作接口

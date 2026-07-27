@@ -38,4 +38,12 @@ public interface ProcessTypeService extends IService<ProcessType> {
     Page<ProcessType> queryProcessTypes(ProcessType processType, int pageNum, int pageSize);
 
     PagedResult<ProcessTypeWithDetailsDto> searchWithDetails(ProcessType processType, int pageNum, int pageSize);
+
+    /**
+     * 清理指定工序编码下已被软删除的记录（释放唯一键约束）
+     *
+     * @param processCode 工序编码
+     * @return 清理的记录数
+     */
+    int cleanSoftDeletedByProcessCode(String processCode);
 }

@@ -26,6 +26,14 @@ public interface UnitService extends IService<Unit> {
      * @return 分页结果，包含查询到的计量单位列表和分页信息
      */
     PagedResult<Unit> searchByName(String unitName, PageRequestDto pageRequest);
-    
+
+    /**
+     * 清理指定单位名称下已被软删除的记录（释放唯一键约束）
+     *
+     * @param unitName 单位名称
+     * @return 清理的记录数
+     */
+    int cleanSoftDeletedByUnitName(String unitName);
+
     // endregion
 }

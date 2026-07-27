@@ -121,6 +121,9 @@ public class OrganizationServiceImpl extends ServiceImpl<OrganizationMapper, Org
             throw new RuntimeException("已存在机构信息，请使用更新接口");
         }
 
+        // 清理已软删除的机构记录（避免唯一键冲突）
+        cleanSoftDeletedOrganizations();
+
         // 自动计算有效期至 = 发证日期 + 5年
         if (organization.getIssueDate() != null) {
             organization.setExpiryDate(organization.getIssueDate().plusYears(5));
@@ -171,6 +174,15 @@ public class OrganizationServiceImpl extends ServiceImpl<OrganizationMapper, Org
     // ===================================
     // 私有辅助方法
     // ===================================
+
+    /**
+     * 清理已软删除的机构记录（释放唯一键约束）
+     */
+    private void cleanSoftDeletedOrganizations() {
+        QueryWrapper<Organization> wrapper = new QueryWrapper<>();
+        wrapper.eq("is_deleted", 1);
+        remove(wrapper);
+    }
 
     /**
      * 获取当前机构记录（单机构模式，始终返回唯一一条）

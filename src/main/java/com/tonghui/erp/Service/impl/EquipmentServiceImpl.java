@@ -43,6 +43,23 @@ public class EquipmentServiceImpl extends ServiceImpl<EquipmentMapper, Equipment
     @Lazy
     private EquipmentMaintenanceService equipmentMaintenanceService;
 
+    // region 数据清理接口
+    // ===================================
+    // 数据清理接口
+    // ===================================
+
+    /**
+     * 清理指定固定资产编号下已被软删除的记录（释放唯一键约束）
+     *
+     * @param fixedAssetCode 固定资产编号
+     * @return 清理的记录数
+     */
+    public int cleanSoftDeletedByFixedAssetCode(String fixedAssetCode) {
+        return baseMapper.physicalDeleteByFixedAssetCode(fixedAssetCode);
+    }
+
+    // endregion
+
     // region 设备信息查询实现方法
     // ===================================
     // 设备信息查询实现方法

@@ -74,6 +74,23 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role>
 
     // endregion
 
+    // region 数据清理接口
+    // ===================================
+    // 数据清理接口
+    // ===================================
+
+    /**
+     * 清理指定角色名称下已被软删除的记录（释放唯一键约束）
+     *
+     * @param roleName 角色名称
+     * @return 清理的记录数
+     */
+    public int cleanSoftDeletedByRoleName(String roleName) {
+        return baseMapper.physicalDeleteByRoleName(roleName);
+    }
+
+    // endregion
+
     // region 角色查询接口
     // ===================================
     // 角色查询接口

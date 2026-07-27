@@ -106,7 +106,7 @@ public interface PermissionService extends IService<Permission> {
     // ===================================
     // 数据转换接口
     // ===================================
-    
+
     /**
      * 将Permission实体转换为PermissionDto
      *
@@ -114,5 +114,19 @@ public interface PermissionService extends IService<Permission> {
      * @return PermissionDto对象
      */
     PermissionDto convertToDto(Permission permission);
+    // endregion
+
+    // region 数据清理接口
+    // ===================================
+    // 数据清理接口
+    // ===================================
+
+    /**
+     * 清理指定权限键下已被软删除的记录（释放唯一键约束）
+     *
+     * @param permKey 权限键
+     * @return 清理的记录数
+     */
+    int cleanSoftDeletedByPermKey(String permKey);
     // endregion
 }

@@ -113,6 +113,9 @@ public class DosageFormController extends BaseCrudController<DosageForm, DosageF
             throw new RuntimeException("药品剂型名称已存在");
         }
 
+        // 清理已软删除的相同剂型名称记录（避免唯一键冲突）
+        dosageFormService.cleanSoftDeletedByDosageName(dosageForm.getDosageName());
+
         // 添加药品剂型到数据库
         boolean result = dosageFormService.save(dosageForm);
 

@@ -3,6 +3,7 @@ package com.tonghui.erp.Data.mapper;
 import com.tonghui.erp.Data.Entity.TrainingRecord;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
@@ -38,4 +39,13 @@ public interface TrainingRecordMapper extends BaseMapper<TrainingRecord> {
             "AND (reminder_status IS NULL OR reminder_status = 0) " +
             "ORDER BY next_training_date ASC")
     List<TrainingRecord> selectExpiringTrainings(@Param("warningDate") Date warningDate);
+
+    /**
+     * 根据培训编号物理删除已软删除的记录（释放唯一键约束）
+     *
+     * @param trainingNo 培训编号
+     * @return 删除的记录数
+     */
+    @Delete("DELETE FROM training_record WHERE training_no = #{trainingNo} AND is_deleted = 1")
+    int physicalDeleteByTrainingNo(@Param("trainingNo") String trainingNo);
 }
