@@ -21,6 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -128,6 +129,7 @@ public class MaterialServiceImpl implements MaterialService {
 
         // 为每个生产单位创建库存记录
         LocalDateTime now = LocalDateTime.now();
+        LocalDate today = LocalDate.now();
         for (ProductionUnit pu : prodUnits) {
             Stock stock = new Stock();
             stock.setProdUnitId(pu.getProdUnitId());
@@ -139,6 +141,10 @@ public class MaterialServiceImpl implements MaterialService {
             stock.setUnitName(material.getUnitName());
             stock.setQuantity(java.math.BigDecimal.ZERO);
             stock.setBatchNumber("");
+            stock.setProductionDate(today);
+            stock.setExpiryDate(today.plusYears(5));
+            stock.setStorageLocation("");
+            stock.setRemark("");
             stock.setStockStatus(1);
             stock.setIsDeleted(0);
             stock.setVersion(1);
