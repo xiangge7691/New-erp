@@ -6,10 +6,14 @@ import com.tonghui.erp.Common.Dto.Material.MaterialWithDetailsDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.Material;
 import com.tonghui.erp.Data.Entity.PreparationFormula;
+import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Data.Entity.PurchaseOrderItems;
+import com.tonghui.erp.Data.Entity.Stock;
 import com.tonghui.erp.Data.mapper.MaterialMapper;
 import com.tonghui.erp.Data.mapper.PreparationFormulaMapper;
+import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrderItemsMapper;
+import com.tonghui.erp.Data.mapper.StockMapper;
 import com.tonghui.erp.Service.MaterialService;
 import com.tonghui.erp.Common.utils.EntityUtils;
 import org.springframework.beans.BeanUtils;
@@ -50,6 +54,14 @@ public class MaterialServiceImpl implements MaterialService {
     @Autowired
     private PurchaseOrderItemsMapper purchaseOrderItemsMapper;
 
+    /** 生产单位数据访问层，用于查询所有启用的生产单位 */
+    @Autowired
+    private ProductionUnitMapper productionUnitMapper;
+
+    /** 库存数据访问层，用于创建物料时自动生成库存记录 */
+    @Autowired
+    private StockMapper stockMapper;
+
     // endregion
 
     // region 基础CRUD操作
@@ -70,13 +82,14 @@ public class MaterialServiceImpl implements MaterialService {
 
     /**
      * 新增物料
-     * <p>自动设置创建时间、更新时间、创建人和更新人，并自动生成物料编码</p>
+     * <p>自动设置创建时间、更新时间、创建人和更新人，并自动生成物料编码。
+     * 创建成功后自动为每个生产单位创建库存基础记录。</p>
      *
      * @param material 物料实体
      */
     @Override
     public void addMaterial(Material material) {
-        // 自动生成物料编码
+        // 自动生成物料编码（查询时包含已删除记录，避免编码冲突）
         material.setMaterialCode(generateMaterialCode(material.getCategoryName()));
 
         // 设置创建时间和更新时间
@@ -92,6 +105,48 @@ public class MaterialServiceImpl implements MaterialService {
         }
 
         materialMapper.insert(material);
+
+        // 为每个生产单位创建库存基础记录
+        createStockRecordsForAllProdUnits(material);
+    }
+
+    /**
+     * 为所有启用的生产单位创建该物料的库存记录
+     *
+     * @param material 已插入的物料实体
+     */
+    private void createStockRecordsForAllProdUnits(Material material) {
+        // 查询所有启用且未删除的生产单位
+        QueryWrapper<ProductionUnit> puWrapper = new QueryWrapper<>();
+        puWrapper.eq("prod_unit_status", 1);
+        puWrapper.eq("is_deleted", 0);
+        List<ProductionUnit> prodUnits = productionUnitMapper.selectList(puWrapper);
+
+        if (prodUnits.isEmpty()) {
+            return;
+        }
+
+        // 为每个生产单位创建库存记录
+        LocalDateTime now = LocalDateTime.now();
+        for (ProductionUnit pu : prodUnits) {
+            Stock stock = new Stock();
+            stock.setProdUnitId(pu.getProdUnitId());
+            stock.setItemType("material");
+            stock.setItemId(material.getMaterialId());
+            stock.setItemCode(material.getMaterialCode());
+            stock.setItemName(material.getMaterialName());
+            stock.setCategoryName(material.getCategoryName());
+            stock.setUnitName(material.getUnitName());
+            stock.setQuantity(java.math.BigDecimal.ZERO);
+            stock.setStockStatus(1);
+            stock.setIsDeleted(0);
+            stock.setVersion(1);
+            stock.setCreatedBy(material.getCreatedBy());
+            stock.setUpdatedBy(material.getUpdatedBy());
+            stock.setCreatedTime(now);
+            stock.setUpdatedTime(now);
+            stockMapper.insert(stock);
+        }
     }
 
     /**
