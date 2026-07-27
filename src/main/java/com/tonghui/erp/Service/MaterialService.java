@@ -25,6 +25,18 @@ public interface MaterialService {
     void addMaterial(Material material);
 
     /**
+     * 根据分类名称生成物料编码
+     * <p>
+     * 编码规则：分类前缀 + 4位流水号
+     * 原料→Y，辅料→F，包材→B
+     * </p>
+     *
+     * @param categoryName 分类名称（原料/辅料/包材）
+     * @return 生成的物料编码
+     */
+    String generateMaterialCode(String categoryName);
+
+    /**
      * 更新物料
      *
      * @param material 物料实体

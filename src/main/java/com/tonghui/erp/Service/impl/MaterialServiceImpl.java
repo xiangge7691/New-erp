@@ -70,25 +70,78 @@ public class MaterialServiceImpl implements MaterialService {
 
     /**
      * 新增物料
-     * <p>自动设置创建时间、更新时间、创建人和更新人</p>
+     * <p>自动设置创建时间、更新时间、创建人和更新人，并自动生成物料编码</p>
      *
      * @param material 物料实体
      */
     @Override
     public void addMaterial(Material material) {
+        // 自动生成物料编码
+        material.setMaterialCode(generateMaterialCode(material.getCategoryName()));
+
         // 设置创建时间和更新时间
         LocalDateTime now = LocalDateTime.now();
         material.setCreatedTime(now);
         material.setUpdatedTime(now);
-        
+
         // 获取当前用户ID
         Long currentUserId = EntityUtils.getCurrentUserId();
         if (currentUserId != null) {
             material.setCreatedBy(currentUserId);
             material.setUpdatedBy(currentUserId);
         }
-        
+
         materialMapper.insert(material);
+    }
+
+    /**
+     * 根据分类名称生成物料编码
+     * <p>
+     * 编码规则：分类前缀 + 4位流水号
+     * 原料→Y，辅料→F，包材→B
+     * </p>
+     *
+     * @param categoryName 分类名称（原料/辅料/包材）
+     * @return 生成的物料编码
+     */
+    @Override
+    public String generateMaterialCode(String categoryName) {
+        // 获取分类前缀
+        String prefix = getCategoryPrefix(categoryName);
+
+        // 查询该前缀下最大的物料编码
+        String maxCode = materialMapper.getMaxCodeByPrefix(prefix);
+
+        int nextSeq = 1;
+        if (maxCode != null && maxCode.length() > prefix.length()) {
+            try {
+                String seqStr = maxCode.substring(prefix.length());
+                nextSeq = Integer.parseInt(seqStr) + 1;
+            } catch (NumberFormatException e) {
+                nextSeq = 1;
+            }
+        }
+
+        return prefix + String.format("%04d", nextSeq);
+    }
+
+    /**
+     * 根据分类名称获取编码前缀
+     *
+     * @param categoryName 分类名称
+     * @return 编码前缀
+     * @throws RuntimeException 如果分类名称不在支持范围内
+     */
+    private String getCategoryPrefix(String categoryName) {
+        if (!StringUtils.hasText(categoryName)) {
+            throw new RuntimeException("分类名称不能为空");
+        }
+        return switch (categoryName) {
+            case "原料" -> "Y";
+            case "辅料" -> "F";
+            case "包材" -> "B";
+            default -> throw new RuntimeException("不支持的物料分类：" + categoryName + "，仅支持原料、辅料、包材");
+        };
     }
 
     /**
