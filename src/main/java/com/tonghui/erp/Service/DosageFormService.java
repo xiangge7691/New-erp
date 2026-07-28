@@ -21,25 +21,25 @@ public interface DosageFormService extends IService<DosageForm> {
     // ===================================
     
     /**
-     * 根据剂型名称模糊查询（分页）
-     * 
-     * @param dosageName 剂型名称（模糊匹配），为空时查询所有
+     * 根据剂型大类模糊查询（分页）
+     *
+     * @param dosageCategory 剂型大类（模糊匹配），为空时查询所有
      * @param pageRequest 分页参数，包含页码和每页数量等信息
      * @return 分页结果，包含查询到的剂型列表和分页信息
      */
-    PagedResult<DosageForm> searchByName(String dosageName, PageRequestDto pageRequest);
-    
+    PagedResult<DosageForm> searchByName(String dosageCategory, PageRequestDto pageRequest);
+
     Page<DosageForm> queryDosageForms(DosageForm dosageForm, int pageNum, int pageSize);
 
     PagedResult<DosageFormWithDetailsDto> searchWithDetails(DosageForm dosageForm, int pageNum, int pageSize);
 
     /**
-     * 清理指定剂型名称下已被软删除的记录（释放唯一键约束）
+     * 清理指定剂型大类下已被软删除的记录（释放唯一键约束）
      *
-     * @param dosageName 剂型名称
+     * @param dosageCategory 剂型大类
      * @return 清理的记录数
      */
-    int cleanSoftDeletedByDosageName(String dosageName);
+    int cleanSoftDeletedByDosageCategory(String dosageCategory);
 
     // endregion
 }

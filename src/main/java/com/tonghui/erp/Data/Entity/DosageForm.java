@@ -28,7 +28,13 @@ public class DosageForm extends AuditEntity {
     private Long dosageId;
 
     /**
-     * 剂型名称（法定全称）
+     * 剂型大类（如片剂、注射剂、胶囊剂等）
+     */
+    @TableField(value = "dosage_category")
+    private String dosageCategory;
+
+    /**
+     * 剂型名称（具体剂型名称）
      */
     @TableField(value = "dosage_name")
     private String dosageName;

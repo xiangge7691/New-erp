@@ -109,7 +109,8 @@ public class PreparationController extends BaseCrudController<Preparation, Prepa
      * @param spec 规格描述（模糊匹配）
      * @param processAttr 加工性质（精确匹配）
      * @param packageSpec 包装规格（精确匹配）
-     * @param dosageForm 剂型（精确匹配）
+     * @param dosageCategory 剂型大类（精确匹配）
+     * @param dosageName 剂型名称（精确匹配）
      * @param status 状态（精确匹配）
      * @param unitName 单位名称（模糊匹配）
      * @param producer 生产商（模糊匹配）
@@ -127,7 +128,8 @@ public class PreparationController extends BaseCrudController<Preparation, Prepa
             @RequestParam(required = false) String spec,
             @RequestParam(required = false) String processAttr,
             @RequestParam(required = false) String packageSpec,
-            @RequestParam(required = false) String dosageForm,
+            @RequestParam(required = false) String dosageCategory,
+            @RequestParam(required = false) String dosageName,
             @RequestParam(required = false) Integer status,
             @RequestParam(required = false) String unitName,
             @RequestParam(required = false) String producer,
@@ -144,7 +146,8 @@ public class PreparationController extends BaseCrudController<Preparation, Prepa
             preparation.setSpec(spec);
             preparation.setProcessAttr(processAttr);
             preparation.setPackageSpec(packageSpec);
-            preparation.setDosageForm(dosageForm);
+            preparation.setDosageCategory(dosageCategory);
+            preparation.setDosageName(dosageName);
             preparation.setStatus(status);
             preparation.setUnitName(unitName);
             preparation.setProducer(producer);
@@ -194,7 +197,8 @@ public class PreparationController extends BaseCrudController<Preparation, Prepa
      * @param spec 规格描述（模糊匹配）
      * @param processAttr 加工性质（精确匹配）
      * @param packageSpec 包装规格（精确匹配）
-     * @param dosageForm 剂型（精确匹配）
+     * @param dosageCategory 剂型大类（精确匹配）
+     * @param dosageName 剂型名称（精确匹配）
      * @param status 状态（精确匹配）
      * @param unitName 单位名称（模糊匹配）
      * @param producer 生产商（模糊匹配）
@@ -212,7 +216,8 @@ public class PreparationController extends BaseCrudController<Preparation, Prepa
             @RequestParam(required = false) String spec,
             @RequestParam(required = false) String processAttr,
             @RequestParam(required = false) String packageSpec,
-            @RequestParam(required = false) String dosageForm,
+            @RequestParam(required = false) String dosageCategory,
+            @RequestParam(required = false) String dosageName,
             @RequestParam(required = false) Integer status,
             @RequestParam(required = false) String unitName,
             @RequestParam(required = false) String producer,
@@ -228,7 +233,8 @@ public class PreparationController extends BaseCrudController<Preparation, Prepa
             preparation.setSpec(spec);
             preparation.setProcessAttr(processAttr);
             preparation.setPackageSpec(packageSpec);
-            preparation.setDosageForm(dosageForm);
+            preparation.setDosageCategory(dosageCategory);
+            preparation.setDosageName(dosageName);
             preparation.setStatus(status);
             preparation.setUnitName(unitName);
             preparation.setProducer(producer);

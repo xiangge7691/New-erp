@@ -11,13 +11,13 @@ import org.apache.ibatis.annotations.Param;
 public interface DosageFormMapper extends BaseMapper<DosageForm> {
 
     /**
-     * 根据剂型名称物理删除已软删除的记录（释放唯一键约束）
+     * 根据剂型大类物理删除已软删除的记录（释放唯一键约束）
      *
-     * @param dosageName 剂型名称
+     * @param dosageCategory 剂型大类
      * @return 删除的记录数
      */
-    @Delete("DELETE FROM dosage_form WHERE dosage_name = #{dosageName} AND is_deleted = 1")
-    int physicalDeleteByDosageName(@Param("dosageName") String dosageName);
+    @Delete("DELETE FROM dosage_form WHERE dosage_category = #{dosageCategory} AND is_deleted = 1")
+    int physicalDeleteByDosageCategory(@Param("dosageCategory") String dosageCategory);
 }
 
 

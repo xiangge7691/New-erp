@@ -91,10 +91,16 @@ public class Preparation extends AuditEntity {
     private String unitName;
 
     /**
-     * 剂型
+     * 剂型大类（如片剂、注射剂、胶囊剂等）
      */
-    @TableField(value = "dosage_form")
-    private String dosageForm;
+    @TableField(value = "dosage_category")
+    private String dosageCategory;
+
+    /**
+     * 剂型名称（具体剂型名称）
+     */
+    @TableField(value = "dosage_name")
+    private String dosageName;
 
     /**
      * 剂型ID（关联剂型表主键）

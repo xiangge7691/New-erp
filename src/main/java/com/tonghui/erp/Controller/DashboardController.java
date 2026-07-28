@@ -525,10 +525,10 @@ public class DashboardController extends BaseController {
         try {
             ChartDataDto chartData = new ChartDataDto();
 
-            // 预加载制剂→剂型映射
+            // 预加载制剂→剂型大类映射
             Map<String, String> preparationDosageMap = new HashMap<>();
             preparationService.list().forEach(p ->
-                preparationDosageMap.put(p.getPreparationCode(), p.getDosageForm() != null ? p.getDosageForm() : "其他")
+                preparationDosageMap.put(p.getPreparationCode(), p.getDosageCategory() != null ? p.getDosageCategory() : "其他")
             );
 
             // === 交付数量按剂型（月度）：查 work_order（按 delivery_time 筛选） ===

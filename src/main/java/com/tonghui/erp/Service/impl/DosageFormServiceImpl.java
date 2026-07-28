@@ -53,13 +53,13 @@ public class DosageFormServiceImpl extends ServiceImpl<DosageFormMapper, DosageF
     // ===================================
 
     /**
-     * 清理指定剂型名称下已被软删除的记录（释放唯一键约束）
+     * 清理指定剂型大类下已被软删除的记录（释放唯一键约束）
      *
-     * @param dosageName 剂型名称
+     * @param dosageCategory 剂型大类
      * @return 清理的记录数
      */
-    public int cleanSoftDeletedByDosageName(String dosageName) {
-        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "dosage_name", dosageName);
+    public int cleanSoftDeletedByDosageCategory(String dosageCategory) {
+        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "dosage_category", dosageCategory);
     }
 
     // endregion
@@ -70,14 +70,14 @@ public class DosageFormServiceImpl extends ServiceImpl<DosageFormMapper, DosageF
     // ===================================
 
     /**
-     * 根据剂型名称模糊查询（分页）
+     * 根据剂型大类模糊查询（分页）
      *
-     * @param dosageName 剂型名称（模糊匹配），为空时查询所有
+     * @param dosageCategory 剂型大类（模糊匹配），为空时查询所有
      * @param pageRequest 分页参数，包含页码和每页数量等信息
      * @return 分页结果，包含查询到的剂型列表和分页信息
      */
     @Override
-    public PagedResult<DosageForm> searchByName(String dosageName, PageRequestDto pageRequest) {
+    public PagedResult<DosageForm> searchByName(String dosageCategory, PageRequestDto pageRequest) {
         // 创建Page对象，处理全量数据的情况
         Page<DosageForm> page;
         if (pageRequest.getPageIndex() == -1 || pageRequest.getPageSize() == -1) {
@@ -91,9 +91,9 @@ public class DosageFormServiceImpl extends ServiceImpl<DosageFormMapper, DosageF
         // 构建查询条件
         var query = this.lambdaQuery();
 
-        // 如果dosageName不为空，则添加模糊查询条件
-        if (dosageName != null && !dosageName.isEmpty()) {
-            query.like(DosageForm::getDosageName, dosageName);
+        // 如果dosageCategory不为空，则添加模糊查询条件
+        if (dosageCategory != null && !dosageCategory.isEmpty()) {
+            query.like(DosageForm::getDosageCategory, dosageCategory);
         }
 
         Page<DosageForm> resultPage = query.page(page);
@@ -144,6 +144,9 @@ public class DosageFormServiceImpl extends ServiceImpl<DosageFormMapper, DosageF
 
         if (dosageForm.getDosageId() != null) {
             wrapper.eq("dosage_id", dosageForm.getDosageId());
+        }
+        if (dosageForm.getDosageCategory() != null && !dosageForm.getDosageCategory().isEmpty()) {
+            wrapper.like("dosage_category", dosageForm.getDosageCategory());
         }
         if (dosageForm.getDosageName() != null && !dosageForm.getDosageName().isEmpty()) {
             wrapper.like("dosage_name", dosageForm.getDosageName());

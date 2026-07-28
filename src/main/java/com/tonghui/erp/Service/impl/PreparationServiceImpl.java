@@ -232,8 +232,11 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
         if (StringUtils.hasText(preparation.getPackageSpec())) {
             wrapper.eq("package_spec", preparation.getPackageSpec().trim());
         }
-        if (StringUtils.hasText(preparation.getDosageForm())) {
-            wrapper.eq("dosage_form", preparation.getDosageForm().trim());
+        if (StringUtils.hasText(preparation.getDosageCategory())) {
+            wrapper.eq("dosage_category", preparation.getDosageCategory().trim());
+        }
+        if (StringUtils.hasText(preparation.getDosageName())) {
+            wrapper.eq("dosage_name", preparation.getDosageName().trim());
         }
         if (preparation.getStatus() != null) {
             wrapper.eq("status", preparation.getStatus());
