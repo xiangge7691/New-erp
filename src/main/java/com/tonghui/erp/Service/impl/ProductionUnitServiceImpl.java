@@ -132,12 +132,25 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
 
     /**
      * 清理指定生产单位编码下已被软删除的记录（释放唯一键约束）
+     * <p>先删除 stock 表中的关联记录，再删除 production_unit 记录</p>
      *
      * @param prodUnitCode 生产单位编码
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByProdUnitCode(String prodUnitCode) {
-        return baseMapper.physicalDeleteByProdUnitCode(prodUnitCode);
+        // 查询已软删除的生产单位ID
+        Long deletedId = baseMapper.selectDeletedIdByCode(prodUnitCode);
+        if (deletedId == null) {
+            return 0;
+        }
+
+        // 先删除 stock 表中的关联记录
+        QueryWrapper<Stock> stockWrapper = new QueryWrapper<>();
+        stockWrapper.eq("prod_unit_id", deletedId);
+        stockMapper.delete(stockWrapper);
+
+        // 再删除 production_unit 记录
+        return baseMapper.physicalDeleteByProdUnitId(deletedId);
     }
 
     /**
