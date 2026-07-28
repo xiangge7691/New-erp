@@ -232,13 +232,8 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
     @Override
     @Transactional
     public boolean deleteProductionUnit(Long prodUnitId) {
-        // 先软删除关联的库存记录
-        QueryWrapper<Stock> stockWrapper = new QueryWrapper<>();
-        stockWrapper.eq("prod_unit_id", prodUnitId);
-        stockWrapper.eq("is_deleted", 0);
-        Stock stockUpdate = new Stock();
-        stockUpdate.setIsDeleted(1);
-        stockMapper.update(stockUpdate, stockWrapper);
+        // 先软删除关联的库存记录（使用原生SQL绕过MyBatis-Plus软删除配置）
+        stockMapper.softDeleteByProdUnitId(prodUnitId);
 
         // 再删除关联的发票
         QueryWrapper<ProdUnitInvoice> invoiceWrapper = new QueryWrapper<>();

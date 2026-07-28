@@ -5,6 +5,7 @@ import com.tonghui.erp.Data.Entity.Stock;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Update;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -46,6 +47,15 @@ public interface StockMapper extends BaseMapper<Stock> {
      */
     @Delete("DELETE FROM stock WHERE prod_unit_id = #{prodUnitId}")
     int physicalDeleteByProdUnitId(@Param("prodUnitId") Long prodUnitId);
+
+    /**
+     * 根据生产单位ID软删除库存记录（绕过MyBatis-Plus逻辑删除配置）
+     *
+     * @param prodUnitId 生产单位ID
+     * @return 更新的记录数
+     */
+    @Update("UPDATE stock SET is_deleted = 1 WHERE prod_unit_id = #{prodUnitId} AND is_deleted = 0")
+    int softDeleteByProdUnitId(@Param("prodUnitId") Long prodUnitId);
 
 }
 
