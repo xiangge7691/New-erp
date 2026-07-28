@@ -341,8 +341,9 @@ public class MaterialServiceImpl implements MaterialService {
             wrapper.le("updated_time", material.getUpdatedTimeEnd());
         }
 
-        // 默认按照创建时间倒序排列
+        // 默认按照创建时间倒序排列，创建时间相同则按编码倒序排列
         wrapper.orderByDesc("created_time");
+        wrapper.orderByDesc("material_code");
 
         return materialMapper.selectPage(page, wrapper);
     }
@@ -415,8 +416,9 @@ public class MaterialServiceImpl implements MaterialService {
             wrapper.le("updated_time", updatedTimeEnd);
         }
 
-        // 默认按照创建时间倒序排列
+        // 默认按照创建时间倒序排列，创建时间相同则按编码倒序排列
         wrapper.orderByDesc("created_time");
+        wrapper.orderByDesc("material_code");
 
         return materialMapper.selectPage(page, wrapper);
     }
