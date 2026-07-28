@@ -90,6 +90,11 @@ public class MaterialServiceImpl implements MaterialService {
      */
     @Override
     public void addMaterial(Material material) {
+        // 清理已软删除的相同编码记录（避免唯一键冲突）
+        if (material.getMaterialCode() != null && !material.getMaterialCode().isEmpty()) {
+            materialMapper.physicalDeleteByMaterialCode(material.getMaterialCode());
+        }
+
         // 设置创建时间和更新时间
         LocalDateTime now = LocalDateTime.now();
         material.setCreatedTime(now);
