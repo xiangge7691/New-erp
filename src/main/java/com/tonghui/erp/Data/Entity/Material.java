@@ -55,6 +55,15 @@ public class Material extends AuditEntity {
     private String categoryName;
 
     /**
+     * 物料属性（根据分类选择）
+     * 原料：中药材、中药饮片、原料药
+     * 辅料：防腐剂、崩解剂、矫味剂、粘合剂、赋形剂
+     * 包材：内包材、外包材
+     */
+    @TableField(value = "material_attribute")
+    private String materialAttribute;
+
+    /**
      * 计量单位（直接存文本，如kg/张/瓶）
      */
     @TableField(value = "unit_name")
@@ -65,6 +74,12 @@ public class Material extends AuditEntity {
      */
     @TableField(value = "spec")
     private String spec;
+
+    /**
+     * 存储要求
+     */
+    @TableField(value = "storage_requirement")
+    private String storageRequirement;
 
     /**
      * 备注信息

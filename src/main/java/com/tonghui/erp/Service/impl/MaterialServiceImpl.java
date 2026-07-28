@@ -83,16 +83,13 @@ public class MaterialServiceImpl implements MaterialService {
 
     /**
      * 新增物料
-     * <p>自动设置创建时间、更新时间、创建人和更新人，并自动生成物料编码。
+     * <p>自动设置创建时间、更新时间、创建人和更新人。
      * 创建成功后自动为每个生产单位创建库存基础记录。</p>
      *
      * @param material 物料实体
      */
     @Override
     public void addMaterial(Material material) {
-        // 自动生成物料编码（查询时包含已删除记录，避免编码冲突）
-        material.setMaterialCode(generateMaterialCode(material.getCategoryName()));
-
         // 设置创建时间和更新时间
         LocalDateTime now = LocalDateTime.now();
         material.setCreatedTime(now);
