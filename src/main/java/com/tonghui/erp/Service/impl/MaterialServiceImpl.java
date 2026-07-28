@@ -414,9 +414,9 @@ public class MaterialServiceImpl implements MaterialService {
         if (updatedTimeEnd != null) {
             wrapper.le("updated_time", updatedTimeEnd);
         }
-        
-        // 默认按照物料编码倒序排列
-        wrapper.orderByDesc("material_code");
+
+        // 默认按照创建时间倒序排列
+        wrapper.orderByDesc("created_time");
 
         return materialMapper.selectPage(page, wrapper);
     }
