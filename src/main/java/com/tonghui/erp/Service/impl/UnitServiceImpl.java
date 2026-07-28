@@ -7,6 +7,8 @@ import com.tonghui.erp.Service.UnitService;
 import com.tonghui.erp.Data.mapper.UnitMapper;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.utils.SoftDeleteCleanHelper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -18,6 +20,10 @@ import org.springframework.stereotype.Service;
 @Service
 public class UnitServiceImpl extends ServiceImpl<UnitMapper, Unit>
     implements UnitService{
+
+    /** 软删除统一清理工具 */
+    @Autowired
+    private SoftDeleteCleanHelper softDeleteCleanHelper;
 
     // region 数据清理接口
     // ===================================
@@ -31,7 +37,7 @@ public class UnitServiceImpl extends ServiceImpl<UnitMapper, Unit>
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByUnitName(String unitName) {
-        return baseMapper.physicalDeleteByUnitName(unitName);
+        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "unit_name", unitName);
     }
 
     // endregion

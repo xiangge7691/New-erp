@@ -3,6 +3,7 @@ package com.tonghui.erp.Data.mapper;
 import com.tonghui.erp.Common.Dto.Stock.ExpiryWarningDTO;
 import com.tonghui.erp.Data.Entity.Stock;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Param;
 
 import java.time.LocalDate;
@@ -29,13 +30,22 @@ public interface StockMapper extends BaseMapper<Stock> {
             @Param("itemType") String itemType,
             @Param("prodUnitId") Long prodUnitId
     );
-    
+
     /**
      * 统计各预警级别的库存批次数量
      *
      * @return 统计数据 Map
      */
     Map<String, Object> countExpiringStocksByLevel();
+
+    /**
+     * 根据生产单位ID物理删除库存记录（绕过逻辑删除）
+     *
+     * @param prodUnitId 生产单位ID
+     * @return 删除的记录数
+     */
+    @Delete("DELETE FROM stock WHERE prod_unit_id = #{prodUnitId}")
+    int physicalDeleteByProdUnitId(@Param("prodUnitId") Long prodUnitId);
 
 }
 

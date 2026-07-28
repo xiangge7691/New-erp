@@ -18,6 +18,7 @@ import com.tonghui.erp.Service.DisinfectionRecordService;
 import com.tonghui.erp.Data.mapper.RoomInfoMapper;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.utils.SoftDeleteCleanHelper;
 import com.tonghui.erp.Common.Dto.Room.RoomInfoWithDetailsDto;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -55,6 +56,10 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoMapper, RoomInfo>
     @Lazy
     private EquipmentService equipmentService;
 
+    /** 软删除统一清理工具 */
+    @Autowired
+    private SoftDeleteCleanHelper softDeleteCleanHelper;
+
     // region 数据清理接口
     // ===================================
     // 数据清理接口
@@ -67,7 +72,7 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoMapper, RoomInfo>
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByRoomCode(String roomCode) {
-        return baseMapper.physicalDeleteByRoomCode(roomCode);
+        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "room_code", roomCode);
     }
 
     /**
@@ -77,7 +82,7 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoMapper, RoomInfo>
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByRoomName(String roomName) {
-        return baseMapper.physicalDeleteByRoomName(roomName);
+        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "room_name", roomName);
     }
 
     // endregion

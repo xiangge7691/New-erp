@@ -8,6 +8,7 @@ import com.tonghui.erp.Service.DepartmentService;
 import com.tonghui.erp.Data.mapper.DepartmentMapper;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.DepartmentDto;
+import com.tonghui.erp.Common.utils.SoftDeleteCleanHelper;
 import com.tonghui.erp.Common.Dto.System.DepartmentWithDetailsDto;
 import com.tonghui.erp.Data.Entity.Position;
 import com.tonghui.erp.Data.Entity.UserDepartment;
@@ -51,6 +52,10 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
     /** 实体转换工具，用于Entity到DTO的转换 */
     @Autowired
     private Converters converters;
+
+    /** 软删除统一清理工具 */
+    @Autowired
+    private SoftDeleteCleanHelper softDeleteCleanHelper;
     
     // endregion
 
@@ -66,7 +71,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByDepartmentName(String departmentName) {
-        return baseMapper.physicalDeleteByDepartmentName(departmentName);
+        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "department_name", departmentName);
     }
 
     // endregion

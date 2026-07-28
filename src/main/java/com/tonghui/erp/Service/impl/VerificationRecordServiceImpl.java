@@ -6,6 +6,8 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Data.Entity.VerificationRecord;
 import com.tonghui.erp.Data.mapper.VerificationRecordMapper;
 import com.tonghui.erp.Service.VerificationRecordService;
+import com.tonghui.erp.Common.utils.SoftDeleteCleanHelper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -31,6 +33,10 @@ public class VerificationRecordServiceImpl extends ServiceImpl<VerificationRecor
     // 服务依赖注入
     // ===================================
 
+    /** 软删除统一清理工具 */
+    @Autowired
+    private SoftDeleteCleanHelper softDeleteCleanHelper;
+
     // endregion
 
     // region 数据清理接口
@@ -45,7 +51,7 @@ public class VerificationRecordServiceImpl extends ServiceImpl<VerificationRecor
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByVerificationNo(String verificationNo) {
-        return baseMapper.physicalDeleteByVerificationNo(verificationNo);
+        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "verification_no", verificationNo);
     }
 
     // endregion

@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Data.Entity.TrainingRecord;
 import com.tonghui.erp.Data.mapper.TrainingRecordMapper;
 import com.tonghui.erp.Service.TrainingRecordService;
+import com.tonghui.erp.Common.utils.SoftDeleteCleanHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +37,10 @@ public class TrainingRecordServiceImpl extends ServiceImpl<TrainingRecordMapper,
     @Autowired
     private TrainingRecordMapper trainingRecordMapper;
 
+    /** 软删除统一清理工具 */
+    @Autowired
+    private SoftDeleteCleanHelper softDeleteCleanHelper;
+
     // endregion
 
     // region 数据清理接口
@@ -50,7 +55,7 @@ public class TrainingRecordServiceImpl extends ServiceImpl<TrainingRecordMapper,
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByTrainingNo(String trainingNo) {
-        return trainingRecordMapper.physicalDeleteByTrainingNo(trainingNo);
+        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "training_no", trainingNo);
     }
 
     // endregion

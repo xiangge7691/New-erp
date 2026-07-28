@@ -11,6 +11,7 @@ import com.tonghui.erp.Data.mapper.EquipmentMapper;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Equipment.EquipmentWithDetailsDto;
+import com.tonghui.erp.Common.utils.SoftDeleteCleanHelper;
 import com.tonghui.erp.Data.Entity.RoomInfo;
 import com.tonghui.erp.Service.RoomInfoService;
 import org.springframework.beans.BeanUtils;
@@ -43,6 +44,10 @@ public class EquipmentServiceImpl extends ServiceImpl<EquipmentMapper, Equipment
     @Lazy
     private EquipmentMaintenanceService equipmentMaintenanceService;
 
+    /** 软删除统一清理工具 */
+    @Autowired
+    private SoftDeleteCleanHelper softDeleteCleanHelper;
+
     // region 数据清理接口
     // ===================================
     // 数据清理接口
@@ -55,7 +60,7 @@ public class EquipmentServiceImpl extends ServiceImpl<EquipmentMapper, Equipment
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByFixedAssetCode(String fixedAssetCode) {
-        return baseMapper.physicalDeleteByFixedAssetCode(fixedAssetCode);
+        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "fixed_asset_code", fixedAssetCode);
     }
 
     // endregion

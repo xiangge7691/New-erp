@@ -7,6 +7,7 @@ import com.tonghui.erp.Service.PermissionService;
 import com.tonghui.erp.Data.mapper.PermissionMapper;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.PermissionDto;
+import com.tonghui.erp.Common.utils.SoftDeleteCleanHelper;
 import com.tonghui.erp.Common.Dto.System.RoleDto;
 import com.tonghui.erp.Data.Entity.RolePerm;
 import com.tonghui.erp.Data.Entity.Role;
@@ -45,6 +46,10 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
     @Autowired
     private Converters converters;
 
+    /** 软删除统一清理工具 */
+    @Autowired
+    private SoftDeleteCleanHelper softDeleteCleanHelper;
+
     // region 数据清理接口
     // ===================================
     // 数据清理接口
@@ -57,7 +62,7 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByPermKey(String permKey) {
-        return baseMapper.physicalDeleteByPermKey(permKey);
+        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "perm_key", permKey);
     }
 
     // endregion

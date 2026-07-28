@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.ProcessTypeWithDetailsDto;
+import com.tonghui.erp.Common.utils.SoftDeleteCleanHelper;
 import com.tonghui.erp.Data.Entity.PreparationProcessTemplate;
 import com.tonghui.erp.Data.Entity.ProcessType;
 import com.tonghui.erp.Data.Entity.ProductionProcessRecord;
@@ -47,6 +48,10 @@ public class ProcessTypeServiceImpl extends ServiceImpl<ProcessTypeMapper, Proce
     @Autowired
     private PreparationProcessTemplateMapper preparationProcessTemplateMapper;
 
+    /** 软删除统一清理工具 */
+    @Autowired
+    private SoftDeleteCleanHelper softDeleteCleanHelper;
+
     // endregion
 
     // region 数据清理接口
@@ -61,7 +66,7 @@ public class ProcessTypeServiceImpl extends ServiceImpl<ProcessTypeMapper, Proce
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByProcessCode(String processCode) {
-        return baseMapper.physicalDeleteByProcessCode(processCode);
+        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "process_code", processCode);
     }
 
     /**
@@ -71,7 +76,7 @@ public class ProcessTypeServiceImpl extends ServiceImpl<ProcessTypeMapper, Proce
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByProcessName(String processName) {
-        return baseMapper.physicalDeleteByProcessName(processName);
+        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "process_name", processName);
     }
 
     // endregion

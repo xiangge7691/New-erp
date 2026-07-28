@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.DosageForm.DosageFormWithDetailsDto;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.utils.SoftDeleteCleanHelper;
 import com.tonghui.erp.Data.Entity.DosageForm;
 import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.mapper.DosageFormMapper;
@@ -40,6 +41,10 @@ public class DosageFormServiceImpl extends ServiceImpl<DosageFormMapper, DosageF
     @Autowired
     private PreparationMapper preparationMapper;
 
+    /** 软删除统一清理工具 */
+    @Autowired
+    private SoftDeleteCleanHelper softDeleteCleanHelper;
+
     // endregion
 
     // region 数据清理接口
@@ -54,7 +59,7 @@ public class DosageFormServiceImpl extends ServiceImpl<DosageFormMapper, DosageF
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByDosageName(String dosageName) {
-        return baseMapper.physicalDeleteByDosageName(dosageName);
+        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "dosage_name", dosageName);
     }
 
     // endregion

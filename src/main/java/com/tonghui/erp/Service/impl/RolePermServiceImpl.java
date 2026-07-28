@@ -7,6 +7,8 @@ import com.tonghui.erp.Data.Entity.RolePerm;
 import com.tonghui.erp.Service.RolePermService;
 import com.tonghui.erp.Data.mapper.RolePermMapper;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.utils.SoftDeleteCleanHelper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -23,6 +25,10 @@ import java.util.stream.Collectors;
 @Service
 public class RolePermServiceImpl extends ServiceImpl<RolePermMapper, RolePerm>
     implements RolePermService{
+
+    /** 软删除统一清理工具 */
+    @Autowired
+    private SoftDeleteCleanHelper softDeleteCleanHelper;
 
     // region 权限查询接口
     // ===================================
@@ -174,7 +180,7 @@ public class RolePermServiceImpl extends ServiceImpl<RolePermMapper, RolePerm>
      */
     @Override
     public int cleanSoftDeletedByRoleId(Long roleId) {
-        return this.getBaseMapper().cleanSoftDeletedByRoleId(roleId);
+        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "role_id", roleId);
     }
     // endregion
 }

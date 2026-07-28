@@ -9,6 +9,7 @@ import com.tonghui.erp.Data.mapper.RoleMapper;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.RoleDto;
 import com.tonghui.erp.Common.Dto.System.RoleWithDetailsDto;
+import com.tonghui.erp.Common.utils.SoftDeleteCleanHelper;
 import com.tonghui.erp.Common.Dto.System.UserDto;
 import com.tonghui.erp.Common.Dto.System.PermissionDto;
 import com.tonghui.erp.Data.Entity.UserRole;
@@ -72,6 +73,10 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role>
     @Autowired
     private Converters converters;
 
+    /** 软删除统一清理工具 */
+    @Autowired
+    private SoftDeleteCleanHelper softDeleteCleanHelper;
+
     // endregion
 
     // region 数据清理接口
@@ -86,7 +91,7 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role>
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByRoleName(String roleName) {
-        return baseMapper.physicalDeleteByRoleName(roleName);
+        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "role_name", roleName);
     }
 
     // endregion

@@ -9,6 +9,7 @@ import com.tonghui.erp.Service.UserService;
 import com.tonghui.erp.Data.mapper.UserMapper;
 import com.tonghui.erp.Common.Dto.System.UserDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.utils.SoftDeleteCleanHelper;
 import com.tonghui.erp.Common.Dto.System.UserWithDetailsDto;
 import com.tonghui.erp.Common.Dto.System.DepartmentDto;
 import com.tonghui.erp.Common.Dto.System.RoleDto;
@@ -71,6 +72,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Autowired
     private PersonnelFileService personnelFileService;
 
+    /** 软删除统一清理工具 */
+    @Autowired
+    private SoftDeleteCleanHelper softDeleteCleanHelper;
+
     // endregion
 
     // region 数据清理接口
@@ -85,7 +90,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByUserAccount(String userAccount) {
-        return baseMapper.physicalDeleteByUserAccount(userAccount);
+        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "user_account", userAccount);
     }
 
     // endregion

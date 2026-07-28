@@ -8,6 +8,7 @@ import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.ProductionUnitWithDetailsDto;
 import com.tonghui.erp.Common.utils.EntityUtils;
+import com.tonghui.erp.Common.utils.SoftDeleteCleanHelper;
 import com.tonghui.erp.Data.Entity.Material;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Data.Entity.ProdUnitInvoice;
@@ -57,6 +58,10 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
     /** 库存数据访问层，用于创建生产单位时自动生成库存记录 */
     @Autowired
     private StockMapper stockMapper;
+
+    /** 软删除统一清理工具 */
+    @Autowired
+    private SoftDeleteCleanHelper softDeleteCleanHelper;
 
     // endregion
 
@@ -132,25 +137,29 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
 
     /**
      * 清理指定生产单位编码下已被软删除的记录（释放唯一键约束）
-     * <p>先删除 stock 表中的关联记录，再删除 production_unit 记录</p>
+     * <p>先物理删除子表关联记录，再物理删除 production_unit 记录</p>
      *
      * @param prodUnitCode 生产单位编码
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByProdUnitCode(String prodUnitCode) {
         // 查询已软删除的生产单位ID
-        Long deletedId = baseMapper.selectDeletedIdByCode(prodUnitCode);
-        if (deletedId == null) {
+        QueryWrapper<ProductionUnit> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("prod_unit_code", prodUnitCode);
+        queryWrapper.eq("is_deleted", 1);
+        queryWrapper.select("prod_unit_id");
+        queryWrapper.last("LIMIT 1");
+        ProductionUnit deleted = baseMapper.selectOne(queryWrapper);
+
+        if (deleted == null) {
             return 0;
         }
 
-        // 先删除 stock 表中的关联记录
-        QueryWrapper<Stock> stockWrapper = new QueryWrapper<>();
-        stockWrapper.eq("prod_unit_id", deletedId);
-        stockMapper.delete(stockWrapper);
+        // 先物理删除子表关联记录
+        softDeleteCleanHelper.cleanChildRecords(stockMapper, "prod_unit_id", deleted.getProdUnitId());
 
-        // 再删除 production_unit 记录
-        return baseMapper.physicalDeleteByProdUnitId(deletedId);
+        // 再物理删除 production_unit 记录
+        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "prod_unit_code", prodUnitCode);
     }
 
     /**
