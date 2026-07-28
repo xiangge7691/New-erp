@@ -37,7 +37,7 @@ public class UnitServiceImpl extends ServiceImpl<UnitMapper, Unit>
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByUnitName(String unitName) {
-        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "unit_name", unitName);
+        return baseMapper.physicalDeleteByUnitName(unitName);
     }
 
     // endregion

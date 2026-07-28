@@ -62,7 +62,7 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByPermKey(String permKey) {
-        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "perm_key", permKey);
+        return baseMapper.physicalDeleteByPermKey(permKey);
     }
 
     // endregion

@@ -55,7 +55,7 @@ public class TrainingRecordServiceImpl extends ServiceImpl<TrainingRecordMapper,
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByTrainingNo(String trainingNo) {
-        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "training_no", trainingNo);
+        return baseMapper.physicalDeleteByTrainingNo(trainingNo);
     }
 
     // endregion

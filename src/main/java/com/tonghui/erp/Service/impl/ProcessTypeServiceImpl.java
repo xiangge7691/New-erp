@@ -66,7 +66,7 @@ public class ProcessTypeServiceImpl extends ServiceImpl<ProcessTypeMapper, Proce
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByProcessCode(String processCode) {
-        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "process_code", processCode);
+        return baseMapper.physicalDeleteByProcessCode(processCode);
     }
 
     /**
@@ -76,7 +76,7 @@ public class ProcessTypeServiceImpl extends ServiceImpl<ProcessTypeMapper, Proce
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByProcessName(String processName) {
-        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "process_name", processName);
+        return baseMapper.physicalDeleteByProcessName(processName);
     }
 
     // endregion

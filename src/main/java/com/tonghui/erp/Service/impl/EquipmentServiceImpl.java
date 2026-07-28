@@ -60,7 +60,7 @@ public class EquipmentServiceImpl extends ServiceImpl<EquipmentMapper, Equipment
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByFixedAssetCode(String fixedAssetCode) {
-        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "fixed_asset_code", fixedAssetCode);
+        return baseMapper.physicalDeleteByFixedAssetCode(fixedAssetCode);
     }
 
     // endregion

@@ -180,7 +180,7 @@ public class RolePermServiceImpl extends ServiceImpl<RolePermMapper, RolePerm>
      */
     @Override
     public int cleanSoftDeletedByRoleId(Long roleId) {
-        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "role_id", roleId);
+        return baseMapper.cleanSoftDeletedByRoleId(roleId);
     }
     // endregion
 }

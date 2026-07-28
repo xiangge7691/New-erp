@@ -90,7 +90,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByUserAccount(String userAccount) {
-        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "user_account", userAccount);
+        return baseMapper.physicalDeleteByUserAccount(userAccount);
     }
 
     // endregion

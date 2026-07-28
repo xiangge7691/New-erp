@@ -91,7 +91,7 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role>
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByRoleName(String roleName) {
-        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "role_name", roleName);
+        return baseMapper.physicalDeleteByRoleName(roleName);
     }
 
     // endregion

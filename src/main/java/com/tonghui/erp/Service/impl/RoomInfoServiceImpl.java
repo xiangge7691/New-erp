@@ -72,7 +72,7 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoMapper, RoomInfo>
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByRoomCode(String roomCode) {
-        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "room_code", roomCode);
+        return baseMapper.physicalDeleteByRoomCode(roomCode);
     }
 
     /**
@@ -82,7 +82,7 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoMapper, RoomInfo>
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByRoomName(String roomName) {
-        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "room_name", roomName);
+        return baseMapper.physicalDeleteByRoomName(roomName);
     }
 
     // endregion

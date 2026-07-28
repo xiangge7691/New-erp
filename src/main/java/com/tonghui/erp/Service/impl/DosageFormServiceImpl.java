@@ -59,7 +59,7 @@ public class DosageFormServiceImpl extends ServiceImpl<DosageFormMapper, DosageF
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByDosageCategory(String dosageCategory) {
-        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "dosage_category", dosageCategory);
+        return baseMapper.physicalDeleteByDosageCategory(dosageCategory);
     }
 
     // endregion

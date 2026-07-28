@@ -51,7 +51,7 @@ public class VerificationRecordServiceImpl extends ServiceImpl<VerificationRecor
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByVerificationNo(String verificationNo) {
-        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "verification_no", verificationNo);
+        return baseMapper.physicalDeleteByVerificationNo(verificationNo);
     }
 
     // endregion
