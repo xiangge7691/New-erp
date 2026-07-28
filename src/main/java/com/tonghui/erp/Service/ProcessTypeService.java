@@ -46,4 +46,12 @@ public interface ProcessTypeService extends IService<ProcessType> {
      * @return 清理的记录数
      */
     int cleanSoftDeletedByProcessCode(String processCode);
+
+    /**
+     * 清理指定工序名称下已被软删除的记录（释放唯一键约束）
+     *
+     * @param processName 工序名称
+     * @return 清理的记录数
+     */
+    int cleanSoftDeletedByProcessName(String processName);
 }

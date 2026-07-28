@@ -165,6 +165,16 @@ public interface ProductionUnitService extends IService<ProductionUnit> {
     ProdUnitInvoice addProdUnitInvoice(Long prodUnitId, String prodInvoiceInfo);
 
     /**
+     * 批量添加生产单位发票信息
+     * <p>先删除原有发票，再批量插入新发票</p>
+     *
+     * @param prodUnitId       生产单位ID
+     * @param prodInvoiceInfos 发票信息列表
+     * @return 新增的发票列表
+     */
+    List<ProdUnitInvoice> addProdUnitInvoices(Long prodUnitId, List<String> prodInvoiceInfos);
+
+    /**
      * 获取生产单位的发票信息列表
      *
      * @param prodUnitId 生产单位ID

@@ -103,6 +103,11 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
     @Override
     @Transactional
     public boolean addProductionUnit(ProductionUnit productionUnit) {
+        // 清理已软删除的相同编码记录（避免唯一键冲突）
+        if (productionUnit.getProdUnitCode() != null && !productionUnit.getProdUnitCode().isEmpty()) {
+            cleanSoftDeletedByProdUnitCode(productionUnit.getProdUnitCode());
+        }
+
         // 设置创建时间和更新时间
         java.time.LocalDateTime now = java.time.LocalDateTime.now();
         productionUnit.setCreatedTime(now);
@@ -123,6 +128,16 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
         }
 
         return result;
+    }
+
+    /**
+     * 清理指定生产单位编码下已被软删除的记录（释放唯一键约束）
+     *
+     * @param prodUnitCode 生产单位编码
+     * @return 清理的记录数
+     */
+    public int cleanSoftDeletedByProdUnitCode(String prodUnitCode) {
+        return baseMapper.physicalDeleteByProdUnitCode(prodUnitCode);
     }
 
     /**
@@ -429,17 +444,52 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
         ProdUnitInvoice invoice = new ProdUnitInvoice();
         invoice.setProdUnitId(prodUnitId);
         invoice.setProdInvoiceInfo(prodInvoiceInfo);
-        
+
         java.time.LocalDateTime now = java.time.LocalDateTime.now();
         invoice.setCreatedTime(now);
-        
+
         Long currentUserId = EntityUtils.getCurrentUserId();
         if (currentUserId != null) {
             invoice.setCreatedBy(currentUserId);
         }
-        
+
         prodUnitInvoiceMapper.insert(invoice);
         return invoice;
+    }
+
+    /**
+     * 批量新增生产单位发票信息
+     * <p>先删除原有发票，再批量插入新发票</p>
+     *
+     * @param prodUnitId       生产单位ID
+     * @param prodInvoiceInfos 发票信息列表
+     * @return 新增的发票列表
+     */
+    @Override
+    @Transactional
+    public List<ProdUnitInvoice> addProdUnitInvoices(Long prodUnitId, List<String> prodInvoiceInfos) {
+        // 先删除原有发票
+        QueryWrapper<ProdUnitInvoice> deleteWrapper = new QueryWrapper<>();
+        deleteWrapper.eq("prod_unit_id", prodUnitId);
+        prodUnitInvoiceMapper.delete(deleteWrapper);
+
+        // 批量插入新发票
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        Long currentUserId = EntityUtils.getCurrentUserId();
+
+        List<ProdUnitInvoice> invoices = new java.util.ArrayList<>();
+        for (String prodInvoiceInfo : prodInvoiceInfos) {
+            ProdUnitInvoice invoice = new ProdUnitInvoice();
+            invoice.setProdUnitId(prodUnitId);
+            invoice.setProdInvoiceInfo(prodInvoiceInfo);
+            invoice.setCreatedTime(now);
+            if (currentUserId != null) {
+                invoice.setCreatedBy(currentUserId);
+            }
+            prodUnitInvoiceMapper.insert(invoice);
+            invoices.add(invoice);
+        }
+        return invoices;
     }
 
     /**

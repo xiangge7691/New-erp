@@ -18,6 +18,15 @@ public interface ProcessTypeMapper extends BaseMapper<ProcessType> {
      */
     @Delete("DELETE FROM process_type WHERE process_code = #{processCode} AND is_deleted = 1")
     int physicalDeleteByProcessCode(@Param("processCode") String processCode);
+
+    /**
+     * 根据工序名称物理删除已软删除的记录（释放唯一键约束）
+     *
+     * @param processName 工序名称
+     * @return 删除的记录数
+     */
+    @Delete("DELETE FROM process_type WHERE process_name = #{processName} AND is_deleted = 1")
+    int physicalDeleteByProcessName(@Param("processName") String processName);
 }
 
 

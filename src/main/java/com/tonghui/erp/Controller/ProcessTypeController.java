@@ -121,6 +121,10 @@ public class ProcessTypeController extends BaseCrudController<ProcessType, Proce
         if (processType.getProcessCode() != null && !processType.getProcessCode().isEmpty()) {
             processTypeService.cleanSoftDeletedByProcessCode(processType.getProcessCode());
         }
+        // 清理已软删除的相同名称记录（避免唯一键冲突）
+        if (processType.getProcessName() != null && !processType.getProcessName().isEmpty()) {
+            processTypeService.cleanSoftDeletedByProcessName(processType.getProcessName());
+        }
 
         // 设置创建人 ID 和创建时间
         Long currentUserId = EntityUtils.getCurrentUserId();

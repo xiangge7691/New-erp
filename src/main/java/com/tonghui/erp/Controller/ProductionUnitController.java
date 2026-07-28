@@ -201,7 +201,7 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
     // ===================================
 
     /**
-     * 为生产单位添加发票信息
+     * 为生产单位添加发票信息（单条）
      *
      * 示例请求：
      * POST /api/production_unit/1/invoice
@@ -219,6 +219,28 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
             return success(invoice, "添加发票信息成功");
         } catch (Exception e) {
             return exception(e, "添加发票信息失败");
+        }
+    }
+
+    /**
+     * 批量为生产单位添加发票信息（先删除原有发票，再批量插入）
+     *
+     * 示例请求：
+     * POST /api/production_unit/1/invoices
+     * Content-Type: application/json
+     * ["发票内容1", "发票内容2", "发票内容3"]
+     *
+     * @param prodUnitId 生产单位ID
+     * @param prodInvoiceInfos 发票信息列表
+     * @return ApiResponse&lt;List&lt;ProdUnitInvoice&gt;&gt; 添加的发票列表
+     */
+    @PostMapping("/{id}/invoices")
+    public ApiResponse<List<ProdUnitInvoice>> addProdUnitInvoices(@PathVariable("id")Long prodUnitId, @RequestBody List<String> prodInvoiceInfos) {
+        try {
+            List<ProdUnitInvoice> invoices = productionUnitService.addProdUnitInvoices(prodUnitId, prodInvoiceInfos);
+            return success(invoices, "批量添加发票信息成功");
+        } catch (Exception e) {
+            return exception(e, "批量添加发票信息失败");
         }
     }
 
