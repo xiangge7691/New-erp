@@ -7,6 +7,8 @@ import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.DosageForm;
 
+import java.util.List;
+
 /**
  * 药品剂型服务接口
  * <p>
@@ -40,6 +42,14 @@ public interface DosageFormService extends IService<DosageForm> {
      * @return 清理的记录数
      */
     int cleanSoftDeletedByDosageCategory(String dosageCategory);
+
+    /**
+     * 根据剂型大类查询去重后的剂型名称列表
+     *
+     * @param dosageCategory 剂型大类
+     * @return 去重后的剂型名称列表
+     */
+    List<String> getDistinctDosageNamesByCategory(String dosageCategory);
 
     // endregion
 }

@@ -62,6 +62,17 @@ public class DosageFormServiceImpl extends ServiceImpl<DosageFormMapper, DosageF
         return baseMapper.physicalDeleteByDosageCategory(dosageCategory);
     }
 
+    /**
+     * 根据剂型大类查询去重后的剂型名称列表
+     *
+     * @param dosageCategory 剂型大类
+     * @return 去重后的剂型名称列表
+     */
+    @Override
+    public List<String> getDistinctDosageNamesByCategory(String dosageCategory) {
+        return baseMapper.selectDistinctDosageNameByCategory(dosageCategory);
+    }
+
     // endregion
 
     // region 剂型查询实现方法

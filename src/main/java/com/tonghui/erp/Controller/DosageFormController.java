@@ -10,6 +10,8 @@ import com.tonghui.erp.Data.Entity.DosageForm;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * 药品剂型管理控制器
  * <p>
@@ -247,4 +249,28 @@ public class DosageFormController extends BaseCrudController<DosageForm, DosageF
     }
 
     // endregion
+
+    // region 剂型名称查询接口
+    // ===================================
+    // 剂型名称查询接口
+    // ===================================
+
+    /**
+     * 根据剂型大类查询去重后的剂型名称列表
+     *
+     * 示例请求：
+     * GET /api/DosageForm/dosage-names?dosageCategory=片剂
+     *
+     * @param dosageCategory 剂型大类
+     * @return ApiResponse&lt;List&lt;String&gt;&gt; 去重后的剂型名称列表
+     */
+    @GetMapping("/dosage-names")
+    public ApiResponse<List<String>> getDistinctDosageNames(@RequestParam String dosageCategory) {
+        try {
+            List<String> dosageNames = dosageFormService.getDistinctDosageNamesByCategory(dosageCategory);
+            return success(dosageNames);
+        } catch (Exception ex) {
+            return exception(ex, "查询剂型名称失败");
+        }
+    }
 }
