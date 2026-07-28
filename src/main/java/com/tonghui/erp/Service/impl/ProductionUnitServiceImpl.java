@@ -223,8 +223,8 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
     }
 
     /**
-     * 删除生产单位（含关联的发票）
-     * <p>先删除关联的发票，再删除生产单位主表</p>
+     * 删除生产单位（含关联的发票和库存）
+     * <p>先软删除关联的库存记录，再删除关联的发票，最后删除生产单位主表</p>
      *
      * @param prodUnitId 生产单位ID
      * @return 操作是否成功
@@ -232,7 +232,15 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
     @Override
     @Transactional
     public boolean deleteProductionUnit(Long prodUnitId) {
-        // 先删除关联的发票
+        // 先软删除关联的库存记录
+        QueryWrapper<Stock> stockWrapper = new QueryWrapper<>();
+        stockWrapper.eq("prod_unit_id", prodUnitId);
+        stockWrapper.eq("is_deleted", 0);
+        Stock stockUpdate = new Stock();
+        stockUpdate.setIsDeleted(1);
+        stockMapper.update(stockUpdate, stockWrapper);
+
+        // 再删除关联的发票
         QueryWrapper<ProdUnitInvoice> invoiceWrapper = new QueryWrapper<>();
         invoiceWrapper.eq("prod_unit_id", prodUnitId);
         prodUnitInvoiceMapper.delete(invoiceWrapper);
