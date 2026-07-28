@@ -9,16 +9,13 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.ProductionUnitWithDetailsDto;
 import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.Material;
-import com.tonghui.erp.Data.Entity.ProdUnitMaterialFile;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Data.Entity.ProdUnitInvoice;
 import com.tonghui.erp.Data.Entity.Stock;
 import com.tonghui.erp.Data.mapper.MaterialMapper;
-import com.tonghui.erp.Data.mapper.ProdUnitMaterialFileMapper;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Data.mapper.ProdUnitInvoiceMapper;
 import com.tonghui.erp.Data.mapper.StockMapper;
-import com.tonghui.erp.Service.FileStorageService;
 import com.tonghui.erp.Service.ProductionUnitService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,18 +49,6 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
     /** 生产单位发票数据访问层 */
     @Autowired
     private ProdUnitInvoiceMapper prodUnitInvoiceMapper;
-
-    /** 生产单位材料文件数据访问层 */
-    @Autowired
-    private ProdUnitMaterialFileMapper prodUnitMaterialFileMapper;
-    
-    /** JWT配置，用于获取当前用户信息 */
-    @Autowired
-    private JwtConfig jwtConfig;
-
-    /** 文件存储服务，用于处理文件上传和MD5计算 */
-    @Autowired
-    private FileStorageService fileStorageService;
 
     /** 物料数据访问层，用于查询所有物料 */
     @Autowired
@@ -207,8 +192,8 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
     }
 
     /**
-     * 删除生产单位（含关联的发票和材料文件）
-     * <p>先删除关联的发票和材料文件，再删除生产单位主表</p>
+     * 删除生产单位（含关联的发票）
+     * <p>先删除关联的发票，再删除生产单位主表</p>
      *
      * @param prodUnitId 生产单位ID
      * @return 操作是否成功
@@ -220,11 +205,6 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
         QueryWrapper<ProdUnitInvoice> invoiceWrapper = new QueryWrapper<>();
         invoiceWrapper.eq("prod_unit_id", prodUnitId);
         prodUnitInvoiceMapper.delete(invoiceWrapper);
-
-        // 再删除关联的材料文件
-        QueryWrapper<ProdUnitMaterialFile> materialWrapper = new QueryWrapper<>();
-        materialWrapper.eq("prod_unit_id", prodUnitId);
-        prodUnitMaterialFileMapper.delete(materialWrapper);
 
         // 最后删除生产单位
         return this.removeById(prodUnitId);
@@ -375,8 +355,8 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
     // ===================================
 
     /**
-     * 查询生产单位列表并关联发票和材料文件信息
-     * <p>先分页查询生产单位主表数据，再批量查询关联的发票和材料文件</p>
+     * 查询生产单位列表并关联发票信息
+     * <p>先分页查询生产单位主表数据，再批量查询关联的发票</p>
      *
      * @param productionUnit   查询条件实体
      * @param createdTimeStart 创建时间起始值（含）
@@ -414,19 +394,11 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
         Map<Long, List<ProdUnitInvoice>> invoicesMap = allInvoices.stream()
                 .collect(Collectors.groupingBy(ProdUnitInvoice::getProdUnitId));
 
-        // 批量查询关联的材料文件
-        QueryWrapper<ProdUnitMaterialFile> materialWrapper = new QueryWrapper<>();
-        materialWrapper.in("prod_unit_id", parentIds);
-        List<ProdUnitMaterialFile> allMaterials = prodUnitMaterialFileMapper.selectList(materialWrapper);
-        Map<Long, List<ProdUnitMaterialFile>> materialsMap = allMaterials.stream()
-                .collect(Collectors.groupingBy(ProdUnitMaterialFile::getProdUnitId));
-
         // 组装带子表数据的DTO
         List<ProductionUnitWithDetailsDto> dtos = parents.stream().map(parent -> {
             ProductionUnitWithDetailsDto dto = new ProductionUnitWithDetailsDto();
             BeanUtils.copyProperties(parent, dto);
             dto.setInvoices(invoicesMap.getOrDefault(parent.getProdUnitId(), List.of()));
-            dto.setMaterialFiles(materialsMap.getOrDefault(parent.getProdUnitId(), List.of()));
             return dto;
         }).collect(Collectors.toList());
 
@@ -493,161 +465,6 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
     @Transactional
     public boolean deleteProdUnitInvoice(Long prodInvoiceId) {
         return prodUnitInvoiceMapper.deleteById(prodInvoiceId) > 0;
-    }
-
-    // endregion
-
-    // region 生产单位材料文件操作
-    // ===================================
-    // 生产单位材料文件操作
-    // ===================================
-
-    /**
-     * 新增生产单位材料文件
-     *
-     * @param materialFile 材料文件实体
-     * @return 新增的材料文件实体
-     */
-    @Override
-    @Transactional
-    public ProdUnitMaterialFile addProdUnitMaterialFile(ProdUnitMaterialFile materialFile) {
-        java.time.LocalDateTime now = java.time.LocalDateTime.now();
-        materialFile.setCreatedTime(now);
-        
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            materialFile.setCreatedBy(currentUserId);
-        }
-        
-        prodUnitMaterialFileMapper.insert(materialFile);
-        return materialFile;
-    }
-
-    /**
-     * 新增生产单位材料文件（通过文件属性信息）
-     *
-     * @param prodUnitId   生产单位ID
-     * @param materialType 材料类型
-     * @param fileName     文件名
-     * @param fileMd5      文件MD5值
-     * @param fileSize     文件大小
-     * @param description  文件描述
-     * @return 新增的材料文件实体
-     */
-    @Override
-    @Transactional
-    public ProdUnitMaterialFile addProdUnitMaterialFile(Long prodUnitId, String materialType, String fileName, String fileMd5, Long fileSize, String description) {
-        ProdUnitMaterialFile materialFile = new ProdUnitMaterialFile();
-        materialFile.setProdUnitId(prodUnitId);
-        materialFile.setMaterialType(materialType);
-        materialFile.setFileName(fileName);
-        materialFile.setFileMd5(fileMd5);
-        materialFile.setFileSize(fileSize != null ? fileSize.intValue() : null);
-        
-        java.time.LocalDateTime now = java.time.LocalDateTime.now();
-        materialFile.setCreatedTime(now);
-        
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            materialFile.setCreatedBy(currentUserId);
-        }
-        
-        prodUnitMaterialFileMapper.insert(materialFile);
-        return materialFile;
-    }
-
-    /**
-     * 新增生产单位材料文件（通过MultipartFile上传）
-     * <p>自动计算MD5值并将文件内容转为Base64编码存储</p>
-     *
-     * @param prodUnitId   生产单位ID
-     * @param materialType 材料类型
-     * @param file         上传的文件
-     * @param description  文件描述
-     * @return 新增的材料文件实体
-     */
-    @Override
-    @Transactional
-    public ProdUnitMaterialFile addProdUnitMaterialFile(Long prodUnitId, String materialType, MultipartFile file, String description) {
-        try {
-            // 计算文件MD5值
-            String fileMd5 = fileStorageService.calculateMD5(file);
-            // 将文件内容转为Base64编码
-            String fileContent = fileStorageService.encodeFileToBase64(file);
-            
-            ProdUnitMaterialFile materialFile = new ProdUnitMaterialFile();
-            materialFile.setProdUnitId(prodUnitId);
-            materialFile.setMaterialType(materialType);
-            materialFile.setFileName(file.getOriginalFilename());
-            materialFile.setFileMd5(fileMd5);
-            materialFile.setFileSize((int) file.getSize());
-            materialFile.setFileContent(fileContent);
-            
-            java.time.LocalDateTime now = java.time.LocalDateTime.now();
-            materialFile.setCreatedTime(now);
-            
-            Long currentUserId = EntityUtils.getCurrentUserId();
-            if (currentUserId != null) {
-                materialFile.setCreatedBy(currentUserId);
-            }
-            
-            prodUnitMaterialFileMapper.insert(materialFile);
-            return materialFile;
-        } catch (Exception e) {
-            throw new RuntimeException("添加材料文件失败", e);
-        }
-    }
-
-    /**
-     * 将Base64编码的文件内容解码为输入流
-     *
-     * @param fileContent Base64编码的文件内容
-     * @return 文件输入流
-     */
-    @Override
-    public InputStream getFileInputStream(String fileContent) {
-        try {
-            byte[] fileBytes = java.util.Base64.getDecoder().decode(fileContent);
-            return new java.io.ByteArrayInputStream(fileBytes);
-        } catch (Exception e) {
-            throw new RuntimeException("解码文件内容失败", e);
-        }
-    }
-
-    /**
-     * 根据ID查询材料文件
-     *
-     * @param prodMaterialId 材料文件ID
-     * @return 材料文件实体，不存在则返回null
-     */
-    @Override
-    public ProdUnitMaterialFile getProdUnitMaterialFileById(Long prodMaterialId) {
-        return prodUnitMaterialFileMapper.selectById(prodMaterialId);
-    }
-
-    /**
-     * 查询生产单位的所有材料文件
-     *
-     * @param prodUnitId 生产单位ID
-     * @return 材料文件列表
-     */
-    @Override
-    public List<ProdUnitMaterialFile> getProdUnitMaterialFiles(Long prodUnitId) {
-        QueryWrapper<ProdUnitMaterialFile> wrapper = new QueryWrapper<>();
-        wrapper.eq("prod_unit_id", prodUnitId);
-        return prodUnitMaterialFileMapper.selectList(wrapper);
-    }
-
-    /**
-     * 删除生产单位材料文件
-     *
-     * @param prodMaterialId 材料文件ID
-     * @return 操作是否成功
-     */
-    @Override
-    @Transactional
-    public boolean deleteProdUnitMaterialFile(Long prodMaterialId) {
-        return prodUnitMaterialFileMapper.deleteById(prodMaterialId) > 0;
     }
 
     // endregion

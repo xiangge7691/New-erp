@@ -7,10 +7,7 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.ProductionUnitWithDetailsDto;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Data.Entity.ProdUnitInvoice;
-import com.tonghui.erp.Data.Entity.ProdUnitMaterialFile;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -135,7 +132,7 @@ public interface ProductionUnitService extends IService<ProductionUnit> {
     // ===================================
 
     /**
-     * 高级查询生产单位（包含发票和材料文件子表）
+     * 高级查询生产单位（包含发票子表）
      *
      * @param productionUnit 查询条件
      * @param createdTimeStart 创建时间起始
@@ -182,77 +179,6 @@ public interface ProductionUnitService extends IService<ProductionUnit> {
      * @return 是否成功
      */
     boolean deleteProdUnitInvoice(Long prodInvoiceId);
-
-    // endregion
-
-    // region 生产单位材料文件操作
-    // ===================================
-    // 生产单位材料文件操作
-    // ===================================
-
-    /**
-     * 添加生产单位材料文件
-     *
-     * @param prodUnitId    生产单位ID
-     * @param materialType 材料类型
-     * @param fileName      文件名称
-     * @param fileMd5       文件MD5
-     * @param fileSize      文件大小
-     * @param description   文件描述
-     * @return 新增的材料文件（含ID）
-     */
-    ProdUnitMaterialFile addProdUnitMaterialFile(Long prodUnitId, String materialType, String fileName, String fileMd5, Long fileSize, String description);
-
-    /**
-     * 添加生产单位材料文件（直接传入实体）
-     *
-     * @param materialFile 材料文件实体
-     * @return 新增的材料文件（含ID）
-     */
-    ProdUnitMaterialFile addProdUnitMaterialFile(ProdUnitMaterialFile materialFile);
-
-    /**
-     * 添加生产单位材料文件（使用MultipartFile）
-     *
-     * @param prodUnitId    生产单位ID
-     * @param materialType 材料类型
-     * @param file         文件
-     * @param description   文件描述
-     * @return 新增的材料文件（含ID）
-     */
-    ProdUnitMaterialFile addProdUnitMaterialFile(Long prodUnitId, String materialType, MultipartFile file, String description);
-
-    /**
-     * 获取生产单位的材料文件列表
-     *
-     * @param prodUnitId 生产单位ID
-     * @return 材料文件列表
-     */
-    List<ProdUnitMaterialFile> getProdUnitMaterialFiles(Long prodUnitId);
-
-    /**
-     * 根据ID获取材料文件
-     *
-     * @param prodMaterialId 材料文件ID
-     * @return 材料文件实体
-     */
-    ProdUnitMaterialFile getProdUnitMaterialFileById(Long prodMaterialId);
-
-    /**
-     * 根据文件内容(Base64)获取文件输入流
-     *
-     * @param fileContent Base64编码的文件内容
-     * @return 文件输入流
-     */
-    InputStream getFileInputStream(String fileContent);
-
-    /**
-     * 删除生产单位材料文件
-     *
-     * @param prodMaterialId 材料文件ID
-     * @return 是否成功
-     */
-    boolean deleteProdUnitMaterialFile(Long prodMaterialId);
 
     // endregion
 }

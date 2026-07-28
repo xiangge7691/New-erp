@@ -5,19 +5,10 @@ import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.ProductionUnitWithDetailsDto;
 import com.tonghui.erp.Data.Entity.ProdUnitInvoice;
-import com.tonghui.erp.Data.Entity.ProdUnitMaterialFile;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Service.ProductionUnitService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.InputStreamResource;
-import org.springframework.core.io.Resource;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -38,13 +29,9 @@ import java.util.List;
  * │ 8  │ /api/production_unit/{id}/invoice            │ POST   │ 添加发票信息                       │
  * │ 9  │ /api/production_unit/{id}/invoices           │ GET    │ 获取发票信息列表                   │
  * │ 10 │ /api/production_unit/invoice/{invoiceId}     │ DELETE │ 删除发票信息                       │
- * │ 11 │ /api/production_unit/{id}/material-file      │ POST   │ 添加材料文件                       │
- * │ 12 │ /api/production_unit/{id}/material-files     │ GET    │ 获取材料文件列表                   │
- * │ 13 │ /api/production_unit/material-file/{materialId}│ GET  │ 下载材料文件                       │
- * │ 14 │ /api/production_unit/material-file/{materialId}│ DELETE│ 删除材料文件                      │
- * │ 15 │ /api/production_unit/code/{prodUnitCode}     │ GET    │ 根据编码查询生产单位               │
- * │ 16 │ /api/production_unit/enabled                 │ GET    │ 查询所有启用状态的生产单位          │
- * │ 17 │ /api/production_unit/{id}/status/{status}    │ POST   │ 启用/停用生产单位                  │
+ * │ 11 │ /api/production_unit/code/{prodUnitCode}     │ GET    │ 根据编码查询生产单位               │
+ * │ 12 │ /api/production_unit/enabled                 │ GET    │ 查询所有启用状态的生产单位          │
+ * │ 13 │ /api/production_unit/{id}/status/{status}    │ POST   │ 启用/停用生产单位                  │
  * └────┴──────────────────────────────────────────────┴────────┴────────────────────────────────────┘
  */
 @RestController
@@ -270,136 +257,6 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
             return success(result, "删除发票信息成功");
         } catch (Exception e) {
             return exception(e, "删除发票信息失败");
-        }
-    }
-
-    // endregion
-
-    // region 材料文件操作接口
-    // ===================================
-    // 材料文件操作接口
-    // ===================================
-
-    /**
-     * 为生产单位添加材料文件
-     *
-     * 示例请求：
-     * POST /api/production_unit/1/material-file?materialType=原料&fileName=检验报告.pdf&fileMd5=abc123&fileSize=1024&description=质检报告
-     * Content-Type: application/json
-     * "base64编码的文件内容"
-     *
-     * @param prodUnitId 生产单位ID
-     * @param materialType 材料类型
-     * @param fileName 文件名
-     * @param fileMd5 文件MD5
-     * @param fileSize 文件大小
-     * @param description 描述
-     * @param fileContent 文件内容(base64)
-     * @return ApiResponse&lt;ProdUnitMaterialFile&gt; 添加的材料文件
-     */
-    @PostMapping("/{id}/material-file")
-    public ApiResponse<ProdUnitMaterialFile> addProdUnitMaterialFile(
-            @PathVariable("id") Long prodUnitId,
-            @RequestParam String materialType,
-            @RequestParam String fileName,
-            @RequestParam String fileMd5,
-            @RequestParam Long fileSize,
-            @RequestParam(required = false) String description,
-            @RequestBody String fileContent) {
-        try {
-            ProdUnitMaterialFile materialFile = new ProdUnitMaterialFile();
-            materialFile.setProdUnitId(prodUnitId);
-            materialFile.setMaterialType(materialType);
-            materialFile.setFileName(fileName);
-            materialFile.setFileMd5(fileMd5);
-            materialFile.setFileSize(fileSize.intValue());
-            materialFile.setFileContent(fileContent);
-            if (description != null) {
-                materialFile.setDescription(description);
-            }
-            
-            ProdUnitMaterialFile result = productionUnitService.addProdUnitMaterialFile(materialFile);
-            return success(result, "添加材料文件成功");
-        } catch (Exception e) {
-            return exception(e, "添加材料文件失败");
-        }
-    }
-
-    /**
-     * 获取生产单位的材料文件列表
-     *
-     * 示例请求：
-     * GET /api/production_unit/1/material-files
-     *
-     * @param prodUnitId 生产单位ID
-     * @return ApiResponse&lt;List&lt;ProdUnitMaterialFile&gt;&gt; 材料文件列表
-     */
-    @GetMapping("/{id}/material-files")
-    public ApiResponse<List<ProdUnitMaterialFile>> getProdUnitMaterialFiles(@PathVariable("id")Long prodUnitId) {
-        try {
-            List<ProdUnitMaterialFile> files = productionUnitService.getProdUnitMaterialFiles(prodUnitId);
-            return success(files);
-        } catch (Exception e) {
-            return exception(e, "获取材料文件失败");
-        }
-    }
-
-    /**
-     * 下载材料文件
-     *
-     * 示例请求：
-     * GET /api/production_unit/material-file/1
-     *
-     * @param prodMaterialId 材料文件ID
-     * @return 文件流（二进制），HTTP响应头包含Content-Disposition触发下载
-     */
-    @GetMapping("/material-file/{materialId}")
-    public ResponseEntity<Resource> downloadProdUnitMaterialFile(@PathVariable("materialId")Long prodMaterialId) {
-        try {
-            // 获取文件元数据
-            ProdUnitMaterialFile materialFile = productionUnitService.getProdUnitMaterialFileById(prodMaterialId);
-            if (materialFile == null) {
-                return ResponseEntity.notFound().build();
-            }
-            
-            // 获取文件输入流
-            InputStream inputStream = productionUnitService.getFileInputStream(materialFile.getFileContent());
-            if (inputStream == null) {
-                return ResponseEntity.notFound().build();
-            }
-            
-            // 创建资源
-            InputStreamResource resource = new InputStreamResource(inputStream);
-            
-            // 构建响应头
-            String contentType = "application/octet-stream";
-            String headerValue = "attachment;filename=\"" + materialFile.getFileName() + "\"";
-            
-            return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(contentType))
-                    .header(HttpHeaders.CONTENT_DISPOSITION, headerValue)
-                    .body(resource);
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
-        }
-    }
-
-    /**
-     * 删除材料文件
-     *
-     * 示例请求：
-     * DELETE /api/production_unit/material-file/1
-     *
-     * @param prodMaterialId 材料文件ID
-     * @return ApiResponse&lt;Boolean&gt; 操作结果
-     */
-    @DeleteMapping("/material-file/{materialId}")
-    public ApiResponse<Boolean> deleteProdUnitMaterialFile(@PathVariable("materialId")Long prodMaterialId) {
-        try {
-            boolean result = productionUnitService.deleteProdUnitMaterialFile(prodMaterialId);
-            return success(result, "删除材料文件成功");
-        } catch (Exception e) {
-            return exception(e, "删除材料文件失败");
         }
     }
 
