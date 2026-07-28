@@ -143,23 +143,17 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByProdUnitCode(String prodUnitCode) {
-        // 查询已软删除的生产单位ID
-        QueryWrapper<ProductionUnit> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("prod_unit_code", prodUnitCode);
-        queryWrapper.eq("is_deleted", 1);
-        queryWrapper.select("prod_unit_id");
-        queryWrapper.last("LIMIT 1");
-        ProductionUnit deleted = baseMapper.selectOne(queryWrapper);
-
-        if (deleted == null) {
+        // 使用原生SQL查询已软删除的生产单位ID（绕过MyBatis-Plus软删除配置）
+        Long deletedId = baseMapper.selectDeletedIdByCode(prodUnitCode);
+        if (deletedId == null) {
             return 0;
         }
 
-        // 先物理删除子表关联记录
-        softDeleteCleanHelper.cleanChildRecords(stockMapper, "prod_unit_id", deleted.getProdUnitId());
+        // 先物理删除子表关联记录（使用原生SQL绕过软删除配置）
+        baseMapper.physicalDeleteStockByProdUnitId(deletedId);
 
         // 再物理删除 production_unit 记录
-        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "prod_unit_code", prodUnitCode);
+        return baseMapper.physicalDeleteByProdUnitId(deletedId);
     }
 
     /**

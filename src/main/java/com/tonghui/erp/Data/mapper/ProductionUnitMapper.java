@@ -21,6 +21,15 @@ public interface ProductionUnitMapper extends BaseMapper<ProductionUnit> {
     Long selectDeletedIdByCode(@Param("prodUnitCode") String prodUnitCode);
 
     /**
+     * 根据生产单位ID物理删除库存记录（绕过外键约束）
+     *
+     * @param prodUnitId 生产单位ID
+     * @return 删除的记录数
+     */
+    @Delete("DELETE FROM stock WHERE prod_unit_id = #{prodUnitId}")
+    int physicalDeleteStockByProdUnitId(@Param("prodUnitId") Long prodUnitId);
+
+    /**
      * 根据生产单位ID物理删除已软删除的记录（释放唯一键约束）
      *
      * @param prodUnitId 生产单位ID
