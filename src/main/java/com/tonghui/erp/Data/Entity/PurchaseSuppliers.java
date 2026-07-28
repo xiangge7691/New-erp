@@ -45,6 +45,18 @@ public class PurchaseSuppliers extends AuditEntity {
     private String category;
 
     /**
+     * 供应商类别（定点供应商/备用供应商）
+     */
+    @TableField(value = "supplier_type")
+    private String supplierType;
+
+    /**
+     * 执行质量标准
+     */
+    @TableField(value = "quality_standard")
+    private String qualityStandard;
+
+    /**
      * 联系人
      */
     @TableField(value = "contact_person")
