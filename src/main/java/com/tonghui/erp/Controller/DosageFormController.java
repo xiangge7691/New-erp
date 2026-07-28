@@ -101,7 +101,7 @@ public class DosageFormController extends BaseCrudController<DosageForm, DosageF
      * {
      *   "dosageCategory": "片剂",
      *   "dosageName": "普通片",
-     *   "description": "固体制剂，便于服用和储存"
+     *   "remark": "固体制剂，便于服用和储存"
      * }
      *
      * @param dosageForm 剂型实体对象
@@ -109,17 +109,7 @@ public class DosageFormController extends BaseCrudController<DosageForm, DosageF
      */
     @Override
     protected DosageForm doCreate(DosageForm dosageForm) {
-        // 检查药品剂型大类是否已存在
-        LambdaQueryWrapper<DosageForm> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(DosageForm::getDosageCategory, dosageForm.getDosageCategory());
-        if (dosageFormService.getOne(queryWrapper) != null) {
-            throw new RuntimeException("药品剂型大类已存在");
-        }
-
-        // 清理已软删除的相同剂型大类记录（避免唯一键冲突）
-        dosageFormService.cleanSoftDeletedByDosageCategory(dosageForm.getDosageCategory());
-
-        // 添加药品剂型到数据库
+        // 添加药品剂型到数据库（dosageCategory允许重复）
         boolean result = dosageFormService.save(dosageForm);
 
         if (!result) {
@@ -139,9 +129,9 @@ public class DosageFormController extends BaseCrudController<DosageForm, DosageF
      * PUT /api/DosageForm/1
      * Content-Type: application/json
      * {
-     *   "dosageCategory": "片剂（更新）",
+     *   "dosageCategory": "片剂",
      *   "dosageName": "普通片（更新）",
-     *   "description": "固体制剂，便于服用和储存（更新）"
+     *   "remark": "固体制剂，便于服用和储存（更新）"
      * }
      *
      * @param id 剂型ID
@@ -150,18 +140,10 @@ public class DosageFormController extends BaseCrudController<DosageForm, DosageF
      */
     @Override
     protected DosageForm doUpdate(Long id, DosageForm dosageForm) {
-        // 检查药品剂型大类是否被其他药品剂型使用
-        LambdaQueryWrapper<DosageForm> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(DosageForm::getDosageCategory, dosageForm.getDosageCategory());
-        DosageForm dosageFormWithSameName = dosageFormService.getOne(queryWrapper);
-        if (dosageFormWithSameName != null && !dosageFormWithSameName.getDosageId().equals(id)) {
-            throw new RuntimeException("药品剂型大类已存在");
-        }
-
         // 更新药品剂型信息
         dosageForm.setDosageId(id);
 
-        // 更新药品剂型
+        // 更新药品剂型（dosageCategory允许重复）
         boolean result = dosageFormService.updateById(dosageForm);
 
         if (!result) {
