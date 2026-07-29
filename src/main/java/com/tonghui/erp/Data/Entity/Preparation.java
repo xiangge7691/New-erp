@@ -171,6 +171,12 @@ public class Preparation extends AuditEntity {
     // ===================================
 
     /**
+     * 关键字（用于模糊查询制剂编码和制剂名称，不映射数据库）
+     */
+    @TableField(exist = false)
+    private String keyword;
+
+    /**
      * 创建时间开始（用于范围查询，不映射数据库）
      */
     @TableField(exist = false)

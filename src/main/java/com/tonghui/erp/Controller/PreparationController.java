@@ -102,8 +102,9 @@ public class PreparationController extends BaseCrudController<Preparation, Prepa
      * 高级查询制剂（支持多条件 + 分页）
      *
      * 示例请求：
-     * GET /api/preparation/search?pageIndex=1&pageSize=20&preparationCode=Z00&preparationName=感冒&spec=胶囊&processAttr=自制&status=1&unitName=株洲
+     * GET /api/preparation/search?pageIndex=1&pageSize=20&keyword=感冒&status=1
      *
+     * @param keyword 关键字（自动匹配制剂编码或制剂名称）
      * @param preparationCode 制剂编码（模糊匹配）
      * @param preparationName 制剂品名（模糊匹配）
      * @param spec 规格描述（模糊匹配）
@@ -123,6 +124,7 @@ public class PreparationController extends BaseCrudController<Preparation, Prepa
      */
     @GetMapping("/search")
     public ApiResponse<PagedResult<Preparation>> queryPreparations(
+            @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String preparationCode,
             @RequestParam(required = false) String preparationName,
             @RequestParam(required = false) String spec,
@@ -141,6 +143,7 @@ public class PreparationController extends BaseCrudController<Preparation, Prepa
         try {
             // 构造查询条件对象
             Preparation preparation = new Preparation();
+            preparation.setKeyword(keyword);
             preparation.setPreparationCode(preparationCode);
             preparation.setPreparationName(preparationName);
             preparation.setSpec(spec);

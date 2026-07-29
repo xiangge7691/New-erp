@@ -277,6 +277,16 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
         
         QueryWrapper<Preparation> wrapper = new QueryWrapper<>();
 
+        // 关键字查询（同时匹配制剂编码和制剂名称）
+        if (StringUtils.hasText(preparation.getKeyword())) {
+            String keyword = preparation.getKeyword().trim();
+            wrapper.and(w -> w
+                    .like("preparation_code", keyword)
+                    .or()
+                    .like("preparation_name", keyword)
+            );
+        }
+
         if (preparation.getPreparationId() != null) {
             wrapper.eq("preparation_id", preparation.getPreparationId());
         }
