@@ -113,6 +113,18 @@ public class RoomInfo extends AuditEntity {
     @TableField(value = "cleaning_cycle")
     private Integer cleaningCycle;
 
+    /**
+     * 功能间分类（车间/仓储/检验/工程）
+     */
+    @TableField(value = "function_type")
+    private String functionType;
+
+    /**
+     * 涉及工序（多个以逗号分隔）
+     */
+    @TableField(value = "related_processes")
+    private String relatedProcesses;
+
     // endregion
 
     // region 状态与审计字段
