@@ -208,14 +208,14 @@ public class EquipmentServiceImpl extends ServiceImpl<EquipmentMapper, Equipment
     }
 
     /**
-     * 获取所有启用的设备
+     * 获取所有正常状态的设备
      *
-     * @return 启用的设备列表
+     * @return 正常状态的设备列表
      */
     @Override
     public List<Equipment> listActive() {
         return this.lambdaQuery()
-                .eq(Equipment::getEquipmentStatus, 1)
+                .eq(Equipment::getEquipmentStatus, "正常")
                 .orderByAsc(Equipment::getEquipmentName)
                 .list();
     }

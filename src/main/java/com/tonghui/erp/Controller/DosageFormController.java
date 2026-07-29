@@ -109,7 +109,15 @@ public class DosageFormController extends BaseCrudController<DosageForm, DosageF
      */
     @Override
     protected DosageForm doCreate(DosageForm dosageForm) {
-        // 添加药品剂型到数据库（dosageCategory允许重复）
+        // 校验同一剂型大类下剂型名称不能重复
+        LambdaQueryWrapper<DosageForm> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(DosageForm::getDosageCategory, dosageForm.getDosageCategory());
+        queryWrapper.eq(DosageForm::getDosageName, dosageForm.getDosageName());
+        if (dosageFormService.getOne(queryWrapper) != null) {
+            throw new RuntimeException("该剂型大类下已存在相同的剂型名称");
+        }
+
+        // 添加药品剂型到数据库
         boolean result = dosageFormService.save(dosageForm);
 
         if (!result) {
@@ -140,10 +148,19 @@ public class DosageFormController extends BaseCrudController<DosageForm, DosageF
      */
     @Override
     protected DosageForm doUpdate(Long id, DosageForm dosageForm) {
+        // 校验同一剂型大类下剂型名称不能重复（排除当前记录）
+        LambdaQueryWrapper<DosageForm> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(DosageForm::getDosageCategory, dosageForm.getDosageCategory());
+        queryWrapper.eq(DosageForm::getDosageName, dosageForm.getDosageName());
+        queryWrapper.ne(DosageForm::getDosageId, id);
+        if (dosageFormService.getOne(queryWrapper) != null) {
+            throw new RuntimeException("该剂型大类下已存在相同的剂型名称");
+        }
+
         // 更新药品剂型信息
         dosageForm.setDosageId(id);
 
-        // 更新药品剂型（dosageCategory允许重复）
+        // 更新药品剂型
         boolean result = dosageFormService.updateById(dosageForm);
 
         if (!result) {

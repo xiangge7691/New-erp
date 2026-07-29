@@ -73,10 +73,10 @@ public class Equipment extends AuditEntity {
     private String productionCapacity;
 
     /**
-     * 设备状态字典：1-启用/可用，0-停用/不可用。默认启用。
+     * 设备状态：正常/停用/报废。默认正常。
      */
     @TableField(value = "equipment_status")
-    private Integer equipmentStatus;
+    private String equipmentStatus;
 
     /**
      * 购置时间。设备购买的日期。
