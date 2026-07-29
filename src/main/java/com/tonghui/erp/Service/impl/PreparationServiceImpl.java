@@ -99,6 +99,11 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
     @Override
     @Transactional
     public void addPreparation(Preparation preparation) {
+        // 清理已软删除的相同编码记录（避免唯一键冲突）
+        if (preparation.getPreparationCode() != null && !preparation.getPreparationCode().isEmpty()) {
+            baseMapper.physicalDeleteByPreparationCode(preparation.getPreparationCode());
+        }
+
         // 设置创建时间和更新时间
         LocalDateTime now = LocalDateTime.now();
         preparation.setCreatedTime(now);
