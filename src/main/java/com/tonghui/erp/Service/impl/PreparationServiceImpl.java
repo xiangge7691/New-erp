@@ -11,10 +11,14 @@ import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.PreparationDocument;
 import com.tonghui.erp.Data.Entity.PreparationFormula;
 import com.tonghui.erp.Data.Entity.PreparationProcessTemplate;
+import com.tonghui.erp.Data.Entity.ProductionUnit;
+import com.tonghui.erp.Data.Entity.Stock;
 import com.tonghui.erp.Data.mapper.PreparationDocumentMapper;
 import com.tonghui.erp.Data.mapper.PreparationFormulaMapper;
 import com.tonghui.erp.Data.mapper.PreparationMapper;
 import com.tonghui.erp.Data.mapper.PreparationProcessTemplateMapper;
+import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
+import com.tonghui.erp.Data.mapper.StockMapper;
 import com.tonghui.erp.Service.PreparationDocumentService;
 import com.tonghui.erp.Service.PreparationFormulaService;
 import com.tonghui.erp.Service.PreparationProcessTemplateService;
@@ -61,6 +65,12 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
     @Autowired
     private PreparationProcessTemplateService preparationProcessTemplateService;
 
+    @Autowired
+    private ProductionUnitMapper productionUnitMapper;
+
+    @Autowired
+    private StockMapper stockMapper;
+
     @Override
     public PagedResult<Preparation> getPreparationList(PageRequestDto pageRequestDto) {
         Page<Preparation> page = new Page<>(pageRequestDto.getPageIndex(), pageRequestDto.getPageSize());
@@ -82,24 +92,79 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
 
     /**
      * 新增制剂
+     * <p>如果状态为1，则自动为每个启用的生产单位创建库存记录</p>
      *
      * @param preparation 制剂实体
      */
     @Override
+    @Transactional
     public void addPreparation(Preparation preparation) {
         // 设置创建时间和更新时间
         LocalDateTime now = LocalDateTime.now();
         preparation.setCreatedTime(now);
         preparation.setUpdatedTime(now);
-        
+
         // 获取当前用户ID
         Long currentUserId = EntityUtils.getCurrentUserId();
         if (currentUserId != null) {
             preparation.setCreatedBy(currentUserId);
             preparation.setUpdatedBy(currentUserId);
         }
-        
+
         this.baseMapper.insert(preparation);
+
+        // 如果状态为1，为每个启用的生产单位创建库存记录
+        if (preparation.getStatus() != null && preparation.getStatus() == 1) {
+            createStockRecordsForAllProdUnits(preparation);
+        }
+    }
+
+    /**
+     * 为所有启用的生产单位创建该制剂的库存记录
+     *
+     * @param preparation 已插入的制剂实体
+     */
+    private void createStockRecordsForAllProdUnits(Preparation preparation) {
+        // 查询所有启用且未删除的生产单位
+        QueryWrapper<ProductionUnit> puWrapper = new QueryWrapper<>();
+        puWrapper.eq("prod_unit_status", 1);
+        puWrapper.eq("is_deleted", 0);
+        List<ProductionUnit> prodUnits = productionUnitMapper.selectList(puWrapper);
+
+        if (prodUnits.isEmpty()) {
+            return;
+        }
+
+        // 为每个生产单位创建库存记录
+        LocalDateTime now = LocalDateTime.now();
+        java.time.LocalDate today = java.time.LocalDate.now();
+        String batchNumber = "AUTO_" + today.format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"))
+                + "_" + preparation.getPreparationId();
+
+        for (ProductionUnit pu : prodUnits) {
+            Stock stock = new Stock();
+            stock.setProdUnitId(pu.getProdUnitId());
+            stock.setItemType("preparation");
+            stock.setItemId(preparation.getPreparationId());
+            stock.setItemCode(preparation.getPreparationCode());
+            stock.setItemName(preparation.getPreparationName());
+            stock.setCategoryName("制剂");
+            stock.setUnitName(preparation.getUnitName() != null ? preparation.getUnitName() : "个");
+            stock.setQuantity(java.math.BigDecimal.ZERO);
+            stock.setBatchNumber(batchNumber);
+            stock.setProductionDate(today);
+            stock.setExpiryDate(today.plusYears(5));
+            stock.setStorageLocation("");
+            stock.setRemark("");
+            stock.setStockStatus(1);
+            stock.setIsDeleted(0);
+            stock.setVersion(1);
+            stock.setCreatedBy(preparation.getCreatedBy());
+            stock.setUpdatedBy(preparation.getUpdatedBy());
+            stock.setCreatedTime(now);
+            stock.setUpdatedTime(now);
+            stockMapper.insert(stock);
+        }
     }
 
     /**
