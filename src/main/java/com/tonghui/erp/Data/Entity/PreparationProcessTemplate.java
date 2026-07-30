@@ -84,6 +84,12 @@ public class PreparationProcessTemplate extends AuditEntity {
     private String equipmentParams;
 
     /**
+     * 关键工艺参数
+     */
+    @TableField(value = "key_process_params")
+    private String keyProcessParams;
+
+    /**
      * 配置室要求
      */
     @TableField(value = "room_desc")
