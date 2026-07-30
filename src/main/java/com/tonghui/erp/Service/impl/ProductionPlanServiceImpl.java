@@ -8,7 +8,9 @@ import com.tonghui.erp.Common.Dto.ProductionPlanWithRecordsDto;
 import com.tonghui.erp.Data.Entity.ProductionPlan;
 import com.tonghui.erp.Data.Entity.ProductionProcessRecord;
 import com.tonghui.erp.Data.Entity.PlanStatusLog;
+import com.tonghui.erp.Data.Entity.WorkOrder;
 import com.tonghui.erp.Data.mapper.ProductionProcessRecordMapper;
+import com.tonghui.erp.Data.mapper.WorkOrderMapper;
 import com.tonghui.erp.Service.ProductionPlanService;
 import com.tonghui.erp.Service.PlanStatusLogService;
 import com.tonghui.erp.Data.mapper.ProductionPlanMapper;
@@ -47,6 +49,10 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
     /** 生产过程记录数据访问层，用于关联查询计划关联的生产过程记录 */
     @Autowired
     private ProductionProcessRecordMapper productionProcessRecordMapper;
+
+    /** 工单数据访问层，用于关联查询计划关联的生产任务 */
+    @Autowired
+    private WorkOrderMapper workOrderMapper;
     
     /**
      * 构造函数注入依赖
@@ -301,11 +307,20 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
         Map<Integer, List<ProductionProcessRecord>> recordsMap = allRecords.stream()
                 .collect(Collectors.groupingBy(ProductionProcessRecord::getPlanId));
 
+        // 批量查询关联的生产任务（工单）
+        QueryWrapper<WorkOrder> workOrderWrapper = new QueryWrapper<>();
+        workOrderWrapper.in("plan_id", parentIds);
+        workOrderWrapper.eq("is_deleted", 0);
+        List<WorkOrder> allWorkOrders = workOrderMapper.selectList(workOrderWrapper);
+        Map<Long, List<WorkOrder>> workOrdersMap = allWorkOrders.stream()
+                .collect(Collectors.groupingBy(WorkOrder::getPlanId));
+
         // 组装带子表数据的DTO
         List<ProductionPlanWithRecordsDto> dtos = parents.stream().map(parent -> {
             ProductionPlanWithRecordsDto dto = new ProductionPlanWithRecordsDto();
             BeanUtils.copyProperties(parent, dto);
             dto.setRecords(recordsMap.getOrDefault(parent.getId(), List.of()));
+            dto.setWorkOrders(workOrdersMap.getOrDefault(parent.getId().longValue(), List.of()));
             return dto;
         }).collect(Collectors.toList());
 
