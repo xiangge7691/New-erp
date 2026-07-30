@@ -35,6 +35,12 @@ public class ProductionPlan extends AuditEntity {
     private String planNumber;
 
     /**
+     * 计划名称
+     */
+    @TableField(value = "plan_name")
+    private String planName;
+
+    /**
      * 关联单号（销售订单号）
      */
     @TableField(value = "related_order")
@@ -160,6 +166,36 @@ public class ProductionPlan extends AuditEntity {
      */
     @TableField(value = "archive_time")
     private LocalDateTime archiveTime;
+
+    /**
+     * 计划生产时间
+     */
+    @TableField(value = "plan_production_time")
+    private LocalDateTime planProductionTime;
+
+    /**
+     * 需交付时间
+     */
+    @TableField(value = "delivery_time")
+    private LocalDateTime deliveryTime;
+
+    /**
+     * 采购计划下达时间
+     */
+    @TableField(value = "purchase_order_time")
+    private LocalDateTime purchaseOrderTime;
+
+    /**
+     * 是否加急（0-否，1-是）
+     */
+    @TableField(value = "is_urgent")
+    private Integer isUrgent;
+
+    /**
+     * 计划单文件
+     */
+    @TableField(value = "plan_file")
+    private String planFile;
 
     // endregion
 

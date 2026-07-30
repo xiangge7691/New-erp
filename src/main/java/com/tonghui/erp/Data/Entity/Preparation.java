@@ -138,6 +138,12 @@ public class Preparation extends AuditEntity {
     @TableField(value = "settlement_price")
     private BigDecimal settlementPrice;
 
+    /**
+     * 零售单价
+     */
+    @TableField(value = "retail_price")
+    private BigDecimal retailPrice;
+
     // endregion
 
     // region 状态与审计字段

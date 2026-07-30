@@ -58,6 +58,18 @@ public class WorkOrder extends AuditEntity {
     @TableField(value = "preparation_name")
     private String preparationName;
 
+    /**
+     * 关联计划ID
+     */
+    @TableField(value = "plan_id")
+    private Long planId;
+
+    /**
+     * 关联计划名称
+     */
+    @TableField(value = "plan_name")
+    private String planName;
+
     // endregion
 
     // region 业务字段
@@ -148,6 +160,84 @@ public class WorkOrder extends AuditEntity {
      */
     @TableField(value = "return_amount")
     private BigDecimal returnAmount;
+
+    /**
+     * 配置日期
+     */
+    @TableField(value = "config_date")
+    private LocalDateTime configDate;
+
+    /**
+     * 加工类型（自主加工/委托加工/试生产）
+     */
+    @TableField(value = "production_type")
+    private String productionType;
+
+    /**
+     * 销售单价
+     */
+    @TableField(value = "sales_price")
+    private BigDecimal salesPrice;
+
+    /**
+     * 成品数量
+     */
+    @TableField(value = "finished_qty")
+    private BigDecimal finishedQty;
+
+    /**
+     * 生产周期（天）
+     */
+    @TableField(value = "production_cycle")
+    private Integer productionCycle;
+
+    /**
+     * 得率（百分比）
+     */
+    @TableField(value = "yield_rate")
+    private BigDecimal yieldRate;
+
+    /**
+     * 总金额
+     */
+    @TableField(value = "total_amount")
+    private BigDecimal totalAmount;
+
+    /**
+     * 当前状态（待生产/生产中/已生产/检验中/已检验/已出库/已归档）
+     */
+    @TableField(value = "current_status")
+    private String currentStatus;
+
+    /**
+     * 生产完成时间
+     */
+    @TableField(value = "production_complete_time")
+    private LocalDateTime productionCompleteTime;
+
+    /**
+     * 检验开始时间
+     */
+    @TableField(value = "inspection_start")
+    private LocalDateTime inspectionStart;
+
+    /**
+     * 检验结束时间
+     */
+    @TableField(value = "inspection_end")
+    private LocalDateTime inspectionEnd;
+
+    /**
+     * 出库时间
+     */
+    @TableField(value = "outbound_time")
+    private LocalDateTime outboundTime;
+
+    /**
+     * 归档时间
+     */
+    @TableField(value = "archive_time")
+    private LocalDateTime archiveTime;
 
     // endregion
 
