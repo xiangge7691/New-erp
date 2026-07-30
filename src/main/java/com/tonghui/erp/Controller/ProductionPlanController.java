@@ -309,59 +309,7 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
     }
 
     // endregion
-    
-    // region 自动生成计划编号接口
-    // ===================================
-    // 自动生成计划编号接口
-    // ===================================
 
-    /**
-     * 自动生成生产计划编号
-     *
-     * 示例请求：
-     * GET /api/production-plans/generate-plan-number
-     *
-     * @return ApiResponse&lt;String&gt; 生成的计划编号
-     */
-    @GetMapping("/generate-plan-number")
-    public ApiResponse<String> generatePlanNumber() {
-        try {
-            // 生成计划编号格式：PP + 年月日 + 6位序列号
-            String dateStr = LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
-            String prefix = "Plan" + dateStr;
-            
-            // 查询当天已有的最大序列号
-            QueryWrapper<ProductionPlan> queryWrapper = new QueryWrapper<>();
-            queryWrapper.likeRight("plan_number", prefix);
-            queryWrapper.orderByDesc("plan_number");
-            queryWrapper.last("LIMIT 1");
-            
-            ProductionPlan latestPlan = productionPlanService.getOne(queryWrapper);
-            
-            int sequence = 1;
-            if (latestPlan != null && latestPlan.getPlanNumber() != null) {
-                try {
-                    // 从现有编号中提取序列号部分并加1
-                    String latestNumber = latestPlan.getPlanNumber();
-                    String sequenceStr = latestNumber.substring(Math.max(0, latestNumber.length() - 4));
-                    sequence = Integer.parseInt(sequenceStr) + 1;
-                } catch (Exception e) {
-                    // 解析失败则使用默认序列号1
-                    sequence = 1;
-                }
-            }
-            
-            // 格式化序列号为6位数字，不足补零
-            String planNumber = prefix + String.format("%04d", sequence);
-            
-            return success(planNumber, "计划编号生成成功");
-        } catch (Exception ex) {
-            return error("生成计划编号异常：" + ex.getMessage());
-        }
-    }
-    
-    // endregion
-    
     // region 状态管理接口
     // ===================================
     // 状态管理接口
