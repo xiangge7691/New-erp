@@ -82,6 +82,11 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
 
     @Override
     protected ProductionPlan doCreate(ProductionPlan entity) {
+        // 自动生成计划编号
+        if (entity.getPlanNumber() == null || entity.getPlanNumber().isEmpty()) {
+            entity.setPlanNumber(generatePlanNumberInternal());
+        }
+
         Long currentUserId = EntityUtils.getCurrentUserId();
         if (currentUserId != null) {
             entity.setCreatedBy(currentUserId);
@@ -92,6 +97,34 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
         entity.setUpdatedTime(now);
         productionPlanService.save(entity);
         return entity;
+    }
+
+    /**
+     * 内部生成计划编号方法
+     */
+    private String generatePlanNumberInternal() {
+        String dateStr = LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String prefix = "Plan" + dateStr;
+
+        QueryWrapper<ProductionPlan> queryWrapper = new QueryWrapper<>();
+        queryWrapper.likeRight("plan_number", prefix);
+        queryWrapper.orderByDesc("plan_number");
+        queryWrapper.last("LIMIT 1");
+
+        ProductionPlan latestPlan = productionPlanService.getOne(queryWrapper);
+
+        int sequence = 1;
+        if (latestPlan != null && latestPlan.getPlanNumber() != null) {
+            try {
+                String latestNumber = latestPlan.getPlanNumber();
+                String sequenceStr = latestNumber.substring(Math.max(0, latestNumber.length() - 4));
+                sequence = Integer.parseInt(sequenceStr) + 1;
+            } catch (Exception e) {
+                sequence = 1;
+            }
+        }
+
+        return prefix + String.format("%04d", sequence);
     }
 
     @Override

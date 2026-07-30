@@ -72,10 +72,10 @@ public class ProductionPlan extends AuditEntity {
     private BigDecimal planQuantity;
 
     /**
-     * 生产计划类型
+     * 生产计划类型（自主加工/委托加工/试生产）
      */
     @TableField(value = "plan_type")
-    private Object planType;
+    private String planType;
 
     /**
      * 备注信息
