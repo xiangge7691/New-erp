@@ -88,18 +88,23 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
     @Override
     @Transactional
     public boolean addWorkOrder(WorkOrder workOrder) {
+        // 自动生成工单编号
+        if (workOrder.getWorkOrderCode() == null || workOrder.getWorkOrderCode().isEmpty()) {
+            workOrder.setWorkOrderCode(generateWorkOrderCode());
+        }
+
         // 如果提供了preparationId但没有提供preparationCode和preparationName，则从Preparation表中获取
-        if (workOrder.getPreparationId() != null && 
+        if (workOrder.getPreparationId() != null &&
             (workOrder.getPreparationCode() == null || workOrder.getPreparationCode().isEmpty()) &&
             (workOrder.getPreparationName() == null || workOrder.getPreparationName().isEmpty())) {
-            
+
             Preparation preparation = preparationService.getPreparationById(workOrder.getPreparationId());
             if (preparation != null) {
                 workOrder.setPreparationCode(preparation.getPreparationCode());
                 workOrder.setPreparationName(preparation.getPreparationName());
             }
         }
-        
+
         // 如果preparationCode仍然为空，则抛出异常
         if (workOrder.getPreparationCode() == null || workOrder.getPreparationCode().isEmpty()) {
             throw new RuntimeException("创建失败: preparation_code不能为空，请提供制剂信息");
