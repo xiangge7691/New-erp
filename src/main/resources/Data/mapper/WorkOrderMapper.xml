@@ -25,6 +25,9 @@
             <result property="invoiceAmount" column="invoice_amount" />
             <result property="settlementAmount" column="settlement_amount" />
             <result property="returnAmount" column="return_amount" />
+            <result property="configDate" column="config_date" />
+            <result property="configCompleteTime" column="config_complete_time" />
+            <result property="remark" column="remark" />
             <result property="createdBy" column="created_by" />
             <result property="updatedBy" column="updated_by" />
             <result property="createdTime" column="created_time" />
@@ -35,7 +38,7 @@
         work_order_id,work_order_code,work_order_name,preparation_id,preparation_code,preparation_name,
         batch_qty,producer,receiver,delivery_time,invoice_price,
         insurance_price,settlement_price,batch_number,outbound_qty,receipt_amount,
-        actual_receipt_amount,invoice_amount,settlement_amount,return_amount,created_by,
-        updated_by,created_time,updated_time
+        actual_receipt_amount,invoice_amount,settlement_amount,return_amount,config_date,
+        config_complete_time,remark,created_by,updated_by,created_time,updated_time
     </sql>
 </mapper>

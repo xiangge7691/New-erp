@@ -168,6 +168,18 @@ public class WorkOrder extends AuditEntity {
     private LocalDateTime configDate;
 
     /**
+     * 配置完成日期
+     */
+    @TableField(value = "config_complete_time")
+    private LocalDateTime configCompleteTime;
+
+    /**
+     * 备注
+     */
+    @TableField(value = "remark")
+    private String remark;
+
+    /**
      * 加工类型（自主加工/委托加工/试生产）
      */
     @TableField(value = "production_type")
