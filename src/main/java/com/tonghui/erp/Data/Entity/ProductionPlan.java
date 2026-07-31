@@ -47,6 +47,12 @@ public class ProductionPlan extends AuditEntity {
     private String relatedOrder;
 
     /**
+     * 制剂ID
+     */
+    @TableField(value = "preparation_id")
+    private Long preparationId;
+
+    /**
      * 制剂编码
      */
     @TableField(value = "preparation_code")
