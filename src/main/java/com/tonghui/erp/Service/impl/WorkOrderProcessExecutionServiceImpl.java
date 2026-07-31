@@ -1,6 +1,5 @@
 package com.tonghui.erp.Service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessExecution;
@@ -21,11 +20,7 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
 
     @Override
     public List<WorkOrderProcessExecution> getByWorkOrderId(Long workOrderId) {
-        QueryWrapper<WorkOrderProcessExecution> wrapper = new QueryWrapper<>();
-        wrapper.eq("work_order_id", workOrderId);
-        wrapper.eq("is_deleted", 0);
-        wrapper.orderByAsc("step_order");
-        return this.list(wrapper);
+        return baseMapper.selectByWorkOrderIdWithDetails(workOrderId);
     }
 
     @Override

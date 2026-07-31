@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.WorkOrderProcessExecutionMapper">
+
+    <resultMap id="WithDetailsResultMap" type="com.tonghui.erp.Data.Entity.WorkOrderProcessExecution">
+            <id property="id" column="id" />
+            <result property="workOrderId" column="work_order_id" />
+            <result property="processTypeId" column="process_type_id" />
+            <result property="roomId" column="room_id" />
+            <result property="equipmentId" column="equipment_id" />
+            <result property="stepOrder" column="step_order" />
+            <result property="operatorId" column="operator_id" />
+            <result property="operatorName" column="operator_name" />
+            <result property="startTime" column="start_time" />
+            <result property="endTime" column="end_time" />
+            <result property="processQty" column="process_qty" />
+            <result property="keyProcessParams" column="key_process_params" />
+            <result property="status" column="status" />
+            <result property="remark" column="remark" />
+            <result property="isDeleted" column="is_deleted" />
+            <result property="version" column="version" />
+            <result property="createdBy" column="created_by" />
+            <result property="updatedBy" column="updated_by" />
+            <result property="createdTime" column="created_time" />
+            <result property="updatedTime" column="updated_time" />
+            <!-- 关联显示字段 -->
+            <result property="processTypeName" column="process_type_name" />
+            <result property="processCode" column="process_code" />
+            <result property="roomName" column="room_name" />
+            <result property="equipmentName" column="equipment_name" />
+    </resultMap>
+
+    <sql id="Select_With_Details">
+        e.id, e.work_order_id, e.process_type_id, e.room_id, e.equipment_id,
+        e.step_order, e.operator_id, e.operator_name, e.start_time, e.end_time,
+        e.process_qty, e.key_process_params, e.status, e.remark,
+        e.is_deleted, e.version, e.created_by, e.updated_by, e.created_time, e.updated_time,
+        pt.process_name AS process_type_name,
+        pt.process_code AS process_code,
+        ri.room_name AS room_name,
+        eq.equipment_name AS equipment_name
+    </sql>
+
+    <select id="selectByWorkOrderIdWithDetails" resultMap="WithDetailsResultMap">
+        SELECT
+            <include refid="Select_With_Details" />
+        FROM work_order_process_execution e
+        LEFT JOIN process_type pt ON e.process_type_id = pt.process_id AND pt.is_deleted = 0
+        LEFT JOIN room_info ri ON e.room_id = ri.room_id AND ri.is_deleted = 0
+        LEFT JOIN equipment eq ON e.equipment_id = eq.equipment_id AND eq.is_deleted = 0
+        WHERE e.work_order_id = #{workOrderId} AND e.is_deleted = 0
+        ORDER BY e.step_order ASC
+    </select>
+
+</mapper>
