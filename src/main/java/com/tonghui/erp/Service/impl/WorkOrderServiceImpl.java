@@ -7,11 +7,16 @@ import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.Preparation;
+import com.tonghui.erp.Data.Entity.PreparationProcessTemplate;
 import com.tonghui.erp.Data.Entity.WorkOrder;
+import com.tonghui.erp.Data.Entity.WorkOrderProcessExecution;
 import com.tonghui.erp.Data.mapper.WorkOrderMapper;
+import com.tonghui.erp.Service.PreparationProcessTemplateService;
 import com.tonghui.erp.Service.PreparationService;
+import com.tonghui.erp.Service.WorkOrderProcessExecutionService;
 import com.tonghui.erp.Service.WorkOrderService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -19,6 +24,8 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 工单服务实现类
@@ -40,6 +47,14 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
     /** 制剂服务，用于获取制剂信息 */
     @Autowired
     private PreparationService preparationService;
+
+    /** 制剂工序模板服务，用于拉取工序模板 */
+    @Autowired
+    private PreparationProcessTemplateService preparationProcessTemplateService;
+
+    /** 工单工序执行记录服务，用于自动绑定工序记录 */
+    @Autowired
+    private WorkOrderProcessExecutionService workOrderProcessExecutionService;
 
     // endregion
 
@@ -85,14 +100,12 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
      * @param workOrder 工单实体
      * @return 操作是否成功
      */
+    /** 工单编号生成最大重试次数 */
+    private static final int MAX_RETRY = 3;
+
     @Override
     @Transactional
     public boolean addWorkOrder(WorkOrder workOrder) {
-        // 自动生成工单编号
-        if (workOrder.getWorkOrderCode() == null || workOrder.getWorkOrderCode().isEmpty()) {
-            workOrder.setWorkOrderCode(generateWorkOrderCode());
-        }
-
         // 如果提供了preparationId但没有提供preparationCode和preparationName，则从Preparation表中获取
         if (workOrder.getPreparationId() != null &&
             (workOrder.getPreparationCode() == null || workOrder.getPreparationCode().isEmpty()) &&
@@ -122,7 +135,32 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
             workOrder.setUpdatedBy(currentUserId);
         }
 
-        return this.save(workOrder);
+        // 重试机制：处理工单编号并发冲突
+        for (int i = 0; i < MAX_RETRY; i++) {
+            // 首次或重试时生成编号
+            if (workOrder.getWorkOrderCode() == null || workOrder.getWorkOrderCode().isEmpty()) {
+                workOrder.setWorkOrderCode(generateWorkOrderCode());
+            }
+
+            try {
+                boolean saved = this.save(workOrder);
+
+                // 工单保存成功后，自动根据制剂拉取工序模板并绑定工序执行记录
+                if (saved && workOrder.getPreparationId() != null) {
+                    bindProcessTemplates(workOrder);
+                }
+
+                return saved;
+            } catch (DuplicateKeyException e) {
+                // 编号冲突，清空编号后重试
+                workOrder.setWorkOrderCode(null);
+                if (i == MAX_RETRY - 1) {
+                    throw new RuntimeException("创建失败: 工单编号生成冲突，请稍后重试", e);
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -291,7 +329,55 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
     }
 
     // endregion
-    
+
+    // region 工序模板绑定
+    // ===================================
+    // 工序模板绑定
+    // ===================================
+
+    /**
+     * 根据制剂ID拉取工序模板，转换为工单工序执行记录并批量保存
+     * <p>
+     * 在新增工单时自动调用，将制剂的工序模板绑定到工单的工序执行记录中
+     * </p>
+     *
+     * @param workOrder 工单实体（需已保存，包含workOrderId）
+     */
+    private void bindProcessTemplates(WorkOrder workOrder) {
+        List<PreparationProcessTemplate> templates =
+                preparationProcessTemplateService.findByPreparationId(workOrder.getPreparationId());
+
+        if (templates == null || templates.isEmpty()) {
+            return;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        Long currentUserId = EntityUtils.getCurrentUserId();
+
+        List<WorkOrderProcessExecution> executions = new ArrayList<>();
+        for (PreparationProcessTemplate template : templates) {
+            WorkOrderProcessExecution exec = new WorkOrderProcessExecution();
+            exec.setWorkOrderId(workOrder.getWorkOrderId());
+            exec.setProcessTypeId(template.getProcessTypeId());
+            exec.setStepOrder(template.getStepOrder());
+            exec.setProcessQty(template.getStandardQty());
+            exec.setKeyProcessParams(template.getKeyProcessParams());
+            exec.setRemark(template.getRemark());
+            exec.setStatus("待执行");
+            exec.setIsDeleted(0);
+            exec.setVersion(1);
+            exec.setCreatedBy(currentUserId);
+            exec.setUpdatedBy(currentUserId);
+            exec.setCreatedTime(now);
+            exec.setUpdatedTime(now);
+            executions.add(exec);
+        }
+
+        workOrderProcessExecutionService.batchSave(workOrder.getWorkOrderId(), executions);
+    }
+
+    // endregion
+
     // region 工单编号生成
     // ===================================
     // 工单编号生成
