@@ -6,17 +6,19 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 /**
- * 采购订单主表
- * @TableName purchase_orders
+ * 采购计划表
+ * @TableName purchase_plan
  */
-@TableName(value ="purchase_orders")
+@TableName(value = "purchase_plan")
 @Data
 @EqualsAndHashCode(callSuper = true)
-public class PurchaseOrders extends AuditEntity {
+public class PurchasePlan extends AuditEntity {
+
     // region 基本信息字段
     // ===================================
     // 基本信息字段
@@ -27,79 +29,6 @@ public class PurchaseOrders extends AuditEntity {
      */
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
-
-    /**
-     * 采购编号
-     */
-    @TableField(value = "purchase_number")
-    private String purchaseNumber;
-
-    /**
-     * 供应商ID
-     */
-    @TableField(value = "supplier_id")
-    private Long supplierId;
-
-    /**
-     * 仓库（生产单位ID）
-     */
-    @TableField(value = "prod_unit_id")
-    private Long prodUnitId;
-
-    /**
-     * 仓库
-     */
-    @TableField(value = "warehouse")
-    private String warehouse;
-
-    // endregion
-
-    // region 业务字段
-    // ===================================
-    // 业务字段
-    // ===================================
-
-    /**
-     * 处理日期
-     */
-    @TableField(value = "processing_date")
-    private LocalDate processingDate;
-
-    /**
-     * 预计到货日期
-     */
-    @TableField(value = "expected_delivery_date")
-    private LocalDate expectedDeliveryDate;
-
-    /**
-     * 发票信息
-     */
-    @TableField(value = "invoice_info")
-    private String invoiceInfo;
-
-    /**
-     * 收货信息
-     */
-    @TableField(value = "receiving_info")
-    private String receivingInfo;
-
-    /**
-     * 制剂所属单位
-     */
-    @TableField(value = "unit")
-    private String unit;
-
-    /**
-     * 采购单标题
-     */
-    @TableField(value = "title")
-    private String title;
-
-    /**
-     * 关联采购计划ID
-     */
-    @TableField(value = "plan_id")
-    private Long planId;
 
     /**
      * 采购计划编号
@@ -120,6 +49,12 @@ public class PurchaseOrders extends AuditEntity {
     private String workOrderCode;
 
     /**
+     * 工单标题
+     */
+    @TableField(value = "title")
+    private String title;
+
+    /**
      * 制剂编码
      */
     @TableField(value = "preparation_code")
@@ -136,6 +71,13 @@ public class PurchaseOrders extends AuditEntity {
      */
     @TableField(value = "spec")
     private String spec;
+
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
 
     /**
      * 批量
@@ -156,22 +98,71 @@ public class PurchaseOrders extends AuditEntity {
     private String materialType;
 
     /**
+     * 仓库
+     */
+    @TableField(value = "warehouse")
+    private String warehouse;
+
+    /**
+     * 处理日期
+     */
+    @TableField(value = "processing_date")
+    private LocalDate processingDate;
+
+    /**
+     * 预计到货日期
+     */
+    @TableField(value = "expected_delivery_date")
+    private LocalDate expectedDeliveryDate;
+
+    /**
+     * 收货单位
+     */
+    @TableField(value = "receiving_unit")
+    private String receivingUnit;
+
+    /**
+     * 收货地址
+     */
+    @TableField(value = "receiving_address")
+    private String receivingAddress;
+
+    /**
+     * 发票信息
+     */
+    @TableField(value = "invoice_info")
+    private String invoiceInfo;
+
+    /**
      * 备注
      */
     @TableField(value = "remark")
     private String remark;
 
-    /**
-     * 是否生成生产计划
-     */
-    @TableField(value = "generate_production_plan")
-    private Integer generateProductionPlan;
+    // endregion
+
+    // region 状态与审批字段
+    // ===================================
+    // 状态与审批字段
+    // ===================================
 
     /**
-     * 审批实例ID
+     * 状态（草稿/待审批/已审批/已驳回）
      */
-    @TableField(value = "approval_instance_id")
-    private Long approvalInstanceId;
+    @TableField(value = "status")
+    private String status;
+
+    /**
+     * 审批意见
+     */
+    @TableField(value = "approval_opinion")
+    private String approvalOpinion;
+
+    /**
+     * 关联的采购订单ID
+     */
+    @TableField(value = "purchase_order_id")
+    private Long purchaseOrderId;
 
     // endregion
 
@@ -179,18 +170,6 @@ public class PurchaseOrders extends AuditEntity {
     // ===================================
     // 状态与审计字段
     // ===================================
-
-    /**
-     * 状态
-     */
-    @TableField(value = "status")
-    private Object status;
-
-    /**
-     * 审批意见
-     */
-    @TableField(value = "approval_opinion")
-    private String approvalOpinion;
 
     /**
      * 是否已删除
