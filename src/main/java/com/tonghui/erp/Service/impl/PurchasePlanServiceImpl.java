@@ -72,64 +72,33 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
 
     @Override
     @Transactional
-    public boolean submitForApproval(Long planId) {
+    public boolean updateStatus(Long planId, String targetStatus, String approvalOpinion) {
         PurchasePlan plan = this.getById(planId);
         if (plan == null) {
             throw new RuntimeException("采购计划不存在");
         }
-        if (!"草稿".equals(plan.getStatus()) && !"已驳回".equals(plan.getStatus())) {
-            throw new RuntimeException("当前状态不允许提交审批");
-        }
 
-        plan.setStatus("待审批");
-        plan.setUpdatedTime(LocalDateTime.now());
-        return this.updateById(plan);
-    }
-
-    @Override
-    @Transactional
-    public boolean approve(Long planId, String approvalOpinion) {
-        PurchasePlan plan = this.getById(planId);
-        if (plan == null) {
-            throw new RuntimeException("采购计划不存在");
+        // 更新状态和审批意见
+        plan.setStatus(targetStatus);
+        if (StringUtils.hasText(approvalOpinion)) {
+            plan.setApprovalOpinion(approvalOpinion);
         }
-        if (!"待审批".equals(plan.getStatus())) {
-            throw new RuntimeException("当前状态不允许审批");
-        }
-
-        // 更新采购计划状态
-        plan.setStatus("已审批");
-        plan.setApprovalOpinion(StringUtils.hasText(approvalOpinion) ? approvalOpinion : "同意采购");
         plan.setUpdatedTime(LocalDateTime.now());
 
-        // 生成采购订单
-        PurchaseOrders order = createOrderFromPlan(plan);
-        purchaseOrdersMapper.insert(order);
-
-        // 更新采购计划关联的订单ID
-        plan.setPurchaseOrderId(order.getId());
-        this.updateById(plan);
-
-        // 复制明细到采购订单
-        copyPlanDetailsToOrder(planId, order.getId());
-
-        return true;
-    }
-
-    @Override
-    @Transactional
-    public boolean reject(Long planId, String approvalOpinion) {
-        PurchasePlan plan = this.getById(planId);
-        if (plan == null) {
-            throw new RuntimeException("采购计划不存在");
-        }
-        if (!"待审批".equals(plan.getStatus())) {
-            throw new RuntimeException("当前状态不允许驳回");
+        Long currentUserId = EntityUtils.getCurrentUserId();
+        if (currentUserId != null) {
+            plan.setUpdatedBy(currentUserId);
         }
 
-        plan.setStatus("已驳回");
-        plan.setApprovalOpinion(StringUtils.hasText(approvalOpinion) ? approvalOpinion : "审批驳回");
-        plan.setUpdatedTime(LocalDateTime.now());
+        // 审批通过时，自动生成采购订单
+        if ("已审批".equals(targetStatus)) {
+            PurchaseOrders order = createOrderFromPlan(plan);
+            purchaseOrdersMapper.insert(order);
+            plan.setPurchaseOrderId(order.getId());
+            this.updateById(plan);
+            copyPlanDetailsToOrder(planId, order.getId());
+            return true;
+        }
 
         return this.updateById(plan);
     }

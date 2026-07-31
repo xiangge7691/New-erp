@@ -399,18 +399,12 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         String dateStr = today.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String prefix = "GD" + dateStr;
         
-        // 查询当天最大的工单编号
-        QueryWrapper<WorkOrder> queryWrapper = new QueryWrapper<>();
-        queryWrapper.likeRight("work_order_code", prefix);
-        queryWrapper.orderByDesc("work_order_code");
-        queryWrapper.last("LIMIT 1");
-        
-        WorkOrder lastWorkOrder = this.getOne(queryWrapper);
+        // 查询当天最大的工单编号（绕过软删除，避免删除后编号重复）
+        String lastCode = baseMapper.selectMaxCodeByPrefix(prefix);
         
         int nextSeq = 1;
-        if (lastWorkOrder != null && lastWorkOrder.getWorkOrderCode() != null) {
+        if (lastCode != null) {
             try {
-                String lastCode = lastWorkOrder.getWorkOrderCode();
                 String seqPart = lastCode.substring(prefix.length());
                 nextSeq = Integer.parseInt(seqPart) + 1;
             } catch (Exception e) {

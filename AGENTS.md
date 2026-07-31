@@ -69,6 +69,44 @@ Erp/
 - **响应**: 统一使用 `ApiResponse` 格式
 - **密码**: 使用Argon2算法加密
 
+### 软删除与唯一约束冲突（重要）
+
+本项目全局启用了 MyBatis-Plus 软删除（`application.yml`）：
+```yaml
+logic-delete-field: isDeleted
+logic-delete-value: 1
+logic-not-delete-value: 0
+```
+
+**核心问题**：MyBatis-Plus 自动为所有查询追加 `AND is_deleted = 0`，但数据库唯一索引（UNIQUE KEY）是对**所有行**生效的（包括 `is_deleted=1` 的软删除行）。
+
+**典型冲突场景**：
+1. 表有唯一字段（如 `work_order_code`）+ 唯一索引
+2. 记录 A 的该字段值为 `X`，被软删除（`is_deleted` → 1）
+3. 业务代码通过 MyBatis-Plus 查询最大值/是否存在，自动过滤了 `is_deleted=1` 的记录
+4. 生成了相同的值 `X` 并插入 → 触发唯一约束冲突 `Duplicate entry`
+
+**正确做法**：对于需要保证唯一性的字段（编号、编码等），查询时**必须绕过软删除过滤**：
+```java
+// ❌ 错误：会被全局软删除过滤，跳过已删除记录
+QueryWrapper<Entity> wrapper = new QueryWrapper<>();
+wrapper.likeRight("code", prefix);
+wrapper.orderByDesc("code");
+wrapper.last("LIMIT 1");
+Entity last = this.getOne(wrapper);
+
+// ✅ 正确：使用 @Select 原生 SQL，绕过软删除过滤
+@Select("SELECT code FROM table_name WHERE code LIKE CONCAT(#{prefix}, '%') ORDER BY code DESC LIMIT 1")
+String selectMaxCodeByPrefix(@Param("prefix") String prefix);
+```
+
+**涉及的表**（有唯一索引 + 软删除）：
+- `work_order`（`uk_work_order_code`）
+- `purchase_plan`（`uk_plan_code`）
+- 其他有 `is_deleted` + UNIQUE KEY 的表同理
+
+**额外建议**：自动生成编号的方法中，应加入 `DuplicateKeyException` 重试机制，防御并发场景下的竞争问题。
+
 ## 代码注释规范
 
 ### 注释要求

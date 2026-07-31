@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 采购计划控制器
@@ -92,43 +93,29 @@ public class PurchasePlanController extends BaseController {
     }
 
     /**
-     * 提交审批
+     * 更新采购计划状态（通用状态变更接口）
+     * <p>
+     * 前端控制按钮显隐，后端只负责更新状态。
+     * 当目标状态为"已审批"时，自动生成采购订单。
+     * </p>
+     *
+     * 示例请求：
+     * PUT /api/purchase-plan/1/status
+     * 请求体：{"status": "草稿", "approvalOpinion": "撤回修改"}
+     *
+     * @param id   采购计划ID
+     * @param body 请求体，包含 status（必填）和 approvalOpinion（可选）
+     * @return 操作结果
      */
-    @PostMapping("/{id}/submit")
-    public ApiResponse<Boolean> submit(@PathVariable Long id) {
+    @PutMapping("/{id}/status")
+    public ApiResponse<Boolean> updateStatus(@PathVariable Long id, @RequestBody Map<String, String> body) {
         try {
-            boolean result = purchasePlanService.submitForApproval(id);
-            return success(result, "提交成功");
+            String status = body.get("status");
+            String opinion = body.get("approvalOpinion");
+            boolean result = purchasePlanService.updateStatus(id, status, opinion);
+            return success(result, "状态更新成功");
         } catch (Exception ex) {
-            return exception(ex, "提交审批失败");
-        }
-    }
-
-    /**
-     * 审批通过
-     */
-    @PostMapping("/{id}/approve")
-    public ApiResponse<Boolean> approve(@PathVariable Long id,
-                                        @RequestParam(required = false) String opinion) {
-        try {
-            boolean result = purchasePlanService.approve(id, opinion);
-            return success(result, "审批通过，已自动生成采购订单");
-        } catch (Exception ex) {
-            return exception(ex, "审批失败");
-        }
-    }
-
-    /**
-     * 驳回
-     */
-    @PostMapping("/{id}/reject")
-    public ApiResponse<Boolean> reject(@PathVariable Long id,
-                                       @RequestParam String opinion) {
-        try {
-            boolean result = purchasePlanService.reject(id, opinion);
-            return success(result, "已驳回");
-        } catch (Exception ex) {
-            return exception(ex, "驳回失败");
+            return exception(ex, "状态更新失败");
         }
     }
 

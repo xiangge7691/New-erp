@@ -20,30 +20,18 @@ public interface PurchasePlanService extends IService<PurchasePlan> {
     boolean addPurchasePlan(PurchasePlan purchasePlan);
 
     /**
-     * 提交审批
-     *
-     * @param planId 采购计划ID
-     * @return 是否成功
-     */
-    boolean submitForApproval(Long planId);
-
-    /**
-     * 审批通过（自动生成采购订单）
+     * 更新采购计划状态（通用状态变更接口）
+     * <p>
+     * 前端控制按钮显隐和状态流转逻辑，后端只负责更新状态。
+     * 当目标状态为"已审批"时，自动触发生成采购订单的逻辑。
+     * </p>
      *
      * @param planId         采购计划ID
-     * @param approvalOpinion 审批意见
+     * @param targetStatus   目标状态
+     * @param approvalOpinion 审批意见（可选）
      * @return 是否成功
      */
-    boolean approve(Long planId, String approvalOpinion);
-
-    /**
-     * 驳回
-     *
-     * @param planId         采购计划ID
-     * @param approvalOpinion 驳回原因
-     * @return 是否成功
-     */
-    boolean reject(Long planId, String approvalOpinion);
+    boolean updateStatus(Long planId, String targetStatus, String approvalOpinion);
 
     /**
      * 高级查询采购计划
