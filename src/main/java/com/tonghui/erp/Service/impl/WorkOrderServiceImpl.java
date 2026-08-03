@@ -6,13 +6,17 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.utils.EntityUtils;
+import com.tonghui.erp.Data.Entity.Equipment;
 import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.PreparationProcessTemplate;
+import com.tonghui.erp.Data.Entity.RoomInfo;
 import com.tonghui.erp.Data.Entity.WorkOrder;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessExecution;
 import com.tonghui.erp.Data.mapper.WorkOrderMapper;
+import com.tonghui.erp.Service.EquipmentService;
 import com.tonghui.erp.Service.PreparationProcessTemplateService;
 import com.tonghui.erp.Service.PreparationService;
+import com.tonghui.erp.Service.RoomInfoService;
 import com.tonghui.erp.Service.WorkOrderProcessExecutionService;
 import com.tonghui.erp.Service.WorkOrderService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -55,6 +59,14 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
     /** 工单工序执行记录服务，用于自动绑定工序记录 */
     @Autowired
     private WorkOrderProcessExecutionService workOrderProcessExecutionService;
+
+    /** 配置室服务，用于根据描述匹配配置室ID */
+    @Autowired
+    private RoomInfoService roomInfoService;
+
+    /** 设备服务，用于根据描述匹配设备ID */
+    @Autowired
+    private EquipmentService equipmentService;
 
     // endregion
 
@@ -363,6 +375,29 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
             exec.setProcessQty(template.getStandardQty());
             exec.setKeyProcessParams(template.getKeyProcessParams());
             exec.setRemark(template.getRemark());
+
+            // 根据模板中的描述文本匹配配置室ID
+            if (StringUtils.hasText(template.getRoomDesc())) {
+                QueryWrapper<RoomInfo> roomWrapper = new QueryWrapper<>();
+                roomWrapper.eq("room_name", template.getRoomDesc());
+                roomWrapper.last("LIMIT 1");
+                RoomInfo room = roomInfoService.getOne(roomWrapper);
+                if (room != null) {
+                    exec.setRoomId(room.getRoomId());
+                }
+            }
+
+            // 根据模板中的描述文本匹配设备ID
+            if (StringUtils.hasText(template.getEquipmentDesc())) {
+                QueryWrapper<Equipment> eqWrapper = new QueryWrapper<>();
+                eqWrapper.eq("equipment_name", template.getEquipmentDesc());
+                eqWrapper.last("LIMIT 1");
+                Equipment equipment = equipmentService.getOne(eqWrapper);
+                if (equipment != null) {
+                    exec.setEquipmentId(equipment.getEquipmentId());
+                }
+            }
+
             exec.setStatus("待执行");
             exec.setIsDeleted(0);
             exec.setVersion(1);

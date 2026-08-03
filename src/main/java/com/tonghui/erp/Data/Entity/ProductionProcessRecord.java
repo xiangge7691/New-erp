@@ -93,6 +93,12 @@ public class ProductionProcessRecord extends AuditEntity {
     private String equipmentParams;
 
     /**
+     * 关键工艺参数
+     */
+    @TableField(value = "process_params")
+    private String processParams;
+
+    /**
      * 工序开始时间。工序实际开始时间。
      */
     @TableField(value = "start_time")

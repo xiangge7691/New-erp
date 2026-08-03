@@ -3,6 +3,7 @@ package com.tonghui.erp.Controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.PurchasePlanStatusDto;
 import com.tonghui.erp.Data.Entity.PurchasePlan;
 import com.tonghui.erp.Data.Entity.PurchasePlanDetail;
 import com.tonghui.erp.Data.mapper.PurchasePlanDetailMapper;
@@ -11,7 +12,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * 采购计划控制器
@@ -101,18 +101,20 @@ public class PurchasePlanController extends BaseController {
      *
      * 示例请求：
      * PUT /api/purchase-plan/1/status
-     * 请求体：{"status": "草稿", "approvalOpinion": "撤回修改"}
+     * 请求体：{"status": "已审批", "approvalOpinion": "同意"}
      *
      * @param id   采购计划ID
-     * @param body 请求体，包含 status（必填）和 approvalOpinion（可选）
+     * @param body 状态更新请求体，支持多个字段：
+     *             <ul>
+     *               <li>status：目标状态（必填），可选值：草稿/待审批/已审批/已驳回</li>
+     *               <li>approvalOpinion：审批意见（可选），修改状态时填写的审批备注</li>
+     *             </ul>
      * @return 操作结果
      */
     @PutMapping("/{id}/status")
-    public ApiResponse<Boolean> updateStatus(@PathVariable Long id, @RequestBody Map<String, String> body) {
+    public ApiResponse<Boolean> updateStatus(@PathVariable Long id, @RequestBody PurchasePlanStatusDto body) {
         try {
-            String status = body.get("status");
-            String opinion = body.get("approvalOpinion");
-            boolean result = purchasePlanService.updateStatus(id, status, opinion);
+            boolean result = purchasePlanService.updateStatus(id, body.getStatus(), body.getApprovalOpinion());
             return success(result, "状态更新成功");
         } catch (Exception ex) {
             return exception(ex, "状态更新失败");
