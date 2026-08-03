@@ -13,10 +13,13 @@ import com.tonghui.erp.Data.mapper.PurchaseOrdersMapper;
 import com.tonghui.erp.Service.PurchaseOrdersService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -76,6 +79,36 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
     // 基础CRUD操作
     // ===================================
 
+    /** 采购订单编号生成最大重试次数（处理并发编号冲突） */
+    private static final int MAX_RETRY = 3;
+
+    /**
+     * 生成采购订单编号（CG + yyyyMMdd + 4位流水号）
+     * <p>原数据库触发器 trg_auto_generate_purchase_number 逻辑迁移至后端实现，
+     * 查询最大编号时绕过全局软删除过滤，避免与已软删除订单编号冲突</p>
+     *
+     * @return 采购订单编号
+     */
+    @Override
+    public String generateOrderNumber() {
+        String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String prefix = "CG" + dateStr;
+
+        // 使用原生SQL查询当天最大编号，绕过软删除过滤
+        String lastNumber = this.baseMapper.selectMaxPurchaseNumberByPrefix(prefix);
+
+        int sequence = 1;
+        if (StringUtils.hasText(lastNumber) && lastNumber.length() > prefix.length()) {
+            try {
+                sequence = Integer.parseInt(lastNumber.substring(prefix.length())) + 1;
+            } catch (NumberFormatException e) {
+                sequence = 1;
+            }
+        }
+
+        return prefix + String.format("%04d", sequence);
+    }
+
     /**
      * 新增采购订单
      *
@@ -85,7 +118,25 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
     @Override
     @Transactional
     public boolean addPurchaseOrder(PurchaseOrders purchaseOrders) {
-        return this.save(purchaseOrders);
+        // 重试机制：处理采购订单编号并发冲突
+        for (int i = 0; i < MAX_RETRY; i++) {
+            // 未提供编号时自动生成（替代原数据库触发器逻辑）
+            if (!StringUtils.hasText(purchaseOrders.getPurchaseNumber())) {
+                purchaseOrders.setPurchaseNumber(generateOrderNumber());
+            }
+
+            try {
+                return this.save(purchaseOrders);
+            } catch (DuplicateKeyException e) {
+                // 编号冲突，清空编号后重试
+                purchaseOrders.setPurchaseNumber(null);
+                if (i == MAX_RETRY - 1) {
+                    throw new RuntimeException("创建失败: 采购订单编号生成冲突，请稍后重试", e);
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

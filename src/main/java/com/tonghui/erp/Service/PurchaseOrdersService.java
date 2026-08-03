@@ -20,6 +20,14 @@ public interface PurchaseOrdersService extends IService<PurchaseOrders> {
     // ===================================
 
     /**
+     * 生成采购订单编号（CG + yyyyMMdd + 4位流水号）
+     * <p>替代原数据库触发器 trg_auto_generate_purchase_number 的逻辑，由后端统一生成</p>
+     *
+     * @return 采购订单编号
+     */
+    String generateOrderNumber();
+
+    /**
      * 新增采购订单
      *
      * @param purchaseOrders 采购订单实体

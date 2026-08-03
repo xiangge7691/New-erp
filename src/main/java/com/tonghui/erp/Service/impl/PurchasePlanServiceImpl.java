@@ -12,8 +12,10 @@ import com.tonghui.erp.Data.mapper.PurchaseOrderItemsMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrdersMapper;
 import com.tonghui.erp.Data.mapper.PurchasePlanDetailMapper;
 import com.tonghui.erp.Data.mapper.PurchasePlanMapper;
+import com.tonghui.erp.Service.PurchaseOrdersService;
 import com.tonghui.erp.Service.PurchasePlanService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -38,6 +40,12 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
 
     @Autowired
     private PurchaseOrderItemsMapper purchaseOrderItemsMapper;
+
+    @Autowired
+    private PurchaseOrdersService purchaseOrdersService;
+
+    /** 采购订单编号生成最大重试次数（处理并发编号冲突） */
+    private static final int MAX_RETRY = 3;
 
     @Override
     @Transactional
@@ -92,8 +100,19 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
 
         // 审批通过时，自动生成采购订单
         if ("已审批".equals(targetStatus)) {
-            PurchaseOrders order = createOrderFromPlan(plan);
-            purchaseOrdersMapper.insert(order);
+            PurchaseOrders order = null;
+            // 重试机制：处理采购订单编号并发冲突
+            for (int i = 0; i < MAX_RETRY; i++) {
+                order = createOrderFromPlan(plan);
+                try {
+                    purchaseOrdersMapper.insert(order);
+                    break;
+                } catch (DuplicateKeyException e) {
+                    if (i == MAX_RETRY - 1) {
+                        throw new RuntimeException("创建失败: 采购订单编号生成冲突，请稍后重试", e);
+                    }
+                }
+            }
             plan.setPurchaseOrderId(order.getId());
             this.updateById(plan);
             copyPlanDetailsToOrder(planId, order.getId());
@@ -129,7 +148,7 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
      */
     private PurchaseOrders createOrderFromPlan(PurchasePlan plan) {
         PurchaseOrders order = new PurchaseOrders();
-        order.setPurchaseNumber(generateOrderNumber());
+        order.setPurchaseNumber(purchaseOrdersService.generateOrderNumber());
         order.setPlanId(plan.getId());
         order.setPlanCode(plan.getPlanCode());
         order.setWorkOrderId(plan.getWorkOrderId());
@@ -209,34 +228,6 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
         if (latestPlan != null && StringUtils.hasText(latestPlan.getPlanCode())) {
             try {
                 String latestCode = latestPlan.getPlanCode();
-                String seqStr = latestCode.substring(prefix.length());
-                sequence = Integer.parseInt(seqStr) + 1;
-            } catch (Exception e) {
-                sequence = 1;
-            }
-        }
-
-        return prefix + String.format("%04d", sequence);
-    }
-
-    /**
-     * 生成采购订单编号
-     */
-    private String generateOrderNumber() {
-        String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String prefix = "DD" + dateStr;
-
-        QueryWrapper<PurchaseOrders> queryWrapper = new QueryWrapper<>();
-        queryWrapper.likeRight("purchase_number", prefix);
-        queryWrapper.orderByDesc("purchase_number");
-        queryWrapper.last("LIMIT 1");
-
-        PurchaseOrders latestOrder = purchaseOrdersMapper.selectOne(queryWrapper);
-
-        int sequence = 1;
-        if (latestOrder != null && StringUtils.hasText(latestOrder.getPurchaseNumber())) {
-            try {
-                String latestCode = latestOrder.getPurchaseNumber();
                 String seqStr = latestCode.substring(prefix.length());
                 sequence = Integer.parseInt(seqStr) + 1;
             } catch (Exception e) {
