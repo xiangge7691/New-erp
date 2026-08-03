@@ -337,6 +337,9 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
             wrapper.le("updated_time", updatedTimeEnd);
         }
 
+        // 按创建时间倒序排列，新创建的显示在最前
+        wrapper.orderByDesc("created_time");
+
         return this.page(page, wrapper);
     }
 

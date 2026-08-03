@@ -230,8 +230,8 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
             }
         }
         
-        // 按编号倒序排列
-        wrapper.orderByDesc("plan_number");
+        // 按创建时间倒序排列，新创建的显示在最前
+        wrapper.orderByDesc("created_time");
 
         return this.page(page, wrapper);
     }
