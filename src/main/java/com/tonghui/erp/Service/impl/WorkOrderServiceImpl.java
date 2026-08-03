@@ -16,6 +16,7 @@ import com.tonghui.erp.Data.mapper.WorkOrderMapper;
 import com.tonghui.erp.Service.EquipmentService;
 import com.tonghui.erp.Service.PreparationProcessTemplateService;
 import com.tonghui.erp.Service.PreparationService;
+import com.tonghui.erp.Service.ProductionPlanService;
 import com.tonghui.erp.Service.RoomInfoService;
 import com.tonghui.erp.Service.WorkOrderProcessExecutionService;
 import com.tonghui.erp.Service.WorkOrderService;
@@ -67,6 +68,10 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
     /** 设备服务，用于根据描述匹配设备ID */
     @Autowired
     private EquipmentService equipmentService;
+
+    /** 生产计划服务，用于工单变更后联动刷新关联计划的状态 */
+    @Autowired
+    private ProductionPlanService productionPlanService;
 
     // endregion
 
@@ -162,6 +167,11 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
                     bindProcessTemplates(workOrder);
                 }
 
+                // 工单保存成功后，联动刷新关联生产计划的状态（待生产→生产中）
+                if (saved && workOrder.getPlanId() != null) {
+                    productionPlanService.refreshPlanStatus(workOrder.getPlanId().intValue());
+                }
+
                 return saved;
             } catch (DuplicateKeyException e) {
                 // 编号冲突，清空编号后重试
@@ -177,7 +187,7 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
 
     /**
      * 更新工单
-     * <p>自动更新更新时间和更新人信息</p>
+     * <p>自动更新更新时间和更新人信息，更新后联动刷新关联生产计划的状态</p>
      *
      * @param workOrder 工单实体，包含要更新的字段信息
      * @return 操作是否成功
@@ -194,11 +204,19 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
             workOrder.setUpdatedBy(currentUserId);
         }
 
-        return this.updateById(workOrder);
+        boolean updated = this.updateById(workOrder);
+
+        // 更新成功后，联动刷新关联生产计划的状态（如工单出库后计划变为已完成）
+        if (updated && workOrder.getPlanId() != null) {
+            productionPlanService.refreshPlanStatus(workOrder.getPlanId().intValue());
+        }
+
+        return updated;
     }
 
     /**
      * 删除工单
+     * <p>删除后联动刷新关联生产计划的状态</p>
      *
      * @param workOrderId 工单ID
      * @return 操作是否成功
@@ -206,7 +224,16 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
     @Override
     @Transactional
     public boolean deleteWorkOrder(Long workOrderId) {
-        return this.removeById(workOrderId);
+        // 删除前查询工单，获取关联计划ID用于状态刷新
+        WorkOrder workOrder = this.getById(workOrderId);
+        boolean removed = this.removeById(workOrderId);
+
+        // 删除成功后，联动刷新关联生产计划的状态
+        if (removed && workOrder != null && workOrder.getPlanId() != null) {
+            productionPlanService.refreshPlanStatus(workOrder.getPlanId().intValue());
+        }
+
+        return removed;
     }
 
     // endregion

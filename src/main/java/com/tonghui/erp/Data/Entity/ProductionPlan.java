@@ -211,24 +211,14 @@ public class ProductionPlan extends AuditEntity {
     // ===================================
 
     /**
-     * 当前状态（生产计划生命周期状态，由 Service 根据各阶段时间字段自动计算，无需手动赋值）
+     * 当前状态（生产计划生命周期状态，由 Service 根据关联工单状态动态计算并落库，无需手动赋值）
      * <p>
      * 取值与中文对照：
      * <ul>
-     *   <li>DRAFT - 草稿（计划创建，尚未下达）</li>
-     *   <li>CONFIRMED - 已确认（计划已确认待生产）</li>
-     *   <li>PLAN_ISSUED - 计划已下达（默认状态，已进入生产流程）</li>
-     *   <li>IN_PRODUCTION - 生产中（production_start_time 已设置）</li>
-     *   <li>PRODUCED - 已生产（production_end_time 已设置）</li>
-     *   <li>IN_INSPECTION - 检验中（inspection_start_time 已设置）</li>
-     *   <li>INSPECTED - 已检验（inspection_end_time 已设置）</li>
-     *   <li>OUTBOUND - 已出库（outbound_time 已设置）</li>
-     *   <li>ARCHIVED - 已归档（archive_time 已设置）</li>
-     *   <li>SUSPENDED - 已暂停（异常处理，可恢复）</li>
-     *   <li>CANCELLED - 已取消（异常处理，终止流程）</li>
+     *   <li>待生产 - 计划新建且未关联任何工单</li>
+     *   <li>生产中 - 计划已关联工单，且存在未出库的工单</li>
+     *   <li>已完成 - 计划关联的所有工单均已出库或已归档</li>
      * </ul>
-     * 正常流转：DRAFT/CONFIRMED → PLAN_ISSUED → IN_PRODUCTION → PRODUCED → IN_INSPECTION → INSPECTED → OUTBOUND → ARCHIVED
-     * 返工流转：IN_INSPECTION → IN_PRODUCTION；异常流转：任意状态 → SUSPENDED/CANCELLED，SUSPENDED → IN_PRODUCTION（恢复）
      * </p>
      */
     @TableField(value = "current_status")

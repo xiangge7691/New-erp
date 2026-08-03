@@ -99,25 +99,16 @@ public class DashboardController extends BaseController {
 
             ProductionStatsDto productionStats = new ProductionStatsDto();
             productionStats.setTotalPlans(productionPlanService.count());
-            String statusExpr = "CASE " +
-                "WHEN archive_time IS NOT NULL THEN 'ARCHIVED' " +
-                "WHEN outbound_time IS NOT NULL THEN 'OUTBOUND' " +
-                "WHEN inspection_end_time IS NOT NULL THEN 'INSPECTED' " +
-                "WHEN inspection_start_time IS NOT NULL THEN 'IN_INSPECTION' " +
-                "WHEN production_end_time IS NOT NULL THEN 'PRODUCED' " +
-                "WHEN production_start_time IS NOT NULL THEN 'IN_PRODUCTION' " +
-                "ELSE 'PLAN_ISSUED' END";
-            // 进行中：生产中 + 已生产 + 检验中 + 已检验
+            // 生产计划状态已落库（待生产/生产中/已完成），直接按状态列统计
+            // 进行中：生产中
             productionStats.setInProgress(productionPlanService.count(
-                new QueryWrapper<ProductionPlan>().apply(statusExpr + " IN ({0})",
-                    "IN_PRODUCTION", "PRODUCED", "IN_INSPECTION", "INSPECTED")));
-            // 已完成：已出库 + 已归档
+                new QueryWrapper<ProductionPlan>().eq("current_status", "生产中")));
+            // 已完成：已完成
             productionStats.setCompleted(productionPlanService.count(
-                new QueryWrapper<ProductionPlan>().apply(statusExpr + " IN ({0})",
-                    "OUTBOUND", "ARCHIVED")));
-            // 待处理：已下单
+                new QueryWrapper<ProductionPlan>().eq("current_status", "已完成")));
+            // 待处理：待生产
             productionStats.setPending(productionPlanService.count(
-                new QueryWrapper<ProductionPlan>().apply(statusExpr + " = {0}", "PLAN_ISSUED")));
+                new QueryWrapper<ProductionPlan>().eq("current_status", "待生产")));
             summary.setProductionStats(productionStats);
 
             StockWarningStatsDto stockWarnings = new StockWarningStatsDto();
@@ -196,10 +187,10 @@ public class DashboardController extends BaseController {
                 .sum();
             metrics.setTotalPurchaseAmount(Math.round(purchaseAmount * 100.0) / 100.0);
 
-            // 待生产数量：current_status IN ('DRAFT','CONFIRMED') 且在时间范围内
+            // 待生产数量：current_status = '待生产' 且在时间范围内
             QueryWrapper<ProductionPlan> pendingWrapper = new QueryWrapper<>();
             pendingWrapper.eq("is_deleted", 0)
-                          .in("current_status", "DRAFT", "CONFIRMED");
+                          .eq("current_status", "待生产");
             if (startMonth != null && !startMonth.isEmpty()) {
                 pendingWrapper.ge("created_time", startMonth + "-01 00:00:00");
             }
@@ -441,11 +432,11 @@ public class DashboardController extends BaseController {
      * 订单跟踪看板
      *
      * 示例请求：
-     * GET /api/dashboard/order-tracking?startMonth=2026-01&endMonth=2026-06&status=IN_PRODUCTION
+     * GET /api/dashboard/order-tracking?startMonth=2026-01&endMonth=2026-06&status=生产中
      *
      * @param startMonth 起始月份（格式：2026-01，可选）
      * @param endMonth   结束月份（格式：2026-06，可选）
-     * @param status     订单状态（可选），如PLAN_ISSUED、IN_PRODUCTION、PRODUCED、IN_INSPECTION、INSPECTED、OUTBOUND、ARCHIVED
+     * @param status     订单状态（可选），如待生产、生产中、已完成
      * @return 订单跟踪列表
      */
     @GetMapping("/order-tracking")
@@ -456,15 +447,8 @@ public class DashboardController extends BaseController {
         try {
             QueryWrapper<ProductionPlan> wrapper = buildTimeWrapper(startMonth, endMonth);
             if (status != null && !status.isEmpty()) {
-                String statusExpr = "CASE " +
-                    "WHEN archive_time IS NOT NULL THEN 'ARCHIVED' " +
-                    "WHEN outbound_time IS NOT NULL THEN 'OUTBOUND' " +
-                    "WHEN inspection_end_time IS NOT NULL THEN 'INSPECTED' " +
-                    "WHEN inspection_start_time IS NOT NULL THEN 'IN_INSPECTION' " +
-                    "WHEN production_end_time IS NOT NULL THEN 'PRODUCED' " +
-                    "WHEN production_start_time IS NOT NULL THEN 'IN_PRODUCTION' " +
-                    "ELSE 'PLAN_ISSUED' END";
-                wrapper.apply(statusExpr + " = {0}", status);
+                // 状态已落库，直接按中文状态值精确匹配（待生产/生产中/已完成）
+                wrapper.eq("current_status", status);
             }
             wrapper.orderByDesc("created_time");
 
@@ -476,7 +460,7 @@ public class DashboardController extends BaseController {
                 dto.setQuantity(plan.getPlanQuantity() != null ? plan.getPlanQuantity() + "" : "");
                 dto.setBatchNo(plan.getPlanNumber());
                 dto.setHospital(plan.getUnitName());
-                dto.setCurrentStatus(computeStatusForPlan(plan));
+                dto.setCurrentStatus(plan.getCurrentStatus());
                 if (plan.getCreatedTime() != null) {
                     dto.setOrderDate(plan.getCreatedTime().format(DateTimeFormatter.ofPattern("MM-dd")));
                 }
@@ -691,22 +675,6 @@ public class DashboardController extends BaseController {
             wrapper.le("delivery_time", end.atTime(23, 59, 59));
         }
         return wrapper;
-    }
-
-    /**
-     * 计算生产计划状态
-     *
-     * @param plan 生产计划对象
-     * @return 状态字符串
-     */
-    private String computeStatusForPlan(ProductionPlan plan) {
-        if (plan.getArchiveTime() != null) return "ARCHIVED";
-        if (plan.getOutboundTime() != null) return "OUTBOUND";
-        if (plan.getInspectionEndTime() != null) return "INSPECTED";
-        if (plan.getInspectionStartTime() != null) return "IN_INSPECTION";
-        if (plan.getProductionEndTime() != null) return "PRODUCED";
-        if (plan.getProductionStartTime() != null) return "IN_PRODUCTION";
-        return "PLAN_ISSUED";
     }
 
     // endregion

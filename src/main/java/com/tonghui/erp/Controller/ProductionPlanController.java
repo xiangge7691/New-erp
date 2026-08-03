@@ -11,7 +11,6 @@ import com.tonghui.erp.Service.ProductionPlanService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -29,8 +28,6 @@ import java.time.LocalDateTime;
  * │ 6  │ /api/production-plans/search               │ GET    │ 高级查询生产计划（多条件+分页）  │
  * │ 7  │ /api/production-plans/search-with-details  │ GET    │ 高级查询生产计划（含工序记录）   │
  * │ 8  │ /api/production-plans/generate-plan-number │ GET    │ 自动生成计划编号                │
- * │ 9  │ /api/production-plans/{planId}/status/change│ POST  │ 更改生产计划状态                │
- * │ 10 │ /api/production-plans/{planId}/status/resume│ POST  │ 恢复暂停的生产计划状态          │
  * └────┴────────────────────────────────────────────┴────────┴─────────────────────────────────┘
  */
 @RestController
@@ -95,6 +92,11 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
         LocalDateTime now = LocalDateTime.now();
         entity.setCreatedTime(now);
         entity.setUpdatedTime(now);
+
+        // 新建计划默认状态为「待生产」（未关联工单），后续由工单状态联动刷新
+        entity.setCurrentStatus("待生产");
+        entity.setCurrentStatusDate(now);
+
         productionPlanService.save(entity);
         return entity;
     }
@@ -305,73 +307,6 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
             return success(result);
         } catch (Exception ex) {
             return exception(ex, "查询失败");
-        }
-    }
-
-    // endregion
-
-    // region 状态管理接口
-    // ===================================
-    // 状态管理接口
-    // ===================================
-
-    /**
-     * 更改生产计划状态
-     *
-     * 示例请求：
-     * POST /api/production-plans/1/status/change?newStatus=进行中&operatorId=1&remark=开始生产
-     *
-     * @param planId 生产计划ID
-     * @param newStatus 新状态
-     * @param operatorId 操作员ID
-     * @param remark 备注
-     * @param finishedQuantity 成品数量（仅在出库状态时使用）
-     * @param productionCycle 生产周期（仅在出库状态时使用）
-     * @param yieldRate 得率（仅在出库状态时使用）
-     * @param unitPrice 单价（仅在出库状态时使用）
-     * @return ApiResponse&lt;Boolean&gt; 操作结果
-     */
-    @PostMapping("/{planId}/status/change")
-    public ApiResponse<Boolean> changePlanStatus(
-            @PathVariable Integer planId,
-            @RequestParam String newStatus,
-            @RequestParam Long operatorId,
-            @RequestParam(required = false) String remark,
-            @RequestParam(required = false) BigDecimal finishedQuantity,
-            @RequestParam(required = false) Integer productionCycle,
-            @RequestParam(required = false) BigDecimal yieldRate,
-            @RequestParam(required = false) BigDecimal unitPrice) {
-        try {
-            boolean result = productionPlanService.changePlanStatus(
-                    planId, newStatus, operatorId, remark,
-                    finishedQuantity, productionCycle, yieldRate, unitPrice);
-            return success(result, "状态变更成功");
-        } catch (Exception ex) {
-            return error("状态变更失败：" + ex.getMessage());
-        }
-    }
-
-    /**
-     * 恢复暂停的生产计划状态
-     *
-     * 示例请求：
-     * POST /api/production-plans/1/status/resume?operatorId=1&remark=恢复生产
-     *
-     * @param planId 生产计划ID
-     * @param operatorId 操作员ID
-     * @param remark 备注
-     * @return ApiResponse&lt;Boolean&gt; 操作结果
-     */
-    @PostMapping("/{planId}/status/resume")
-    public ApiResponse<Boolean> resumePlanStatus(
-            @PathVariable Integer planId,
-            @RequestParam Long operatorId,
-            @RequestParam String remark) {
-        try {
-            boolean result = productionPlanService.resumePlanStatus(planId, operatorId, remark);
-            return success(result, "状态恢复成功");
-        } catch (Exception ex) {
-            return error("状态恢复失败：" + ex.getMessage());
         }
     }
 

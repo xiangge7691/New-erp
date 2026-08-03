@@ -6,7 +6,6 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.ProductionPlanWithRecordsDto;
 import com.tonghui.erp.Data.Entity.ProductionPlan;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -53,32 +52,22 @@ public interface ProductionPlanService extends IService<ProductionPlan> {
                                              LocalDateTime archiveTimeStart, LocalDateTime archiveTimeEnd,
                                              String timeFieldType, LocalDateTime timeStart, LocalDateTime timeEnd,
                                              int pageNum, int pageSize);
-    
+
     /**
-     * 更改生产计划状态
+     * 刷新生产计划状态
+     * <p>
+     * 根据计划关联的工单状态动态计算计划状态并落库：
+     * <ul>
+     *   <li>无关联工单 → 待生产</li>
+     *   <li>有关联工单但存在未出库工单 → 生产中</li>
+     *   <li>所有关联工单均已出库或已归档 → 已完成</li>
+     * </ul>
+     * 在计划创建及工单新增/修改/删除时调用，保证状态实时准确
+     * </p>
      *
      * @param planId 生产计划ID
-     * @param newStatus 新状态
-     * @param operatorId 操作员ID
-     * @param remark 备注
-     * @param finishedQuantity 成品数量（仅在出库状态时使用）
-     * @param productionCycle 生产周期（仅在出库状态时使用）
-     * @param yieldRate 得率（仅在出库状态时使用）
-     * @param unitPrice 单价（仅在出库状态时使用）
-     * @return 是否成功
      */
-    boolean changePlanStatus(Integer planId, String newStatus, Long operatorId, String remark, 
-                            BigDecimal finishedQuantity, Integer productionCycle, BigDecimal yieldRate, BigDecimal unitPrice);
-    
-    /**
-     * 恢复暂停的生产计划状态
-     *
-     * @param planId 生产计划ID
-     * @param operatorId 操作员ID
-     * @param remark 备注
-     * @return 是否成功
-     */
-    boolean resumePlanStatus(Integer planId, Long operatorId, String remark);
+    void refreshPlanStatus(Integer planId);
 
     /**
      * 高级查询生产计划（包含工序记录子表）
@@ -115,13 +104,4 @@ public interface ProductionPlanService extends IService<ProductionPlan> {
                                                                 LocalDateTime archiveTimeStart, LocalDateTime archiveTimeEnd,
                                                                 String timeFieldType, LocalDateTime timeStart, LocalDateTime timeEnd,
                                                                 int pageNum, int pageSize);
-    
-    /**
-     * 验证状态变更是否符合业务规则
-     *
-     * @param oldStatus 当前状态
-     * @param newStatus 新状态
-     * @return 是否合法
-     */
-    boolean validateStatusChange(String oldStatus, String newStatus);
 }
