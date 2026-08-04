@@ -60,7 +60,7 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
         ProductionPlan productionPlan = new ProductionPlan();
         Page<ProductionPlan> pageResult = productionPlanService.queryProductionPlans(productionPlan,
                 null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
-                null, null, null,
+                null, null, null, null,
                 safePageIndex, safePageSize);
 
         PagedResult<ProductionPlan> pagedResult = new PagedResult<>();
@@ -214,6 +214,7 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
 
             // 获取分页结果
             Page<ProductionPlan> pageResult = productionPlanService.queryProductionPlans(productionPlan,
+                    null,
                     createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd,
                     productionStartTimeStart, productionStartTimeEnd, productionEndTimeStart, productionEndTimeEnd,
                     inspectionStartTimeStart, inspectionStartTimeEnd, inspectionEndTimeStart, inspectionEndTimeEnd,
@@ -243,11 +244,13 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
 
     /**
      * 高级查询生产计划（包含工序记录子表）
+     * <p>支持通过 keyword 关键字对计划编号、计划名称进行模糊查询，同时支持多条件组合查询</p>
      *
      * 示例请求：
-     * GET /api/production-plans/search-with-details?pageIndex=1&pageSize=20&planNumber=PP2025
+     * GET /api/production-plans/search-with-details?pageIndex=1&pageSize=20&keyword=PP2025
      *
      * @param productionPlan 查询条件（自动从query参数映射）
+     * @param keyword 关键字（对计划编号、计划名称进行模糊匹配，可选）
      * @param createdTimeStart 创建时间起始
      * @param createdTimeEnd 创建时间结束
      * @param updatedTimeStart 更新时间起始
@@ -273,6 +276,7 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
      */
     @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<ProductionPlanWithRecordsDto>> searchWithDetails(ProductionPlan productionPlan,
+                                                                                     @RequestParam(required = false) String keyword,
                                                                                      @RequestParam(required = false) LocalDateTime createdTimeStart,
                                                                                      @RequestParam(required = false) LocalDateTime createdTimeEnd,
                                                                                      @RequestParam(required = false) LocalDateTime updatedTimeStart,
@@ -298,6 +302,7 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
             int safePageIndex = Math.max(0, pageIndex);
             int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
             PagedResult<ProductionPlanWithRecordsDto> result = productionPlanService.searchWithDetails(productionPlan,
+                    keyword,
                     createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd,
                     productionStartTimeStart, productionStartTimeEnd, productionEndTimeStart, productionEndTimeEnd,
                     inspectionStartTimeStart, inspectionStartTimeEnd, inspectionEndTimeStart, inspectionEndTimeEnd,

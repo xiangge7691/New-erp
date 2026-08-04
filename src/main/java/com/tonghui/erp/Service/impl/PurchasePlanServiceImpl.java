@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.utils.EntityUtils;
+import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.PurchaseOrderItems;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
 import com.tonghui.erp.Data.Entity.PurchasePlan;
@@ -12,6 +13,7 @@ import com.tonghui.erp.Data.mapper.PurchaseOrderItemsMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrdersMapper;
 import com.tonghui.erp.Data.mapper.PurchasePlanDetailMapper;
 import com.tonghui.erp.Data.mapper.PurchasePlanMapper;
+import com.tonghui.erp.Service.PreparationService;
 import com.tonghui.erp.Service.PurchaseOrdersService;
 import com.tonghui.erp.Service.PurchasePlanService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -43,6 +46,9 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
 
     @Autowired
     private PurchaseOrdersService purchaseOrdersService;
+
+    @Autowired
+    private PreparationService preparationService;
 
     /** 采购订单编号生成最大重试次数（处理并发编号冲突） */
     private static final int MAX_RETRY = 3;
@@ -115,7 +121,7 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
             }
             plan.setPurchaseOrderId(order.getId());
             this.updateById(plan);
-            copyPlanDetailsToOrder(planId, order.getId());
+            copyPlanDetailsToOrder(plan, order.getId());
             return true;
         }
 
@@ -156,6 +162,7 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
         order.setTitle(plan.getTitle());
         order.setPreparationCode(plan.getPreparationCode());
         order.setPreparationName(plan.getPreparationName());
+        order.setUnit(resolvePreparationUnit(plan.getPreparationCode()));
         order.setSpec(plan.getSpec());
         order.setBatchQty(plan.getBatchQty());
         order.setPrescriptionMultiple(plan.getPrescriptionMultiple());
@@ -183,14 +190,36 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
     }
 
     /**
-     * 复制采购计划明细到采购订单明细
+     * 根据制剂编码解析制剂所属单位（purchase_orders.unit 取值来源）
+     * <p>制剂不存在或未配置单位名称时返回空字符串，避免 NOT NULL 列插入失败</p>
+     *
+     * @param preparationCode 制剂编码
+     * @return 制剂所属单位，无匹配时返回空字符串
      */
-    private void copyPlanDetailsToOrder(Long planId, Long orderId) {
+    private String resolvePreparationUnit(String preparationCode) {
+        if (!StringUtils.hasText(preparationCode)) {
+            return "";
+        }
+        Preparation preparation = preparationService.getPreparationByCode(preparationCode);
+        return preparation != null && StringUtils.hasText(preparation.getUnitName()) ? preparation.getUnitName() : "";
+    }
+
+    /**
+     * 复制采购计划明细到采购订单明细
+     * <p>明细表 NOT NULL 字段均做兜底处理，避免计划明细缺值导致插入失败</p>
+     *
+     * @param plan    采购计划（用于取物料类型等计划级字段）
+     * @param orderId 生成的采购订单ID
+     */
+    private void copyPlanDetailsToOrder(PurchasePlan plan, Long orderId) {
         // 查询计划明细
         QueryWrapper<PurchasePlanDetail> detailWrapper = new QueryWrapper<>();
-        detailWrapper.eq("plan_id", planId);
+        detailWrapper.eq("plan_id", plan.getId());
         detailWrapper.eq("is_deleted", 0);
         List<PurchasePlanDetail> planDetails = purchasePlanDetailMapper.selectList(detailWrapper);
+
+        // 加工性质（原料/辅料/包材）取自计划的物料类型
+        String processingProperty = StringUtils.hasText(plan.getMaterialType()) ? plan.getMaterialType() : "";
 
         // 复制到订单明细
         for (PurchasePlanDetail planDetail : planDetails) {
@@ -198,13 +227,14 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
             orderItem.setOrderId(orderId);
             orderItem.setSequenceNumber(planDetail.getSequenceNumber());
             orderItem.setMaterialId(planDetail.getMaterialId());
-            orderItem.setRawMaterialName(planDetail.getMaterialName());
-            orderItem.setProductName(planDetail.getMaterialCategory());
-            orderItem.setUnit(planDetail.getUnit());
-            orderItem.setDose(planDetail.getStandardQty());
-            orderItem.setPurchaseQuantity(planDetail.getPurchaseQty());
-            orderItem.setStock(planDetail.getStockQty());
+            orderItem.setRawMaterialName(StringUtils.hasText(planDetail.getMaterialName()) ? planDetail.getMaterialName() : "");
+            orderItem.setProductName(StringUtils.hasText(planDetail.getMaterialCategory()) ? planDetail.getMaterialCategory() : "");
+            orderItem.setUnit(StringUtils.hasText(planDetail.getUnit()) ? planDetail.getUnit() : "");
+            orderItem.setDose(planDetail.getStandardQty() != null ? planDetail.getStandardQty() : BigDecimal.ZERO);
+            orderItem.setPurchaseQuantity(planDetail.getPurchaseQty() != null ? planDetail.getPurchaseQty() : BigDecimal.ZERO);
+            orderItem.setStock(planDetail.getStockQty() != null ? planDetail.getStockQty() : BigDecimal.ZERO);
             orderItem.setDifference(planDetail.getDifference());
+            orderItem.setProcessingProperty(processingProperty);
 
             purchaseOrderItemsMapper.insert(orderItem);
         }

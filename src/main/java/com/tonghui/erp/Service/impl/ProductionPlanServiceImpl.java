@@ -61,6 +61,7 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
      * 同时支持创建时间、更新时间、生产时间、检验时间、出库时间、归档时间等多种时间范围查询</p>
      *
      * @param productionPlan            查询条件实体
+     * @param keyword                   关键字（对计划编号、计划名称进行模糊匹配）
      * @param createdTimeStart          创建时间起始值（含）
      * @param createdTimeEnd            创建时间结束值（含）
      * @param updatedTimeStart          更新时间起始值（含）
@@ -86,6 +87,7 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
      */
     @Override
     public Page<ProductionPlan> queryProductionPlans(ProductionPlan productionPlan,
+                                                     String keyword,
                                                      LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
                                                      LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
                                                      LocalDateTime productionStartTimeStart, LocalDateTime productionStartTimeEnd,
@@ -102,6 +104,10 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
         Page<ProductionPlan> page = new Page<>(actualPageNum, pageSize);
         QueryWrapper<ProductionPlan> wrapper = new QueryWrapper<>();
 
+        if (StringUtils.hasText(keyword)) {
+            // 关键字对计划编号、计划名称进行模糊匹配
+            wrapper.and(w -> w.like("plan_number", keyword).or().like("plan_name", keyword));
+        }
         if (productionPlan.getId() != null) {
             wrapper.eq("id", productionPlan.getId());
         }
@@ -226,6 +232,7 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
      * <p>先分页查询计划主表数据，再批量查询关联的生产过程记录</p>
      *
      * @param productionPlan            查询条件实体
+     * @param keyword                   关键字（对计划编号、计划名称进行模糊匹配）
      * @param createdTimeStart          创建时间起始值（含）
      * @param createdTimeEnd            创建时间结束值（含）
      * @param updatedTimeStart          更新时间起始值（含）
@@ -251,6 +258,7 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
      */
     @Override
     public PagedResult<ProductionPlanWithRecordsDto> searchWithDetails(ProductionPlan productionPlan,
+                                                                       String keyword,
                                                                        LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
                                                                        LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
                                                                        LocalDateTime productionStartTimeStart, LocalDateTime productionStartTimeEnd,
@@ -262,7 +270,7 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
                                                                        String timeFieldType, LocalDateTime timeStart, LocalDateTime timeEnd,
                                                                        int pageNum, int pageSize) {
         // 查询生产计划主表分页数据
-        Page<ProductionPlan> parentPage = queryProductionPlans(productionPlan, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd,
+        Page<ProductionPlan> parentPage = queryProductionPlans(productionPlan, keyword, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd,
                 productionStartTimeStart, productionStartTimeEnd, productionEndTimeStart, productionEndTimeEnd,
                 inspectionStartTimeStart, inspectionStartTimeEnd, inspectionEndTimeStart, inspectionEndTimeEnd,
                 outboundTimeStart, outboundTimeEnd, archiveTimeStart, archiveTimeEnd, timeFieldType, timeStart, timeEnd, pageNum, pageSize);

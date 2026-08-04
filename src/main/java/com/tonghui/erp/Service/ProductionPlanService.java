@@ -21,6 +21,7 @@ public interface ProductionPlanService extends IService<ProductionPlan> {
      * 高级查询生产计划（支持分页）
      *
      * @param productionPlan 查询条件
+     * @param keyword 关键字（对计划编号、计划名称进行模糊匹配，可选）
      * @param createdTimeStart 创建时间起始
      * @param createdTimeEnd 创建时间结束
      * @param updatedTimeStart 更新时间起始
@@ -42,6 +43,7 @@ public interface ProductionPlanService extends IService<ProductionPlan> {
      * @return 分页结果
      */
     Page<ProductionPlan> queryProductionPlans(ProductionPlan productionPlan,
+                                             String keyword,
                                              LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
                                              LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
                                              LocalDateTime productionStartTimeStart, LocalDateTime productionStartTimeEnd,
@@ -73,6 +75,7 @@ public interface ProductionPlanService extends IService<ProductionPlan> {
      * 高级查询生产计划（包含工序记录子表）
      *
      * @param productionPlan 查询条件
+     * @param keyword 关键字（对计划编号、计划名称进行模糊匹配，可选）
      * @param createdTimeStart 创建时间起始
      * @param createdTimeEnd 创建时间结束
      * @param updatedTimeStart 更新时间起始
@@ -94,6 +97,7 @@ public interface ProductionPlanService extends IService<ProductionPlan> {
      * @return 分页结果（包含工序记录）
      */
     PagedResult<ProductionPlanWithRecordsDto> searchWithDetails(ProductionPlan productionPlan,
+                                                                String keyword,
                                                                 LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
                                                                 LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
                                                                 LocalDateTime productionStartTimeStart, LocalDateTime productionStartTimeEnd,

@@ -263,6 +263,7 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
 
     /**
      * 高级查询工单（支持多条件组合查询和时间范围筛选）
+     * <p>支持按工单ID、工单编号、工单名称、制剂、关联计划ID、当前状态等条件精确或模糊查询</p>
      *
      * @param workOrder 查询条件实体，非null字段将作为等值或模糊查询条件
      * @param createdTimeStart 创建时间起始值（含）
@@ -294,6 +295,12 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         }
         if (workOrder.getPreparationId() != null) {
             wrapper.eq("preparation_id", workOrder.getPreparationId());
+        }
+        if (workOrder.getPlanId() != null) {
+            wrapper.eq("plan_id", workOrder.getPlanId());
+        }
+        if (StringUtils.hasText(workOrder.getCurrentStatus())) {
+            wrapper.eq("current_status", workOrder.getCurrentStatus());
         }
         if (StringUtils.hasText(workOrder.getPreparationCode())) {
             wrapper.like("preparation_code", workOrder.getPreparationCode());
