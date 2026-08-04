@@ -219,6 +219,9 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
         if (purchaseOrders.getProcessingDate() != null) {
             wrapper.ge("processing_date", purchaseOrders.getProcessingDate());
         }
+        if (purchaseOrders.getDesiredDeliveryDate() != null) {
+            wrapper.le("desired_delivery_date", purchaseOrders.getDesiredDeliveryDate());
+        }
         if (purchaseOrders.getExpectedDeliveryDate() != null) {
             wrapper.le("expected_delivery_date", purchaseOrders.getExpectedDeliveryDate());
         }

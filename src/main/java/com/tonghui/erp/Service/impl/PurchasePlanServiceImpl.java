@@ -169,6 +169,7 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
         order.setMaterialType(plan.getMaterialType());
         order.setWarehouse(plan.getWarehouse());
         order.setProcessingDate(plan.getProcessingDate());
+        order.setDesiredDeliveryDate(plan.getDesiredDeliveryDate());
         order.setExpectedDeliveryDate(plan.getExpectedDeliveryDate());
         order.setReceivingInfo(plan.getReceivingAddress());
         order.setInvoiceInfo(plan.getInvoiceInfo());

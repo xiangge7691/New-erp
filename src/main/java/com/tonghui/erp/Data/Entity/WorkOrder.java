@@ -216,7 +216,16 @@ public class WorkOrder extends AuditEntity {
     private BigDecimal totalAmount;
 
     /**
-     * 当前状态（待生产/生产中/已生产/检验中/已检验/已出库/已归档）
+     * 当前状态（由 Service 根据日期字段自动计算并落库，无需手动赋值）
+     * <p>
+     * 状态流转规则：
+     * <ul>
+     *   <li>待生产 - 配置日期为空</li>
+     *   <li>生产中 - 配置日期有值 且 配置完成日期为空</li>
+     *   <li>已生产 - 配置完成日期有值</li>
+     *   <li>已归档 - 归档时间有值</li>
+     * </ul>
+     * </p>
      */
     @TableField(value = "current_status")
     private String currentStatus;

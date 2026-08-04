@@ -330,8 +330,8 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
      * 状态判定逻辑：
      * <ul>
      *   <li>计划未关联任何未删除工单 → 待生产</li>
-     *   <li>计划关联了工单，且存在未出库的工单 → 生产中</li>
-     *   <li>计划关联的所有工单均已出库或已归档 → 已完成</li>
+     *   <li>计划关联了工单，且存在未完成的工单 → 生产中</li>
+     *   <li>计划关联的所有工单均为已生产或已归档 → 已完成</li>
      * </ul>
      * 在计划创建及工单新增/修改/删除后调用，保证 current_status 列实时准确
      * </p>
@@ -357,9 +357,10 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
             // 无关联工单 → 待生产
             status = "待生产";
         } else {
-            // 所有工单均已出库或已归档 → 已完成，否则 → 生产中
+            // 所有工单均为已生产或已归档 → 已完成，否则 → 生产中
             boolean allCompleted = workOrders.stream().allMatch(wo ->
-                    "已出库".equals(wo.getCurrentStatus()) || "已归档".equals(wo.getCurrentStatus()));
+                    "已生产".equals(wo.getCurrentStatus()) || "已归档".equals(wo.getCurrentStatus())
+                            || "已出库".equals(wo.getCurrentStatus()));
             status = allCompleted ? "已完成" : "生产中";
         }
 

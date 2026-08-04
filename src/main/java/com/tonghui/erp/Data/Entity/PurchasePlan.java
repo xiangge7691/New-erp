@@ -110,7 +110,13 @@ public class PurchasePlan extends AuditEntity {
     private LocalDate processingDate;
 
     /**
-     * 预计到货日期
+     * 期望到货日期（采购方期望的到货时间）
+     */
+    @TableField(value = "desired_delivery_date")
+    private LocalDate desiredDeliveryDate;
+
+    /**
+     * 预计到货日期（供应商预计的到货时间）
      */
     @TableField(value = "expected_delivery_date")
     private LocalDate expectedDeliveryDate;

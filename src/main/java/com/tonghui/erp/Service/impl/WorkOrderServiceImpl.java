@@ -145,6 +145,10 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         workOrder.setCreatedTime(now);
         workOrder.setUpdatedTime(now);
 
+        // 根据日期字段自动计算工单状态
+        workOrder.setCurrentStatus(resolveStatus(workOrder.getConfigDate(),
+                workOrder.getConfigCompleteTime(), workOrder.getArchiveTime()));
+
         // 获取当前用户ID
         Long currentUserId = EntityUtils.getCurrentUserId();
         if (currentUserId != null) {
@@ -187,7 +191,7 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
 
     /**
      * 更新工单
-     * <p>自动更新更新时间和更新人信息，更新后联动刷新关联生产计划的状态</p>
+     * <p>自动更新更新时间和更新人信息，根据日期字段重新计算工单状态，更新后联动刷新关联生产计划的状态</p>
      *
      * @param workOrder 工单实体，包含要更新的字段信息
      * @return 操作是否成功
@@ -203,6 +207,16 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         if (currentUserId != null) {
             workOrder.setUpdatedBy(currentUserId);
         }
+
+        // 根据日期字段自动计算工单状态（未提交的日期字段沿用数据库现有值）
+        WorkOrder existing = workOrder.getWorkOrderId() != null ? this.getById(workOrder.getWorkOrderId()) : null;
+        LocalDateTime configDate = workOrder.getConfigDate() != null ? workOrder.getConfigDate()
+                : (existing != null ? existing.getConfigDate() : null);
+        LocalDateTime configCompleteTime = workOrder.getConfigCompleteTime() != null ? workOrder.getConfigCompleteTime()
+                : (existing != null ? existing.getConfigCompleteTime() : null);
+        LocalDateTime archiveTime = workOrder.getArchiveTime() != null ? workOrder.getArchiveTime()
+                : (existing != null ? existing.getArchiveTime() : null);
+        workOrder.setCurrentStatus(resolveStatus(configDate, configCompleteTime, archiveTime));
 
         boolean updated = this.updateById(workOrder);
 
@@ -375,6 +389,44 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         wrapper.orderByDesc("created_time");
 
         return this.page(page, wrapper);
+    }
+
+    // endregion
+
+    // region 状态管理
+    // ===================================
+    // 状态管理
+    // ===================================
+
+    /**
+     * 根据日期字段计算工单当前状态
+     * <p>
+     * 状态流转规则（依据配置日期、配置完成日期、归档时间三个字段）：
+     * <ul>
+     *   <li>待生产 - 配置日期为空</li>
+     *   <li>生产中 - 配置日期有值 且 配置完成日期为空</li>
+     *   <li>已生产 - 配置完成日期有值</li>
+     *   <li>已归档 - 归档时间有值</li>
+     * </ul>
+     * 在工单新增、更新时调用，保证 current_status 列与日期字段实时一致
+     * </p>
+     *
+     * @param configDate        配置日期
+     * @param configCompleteTime 配置完成日期
+     * @param archiveTime       归档时间
+     * @return 计算后的工单状态
+     */
+    private String resolveStatus(LocalDateTime configDate, LocalDateTime configCompleteTime, LocalDateTime archiveTime) {
+        if (archiveTime != null) {
+            return "已归档";
+        }
+        if (configCompleteTime != null) {
+            return "已生产";
+        }
+        if (configDate != null) {
+            return "生产中";
+        }
+        return "待生产";
     }
 
     // endregion
