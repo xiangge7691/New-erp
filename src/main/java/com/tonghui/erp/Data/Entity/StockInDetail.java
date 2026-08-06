@@ -119,6 +119,12 @@ public class StockInDetail {
     private String storageLocation;
 
     /**
+     * 库存状态（入库时携带，确认入库后写入stock表）：合格/待检/不合格
+     */
+    @TableField(value = "stock_status")
+    private String stockStatus;
+
+    /**
      * 备注
      */
     @TableField(value = "remark")

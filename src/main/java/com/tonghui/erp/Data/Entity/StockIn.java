@@ -36,7 +36,7 @@ public class StockIn extends AuditEntity {
     private String inCode;
 
     /**
-     * 入库类型：采购/生产/退货/调拨/调整
+     * 入库类型：采购入库/成品入库/直接入库（对齐前端入库管理页面枚举）
      */
     @TableField(value = "in_type")
     private String inType;

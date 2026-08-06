@@ -36,7 +36,7 @@ public class StockOut extends AuditEntity {
     private String outCode;
 
     /**
-     * 出库类型：销售/生产领用/退货/调拨/调整
+     * 出库类型：生产领料出库/销售出库/报损出库（对齐前端出库管理页面枚举）
      */
     @TableField(value = "out_type")
     private String outType;

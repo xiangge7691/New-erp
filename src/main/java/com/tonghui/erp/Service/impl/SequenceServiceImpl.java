@@ -118,4 +118,44 @@ public class SequenceServiceImpl {
     }
 
     // endregion
+
+    // region 验收单号生成
+    // ===================================
+    // 验收单号生成
+    // ===================================
+
+    /**
+     * 生成货物验收单号
+     * <p>
+     * 编号格式：YS + 年月日(8位) + 序号(3位)，例如：YS-20260723-001
+     * 通过查询当天验收单表中最大编号并递增生成，保证每天编号唯一
+     * </p>
+     *
+     * @return 生成的唯一验收单号
+     */
+    public String generateAcceptanceCode() {
+        // 日期部分，格式为yyyyMMdd
+        String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        // 查询当天最大的验收单号并加1
+        try {
+            String maxCode = jdbcTemplate.queryForObject(
+                    "SELECT MAX(acceptance_code) FROM acceptance_order WHERE acceptance_code LIKE 'YS-" + dateStr + "%'",
+                    String.class);
+
+            if (maxCode != null) {
+                // 提取序号部分并加1，格式为YS-(3) + 日期(8位) = 前12位，从第12位开始是序号
+                String seqStr = maxCode.substring(12);
+                int seq = Integer.parseInt(seqStr);
+                return String.format("YS-%s-%03d", dateStr, seq + 1);
+            } else {
+                // 当天无记录，从1开始
+                return String.format("YS-%s-%03d", dateStr, 1);
+            }
+        } catch (Exception e) {
+            // 出现异常时返回默认值
+            return String.format("YS-%s-%03d", dateStr, 1);
+        }
+    }
+
+    // endregion
 }

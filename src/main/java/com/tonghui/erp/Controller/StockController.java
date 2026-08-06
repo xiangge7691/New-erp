@@ -3,16 +3,20 @@ package com.tonghui.erp.Controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Stock.StockGroupedDto;
 import com.tonghui.erp.Common.Dto.Stock.StockWithDetailsDto;
 import com.tonghui.erp.Data.Entity.Stock;
+import com.tonghui.erp.Data.Entity.StockTransaction;
 import com.tonghui.erp.Service.StockService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 库存控制器
@@ -147,6 +151,76 @@ public class StockController extends BaseController {
             return success(result);
         } catch (Exception ex) {
             return exception(ex, "查询失败");
+        }
+    }
+
+    // endregion
+
+    // region 分组查询与流水
+    // ===================================
+    // 分组查询与流水
+    // ===================================
+
+    /**
+     * 按物料编码分组查询库存（含批次明细与仓库名称）
+     * <p>
+     * 用于库存查询页面"按物料分组 + 展开批次"的展示模式，支持搜索/状态/仓库/分类筛选及显示零库存
+     * </p>
+     *
+     * 示例请求：
+     * GET /api/stock/grouped-search?pageIndex=0&pageSize=20&itemName=甘草&stockStatus=合格&prodUnitId=1&categoryName=原料&showZero=false
+     *
+     * @param itemCode     物料编码（模糊匹配，选填）
+     * @param itemName     物料名称（模糊匹配，选填）
+     * @param categoryName 分类名称（等值匹配，选填）
+     * @param prodUnitId   仓库（生产单位ID，选填）
+     * @param stockStatus  库存状态（选填：合格/待检/不合格）
+     * @param showZero     是否显示零库存（选填，默认false）
+     * @param pageIndex    页码，从0开始
+     * @param pageSize     每页大小
+     * @return 分组分页结果（物料组列表，含批次明细）
+     */
+    @GetMapping("/grouped-search")
+    public ApiResponse<PagedResult<StockGroupedDto>> groupedSearch(
+            @RequestParam(required = false) String itemCode,
+            @RequestParam(required = false) String itemName,
+            @RequestParam(required = false) String categoryName,
+            @RequestParam(required = false) Long prodUnitId,
+            @RequestParam(required = false) String stockStatus,
+            @RequestParam(required = false, defaultValue = "false") boolean showZero,
+            @RequestParam int pageIndex,
+            @RequestParam int pageSize) {
+        try {
+            int safePageIndex = Math.max(0, pageIndex);
+            int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
+            PagedResult<StockGroupedDto> result = stockService.groupedSearch(
+                    itemCode, itemName, categoryName, prodUnitId, stockStatus, showZero,
+                    safePageIndex, safePageSize);
+            return success(result);
+        } catch (Exception ex) {
+            return exception(ex, "分组查询库存失败");
+        }
+    }
+
+    /**
+     * 根据库存ID查询库存流水列表
+     * <p>
+     * 用于库存查询页面展开批次后查看该批次的出入库流水
+     * </p>
+     *
+     * 示例请求：
+     * GET /api/stock/1/transactions
+     *
+     * @param id 库存ID
+     * @return 库存流水列表
+     */
+    @GetMapping("/{id}/transactions")
+    public ApiResponse<List<StockTransaction>> getTransactions(@PathVariable Long id) {
+        try {
+            List<StockTransaction> transactions = stockService.getTransactionsByStockId(id);
+            return success(transactions);
+        } catch (Exception ex) {
+            return exception(ex, "查询库存流水失败");
         }
     }
 

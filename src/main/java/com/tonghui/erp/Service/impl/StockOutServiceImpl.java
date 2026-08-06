@@ -5,13 +5,25 @@ import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Stock.AvailableBatchDto;
+import com.tonghui.erp.Common.Dto.Stock.BatchOutboundItemDto;
+import com.tonghui.erp.Common.Dto.Stock.BatchOutboundRequest;
+import com.tonghui.erp.Common.Dto.Stock.PlanDetailItemDto;
 import com.tonghui.erp.Common.Dto.Stock.StockOutWithDetailsDto;
+import com.tonghui.erp.Data.Entity.ProductionPlan;
+import com.tonghui.erp.Data.Entity.ProductionUnit;
+import com.tonghui.erp.Data.Entity.PreparationFormula;
+import com.tonghui.erp.Data.Entity.Stock;
 import com.tonghui.erp.Data.Entity.StockOut;
-
 import com.tonghui.erp.Data.Entity.StockOutDetail;
+import com.tonghui.erp.Data.mapper.PreparationFormulaMapper;
+import com.tonghui.erp.Data.mapper.ProductionPlanMapper;
+import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
+import com.tonghui.erp.Data.mapper.StockMapper;
 import com.tonghui.erp.Data.mapper.StockOutMapper;
 import com.tonghui.erp.Data.mapper.StockOutDetailMapper;
 import com.tonghui.erp.Service.StockOutService;
+import com.tonghui.erp.Service.StockService;
 
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,8 +31,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -50,20 +64,48 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
     /** 序列号生成服务，用于自动生成出库单号 */
     private final SequenceServiceImpl sequenceService;
 
+    /** 库存服务，用于出库确认时的库存联动 */
+    private final StockService stockService;
+
+    /** 生产计划数据访问层，用于批量出库按处方查询 */
+    private final ProductionPlanMapper productionPlanMapper;
+
+    /** 制剂处方数据访问层，用于批量出库按处方查询 */
+    private final PreparationFormulaMapper preparationFormulaMapper;
+
+    /** 库存数据访问层，用于匹配可用库存批次 */
+    private final StockMapper stockMapper;
+
+    /** 生产单位数据访问层，用于仓库名称映射 */
+    @Autowired
+    private ProductionUnitMapper productionUnitMapper;
+
     /**
      * 构造函数注入依赖
      *
-     * @param stockOutMapper       出库单数据访问层
-     * @param stockOutDetailMapper 出库单明细数据访问层
-     * @param sequenceService      序列号生成服务
+     * @param stockOutMapper            出库单数据访问层
+     * @param stockOutDetailMapper      出库单明细数据访问层
+     * @param sequenceService           序列号生成服务
+     * @param stockService              库存服务
+     * @param productionPlanMapper      生产计划数据访问层
+     * @param preparationFormulaMapper  制剂处方数据访问层
+     * @param stockMapper               库存数据访问层
      */
     @Autowired
     public StockOutServiceImpl(StockOutMapper stockOutMapper,
                                StockOutDetailMapper stockOutDetailMapper,
-                               SequenceServiceImpl sequenceService) {
+                               SequenceServiceImpl sequenceService,
+                               StockService stockService,
+                               ProductionPlanMapper productionPlanMapper,
+                               PreparationFormulaMapper preparationFormulaMapper,
+                               StockMapper stockMapper) {
         this.stockOutMapper = stockOutMapper;
         this.stockOutDetailMapper = stockOutDetailMapper;
         this.sequenceService = sequenceService;
+        this.stockService = stockService;
+        this.productionPlanMapper = productionPlanMapper;
+        this.preparationFormulaMapper = preparationFormulaMapper;
+        this.stockMapper = stockMapper;
     }
 
     // endregion
@@ -199,6 +241,60 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
 
         // 删除主表
         stockOutMapper.deleteById(stockOutId);
+    }
+
+    /**
+     * 确认出库：草稿 → 已出库
+     * <p>校验出库单为草稿状态且有明细，随后调用公共库存服务扣减库存并写入库存流水</p>
+     *
+     * @param stockOutId 出库单ID
+     */
+    @Override
+    @Transactional
+    public void confirmStockOut(Long stockOutId) {
+        StockOut stockOut = stockOutMapper.selectById(stockOutId);
+        if (stockOut == null) {
+            throw new RuntimeException("出库单不存在");
+        }
+        if (!"草稿".equals(stockOut.getOutStatus())) {
+            throw new RuntimeException("仅草稿状态的出库单可确认");
+        }
+        List<StockOutDetail> details = getStockOutDetailsByStockOutId(stockOutId);
+        if (details.isEmpty()) {
+            throw new RuntimeException("出库单没有明细，无法确认");
+        }
+        // 库存联动：扣减库存批次并写流水
+        stockService.applyOutbound(stockOut, details);
+        // 更新出库单状态为已出库
+        stockOut.setOutStatus("已出库");
+        stockOutMapper.updateById(stockOut);
+    }
+
+    /**
+     * 取消出库：已出库 → 已取消
+     * <p>校验出库单为已出库状态，随后回滚库存（恢复对应库存批次）并写入调整流水</p>
+     *
+     * @param stockOutId 出库单ID
+     */
+    @Override
+    @Transactional
+    public void cancelStockOut(Long stockOutId) {
+        StockOut stockOut = stockOutMapper.selectById(stockOutId);
+        if (stockOut == null) {
+            throw new RuntimeException("出库单不存在");
+        }
+        if (!"已出库".equals(stockOut.getOutStatus())) {
+            throw new RuntimeException("仅已出库状态的出库单可取消");
+        }
+        List<StockOutDetail> details = getStockOutDetailsByStockOutId(stockOutId);
+        if (details.isEmpty()) {
+            throw new RuntimeException("出库单没有明细，无法取消");
+        }
+        // 库存回滚：恢复库存批次并写调整流水
+        stockService.rollbackOutbound(stockOut, details);
+        // 更新出库单状态为已取消
+        stockOut.setOutStatus("已取消");
+        stockOutMapper.updateById(stockOut);
     }
 
     // endregion
@@ -453,6 +549,160 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         result.setPageIndex(pageNum);
         result.setPageSize(pageSize);
         return result;
+    }
+
+    // endregion
+
+    // region 批量出库（按制剂处方）
+    // ===================================
+    // 批量出库（按制剂处方）
+    // ===================================
+
+    /**
+     * 按生产计划获取批量出库处方明细
+     * <p>
+     * 根据生产计划关联的制剂，取制剂处方明细，计算每个物料应出数量（处方量×生产倍数），
+     * 并匹配合格的可用库存批次（FIFO排序）
+     * </p>
+     *
+     * @param planCode   生产计划编号
+     * @param multiplier 生产倍数（可为空，默认1倍）
+     * @return 处方明细列表（含可用库存批次）
+     */
+    @Override
+    public List<PlanDetailItemDto> getPlanDetail(String planCode, BigDecimal multiplier) {
+        if (!StringUtils.hasText(planCode)) {
+            throw new RuntimeException("生产计划编号不能为空");
+        }
+        BigDecimal times = multiplier != null ? multiplier : BigDecimal.ONE;
+
+        // 查询生产计划，获取关联制剂
+        QueryWrapper<ProductionPlan> planWrapper = new QueryWrapper<>();
+        planWrapper.eq("plan_number", planCode);
+        ProductionPlan plan = productionPlanMapper.selectOne(planWrapper);
+        if (plan == null) {
+            throw new RuntimeException("生产计划不存在: " + planCode);
+        }
+
+        // 查询制剂处方明细
+        QueryWrapper<PreparationFormula> formulaWrapper = new QueryWrapper<>();
+        formulaWrapper.eq("preparation_id", plan.getPreparationId());
+        List<PreparationFormula> formulas = preparationFormulaMapper.selectList(formulaWrapper);
+
+        // 组装处方明细与可用库存批次
+        return formulas.stream().map(formula -> {
+            PlanDetailItemDto item = new PlanDetailItemDto();
+            item.setMaterialCode(formula.getMaterialCode());
+            item.setMaterialName(formula.getMaterialName());
+            item.setMaterialCategory(formula.getMaterialCategory());
+            item.setUnitName(formula.getUnitName());
+            item.setDosage(formula.getDosage());
+            item.setRequiredQty(formula.getDosage() != null
+                    ? formula.getDosage().multiply(times) : BigDecimal.ZERO);
+            item.setAvailableBatches(findAvailableBatches(formula.getMaterialCode()));
+            return item;
+        }).collect(Collectors.toList());
+    }
+
+    /**
+     * 批量出库确认：一次事务内创建出库单并确认生效
+     * <p>
+     * 创建出库单（自动生成单号）及明细，随后扣减对应库存批次并写入库存流水，
+     * 库存不足时整体回滚
+     * </p>
+     *
+     * @param request 批量出库请求（出库类型、关联单号、仓库、明细列表）
+     * @return 已确认的出库单
+     */
+    @Override
+    @Transactional
+    public StockOut batchConfirm(BatchOutboundRequest request) {
+        if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
+            throw new RuntimeException("出库明细不能为空");
+        }
+        if (!StringUtils.hasText(request.getOutType())) {
+            throw new RuntimeException("出库类型不能为空");
+        }
+
+        // 创建出库单（草稿状态）
+        StockOut stockOut = new StockOut();
+        stockOut.setOutCode(sequenceService.generateStockOutCode());
+        stockOut.setOutType(request.getOutType());
+        stockOut.setProdUnitId(request.getProdUnitId());
+        stockOut.setRelatedOrder(request.getRelatedOrder());
+        stockOut.setOutDate(LocalDate.now());
+        stockOut.setOutStatus("草稿");
+        stockOut.setRemark(request.getRemark());
+        stockOutMapper.insert(stockOut);
+
+        // 保存出库明细
+        List<StockOutDetail> details = new ArrayList<>();
+        for (BatchOutboundItemDto item : request.getItems()) {
+            if (item.getQuantity() == null || item.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new RuntimeException("出库数量必须大于0: " + item.getItemName());
+            }
+            StockOutDetail detail = new StockOutDetail();
+            detail.setOutId(stockOut.getOutId());
+            detail.setStockId(item.getStockId());
+            detail.setItemCode(item.getItemCode());
+            detail.setItemName(item.getItemName());
+            detail.setCategoryName(item.getCategoryName());
+            detail.setUnitName(item.getUnitName());
+            detail.setBatchNumber(item.getBatchNumber());
+            detail.setQuantity(item.getQuantity());
+            detail.setUnitPrice(item.getUnitPrice());
+            detail.setAmount(item.getQuantity() != null && item.getUnitPrice() != null
+                    ? item.getQuantity().multiply(item.getUnitPrice()) : null);
+            stockOutDetailMapper.insert(detail);
+            details.add(detail);
+        }
+
+        // 库存联动：扣减库存批次并写流水（库存不足抛异常整体回滚）
+        stockService.applyOutbound(stockOut, details);
+
+        // 更新出库单状态为已出库
+        stockOut.setOutStatus("已出库");
+        stockOutMapper.updateById(stockOut);
+        return stockOut;
+    }
+
+    /**
+     * 查询某物料的合格可用库存批次（FIFO排序，按入库时间升序）
+     *
+     * @param materialCode 物料编码
+     * @return 可用库存批次列表
+     */
+    private List<AvailableBatchDto> findAvailableBatches(String materialCode) {
+        QueryWrapper<Stock> wrapper = new QueryWrapper<>();
+        wrapper.eq("item_code", materialCode);
+        wrapper.eq("stock_status", "合格");
+        wrapper.gt("quantity", 0);
+        wrapper.orderByAsc("created_time");
+        List<Stock> stocks = stockMapper.selectList(wrapper);
+
+        // 仓库名称映射（一次性查询生产单位表）
+        List<Long> unitIds = stocks.stream()
+                .map(Stock::getProdUnitId)
+                .filter(id -> id != null)
+                .distinct()
+                .collect(Collectors.toList());
+        Map<Long, String> unitNames = unitIds.isEmpty() ? Map.of() :
+                productionUnitMapper.selectList(new QueryWrapper<ProductionUnit>().in("prod_unit_id", unitIds))
+                        .stream()
+                        .collect(Collectors.toMap(ProductionUnit::getProdUnitId,
+                                ProductionUnit::getProdUnitName, (a, b) -> a));
+
+        return stocks.stream().map(s -> {
+            AvailableBatchDto batch = new AvailableBatchDto();
+            batch.setStockId(s.getStockId());
+            batch.setBatchNumber(s.getBatchNumber());
+            batch.setProdUnitId(s.getProdUnitId());
+            batch.setWarehouseName(unitNames.getOrDefault(s.getProdUnitId(), ""));
+            batch.setQuantity(s.getQuantity());
+            batch.setUnitPrice(s.getUnitPrice());
+            batch.setStockStatus(s.getStockStatus() != null ? String.valueOf(s.getStockStatus()) : null);
+            return batch;
+        }).collect(Collectors.toList());
     }
 
     // endregion

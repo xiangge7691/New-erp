@@ -51,6 +51,22 @@ public interface StockInService extends IService<StockIn> {
      */
     void deleteStockIn(Long stockInId);
 
+    /**
+     * 确认入库：草稿 → 已入库
+     * <p>校验入库单为草稿状态且有明细，随后联动库存表（upsert库存批次）并写入库存流水</p>
+     *
+     * @param stockInId 入库单 ID
+     */
+    void confirmStockIn(Long stockInId);
+
+    /**
+     * 取消入库：已入库 → 已取消
+     * <p>校验入库单为已入库状态，随后回滚库存（扣减对应库存批次）并写入调整流水</p>
+     *
+     * @param stockInId 入库单 ID
+     */
+    void cancelStockIn(Long stockInId);
+
     // endregion
 
     // region 查询操作

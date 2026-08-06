@@ -11,6 +11,7 @@ import com.tonghui.erp.Data.Entity.StockInDetail;
 import com.tonghui.erp.Data.mapper.StockInMapper;
 import com.tonghui.erp.Data.mapper.StockInDetailMapper;
 import com.tonghui.erp.Service.StockInService;
+import com.tonghui.erp.Service.StockService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -48,20 +49,26 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
     /** 序列号生成服务，用于自动生成入库单号 */
     private final SequenceServiceImpl sequenceService;
 
+    /** 库存服务，用于入库确认时的库存联动 */
+    private final StockService stockService;
+
     /**
      * 构造函数注入依赖
      *
      * @param stockInMapper      入库单数据访问层
      * @param stockInDetailMapper 入库单明细数据访问层
      * @param sequenceService    序列号生成服务
+     * @param stockService       库存服务
      */
     @Autowired
     public StockInServiceImpl(StockInMapper stockInMapper,
                               StockInDetailMapper stockInDetailMapper,
-                              SequenceServiceImpl sequenceService) {
+                              SequenceServiceImpl sequenceService,
+                              StockService stockService) {
         this.stockInMapper = stockInMapper;
         this.stockInDetailMapper = stockInDetailMapper;
         this.sequenceService = sequenceService;
+        this.stockService = stockService;
     }
 
     // endregion
@@ -215,6 +222,60 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
 
         // 删除主表
         stockInMapper.deleteById(stockInId);
+    }
+
+    /**
+     * 确认入库：草稿 → 已入库
+     * <p>校验入库单为草稿状态且有明细，随后调用公共库存服务联动库存表并写入库存流水</p>
+     *
+     * @param stockInId 入库单ID
+     */
+    @Override
+    @Transactional
+    public void confirmStockIn(Long stockInId) {
+        StockIn stockIn = stockInMapper.selectById(stockInId);
+        if (stockIn == null) {
+            throw new RuntimeException("入库单不存在");
+        }
+        if (!"草稿".equals(stockIn.getInStatus())) {
+            throw new RuntimeException("仅草稿状态的入库单可确认");
+        }
+        List<StockInDetail> details = getStockInDetailsByStockInId(stockInId);
+        if (details.isEmpty()) {
+            throw new RuntimeException("入库单没有明细，无法确认");
+        }
+        // 库存联动：更新库存批次并写流水
+        stockService.applyInbound(stockIn, details);
+        // 更新入库单状态为已入库
+        stockIn.setInStatus("已入库");
+        stockInMapper.updateById(stockIn);
+    }
+
+    /**
+     * 取消入库：已入库 → 已取消
+     * <p>校验入库单为已入库状态，随后回滚库存（扣减对应库存批次）并写入调整流水</p>
+     *
+     * @param stockInId 入库单ID
+     */
+    @Override
+    @Transactional
+    public void cancelStockIn(Long stockInId) {
+        StockIn stockIn = stockInMapper.selectById(stockInId);
+        if (stockIn == null) {
+            throw new RuntimeException("入库单不存在");
+        }
+        if (!"已入库".equals(stockIn.getInStatus())) {
+            throw new RuntimeException("仅已入库状态的入库单可取消");
+        }
+        List<StockInDetail> details = getStockInDetailsByStockInId(stockInId);
+        if (details.isEmpty()) {
+            throw new RuntimeException("入库单没有明细，无法取消");
+        }
+        // 库存回滚：扣减库存批次并写调整流水
+        stockService.rollbackInbound(stockIn, details);
+        // 更新入库单状态为已取消
+        stockIn.setInStatus("已取消");
+        stockInMapper.updateById(stockIn);
     }
 
     // endregion

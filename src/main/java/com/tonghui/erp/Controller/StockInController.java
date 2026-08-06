@@ -325,6 +325,53 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
 
     // endregion
 
+    // region 入库确认（库存联动）
+    // ===================================
+    // 入库确认（库存联动）
+    // ===================================
+
+    /**
+     * 确认入库：草稿 → 已入库
+     * <p>校验入库单为草稿状态且有明细，联动更新库存表（按物品+仓库+批号 upsert）并写入库存流水</p>
+     *
+     * 示例请求：
+     * POST /api/stockin/1/confirm
+     *
+     * @param id 入库单ID
+     * @return 操作结果
+     */
+    @PostMapping("/{id}/confirm")
+    public ApiResponse<Boolean> confirmStockIn(@PathVariable Long id) {
+        try {
+            stockInService.confirmStockIn(id);
+            return success(true, "入库确认成功，库存已更新");
+        } catch (Exception e) {
+            return exception(e, "确认入库");
+        }
+    }
+
+    /**
+     * 取消入库：已入库 → 已取消
+     * <p>校验入库单为已入库状态，随后回滚库存（扣减对应库存批次）并写入调整流水</p>
+     *
+     * 示例请求：
+     * POST /api/stockin/1/cancel
+     *
+     * @param id 入库单ID
+     * @return 操作结果
+     */
+    @PostMapping("/{id}/cancel")
+    public ApiResponse<Boolean> cancelStockIn(@PathVariable Long id) {
+        try {
+            stockInService.cancelStockIn(id);
+            return success(true, "入库单已取消，库存已回滚");
+        } catch (Exception e) {
+            return exception(e, "取消入库");
+        }
+    }
+
+    // endregion
+
     // region 入库单明细相关接口
     // ===================================
     // 入库单明细相关接口

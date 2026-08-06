@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Stock.BatchOutboundRequest;
+import com.tonghui.erp.Common.Dto.Stock.PlanDetailItemDto;
 import com.tonghui.erp.Common.Dto.Stock.StockOutWithDetailsDto;
 import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.Entity.StockInDetail;
@@ -14,6 +16,7 @@ import com.tonghui.erp.Service.StockOutService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -283,6 +286,116 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
         stockOut.setOutId(id);
         stockOutService.updateStockOut(stockOut, details);
         return stockOut;
+    }
+
+    // endregion
+
+    // region 出库确认（库存联动）
+    // ===================================
+    // 出库确认（库存联动）
+    // ===================================
+
+    /**
+     * 确认出库：草稿 → 已出库
+     * <p>校验出库单为草稿状态且有明细，联动扣减库存批次并写入库存流水（库存不足整体回滚）</p>
+     *
+     * 示例请求：
+     * POST /api/stockout/1/confirm
+     *
+     * @param id 出库单ID
+     * @return 操作结果
+     */
+    @PostMapping("/{id}/confirm")
+    public ApiResponse<Boolean> confirmStockOut(@PathVariable Long id) {
+        try {
+            stockOutService.confirmStockOut(id);
+            return success(true, "出库确认成功，库存已扣减");
+        } catch (Exception e) {
+            return exception(e, "确认出库");
+        }
+    }
+
+    /**
+     * 取消出库：已出库 → 已取消
+     * <p>校验出库单为已出库状态，随后回滚库存（恢复对应库存批次）并写入调整流水</p>
+     *
+     * 示例请求：
+     * POST /api/stockout/1/cancel
+     *
+     * @param id 出库单ID
+     * @return 操作结果
+     */
+    @PostMapping("/{id}/cancel")
+    public ApiResponse<Boolean> cancelStockOut(@PathVariable Long id) {
+        try {
+            stockOutService.cancelStockOut(id);
+            return success(true, "出库单已取消，库存已回滚");
+        } catch (Exception e) {
+            return exception(e, "取消出库");
+        }
+    }
+
+    // endregion
+
+    // region 批量出库（按制剂处方）
+    // ===================================
+    // 批量出库（按制剂处方）
+    // ===================================
+
+    /**
+     * 按生产计划获取批量出库处方明细
+     * <p>
+     * 根据生产计划关联制剂处方，返回每个物料应出数量（处方量×生产倍数）及可用库存批次，
+     * 用于批量出库弹窗自动生成出库明细
+     * </p>
+     *
+     * 示例请求：
+     * GET /api/stockout/plan-detail?planCode=JH-20260701001&multiplier=20
+     *
+     * @param planCode   生产计划编号（必填）
+     * @param multiplier 生产倍数（选填，默认1倍）
+     * @return 处方明细列表（含可用库存批次）
+     */
+    @GetMapping("/plan-detail")
+    public ApiResponse<List<PlanDetailItemDto>> getPlanDetail(
+            @RequestParam String planCode,
+            @RequestParam(required = false) BigDecimal multiplier) {
+        try {
+            List<PlanDetailItemDto> items = stockOutService.getPlanDetail(planCode, multiplier);
+            return success(items);
+        } catch (Exception e) {
+            return exception(e, "查询处方出库明细");
+        }
+    }
+
+    /**
+     * 批量出库确认：一次事务内创建出库单并确认生效（扣减库存+写流水）
+     *
+     * 示例请求：
+     * POST /api/stockout/batch-confirm
+     * Content-Type: application/json
+     * {
+     *   "outType": "生产领料出库",
+     *   "relatedOrder": "JH-20260701001",
+     *   "prodUnitId": 1,
+     *   "remark": "批量出库-益肾壮骨丸",
+     *   "items": [
+     *     { "stockId": 1, "itemCode": "Y0084", "itemName": "甘草", "categoryName": "原料",
+     *       "unitName": "kg", "batchNumber": "HG20260723", "quantity": 0.42, "unitPrice": 30 }
+     *   ]
+     * }
+     *
+     * @param request 批量出库请求
+     * @return 已确认的出库单
+     */
+    @PostMapping("/batch-confirm")
+    public ApiResponse<StockOut> batchConfirm(@RequestBody BatchOutboundRequest request) {
+        try {
+            StockOut stockOut = stockOutService.batchConfirm(request);
+            return success(stockOut, "批量出库完成，出库单号: " + stockOut.getOutCode());
+        } catch (Exception e) {
+            return exception(e, "批量出库");
+        }
     }
 
     // endregion

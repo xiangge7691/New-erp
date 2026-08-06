@@ -2,11 +2,14 @@ package com.tonghui.erp.Service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Stock.BatchOutboundRequest;
+import com.tonghui.erp.Common.Dto.Stock.PlanDetailItemDto;
 import com.tonghui.erp.Common.Dto.Stock.StockOutWithDetailsDto;
 import com.tonghui.erp.Data.Entity.StockOut;
 import com.tonghui.erp.Data.Entity.StockOutDetail;
 import com.baomidou.mybatisplus.extension.service.IService;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -50,6 +53,22 @@ public interface StockOutService extends IService<StockOut> {
      * @param stockOutId 出库单 ID
      */
     void deleteStockOut(Long stockOutId);
+
+    /**
+     * 确认出库：草稿 → 已出库
+     * <p>校验出库单为草稿状态且有明细，随后联动库存表（扣减库存批次）并写入库存流水</p>
+     *
+     * @param stockOutId 出库单 ID
+     */
+    void confirmStockOut(Long stockOutId);
+
+    /**
+     * 取消出库：已出库 → 已取消
+     * <p>校验出库单为已出库状态，随后回滚库存（恢复对应库存批次）并写入调整流水</p>
+     *
+     * @param stockOutId 出库单 ID
+     */
+    void cancelStockOut(Long stockOutId);
 
     // endregion
 
@@ -183,6 +202,38 @@ public interface StockOutService extends IService<StockOut> {
      * @return 分页结果（包含明细）
      */
     PagedResult<StockOutWithDetailsDto> searchWithDetails(StockOut stockOut, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, LocalDate startDate, LocalDate endDate, int pageNum, int pageSize);
+
+    // endregion
+
+    // region 批量出库（按制剂处方）
+    // ===================================
+    // 批量出库（按制剂处方）
+    // ===================================
+
+    /**
+     * 按生产计划获取批量出库处方明细
+     * <p>
+     * 根据生产计划关联的制剂，取制剂处方明细，计算每个物料应出数量（处方量×生产倍数），
+     * 并匹配合格的可用库存批次（FIFO排序）
+     * </p>
+     *
+     * @param planCode   生产计划编号
+     * @param multiplier 生产倍数（可为空，默认1倍）
+     * @return 处方明细列表（含可用库存批次）
+     */
+    List<PlanDetailItemDto> getPlanDetail(String planCode, BigDecimal multiplier);
+
+    /**
+     * 批量出库确认：一次事务内创建出库单并确认生效
+     * <p>
+     * 创建出库单（自动生成单号）及明细，随后扣减对应库存批次并写入库存流水，
+     * 库存不足时整体回滚
+     * </p>
+     *
+     * @param request 批量出库请求（出库类型、关联单号、仓库、明细列表）
+     * @return 已确认的出库单
+     */
+    StockOut batchConfirm(BatchOutboundRequest request);
 
     // endregion
 }
