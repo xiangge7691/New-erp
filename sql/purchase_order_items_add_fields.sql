@@ -1,8 +1,12 @@
 -- ===================================
--- 采购订单明细表新增字段：实际到货数量、单价、金额、发票号、供应商、标准处方量
+-- 采购订单明细表新增字段：物料编码、实际到货数量、单价、金额、发票号、供应商、标准处方量
 -- 金额计算以实际到货数量 × 单价 为准（代码层面已同步）
 -- 执行方式：在 erp_db 数据库直接执行（幂等，可重复执行）
 -- ===================================
+
+-- 0. 物料编码（search-with-details 明细回参需要）
+ALTER TABLE `purchase_order_items`
+    ADD COLUMN `material_code` VARCHAR(50) DEFAULT NULL COMMENT '物料编码' AFTER `material_id`;
 
 -- 1. 标准处方量
 ALTER TABLE `purchase_order_items`

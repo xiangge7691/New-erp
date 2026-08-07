@@ -228,6 +228,7 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
             orderItem.setOrderId(orderId);
             orderItem.setSequenceNumber(planDetail.getSequenceNumber());
             orderItem.setMaterialId(planDetail.getMaterialId());
+            orderItem.setMaterialCode(StringUtils.hasText(planDetail.getMaterialCode()) ? planDetail.getMaterialCode() : "");
             orderItem.setRawMaterialName(StringUtils.hasText(planDetail.getMaterialName()) ? planDetail.getMaterialName() : "");
             orderItem.setProductName(StringUtils.hasText(planDetail.getMaterialCategory()) ? planDetail.getMaterialCategory() : "");
             orderItem.setUnit(StringUtils.hasText(planDetail.getUnit()) ? planDetail.getUnit() : "");

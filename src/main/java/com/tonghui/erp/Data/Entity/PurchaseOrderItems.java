@@ -43,6 +43,12 @@ public class PurchaseOrderItems {
     @TableField(value = "material_id")
     private Long materialId;
 
+    /**
+     * 物料编码
+     */
+    @TableField(value = "material_code")
+    private String materialCode;
+
     // endregion
 
     // region 业务字段
