@@ -89,10 +89,22 @@ public class AcceptanceDetail {
     private BigDecimal standardDosage;
 
     /**
-     * 采购数量（实际到货数量）
+     * 采购数量（订单/计划采购数量）
      */
     @TableField(value = "quantity")
     private BigDecimal quantity;
+
+    /**
+     * 实际到货数量（供应商实际送达数量，金额以该数量为准计算）
+     */
+    @TableField(value = "actual_arrival_qty")
+    private BigDecimal actualArrivalQty;
+
+    /**
+     * 入库数量（检验合格后实际入库数量）
+     */
+    @TableField(value = "inbound_qty")
+    private BigDecimal inboundQty;
 
     /**
      * 物料单价
@@ -101,7 +113,7 @@ public class AcceptanceDetail {
     private BigDecimal unitPrice;
 
     /**
-     * 金额（数量*单价）
+     * 金额（实际到货数量*单价）
      */
     @TableField(value = "amount")
     private BigDecimal amount;

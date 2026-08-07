@@ -232,6 +232,7 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
             orderItem.setProductName(StringUtils.hasText(planDetail.getMaterialCategory()) ? planDetail.getMaterialCategory() : "");
             orderItem.setUnit(StringUtils.hasText(planDetail.getUnit()) ? planDetail.getUnit() : "");
             orderItem.setDose(planDetail.getStandardQty() != null ? planDetail.getStandardQty() : BigDecimal.ZERO);
+            orderItem.setStandardDosage(planDetail.getStandardQty());
             orderItem.setPurchaseQuantity(planDetail.getPurchaseQty() != null ? planDetail.getPurchaseQty() : BigDecimal.ZERO);
             orderItem.setStock(planDetail.getStockQty() != null ? planDetail.getStockQty() : BigDecimal.ZERO);
             orderItem.setDifference(planDetail.getDifference());

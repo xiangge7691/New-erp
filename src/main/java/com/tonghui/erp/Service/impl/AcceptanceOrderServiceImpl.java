@@ -537,6 +537,7 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
 
     /**
      * 保存验收明细列表（自动计算序号、金额、标准量差值）
+     * <p>金额以实际到货数量 × 单价计算；实际到货数量未填写时回退使用采购数量</p>
      *
      * @param acceptanceId 验收单ID
      * @param details     明细列表
@@ -547,15 +548,25 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
             for (AcceptanceDetail detail : details) {
                 detail.setAcceptanceId(acceptanceId);
                 detail.setSeq(seq++);
-                // 计算金额 = 数量 × 单价
-                if (detail.getAmount() == null && detail.getQuantity() != null) {
-                    detail.setAmount(detail.getQuantity().multiply(
-                            detail.getUnitPrice() != null ? detail.getUnitPrice() : BigDecimal.ZERO));
+                // 计算金额 = 实际到货数量 × 单价（未填实际到货数量时回退采购数量）
+                if (detail.getAmount() == null) {
+                    BigDecimal qtyForAmount = detail.getActualArrivalQty() != null
+                            ? detail.getActualArrivalQty()
+                            : detail.getQuantity();
+                    if (qtyForAmount != null) {
+                        detail.setAmount(qtyForAmount.multiply(
+                                detail.getUnitPrice() != null ? detail.getUnitPrice() : BigDecimal.ZERO));
+                    }
                 }
-                // 计算标准量差值 = 采购数量 - 标准处方量
-                if (detail.getDiffQuantity() == null && detail.getQuantity() != null) {
-                    BigDecimal std = detail.getStandardDosage() != null ? detail.getStandardDosage() : BigDecimal.ZERO;
-                    detail.setDiffQuantity(detail.getQuantity().subtract(std));
+                // 计算标准量差值 = 实际到货数量 - 标准处方量
+                if (detail.getDiffQuantity() == null) {
+                    BigDecimal qtyForDiff = detail.getActualArrivalQty() != null
+                            ? detail.getActualArrivalQty()
+                            : detail.getQuantity();
+                    if (qtyForDiff != null) {
+                        BigDecimal std = detail.getStandardDosage() != null ? detail.getStandardDosage() : BigDecimal.ZERO;
+                        detail.setDiffQuantity(qtyForDiff.subtract(std));
+                    }
                 }
                 acceptanceDetailMapper.insert(detail);
             }
@@ -608,9 +619,16 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
             sid.setCategoryName(d.getMaterialCategory());
             sid.setUnitName(d.getUnitName());
             sid.setBatchNumber(d.getBatchNumber());
-            sid.setQuantity(d.getQuantity());
+            // 入库数量：优先取入库数量，其次实际到货数量，最后回退采购数量
+            BigDecimal inboundQty = d.getInboundQty() != null ? d.getInboundQty()
+                    : d.getActualArrivalQty() != null ? d.getActualArrivalQty()
+                    : d.getQuantity();
+            sid.setQuantity(inboundQty);
             sid.setUnitPrice(d.getUnitPrice());
-            sid.setAmount(d.getAmount());
+            // 金额以实际到货数量 × 单价计算
+            sid.setAmount(inboundQty != null && d.getUnitPrice() != null
+                    ? inboundQty.multiply(d.getUnitPrice())
+                    : d.getAmount());
             sid.setExpiryDate(d.getExpiryDate());
             sid.setStockStatus("合格");
             stockInDetailMapper.insert(sid);

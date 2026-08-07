@@ -93,10 +93,46 @@ public class PurchaseOrderItems {
     private BigDecimal stock;
 
     /**
+     * 标准处方量
+     */
+    @TableField(value = "standard_dosage")
+    private BigDecimal standardDosage;
+
+    /**
      * 采购数量
      */
     @TableField(value = "purchase_quantity")
     private BigDecimal purchaseQuantity;
+
+    /**
+     * 实际到货数量（供应商实际送达数量，金额以该数量为准计算）
+     */
+    @TableField(value = "actual_arrival_qty")
+    private BigDecimal actualArrivalQty;
+
+    /**
+     * 单价
+     */
+    @TableField(value = "unit_price")
+    private BigDecimal unitPrice;
+
+    /**
+     * 金额（实际到货数量*单价）
+     */
+    @TableField(value = "amount")
+    private BigDecimal amount;
+
+    /**
+     * 发票号
+     */
+    @TableField(value = "invoice_no")
+    private String invoiceNo;
+
+    /**
+     * 供应商
+     */
+    @TableField(value = "supplier")
+    private String supplier;
 
     /**
      * 差值

@@ -202,6 +202,7 @@ public class AcceptanceOrderController extends BaseController {
      *   "details": [
      *     { "materialCode": "Y0084", "materialName": "甘草", "materialCategory": "原料",
      *       "unitName": "kg", "standardDosage": 0.021, "quantity": 0.42,
+     *       "actualArrivalQty": 0.40, "inboundQty": 0.38,
      *       "unitPrice": 30, "batchNumber": "HG20260723", "expiryDate": "2027-07-23" }
      *   ]
      * }

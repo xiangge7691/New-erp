@@ -52,12 +52,14 @@ CREATE TABLE IF NOT EXISTS `acceptance_detail` (
   `material_category` VARCHAR(20)   DEFAULT NULL COMMENT '物料分类：原料/辅料/包材/成品',
   `unit_name`         VARCHAR(20)   DEFAULT NULL COMMENT '计量单位：kg/g/L/袋/盒/瓶',
   `standard_dosage`   DECIMAL(18,4) DEFAULT NULL COMMENT '标准处方量',
-  `quantity`          DECIMAL(18,3) NOT NULL COMMENT '采购数量（实际到货数量）',
+  `quantity`          DECIMAL(18,3) NOT NULL COMMENT '采购数量',
+  `actual_arrival_qty` DECIMAL(18,3) DEFAULT NULL COMMENT '实际到货数量（供应商实际送达数量，金额以该数量为准计算）',
+  `inbound_qty`       DECIMAL(18,3) DEFAULT NULL COMMENT '入库数量（检验合格后实际入库数量）',
   `unit_price`        DECIMAL(18,2) DEFAULT NULL COMMENT '物料单价',
-  `amount`            DECIMAL(18,2) DEFAULT NULL COMMENT '金额（数量*单价）',
+  `amount`            DECIMAL(18,2) DEFAULT NULL COMMENT '金额（实际到货数量*单价）',
   `batch_number`      VARCHAR(50)   DEFAULT NULL COMMENT '物料批号（入库必填）',
   `expiry_date`       DATE          DEFAULT NULL COMMENT '有效期至',
-  `diff_quantity`     DECIMAL(18,4) DEFAULT NULL COMMENT '标准量差值（采购数量与标准处方量的差值）',
+  `diff_quantity`     DECIMAL(18,4) DEFAULT NULL COMMENT '标准量差值（实际到货数量与标准处方量的差值）',
   `is_deleted`        TINYINT       NOT NULL DEFAULT 0 COMMENT '是否已删除：0否/1是',
   `version`           INT           NOT NULL DEFAULT 0 COMMENT '乐观锁版本号',
   `created_by`        BIGINT        DEFAULT NULL COMMENT '创建人ID',
@@ -67,6 +69,26 @@ CREATE TABLE IF NOT EXISTS `acceptance_detail` (
   PRIMARY KEY (`detail_id`),
   KEY `idx_acceptance_id` (`acceptance_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='货物验收单明细表';
+
+-- 2.1 验收明细表补充：实际到货数量列（存量库幂等加列）
+SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'acceptance_detail' AND COLUMN_NAME = 'actual_arrival_qty');
+SET @ddl := IF(@col_exists = 0,
+    'ALTER TABLE `acceptance_detail` ADD COLUMN `actual_arrival_qty` DECIMAL(18,3) DEFAULT NULL COMMENT ''实际到货数量（供应商实际送达数量，金额以该数量为准计算）'' AFTER `quantity`',
+    'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- 2.2 验收明细表补充：入库数量列（存量库幂等加列）
+SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'acceptance_detail' AND COLUMN_NAME = 'inbound_qty');
+SET @ddl := IF(@col_exists = 0,
+    'ALTER TABLE `acceptance_detail` ADD COLUMN `inbound_qty` DECIMAL(18,3) DEFAULT NULL COMMENT ''入库数量（检验合格后实际入库数量）'' AFTER `actual_arrival_qty`',
+    'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- 3. stock_in_detail 增加库存状态列（入库时携带 合格/待检，确认入库后写入 stock 表）
 -- MySQL 8.0 不支持 ADD COLUMN IF NOT EXISTS，使用 information_schema 判断后动态执行

@@ -60,8 +60,13 @@ public class PurchaseOrderItemsController extends BaseController {
      *   "orderId": 1,
      *   "itemId": 101,
      *   "quantity": 100,
+     *   "purchaseQuantity": 100,
+     *   "actualArrivalQty": 95,
      *   "unitPrice": 25.50,
-     *   "totalAmount": 2550.00
+     *   "amount": 2422.50,
+     *   "invoiceNo": "FP20260701",
+     *   "supplier": "某某药材公司",
+     *   "standardDosage": 0.021
      * }
      *
      * @param purchaseOrderItems 采购订单明细实体
@@ -86,8 +91,11 @@ public class PurchaseOrderItemsController extends BaseController {
      * {
      *   "itemId": 101,
      *   "quantity": 200,
+     *   "actualArrivalQty": 190,
      *   "unitPrice": 25.50,
-     *   "totalAmount": 5100.00
+     *   "amount": 4845.00,
+     *   "invoiceNo": "FP20260702",
+     *   "supplier": "某某药材公司"
      * }
      *
      * @param purchaseOrderItems 采购订单明细实体

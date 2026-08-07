@@ -8,6 +8,7 @@ import com.tonghui.erp.Service.PurchaseOrderItemsService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -29,6 +30,7 @@ public class PurchaseOrderItemsServiceImpl extends ServiceImpl<PurchaseOrderItem
 
     /**
      * 新增采购订单明细
+     * <p>金额自动按 实际到货数量 × 单价 计算（未填实际到货数量时回退采购数量）</p>
      *
      * @param purchaseOrderItems 采购订单明细实体
      * @return 操作是否成功
@@ -36,11 +38,13 @@ public class PurchaseOrderItemsServiceImpl extends ServiceImpl<PurchaseOrderItem
     @Override
     @Transactional
     public boolean addPurchaseOrderItem(PurchaseOrderItems purchaseOrderItems) {
+        calculateAmount(purchaseOrderItems);
         return this.save(purchaseOrderItems);
     }
 
     /**
      * 更新采购订单明细
+     * <p>金额自动按 实际到货数量 × 单价 计算（未填实际到货数量时回退采购数量）</p>
      *
      * @param purchaseOrderItems 采购订单明细实体，包含要更新的字段信息
      * @return 操作是否成功
@@ -48,6 +52,7 @@ public class PurchaseOrderItemsServiceImpl extends ServiceImpl<PurchaseOrderItem
     @Override
     @Transactional
     public boolean updatePurchaseOrderItem(PurchaseOrderItems purchaseOrderItems) {
+        calculateAmount(purchaseOrderItems);
         return this.updateById(purchaseOrderItems);
     }
 
@@ -92,6 +97,31 @@ public class PurchaseOrderItemsServiceImpl extends ServiceImpl<PurchaseOrderItem
         QueryWrapper<PurchaseOrderItems> wrapper = new QueryWrapper<>();
         wrapper.eq("order_id", orderId);
         return this.list(wrapper);
+    }
+
+    // endregion
+
+    // region 私有工具方法
+    // ===================================
+    // 私有工具方法
+    // ===================================
+
+    /**
+     * 计算明细金额（实际到货数量 × 单价，未填实际到货数量时回退采购数量）
+     *
+     * @param purchaseOrderItems 采购订单明细实体
+     */
+    private void calculateAmount(PurchaseOrderItems purchaseOrderItems) {
+        if (purchaseOrderItems == null || purchaseOrderItems.getAmount() != null) {
+            return;
+        }
+        BigDecimal qty = purchaseOrderItems.getActualArrivalQty() != null
+                ? purchaseOrderItems.getActualArrivalQty()
+                : purchaseOrderItems.getPurchaseQuantity();
+        if (qty != null) {
+            BigDecimal price = purchaseOrderItems.getUnitPrice() != null ? purchaseOrderItems.getUnitPrice() : BigDecimal.ZERO;
+            purchaseOrderItems.setAmount(qty.multiply(price));
+        }
     }
 
     // endregion
