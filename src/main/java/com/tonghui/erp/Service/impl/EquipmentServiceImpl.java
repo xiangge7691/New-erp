@@ -270,6 +270,7 @@ public class EquipmentServiceImpl extends ServiceImpl<EquipmentMapper, Equipment
      * 高级查询设备（支持多条件 + 分页）
      *
      * @param equipment 查询条件实体
+     * @param keyword   关键字（对固定资产编号、设备名称进行模糊匹配，可选）
      * @param createdTimeStart 创建时间起始
      * @param createdTimeEnd 创建时间结束
      * @param updatedTimeStart 更新时间起始
@@ -281,6 +282,7 @@ public class EquipmentServiceImpl extends ServiceImpl<EquipmentMapper, Equipment
     @Override
   public Page<Equipment> queryEquipments(
             Equipment equipment,
+            String keyword,
             LocalDateTime createdTimeStart,
             LocalDateTime createdTimeEnd,
             LocalDateTime updatedTimeStart,
@@ -292,6 +294,10 @@ public class EquipmentServiceImpl extends ServiceImpl<EquipmentMapper, Equipment
         Page<Equipment> page = new Page<>(actualPageIndex, pageSize);
         QueryWrapper<Equipment> wrapper = new QueryWrapper<>();
 
+        if (StringUtils.hasText(keyword)) {
+            // 关键字对固定资产编号、设备名称进行模糊匹配
+            wrapper.and(w -> w.like("fixed_asset_code", keyword).or().like("equipment_name", keyword));
+        }
         if (equipment.getEquipmentId() != null) {
             wrapper.eq("equipment_id", equipment.getEquipmentId());
         }
@@ -355,6 +361,7 @@ public class EquipmentServiceImpl extends ServiceImpl<EquipmentMapper, Equipment
     @Override
     public PagedResult<EquipmentWithDetailsDto> searchWithDetails(
             Equipment equipment,
+            String keyword,
             LocalDateTime createdTimeStart,
             LocalDateTime createdTimeEnd,
             LocalDateTime updatedTimeStart,
@@ -362,7 +369,7 @@ public class EquipmentServiceImpl extends ServiceImpl<EquipmentMapper, Equipment
             int pageNum,
             int pageSize) {
 
-        Page<Equipment> parentPage = queryEquipments(equipment, createdTimeStart, createdTimeEnd,
+        Page<Equipment> parentPage = queryEquipments(equipment, keyword, createdTimeStart, createdTimeEnd,
                 updatedTimeStart, updatedTimeEnd, pageNum, pageSize);
         List<Equipment> parents = parentPage.getRecords();
 

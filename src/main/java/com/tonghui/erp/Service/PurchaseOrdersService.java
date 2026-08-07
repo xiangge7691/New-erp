@@ -85,11 +85,12 @@ public interface PurchaseOrdersService extends IService<PurchaseOrders> {
      * 高级查询采购订单（支持分页）
      *
      * @param purchaseOrders 查询条件
+     * @param keyword        关键字（对采购编号、采购标题进行模糊匹配，可选）
      * @param pageNum        页码
      * @param pageSize       每页大小
      * @return 分页结果
      */
-    Page<PurchaseOrders> queryPurchaseOrders(PurchaseOrders purchaseOrders, int pageNum, int pageSize);
+    Page<PurchaseOrders> queryPurchaseOrders(PurchaseOrders purchaseOrders, String keyword, int pageNum, int pageSize);
 
     // endregion
 
@@ -102,11 +103,12 @@ public interface PurchaseOrdersService extends IService<PurchaseOrders> {
      * 高级查询采购订单（包含明细子表）
      *
      * @param purchaseOrders 查询条件
+     * @param keyword        关键字（对采购编号、采购标题进行模糊匹配，可选）
      * @param pageNum        页码
      * @param pageSize       每页大小
      * @return 分页结果（包含明细）
      */
-    PagedResult<PurchaseOrdersWithItemsDto> searchWithDetails(PurchaseOrders purchaseOrders, int pageNum, int pageSize);
+    PagedResult<PurchaseOrdersWithItemsDto> searchWithDetails(PurchaseOrders purchaseOrders, String keyword, int pageNum, int pageSize);
 
     // endregion
 }

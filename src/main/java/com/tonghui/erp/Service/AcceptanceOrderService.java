@@ -131,21 +131,23 @@ public interface AcceptanceOrderService extends IService<AcceptanceOrder> {
      * 高级查询验收单（支持分页、状态/来源筛选）
      *
      * @param acceptance 查询条件
+     * @param keyword    关键字（对验收编号、验收标题进行模糊匹配，可选）
      * @param pageIndex  页码
      * @param pageSize   每页大小
      * @return 分页结果
      */
-    Page<AcceptanceOrder> queryAcceptances(AcceptanceOrder acceptance, int pageIndex, int pageSize);
+    Page<AcceptanceOrder> queryAcceptances(AcceptanceOrder acceptance, String keyword, int pageIndex, int pageSize);
 
     /**
      * 高级查询验收单（包含明细子表）
      *
      * @param acceptance 查询条件
+     * @param keyword    关键字（对验收编号、验收标题进行模糊匹配，可选）
      * @param pageIndex  页码
      * @param pageSize   每页大小
      * @return 分页结果（包含明细）
      */
-    PagedResult<AcceptanceWithDetailsDto> searchWithDetails(AcceptanceOrder acceptance, int pageIndex, int pageSize);
+    PagedResult<AcceptanceWithDetailsDto> searchWithDetails(AcceptanceOrder acceptance, String keyword, int pageIndex, int pageSize);
 
     // endregion
 

@@ -280,6 +280,7 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
      * <p>支持按工单ID、工单编号、工单名称、制剂、关联计划ID、当前状态等条件精确或模糊查询</p>
      *
      * @param workOrder 查询条件实体，非null字段将作为等值或模糊查询条件
+     * @param keyword   关键字（对工单编号、工单名称、制剂编码、制剂名称进行模糊匹配，可选）
      * @param createdTimeStart 创建时间起始值（含）
      * @param createdTimeEnd   创建时间结束值（含）
      * @param updatedTimeStart 更新时间起始值（含）
@@ -290,6 +291,7 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
      */
     @Override
     public Page<WorkOrder> queryWorkOrders(WorkOrder workOrder,
+                                           String keyword,
                                            LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
                                            LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
                                            int pageNum, int pageSize) {
@@ -298,6 +300,11 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         Page<WorkOrder> page = new Page<>(actualPageNum, pageSize);
         QueryWrapper<WorkOrder> wrapper = new QueryWrapper<>();
 
+        if (StringUtils.hasText(keyword)) {
+            // 关键字对工单编号、工单名称、制剂编码、制剂名称进行模糊匹配
+            wrapper.and(w -> w.like("work_order_code", keyword).or().like("work_order_name", keyword)
+                    .or().like("preparation_code", keyword).or().like("preparation_name", keyword));
+        }
         if (workOrder.getWorkOrderId() != null) {
             wrapper.eq("work_order_id", workOrder.getWorkOrderId());
         }

@@ -98,16 +98,18 @@ public interface MaterialService {
      * 高级查询物料（支持分页）
      *
      * @param material  查询条件
+     * @param keyword   关键字（对物料编码、物料名称进行模糊匹配，可选）
      * @param pageNum   页码
      * @param pageSize  每页大小
      * @return 分页结果
      */
-    Page<Material> queryMaterials(Material material, int pageNum, int pageSize);
+    Page<Material> queryMaterials(Material material, String keyword, int pageNum, int pageSize);
     
     /**
      * 高级查询物料（支持时间段筛选和分页）
      *
      * @param material  查询条件
+     * @param keyword   关键字（对物料编码、物料名称进行模糊匹配，可选）
      * @param createdTimeStart 创建时间起始
      * @param createdTimeEnd 创建时间结束
      * @param updatedTimeStart 更新时间起始
@@ -117,11 +119,12 @@ public interface MaterialService {
      * @return 分页结果
      */
     Page<Material> queryMaterials(Material material, 
+                                 String keyword,
                                  java.time.LocalDateTime createdTimeStart, java.time.LocalDateTime createdTimeEnd,
                                  java.time.LocalDateTime updatedTimeStart, java.time.LocalDateTime updatedTimeEnd,
                                  int pageNum, int pageSize);
 
-    PagedResult<MaterialWithDetailsDto> searchWithDetails(Material material, int pageNum, int pageSize);
+    PagedResult<MaterialWithDetailsDto> searchWithDetails(Material material, String keyword, int pageNum, int pageSize);
 
     // endregion
 }

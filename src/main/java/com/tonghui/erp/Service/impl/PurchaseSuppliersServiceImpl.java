@@ -183,17 +183,22 @@ public class PurchaseSuppliersServiceImpl extends ServiceImpl<PurchaseSuppliersM
      * <p>支持按供应商编号、名称、分类、联系人、电话、邮箱、地址、银行信息、状态等条件筛选</p>
      *
      * @param purchaseSuppliers 查询条件实体，非null字段将作为等值或模糊查询条件
+     * @param keyword           关键字（对供应商编号、供应商名称进行模糊匹配，可选）
      * @param pageNum           页码，从0开始
      * @param pageSize          每页数量
      * @return 采购供应商分页结果
      */
     @Override
-    public Page<PurchaseSuppliers> queryPurchaseSuppliers(PurchaseSuppliers purchaseSuppliers, int pageNum, int pageSize) {
+    public Page<PurchaseSuppliers> queryPurchaseSuppliers(PurchaseSuppliers purchaseSuppliers, String keyword, int pageNum, int pageSize) {
         int actualPageNum = pageNum + 1;
 
         Page<PurchaseSuppliers> page = new Page<>(actualPageNum, pageSize);
         QueryWrapper<PurchaseSuppliers> wrapper = new QueryWrapper<>();
 
+        if (StringUtils.hasText(keyword)) {
+            // 关键字对供应商编号、供应商名称进行模糊匹配
+            wrapper.and(w -> w.like("supplier_number", keyword).or().like("supplier_name", keyword));
+        }
         if (purchaseSuppliers.getId() != null) {
             wrapper.eq("id", purchaseSuppliers.getId());
         }
@@ -243,14 +248,15 @@ public class PurchaseSuppliersServiceImpl extends ServiceImpl<PurchaseSuppliersM
      * <p>先分页查询供应商主表数据，再批量查询关联的采购订单和入库单</p>
      *
      * @param purchaseSuppliers 查询条件实体
+     * @param keyword           关键字（对供应商编号、供应商名称进行模糊匹配，可选）
      * @param pageNum           页码，从0开始
      * @param pageSize          每页数量
      * @return 带子表关联数据的采购供应商分页结果
      */
     @Override
-    public PagedResult<PurchaseSuppliersWithDetailsDto> searchWithDetails(PurchaseSuppliers purchaseSuppliers, int pageNum, int pageSize) {
+    public PagedResult<PurchaseSuppliersWithDetailsDto> searchWithDetails(PurchaseSuppliers purchaseSuppliers, String keyword, int pageNum, int pageSize) {
         // 查询供应商主表分页数据
-        Page<PurchaseSuppliers> parentPage = queryPurchaseSuppliers(purchaseSuppliers, pageNum, pageSize);
+        Page<PurchaseSuppliers> parentPage = queryPurchaseSuppliers(purchaseSuppliers, keyword, pageNum, pageSize);
         List<PurchaseSuppliers> parents = parentPage.getRecords();
 
         PagedResult<PurchaseSuppliersWithDetailsDto> result = new PagedResult<>();

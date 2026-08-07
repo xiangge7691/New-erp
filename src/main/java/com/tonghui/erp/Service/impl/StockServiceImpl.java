@@ -76,6 +76,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
      * 高级查询库存（支持多条件组合查询和自定义时间范围筛选）
      *
      * @param stock             查询条件实体，非null字段将作为等值或模糊查询条件
+     * @param keyword           关键字（对物品编码、物品名称进行模糊匹配，可选）
      * @param createdTimeStart  创建时间起始值（含）
      * @param createdTimeEnd    创建时间结束值（含）
      * @param updatedTimeStart  更新时间起始值（含）
@@ -85,13 +86,17 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
      * @return 库存分页结果
      */
     @Override
-    public Page<Stock> queryStocks(Stock stock, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, int pageIndex, int pageSize) {
+    public Page<Stock> queryStocks(Stock stock, String keyword, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, int pageIndex, int pageSize) {
         // 页码处理，MyBatis Plus Page页码从1开始
         int actualPageIndex = pageIndex + 1;
 
         Page<Stock> page = new Page<>(actualPageIndex, pageSize);
         QueryWrapper<Stock> wrapper = new QueryWrapper<>();
 
+        if (StringUtils.hasText(keyword)) {
+            // 关键字对物品编码、物品名称进行模糊匹配
+            wrapper.and(w -> w.like("item_code", keyword).or().like("item_name", keyword));
+        }
         if (stock.getStockId() != null) {
             wrapper.eq("stock_id", stock.getStockId());
         }
@@ -149,13 +154,14 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
      * 高级查询库存（使用默认时间范围，即不过滤时间）
      *
      * @param stock    查询条件实体
+     * @param keyword  关键字（对物品编码、物品名称进行模糊匹配，可选）
      * @param pageNum  页码，从0开始
      * @param pageSize 每页数量
      * @return 库存分页结果
      */
     @Override
-    public Page<Stock> queryStocks(Stock stock, int pageNum, int pageSize) {
-        return queryStocks(stock, null, null, null, null, pageNum, pageSize);
+    public Page<Stock> queryStocks(Stock stock, String keyword, int pageNum, int pageSize) {
+        return queryStocks(stock, keyword, null, null, null, null, pageNum, pageSize);
     }
 
     // endregion
@@ -170,14 +176,15 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
      * <p>先分页查询库存主表数据，再批量查询关联的交易记录和出库明细</p>
      *
      * @param stock    查询条件实体
+     * @param keyword  关键字（对物品编码、物品名称进行模糊匹配，可选）
      * @param pageNum  页码，从0开始
      * @param pageSize 每页数量
      * @return 带子表关联数据的库存分页结果
      */
     @Override
-    public PagedResult<StockWithDetailsDto> searchWithDetails(Stock stock, int pageNum, int pageSize) {
+    public PagedResult<StockWithDetailsDto> searchWithDetails(Stock stock, String keyword, int pageNum, int pageSize) {
         // 查询库存主表分页数据
-        Page<Stock> parentPage = queryStocks(stock, pageNum, pageSize);
+        Page<Stock> parentPage = queryStocks(stock, keyword, pageNum, pageSize);
         List<Stock> parents = parentPage.getRecords();
 
         PagedResult<StockWithDetailsDto> result = new PagedResult<>();

@@ -149,9 +149,10 @@ public class VerificationRecordController extends BaseCrudController<Verificatio
      * - updatedTimeStart/End：更新时间范围
      *
      * 示例请求：
-     * GET /api/verification-record/search?pageIndex=0&pageSize=20&category=equipment&executeDateStart=2026-01-01T00:00:00&executeDateEnd=2026-12-31T23:59:59
+     * GET /api/verification-record/search?pageIndex=0&pageSize=20&keyword=验证&category=equipment&executeDateStart=2026-01-01T00:00:00&executeDateEnd=2026-12-31T23:59:59
      *
      * @param verificationRecord 查询条件（自动从query参数映射）
+     * @param keyword            关键字（对验证编号、验证名称、关联对象进行模糊匹配，可选）
      * @param executeDateStart   执行日期开始（可选）
      * @param executeDateEnd     执行日期结束（可选）
      * @param nextVerifyDateStart 下次验证日期开始（可选）
@@ -166,6 +167,7 @@ public class VerificationRecordController extends BaseCrudController<Verificatio
      */
     @GetMapping("/search")
     public ApiResponse<PagedResult<VerificationRecord>> queryVerificationRecords(VerificationRecord verificationRecord,
+                                                                                   @RequestParam(required = false) String keyword,
                                                                                    @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime executeDateStart,
                                                                                    @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime executeDateEnd,
                                                                                    @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime nextVerifyDateStart,
@@ -181,7 +183,7 @@ public class VerificationRecordController extends BaseCrudController<Verificatio
             int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
 
             Page<VerificationRecord> pageResult = verificationRecordService.queryVerificationRecords(
-                    verificationRecord, executeDateStart, executeDateEnd,
+                    verificationRecord, keyword, executeDateStart, executeDateEnd,
                     nextVerifyDateStart, nextVerifyDateEnd,
                     createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd,
                     safePageIndex, safePageSize);

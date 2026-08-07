@@ -224,3 +224,28 @@ SET @col := (SELECT CONCAT('ALTER TABLE `stock_in_detail` MODIFY COLUMN `', COLU
              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stock_in_detail' AND COLUMN_NAME = 'expiry_date' AND IS_NULLABLE = 'NO');
 SET @ddl := IF(@col IS NULL, 'SELECT 1', @col);
 PREPARE st FROM @ddl; EXECUTE st; DEALLOCATE PREPARE st;
+
+-- 13. stock_out_detail 可能为空的业务列放宽为 NULL（出库明细以 item_code 为主，item_id 仅作引用）
+SET @col := (SELECT CONCAT('ALTER TABLE `stock_out_detail` MODIFY COLUMN `', COLUMN_NAME, '` ', COLUMN_TYPE, ' NULL')
+             FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stock_out_detail' AND COLUMN_NAME = 'item_id' AND IS_NULLABLE = 'NO');
+SET @ddl := IF(@col IS NULL, 'SELECT 1', @col);
+PREPARE st FROM @ddl; EXECUTE st; DEALLOCATE PREPARE st;
+
+SET @col := (SELECT CONCAT('ALTER TABLE `stock_out_detail` MODIFY COLUMN `', COLUMN_NAME, '` ', COLUMN_TYPE, ' NULL')
+             FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stock_out_detail' AND COLUMN_NAME = 'unit_price' AND IS_NULLABLE = 'NO');
+SET @ddl := IF(@col IS NULL, 'SELECT 1', @col);
+PREPARE st FROM @ddl; EXECUTE st; DEALLOCATE PREPARE st;
+
+SET @col := (SELECT CONCAT('ALTER TABLE `stock_out_detail` MODIFY COLUMN `', COLUMN_NAME, '` ', COLUMN_TYPE, ' NULL')
+             FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stock_out_detail' AND COLUMN_NAME = 'amount' AND IS_NULLABLE = 'NO');
+SET @ddl := IF(@col IS NULL, 'SELECT 1', @col);
+PREPARE st FROM @ddl; EXECUTE st; DEALLOCATE PREPARE st;
+
+SET @col := (SELECT CONCAT('ALTER TABLE `stock_out_detail` MODIFY COLUMN `', COLUMN_NAME, '` ', COLUMN_TYPE, ' NULL')
+             FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stock_out_detail' AND COLUMN_NAME = 'remark' AND IS_NULLABLE = 'NO');
+SET @ddl := IF(@col IS NULL, 'SELECT 1', @col);
+PREPARE st FROM @ddl; EXECUTE st; DEALLOCATE PREPARE st;

@@ -292,18 +292,23 @@ public class MaterialServiceImpl implements MaterialService {
      * <p>支持按物料编码、名称、分类、单位、规格、状态等条件筛选，默认按编码倒序排列</p>
      *
      * @param material  查询条件实体，非null字段将作为等值或模糊查询条件
+     * @param keyword   关键字（对物料编码、物料名称进行模糊匹配，可选）
      * @param pageIndex 页码，从0开始
      * @param pageSize  每页数量
      * @return 物料分页结果
      */
     @Override
-    public Page<Material> queryMaterials(Material material, int pageIndex, int pageSize) {
+    public Page<Material> queryMaterials(Material material, String keyword, int pageIndex, int pageSize) {
         // 将页码从0开始转换为1开始
         int actualPageIndex = pageIndex + 1;
         
         Page<Material> page = new Page<>(actualPageIndex, pageSize);
         QueryWrapper<Material> wrapper = new QueryWrapper<>();
 
+        if (StringUtils.hasText(keyword)) {
+            // 关键字对物料编码、物料名称进行模糊匹配
+            wrapper.and(w -> w.like("material_code", keyword).or().like("material_name", keyword));
+        }
         if (material.getMaterialId() != null) {
             wrapper.eq("material_id", material.getMaterialId());
         }
@@ -358,6 +363,7 @@ public class MaterialServiceImpl implements MaterialService {
      * <p>与queryMaterials(Material, int, int)类似，但支持自定义创建时间和更新时间的范围</p>
      *
      * @param material          查询条件实体
+     * @param keyword           关键字（对物料编码、物料名称进行模糊匹配，可选）
      * @param createdTimeStart  创建时间起始值（含）
      * @param createdTimeEnd    创建时间结束值（含）
      * @param updatedTimeStart  更新时间起始值（含）
@@ -368,6 +374,7 @@ public class MaterialServiceImpl implements MaterialService {
      */
     @Override
     public Page<Material> queryMaterials(Material material,
+                                 String keyword,
                                  java.time.LocalDateTime createdTimeStart, java.time.LocalDateTime createdTimeEnd,
                                  java.time.LocalDateTime updatedTimeStart, java.time.LocalDateTime updatedTimeEnd,
                                  int pageIndex, int pageSize) {
@@ -377,6 +384,10 @@ public class MaterialServiceImpl implements MaterialService {
         Page<Material> page = new Page<>(actualPageIndex, pageSize);
         QueryWrapper<Material> wrapper = new QueryWrapper<>();
 
+        if (StringUtils.hasText(keyword)) {
+            // 关键字对物料编码、物料名称进行模糊匹配
+            wrapper.and(w -> w.like("material_code", keyword).or().like("material_name", keyword));
+        }
         if (material.getMaterialId() != null) {
             wrapper.eq("material_id", material.getMaterialId());
         }
@@ -440,14 +451,15 @@ public class MaterialServiceImpl implements MaterialService {
      * <p>先分页查询物料主表数据，再批量查询关联的处方明细和采购订单明细</p>
      *
      * @param material 查询条件实体
+     * @param keyword  关键字（对物料编码、物料名称进行模糊匹配，可选）
      * @param pageNum  页码，从0开始
      * @param pageSize 每页数量
      * @return 带子表关联数据的物料分页结果
      */
     @Override
-    public PagedResult<MaterialWithDetailsDto> searchWithDetails(Material material, int pageNum, int pageSize) {
+    public PagedResult<MaterialWithDetailsDto> searchWithDetails(Material material, String keyword, int pageNum, int pageSize) {
         // 查询物料主表分页数据
-        Page<Material> parentPage = queryMaterials(material, pageNum, pageSize);
+        Page<Material> parentPage = queryMaterials(material, keyword, pageNum, pageSize);
         List<Material> parents = parentPage.getRecords();
 
         PagedResult<MaterialWithDetailsDto> result = new PagedResult<>();

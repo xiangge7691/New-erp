@@ -55,6 +55,7 @@ public interface WorkOrderService extends IService<WorkOrder> {
     /**
      * 查询工单（支持多条件 + 分页 + 时间范围）
      * @param workOrder 查询条件
+     * @param keyword 关键字（对工单编号、工单名称、制剂编码、制剂名称进行模糊匹配，可选）
      * @param createdTimeStart 创建时间起始
      * @param createdTimeEnd 创建时间结束
      * @param updatedTimeStart 更新时间起始
@@ -64,6 +65,7 @@ public interface WorkOrderService extends IService<WorkOrder> {
      * @return 分页结果
      */
     Page<WorkOrder> queryWorkOrders(WorkOrder workOrder,
+                                    String keyword,
                                     LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
                                     LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
                                     int pageNum, int pageSize);

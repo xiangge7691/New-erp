@@ -88,6 +88,7 @@ public interface TrainingRecordService extends IService<TrainingRecord> {
      * 高级查询培训记录（支持多条件 + 分页）
      *
      * @param trainingRecord    查询条件
+     * @param keyword           关键字（对培训编号、培训名称进行模糊匹配，可选）
      * @param trainingDateStart 培训日期开始
      * @param trainingDateEnd   培训日期结束
      * @param pageIndex         页码
@@ -95,6 +96,7 @@ public interface TrainingRecordService extends IService<TrainingRecord> {
      * @return 分页结果
      */
     Page<TrainingRecord> queryTrainingRecords(TrainingRecord trainingRecord,
+                                               String keyword,
                                                LocalDateTime trainingDateStart, LocalDateTime trainingDateEnd,
                                                int pageIndex, int pageSize);
 

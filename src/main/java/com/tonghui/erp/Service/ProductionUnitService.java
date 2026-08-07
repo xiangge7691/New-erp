@@ -111,6 +111,7 @@ public interface ProductionUnitService extends IService<ProductionUnit> {
      * 高级查询生产单位（支持分页和时间范围查询）
      *
      * @param productionUnit 查询条件
+     * @param keyword        关键字（对生产单位编码、生产单位名称进行模糊匹配，可选）
      * @param createdTimeStart 创建时间起始
      * @param createdTimeEnd   创建时间结束
      * @param updatedTimeStart 更新时间起始
@@ -119,7 +120,8 @@ public interface ProductionUnitService extends IService<ProductionUnit> {
      * @param pageSize       每页大小
      * @return 分页结果
      */
-    Page<ProductionUnit> queryProductionUnits(ProductionUnit productionUnit, 
+    Page<ProductionUnit> queryProductionUnits(ProductionUnit productionUnit,
+                                               String keyword,
                                                LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
                                                LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
                                                int pageNum, int pageSize);
@@ -135,6 +137,7 @@ public interface ProductionUnitService extends IService<ProductionUnit> {
      * 高级查询生产单位（包含发票子表）
      *
      * @param productionUnit 查询条件
+     * @param keyword        关键字（对生产单位编码、生产单位名称进行模糊匹配，可选）
      * @param createdTimeStart 创建时间起始
      * @param createdTimeEnd   创建时间结束
      * @param updatedTimeStart 更新时间起始
@@ -144,6 +147,7 @@ public interface ProductionUnitService extends IService<ProductionUnit> {
      * @return 分页结果（包含子表）
      */
     PagedResult<ProductionUnitWithDetailsDto> searchWithDetails(ProductionUnit productionUnit,
+                                                                 String keyword,
                                                                  LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
                                                                  LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
                                                                  int pageNum, int pageSize);

@@ -196,9 +196,10 @@ public class EquipmentController extends BaseCrudController<Equipment, Equipment
      * </p>
      *
      * 示例请求：
-     * GET /api/equipment/search?equipmentName=烘箱&model=HX&manufacturer=某厂&createdTimeStart=2026-01-01T00:00:00&createdTimeEnd=2026-12-31T23:59:59&pageIndex=0&pageSize=10
+     * GET /api/equipment/search?keyword=烘箱&model=HX&manufacturer=某厂&createdTimeStart=2026-01-01T00:00:00&createdTimeEnd=2026-12-31T23:59:59&pageIndex=0&pageSize=10
      *
      * @param equipment 设备查询条件对象（可包含设备名称、型号等）
+     * @param keyword 关键字（对固定资产编号、设备名称进行模糊匹配，可选）
      * @param createdTimeStart 创建时间起始（可选）
      * @param createdTimeEnd 创建时间结束（可选）
      * @param updatedTimeStart 更新时间起始（可选）
@@ -209,6 +210,7 @@ public class EquipmentController extends BaseCrudController<Equipment, Equipment
   @GetMapping("/search")
   public ApiResponse<PagedResult<Equipment>> searchEquipments(
             Equipment equipment,
+            @RequestParam(required = false) String keyword,
             @RequestParam(required = false) java.time.LocalDateTime createdTimeStart,
             @RequestParam(required = false) java.time.LocalDateTime createdTimeEnd,
             @RequestParam(required = false) java.time.LocalDateTime updatedTimeStart,
@@ -220,6 +222,7 @@ public class EquipmentController extends BaseCrudController<Equipment, Equipment
         if (pageRequest.getPageIndex() == -1 && pageRequest.getPageSize() == -1) {
             com.baomidou.mybatisplus.extension.plugins.pagination.Page<Equipment> pageResult = equipmentService.queryEquipments(
                   equipment, 
+                    keyword,
                     createdTimeStart,
                     createdTimeEnd,
                     updatedTimeStart,
@@ -238,6 +241,7 @@ public class EquipmentController extends BaseCrudController<Equipment, Equipment
         
         com.baomidou.mybatisplus.extension.plugins.pagination.Page<Equipment> pageResult = equipmentService.queryEquipments(
               equipment,
+                keyword,
                 createdTimeStart,
                 createdTimeEnd,
                 updatedTimeStart,
@@ -258,9 +262,10 @@ public class EquipmentController extends BaseCrudController<Equipment, Equipment
      * 搜索设备（带子表：维保记录）
      *
      * 示例请求：
-     * GET /api/equipment/search-with-details?equipmentName=烘箱&pageIndex=0&pageSize=10
+     * GET /api/equipment/search-with-details?keyword=烘箱&pageIndex=0&pageSize=10
      *
      * @param equipment 设备查询条件对象
+     * @param keyword 关键字（对固定资产编号、设备名称进行模糊匹配，可选）
      * @param createdTimeStart 创建时间起始（可选）
      * @param createdTimeEnd 创建时间结束（可选）
      * @param updatedTimeStart 更新时间起始（可选）
@@ -271,6 +276,7 @@ public class EquipmentController extends BaseCrudController<Equipment, Equipment
     @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<EquipmentWithDetailsDto>> searchWithDetails(
             Equipment equipment,
+            @RequestParam(required = false) String keyword,
             @RequestParam(required = false) java.time.LocalDateTime createdTimeStart,
             @RequestParam(required = false) java.time.LocalDateTime createdTimeEnd,
             @RequestParam(required = false) java.time.LocalDateTime updatedTimeStart,
@@ -279,7 +285,7 @@ public class EquipmentController extends BaseCrudController<Equipment, Equipment
         try {
             pageRequest = processPageRequest(pageRequest);
             PagedResult<EquipmentWithDetailsDto> result = equipmentService.searchWithDetails(
-                equipment, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd,
+                equipment, keyword, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd,
                 pageRequest.getPageIndex(), pageRequest.getPageSize());
             return success(result);
         } catch (Exception ex) {

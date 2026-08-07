@@ -54,7 +54,7 @@ public class MaterialController extends BaseCrudController<Material, Material, L
         int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
 
         Material material = new Material();
-        Page<Material> pageResult = materialService.queryMaterials(material, safePageIndex, safePageSize);
+        Page<Material> pageResult = materialService.queryMaterials(material, null, safePageIndex, safePageSize);
 
         PagedResult<Material> pagedResult = new PagedResult<>();
         pagedResult.setItems(pageResult.getRecords());
@@ -109,9 +109,10 @@ public class MaterialController extends BaseCrudController<Material, Material, L
      * </p>
      *
      * 示例请求：
-     * GET /api/material/search?pageIndex=0&pageSize=20&materialName=瓶&categoryName=包材&unitName=个&spec=500ml&materialStatus=1
+     * GET /api/material/search?pageIndex=0&pageSize=20&keyword=瓶&categoryName=包材&unitName=个&spec=500ml&materialStatus=1
      *
      * @param material 查询条件（自动从query参数映射）
+     * @param keyword 关键字（对物料编码、物料名称进行模糊匹配，可选）
      * @param createdTimeStart 创建时间起始（可选）
      * @param createdTimeEnd 创建时间结束（可选）
      * @param updatedTimeStart 更新时间起始（可选）
@@ -122,6 +123,7 @@ public class MaterialController extends BaseCrudController<Material, Material, L
      */
     @GetMapping("/search")
     public ApiResponse<PagedResult<Material>> queryMaterials(Material material,
+                                                             @RequestParam(required = false) String keyword,
                                                              @RequestParam(required = false) java.time.LocalDateTime createdTimeStart,
                                                              @RequestParam(required = false) java.time.LocalDateTime createdTimeEnd,
                                                              @RequestParam(required = false) java.time.LocalDateTime updatedTimeStart,
@@ -132,7 +134,7 @@ public class MaterialController extends BaseCrudController<Material, Material, L
             // 当传入的页码和page大小都为-1时，返回所有结果
             if (pageIndex == -1 && pageSize == -1) {
                 // 获取所有结果
-                Page<Material> pageResult = materialService.queryMaterials(material, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd, 0,Integer.MAX_VALUE);
+                Page<Material> pageResult = materialService.queryMaterials(material, keyword, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd, 0,Integer.MAX_VALUE);
                 
                 // 转换为统一的pagedResult格式
                 PagedResult<Material> pagedResult = new PagedResult<>();
@@ -150,7 +152,7 @@ public class MaterialController extends BaseCrudController<Material, Material, L
             int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
 
             // 获取分页结果
-            Page<Material> pageResult = materialService.queryMaterials(material, createdTimeStart,createdTimeEnd, updatedTimeStart, updatedTimeEnd, safePageIndex, safePageSize);
+            Page<Material> pageResult = materialService.queryMaterials(material, keyword, createdTimeStart,createdTimeEnd, updatedTimeStart, updatedTimeEnd, safePageIndex, safePageSize);
 
             // 转换为统一的pagedResult格式
             PagedResult<Material> pagedResult = new PagedResult<>();
@@ -179,21 +181,23 @@ public class MaterialController extends BaseCrudController<Material, Material, L
      * </p>
      *
      * 示例请求：
-     * GET /api/material/search-with-details?pageIndex=0&pageSize=20
+     * GET /api/material/search-with-details?pageIndex=0&pageSize=20&keyword=瓶
      *
      * @param material 查询条件（自动从query参数映射）
+     * @param keyword 关键字（对物料编码、物料名称进行模糊匹配，可选）
      * @param pageIndex 页码，从0开始
      * @param pageSize 每页大小
      * @return ApiResponse&lt;PagedResult&lt;MaterialWithDetailsDto&gt;&gt; 物料详情分页列表
      */
     @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<MaterialWithDetailsDto>> searchWithDetails(Material material,
+                                                                              @RequestParam(required = false) String keyword,
                                                                               @RequestParam int pageIndex,
                                                                               @RequestParam int pageSize) {
         try {
             int safePageIndex = Math.max(0, pageIndex);
             int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
-            PagedResult<MaterialWithDetailsDto> result = materialService.searchWithDetails(material, safePageIndex, safePageSize);
+            PagedResult<MaterialWithDetailsDto> result = materialService.searchWithDetails(material, keyword, safePageIndex, safePageSize);
             return success(result);
         } catch (Exception ex) {
             return exception(ex, "查询失败");

@@ -90,11 +90,12 @@ public class ProcessTypeServiceImpl extends ServiceImpl<ProcessTypeMapper, Proce
      * 根据工序类型名称模糊查询（分页）
      *
      * @param processName 工序类型名称（模糊匹配），为空时查询所有
+     * @param keyword 关键字（对工序类型编码、工序类型名称进行模糊匹配，可选）
      * @param pageRequest 分页参数，包含页码和每页数量等信息
      * @return 分页结果，包含查询到的工序类型列表和分页信息
      */
     @Override
-    public PagedResult<ProcessType> searchByName(String processName, PageRequestDto pageRequest) {
+    public PagedResult<ProcessType> searchByName(String processName, String keyword, PageRequestDto pageRequest) {
         // 创建 Page 对象，处理全量数据的情况
         Page<ProcessType> page;
         if (pageRequest.getPageIndex() == -1 || pageRequest.getPageSize() == -1) {
@@ -107,6 +108,11 @@ public class ProcessTypeServiceImpl extends ServiceImpl<ProcessTypeMapper, Proce
 
         // 构建查询条件
         var query = this.lambdaQuery();
+
+        if (keyword != null && !keyword.isEmpty()) {
+            // 关键字对工序类型编码、工序类型名称进行模糊匹配
+            query.and(q -> q.like(ProcessType::getProcessCode, keyword).or().like(ProcessType::getProcessName, keyword));
+        }
 
         // 如果 processName 不为空，则添加模糊查询条件
         if (processName != null && !processName.isEmpty()) {
@@ -178,17 +184,22 @@ public class ProcessTypeServiceImpl extends ServiceImpl<ProcessTypeMapper, Proce
      * 高级查询工序类型（支持按工序ID、编码、名称、状态条件组合查询）
      *
      * @param processType 查询条件实体，非null字段将作为等值或模糊查询条件
+     * @param keyword     关键字（对工序类型编码、工序类型名称进行模糊匹配，可选）
      * @param pageNum     页码，从0开始
      * @param pageSize    每页数量
      * @return 工序类型分页结果
      */
     @Override
-    public Page<ProcessType> queryProcessTypes(ProcessType processType, int pageNum, int pageSize) {
+    public Page<ProcessType> queryProcessTypes(ProcessType processType, String keyword, int pageNum, int pageSize) {
         int actualPageNum = pageNum + 1;
 
         Page<ProcessType> page = new Page<>(actualPageNum, pageSize);
         QueryWrapper<ProcessType> wrapper = new QueryWrapper<>();
 
+        if (StringUtils.hasText(keyword)) {
+            // 关键字对工序类型编码、工序类型名称进行模糊匹配
+            wrapper.and(w -> w.like("process_code", keyword).or().like("process_name", keyword));
+        }
         if (processType.getProcessId() != null) {
             wrapper.eq("process_id", processType.getProcessId());
         }
@@ -217,14 +228,15 @@ public class ProcessTypeServiceImpl extends ServiceImpl<ProcessTypeMapper, Proce
      * <p>先分页查询工序类型主表数据，再批量查询关联的生产过程记录和制剂工序模板</p>
      *
      * @param processType 查询条件实体
+     * @param keyword     关键字（对工序类型编码、工序类型名称进行模糊匹配，可选）
      * @param pageNum     页码，从0开始
      * @param pageSize    每页数量
      * @return 带子表关联数据的工序类型分页结果
      */
     @Override
-    public PagedResult<ProcessTypeWithDetailsDto> searchWithDetails(ProcessType processType, int pageNum, int pageSize) {
+    public PagedResult<ProcessTypeWithDetailsDto> searchWithDetails(ProcessType processType, String keyword, int pageNum, int pageSize) {
         // 查询工序类型主表分页数据
-        Page<ProcessType> parentPage = queryProcessTypes(processType, pageNum, pageSize);
+        Page<ProcessType> parentPage = queryProcessTypes(processType, keyword, pageNum, pageSize);
         List<ProcessType> parents = parentPage.getRecords();
 
         PagedResult<ProcessTypeWithDetailsDto> result = new PagedResult<>();

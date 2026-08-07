@@ -15,10 +15,11 @@ public interface ProcessTypeService extends IService<ProcessType> {
      * 根据工序类型名称模糊查询（分页）
      * 
      * @param processName 工序类型名称（模糊匹配），为空时查询所有
+     * @param keyword 关键字（对工序类型编码、工序类型名称进行模糊匹配，可选）
      * @param pageRequest 分页参数，包含页码和每页数量等信息
      * @return 分页结果，包含查询到的工序类型列表和分页信息
      */
-    PagedResult<ProcessType> searchByName(String processName, PageRequestDto pageRequest);
+    PagedResult<ProcessType> searchByName(String processName, String keyword, PageRequestDto pageRequest);
     
     /**
      * 根据工序类型编码精确查询
@@ -35,9 +36,9 @@ public interface ProcessTypeService extends IService<ProcessType> {
      */
     java.util.List<ProcessType> listActive();
 
-    Page<ProcessType> queryProcessTypes(ProcessType processType, int pageNum, int pageSize);
+    Page<ProcessType> queryProcessTypes(ProcessType processType, String keyword, int pageNum, int pageSize);
 
-    PagedResult<ProcessTypeWithDetailsDto> searchWithDetails(ProcessType processType, int pageNum, int pageSize);
+    PagedResult<ProcessTypeWithDetailsDto> searchWithDetails(ProcessType processType, String keyword, int pageNum, int pageSize);
 
     /**
      * 清理指定工序编码下已被软删除的记录（释放唯一键约束）

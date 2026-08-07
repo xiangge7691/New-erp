@@ -80,7 +80,7 @@ public class AcceptanceOrderController extends BaseController {
             pageRequest = processPageRequest(pageRequest);
             int pageSize = pageRequest.getPageSize() <= 0 ? 20 : pageRequest.getPageSize();
             Page<AcceptanceOrder> pageResult = acceptanceOrderService.queryAcceptances(
-                    new AcceptanceOrder(), pageRequest.getPageIndex(), pageSize);
+                    new AcceptanceOrder(), null, pageRequest.getPageIndex(), pageSize);
 
             PagedResult<AcceptanceOrder> pagedResult = new PagedResult<>();
             pagedResult.setItems(pageResult.getRecords());
@@ -126,22 +126,24 @@ public class AcceptanceOrderController extends BaseController {
      * 高级查询验收单（支持状态、来源类型筛选）
      *
      * 示例请求：
-     * GET /api/acceptance/search?pageIndex=0&pageSize=20&status=物料检验&sourceType=采购入库
+     * GET /api/acceptance/search?pageIndex=0&pageSize=20&keyword=YS2025&status=物料检验&sourceType=采购入库
      *
      * @param acceptance 查询条件（自动从query参数映射：status/sourceType/acceptanceCode等）
+     * @param keyword    关键字（对验收编号、验收标题进行模糊匹配，可选）
      * @param pageIndex  页码
      * @param pageSize   每页大小
      * @return 验收单分页结果
      */
     @GetMapping("/search")
     public ApiResponse<PagedResult<AcceptanceOrder>> search(AcceptanceOrder acceptance,
+                                                            @RequestParam(required = false) String keyword,
                                                             @RequestParam int pageIndex,
                                                             @RequestParam int pageSize) {
         try {
             int safePageIndex = Math.max(0, pageIndex);
             int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
             Page<AcceptanceOrder> pageResult = acceptanceOrderService.queryAcceptances(
-                    acceptance, safePageIndex, safePageSize);
+                    acceptance, keyword, safePageIndex, safePageSize);
 
             PagedResult<AcceptanceOrder> pagedResult = new PagedResult<>();
             pagedResult.setItems(pageResult.getRecords());
@@ -158,22 +160,24 @@ public class AcceptanceOrderController extends BaseController {
      * 带子表查询验收单（包含明细）
      *
      * 示例请求：
-     * GET /api/acceptance/search-with-details?pageIndex=0&pageSize=20&status=物料检验
+     * GET /api/acceptance/search-with-details?pageIndex=0&pageSize=20&keyword=YS2025&status=物料检验
      *
      * @param acceptance 查询条件（自动从query参数映射）
+     * @param keyword    关键字（对验收编号、验收标题进行模糊匹配，可选）
      * @param pageIndex  页码
      * @param pageSize   每页大小
      * @return 分页结果（包含明细）
      */
     @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<AcceptanceWithDetailsDto>> searchWithDetails(AcceptanceOrder acceptance,
+                                                                                @RequestParam(required = false) String keyword,
                                                                                 @RequestParam int pageIndex,
                                                                                 @RequestParam int pageSize) {
         try {
             int safePageIndex = Math.max(0, pageIndex);
             int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
             PagedResult<AcceptanceWithDetailsDto> result = acceptanceOrderService.searchWithDetails(
-                    acceptance, safePageIndex, safePageSize);
+                    acceptance, keyword, safePageIndex, safePageSize);
             return success(result);
         } catch (Exception ex) {
             return exception(ex, "查询验收单");

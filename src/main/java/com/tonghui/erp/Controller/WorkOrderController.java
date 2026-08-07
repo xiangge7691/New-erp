@@ -60,7 +60,7 @@ public class WorkOrderController extends BaseCrudController<WorkOrder, WorkOrder
         // 使用WorkOrderService的queryWorkOrders方法进行查询
         WorkOrder workOrder = new WorkOrder();
         Page<WorkOrder> pageResult = workOrderService.queryWorkOrders(workOrder,
-                null, null, null, null, safePageIndex, safePageSize);
+                null, null, null, null, null, safePageIndex, safePageSize);
 
         // 转换为PagedResult
         PagedResult<WorkOrder> pagedResult = new PagedResult<>();
@@ -117,10 +117,11 @@ public class WorkOrderController extends BaseCrudController<WorkOrder, WorkOrder
      * </p>
      *
      * 示例请求：
-     * GET /api/work-orders/search?pageIndex=1&pageSize=20&workOrderCode=WO&workOrderName=测试工单
+     * GET /api/work-orders/search?pageIndex=1&pageSize=20&keyword=WO
      * GET /api/work-orders/search?pageIndex=1&pageSize=20&planId=1&currentStatus=生产中
      *
      * @param workOrder 查询条件（自动从query参数映射）
+     * @param keyword 关键字（对工单编号、工单名称、制剂编码、制剂名称进行模糊匹配，可选）
      * @param createdTimeStart 创建时间起始（可选）
      * @param createdTimeEnd 创建时间结束（可选）
      * @param updatedTimeStart 更新时间起始（可选）
@@ -131,6 +132,7 @@ public class WorkOrderController extends BaseCrudController<WorkOrder, WorkOrder
      */
     @GetMapping("/search")
     public ApiResponse<PagedResult<WorkOrder>> queryWorkOrders(WorkOrder workOrder,
+                                                               @RequestParam(required = false) String keyword,
                                                                @RequestParam(required = false) java.time.LocalDateTime createdTimeStart,
                                                                @RequestParam(required = false) java.time.LocalDateTime createdTimeEnd,
                                                                @RequestParam(required = false) java.time.LocalDateTime updatedTimeStart,
@@ -144,7 +146,7 @@ public class WorkOrderController extends BaseCrudController<WorkOrder, WorkOrder
 
         // 获取分页结果
         Page<WorkOrder> pageResult = workOrderService.queryWorkOrders(workOrder,
-                createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd,
+                keyword, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd,
                 safePageIndex, safePageSize);
 
         // 转换为统一的PagedResult格式

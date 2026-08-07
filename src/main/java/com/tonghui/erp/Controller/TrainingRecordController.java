@@ -141,9 +141,10 @@ public class TrainingRecordController extends BaseCrudController<TrainingRecord,
      * - trainingDateStart/End：培训日期范围
      *
      * 示例请求：
-     * GET /api/training-record/search?pageIndex=0&pageSize=20&trainingName=GMP&trainingDateStart=2026-01-01T00:00:00&trainingDateEnd=2026-12-31T23:59:59
+     * GET /api/training-record/search?pageIndex=0&pageSize=20&keyword=GMP&trainingDateStart=2026-01-01T00:00:00&trainingDateEnd=2026-12-31T23:59:59
      *
      * @param trainingRecord    查询条件（自动从query参数映射）
+     * @param keyword           关键字（对培训编号、培训名称进行模糊匹配，可选）
      * @param trainingDateStart 培训日期开始（可选）
      * @param trainingDateEnd   培训日期结束（可选）
      * @param pageIndex         页码
@@ -152,6 +153,7 @@ public class TrainingRecordController extends BaseCrudController<TrainingRecord,
      */
     @GetMapping("/search")
     public ApiResponse<PagedResult<TrainingRecord>> queryTrainingRecords(TrainingRecord trainingRecord,
+                                                                         @RequestParam(required = false) String keyword,
                                                                          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime trainingDateStart,
                                                                          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime trainingDateEnd,
                                                                          @RequestParam int pageIndex,
@@ -160,7 +162,7 @@ public class TrainingRecordController extends BaseCrudController<TrainingRecord,
             int safePageIndex = Math.max(0, pageIndex);
             int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
 
-            Page<TrainingRecord> pageResult = trainingRecordService.queryTrainingRecords(trainingRecord, trainingDateStart, trainingDateEnd, safePageIndex, safePageSize);
+            Page<TrainingRecord> pageResult = trainingRecordService.queryTrainingRecords(trainingRecord, keyword, trainingDateStart, trainingDateEnd, safePageIndex, safePageSize);
 
             PagedResult<TrainingRecord> pagedResult = new PagedResult<>();
             pagedResult.setItems(pageResult.getRecords());

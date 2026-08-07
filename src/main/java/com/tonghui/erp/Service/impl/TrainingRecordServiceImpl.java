@@ -187,6 +187,7 @@ public class TrainingRecordServiceImpl extends ServiceImpl<TrainingRecordMapper,
      * 高级查询培训记录（支持多条件 + 分页）
      *
      * @param trainingRecord    查询条件
+     * @param keyword           关键字（对培训编号、培训名称进行模糊匹配，可选）
      * @param trainingDateStart 培训日期开始
      * @param trainingDateEnd   培训日期结束
      * @param pageIndex         页码
@@ -195,6 +196,7 @@ public class TrainingRecordServiceImpl extends ServiceImpl<TrainingRecordMapper,
      */
     @Override
     public Page<TrainingRecord> queryTrainingRecords(TrainingRecord trainingRecord,
+                                                      String keyword,
                                                       LocalDateTime trainingDateStart, LocalDateTime trainingDateEnd,
                                                       int pageIndex, int pageSize) {
         Page<TrainingRecord> page = new Page<>(pageIndex, pageSize);
@@ -202,6 +204,11 @@ public class TrainingRecordServiceImpl extends ServiceImpl<TrainingRecordMapper,
 
         // 未删除条件
         wrapper.eq("is_deleted", 0);
+
+        if (StringUtils.hasText(keyword)) {
+            // 关键字对培训编号、培训名称进行模糊匹配
+            wrapper.and(w -> w.like("training_no", keyword).or().like("training_name", keyword));
+        }
 
         // 培训名称模糊查询
         if (StringUtils.hasText(trainingRecord.getTrainingName())) {

@@ -314,7 +314,7 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
      */
     @Override
     public Page<ProductionUnit> queryProductionUnits(ProductionUnit productionUnit, int pageNum, int pageSize) {
-        return queryProductionUnits(productionUnit, null, null, null, null, pageNum, pageSize);
+        return queryProductionUnits(productionUnit, null, null, null, null, null, pageNum, pageSize);
     }
 
     /**
@@ -322,6 +322,7 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
      * <p>支持按编码、名称、地址、负责人、电话、状态等条件组合查询</p>
      *
      * @param productionUnit  查询条件实体
+     * @param keyword         关键字（对生产单位编码、生产单位名称进行模糊匹配，可选）
      * @param createdTimeStart 创建时间起始值（含）
      * @param createdTimeEnd   创建时间结束值（含）
      * @param updatedTimeStart 更新时间起始值（含）
@@ -331,7 +332,8 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
      * @return 生产单位分页结果
      */
     @Override
-    public Page<ProductionUnit> queryProductionUnits(ProductionUnit productionUnit, 
+    public Page<ProductionUnit> queryProductionUnits(ProductionUnit productionUnit,
+                                                     String keyword,
                                                      LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
                                                      LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
                                                      int pageNum, int pageSize) {
@@ -340,6 +342,10 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
         Page<ProductionUnit> page = new Page<>(actualPageNum, pageSize);
         QueryWrapper<ProductionUnit> wrapper = new QueryWrapper<>();
 
+        if (StringUtils.hasText(keyword)) {
+            // 关键字对生产单位编码、生产单位名称进行模糊匹配
+            wrapper.and(w -> w.like("prod_unit_code", keyword).or().like("prod_unit_name", keyword));
+        }
         if (productionUnit.getProdUnitId() != null) {
             wrapper.eq("prod_unit_id", productionUnit.getProdUnitId());
         }
@@ -393,6 +399,7 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
      * <p>先分页查询生产单位主表数据，再批量查询关联的发票</p>
      *
      * @param productionUnit   查询条件实体
+     * @param keyword          关键字（对生产单位编码、生产单位名称进行模糊匹配，可选）
      * @param createdTimeStart 创建时间起始值（含）
      * @param createdTimeEnd   创建时间结束值（含）
      * @param updatedTimeStart 更新时间起始值（含）
@@ -403,11 +410,12 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
      */
     @Override
     public PagedResult<ProductionUnitWithDetailsDto> searchWithDetails(ProductionUnit productionUnit,
+                                                                       String keyword,
                                                                        LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
                                                                        LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
                                                                        int pageNum, int pageSize) {
         // 查询生产单位主表分页数据
-        Page<ProductionUnit> parentPage = queryProductionUnits(productionUnit, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd, pageNum, pageSize);
+        Page<ProductionUnit> parentPage = queryProductionUnits(productionUnit, keyword, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd, pageNum, pageSize);
         List<ProductionUnit> parents = parentPage.getRecords();
 
         PagedResult<ProductionUnitWithDetailsDto> result = new PagedResult<>();

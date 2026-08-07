@@ -79,6 +79,7 @@ public interface VerificationRecordService extends IService<VerificationRecord> 
      * 高级查询验证记录（支持多条件 + 分页）
      *
      * @param verificationRecord 查询条件
+     * @param keyword            关键字（对验证编号、验证名称、关联对象进行模糊匹配，可选）
      * @param executeDateStart   执行日期开始
      * @param executeDateEnd     执行日期结束
      * @param nextVerifyDateStart 下次验证日期开始
@@ -92,6 +93,7 @@ public interface VerificationRecordService extends IService<VerificationRecord> 
      * @return 分页结果
      */
     Page<VerificationRecord> queryVerificationRecords(VerificationRecord verificationRecord,
+                                                       String keyword,
                                                        LocalDateTime executeDateStart, LocalDateTime executeDateEnd,
                                                        LocalDateTime nextVerifyDateStart, LocalDateTime nextVerifyDateEnd,
                                                        LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,

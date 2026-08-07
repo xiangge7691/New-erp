@@ -58,7 +58,7 @@ public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders,
         int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
 
         PurchaseOrders purchaseOrders = new PurchaseOrders();
-        Page<PurchaseOrders> pageResult = purchaseOrdersService.queryPurchaseOrders(purchaseOrders, safePageIndex, safePageSize);
+        Page<PurchaseOrders> pageResult = purchaseOrdersService.queryPurchaseOrders(purchaseOrders, null, safePageIndex, safePageSize);
 
         PagedResult<PurchaseOrders> pagedResult = new PagedResult<>();
         pagedResult.setItems(pageResult.getRecords());
@@ -108,15 +108,17 @@ public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders,
      * 高级查询采购订单（支持多条件 + 分页）
      *
      * 示例请求：
-     * GET /api/purchase-orders/search?pageIndex=1&pageSize=20&purchaseNumber=PO&warehouse=原料库&status=1
+     * GET /api/purchase-orders/search?pageIndex=1&pageSize=20&keyword=CG2025&warehouse=原料库&status=1
      *
      * @param purchaseOrders 查询条件（自动从query参数映射）
+     * @param keyword 关键字（对采购编号、采购标题进行模糊匹配，可选）
      * @param pageIndex 页码
      * @param pageSize 每页大小
      * @return PagedResult&lt;PurchaseOrders&gt; 分页查询结果
      */
     @GetMapping("/search")
     public PagedResult<PurchaseOrders> queryPurchaseOrders(PurchaseOrders purchaseOrders,
+                                                           @RequestParam(required = false) String keyword,
                                                            @RequestParam int pageIndex,
                                                            @RequestParam int pageSize) {
         // 页码从0开始的处理，确保不为负数
@@ -125,7 +127,7 @@ public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders,
         int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
 
         // 获取分页结果
-        Page<PurchaseOrders> pageResult = purchaseOrdersService.queryPurchaseOrders(purchaseOrders, safePageIndex, safePageSize);
+        Page<PurchaseOrders> pageResult = purchaseOrdersService.queryPurchaseOrders(purchaseOrders, keyword, safePageIndex, safePageSize);
 
         // 转换为统一的PagedResult格式
         PagedResult<PurchaseOrders> pagedResult = new PagedResult<>();
@@ -148,21 +150,23 @@ public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders,
      * 高级查询采购订单（包含明细子表）
      *
      * 示例请求：
-     * GET /api/purchase-orders/search-with-details?pageIndex=1&pageSize=20&purchaseNumber=PO
+     * GET /api/purchase-orders/search-with-details?pageIndex=1&pageSize=20&keyword=CG2025
      *
      * @param purchaseOrders 查询条件（自动从query参数映射）
+     * @param keyword 关键字（对采购编号、采购标题进行模糊匹配，可选）
      * @param pageIndex 页码
      * @param pageSize 每页大小
      * @return ApiResponse&lt;PagedResult&lt;PurchaseOrdersWithItemsDto&gt;&gt; 分页结果（包含明细）
      */
     @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<PurchaseOrdersWithItemsDto>> searchWithDetails(PurchaseOrders purchaseOrders,
+                                                                                    @RequestParam(required = false) String keyword,
                                                                                     @RequestParam int pageIndex,
                                                                                     @RequestParam int pageSize) {
         try {
             int safePageIndex = Math.max(0, pageIndex);
             int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
-            PagedResult<PurchaseOrdersWithItemsDto> result = purchaseOrdersService.searchWithDetails(purchaseOrders, safePageIndex, safePageSize);
+            PagedResult<PurchaseOrdersWithItemsDto> result = purchaseOrdersService.searchWithDetails(purchaseOrders, keyword, safePageIndex, safePageSize);
             return success(result);
         } catch (Exception ex) {
             return exception(ex, "查询失败");
@@ -190,7 +194,7 @@ public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders,
         PurchaseOrders purchaseOrders = new PurchaseOrders();
         purchaseOrders.setStatus(1); // 启用状态
 
-        Page<PurchaseOrders> pageResult = purchaseOrdersService.queryPurchaseOrders(purchaseOrders, 0, Integer.MAX_VALUE);
+        Page<PurchaseOrders> pageResult = purchaseOrdersService.queryPurchaseOrders(purchaseOrders, null, 0, Integer.MAX_VALUE);
 
         PagedResult<PurchaseOrders> pagedResult = new PagedResult<>();
         pagedResult.setItems(pageResult.getRecords());

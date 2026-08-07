@@ -78,9 +78,10 @@ public class StockController extends BaseController {
      * - updatedTimeEnd：更新时间结束（小于等于）
      *
      * 示例请求：
-     * GET /api/stock/search?pageIndex=1&pageSize=20&itemName=瓶&categoryName=包材&unitName=个&quantity=100&prodUnitId=1&createdTimeStart=2025-01-01%2000:00:00&createdTimeEnd=2025-09-01%2023:59:59
+     * GET /api/stock/search?pageIndex=1&pageSize=20&keyword=瓶&categoryName=包材&unitName=个&quantity=100&prodUnitId=1&createdTimeStart=2025-01-01%2000:00:00&createdTimeEnd=2025-09-01%2023:59:59
      *
      * @param stock      查询条件（自动从query参数映射）
+     * @param keyword    关键字（对物品编码、物品名称进行模糊匹配，可选）
      * @param createdTimeStart 创建时间起始
      * @param createdTimeEnd 创建时间结束
      * @param updatedTimeStart 更新时间起始
@@ -91,6 +92,7 @@ public class StockController extends BaseController {
      */
     @GetMapping("/search")
     public ApiResponse<PagedResult<Stock>> queryStocks(Stock stock,
+                                          @RequestParam(required = false) String keyword,
                                           @RequestParam(required = false) LocalDateTime createdTimeStart,
                                           @RequestParam(required = false) LocalDateTime createdTimeEnd,
                                           @RequestParam(required = false) LocalDateTime updatedTimeStart,
@@ -107,7 +109,7 @@ public class StockController extends BaseController {
             }
 
             // 获取分页结果
-            Page<Stock> pageResult = stockService.queryStocks(stock, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd, safePageIndex, safePageSize);
+            Page<Stock> pageResult = stockService.queryStocks(stock, keyword, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd, safePageIndex, safePageSize);
 
             // 转换为统一的PagedResult格式
             PagedResult<Stock> pagedResult = new PagedResult<>();
@@ -133,21 +135,23 @@ public class StockController extends BaseController {
      * 带子表查询库存（支持多条件 + 分页）
      *
      * 示例请求：
-     * GET /api/stock/search-with-details?pageIndex=1&pageSize=20&itemName=瓶
+     * GET /api/stock/search-with-details?pageIndex=1&pageSize=20&keyword=瓶
      *
      * @param stock     查询条件（自动从query参数映射）
+     * @param keyword   关键字（对物品编码、物品名称进行模糊匹配，可选）
      * @param pageIndex 页码
      * @param pageSize  每页大小
      * @return 分页结果（包含子表信息）
      */
     @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<StockWithDetailsDto>> searchWithDetails(Stock stock,
+                                                                           @RequestParam(required = false) String keyword,
                                                                            @RequestParam int pageIndex,
                                                                            @RequestParam int pageSize) {
         try {
             int safePageIndex = Math.max(0, pageIndex);
             int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
-            PagedResult<StockWithDetailsDto> result = stockService.searchWithDetails(stock, safePageIndex, safePageSize);
+            PagedResult<StockWithDetailsDto> result = stockService.searchWithDetails(stock, keyword, safePageIndex, safePageSize);
             return success(result);
         } catch (Exception ex) {
             return exception(ex, "查询失败");

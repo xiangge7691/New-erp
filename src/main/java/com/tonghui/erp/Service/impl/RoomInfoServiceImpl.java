@@ -96,11 +96,12 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoMapper, RoomInfo>
      * 根据房间名称模糊查询（分页）
      *
      * @param roomName 房间名称（模糊匹配），为空时查询所有
+     * @param keyword 关键字（对房间编码、房间名称进行模糊匹配，可选）
      * @param pageRequest 分页参数，包含页码和每页数量等信息
      * @return 分页结果，包含查询到的房间列表和分页信息
      */
     @Override
-    public PagedResult<RoomInfo> searchByName(String roomName, PageRequestDto pageRequest) {
+    public PagedResult<RoomInfo> searchByName(String roomName, String keyword, PageRequestDto pageRequest) {
         // 创建 Page 对象，处理全量数据的情况
         Page<RoomInfo> page;
         if (pageRequest.getPageIndex() == -1 || pageRequest.getPageSize() == -1) {
@@ -113,6 +114,11 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoMapper, RoomInfo>
 
         // 构建查询条件
         var query = this.lambdaQuery();
+
+        if (keyword != null && !keyword.isEmpty()) {
+            // 关键字对房间编码、房间名称进行模糊匹配
+            query.and(q -> q.like(RoomInfo::getRoomCode, keyword).or().like(RoomInfo::getRoomName, keyword));
+        }
 
         // 如果 roomName 不为空，则添加模糊查询条件
         if (roomName != null && !roomName.isEmpty()) {
@@ -223,8 +229,8 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoMapper, RoomInfo>
      * 搜索房间（带子表）
      */
     @Override
-    public PagedResult<RoomInfoWithDetailsDto> searchWithDetails(String roomName, PageRequestDto pageRequest) {
-        PagedResult<RoomInfo> baseResult = searchByName(roomName, pageRequest);
+    public PagedResult<RoomInfoWithDetailsDto> searchWithDetails(String roomName, String keyword, PageRequestDto pageRequest) {
+        PagedResult<RoomInfo> baseResult = searchByName(roomName, keyword, pageRequest);
 
         PagedResult<RoomInfoWithDetailsDto> result = new PagedResult<>();
         result.setTotalCount(baseResult.getTotalCount());

@@ -69,7 +69,7 @@ public class PurchaseSuppliersController extends BaseCrudController<PurchaseSupp
 
         // 使用PurchaseSuppliersService的queryPurchaseSuppliers方法进行查询
         PurchaseSuppliers purchaseSuppliers = new PurchaseSuppliers();
-        Page<PurchaseSuppliers> pageResult = purchaseSuppliersService.queryPurchaseSuppliers(purchaseSuppliers, safePageIndex, safePageSize);
+        Page<PurchaseSuppliers> pageResult = purchaseSuppliersService.queryPurchaseSuppliers(purchaseSuppliers, null, safePageIndex, safePageSize);
 
         // 转换为PagedResult
         PagedResult<PurchaseSuppliers> pagedResult = new PagedResult<>();
@@ -157,15 +157,17 @@ public class PurchaseSuppliersController extends BaseCrudController<PurchaseSupp
      * - status：状态过滤（精确匹配）
      *
      * 示例请求：
-     * GET /api/purchase-suppliers/search?pageIndex=1&pageSize=20&supplierName=原料&contactPerson=张&status=1
+     * GET /api/purchase-suppliers/search?pageIndex=1&pageSize=20&keyword=原料&contactPerson=张&status=1
      *
      * @param purchaseSuppliers 查询条件（自动从query参数映射）
+     * @param keyword           关键字（对供应商编号、供应商名称进行模糊匹配，可选）
      * @param pageIndex         页码
      * @param pageSize          每页大小
      * @return 分页结果
      */
     @GetMapping("/search")
     public ApiResponse<PagedResult<PurchaseSuppliers>> queryPurchaseSuppliers(PurchaseSuppliers purchaseSuppliers,
+                                                                 @RequestParam(required = false) String keyword,
                                                                  @RequestParam int pageIndex,
                                                                  @RequestParam int pageSize) {
         try {
@@ -175,7 +177,7 @@ public class PurchaseSuppliersController extends BaseCrudController<PurchaseSupp
             int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
 
             // 获取分页结果
-            Page<PurchaseSuppliers> pageResult = purchaseSuppliersService.queryPurchaseSuppliers(purchaseSuppliers, safePageIndex, safePageSize);
+            Page<PurchaseSuppliers> pageResult = purchaseSuppliersService.queryPurchaseSuppliers(purchaseSuppliers, keyword, safePageIndex, safePageSize);
 
             // 转换为统一的PagedResult格式
             PagedResult<PurchaseSuppliers> pagedResult = new PagedResult<>();
@@ -203,21 +205,23 @@ public class PurchaseSuppliersController extends BaseCrudController<PurchaseSupp
      * 带子表查询采购供应商（支持多条件 + 分页）
      *
      * 示例请求：
-     * GET /api/purchase-suppliers/search-with-details?pageIndex=1&pageSize=20&supplierName=原料
+     * GET /api/purchase-suppliers/search-with-details?pageIndex=1&pageSize=20&keyword=原料
      *
      * @param purchaseSuppliers 查询条件（自动从query参数映射）
+     * @param keyword           关键字（对供应商编号、供应商名称进行模糊匹配，可选）
      * @param pageIndex         页码
      * @param pageSize          每页大小
      * @return 分页结果（包含子表信息）
      */
     @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<PurchaseSuppliersWithDetailsDto>> searchWithDetails(PurchaseSuppliers purchaseSuppliers,
+                                                                                       @RequestParam(required = false) String keyword,
                                                                                        @RequestParam int pageIndex,
                                                                                        @RequestParam int pageSize) {
         try {
             int safePageIndex = Math.max(0, pageIndex);
             int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
-            PagedResult<PurchaseSuppliersWithDetailsDto> result = purchaseSuppliersService.searchWithDetails(purchaseSuppliers, safePageIndex, safePageSize);
+            PagedResult<PurchaseSuppliersWithDetailsDto> result = purchaseSuppliersService.searchWithDetails(purchaseSuppliers, keyword, safePageIndex, safePageSize);
             return success(result);
         } catch (Exception ex) {
             return exception(ex, "查询失败");
@@ -268,7 +272,7 @@ public class PurchaseSuppliersController extends BaseCrudController<PurchaseSupp
             PurchaseSuppliers purchaseSuppliers = new PurchaseSuppliers();
             purchaseSuppliers.setStatus(1); // 启用状态
 
-            Page<PurchaseSuppliers> pageResult = purchaseSuppliersService.queryPurchaseSuppliers(purchaseSuppliers, 0, Integer.MAX_VALUE);
+            Page<PurchaseSuppliers> pageResult = purchaseSuppliersService.queryPurchaseSuppliers(purchaseSuppliers, null, 0, Integer.MAX_VALUE);
 
             PagedResult<PurchaseSuppliers> pagedResult = new PagedResult<>();
             pagedResult.setItems(pageResult.getRecords());

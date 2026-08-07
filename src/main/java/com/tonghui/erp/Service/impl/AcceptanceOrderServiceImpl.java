@@ -287,18 +287,23 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
      * 高级查询验收单（支持分页、状态/来源筛选）
      *
      * @param acceptance 查询条件实体
+     * @param keyword    关键字（对验收编号、验收标题进行模糊匹配，可选）
      * @param pageIndex  页码，从0开始
      * @param pageSize   每页数量
      * @return 验收单分页结果
      */
     @Override
-    public Page<AcceptanceOrder> queryAcceptances(AcceptanceOrder acceptance, int pageIndex, int pageSize) {
+    public Page<AcceptanceOrder> queryAcceptances(AcceptanceOrder acceptance, String keyword, int pageIndex, int pageSize) {
         // 将页码从0开始转换为1开始
         int actualPageIndex = pageIndex + 1;
 
         Page<AcceptanceOrder> page = new Page<>(actualPageIndex, pageSize);
         QueryWrapper<AcceptanceOrder> wrapper = new QueryWrapper<>();
 
+        if (StringUtils.hasText(keyword)) {
+            // 关键字对验收编号、验收标题进行模糊匹配
+            wrapper.and(w -> w.like("acceptance_code", keyword).or().like("title", keyword));
+        }
         if (acceptance.getAcceptanceId() != null) {
             wrapper.eq("acceptance_id", acceptance.getAcceptanceId());
         }
@@ -329,14 +334,15 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
      * <p>先分页查询验收单主表数据，再批量查询关联的验收明细</p>
      *
      * @param acceptance 查询条件实体
+     * @param keyword    关键字（对验收编号、验收标题进行模糊匹配，可选）
      * @param pageIndex  页码，从0开始
      * @param pageSize   每页数量
      * @return 带子表关联数据的验收单分页结果
      */
     @Override
-    public PagedResult<AcceptanceWithDetailsDto> searchWithDetails(AcceptanceOrder acceptance, int pageIndex, int pageSize) {
+    public PagedResult<AcceptanceWithDetailsDto> searchWithDetails(AcceptanceOrder acceptance, String keyword, int pageIndex, int pageSize) {
         // 查询验收单主表分页数据
-        Page<AcceptanceOrder> parentPage = queryAcceptances(acceptance, pageIndex, pageSize);
+        Page<AcceptanceOrder> parentPage = queryAcceptances(acceptance, keyword, pageIndex, pageSize);
         List<AcceptanceOrder> parents = parentPage.getRecords();
 
         PagedResult<AcceptanceWithDetailsDto> result = new PagedResult<>();

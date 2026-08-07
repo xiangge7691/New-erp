@@ -193,17 +193,22 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
      * <p>支持按订单号、仓库、状态、供应商、标题、备注、日期等条件筛选，默认按编号倒序</p>
      *
      * @param purchaseOrders 查询条件实体，非null字段将作为等值或模糊查询条件
+     * @param keyword        关键字（对采购编号、采购标题进行模糊匹配，可选）
      * @param pageNum        页码，从0开始
      * @param pageSize       每页数量
      * @return 采购订单分页结果
      */
     @Override
-    public Page<PurchaseOrders> queryPurchaseOrders(PurchaseOrders purchaseOrders, int pageNum, int pageSize) {
+    public Page<PurchaseOrders> queryPurchaseOrders(PurchaseOrders purchaseOrders, String keyword, int pageNum, int pageSize) {
         int actualPageNum = pageNum + 1;
 
         Page<PurchaseOrders> page = new Page<>(actualPageNum, pageSize);
         QueryWrapper<PurchaseOrders> wrapper = new QueryWrapper<>();
 
+        if (StringUtils.hasText(keyword)) {
+            // 关键字对采购编号、采购标题进行模糊匹配
+            wrapper.and(w -> w.like("purchase_number", keyword).or().like("title", keyword));
+        }
         if (purchaseOrders.getId() != null) {
             wrapper.eq("id", purchaseOrders.getId());
         }
@@ -267,14 +272,15 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
      * <p>先分页查询订单主表数据，再批量查询关联的订单明细</p>
      *
      * @param purchaseOrders 查询条件实体
+     * @param keyword        关键字（对采购编号、采购标题进行模糊匹配，可选）
      * @param pageNum        页码，从0开始
      * @param pageSize       每页数量
      * @return 带子表关联数据的采购订单分页结果
      */
     @Override
-    public PagedResult<PurchaseOrdersWithItemsDto> searchWithDetails(PurchaseOrders purchaseOrders, int pageNum, int pageSize) {
+    public PagedResult<PurchaseOrdersWithItemsDto> searchWithDetails(PurchaseOrders purchaseOrders, String keyword, int pageNum, int pageSize) {
         // 查询采购订单主表分页数据
-        Page<PurchaseOrders> parentPage = queryPurchaseOrders(purchaseOrders, pageNum, pageSize);
+        Page<PurchaseOrders> parentPage = queryPurchaseOrders(purchaseOrders, keyword, pageNum, pageSize);
         List<PurchaseOrders> parents = parentPage.getRecords();
 
         PagedResult<PurchaseOrdersWithItemsDto> result = new PagedResult<>();

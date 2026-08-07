@@ -112,9 +112,10 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
      * 高级查询生产单位（支持多条件 + 分页）
      *
      * 示例请求：
-     * GET /api/production_unit/search?pageIndex=1&pageSize=20&prodUnitName=原料药&prodUnitManager=张&prodUnitStatus=1&createdTimeStart=2023-01-01T00:00:00&createdTimeEnd=2023-12-31T23:59:59
+     * GET /api/production_unit/search?pageIndex=1&pageSize=20&keyword=原料药&prodUnitManager=张&prodUnitStatus=1&createdTimeStart=2023-01-01T00:00:00&createdTimeEnd=2023-12-31T23:59:59
      *
      * @param productionUnit 查询条件（自动从query参数映射）
+     * @param keyword 关键字（对生产单位编码、生产单位名称进行模糊匹配，可选）
      * @param createdTimeStart 创建时间起始
      * @param createdTimeEnd 创建时间结束
      * @param updatedTimeStart 更新时间起始
@@ -125,6 +126,7 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
      */
     @GetMapping("/search")
     public ApiResponse<PagedResult<ProductionUnit>> queryProductionUnits(ProductionUnit productionUnit,
+                                                                         @RequestParam(required = false) String keyword,
                                                                          @RequestParam(required = false) LocalDateTime createdTimeStart,
                                                                          @RequestParam(required = false) LocalDateTime createdTimeEnd,
                                                                          @RequestParam(required = false) LocalDateTime updatedTimeStart,
@@ -138,7 +140,7 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
             int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
 
             // 获取分页结果，将时间参数传递给service方法
-            Page<ProductionUnit> pageResult = productionUnitService.queryProductionUnits(productionUnit, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd, safePageIndex, safePageSize);
+            Page<ProductionUnit> pageResult = productionUnitService.queryProductionUnits(productionUnit, keyword, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd, safePageIndex, safePageSize);
 
             // 转换为统一的pagedResult格式
             PagedResult<ProductionUnit> pagedResult = new PagedResult<>();
@@ -164,9 +166,10 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
      * 高级查询生产单位（包含发票和材料文件子表）
      *
      * 示例请求：
-     * GET /api/production_unit/search-with-details?pageIndex=1&pageSize=20&prodUnitName=原料药
+     * GET /api/production_unit/search-with-details?pageIndex=1&pageSize=20&keyword=原料药
      *
      * @param productionUnit 查询条件（自动从query参数映射）
+     * @param keyword 关键字（对生产单位编码、生产单位名称进行模糊匹配，可选）
      * @param createdTimeStart 创建时间起始
      * @param createdTimeEnd 创建时间结束
      * @param updatedTimeStart 更新时间起始
@@ -177,6 +180,7 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
      */
     @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<ProductionUnitWithDetailsDto>> searchWithDetails(ProductionUnit productionUnit,
+                                                                                     @RequestParam(required = false) String keyword,
                                                                                      @RequestParam(required = false) LocalDateTime createdTimeStart,
                                                                                      @RequestParam(required = false) LocalDateTime createdTimeEnd,
                                                                                      @RequestParam(required = false) LocalDateTime updatedTimeStart,
@@ -186,7 +190,7 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
         try {
             int safePageIndex = Math.max(0, pageIndex);
             int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
-            PagedResult<ProductionUnitWithDetailsDto> result = productionUnitService.searchWithDetails(productionUnit, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd, safePageIndex, safePageSize);
+            PagedResult<ProductionUnitWithDetailsDto> result = productionUnitService.searchWithDetails(productionUnit, keyword, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd, safePageIndex, safePageSize);
             return success(result);
         } catch (Exception ex) {
             return exception(ex, "查询失败");

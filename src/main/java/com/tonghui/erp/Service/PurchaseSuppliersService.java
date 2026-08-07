@@ -102,11 +102,12 @@ public interface PurchaseSuppliersService extends IService<PurchaseSuppliers> {
      * 高级查询采购供应商（支持分页）
      *
      * @param purchaseSuppliers 查询条件
+     * @param keyword           关键字（对供应商编号、供应商名称进行模糊匹配，可选）
      * @param pageNum           页码
      * @param pageSize          每页大小
      * @return 分页结果
      */
-    Page<PurchaseSuppliers> queryPurchaseSuppliers(PurchaseSuppliers purchaseSuppliers, int pageNum, int pageSize);
+    Page<PurchaseSuppliers> queryPurchaseSuppliers(PurchaseSuppliers purchaseSuppliers, String keyword, int pageNum, int pageSize);
 
     // endregion
 
@@ -119,11 +120,12 @@ public interface PurchaseSuppliersService extends IService<PurchaseSuppliers> {
      * 查询采购供应商（包含关联订单和入库单）
      *
      * @param purchaseSuppliers 查询条件
+     * @param keyword           关键字（对供应商编号、供应商名称进行模糊匹配，可选）
      * @param pageNum           页码
      * @param pageSize          每页大小
      * @return 包含关联数据的分页结果
      */
-    PagedResult<PurchaseSuppliersWithDetailsDto> searchWithDetails(PurchaseSuppliers purchaseSuppliers, int pageNum, int pageSize);
+    PagedResult<PurchaseSuppliersWithDetailsDto> searchWithDetails(PurchaseSuppliers purchaseSuppliers, String keyword, int pageNum, int pageSize);
 
     // endregion
 }

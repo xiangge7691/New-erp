@@ -74,7 +74,7 @@ public class ProcessTypeController extends BaseCrudController<ProcessType, Proce
         PageRequestDto pageRequest = new PageRequestDto();
         pageRequest.setPageIndex(pageIndex);
         pageRequest.setPageSize(pageSize);
-        return processTypeService.searchByName(null, pageRequest);
+        return processTypeService.searchByName(null, null, pageRequest);
     }
 
     /**
@@ -210,19 +210,21 @@ public class ProcessTypeController extends BaseCrudController<ProcessType, Proce
      * 搜索工序类型
      *
      * 示例请求：
-     * GET /api/process-type/search?processName=配制&pageIndex=0&pageSize=10
+     * GET /api/process-type/search?keyword=配制&pageIndex=0&pageSize=10
      *
      * @param processName 工序名称（可选，支持模糊搜索）
+     * @param keyword 关键字（对工序类型编码、工序类型名称进行模糊匹配，可选）
      * @param pageRequest 分页请求参数（页码、页面大小）
      * @return ApiResponse&lt;PagedResult&lt;ProcessType&gt;&gt; 工序类型列表（分页）
      */
     @GetMapping("/search")
     public ApiResponse<PagedResult<ProcessType>> searchProcessTypes(
             @RequestParam(required = false) String processName,
+            @RequestParam(required = false) String keyword,
             @ModelAttribute PageRequestDto pageRequest) {
         try {
             pageRequest = processPageRequest(pageRequest);
-            PagedResult<ProcessType> result = processTypeService.searchByName(processName, pageRequest);
+            PagedResult<ProcessType> result = processTypeService.searchByName(processName, keyword, pageRequest);
             return success(result);
         } catch (Exception ex) {
             return exception(ex, "搜索工序类型");
@@ -261,21 +263,23 @@ public class ProcessTypeController extends BaseCrudController<ProcessType, Proce
      * 带子表查询工序类型
      *
      * 示例请求：
-     * GET /api/process-type/search-with-details?processName=配制&pageIndex=0&pageSize=10
+     * GET /api/process-type/search-with-details?keyword=配制&pageIndex=0&pageSize=10
      *
      * @param processType 工序类型查询条件对象
+     * @param keyword 关键字（对工序类型编码、工序类型名称进行模糊匹配，可选）
      * @param pageIndex 页码，从0开始
      * @param pageSize 每页大小
      * @return ApiResponse&lt;PagedResult&lt;ProcessTypeWithDetailsDto&gt;&gt; 工序类型列表（含子表信息）
      */
     @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<ProcessTypeWithDetailsDto>> searchWithDetails(ProcessType processType,
+                                                                                 @RequestParam(required = false) String keyword,
                                                                                  @RequestParam int pageIndex,
                                                                                  @RequestParam int pageSize) {
         try {
             int safePageIndex = Math.max(0, pageIndex);
             int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
-            PagedResult<ProcessTypeWithDetailsDto> result = processTypeService.searchWithDetails(processType, safePageIndex, safePageSize);
+            PagedResult<ProcessTypeWithDetailsDto> result = processTypeService.searchWithDetails(processType, keyword, safePageIndex, safePageSize);
             return success(result);
         } catch (Exception ex) {
             return exception(ex, "查询失败");

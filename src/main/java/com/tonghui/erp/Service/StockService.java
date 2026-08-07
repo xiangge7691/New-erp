@@ -30,6 +30,7 @@ public interface StockService extends IService<Stock> {
      * 高级查询库存（支持分页）
      *
      * @param stock     查询条件
+     * @param keyword   关键字（对物品编码、物品名称进行模糊匹配，可选）
      * @param createdTimeStart 创建时间起始
      * @param createdTimeEnd 创建时间结束
      * @param updatedTimeStart 更新时间起始
@@ -38,27 +39,29 @@ public interface StockService extends IService<Stock> {
      * @param pageSize  每页大小
      * @return 分页结果
      */
-    Page<Stock> queryStocks(Stock stock, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, int pageNum, int pageSize);
+    Page<Stock> queryStocks(Stock stock, String keyword, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, int pageNum, int pageSize);
 
     /**
      * 高级查询库存（支持分页）
      *
      * @param stock     查询条件
+     * @param keyword   关键字（对物品编码、物品名称进行模糊匹配，可选）
      * @param pageNum   页码
      * @param pageSize  每页大小
      * @return 分页结果
      */
-    Page<Stock> queryStocks(Stock stock, int pageNum, int pageSize);
+    Page<Stock> queryStocks(Stock stock, String keyword, int pageNum, int pageSize);
 
     /**
      * 高级查询库存（包含关联子表数据）
      *
      * @param stock     查询条件
+     * @param keyword   关键字（对物品编码、物品名称进行模糊匹配，可选）
      * @param pageNum   页码
      * @param pageSize  每页大小
      * @return 分页结果（包含关联子表）
      */
-    PagedResult<StockWithDetailsDto> searchWithDetails(Stock stock, int pageNum, int pageSize);
+    PagedResult<StockWithDetailsDto> searchWithDetails(Stock stock, String keyword, int pageNum, int pageSize);
 
     /**
      * 获取即将过期的库存列表（基于 FIFO 先进先出计算实际剩余数量）

@@ -16,10 +16,11 @@ public interface RoomInfoService extends IService<RoomInfo> {
      * 根据房间名称模糊查询（分页）
      * 
      * @param roomName 房间名称（模糊匹配），为空时查询所有
+     * @param keyword 关键字（对房间编码、房间名称进行模糊匹配，可选）
      * @param pageRequest 分页参数，包含页码和每页数量等信息
      * @return 分页结果，包含查询到的房间列表和分页信息
      */
-    PagedResult<RoomInfo> searchByName(String roomName, PageRequestDto pageRequest);
+    PagedResult<RoomInfo> searchByName(String roomName, String keyword, PageRequestDto pageRequest);
     
     /**
      * 根据房间位置模糊查询（分页）
@@ -49,10 +50,11 @@ public interface RoomInfoService extends IService<RoomInfo> {
      * 搜索房间（带子表）
      *
      * @param roomName 房间名称（模糊匹配），为空时查询所有
+     * @param keyword 关键字（对房间编码、房间名称进行模糊匹配，可选）
      * @param pageRequest 分页参数
      * @return 分页结果（包含 4 个子表记录）
      */
-    PagedResult<RoomInfoWithDetailsDto> searchWithDetails(String roomName, PageRequestDto pageRequest);
+    PagedResult<RoomInfoWithDetailsDto> searchWithDetails(String roomName, String keyword, PageRequestDto pageRequest);
 
     /**
      * 清理指定房间编码下已被软删除的记录（释放唯一键约束）
