@@ -83,7 +83,7 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
     private static final int MAX_RETRY = 3;
 
     /**
-     * 生成采购订单编号（CG + yyyyMMdd + 4位流水号）
+     * 生成采购订单编号（CGDH + yyyyMMdd + 4位流水号）
      * <p>原数据库触发器 trg_auto_generate_purchase_number 逻辑迁移至后端实现，
      * 查询最大编号时绕过全局软删除过滤，避免与已软删除订单编号冲突</p>
      *
@@ -92,7 +92,7 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
     @Override
     public String generateOrderNumber() {
         String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String prefix = "CG" + dateStr;
+        String prefix = "CGDH" + dateStr;
 
         // 使用原生SQL查询当天最大编号，绕过软删除过滤
         String lastNumber = this.baseMapper.selectMaxPurchaseNumberByPrefix(prefix);

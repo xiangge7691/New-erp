@@ -309,24 +309,28 @@ public class AcceptanceOrderController extends BaseController {
     }
 
     /**
-     * 更新验收明细（批号/单价等，已入库后锁定）
+     * 批量更新验收明细（批号/单价/实际到货数量等，已入库后锁定）
+     * <p>支持一次提交多条明细；携带实际到货数量或单价时自动按 实际到货数量 × 单价 重算金额</p>
      *
      * 示例请求：
      * PUT /api/acceptance/detail
      * Content-Type: application/json
-     * { "detailId": 1, "batchNumber": "HG20260723", "unitPrice": 30 }
+     * [
+     *   { "detailId": 1, "batchNumber": "HG20260723", "unitPrice": 30 },
+     *   { "detailId": 2, "actualArrivalQty": 0.40, "batchNumber": "HG20260724" }
+     * ]
      *
-     * @param detail 验收明细
-     * @return 验收明细
+     * @param details 验收明细列表（每条必须包含 detailId）
+     * @return 更新后的明细列表
      */
     @PutMapping("/detail")
-    public ApiResponse<AcceptanceDetail> updateDetail(@RequestBody AcceptanceDetail detail) {
+    public ApiResponse<List<AcceptanceDetail>> updateDetails(@RequestBody List<AcceptanceDetail> details) {
         try {
-            if (detail == null || detail.getDetailId() == null) {
+            if (details == null || details.isEmpty()) {
                 return error("请求参数不能为空");
             }
-            acceptanceOrderService.updateAcceptanceDetail(detail);
-            return success(detail, "更新验收明细成功");
+            acceptanceOrderService.updateAcceptanceDetails(details);
+            return success(details, "更新验收明细成功");
         } catch (Exception ex) {
             return exception(ex, "更新验收明细");
         }

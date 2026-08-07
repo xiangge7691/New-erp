@@ -244,24 +244,22 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
     }
 
     /**
-     * 生成采购计划编号
+     * 生成采购计划编号（CGJH + yyyyMMdd + 4位流水号）
+     * <p>查询最大编号时绕过全局软删除过滤，避免与已软删除计划编号冲突</p>
+     *
+     * @return 采购计划编号
      */
     private String generatePlanCode() {
         String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String prefix = "CG" + dateStr;
+        String prefix = "CGJH" + dateStr;
 
-        QueryWrapper<PurchasePlan> queryWrapper = new QueryWrapper<>();
-        queryWrapper.likeRight("plan_code", prefix);
-        queryWrapper.orderByDesc("plan_code");
-        queryWrapper.last("LIMIT 1");
-
-        PurchasePlan latestPlan = this.getOne(queryWrapper);
+        // 使用原生SQL查询当天最大编号，绕过软删除过滤
+        String lastCode = baseMapper.selectMaxPlanCodeByPrefix(prefix);
 
         int sequence = 1;
-        if (latestPlan != null && StringUtils.hasText(latestPlan.getPlanCode())) {
+        if (StringUtils.hasText(lastCode) && lastCode.length() > prefix.length()) {
             try {
-                String latestCode = latestPlan.getPlanCode();
-                String seqStr = latestCode.substring(prefix.length());
+                String seqStr = lastCode.substring(prefix.length());
                 sequence = Integer.parseInt(seqStr) + 1;
             } catch (Exception e) {
                 sequence = 1;

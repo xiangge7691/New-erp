@@ -239,14 +239,37 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
     }
 
     /**
-     * 更新验收明细（批号/单价等）
+     * 批量更新验收明细（批号/单价/实际到货数量等）
+     * <p>逐条更新；明细携带实际到货数量或单价时，自动按 实际到货数量 × 单价 重算金额，
+     * 与新增时的金额计算规则保持一致</p>
      *
-     * @param detail 验收明细实体
+     * @param details 验收明细列表
      */
     @Override
     @Transactional
-    public void updateAcceptanceDetail(AcceptanceDetail detail) {
-        acceptanceDetailMapper.updateById(detail);
+    public void updateAcceptanceDetails(List<AcceptanceDetail> details) {
+        if (details == null || details.isEmpty()) {
+            throw new RuntimeException("明细列表不能为空");
+        }
+        for (AcceptanceDetail detail : details) {
+            if (detail == null || detail.getDetailId() == null) {
+                throw new RuntimeException("明细ID不能为空");
+            }
+            // 携带实际到货数量或单价时，读取原记录补全后重算金额（以实际到货数量 × 单价）
+            if (detail.getActualArrivalQty() != null || detail.getUnitPrice() != null) {
+                AcceptanceDetail existing = acceptanceDetailMapper.selectById(detail.getDetailId());
+                BigDecimal qty = detail.getActualArrivalQty() != null
+                        ? detail.getActualArrivalQty()
+                        : existing != null ? existing.getActualArrivalQty() : null;
+                BigDecimal price = detail.getUnitPrice() != null
+                        ? detail.getUnitPrice()
+                        : existing != null ? existing.getUnitPrice() : null;
+                if (qty != null && price != null) {
+                    detail.setAmount(qty.multiply(price));
+                }
+            }
+            acceptanceDetailMapper.updateById(detail);
+        }
     }
 
     /**

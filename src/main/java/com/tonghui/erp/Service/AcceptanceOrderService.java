@@ -93,11 +93,12 @@ public interface AcceptanceOrderService extends IService<AcceptanceOrder> {
     List<AcceptanceDetail> getDetailsByAcceptanceId(Long acceptanceId);
 
     /**
-     * 更新验收明细（批号/单价等）
+     * 批量更新验收明细（批号/单价/实际到货数量等）
+     * <p>携带实际到货数量或单价时，自动按 实际到货数量 × 单价 重算金额</p>
      *
-     * @param detail 验收明细
+     * @param details 验收明细列表
      */
-    void updateAcceptanceDetail(AcceptanceDetail detail);
+    void updateAcceptanceDetails(List<AcceptanceDetail> details);
 
     /**
      * 删除验收明细
