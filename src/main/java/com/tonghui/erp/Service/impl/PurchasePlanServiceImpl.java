@@ -139,7 +139,7 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
         if (StringUtils.hasText(keyword)) {
             wrapper.and(w -> w
                     .like("plan_code", keyword)
-                    .or().like("work_order_code", keyword)
+                    .or().like("production_plan_code", keyword)
                     .or().like("title", keyword)
                     .or().like("preparation_name", keyword)
             );
@@ -157,8 +157,9 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
         order.setPurchaseNumber(purchaseOrdersService.generateOrderNumber());
         order.setPlanId(plan.getId());
         order.setPlanCode(plan.getPlanCode());
-        order.setWorkOrderId(plan.getWorkOrderId());
-        order.setWorkOrderCode(plan.getWorkOrderCode());
+        // 生产计划信息：采购计划直接关联生产计划，直接复制到采购订单
+        order.setProductionPlanId(plan.getProductionPlanId());
+        order.setProductionPlanCode(plan.getProductionPlanCode());
         order.setTitle(plan.getTitle());
         order.setPreparationCode(plan.getPreparationCode());
         order.setPreparationName(plan.getPreparationName());

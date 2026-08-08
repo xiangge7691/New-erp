@@ -37,16 +37,16 @@ public class PurchasePlan extends AuditEntity {
     private String planCode;
 
     /**
-     * 关联生产任务ID
+     * 关联生产计划ID
      */
-    @TableField(value = "work_order_id")
-    private Long workOrderId;
+    @TableField(value = "production_plan_id")
+    private Long productionPlanId;
 
     /**
-     * 生产任务编号
+     * 生产计划编号
      */
-    @TableField(value = "work_order_code")
-    private String workOrderCode;
+    @TableField(value = "production_plan_code")
+    private String productionPlanCode;
 
     /**
      * 工单标题
