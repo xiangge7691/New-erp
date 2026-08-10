@@ -129,13 +129,14 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
     }
 
     @Override
-    public Page<PurchasePlan> queryPurchasePlans(String status, String keyword, int pageIndex, int pageSize) {
+    public Page<PurchasePlan> queryPurchasePlans(PurchasePlan purchasePlan, String keyword,
+                                                 LocalDate processingDateStart, LocalDate processingDateEnd,
+                                                 LocalDate desiredDeliveryDateStart, LocalDate desiredDeliveryDateEnd,
+                                                 LocalDate expectedDeliveryDateStart, LocalDate expectedDeliveryDateEnd,
+                                                 int pageIndex, int pageSize) {
         Page<PurchasePlan> page = new Page<>(pageIndex + 1, pageSize);
         QueryWrapper<PurchasePlan> wrapper = new QueryWrapper<>();
 
-        if (StringUtils.hasText(status)) {
-            wrapper.eq("status", status);
-        }
         if (StringUtils.hasText(keyword)) {
             wrapper.and(w -> w
                     .like("plan_code", keyword)
@@ -143,6 +144,71 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
                     .or().like("title", keyword)
                     .or().like("preparation_name", keyword)
             );
+        }
+
+        if (purchasePlan != null) {
+            if (purchasePlan.getId() != null) {
+                wrapper.eq("id", purchasePlan.getId());
+            }
+            if (StringUtils.hasText(purchasePlan.getPlanCode())) {
+                wrapper.like("plan_code", purchasePlan.getPlanCode());
+            }
+            if (purchasePlan.getProductionPlanId() != null) {
+                wrapper.eq("production_plan_id", purchasePlan.getProductionPlanId());
+            }
+            if (StringUtils.hasText(purchasePlan.getProductionPlanCode())) {
+                wrapper.like("production_plan_code", purchasePlan.getProductionPlanCode());
+            }
+            if (StringUtils.hasText(purchasePlan.getTitle())) {
+                wrapper.like("title", purchasePlan.getTitle());
+            }
+            if (StringUtils.hasText(purchasePlan.getPreparationCode())) {
+                wrapper.like("preparation_code", purchasePlan.getPreparationCode());
+            }
+            if (StringUtils.hasText(purchasePlan.getPreparationName())) {
+                wrapper.like("preparation_name", purchasePlan.getPreparationName());
+            }
+            if (StringUtils.hasText(purchasePlan.getSpec())) {
+                wrapper.like("spec", purchasePlan.getSpec());
+            }
+            if (StringUtils.hasText(purchasePlan.getMaterialType())) {
+                wrapper.like("material_type", purchasePlan.getMaterialType());
+            }
+            if (StringUtils.hasText(purchasePlan.getWarehouse())) {
+                wrapper.like("warehouse", purchasePlan.getWarehouse());
+            }
+            if (StringUtils.hasText(purchasePlan.getReceivingUnit())) {
+                wrapper.like("receiving_unit", purchasePlan.getReceivingUnit());
+            }
+            if (StringUtils.hasText(purchasePlan.getReceivingAddress())) {
+                wrapper.like("receiving_address", purchasePlan.getReceivingAddress());
+            }
+            if (StringUtils.hasText(purchasePlan.getStatus())) {
+                wrapper.eq("status", purchasePlan.getStatus());
+            }
+            if (StringUtils.hasText(purchasePlan.getRemark())) {
+                wrapper.like("remark", purchasePlan.getRemark());
+            }
+        }
+
+        // 时间范围条件
+        if (processingDateStart != null) {
+            wrapper.ge("processing_date", processingDateStart);
+        }
+        if (processingDateEnd != null) {
+            wrapper.le("processing_date", processingDateEnd);
+        }
+        if (desiredDeliveryDateStart != null) {
+            wrapper.ge("desired_delivery_date", desiredDeliveryDateStart);
+        }
+        if (desiredDeliveryDateEnd != null) {
+            wrapper.le("desired_delivery_date", desiredDeliveryDateEnd);
+        }
+        if (expectedDeliveryDateStart != null) {
+            wrapper.ge("expected_delivery_date", expectedDeliveryDateStart);
+        }
+        if (expectedDeliveryDateEnd != null) {
+            wrapper.le("expected_delivery_date", expectedDeliveryDateEnd);
         }
 
         wrapper.orderByDesc("created_time");

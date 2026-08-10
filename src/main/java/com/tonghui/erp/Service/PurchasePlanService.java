@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.tonghui.erp.Data.Entity.PurchasePlan;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -34,13 +35,25 @@ public interface PurchasePlanService extends IService<PurchasePlan> {
     boolean updateStatus(Long planId, String targetStatus, String approvalOpinion);
 
     /**
-     * 高级查询采购计划
+     * 高级查询采购计划（支持多条件组合查询）
+     * <p>支持按计划编号、生产计划、标题、制剂、物料类型、仓库、状态等条件筛选，
+     * 也支持处理日期、期望到货日期、预计到货日期等时间范围筛选</p>
      *
-     * @param status    状态（可选）
-     * @param keyword   关键字（可选）
-     * @param pageIndex 页码
-     * @param pageSize  每页数量
+     * @param purchasePlan            查询条件实体，非null字段将作为等值或模糊查询条件
+     * @param keyword                 关键字（对计划编号、生产计划编号、标题、制剂名称进行模糊匹配，可选）
+     * @param processingDateStart     处理日期起始（可选）
+     * @param processingDateEnd       处理日期结束（可选）
+     * @param desiredDeliveryDateStart 期望到货日期起始（可选）
+     * @param desiredDeliveryDateEnd   期望到货日期结束（可选）
+     * @param expectedDeliveryDateStart 预计到货日期起始（可选）
+     * @param expectedDeliveryDateEnd   预计到货日期结束（可选）
+     * @param pageIndex               页码（从0开始）
+     * @param pageSize                每页数量
      * @return 分页结果
      */
-    Page<PurchasePlan> queryPurchasePlans(String status, String keyword, int pageIndex, int pageSize);
+    Page<PurchasePlan> queryPurchasePlans(PurchasePlan purchasePlan, String keyword,
+                                          LocalDate processingDateStart, LocalDate processingDateEnd,
+                                          LocalDate desiredDeliveryDateStart, LocalDate desiredDeliveryDateEnd,
+                                          LocalDate expectedDeliveryDateStart, LocalDate expectedDeliveryDateEnd,
+                                          int pageIndex, int pageSize);
 }
