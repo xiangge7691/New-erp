@@ -217,7 +217,7 @@ public class ProductionProcessRecordController extends BaseCrudController<Produc
      * @param pageRequest 分页请求参数（页码、页面大小）
      * @return 工序记录列表（分页）
      */
-    @GetMapping("/plan/{planId}/paged")
+// @GetMapping("/plan/{planId}/paged")
     public ApiResponse<PagedResult<ProductionProcessRecord>> getByPlanIdPaged(
             @PathVariable Integer planId,
             @ModelAttribute PageRequestDto pageRequest) {
@@ -248,7 +248,7 @@ public class ProductionProcessRecordController extends BaseCrudController<Produc
      * @param pageRequest 分页请求参数（页码、页面大小）
      * @return 工序记录列表（分页）
      */
-    @GetMapping("/search/process-name")
+// @GetMapping("/search/process-name")
     public ApiResponse<PagedResult<ProductionProcessRecord>> searchByProcessName(
             @RequestParam(required = false) String processName,
             @ModelAttribute PageRequestDto pageRequest) {
@@ -272,7 +272,7 @@ public class ProductionProcessRecordController extends BaseCrudController<Produc
      * @param pageRequest 分页请求参数（页码、页面大小）
      * @return 工序记录列表（分页）
      */
-    @GetMapping("/search/operator")
+// @GetMapping("/search/operator")
     public ApiResponse<PagedResult<ProductionProcessRecord>> searchByOperatorName(
             @RequestParam(required = false) String operatorName,
             @ModelAttribute PageRequestDto pageRequest) {
@@ -304,7 +304,7 @@ public class ProductionProcessRecordController extends BaseCrudController<Produc
      * @param updaterId 更新人ID（可选，不传则使用当前登录用户）
      * @return 作废结果
      */
-    @PutMapping("/{id}/cancel")
+// @PutMapping("/{id}/cancel")
     public ApiResponse<Boolean> cancelRecord(
             @PathVariable Long id,
             @RequestParam(required = false) Long updaterId) {

@@ -180,7 +180,7 @@ public class DisinfectionRecordController extends BaseController {
      * @param roomId 房间ID（可选）
      * @return ApiResponse&lt;List&lt;DisinfectionRecord&gt;&gt; 消毒记录列表
      */
-    @GetMapping("/list")
+// @GetMapping("/list")
     public ApiResponse<List<DisinfectionRecord>> getList(
             @RequestParam(required = false) Integer roomId) {
         try {
@@ -204,7 +204,7 @@ public class DisinfectionRecordController extends BaseController {
      * @param days 提前天数（默认30天）
      * @return ApiResponse&lt;List&lt;DisinfectionRecord&gt;&gt; 即将到期的消毒记录列表
      */
-    @GetMapping("/reminder")
+// @GetMapping("/reminder")
     public ApiResponse<List<DisinfectionRecord>> reminder(
             @RequestParam(defaultValue = "30") int days) {
         try {

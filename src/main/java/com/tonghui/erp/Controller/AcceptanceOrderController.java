@@ -74,7 +74,7 @@ public class AcceptanceOrderController extends BaseController {
      * @param pageRequest 分页请求参数
      * @return 验收单分页结果
      */
-    @GetMapping
+// @GetMapping
     public ApiResponse<PagedResult<AcceptanceOrder>> getAll(@ModelAttribute PageRequestDto pageRequest) {
         try {
             pageRequest = processPageRequest(pageRequest);
@@ -134,7 +134,7 @@ public class AcceptanceOrderController extends BaseController {
      * @param pageSize   每页大小
      * @return 验收单分页结果
      */
-    @GetMapping("/search")
+// @GetMapping("/search")
     public ApiResponse<PagedResult<AcceptanceOrder>> search(AcceptanceOrder acceptance,
                                                             @RequestParam(required = false) String keyword,
                                                             @RequestParam int pageIndex,
@@ -239,7 +239,7 @@ public class AcceptanceOrderController extends BaseController {
      * @param request 保存请求（acceptance-验收单信息，details-明细列表）
      * @return 验收单信息
      */
-    @PutMapping("/{id}/withDetails")
+// @PutMapping("/{id}/withDetails")
     public ApiResponse<AcceptanceOrder> updateWithDetails(@PathVariable Long id,
                                                           @RequestBody AcceptanceWithDetailsRequest request) {
         try {
@@ -298,7 +298,7 @@ public class AcceptanceOrderController extends BaseController {
      * @param id 验收单ID
      * @return 明细列表
      */
-    @GetMapping("/{id}/details")
+// @GetMapping("/{id}/details")
     public ApiResponse<List<AcceptanceDetail>> getDetails(@PathVariable Long id) {
         try {
             List<AcceptanceDetail> details = acceptanceOrderService.getDetailsByAcceptanceId(id);
@@ -345,7 +345,7 @@ public class AcceptanceOrderController extends BaseController {
      * @param id 明细ID
      * @return 是否删除成功
      */
-    @DeleteMapping("/detail/{id}")
+// @DeleteMapping("/detail/{id}")
     public ApiResponse<Boolean> deleteDetail(@PathVariable Long id) {
         try {
             acceptanceOrderService.deleteAcceptanceDetail(id);
@@ -370,7 +370,7 @@ public class AcceptanceOrderController extends BaseController {
      *
      * @return 验收单号
      */
-    @GetMapping("/generateCode")
+// @GetMapping("/generateCode")
     public ApiResponse<String> generateCode() {
         try {
             String code = acceptanceOrderService.generateAcceptanceCode();

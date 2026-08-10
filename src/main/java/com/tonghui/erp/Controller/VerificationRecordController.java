@@ -216,7 +216,7 @@ public class VerificationRecordController extends BaseCrudController<Verificatio
      * @param days 提前天数，默认30天
      * @return 到期的验证记录列表
      */
-    @GetMapping("/warning")
+// @GetMapping("/warning")
     public ApiResponse<List<VerificationRecord>> getExpiringVerifications(
             @RequestParam(value = "days", defaultValue = "30") int days) {
         try {
@@ -237,7 +237,7 @@ public class VerificationRecordController extends BaseCrudController<Verificatio
      * @param status 预警状态（0未处理/1已处理/2不再提醒）
      * @return 操作结果
      */
-    @PutMapping("/{id}/reminder-status")
+// @PutMapping("/{id}/reminder-status")
     public ApiResponse<Void> updateReminderStatus(@PathVariable Long id,
                                                   @RequestParam Integer status) {
         try {

@@ -250,7 +250,7 @@ public class RoleController extends BaseCrudController<RoleCreateDto, RoleDto, L
      * @param pageRequest 分页请求参数
      * @return 分页结果（包含权限和用户关联信息）
      */
-    @GetMapping("/search-with-details")
+// @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<RoleWithDetailsDto>> searchWithDetails(
             Role role,
             @ModelAttribute PageRequestDto pageRequest) {

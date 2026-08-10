@@ -213,7 +213,7 @@ public class PurchaseSuppliersController extends BaseCrudController<PurchaseSupp
      * @param pageSize          每页大小
      * @return 分页结果（包含子表信息）
      */
-    @GetMapping("/search-with-details")
+// @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<PurchaseSuppliersWithDetailsDto>> searchWithDetails(PurchaseSuppliers purchaseSuppliers,
                                                                                        @RequestParam(required = false) String keyword,
                                                                                        @RequestParam int pageIndex,
@@ -244,7 +244,7 @@ public class PurchaseSuppliersController extends BaseCrudController<PurchaseSupp
      * @param supplierNumber 采购供应商编号
      * @return 采购供应商实体
      */
-    @GetMapping("/number/{supplierNumber}")
+// @GetMapping("/number/{supplierNumber}")
     public ApiResponse<PurchaseSuppliers> getPurchaseSupplierByNumber(@PathVariable String supplierNumber) {
         try {
             PurchaseSuppliers result = purchaseSuppliersService.getPurchaseSupplierByNumber(supplierNumber);
@@ -265,7 +265,7 @@ public class PurchaseSuppliersController extends BaseCrudController<PurchaseSupp
      *
      * @return 采购供应商集合
      */
-    @GetMapping("/enabled")
+// @GetMapping("/enabled")
     public ApiResponse<PagedResult<PurchaseSuppliers>> getEnabledPurchaseSuppliers() {
         try {
             // 这里使用分页查询，但返回所有启用状态的采购供应商
@@ -296,7 +296,7 @@ public class PurchaseSuppliersController extends BaseCrudController<PurchaseSupp
      * @param status 状态：1启用，0停用
      * @return 操作结果
      */
-    @PostMapping("/{id}/status/{status}")
+// @PostMapping("/{id}/status/{status}")
     public ApiResponse<Boolean> togglePurchaseSupplierStatus(@PathVariable Long id, @PathVariable Object status) {
         try {
             PurchaseSuppliers purchaseSuppliers = purchaseSuppliersService.getPurchaseSupplierById(id);

@@ -92,7 +92,7 @@ public class DashboardController extends BaseController {
      *
      * @return 汇总数据，包含生产统计、库存预警、审批统计等
      */
-    @GetMapping("/summary")
+// @GetMapping("/summary")
     public ApiResponse<DashboardSummaryDto> getSummary() {
         try {
             DashboardSummaryDto summary = new DashboardSummaryDto();

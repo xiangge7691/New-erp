@@ -178,7 +178,7 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
      * @param pageSize 每页大小
      * @return ApiResponse&lt;PagedResult&lt;ProductionUnitWithDetailsDto&gt;&gt; 分页结果（包含子表）
      */
-    @GetMapping("/search-with-details")
+// @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<ProductionUnitWithDetailsDto>> searchWithDetails(ProductionUnit productionUnit,
                                                                                      @RequestParam(required = false) String keyword,
                                                                                      @RequestParam(required = false) LocalDateTime createdTimeStart,
@@ -323,7 +323,7 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
      *
      * @return ApiResponse&lt;PagedResult&lt;ProductionUnit&gt;&gt; 生产单位集合
      */
-    @GetMapping("/enabled")
+// @GetMapping("/enabled")
     public ApiResponse<PagedResult<ProductionUnit>>getEnabledProductionUnits() {
         try {
             // 这里使用分页查询，但返回所有启用status的生产单位
@@ -354,7 +354,7 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
      * @param status 状态：1启用，0停用
      * @return ApiResponse&lt;Boolean&gt; 操作结果
      */
-    @PostMapping("/{id}/status/{status}")
+// @PostMapping("/{id}/status/{status}")
     public ApiResponse<Boolean>toggleProductionUnitStatus(@PathVariable Long id, @PathVariable Integer status) {
         try {
             ProductionUnit productionUnit = productionUnitService.getProductionUnitById(id);

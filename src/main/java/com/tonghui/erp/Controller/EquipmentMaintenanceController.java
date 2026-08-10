@@ -284,7 +284,7 @@ public class EquipmentMaintenanceController extends BaseController {
      * @param days 提前天数（默认7天），查询未来N天内即将到期的维保记录
      * @return ApiResponse&lt;List&lt;EquipmentMaintenance&gt;&gt; 即将到期的维保记录列表
      */
-    @GetMapping("/reminder")
+// @GetMapping("/reminder")
     public ApiResponse<List<EquipmentMaintenance>> reminder(
             @RequestParam(defaultValue = "7") int days) {
         List<EquipmentMaintenance> list = equipmentMaintenanceService.findUpcomingMaintenance(days);
@@ -349,7 +349,7 @@ public class EquipmentMaintenanceController extends BaseController {
      * @param description 文件描述（可选）
      * @return ApiResponse&lt;FileInfo&gt; 上传的文件信息
      */
-    @PostMapping("/{id}/attachments")
+// @PostMapping("/{id}/attachments")
     public ApiResponse<FileInfo> uploadAttachment(
             @PathVariable Long id,
             @RequestParam("file") MultipartFile file,
@@ -381,7 +381,7 @@ public class EquipmentMaintenanceController extends BaseController {
      * @param id 维保记录ID（路径参数）
      * @return ApiResponse&lt;List&lt;FileInfo&gt;&gt; 附件文件列表
      */
-    @GetMapping("/{id}/attachments")
+// @GetMapping("/{id}/attachments")
     public ApiResponse<List<FileInfo>> getAttachments(@PathVariable Long id) {
         List<FileInfo> files = fileInfoService.getFilesByBusiness(id, "EQUIPMENT_MAINTENANCE", null);
         return success(files);
@@ -397,7 +397,7 @@ public class EquipmentMaintenanceController extends BaseController {
      * @param fileId 文件ID（路径参数）
      * @return ApiResponse&lt;Void&gt; 删除结果
      */
-    @DeleteMapping("/{id}/attachments/{fileId}")
+// @DeleteMapping("/{id}/attachments/{fileId}")
     public ApiResponse<Void> deleteAttachment(@PathVariable Long id, @PathVariable Long fileId) {
         fileInfoService.deleteFile(fileId);
         return success(null, "附件删除成功");

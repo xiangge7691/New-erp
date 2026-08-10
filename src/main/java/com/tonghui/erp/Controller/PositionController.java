@@ -218,7 +218,7 @@ public class PositionController extends BaseController {
      * @param pageSize 每页大小
      * @return ApiResponse&lt;PagedResult&lt;PositionWithDetailsDto&gt;&gt; 岗位列表（含子表信息）
      */
-    @GetMapping("/search-with-details")
+// @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<PositionWithDetailsDto>> searchWithDetails(Position position,
                                                                               @RequestParam int pageIndex,
                                                                               @RequestParam int pageSize) {

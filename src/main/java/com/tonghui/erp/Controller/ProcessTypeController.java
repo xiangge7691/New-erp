@@ -242,7 +242,7 @@ public class ProcessTypeController extends BaseCrudController<ProcessType, Proce
      *
      * @return ApiResponse&lt;List&lt;ProcessType&gt;&gt; 启用的工序类型列表
      */
-    @GetMapping("/active")
+// @GetMapping("/active")
     public ApiResponse<List<ProcessType>> listActiveProcessTypes() {
         try {
             List<ProcessType> result = processTypeService.listActive();
@@ -271,7 +271,7 @@ public class ProcessTypeController extends BaseCrudController<ProcessType, Proce
      * @param pageSize 每页大小
      * @return ApiResponse&lt;PagedResult&lt;ProcessTypeWithDetailsDto&gt;&gt; 工序类型列表（含子表信息）
      */
-    @GetMapping("/search-with-details")
+// @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<ProcessTypeWithDetailsDto>> searchWithDetails(ProcessType processType,
                                                                                  @RequestParam(required = false) String keyword,
                                                                                  @RequestParam int pageIndex,

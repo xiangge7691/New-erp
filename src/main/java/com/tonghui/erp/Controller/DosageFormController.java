@@ -233,7 +233,7 @@ public class DosageFormController extends BaseCrudController<DosageForm, DosageF
      * @param pageSize 每页大小
      * @return ApiResponse&lt;PagedResult&lt;DosageFormWithDetailsDto&gt;&gt; 剂型列表（含子表信息）
      */
-    @GetMapping("/search-with-details")
+// @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<DosageFormWithDetailsDto>> searchWithDetails(DosageForm dosageForm,
                                                                                 @RequestParam int pageIndex,
                                                                                 @RequestParam int pageSize) {

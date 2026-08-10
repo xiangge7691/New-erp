@@ -256,7 +256,7 @@ public class RoomInfoController extends BaseCrudController<RoomInfo, RoomInfo, I
      * @param pageRequest 分页请求参数（页码、页面大小）
      * @return ApiResponse&lt;PagedResult&lt;RoomInfo&gt;&gt; 房间列表（分页）
      */
-    @GetMapping("/search/location")
+// @GetMapping("/search/location")
     public ApiResponse<PagedResult<RoomInfo>> searchByLocation(
             @RequestParam(required = false) String location,
             @ModelAttribute PageRequestDto pageRequest) {
@@ -304,7 +304,7 @@ public class RoomInfoController extends BaseCrudController<RoomInfo, RoomInfo, I
      * @param pageRequest 分页请求参数
      * @return ApiResponse&lt;PagedResult&lt;RoomInfoWithDetailsDto&gt;&gt; 房间列表（含温湿度、压差、洁净检测、消毒记录）
      */
-    @GetMapping("/search-with-details")
+// @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<RoomInfoWithDetailsDto>> searchWithDetails(
             @RequestParam(required = false) String roomName,
             @RequestParam(required = false) String keyword,
@@ -330,7 +330,7 @@ public class RoomInfoController extends BaseCrudController<RoomInfo, RoomInfo, I
      * @param days 提前天数（默认30天）
      * @return ApiResponse&lt;List&lt;DisinfectionRecord&gt;&gt; 即将到期的消毒记录列表
      */
-    @GetMapping("/disinfection/reminder")
+// @GetMapping("/disinfection/reminder")
     public ApiResponse<List<DisinfectionRecord>> disinfectionReminder(
             @RequestParam(defaultValue = "30") int days) {
         try {

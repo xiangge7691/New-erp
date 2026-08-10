@@ -98,7 +98,7 @@ public class ApprovalRecordController extends BaseController {
      * @param nodeId 审批节点ID（路径参数）
      * @return ApiResponse&lt;List&lt;ApprovalRecord&gt;&gt; 审批记录列表
      */
-    @GetMapping("/node/{nodeId}")
+// @GetMapping("/node/{nodeId}")
     public ApiResponse<List<ApprovalRecord>> getRecordsByNodeId(@PathVariable Long nodeId) {
         try {
             List<ApprovalRecord> records = approvalRecordService.getRecordsByNodeId(nodeId);
@@ -117,7 +117,7 @@ public class ApprovalRecordController extends BaseController {
      * @param id 审批记录ID（路径参数）
      * @return ApiResponse&lt;ApprovalRecord&gt; 审批记录详情
      */
-    @GetMapping("/{id}")
+// @GetMapping("/{id}")
     public ApiResponse<ApprovalRecord> getRecordById(@PathVariable Long id) {
         try {
             ApprovalRecord record = approvalRecordService.getById(id);

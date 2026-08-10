@@ -231,7 +231,7 @@ public class ApprovalNodeController extends BaseController {
      * @param pageSize     每页数量（请求参数）
      * @return ApiResponse&lt;PagedResult&lt;ApprovalNodeWithRecordsDto&gt;&gt; 包含审批记录的分页结果
      */
-    @GetMapping("/search-with-details")
+// @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<ApprovalNodeWithRecordsDto>> searchWithDetails(ApprovalNode approvalNode,
                                                                                   @RequestParam int pageIndex,
                                                                                   @RequestParam int pageSize) {

@@ -191,7 +191,7 @@ public class PersonnelFileController extends BaseController {
      * @param pageRequest 分页请求参数
      * @return ApiResponse&lt;PagedResult&lt;PersonnelFileWithDetailsDto&gt;&gt; 人员档案列表（含子表信息）
      */
-    @GetMapping("/search-with-details")
+// @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<PersonnelFileWithDetailsDto>> searchWithDetails(
             PersonnelFile personnelFile,
             @ModelAttribute PageRequestDto pageRequest) {
@@ -314,7 +314,7 @@ public class PersonnelFileController extends BaseController {
      * @param days 提前天数（默认30天）
      * @return ApiResponse&lt;List&lt;PersonnelFile&gt;&gt; 健康证即将到期的人员列表
      */
-    @GetMapping("/expiring")
+// @GetMapping("/expiring")
     public ApiResponse<List<PersonnelFile>> expiring(
             @RequestParam(defaultValue = "30") int days) {
         List<PersonnelFile> list = personnelFileService.findExpiringHealthCerts(days);
@@ -334,7 +334,7 @@ public class PersonnelFileController extends BaseController {
      * @param userId 用户ID（路径参数）
      * @return ApiResponse&lt;PersonnelFile&gt; 人员档案详情
      */
-    @GetMapping("/byUser/{userId}")
+// @GetMapping("/byUser/{userId}")
     public ApiResponse<PersonnelFile> getByUserId(@PathVariable Long userId) {
         PersonnelFile file = personnelFileService.findByUserId(userId);
         if (file == null) {
@@ -368,7 +368,7 @@ public class PersonnelFileController extends BaseController {
      * @param description 文件描述（可选）
      * @return ApiResponse&lt;FileInfo&gt; 上传的文件信息
      */
-    @PostMapping("/{id}/health-files")
+// @PostMapping("/{id}/health-files")
     public ApiResponse<FileInfo> uploadHealthFile(
             @PathVariable Long id,
             @RequestParam("file") MultipartFile file,
@@ -393,7 +393,7 @@ public class PersonnelFileController extends BaseController {
      * @param id 人员档案ID（路径参数）
      * @return ApiResponse&lt;List&lt;FileInfo&gt;&gt; 健康档案文件列表
      */
-    @GetMapping("/{id}/health-files")
+// @GetMapping("/{id}/health-files")
     public ApiResponse<List<FileInfo>> getHealthFiles(@PathVariable Long id) {
         List<FileInfo> files = fileInfoService.getFilesByBusiness(id, "PERSONNEL_HEALTH_FILE", null);
         return success(files);
@@ -409,7 +409,7 @@ public class PersonnelFileController extends BaseController {
      * @param fileId 文件ID（路径参数）
      * @return ApiResponse&lt;Void&gt; 删除结果
      */
-    @DeleteMapping("/{id}/health-files/{fileId}")
+// @DeleteMapping("/{id}/health-files/{fileId}")
     public ApiResponse<Void> deleteHealthFile(@PathVariable Long id, @PathVariable Long fileId) {
         fileInfoService.deleteFile(fileId);
         return success(null, "删除成功");
@@ -431,7 +431,7 @@ public class PersonnelFileController extends BaseController {
      * @param description 文件描述（可选）
      * @return ApiResponse&lt;FileInfo&gt; 上传的文件信息
      */
-    @PostMapping("/{id}/attachments")
+// @PostMapping("/{id}/attachments")
     public ApiResponse<FileInfo> uploadAttachment(
             @PathVariable Long id,
             @RequestParam("file") MultipartFile file,
@@ -456,7 +456,7 @@ public class PersonnelFileController extends BaseController {
      * @param id 人员档案ID（路径参数）
      * @return ApiResponse&lt;List&lt;FileInfo&gt;&gt; 附件文件列表
      */
-    @GetMapping("/{id}/attachments")
+// @GetMapping("/{id}/attachments")
     public ApiResponse<List<FileInfo>> getAttachments(@PathVariable Long id) {
         List<FileInfo> files = fileInfoService.getFilesByBusiness(id, "PERSONNEL_ATTACHMENT", null);
         return success(files);
@@ -472,7 +472,7 @@ public class PersonnelFileController extends BaseController {
      * @param fileId 文件ID（路径参数）
      * @return ApiResponse&lt;Void&gt; 删除结果
      */
-    @DeleteMapping("/{id}/attachments/{fileId}")
+// @DeleteMapping("/{id}/attachments/{fileId}")
     public ApiResponse<Void> deleteAttachment(@PathVariable Long id, @PathVariable Long fileId) {
         fileInfoService.deleteFile(fileId);
         return success(null, "删除成功");

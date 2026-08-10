@@ -280,7 +280,7 @@ public class UserController extends BaseCrudController<UserCreateDto, UserDto, L
      * @param pageRequest 分页请求参数
      * @return ApiResponse&lt;PagedResult&lt;UserWithDetailsDto&gt;&gt; 用户分页列表（包含子表）
      */
-    @GetMapping("/search-with-details")
+// @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<UserWithDetailsDto>> searchWithDetails(
             User user,
             @ModelAttribute PageRequestDto pageRequest) {

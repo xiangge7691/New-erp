@@ -144,7 +144,7 @@ public class ApprovalInstanceController extends BaseController {
      * @param workflowId 审批流程ID（路径参数）
      * @return ApiResponse&lt;List&lt;ApprovalInstance&gt;&gt; 审批实例列表
      */
-    @GetMapping("/workflow/{workflowId}")
+// @GetMapping("/workflow/{workflowId}")
     public ApiResponse<List<ApprovalInstance>> getInstancesByWorkflowId(@PathVariable Long workflowId) {
         try {
             List<ApprovalInstance> instances = approvalInstanceService.getInstancesByWorkflowId(workflowId);
@@ -163,7 +163,7 @@ public class ApprovalInstanceController extends BaseController {
      * @param status 审批状态（路径参数）：PENDING/APPROVED/REJECTED/CANCELLED/TRANSFERRED
      * @return ApiResponse&lt;List&lt;ApprovalInstance&gt;&gt; 审批实例列表
      */
-    @GetMapping("/status/{status}")
+// @GetMapping("/status/{status}")
     public ApiResponse<List<ApprovalInstance>> getInstancesByStatus(@PathVariable String status) {
         try {
             List<ApprovalInstance> instances = approvalInstanceService.getInstancesByStatus(status);
@@ -182,7 +182,7 @@ public class ApprovalInstanceController extends BaseController {
      * @param id 审批实例ID（路径参数）
      * @return ApiResponse&lt;List&lt;CurrentHandlerRoleDto&gt;&gt; 当前处理角色列表
      */
-    @GetMapping("/{id}/current-handler-roles")
+// @GetMapping("/{id}/current-handler-roles")
     public ApiResponse<List<CurrentHandlerRoleDto>> getCurrentHandlerRoles(@PathVariable Long id) {
         try {
             List<CurrentHandlerRoleDto> roles = approvalInstanceService.getCurrentHandlerRoles(id);
@@ -222,7 +222,7 @@ public class ApprovalInstanceController extends BaseController {
      * @param pageSize  每页数量（请求参数）
      * @return ApiResponse&lt;PagedResult&lt;ApprovalInstanceWithRecordsDto&gt;&gt; 包含审批记录的分页结果
      */
-    @GetMapping("/search-with-details")
+// @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<ApprovalInstanceWithRecordsDto>> searchWithDetails(
             @RequestParam int pageIndex,
             @RequestParam int pageSize) {
@@ -287,7 +287,7 @@ public class ApprovalInstanceController extends BaseController {
      * @param workflowId  审批流程ID（请求参数）
      * @return ApiResponse&lt;ApprovalInstance&gt; 创建的审批实例
      */
-    @PostMapping("/create-with-binding")
+// @PostMapping("/create-with-binding")
     public ApiResponse<ApprovalInstance> createWithBinding(
             @RequestParam String relatedType,
             @RequestParam Long relatedId,
@@ -420,7 +420,7 @@ public class ApprovalInstanceController extends BaseController {
      * @param remark 审批意见（可选请求参数）
      * @return ApiResponse&lt;Void&gt; 操作结果
      */
-    @PostMapping("/{id}/approve")
+// @PostMapping("/{id}/approve")
     public ApiResponse<Void> approveInstance(@PathVariable Long id,
                                              @RequestParam(required = false) String remark) {
         try {
@@ -445,7 +445,7 @@ public class ApprovalInstanceController extends BaseController {
      * @param remark 驳回原因（可选请求参数）
      * @return ApiResponse&lt;Void&gt; 操作结果
      */
-    @PostMapping("/{id}/reject")
+// @PostMapping("/{id}/reject")
     public ApiResponse<Void> rejectInstance(@PathVariable Long id,
                                             @RequestParam(required = false) String remark) {
         try {
@@ -470,7 +470,7 @@ public class ApprovalInstanceController extends BaseController {
      * @param remark 转交说明（可选请求参数）
      * @return ApiResponse&lt;Void&gt; 操作结果
      */
-    @PostMapping("/{id}/transfer")
+// @PostMapping("/{id}/transfer")
     public ApiResponse<Void> transferInstance(@PathVariable Long id,
                                               @RequestParam(required = false) String remark) {
         try {

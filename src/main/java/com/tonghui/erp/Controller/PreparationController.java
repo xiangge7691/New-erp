@@ -278,7 +278,7 @@ public class PreparationController extends BaseCrudController<Preparation, Prepa
      * @param dto 制剂及子表数据
      * @return 操作结果
      */
-    @PostMapping("/save-with-details")
+// @PostMapping("/save-with-details")
     public ApiResponse<Void> saveWithDetails(@RequestBody PreparationWithDetailsDto dto) {
         try {
             preparationService.saveWithDetails(dto);
@@ -297,7 +297,7 @@ public class PreparationController extends BaseCrudController<Preparation, Prepa
      * @param id 制剂ID（路径参数）
      * @return 制剂及子表数据
      */
-    @GetMapping("/{id}/details")
+// @GetMapping("/{id}/details")
     public ApiResponse<PreparationWithDetailsDto> getWithDetails(@PathVariable Long id) {
         try {
             PreparationWithDetailsDto dto = preparationService.getWithDetails(id);

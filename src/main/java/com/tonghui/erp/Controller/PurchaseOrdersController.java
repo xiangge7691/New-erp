@@ -188,7 +188,7 @@ public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders,
      *
      * @return PagedResult&lt;PurchaseOrders&gt; 采购订单集合
      */
-    @GetMapping("/enabled")
+// @GetMapping("/enabled")
     public PagedResult<PurchaseOrders> getEnabledPurchaseOrders() {
         // 这里使用分页查询，但返回所有启用状态的采购订单
         PurchaseOrders purchaseOrders = new PurchaseOrders();

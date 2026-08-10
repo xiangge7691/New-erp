@@ -154,7 +154,7 @@ public class TemperatureHumidityRecordController extends BaseController {
      * @param roomId 房间ID（可选）
      * @return ApiResponse&lt;List&lt;TemperatureHumidityRecord&gt;&gt; 温湿度记录列表
      */
-    @GetMapping("/list")
+// @GetMapping("/list")
     public ApiResponse<List<TemperatureHumidityRecord>> getList(
             @RequestParam(required = false) Integer roomId) {
         try {

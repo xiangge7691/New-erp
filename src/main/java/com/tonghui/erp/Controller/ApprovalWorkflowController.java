@@ -259,7 +259,7 @@ public class ApprovalWorkflowController extends BaseController {
      * @param pageSize  每页数量
      * @return 分页结果（包含节点）
      */
-    @GetMapping("/search-with-details")
+// @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<ApprovalWorkflowWithNodesDto>> searchWithDetails(
             @RequestParam int pageIndex,
             @RequestParam int pageSize) {

@@ -199,7 +199,7 @@ public class PersonnelCertificateController extends BaseController {
      * @param description 文件描述（可选）
      * @return ApiResponse&lt;FileInfo&gt; 上传的文件信息
      */
-    @PostMapping("/{id}/attachments")
+// @PostMapping("/{id}/attachments")
     public ApiResponse<FileInfo> uploadAttachment(
             @PathVariable Long id,
             @RequestParam("file") MultipartFile file,
@@ -224,7 +224,7 @@ public class PersonnelCertificateController extends BaseController {
      * @param id 证书ID（路径参数）
      * @return ApiResponse&lt;List&lt;FileInfo&gt;&gt; 证书文件列表
      */
-    @GetMapping("/{id}/attachments")
+// @GetMapping("/{id}/attachments")
     public ApiResponse<List<FileInfo>> getAttachments(@PathVariable Long id) {
         List<FileInfo> files = fileInfoService.getFilesByBusiness(id, "PERSONNEL_CERTIFICATE", null);
         return success(files);
@@ -240,7 +240,7 @@ public class PersonnelCertificateController extends BaseController {
      * @param fileId 文件ID（路径参数）
      * @return ApiResponse&lt;Void&gt; 删除结果
      */
-    @DeleteMapping("/{id}/attachments/{fileId}")
+// @DeleteMapping("/{id}/attachments/{fileId}")
     public ApiResponse<Void> deleteAttachment(@PathVariable Long id, @PathVariable Long fileId) {
         fileInfoService.deleteFile(fileId);
         return success(null, "删除成功");

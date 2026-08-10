@@ -154,7 +154,7 @@ public class CleanInspectionRecordController extends BaseController {
      * @param roomId 房间ID（可选）
      * @return ApiResponse&lt;List&lt;CleanInspectionRecord&gt;&gt; 洁净检测记录列表
      */
-    @GetMapping("/list")
+// @GetMapping("/list")
     public ApiResponse<List<CleanInspectionRecord>> getList(
             @RequestParam(required = false) Integer roomId) {
         try {

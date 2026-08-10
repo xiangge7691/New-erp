@@ -154,7 +154,7 @@ public class PressureDifferenceRecordController extends BaseController {
      * @param roomId 房间ID（可选）
      * @return ApiResponse&lt;List&lt;PressureDifferenceRecord&gt;&gt; 压差记录列表
      */
-    @GetMapping("/list")
+// @GetMapping("/list")
     public ApiResponse<List<PressureDifferenceRecord>> getList(
             @RequestParam(required = false) Integer roomId) {
         try {

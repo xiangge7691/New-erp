@@ -273,7 +273,7 @@ public class EquipmentController extends BaseCrudController<Equipment, Equipment
      * @param pageRequest 分页请求参数
      * @return ApiResponse&lt;PagedResult&lt;EquipmentWithDetailsDto&gt;&gt; 设备列表（含维保记录）
      */
-    @GetMapping("/search-with-details")
+// @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<EquipmentWithDetailsDto>> searchWithDetails(
             Equipment equipment,
             @RequestParam(required = false) String keyword,
@@ -303,7 +303,7 @@ public class EquipmentController extends BaseCrudController<Equipment, Equipment
      * @param pageRequest 分页请求参数（页码、页面大小）
      * @return ApiResponse&lt;PagedResult&lt;Equipment&gt;&gt; 设备列表（分页）
      */
-    @GetMapping("/search/manufacturer")
+// @GetMapping("/search/manufacturer")
     public ApiResponse<PagedResult<Equipment>> searchByManufacturer(
             @RequestParam(required = false) String manufacturer,
             @ModelAttribute PageRequestDto pageRequest) {
@@ -335,7 +335,7 @@ public class EquipmentController extends BaseCrudController<Equipment, Equipment
      *
      * @return ApiResponse&lt;List&lt;Equipment&gt;&gt; 启用的设备列表
      */
-    @GetMapping("/active")
+// @GetMapping("/active")
     public ApiResponse<List<Equipment>> listActiveEquipments() {
         List<Equipment> result = equipmentService.listActive();
         return success(result);
@@ -359,7 +359,7 @@ public class EquipmentController extends BaseCrudController<Equipment, Equipment
      * @param updaterId 更新人ID（可选，不传则使用当前登录用户）
      * @return ApiResponse&lt;Boolean&gt; 更新结果
      */
-    @PutMapping("/{id}/maintenance")
+// @PutMapping("/{id}/maintenance")
     public ApiResponse<Boolean> updateMaintenanceDate(
             @PathVariable Integer id,
             @RequestParam LocalDate maintenanceDate,
@@ -388,7 +388,7 @@ public class EquipmentController extends BaseCrudController<Equipment, Equipment
      * @param reminderDays 到期提醒天数
      * @return ApiResponse&lt;Boolean&gt; 更新结果
      */
-    @PutMapping("/{id}/maintenanceSettings")
+// @PutMapping("/{id}/maintenanceSettings")
     public ApiResponse<Boolean> saveMaintenanceSettings(
             @PathVariable Integer id,
             @RequestParam Integer maintenanceCycle,

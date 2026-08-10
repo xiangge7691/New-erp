@@ -206,7 +206,7 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
      * @param pageSize  每页大小
      * @return ApiResponse&lt;PagedResult&lt;StockOutWithDetailsDto&gt;&gt; 分页结果（包含明细）
      */
-    @GetMapping("/search-with-details")
+// @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<StockOutWithDetailsDto>> searchWithDetails(StockOut stockOut,
                                                                                @RequestParam(required = false) LocalDateTime createdTimeStart,
                                                                                @RequestParam(required = false) LocalDateTime createdTimeEnd,
@@ -253,7 +253,7 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
      * @param details 出库明细列表（可选）
      * @return ApiResponse&lt;StockOut&gt; 出库单信息
      */
-    @PostMapping("/withDetails")
+// @PostMapping("/withDetails")
     public ApiResponse<StockOut> createStockOutWithDetails(@RequestBody StockOut stockOut,
                                               @RequestParam(required = false) List<StockOutDetail> details) {
         if (stockOut.getOutCode() == null || stockOut.getOutCode().isEmpty()) {
@@ -279,7 +279,7 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
      * @param details 出库明细列表（可选）
      * @return StockOut 更新后的出库单信息
      */
-    @PutMapping("/{id}/withDetails")
+// @PutMapping("/{id}/withDetails")
     public StockOut updateStockOutWithDetails(@PathVariable Long id,
                                              @RequestBody StockOut stockOut,
                                              @RequestParam(required = false) List<StockOutDetail> details) {
@@ -305,7 +305,7 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
      * @param id 出库单ID
      * @return 操作结果
      */
-    @PostMapping("/{id}/confirm")
+// @PostMapping("/{id}/confirm")
     public ApiResponse<Boolean> confirmStockOut(@PathVariable Long id) {
         try {
             stockOutService.confirmStockOut(id);
@@ -325,7 +325,7 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
      * @param id 出库单ID
      * @return 操作结果
      */
-    @PostMapping("/{id}/cancel")
+// @PostMapping("/{id}/cancel")
     public ApiResponse<Boolean> cancelStockOut(@PathVariable Long id) {
         try {
             stockOutService.cancelStockOut(id);
@@ -356,7 +356,7 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
      * @param multiplier 生产倍数（选填，默认1倍）
      * @return 处方明细列表（含可用库存批次）
      */
-    @GetMapping("/plan-detail")
+// @GetMapping("/plan-detail")
     public ApiResponse<List<PlanDetailItemDto>> getPlanDetail(
             @RequestParam String planCode,
             @RequestParam(required = false) BigDecimal multiplier) {
@@ -388,7 +388,7 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
      * @param request 批量出库请求
      * @return 已确认的出库单
      */
-    @PostMapping("/batch-confirm")
+// @PostMapping("/batch-confirm")
     public ApiResponse<StockOut> batchConfirm(@RequestBody BatchOutboundRequest request) {
         try {
             StockOut stockOut = stockOutService.batchConfirm(request);

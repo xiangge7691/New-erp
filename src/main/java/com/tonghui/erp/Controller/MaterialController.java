@@ -189,7 +189,7 @@ public class MaterialController extends BaseCrudController<Material, Material, L
      * @param pageSize 每页大小
      * @return ApiResponse&lt;PagedResult&lt;MaterialWithDetailsDto&gt;&gt; 物料详情分页列表
      */
-    @GetMapping("/search-with-details")
+// @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<MaterialWithDetailsDto>> searchWithDetails(Material material,
                                                                               @RequestParam(required = false) String keyword,
                                                                               @RequestParam int pageIndex,

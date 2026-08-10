@@ -143,7 +143,7 @@ public class StockController extends BaseController {
      * @param pageSize  每页大小
      * @return 分页结果（包含子表信息）
      */
-    @GetMapping("/search-with-details")
+// @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<StockWithDetailsDto>> searchWithDetails(Stock stock,
                                                                            @RequestParam(required = false) String keyword,
                                                                            @RequestParam int pageIndex,

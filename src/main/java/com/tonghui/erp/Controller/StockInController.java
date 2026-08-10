@@ -314,7 +314,7 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
      * @param details 入库明细列表
      * @return 入库单信息
      */
-    @PutMapping("/{id}/withDetails")
+// @PutMapping("/{id}/withDetails")
     public StockIn updateStockInWithDetails(@PathVariable Long id,
                                            @RequestBody StockIn stockIn,
                                            @RequestParam(required = false) List<StockInDetail> details) {
@@ -340,7 +340,7 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
      * @param id 入库单ID
      * @return 操作结果
      */
-    @PostMapping("/{id}/confirm")
+// @PostMapping("/{id}/confirm")
     public ApiResponse<Boolean> confirmStockIn(@PathVariable Long id) {
         try {
             stockInService.confirmStockIn(id);
@@ -360,7 +360,7 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
      * @param id 入库单ID
      * @return 操作结果
      */
-    @PostMapping("/{id}/cancel")
+// @PostMapping("/{id}/cancel")
     public ApiResponse<Boolean> cancelStockIn(@PathVariable Long id) {
         try {
             stockInService.cancelStockIn(id);

@@ -196,7 +196,7 @@ public class CleaningRecordController extends BaseController {
      * @param days 提前天数（默认30天），查询从今天起至指定天数内的待清洁记录
      * @return ApiResponse&lt;List&lt;CleaningRecord&gt;&gt; 即将到期的清洁记录列表
      */
-    @GetMapping("/reminder")
+// @GetMapping("/reminder")
     public ApiResponse<List<CleaningRecord>> reminder(
             @RequestParam(defaultValue = "30") int days) {
         List<CleaningRecord> list = cleaningRecordService.findUpcomingCleaning(days);

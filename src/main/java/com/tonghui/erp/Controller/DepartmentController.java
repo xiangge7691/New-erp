@@ -186,7 +186,7 @@ public class DepartmentController extends BaseCrudController<Department, Departm
      * @param pageRequest 分页请求参数
      * @return ApiResponse&lt;PagedResult&lt;DepartmentWithDetailsDto&gt;&gt; 部门详情分页列表
      */
-    @GetMapping("/search-with-details")
+// @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<DepartmentWithDetailsDto>> searchWithDetails(
             Department department,
             @ModelAttribute PageRequestDto pageRequest) {
