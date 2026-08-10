@@ -11,6 +11,7 @@ import com.tonghui.erp.Service.PurchasePlanService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -56,22 +57,52 @@ public class PurchasePlanController extends BaseController {
     }
 
     /**
-     * 分页查询采购计划列表
+     * 分页查询采购计划列表（支持多条件组合查询）
+     * <p>查询条件自动从请求参数映射到实体，支持计划编号、标题、制剂、物料类型、仓库、状态等条件筛选，
+     * 以及处理日期、期望到货日期、预计到货日期的时间范围筛选</p>
+     *
+     * 示例请求：
+     * GET /api/purchase-plan?pageIndex=0&pageSize=20&status=草稿&warehouse=原料库&planCode=CGJH&processingDateStart=2025-01-01&processingDateEnd=2025-12-31&keyword=XX制剂
+     *
+     * @param purchasePlan             查询条件（自动从query参数映射）
+     * @param keyword                  关键字（对计划编号、生产计划编号、标题、制剂名称模糊匹配，可选）
+     * @param processingDateStart      处理日期起始（可选）
+     * @param processingDateEnd        处理日期结束（可选）
+     * @param desiredDeliveryDateStart 期望到货日期起始（可选）
+     * @param desiredDeliveryDateEnd   期望到货日期结束（可选）
+     * @param expectedDeliveryDateStart 预计到货日期起始（可选）
+     * @param expectedDeliveryDateEnd   预计到货日期结束（可选）
+     * @param pageIndex                页码（从0开始）
+     * @param pageSize                 每页数量
+     * @return 分页查询结果
      */
     @GetMapping
     public ApiResponse<PagedResult<PurchasePlan>> list(
-            @RequestParam(required = false) String status,
+            PurchasePlan purchasePlan,
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) LocalDate processingDateStart,
+            @RequestParam(required = false) LocalDate processingDateEnd,
+            @RequestParam(required = false) LocalDate desiredDeliveryDateStart,
+            @RequestParam(required = false) LocalDate desiredDeliveryDateEnd,
+            @RequestParam(required = false) LocalDate expectedDeliveryDateStart,
+            @RequestParam(required = false) LocalDate expectedDeliveryDateEnd,
             @RequestParam(defaultValue = "0") int pageIndex,
             @RequestParam(defaultValue = "20") int pageSize) {
         try {
-            Page<PurchasePlan> page = purchasePlanService.queryPurchasePlans(status, keyword, pageIndex, pageSize);
+            int safePageIndex = Math.max(0, pageIndex);
+            int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
+
+            Page<PurchasePlan> page = purchasePlanService.queryPurchasePlans(purchasePlan, keyword,
+                    processingDateStart, processingDateEnd,
+                    desiredDeliveryDateStart, desiredDeliveryDateEnd,
+                    expectedDeliveryDateStart, expectedDeliveryDateEnd,
+                    safePageIndex, safePageSize);
 
             PagedResult<PurchasePlan> result = new PagedResult<>();
             result.setItems(page.getRecords());
             result.setTotalCount(page.getTotal());
-            result.setPageIndex(pageIndex);
-            result.setPageSize(pageSize);
+            result.setPageIndex(safePageIndex);
+            result.setPageSize(safePageSize);
 
             return success(result);
         } catch (Exception ex) {
