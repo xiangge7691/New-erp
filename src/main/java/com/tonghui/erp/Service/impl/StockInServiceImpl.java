@@ -79,39 +79,50 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
     // ===================================
 
     /**
-     * 新增入库单（含明细）
-     * <p>自动生成入库单号（如果未提供），同时保存主表和明细数据</p>
+     * 新增入库单（含明细）并直接生效入库
+     * <p>
+     * 自动生成入库单号（如果未提供），保存主表和明细数据后立即联动库存表（按物品+仓库+批号 upsert）并写入库存流水。
+     * 任一步失败抛出异常，整个事务回滚，保证原子性
+     * </p>
      *
      * @param stockIn 入库单主表实体
-     * @param details 入库单明细列表，可为null
+     * @param details 入库单明细列表，不可为空
      */
     @Override
     @Transactional
     public void addStockIn(StockIn stockIn, List<StockInDetail> details) {
+        // 校验明细不能为空（添加即入库，无明细无法联动库存）
+        if (details == null || details.isEmpty()) {
+            throw new RuntimeException("入库单没有明细，无法入库");
+        }
+
         // 自动生成入库单号（如果未提供）
         if (!StringUtils.hasText(stockIn.getInCode())) {
             stockIn.setInCode(sequenceService.generateStockInCode());
         }
+        // 添加即生效：直接置为已入库状态，无需草稿确认流程
+        stockIn.setInStatus("已入库");
 
         // 保存入库单主表
         stockInMapper.insert(stockIn);
 
         // 保存明细表
-        if (details != null && !details.isEmpty()) {
-            java.time.LocalDate defaultDate = stockIn.getInDate() != null ? stockIn.getInDate() : java.time.LocalDate.now();
-            for (StockInDetail detail : details) {
-                detail.setInId(stockIn.getInId());
-                // 确保 production_date 不为空
-                if (detail.getProductionDate() == null) {
-                    detail.setProductionDate(defaultDate);
-                }
-                // 确保 expiry_date 不为空，如果未设置则默认1年有效期
-                if (detail.getExpiryDate() == null && detail.getProductionDate() != null) {
-                    detail.setExpiryDate(detail.getProductionDate().plusYears(1));
-                }
-                stockInDetailMapper.insert(detail);
+        java.time.LocalDate defaultDate = stockIn.getInDate() != null ? stockIn.getInDate() : java.time.LocalDate.now();
+        for (StockInDetail detail : details) {
+            detail.setInId(stockIn.getInId());
+            // 确保 production_date 不为空
+            if (detail.getProductionDate() == null) {
+                detail.setProductionDate(defaultDate);
             }
+            // 确保 expiry_date 不为空，如果未设置则默认1年有效期
+            if (detail.getExpiryDate() == null && detail.getProductionDate() != null) {
+                detail.setExpiryDate(detail.getProductionDate().plusYears(1));
+            }
+            stockInDetailMapper.insert(detail);
         }
+
+        // 库存联动：按明细 upsert 库存批次并写流水（库存校验失败抛异常整体回滚）
+        stockService.applyInbound(stockIn, details);
     }
 
     /**

@@ -21,4 +21,9 @@ public class StockInWithDetailsDto extends StockIn {
      * 入库明细列表
      */
     private List<StockInDetail> details;
+
+    /**
+     * 本次入库成功的明细条数（接口返回时填充）
+     */
+    private Integer successCount;
 }

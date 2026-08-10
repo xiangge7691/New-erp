@@ -271,7 +271,11 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
     // ===================================
 
     /**
-     * 创建入库单（包含明细）
+     * 创建入库单（含明细）并直接生效入库
+     * <p>
+     * 单据添加后立即联动库存（按物品+仓库+批号 upsert），无需草稿确认流程；
+     * 任一步失败整个事务回滚，返回本次入库成功的明细条数
+     * </p>
      *
      * 示例请求：
      * POST /api/stockin/withDetails
@@ -280,25 +284,30 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
      *   "inDate": "2026-07-01",
      *   "supplierId": 1,
      *   "prodUnitId": 1,
-     *   "inType": "原料入库"
+     *   "inType": "原料入库",
+     *   "details": [
+     *     {"itemId": 1, "itemCode": "Y0001", "itemName": "甘草", "categoryName": "原料",
+     *      "unitName": "kg", "batchNumber": "B20260801", "quantity": 100, "unitPrice": 10.50, "stockStatus": "合格"}
+     *   ]
      * }
      *
-     * @param stockIn 入库单信息
-     * @param details 入库明细列表
-     * @return 入库单信息
+     * @param dto 入库单信息（含明细列表 details）
+     * @return 入库单信息（successCount 为本次入库成功的明细条数）
      */
     @PostMapping("/withDetails")
-    public ApiResponse<StockIn> createStockInWithDetails(@RequestBody StockIn stockIn,
-                                            @RequestParam(required = false) List<StockInDetail> details) {
-        if (stockIn.getInCode() == null || stockIn.getInCode().isEmpty()) {
-            stockIn.setInCode(stockInService.generateStockInCode());
-        }
-        stockInService.addStockIn(stockIn, details);
-        return success(stockIn, "入库单创建成功");
+    public ApiResponse<StockInWithDetailsDto> createStockInWithDetails(@RequestBody StockInWithDetailsDto dto) {
+        stockInService.addStockIn(dto, dto.getDetails());
+        int count = dto.getDetails() == null ? 0 : dto.getDetails().size();
+        dto.setSuccessCount(count);
+        return success(dto, "入库成功，共 " + count + " 条明细");
     }
 
     /**
-     * 更新入库单（包含明细）
+     * 更新入库单（含明细）
+     * <p>
+     * 更新主表字段并按明细列表整体重建明细（先删后插），不会重复联动库存；
+     * 请求时须传入全量明细，空列表表示清空明细
+     * </p>
      *
      * 示例请求：
      * PUT /api/stockin/1/withDetails
@@ -306,21 +315,24 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
      * {
      *   "inDate": "2026-07-01",
      *   "supplierId": 1,
-     *   "inStatus": 1
+     *   "details": [
+     *     {"itemId": 1, "itemCode": "Y0001", "itemName": "甘草", "categoryName": "原料",
+     *      "unitName": "kg", "batchNumber": "B20260801", "quantity": 100, "unitPrice": 10.50}
+     *   ]
      * }
      *
-     * @param id      入库单ID
-     * @param stockIn 入库单信息
-     * @param details 入库明细列表
-     * @return 入库单信息
+     * @param id  入库单ID
+     * @param dto 入库单信息（含明细列表 details）
+     * @return 更新后的入库单信息（successCount 为本次保存的明细条数）
      */
-// @PutMapping("/{id}/withDetails")
-    public StockIn updateStockInWithDetails(@PathVariable Long id,
-                                           @RequestBody StockIn stockIn,
-                                           @RequestParam(required = false) List<StockInDetail> details) {
-        stockIn.setInId(id);
-        stockInService.updateStockIn(stockIn, details);
-        return stockIn;
+    @PutMapping("/{id}/withDetails")
+    public ApiResponse<StockInWithDetailsDto> updateStockInWithDetails(@PathVariable Long id,
+                                                                       @RequestBody StockInWithDetailsDto dto) {
+        dto.setInId(id);
+        stockInService.updateStockIn(dto, dto.getDetails());
+        int count = dto.getDetails() == null ? 0 : dto.getDetails().size();
+        dto.setSuccessCount(count);
+        return success(dto, "入库单更新成功，共保存 " + count + " 条明细");
     }
 
     // endregion

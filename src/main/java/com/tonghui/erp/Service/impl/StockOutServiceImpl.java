@@ -116,30 +116,42 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
     // ===================================
 
     /**
-     * 新增出库单（含明细）
-     * <p>自动生成出库单号（如果未提供），同时保存主表和明细数据</p>
+     * 新增出库单（含明细）并直接生效出库
+     * <p>
+     * 自动生成出库单号（如果未提供），保存主表和明细数据后立即扣减库存批次并写入库存流水。
+     * 逐条校验库存是否充足，任一明细库存不足（如"xx库存不足"）即抛出异常，
+     * 整个事务回滚（单据、明细、库存均不落库），保证原子性
+     * </p>
      *
      * @param stockOut 出库单主表实体
-     * @param details  出库单明细列表，可为null
+     * @param details  出库单明细列表，不可为空（须携带stockId定位库存批次）
      */
     @Override
     @Transactional
     public void addStockOut(StockOut stockOut, List<StockOutDetail> details) {
+        // 校验明细不能为空（添加即出库，无明细无法联动库存）
+        if (details == null || details.isEmpty()) {
+            throw new RuntimeException("出库单没有明细，无法出库");
+        }
+
         // 自动生成出库单号（如果未提供）
         if (!StringUtils.hasText(stockOut.getOutCode())) {
             stockOut.setOutCode(sequenceService.generateStockOutCode());
         }
+        // 添加即生效：直接置为已出库状态，无需草稿确认流程
+        stockOut.setOutStatus("已出库");
 
         // 保存出库单主表
         stockOutMapper.insert(stockOut);
 
         // 保存明细表
-        if (details != null && !details.isEmpty()) {
-            for (StockOutDetail detail : details) {
-                detail.setOutId(stockOut.getOutId());
-                stockOutDetailMapper.insert(detail);
-            }
+        for (StockOutDetail detail : details) {
+            detail.setOutId(stockOut.getOutId());
+            stockOutDetailMapper.insert(detail);
         }
+
+        // 库存联动：逐条校验库存充足并扣减库存批次写流水（库存不足抛异常整体回滚）
+        stockService.applyOutbound(stockOut, details);
     }
 
     /**

@@ -206,7 +206,7 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
      * @param pageSize  每页大小
      * @return ApiResponse&lt;PagedResult&lt;StockOutWithDetailsDto&gt;&gt; 分页结果（包含明细）
      */
-// @GetMapping("/search-with-details")
+@GetMapping("/search-with-details")
     public ApiResponse<PagedResult<StockOutWithDetailsDto>> searchWithDetails(StockOut stockOut,
                                                                                @RequestParam(required = false) LocalDateTime createdTimeStart,
                                                                                @RequestParam(required = false) LocalDateTime createdTimeEnd,

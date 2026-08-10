@@ -21,4 +21,9 @@ public class StockOutWithDetailsDto extends StockOut {
      * 出库明细列表
      */
     private List<StockOutDetail> details;
+
+    /**
+     * 本次出库成功的明细条数（接口返回时填充）
+     */
+    private Integer successCount;
 }
