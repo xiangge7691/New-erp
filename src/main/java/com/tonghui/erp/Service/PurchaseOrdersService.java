@@ -86,11 +86,21 @@ public interface PurchaseOrdersService extends IService<PurchaseOrders> {
      *
      * @param purchaseOrders 查询条件
      * @param keyword        关键字（对采购编号、采购标题进行模糊匹配，可选）
+     * @param processingDateStart 处理开始日期（可选，格式：yyyy-MM-dd）
+     * @param processingDateEnd 处理结束日期（可选，格式：yyyy-MM-dd）
+     * @param desiredDeliveryDateStart 期望到货开始日期（可选，格式：yyyy-MM-dd）
+     * @param desiredDeliveryDateEnd 期望到货结束日期（可选，格式：yyyy-MM-dd）
+     * @param expectedDeliveryDateStart 预计到货开始日期（可选，格式：yyyy-MM-dd）
+     * @param expectedDeliveryDateEnd 预计到货结束日期（可选，格式：yyyy-MM-dd）
      * @param pageNum        页码
      * @param pageSize       每页大小
      * @return 分页结果
      */
-    Page<PurchaseOrders> queryPurchaseOrders(PurchaseOrders purchaseOrders, String keyword, int pageNum, int pageSize);
+    Page<PurchaseOrders> queryPurchaseOrders(PurchaseOrders purchaseOrders, String keyword, 
+            String processingDateStart, String processingDateEnd, 
+            String desiredDeliveryDateStart, String desiredDeliveryDateEnd,
+            String expectedDeliveryDateStart, String expectedDeliveryDateEnd,
+            int pageNum, int pageSize);
 
     // endregion
 
@@ -104,11 +114,21 @@ public interface PurchaseOrdersService extends IService<PurchaseOrders> {
      *
      * @param purchaseOrders 查询条件
      * @param keyword        关键字（对采购编号、采购标题进行模糊匹配，可选）
+     * @param processingDateStart 处理开始日期（可选，格式：yyyy-MM-dd）
+     * @param processingDateEnd 处理结束日期（可选，格式：yyyy-MM-dd）
+     * @param desiredDeliveryDateStart 期望到货开始日期（可选，格式：yyyy-MM-dd）
+     * @param desiredDeliveryDateEnd 期望到货结束日期（可选，格式：yyyy-MM-dd）
+     * @param expectedDeliveryDateStart 预计到货开始日期（可选，格式：yyyy-MM-dd）
+     * @param expectedDeliveryDateEnd 预计到货结束日期（可选，格式：yyyy-MM-dd）
      * @param pageNum        页码
      * @param pageSize       每页大小
      * @return 分页结果（包含明细）
      */
-    PagedResult<PurchaseOrdersWithItemsDto> searchWithDetails(PurchaseOrders purchaseOrders, String keyword, int pageNum, int pageSize);
+    PagedResult<PurchaseOrdersWithItemsDto> searchWithDetails(PurchaseOrders purchaseOrders, String keyword,
+            String processingDateStart, String processingDateEnd,
+            String desiredDeliveryDateStart, String desiredDeliveryDateEnd,
+            String expectedDeliveryDateStart, String expectedDeliveryDateEnd,
+            int pageNum, int pageSize);
 
     // endregion
 }

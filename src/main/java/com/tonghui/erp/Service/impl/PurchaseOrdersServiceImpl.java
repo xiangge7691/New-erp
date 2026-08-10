@@ -194,12 +194,22 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
      *
      * @param purchaseOrders 查询条件实体，非null字段将作为等值或模糊查询条件
      * @param keyword        关键字（对采购编号、采购标题进行模糊匹配，可选）
+     * @param processingDateStart 处理开始日期（可选，格式：yyyy-MM-dd）
+     * @param processingDateEnd 处理结束日期（可选，格式：yyyy-MM-dd）
+     * @param desiredDeliveryDateStart 期望到货开始日期（可选，格式：yyyy-MM-dd）
+     * @param desiredDeliveryDateEnd 期望到货结束日期（可选，格式：yyyy-MM-dd）
+     * @param expectedDeliveryDateStart 预计到货开始日期（可选，格式：yyyy-MM-dd）
+     * @param expectedDeliveryDateEnd 预计到货结束日期（可选，格式：yyyy-MM-dd）
      * @param pageNum        页码，从0开始
      * @param pageSize       每页数量
      * @return 采购订单分页结果
      */
     @Override
-    public Page<PurchaseOrders> queryPurchaseOrders(PurchaseOrders purchaseOrders, String keyword, int pageNum, int pageSize) {
+    public Page<PurchaseOrders> queryPurchaseOrders(PurchaseOrders purchaseOrders, String keyword,
+            String processingDateStart, String processingDateEnd,
+            String desiredDeliveryDateStart, String desiredDeliveryDateEnd,
+            String expectedDeliveryDateStart, String expectedDeliveryDateEnd,
+            int pageNum, int pageSize) {
         int actualPageNum = pageNum + 1;
 
         Page<PurchaseOrders> page = new Page<>(actualPageNum, pageSize);
@@ -221,15 +231,31 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
         if (purchaseOrders.getStatus() != null) {
             wrapper.eq("status", purchaseOrders.getStatus());
         }
-        if (purchaseOrders.getProcessingDate() != null) {
-            wrapper.ge("processing_date", purchaseOrders.getProcessingDate());
+        
+        // 处理日期范围查询
+        if (StringUtils.hasText(processingDateStart)) {
+            wrapper.ge("processing_date", processingDateStart);
         }
-        if (purchaseOrders.getDesiredDeliveryDate() != null) {
-            wrapper.le("desired_delivery_date", purchaseOrders.getDesiredDeliveryDate());
+        if (StringUtils.hasText(processingDateEnd)) {
+            wrapper.le("processing_date", processingDateEnd);
         }
-        if (purchaseOrders.getExpectedDeliveryDate() != null) {
-            wrapper.le("expected_delivery_date", purchaseOrders.getExpectedDeliveryDate());
+        
+        // 期望到货日期范围查询
+        if (StringUtils.hasText(desiredDeliveryDateStart)) {
+            wrapper.ge("desired_delivery_date", desiredDeliveryDateStart);
         }
+        if (StringUtils.hasText(desiredDeliveryDateEnd)) {
+            wrapper.le("desired_delivery_date", desiredDeliveryDateEnd);
+        }
+        
+        // 预计到货日期范围查询
+        if (StringUtils.hasText(expectedDeliveryDateStart)) {
+            wrapper.ge("expected_delivery_date", expectedDeliveryDateStart);
+        }
+        if (StringUtils.hasText(expectedDeliveryDateEnd)) {
+            wrapper.le("expected_delivery_date", expectedDeliveryDateEnd);
+        }
+        
         // 添加缺失的模糊查询字段
         if (StringUtils.hasText(purchaseOrders.getInvoiceInfo())) {
             wrapper.like("invoice_info", purchaseOrders.getInvoiceInfo());
@@ -273,14 +299,26 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
      *
      * @param purchaseOrders 查询条件实体
      * @param keyword        关键字（对采购编号、采购标题进行模糊匹配，可选）
+     * @param processingDateStart 处理开始日期（可选，格式：yyyy-MM-dd）
+     * @param processingDateEnd 处理结束日期（可选，格式：yyyy-MM-dd）
+     * @param desiredDeliveryDateStart 期望到货开始日期（可选，格式：yyyy-MM-dd）
+     * @param desiredDeliveryDateEnd 期望到货结束日期（可选，格式：yyyy-MM-dd）
+     * @param expectedDeliveryDateStart 预计到货开始日期（可选，格式：yyyy-MM-dd）
+     * @param expectedDeliveryDateEnd 预计到货结束日期（可选，格式：yyyy-MM-dd）
      * @param pageNum        页码，从0开始
      * @param pageSize       每页数量
      * @return 带子表关联数据的采购订单分页结果
      */
     @Override
-    public PagedResult<PurchaseOrdersWithItemsDto> searchWithDetails(PurchaseOrders purchaseOrders, String keyword, int pageNum, int pageSize) {
+    public PagedResult<PurchaseOrdersWithItemsDto> searchWithDetails(PurchaseOrders purchaseOrders, String keyword,
+            String processingDateStart, String processingDateEnd,
+            String desiredDeliveryDateStart, String desiredDeliveryDateEnd,
+            String expectedDeliveryDateStart, String expectedDeliveryDateEnd,
+            int pageNum, int pageSize) {
         // 查询采购订单主表分页数据
-        Page<PurchaseOrders> parentPage = queryPurchaseOrders(purchaseOrders, keyword, pageNum, pageSize);
+        Page<PurchaseOrders> parentPage = queryPurchaseOrders(purchaseOrders, keyword, 
+                processingDateStart, processingDateEnd, desiredDeliveryDateStart, desiredDeliveryDateEnd,
+                expectedDeliveryDateStart, expectedDeliveryDateEnd, pageNum, pageSize);
         List<PurchaseOrders> parents = parentPage.getRecords();
 
         PagedResult<PurchaseOrdersWithItemsDto> result = new PagedResult<>();
