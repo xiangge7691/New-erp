@@ -51,6 +51,7 @@ import java.util.Set;
  * │ 8  │ /api/file-manager/download   │ GET    │ 下载文件         │
  * │ 9  │ /api/file-manager/preview    │ GET    │ 预览文件         │
  * │ 10 │ /api/file-manager/search     │ GET    │ 搜索文件         │
+ * │ 11 │ /api/file-manager/export-folder │ GET │ 导出文件夹（ZIP） │
  * └────┴──────────────────────────────┴────────┴──────────────────┘
  *
  * root 参数说明：
@@ -399,6 +400,54 @@ public class FileManagerController extends BaseController {
         } catch (IOException e) {
             return ResponseEntity.internalServerError().build();
         }
+    }
+
+    /**
+     * 导出文件夹（打包为 ZIP 下载）
+     * <p>
+     * 递归打包整个文件夹（保留目录层级结构，文件名还原为原始文件名），返回 ZIP 文件流
+     * </p>
+     *
+     * 示例请求：
+     * GET /api/file-manager/export-folder?path=文档&root=custom
+     * GET /api/file-manager/export-folder?root=custom
+     *
+     * @param path 文件夹相对路径（为空或 "/" 时导出整个根目录）
+     * @param root 根目录类型："business"（业务文件）或 "custom"（自定义文件，默认）
+     * @return ZIP 文件流（文件名：{文件夹名}.zip）
+     */
+    @GetMapping("/export-folder")
+    public ResponseEntity<Resource> exportFolder(
+            @RequestParam(required = false, defaultValue = "") String path,
+            @RequestParam(defaultValue = "custom") String root) {
+        try {
+            byte[] zipBytes = fileManagerService.exportFolder(path, root);
+            String folderName = getExportFolderName(path);
+            String filename = folderName + ".zip";
+            InputStreamResource resource = new InputStreamResource(new ByteArrayInputStream(zipBytes));
+            String encodedFilename = URLEncoder.encode(filename, StandardCharsets.UTF_8);
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + encodedFilename)
+                    .body(resource);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    /**
+     * 计算导出 ZIP 的文件名（根目录导出时使用 root）
+     *
+     * @param path 文件夹相对路径
+     * @return 文件夹名称
+     */
+    private String getExportFolderName(String path) {
+        if (!StringUtils.hasText(path) || "/".equals(path.trim())) {
+            return "root";
+        }
+        String trimmed = path.trim();
+        String name = trimmed.substring(trimmed.lastIndexOf('/') + 1);
+        return name.isEmpty() ? "root" : name;
     }
 
     /**
