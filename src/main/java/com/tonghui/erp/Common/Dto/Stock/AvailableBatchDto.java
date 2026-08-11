@@ -44,6 +44,11 @@ public class AvailableBatchDto {
     private BigDecimal unitPrice;
 
     /**
+     * 金额（应出数量×该批次单价）
+     */
+    private BigDecimal amount;
+
+    /**
      * 库存状态
      */
     private String stockStatus;

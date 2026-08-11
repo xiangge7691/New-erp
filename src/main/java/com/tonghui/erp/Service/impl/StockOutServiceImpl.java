@@ -586,7 +586,6 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         if (!StringUtils.hasText(planCode)) {
             throw new RuntimeException("生产计划编号不能为空");
         }
-        BigDecimal times = multiplier != null ? multiplier : BigDecimal.ONE;
 
         // 查询生产计划，获取关联制剂
         QueryWrapper<ProductionPlan> planWrapper = new QueryWrapper<>();
@@ -596,24 +595,70 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
             throw new RuntimeException("生产计划不存在: " + planCode);
         }
 
+        // 按制剂ID组装处方明细与可用库存批次
+        return buildPreparationDetailItems(plan.getPreparationId(), multiplier);
+    }
+
+    /**
+     * 根据制剂ID获取批量出库处方明细
+     * <p>
+     * 按制剂ID取制剂处方明细，计算每个物料应出数量（处方量×生产倍数），
+     * 并匹配合格的可用库存批次（FIFO排序），批次携带单价与金额（应出数量×单价）
+     * </p>
+     *
+     * @param preparationId 制剂ID（必填）
+     * @param multiplier    生产倍数（可为空，默认1倍）
+     * @return 处方明细列表（含序号、可用库存批次、单价、金额、库存状态）
+     */
+    @Override
+    public List<PlanDetailItemDto> getPreparationDetail(Long preparationId, BigDecimal multiplier) {
+        if (preparationId == null) {
+            throw new RuntimeException("制剂ID不能为空");
+        }
+        return buildPreparationDetailItems(preparationId, multiplier);
+    }
+
+    /**
+     * 组装制剂处方明细与可用库存批次（按制剂ID）
+     * <p>
+     * 查询制剂处方明细，计算每个物料应出数量（处方量×生产倍数），
+     * 并匹配合格的可用库存批次（FIFO排序），批次携带单价与金额（应出数量×单价），
+     * 同时为每个物料填充序号（从1开始）
+     * </p>
+     *
+     * @param preparationId 制剂ID
+     * @param multiplier    生产倍数（可为空，默认1倍）
+     * @return 处方明细列表
+     */
+    private List<PlanDetailItemDto> buildPreparationDetailItems(Long preparationId, BigDecimal multiplier) {
+        BigDecimal times = multiplier != null ? multiplier : BigDecimal.ONE;
+
         // 查询制剂处方明细
         QueryWrapper<PreparationFormula> formulaWrapper = new QueryWrapper<>();
-        formulaWrapper.eq("preparation_id", plan.getPreparationId());
+        formulaWrapper.eq("preparation_id", preparationId);
         List<PreparationFormula> formulas = preparationFormulaMapper.selectList(formulaWrapper);
+        if (formulas == null || formulas.isEmpty()) {
+            throw new RuntimeException("该制剂没有处方明细: " + preparationId);
+        }
 
-        // 组装处方明细与可用库存批次
-        return formulas.stream().map(formula -> {
+        // 组装处方明细与可用库存批次（带序号与金额）
+        List<PlanDetailItemDto> items = new ArrayList<>();
+        int index = 1;
+        for (PreparationFormula formula : formulas) {
             PlanDetailItemDto item = new PlanDetailItemDto();
+            item.setIndex(index++);
             item.setMaterialCode(formula.getMaterialCode());
             item.setMaterialName(formula.getMaterialName());
             item.setMaterialCategory(formula.getMaterialCategory());
             item.setUnitName(formula.getUnitName());
             item.setDosage(formula.getDosage());
-            item.setRequiredQty(formula.getDosage() != null
-                    ? formula.getDosage().multiply(times) : BigDecimal.ZERO);
-            item.setAvailableBatches(findAvailableBatches(formula.getMaterialCode()));
-            return item;
-        }).collect(Collectors.toList());
+            BigDecimal requiredQty = formula.getDosage() != null
+                    ? formula.getDosage().multiply(times) : BigDecimal.ZERO;
+            item.setRequiredQty(requiredQty);
+            item.setAvailableBatches(findAvailableBatches(formula.getMaterialCode(), requiredQty));
+            items.add(item);
+        }
+        return items;
     }
 
     /**
@@ -682,9 +727,10 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
      * 查询某物料的合格可用库存批次（FIFO排序，按入库时间升序）
      *
      * @param materialCode 物料编码
-     * @return 可用库存批次列表
+     * @param requiredQty  应出数量（用于计算批次金额：应出数量×单价）
+     * @return 可用库存批次列表（含单价与金额）
      */
-    private List<AvailableBatchDto> findAvailableBatches(String materialCode) {
+    private List<AvailableBatchDto> findAvailableBatches(String materialCode, BigDecimal requiredQty) {
         QueryWrapper<Stock> wrapper = new QueryWrapper<>();
         wrapper.eq("item_code", materialCode);
         wrapper.eq("stock_status", "合格");
@@ -712,6 +758,8 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
             batch.setWarehouseName(unitNames.getOrDefault(s.getProdUnitId(), ""));
             batch.setQuantity(s.getQuantity());
             batch.setUnitPrice(s.getUnitPrice());
+            batch.setAmount(s.getUnitPrice() != null && requiredQty != null
+                    ? requiredQty.multiply(s.getUnitPrice()) : null);
             batch.setStockStatus(s.getStockStatus() != null ? String.valueOf(s.getStockStatus()) : null);
             return batch;
         }).collect(Collectors.toList());

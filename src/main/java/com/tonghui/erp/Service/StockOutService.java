@@ -224,6 +224,19 @@ public interface StockOutService extends IService<StockOut> {
     List<PlanDetailItemDto> getPlanDetail(String planCode, BigDecimal multiplier);
 
     /**
+     * 根据制剂ID获取批量出库处方明细
+     * <p>
+     * 按制剂ID取制剂处方明细，计算每个物料应出数量（处方量×生产倍数），
+     * 并匹配合格的可用库存批次（FIFO排序），批次中携带单价与金额（应出数量×单价）
+     * </p>
+     *
+     * @param preparationId 制剂ID（必填）
+     * @param multiplier    生产倍数（可为空，默认1倍）
+     * @return 处方明细列表（含序号、可用库存批次、单价、金额、库存状态）
+     */
+    List<PlanDetailItemDto> getPreparationDetail(Long preparationId, BigDecimal multiplier);
+
+    /**
      * 批量出库确认：一次事务内创建出库单并确认生效
      * <p>
      * 创建出库单（自动生成单号）及明细，随后扣减对应库存批次并写入库存流水，

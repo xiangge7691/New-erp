@@ -59,6 +59,18 @@ public class StockOut extends AuditEntity {
     @TableField(value = "related_order")
     private String relatedOrder;
 
+    /**
+     * 关联生产计划ID（production_plan.id）
+     */
+    @TableField(value = "plan_id")
+    private Long planId;
+
+    /**
+     * 关联生产计划编号（production_plan.plan_number）
+     */
+    @TableField(value = "plan_number")
+    private String planNumber;
+
     // endregion
 
     // region 业务字段

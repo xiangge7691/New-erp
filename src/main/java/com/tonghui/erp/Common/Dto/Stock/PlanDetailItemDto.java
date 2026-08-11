@@ -15,6 +15,11 @@ import java.util.List;
 public class PlanDetailItemDto {
 
     /**
+     * 序号（返回时按处方顺序填充，从1开始）
+     */
+    private Integer index;
+
+    /**
      * 物料编码
      */
     private String materialCode;

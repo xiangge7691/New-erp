@@ -14,6 +14,7 @@ import com.tonghui.erp.Data.Entity.StockOutDetail;
 import com.tonghui.erp.Service.StockInService;
 import com.tonghui.erp.Service.StockOutService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -42,10 +43,12 @@ import java.util.List;
  * │ 9  │ /api/stockout/{id}/withDetails   │ PUT    │ 更新出库单（包含明细）           │
  * │ 10 │ /api/stockout/{id}/details       │ GET    │ 获取出库明细列表                 │
  * │ 11 │ /api/stockout/detail             │ POST   │ 添加出库明细                     │
- * │ 12 │ /api/stockout/details            │ POST   │ 批量添加出库明细                 │
+* │ 12 │ /api/stockout/details            │ POST   │ 批量添加出库明细                     │
  * │ 13 │ /api/stockout/detail             │ PUT    │ 更新出库明细                     │
  * │ 14 │ /api/stockout/detail/{id}        │ DELETE │ 删除出库明细                     │
  * │ 15 │ /api/stockout/generateCode       │ GET    │ 生成出库单号                     │
+ * │ 16 │ /api/stockout/preparation-detail │ GET    │ 按制剂ID查处方明细（含物料库存批次）  │
+ * │ 17 │ /api/stockout/direct-outbound    │ POST   │ 表单+明细直接批量出库（无需确认）     │
  * └────┴──────────────────────────────────┴────────┴──────────────────────────────────┘
  */
 @RestController
@@ -395,6 +398,91 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
             return success(stockOut, "批量出库完成，出库单号: " + stockOut.getOutCode());
         } catch (Exception e) {
             return exception(e, "批量出库");
+        }
+    }
+
+    // endregion
+
+    // region 按制剂查处方出库明细与直接批量出库
+    // ===================================
+    // 按制剂查处方出库明细与直接批量出库
+    // ===================================
+
+    /**
+     * 按制剂ID查询处方信息明细（含物料库存批次明细）
+     * <p>
+     * 根据制剂ID查询其处方明细（物料编码、品名、分类、单位、标准处方、应出数量），
+     * 并带出每个物料可出库的合格库存批次明细（出库批次、可用库存、单价、金额、库存状态，FIFO排序）
+     * </p>
+     *
+     * 示例请求：
+     * GET /api/stockout/preparation-detail?preparationId=1&multiplier=1
+     *
+     * @param preparationId 制剂ID（必填）
+     * @param multiplier    生产倍数（选填，默认1倍，应出数量=标准处方×倍数）
+     * @return ApiResponse&lt;List&lt;PlanDetailItemDto&gt;&gt; 处方明细列表（含序号、可用库存批次、单价、金额、库存状态）
+     */
+    @GetMapping("/preparation-detail")
+    public ApiResponse<List<PlanDetailItemDto>> getPreparationDetail(
+            @RequestParam Long preparationId,
+            @RequestParam(required = false) BigDecimal multiplier) {
+        try {
+            List<PlanDetailItemDto> items = stockOutService.getPreparationDetail(preparationId, multiplier);
+            return success(items);
+        } catch (Exception e) {
+            return exception(e, "按制剂查处方出库明细");
+        }
+    }
+
+    /**
+     * 表单+物料明细形式直接批量出库（无需确认，直接扣减库存）
+     * <p>
+     * 请求体为出库单主表单（可携带 planId/planNumber 记录关联生产计划）+ 物料明细列表，
+     * 一次事务内自动生成出库单号、保存主表与明细，并直接联动扣减库存批次、写入库存流水，
+     * 任一明细库存不足时整体回滚（单据、明细、库存均不落库）
+     * </p>
+     *
+     * 示例请求：
+     * POST /api/stockout/direct-outbound
+     * Content-Type: application/json
+     * {
+     *   "outType": "生产领料出库",
+     *   "planId": 3,
+     *   "planNumber": "Plan20260710001",
+     *   "prodUnitId": 1,
+     *   "outDate": "2026-08-11",
+     *   "remark": "按制剂处方直接批量出库",
+     *   "details": [
+     *     { "stockId": 12, "itemCode": "Y0084", "itemName": "甘草", "categoryName": "原料",
+     *       "unitName": "kg", "batchNumber": "HG20260723", "quantity": 0.42, "unitPrice": 30 },
+     *     { "stockId": 15, "itemCode": "Y0085", "itemName": "黄芪", "categoryName": "原料",
+     *       "unitName": "kg", "batchNumber": "HQ20260720", "quantity": 1.0, "unitPrice": 45 }
+     *   ]
+     * }
+     *
+     * @param request 出库单主表单+物料明细列表（明细须携带 stockId 定位库存批次）
+     * @return ApiResponse&lt;StockOutWithDetailsDto&gt; 直接出库后的出库单（含明细与成功条数）
+     */
+    @PostMapping("/direct-outbound")
+    public ApiResponse<StockOutWithDetailsDto> directOutbound(@RequestBody StockOutWithDetailsDto request) {
+        try {
+            // 校验出库类型与明细
+            if (!StringUtils.hasText(request.getOutType())) {
+                throw new RuntimeException("出库类型不能为空");
+            }
+            if (request.getDetails() == null || request.getDetails().isEmpty()) {
+                throw new RuntimeException("出库明细不能为空");
+            }
+            // 单号为空时自动生成
+            if (!StringUtils.hasText(request.getOutCode())) {
+                request.setOutCode(stockOutService.generateStockOutCode());
+            }
+            // 直接出库：保存主表+明细并联动扣减库存写流水（无需确认）
+            stockOutService.addStockOut(request, request.getDetails());
+            request.setSuccessCount(request.getDetails().size());
+            return success(request, "批量出库完成，出库单号: " + request.getOutCode());
+        } catch (Exception e) {
+            return exception(e, "直接批量出库");
         }
     }
 
