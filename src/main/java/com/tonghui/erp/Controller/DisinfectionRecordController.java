@@ -284,20 +284,25 @@ public class DisinfectionRecordController extends BaseController {
      *   "remark": "已更新消毒方式"
      * }
      *
-     * @param roomId 房间ID（必填）
+     * @param roomId 房间ID（可选，当请求体未携带roomId时作为兜底，用于修改房间）
      * @param id     记录ID（路径参数）
      * @param record 更新的消毒记录信息
      * @return ApiResponse&lt;DisinfectionRecord&gt; 修改后的消毒记录
      */
     @PutMapping("/{id}")
     public ApiResponse<DisinfectionRecord> update(
-            @RequestParam Integer roomId,
+            @RequestParam(required = false) Integer roomId,
             @PathVariable Long id,
             @RequestBody DisinfectionRecord record) {
         try {
             DisinfectionRecord existing = disinfectionRecordService.getById(id);
-            if (existing == null || !existing.getRoomId().equals(roomId)) {
+            if (existing == null) {
                 return error("记录不存在");
+            }
+            // 房间ID优先取请求体，其次取URL参数：兼容两种传参方式，并允许修改房间
+            Integer targetRoomId = record.getRoomId() != null ? record.getRoomId() : roomId;
+            if (targetRoomId != null) {
+                record.setRoomId(targetRoomId);
             }
             record.setId(id);
             record.setUpdatedTime(LocalDateTime.now());
@@ -314,17 +319,17 @@ public class DisinfectionRecordController extends BaseController {
      * 示例请求：
      * DELETE /api/disinfectionRecord/10?roomId=1
      *
-     * @param roomId 房间ID（必填）
+     * @param roomId 房间ID（可选，兼容旧传参）
      * @param id     记录ID（路径参数）
      * @return ApiResponse&lt;Void&gt; 删除结果
      */
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(
-            @RequestParam Integer roomId,
+            @RequestParam(required = false) Integer roomId,
             @PathVariable Long id) {
         try {
             DisinfectionRecord existing = disinfectionRecordService.getById(id);
-            if (existing == null || !existing.getRoomId().equals(roomId)) {
+            if (existing == null) {
                 return error("记录不存在");
             }
             disinfectionRecordService.removeById(id);

@@ -228,20 +228,25 @@ public class PressureDifferenceRecordController extends BaseController {
      *   "remark": "压差略有升高"
      * }
      *
-     * @param roomId 房间ID（必填）
+     * @param roomId 房间ID（可选，当请求体未携带roomId时作为兜底，用于修改房间）
      * @param id     记录ID（路径参数）
      * @param record 更新的压差记录信息
      * @return ApiResponse&lt;PressureDifferenceRecord&gt; 修改后的压差记录
      */
     @PutMapping("/{id}")
     public ApiResponse<PressureDifferenceRecord> update(
-            @RequestParam Integer roomId,
+            @RequestParam(required = false) Integer roomId,
             @PathVariable Long id,
             @RequestBody PressureDifferenceRecord record) {
         try {
             PressureDifferenceRecord existing = pressureDifferenceRecordService.getById(id);
-            if (existing == null || !existing.getRoomId().equals(roomId)) {
+            if (existing == null) {
                 return error("记录不存在");
+            }
+            // 房间ID优先取请求体，其次取URL参数：兼容两种传参方式，并允许修改房间
+            Integer targetRoomId = record.getRoomId() != null ? record.getRoomId() : roomId;
+            if (targetRoomId != null) {
+                record.setRoomId(targetRoomId);
             }
             record.setId(id);
             pressureDifferenceRecordService.updateById(record);
@@ -257,17 +262,17 @@ public class PressureDifferenceRecordController extends BaseController {
      * 示例请求：
      * DELETE /api/pressureDifferenceRecord/10?roomId=1
      *
-     * @param roomId 房间ID（必填）
+     * @param roomId 房间ID（可选，兼容旧传参）
      * @param id     记录ID（路径参数）
      * @return ApiResponse&lt;Void&gt; 删除结果
      */
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(
-            @RequestParam Integer roomId,
+            @RequestParam(required = false) Integer roomId,
             @PathVariable Long id) {
         try {
             PressureDifferenceRecord existing = pressureDifferenceRecordService.getById(id);
-            if (existing == null || !existing.getRoomId().equals(roomId)) {
+            if (existing == null) {
                 return error("记录不存在");
             }
             pressureDifferenceRecordService.removeById(id);
