@@ -30,6 +30,8 @@ public interface ProductionPlanService extends IService<ProductionPlan> {
      * @param productionStartTimeEnd 生产开始时间结束
      * @param productionEndTimeStart 生产结束时间起始
      * @param productionEndTimeEnd 生产结束时间结束
+     * @param planProductionTimeStart 计划生产时间起始
+     * @param planProductionTimeEnd 计划生产时间结束
      * @param inspectionStartTimeStart 检验开始时间起始
      * @param inspectionStartTimeEnd 检验开始时间结束
      * @param inspectionEndTimeStart 检验结束时间起始
@@ -48,6 +50,7 @@ public interface ProductionPlanService extends IService<ProductionPlan> {
                                              LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
                                              LocalDateTime productionStartTimeStart, LocalDateTime productionStartTimeEnd,
                                              LocalDateTime productionEndTimeStart, LocalDateTime productionEndTimeEnd,
+                                             LocalDateTime planProductionTimeStart, LocalDateTime planProductionTimeEnd,
                                              LocalDateTime inspectionStartTimeStart, LocalDateTime inspectionStartTimeEnd,
                                              LocalDateTime inspectionEndTimeStart, LocalDateTime inspectionEndTimeEnd,
                                              LocalDateTime outboundTimeStart, LocalDateTime outboundTimeEnd,
@@ -84,6 +87,8 @@ public interface ProductionPlanService extends IService<ProductionPlan> {
      * @param productionStartTimeEnd 生产开始时间结束
      * @param productionEndTimeStart 生产结束时间起始
      * @param productionEndTimeEnd 生产结束时间结束
+     * @param planProductionTimeStart 计划生产时间起始
+     * @param planProductionTimeEnd 计划生产时间结束
      * @param inspectionStartTimeStart 检验开始时间起始
      * @param inspectionStartTimeEnd 检验开始时间结束
      * @param inspectionEndTimeStart 检验结束时间起始
@@ -102,6 +107,7 @@ public interface ProductionPlanService extends IService<ProductionPlan> {
                                                                 LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
                                                                 LocalDateTime productionStartTimeStart, LocalDateTime productionStartTimeEnd,
                                                                 LocalDateTime productionEndTimeStart, LocalDateTime productionEndTimeEnd,
+                                                                LocalDateTime planProductionTimeStart, LocalDateTime planProductionTimeEnd,
                                                                 LocalDateTime inspectionStartTimeStart, LocalDateTime inspectionStartTimeEnd,
                                                                 LocalDateTime inspectionEndTimeStart, LocalDateTime inspectionEndTimeEnd,
                                                                 LocalDateTime outboundTimeStart, LocalDateTime outboundTimeEnd,

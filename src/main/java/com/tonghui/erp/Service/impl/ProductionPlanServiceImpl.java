@@ -70,6 +70,8 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
      * @param productionStartTimeEnd    生产开始时间结束值（含）
      * @param productionEndTimeStart    生产结束时间起始值（含）
      * @param productionEndTimeEnd      生产结束时间结束值（含）
+     * @param planProductionTimeStart   计划生产时间起始值（含）
+     * @param planProductionTimeEnd     计划生产时间结束值（含）
      * @param inspectionStartTimeStart  检验开始时间起始值（含）
      * @param inspectionStartTimeEnd    检验开始时间结束值（含）
      * @param inspectionEndTimeStart    检验结束时间起始值（含）
@@ -92,6 +94,7 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
                                                      LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
                                                      LocalDateTime productionStartTimeStart, LocalDateTime productionStartTimeEnd,
                                                      LocalDateTime productionEndTimeStart, LocalDateTime productionEndTimeEnd,
+                                                     LocalDateTime planProductionTimeStart, LocalDateTime planProductionTimeEnd,
                                                      LocalDateTime inspectionStartTimeStart, LocalDateTime inspectionStartTimeEnd,
                                                      LocalDateTime inspectionEndTimeStart, LocalDateTime inspectionEndTimeEnd,
                                                      LocalDateTime outboundTimeStart, LocalDateTime outboundTimeEnd,
@@ -113,6 +116,10 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
         }
         if (StringUtils.hasText(productionPlan.getPlanNumber())) {
             wrapper.like("plan_number", productionPlan.getPlanNumber());
+        }
+        if (StringUtils.hasText(productionPlan.getPlanName())) {
+            // 按计划名称（关联计划名称）模糊匹配
+            wrapper.like("plan_name", productionPlan.getPlanName());
         }
         if (StringUtils.hasText(productionPlan.getRelatedOrder())) {
             wrapper.like("related_order", productionPlan.getRelatedOrder());
@@ -163,6 +170,14 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
             wrapper.le("production_end_time", productionEndTimeEnd);
         }
 
+        // 计划生产时间范围查询
+        if (planProductionTimeStart != null) {
+            wrapper.ge("plan_production_time", planProductionTimeStart);
+        }
+        if (planProductionTimeEnd != null) {
+            wrapper.le("plan_production_time", planProductionTimeEnd);
+        }
+
         // 检验开始时间范围查询
         if (inspectionStartTimeStart != null) {
             wrapper.ge("inspection_start_time", inspectionStartTimeStart);
@@ -202,6 +217,7 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
                 case "UPDATED_TIME" -> "updated_time";
                 case "PRODUCTION_START_TIME" -> "production_start_time";
                 case "PRODUCTION_END_TIME" -> "production_end_time";
+                case "PLAN_PRODUCTION_TIME" -> "plan_production_time";
                 case "INSPECTION_START_TIME" -> "inspection_start_time";
                 case "INSPECTION_END_TIME" -> "inspection_end_time";
                 case "OUTBOUND_TIME" -> "outbound_time";
@@ -241,6 +257,8 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
      * @param productionStartTimeEnd    生产开始时间结束值（含）
      * @param productionEndTimeStart    生产结束时间起始值（含）
      * @param productionEndTimeEnd      生产结束时间结束值（含）
+     * @param planProductionTimeStart   计划生产时间起始值（含）
+     * @param planProductionTimeEnd     计划生产时间结束值（含）
      * @param inspectionStartTimeStart  检验开始时间起始值（含）
      * @param inspectionStartTimeEnd    检验开始时间结束值（含）
      * @param inspectionEndTimeStart    检验结束时间起始值（含）
@@ -263,6 +281,7 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
                                                                        LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
                                                                        LocalDateTime productionStartTimeStart, LocalDateTime productionStartTimeEnd,
                                                                        LocalDateTime productionEndTimeStart, LocalDateTime productionEndTimeEnd,
+                                                                       LocalDateTime planProductionTimeStart, LocalDateTime planProductionTimeEnd,
                                                                        LocalDateTime inspectionStartTimeStart, LocalDateTime inspectionStartTimeEnd,
                                                                        LocalDateTime inspectionEndTimeStart, LocalDateTime inspectionEndTimeEnd,
                                                                        LocalDateTime outboundTimeStart, LocalDateTime outboundTimeEnd,
@@ -272,6 +291,7 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
         // 查询生产计划主表分页数据
         Page<ProductionPlan> parentPage = queryProductionPlans(productionPlan, keyword, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd,
                 productionStartTimeStart, productionStartTimeEnd, productionEndTimeStart, productionEndTimeEnd,
+                planProductionTimeStart, planProductionTimeEnd,
                 inspectionStartTimeStart, inspectionStartTimeEnd, inspectionEndTimeStart, inspectionEndTimeEnd,
                 outboundTimeStart, outboundTimeEnd, archiveTimeStart, archiveTimeEnd, timeFieldType, timeStart, timeEnd, pageNum, pageSize);
         List<ProductionPlan> parents = parentPage.getRecords();

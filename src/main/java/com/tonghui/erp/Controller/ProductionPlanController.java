@@ -60,8 +60,8 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
 
         ProductionPlan productionPlan = new ProductionPlan();
         Page<ProductionPlan> pageResult = productionPlanService.queryProductionPlans(productionPlan,
-                null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null,
                 safePageIndex, safePageSize);
 
         PagedResult<ProductionPlan> pagedResult = new PagedResult<>();
@@ -158,7 +158,7 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
      * 高级查询生产计划（支持多条件 + 分页）
      *
      * 示例请求：
-     * GET /api/production-plans/search?pageIndex=1&pageSize=20&planNumber=PP2025&currentStatus=active&createdTimeStart=2025-01-01T00:00:00&createdTimeEnd=2025-12-31T23:59:59
+     * GET /api/production-plans/search?pageIndex=1&pageSize=20&planNumber=PP2025&planName=xxx&currentStatus=active&createdTimeStart=2025-01-01T00:00:00&createdTimeEnd=2025-12-31T23:59:59&planProductionTimeStart=2025-01-01T00:00:00&planProductionTimeEnd=2025-12-31T23:59:59
      *
      * @param productionPlan 查询条件（自动从query参数映射）
      * @param createdTimeStart 创建时间起始
@@ -169,6 +169,8 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
      * @param productionStartTimeEnd 生产开始时间结束
      * @param productionEndTimeStart 生产结束时间起始
      * @param productionEndTimeEnd 生产结束时间结束
+     * @param planProductionTimeStart 计划生产时间起始
+     * @param planProductionTimeEnd 计划生产时间结束
      * @param inspectionStartTimeStart 检验开始时间起始
      * @param inspectionStartTimeEnd 检验开始时间结束
      * @param inspectionEndTimeStart 检验结束时间起始
@@ -194,6 +196,8 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
                                                                          @RequestParam(required = false) LocalDateTime productionStartTimeEnd,
                                                                          @RequestParam(required = false) LocalDateTime productionEndTimeStart,
                                                                          @RequestParam(required = false) LocalDateTime productionEndTimeEnd,
+                                                                         @RequestParam(required = false) LocalDateTime planProductionTimeStart,
+                                                                         @RequestParam(required = false) LocalDateTime planProductionTimeEnd,
                                                                          @RequestParam(required = false) LocalDateTime inspectionStartTimeStart,
                                                                          @RequestParam(required = false) LocalDateTime inspectionStartTimeEnd,
                                                                          @RequestParam(required = false) LocalDateTime inspectionEndTimeStart,
@@ -218,6 +222,7 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
                     null,
                     createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd,
                     productionStartTimeStart, productionStartTimeEnd, productionEndTimeStart, productionEndTimeEnd,
+                    planProductionTimeStart, planProductionTimeEnd,
                     inspectionStartTimeStart, inspectionStartTimeEnd, inspectionEndTimeStart, inspectionEndTimeEnd,
                     outboundTimeStart, outboundTimeEnd, archiveTimeStart, archiveTimeEnd,
                     timeFieldType, timeStart, timeEnd,
@@ -260,6 +265,8 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
      * @param productionStartTimeEnd 生产开始时间结束
      * @param productionEndTimeStart 生产结束时间起始
      * @param productionEndTimeEnd 生产结束时间结束
+     * @param planProductionTimeStart 计划生产时间起始
+     * @param planProductionTimeEnd 计划生产时间结束
      * @param inspectionStartTimeStart 检验开始时间起始
      * @param inspectionStartTimeEnd 检验开始时间结束
      * @param inspectionEndTimeStart 检验结束时间起始
@@ -286,6 +293,8 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
                                                                                      @RequestParam(required = false) LocalDateTime productionStartTimeEnd,
                                                                                      @RequestParam(required = false) LocalDateTime productionEndTimeStart,
                                                                                      @RequestParam(required = false) LocalDateTime productionEndTimeEnd,
+                                                                                     @RequestParam(required = false) LocalDateTime planProductionTimeStart,
+                                                                                     @RequestParam(required = false) LocalDateTime planProductionTimeEnd,
                                                                                      @RequestParam(required = false) LocalDateTime inspectionStartTimeStart,
                                                                                      @RequestParam(required = false) LocalDateTime inspectionStartTimeEnd,
                                                                                      @RequestParam(required = false) LocalDateTime inspectionEndTimeStart,
@@ -306,6 +315,7 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
                     keyword,
                     createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd,
                     productionStartTimeStart, productionStartTimeEnd, productionEndTimeStart, productionEndTimeEnd,
+                    planProductionTimeStart, planProductionTimeEnd,
                     inspectionStartTimeStart, inspectionStartTimeEnd, inspectionEndTimeStart, inspectionEndTimeEnd,
                     outboundTimeStart, outboundTimeEnd, archiveTimeStart, archiveTimeEnd,
                     timeFieldType, timeStart, timeEnd,
