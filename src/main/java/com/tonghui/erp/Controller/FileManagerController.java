@@ -16,13 +16,20 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Set;
 
@@ -275,10 +282,14 @@ public class FileManagerController extends BaseController {
     /**
      * 查询文件操作日志
      *
-     * 示例请求：GET /api/file-manager/operation-log?operationType=UPLOAD&pageIndex=0&pageSize=20
+     * 示例请求：
+     * GET /api/file-manager/operation-log?operationType=UPLOAD&pageIndex=0&pageSize=20
+     * GET /api/file-manager/operation-log?startTime=2026-01-01&endTime=2026-06-30 12:59:59&userId=1&pageIndex=0&pageSize=20
      *
      * @param operationType 操作类型（可选）：UPLOAD/DOWNLOAD/PREVIEW/CREATE_FOLDER/DELETE/RESTORE/RENAME/MOVE/COPY
      * @param userId        操作人ID（可选）
+     * @param startTime     操作时间起始（可选，格式：yyyy-MM-dd 或 yyyy-MM-dd HH:mm:ss，含边界）
+     * @param endTime       操作时间截止（可选，格式：yyyy-MM-dd 或 yyyy-MM-dd HH:mm:ss，含边界）
      * @param pageIndex     页码
      * @param pageSize      每页大小
      * @return 操作日志列表
@@ -287,14 +298,47 @@ public class FileManagerController extends BaseController {
     public ApiResponse<Page<FileOperationLog>> queryOperationLog(
             @RequestParam(required = false) String operationType,
             @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) String startTime,
+            @RequestParam(required = false) String endTime,
             @RequestParam(defaultValue = "0") int pageIndex,
             @RequestParam(defaultValue = "20") int pageSize) {
         try {
-            Page<FileOperationLog> result = fileOperationLogService.queryLogs(operationType, userId, pageIndex, pageSize);
+            Page<FileOperationLog> result = fileOperationLogService.queryLogs(
+                    operationType, userId, parseTimeParam(startTime, true), parseTimeParam(endTime, false), pageIndex, pageSize);
             return success(result);
         } catch (Exception e) {
             return exception(e, "查询操作日志");
         }
+    }
+
+    /**
+     * 解析时间范围参数
+     * <p>
+     * 支持 yyyy-MM-dd（起始日 00:00:00，截止日 23:59:59.999）与 yyyy-MM-dd HH:mm:ss 两种格式
+     * 格式错误或无内容时返回 null（不参与筛选）
+     * </p>
+     *
+     * @param timeStr 时间字符串（可为空）
+     * @param isStart 是否为起始时间（true=起始，false=截止）
+     * @return 解析后的 LocalDateTime，解析失败或无内容返回 null
+     */
+    private LocalDateTime parseTimeParam(String timeStr, boolean isStart) {
+        if (!StringUtils.hasText(timeStr)) {
+            return null;
+        }
+        String trimmed = timeStr.trim();
+        // 完整时间格式：yyyy-MM-dd HH:mm:ss
+        try {
+            return LocalDateTime.parse(trimmed, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        } catch (DateTimeParseException ignored) {
+        }
+        // 仅日期格式：yyyy-MM-dd
+        try {
+            LocalDate date = LocalDate.parse(trimmed, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            return isStart ? date.atStartOfDay() : date.atTime(LocalTime.MAX);
+        } catch (DateTimeParseException ignored) {
+        }
+        return null;
     }
 
     // endregion

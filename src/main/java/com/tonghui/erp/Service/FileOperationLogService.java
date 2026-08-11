@@ -3,6 +3,8 @@ package com.tonghui.erp.Service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Data.Entity.FileOperationLog;
 
+import java.time.LocalDateTime;
+
 /**
  * 文件操作日志服务接口
  */
@@ -25,9 +27,11 @@ public interface FileOperationLogService {
      *
      * @param operationType 操作类型（可选）
      * @param userId        操作人ID（可选）
+     * @param startTime     操作时间起始（可选，含边界）
+     * @param endTime       操作时间截止（可选，含边界）
      * @param pageIndex     页码
      * @param pageSize      每页大小
      * @return 分页结果
      */
-    Page<FileOperationLog> queryLogs(String operationType, Long userId, int pageIndex, int pageSize);
+    Page<FileOperationLog> queryLogs(String operationType, Long userId, LocalDateTime startTime, LocalDateTime endTime, int pageIndex, int pageSize);
 }

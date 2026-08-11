@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.*;
@@ -29,6 +30,8 @@ import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 /**
  * 文件管理器服务实现
@@ -573,12 +576,99 @@ public class FileManagerServiceImpl implements FileManagerService {
         return buildPagedResult(allResults, request);
     }
 
+    @Override
+    public byte[] exportFolder(String relativePath, String root) {
+        Path target = resolveSafePath(relativePath, root);
+        if (!Files.exists(target)) {
+            throw new RuntimeException("导出失败: 路径不存在: " + relativePath);
+        }
+        String folderName = getRootFolderName(relativePath);
+        Path basePath = resolveRootPath(root);
+        byte[] zipBytes = zipFolder(target, folderName, basePath);
+        String logPath = normalizePath(StringUtils.hasText(relativePath) ? relativePath : folderName);
+        fileOperationLogService.log(null, folderName, logPath, OP_DOWNLOAD, root, "导出文件夹zip");
+        return zipBytes;
+    }
+
     // endregion
 
     // region 私有方法
     // ===================================
     // 私有方法
     // ===================================
+
+    /**
+     * 递归将文件夹打包为 ZIP 文件
+     * <p>
+     * 保留目录层级结构，zip 内文件名还原为原始文件名（非UUID存储名），排除回收站目录
+     * </p>
+     *
+     * @param target     待导出的文件或文件夹路径
+     * @param folderName zip 根级目录名（zip 内第一层目录名称）
+     * @param basePath   当前 root 的基础路径（用于排除回收站）
+     * @return ZIP 文件字节数组
+     */
+    private byte[] zipFolder(Path target, String folderName, Path basePath) {
+        Path recycleBin = basePath.resolve(RECYCLE_BIN_DIR).toAbsolutePath().normalize();
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             ZipOutputStream zos = new ZipOutputStream(baos)) {
+            if (Files.isDirectory(target)) {
+                // 递归收集所有条目（排除回收站目录）
+                List<Path> paths;
+                try (Stream<Path> walk = Files.walk(target)) {
+                    paths = walk.filter(p -> !p.toAbsolutePath().normalize().startsWith(recycleBin))
+                            .collect(Collectors.toList());
+                }
+                for (Path path : paths) {
+                    String rel = normalizePath(target.relativize(path).toString());
+                    if (rel.isEmpty()) {
+                        continue;
+                    }
+                    if (Files.isDirectory(path)) {
+                        // 添加目录占位条目，保留空文件夹结构
+                        zos.putNextEntry(new ZipEntry(folderName + "/" + rel + "/"));
+                        zos.closeEntry();
+                    } else {
+                        // 文件使用还原后的原始文件名
+                        String diskName = path.getFileName().toString();
+                        String displayName = getOriginalName(path, diskName);
+                        String parentRel = rel.substring(0, rel.length() - diskName.length());
+                        zos.putNextEntry(new ZipEntry(folderName + "/" + parentRel + displayName));
+                        Files.copy(path, zos);
+                        zos.closeEntry();
+                    }
+                }
+            } else {
+                // 导出单个文件
+                String displayName = getOriginalName(target, target.getFileName().toString());
+                zos.putNextEntry(new ZipEntry(folderName + "/" + displayName));
+                Files.copy(target, zos);
+                zos.closeEntry();
+            }
+            zos.finish();
+            return baos.toByteArray();
+        } catch (IOException e) {
+            throw new RuntimeException("导出失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取导出时的 zip 根级目录名
+     * <p>
+     * 有相对路径时取路径最后一段，路径为空或为根目录时返回 "root"
+     * </p>
+     *
+     * @param relativePath 相对路径（可为空）
+     * @return 根级目录名
+     */
+    private String getRootFolderName(String relativePath) {
+        if (!StringUtils.hasText(relativePath) || "/".equals(relativePath.trim())) {
+            return "root";
+        }
+        String trimmed = relativePath.trim();
+        String name = trimmed.substring(trimmed.lastIndexOf('/') + 1);
+        return name.isEmpty() ? "root" : name;
+    }
 
     /**
      * 递归计算文件夹大小

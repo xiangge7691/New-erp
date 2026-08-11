@@ -143,5 +143,17 @@ public interface FileManagerService {
      */
     PagedResult<FileItemDto> searchFiles(FileSearchRequestDto request);
 
+    /**
+     * 导出文件夹为 ZIP 文件
+     * <p>
+     * 递归打包整个文件夹（保留目录层级结构，文件名还原为原始文件名），跳过回收站目录
+     * </p>
+     *
+     * @param relativePath 文件夹相对路径（为空时导出整个根目录）
+     * @param root         根目录类型："business"（业务文件）或 "custom"（自定义文件）
+     * @return ZIP 文件内容（字节数组）
+     */
+    byte[] exportFolder(String relativePath, String root);
+
     // endregion
 }
