@@ -375,4 +375,45 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
     }
 
     // endregion
+
+    // region 工单关联查询
+    // ===================================
+    // 工单关联查询
+    // ===================================
+
+    /**
+     * 根据生产任务（工单）查询关联的生产计划
+     * <p>
+     * 按工单ID查询工单，取其关联的计划ID（planId），再查询对应的生产计划并返回。
+     * 工单不存在或未关联计划时抛出异常提示
+     * </p>
+     *
+     * @param workOrderId 生产任务（工单）ID（必填）
+     * @return 关联的生产计划
+     */
+    @Override
+    public ProductionPlan getPlanByWorkOrder(Long workOrderId) {
+        // 校验工单ID不能为空
+        if (workOrderId == null) {
+            throw new RuntimeException("生产任务ID不能为空");
+        }
+
+        // 查询工单，获取其关联的计划ID
+        WorkOrder workOrder = workOrderMapper.selectById(workOrderId);
+        if (workOrder == null) {
+            throw new RuntimeException("生产任务不存在: " + workOrderId);
+        }
+        if (workOrder.getPlanId() == null) {
+            throw new RuntimeException("该生产任务未关联生产计划: " + workOrderId);
+        }
+
+        // 按计划ID查询生产计划
+        ProductionPlan plan = this.getById(workOrder.getPlanId().intValue());
+        if (plan == null) {
+            throw new RuntimeException("关联的生产计划不存在: " + workOrder.getPlanId());
+        }
+        return plan;
+    }
+
+    // endregion
 }

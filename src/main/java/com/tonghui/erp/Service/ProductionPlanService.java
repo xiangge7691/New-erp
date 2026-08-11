@@ -108,4 +108,15 @@ public interface ProductionPlanService extends IService<ProductionPlan> {
                                                                 LocalDateTime archiveTimeStart, LocalDateTime archiveTimeEnd,
                                                                 String timeFieldType, LocalDateTime timeStart, LocalDateTime timeEnd,
                                                                 int pageNum, int pageSize);
+
+    /**
+     * 根据生产任务（工单）查询关联的生产计划
+     * <p>
+     * 按工单ID查询工单，取其关联的计划ID（planId），再查询对应的生产计划并返回
+     * </p>
+     *
+     * @param workOrderId 生产任务（工单）ID（必填）
+     * @return 关联的生产计划，工单未关联计划或计划不存在时抛出异常
+     */
+    ProductionPlan getPlanByWorkOrder(Long workOrderId);
 }

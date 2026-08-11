@@ -28,6 +28,7 @@ import java.time.LocalDateTime;
  * │ 6  │ /api/production-plans/search               │ GET    │ 高级查询生产计划（多条件+分页）  │
  * │ 7  │ /api/production-plans/search-with-details  │ GET    │ 高级查询生产计划（含工序记录）   │
  * │ 8  │ /api/production-plans/generate-plan-number │ GET    │ 自动生成计划编号                │
+ * │ 9  │ /api/production-plans/by-work-order/{id}    │ GET    │ 根据生产任务查询关联生产计划    │
  * └────┴────────────────────────────────────────────┴────────┴─────────────────────────────────┘
  */
 @RestController
@@ -312,6 +313,36 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
             return success(result);
         } catch (Exception ex) {
             return exception(ex, "查询失败");
+        }
+    }
+
+    // endregion
+
+    // region 工单关联查询
+    // ===================================
+    // 工单关联查询
+    // ===================================
+
+    /**
+     * 根据生产任务（工单）查询关联的生产计划
+     * <p>
+     * 按工单ID查询工单，取其关联的计划ID（planId），再查询对应的生产计划并返回，
+     * 工单不存在或未关联计划时返回错误信息
+     * </p>
+     *
+     * 示例请求：
+     * GET /api/production-plans/by-work-order/7
+     *
+     * @param workOrderId 生产任务（工单）ID（路径参数，必填）
+     * @return ApiResponse&lt;ProductionPlan&gt; 关联的生产计划
+     */
+    @GetMapping("/by-work-order/{workOrderId}")
+    public ApiResponse<ProductionPlan> getPlanByWorkOrder(@PathVariable Long workOrderId) {
+        try {
+            ProductionPlan plan = productionPlanService.getPlanByWorkOrder(workOrderId);
+            return success(plan);
+        } catch (Exception e) {
+            return exception(e, "根据生产任务查询生产计划");
         }
     }
 
