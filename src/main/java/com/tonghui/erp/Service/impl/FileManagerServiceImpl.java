@@ -287,10 +287,10 @@ public class FileManagerServiceImpl implements FileManagerService {
             throw new RuntimeException("恢复失败: 回收站中不存在该文件");
         }
 
-        // 从 file_info 获取原始路径
+        // 从 file_info 获取原始路径（回收站记录 is_deleted 可能为1，须绕过软删除过滤查找）
         String originalPath = null;
         if (Files.isRegularFile(source)) {
-            FileInfo fi = findFileInfoByPath(source.toString());
+            FileInfo fi = findFileInfoByPathIgnoreDeleted(source.toString());
             if (fi != null && StringUtils.hasText(fi.getOriginalPath())) {
                 originalPath = fi.getOriginalPath();
             }
@@ -313,13 +313,13 @@ public class FileManagerServiceImpl implements FileManagerService {
             throw new RuntimeException("恢复失败: " + e.getMessage());
         }
 
-        // 恢复 file_info 记录并更新路径
+        // 恢复 file_info 记录并更新路径（回收站记录 is_deleted 可能为1，须绕过软删除过滤查找）
         if (Files.isDirectory(target)) {
             try (Stream<Path> walk = Files.walk(target)) {
                 walk.filter(Files::isRegularFile).forEach(path -> {
-                    FileInfo fi = findFileInfoByPath(source.resolve(target.relativize(path).toString()).toString());
+                    FileInfo fi = findFileInfoByPathIgnoreDeleted(source.resolve(target.relativize(path).toString()).toString());
                     if (fi == null) {
-                        fi = findFileInfoByPath(path.toString());
+                        fi = findFileInfoByPathIgnoreDeleted(path.toString());
                     }
                     if (fi != null) {
                         fi.setFilePath(path.toString());
@@ -331,7 +331,7 @@ public class FileManagerServiceImpl implements FileManagerService {
                 throw new RuntimeException("恢复失败: " + e.getMessage());
             }
         } else {
-            FileInfo fi = findFileInfoByPath(source.toString());
+            FileInfo fi = findFileInfoByPathIgnoreDeleted(source.toString());
             if (fi != null) {
                 fi.setFilePath(target.toString());
                 fi.setOriginalPath(null);
@@ -365,11 +365,8 @@ public class FileManagerServiceImpl implements FileManagerService {
             throw new RuntimeException("永久删除失败: " + e.getMessage());
         }
 
-        // 物理删除 file_info 记录
-        QueryWrapper<FileInfo> wrapper = new QueryWrapper<>();
-        wrapper.eq("is_deleted", 1)
-               .like("file_path", fileName);
-        fileInfoMapper.delete(wrapper);
+        // 物理删除 file_info 记录（原生DELETE：wrapper.delete 会因逻辑删除被转为 UPDATE 而失效）
+        fileInfoMapper.deleteByPathLike(fileName);
 
         fileOperationLogService.log(null, getOriginalName(target, fileName), normalizePath(relativePath), OP_DELETE, root, "永久删除");
     }
@@ -404,7 +401,7 @@ public class FileManagerServiceImpl implements FileManagerService {
                 .forEach(path -> {
                     FileItemDto item = new FileItemDto();
                     String diskName = path.getFileName().toString();
-                    String displayName = getOriginalName(path, diskName);
+                    String displayName = Files.isDirectory(path) ? diskName : resolveRecycleOriginalName(path, diskName);
                     item.setName(displayName);
                     item.setPath(normalizePath(RECYCLE_BIN_DIR + "/" + diskName));
 
@@ -463,30 +460,28 @@ public class FileManagerServiceImpl implements FileManagerService {
 
     /**
      * 加载回收站内全部已删除的 file_info 记录（磁盘路径 -> 记录）
+     * <p>
+     * 使用原生SQL按路径匹配（绕过软删除过滤，兼容 is_deleted=0/1 两种历史状态）
+     * </p>
      *
      * @return 磁盘绝对路径到文件信息的映射
      */
     private Map<String, FileInfo> loadRecycleFileInfos() {
-        QueryWrapper<FileInfo> wrapper = new QueryWrapper<>();
-        wrapper.eq("is_deleted", 1);
-        wrapper.like("file_path", RECYCLE_BIN_DIR);
-        return fileInfoMapper.selectList(wrapper).stream()
+        return fileInfoMapper.selectRecycleInfos(RECYCLE_BIN_DIR).stream()
                 .collect(Collectors.toMap(FileInfo::getFilePath, f -> f, (a, b) -> a));
     }
 
     /**
      * 查找已删除文件夹的代表性 file_info 记录（取子文件中删除时间最新的一条）
+     * <p>
+     * 使用原生SQL（绕过软删除过滤，兼容 is_deleted=0/1 两种历史状态）
+     * </p>
      *
      * @param folderPath 回收站内文件夹的磁盘绝对路径
      * @return file_info 记录，无匹配时返回 null
      */
     private FileInfo findFolderRecycleInfo(Path folderPath) {
-        QueryWrapper<FileInfo> wrapper = new QueryWrapper<>();
-        wrapper.eq("is_deleted", 1);
-        wrapper.like("file_path", folderPath.toString());
-        wrapper.orderByDesc("deleted_at");
-        wrapper.last("LIMIT 1");
-        return fileInfoMapper.selectOne(wrapper);
+        return fileInfoMapper.selectLatestRecycleInfo(folderPath.toString());
     }
 
     /**
@@ -851,6 +846,29 @@ public class FileManagerServiceImpl implements FileManagerService {
     }
 
     /**
+     * 根据磁盘文件路径查找原始文件名（绕过软删除过滤，用于回收站列表）
+     * <p>
+     * 优先从 file_info 表获取 originalName，找不到时返回磁盘文件名；
+     * 回收站内的记录 is_deleted 可能为1，普通查询查不到，须用原生SQL
+     * </p>
+     *
+     * @param filePath     磁盘文件路径
+     * @param fallbackName 兜底文件名
+     * @return 原始文件名或兜底文件名
+     */
+    private String resolveRecycleOriginalName(Path filePath, String fallbackName) {
+        FileInfo fi = findFileInfoByPathIgnoreDeleted(filePath.toString());
+        if (fi != null && StringUtils.hasText(fi.getOriginalName())) {
+            return fi.getOriginalName();
+        }
+        FileInfo byStoredName = fileInfoMapper.selectByStoredNameIgnoreDeleted(filePath.getFileName().toString());
+        if (byStoredName != null && StringUtils.hasText(byStoredName.getOriginalName())) {
+            return byStoredName.getOriginalName();
+        }
+        return fallbackName;
+    }
+
+    /**
      * 根据磁盘文件路径查找原始文件名
      * 优先从 file_info 表获取 originalName，找不到时返回磁盘文件名
      *
@@ -934,6 +952,17 @@ public class FileManagerServiceImpl implements FileManagerService {
     }
 
     /**
+     * 根据完整路径查找 FileInfo 记录（绕过软删除过滤）
+     * <p>
+     * 回收站内的记录 is_deleted 可能为1，MyBatis-Plus 查询会自动过滤，
+     * 恢复/永久删除等流程需使用原生SQL查找
+     * </p>
+     */
+    private FileInfo findFileInfoByPathIgnoreDeleted(String filePath) {
+        return fileInfoMapper.selectByPathIgnoreDeleted(filePath);
+    }
+
+    /**
      * 根据存储文件名（UUID）查找 FileInfo 记录
      */
     private FileInfo findFileInfoByStoredName(String storedName) {
@@ -944,22 +973,26 @@ public class FileManagerServiceImpl implements FileManagerService {
 
     /**
      * 软删除 FileInfo 记录（移入回收站）
+     * <p>
+     * 使用原生SQL强制写入 is_deleted=1（MyBatis-Plus 逻辑删除配置会使
+     * updateById 自动排除该字段，导致软删标记写不进去）
+     * </p>
      */
     private void softDeleteFileInfo(FileInfo fi) {
-        fi.setIsDeleted(1);
         fi.setDeletedAt(LocalDateTime.now());
         fi.setDeletedBy(EntityUtils.getCurrentUserId());
-        fileInfoMapper.updateById(fi);
+        fileInfoMapper.markSoftDeleted(fi.getFileId(), fi.getFilePath(), fi.getOriginalPath(),
+                fi.getDeletedAt(), fi.getDeletedBy());
     }
 
     /**
      * 恢复 FileInfo 记录（从回收站恢复）
+     * <p>
+     * 使用原生SQL强制写入 is_deleted=0 并清空删除时间、删除人
+     * </p>
      */
     private void restoreFileInfo(FileInfo fi) {
-        fi.setIsDeleted(0);
-        fi.setDeletedAt(null);
-        fi.setDeletedBy(null);
-        fileInfoMapper.updateById(fi);
+        fileInfoMapper.markRestored(fi.getFileId(), fi.getFilePath(), fi.getOriginalPath());
     }
 
     private String resolveBasePath() {
