@@ -37,6 +37,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -137,6 +138,29 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         // 自动生成出库单号（如果未提供）
         if (!StringUtils.hasText(stockOut.getOutCode())) {
             stockOut.setOutCode(sequenceService.generateStockOutCode());
+        }
+        // 明细补充仓库与物品类型：明细可来自不同仓库（prod_unit_id 允许不同）
+        for (StockOutDetail detail : details) {
+            if (detail.getProdUnitId() == null && detail.getStockId() != null) {
+                Stock stock = stockMapper.selectById(detail.getStockId());
+                if (stock != null) {
+                    detail.setProdUnitId(stock.getProdUnitId());
+                }
+            }
+            if (detail.getItemType() == null) {
+                detail.setItemType("material");
+            }
+        }
+        // 主表仓库缺失时取第一条明细的仓库（跨仓库出库时主表仅作汇总展示）
+        if (stockOut.getProdUnitId() == null) {
+            stockOut.setProdUnitId(details.stream()
+                    .map(StockOutDetail::getProdUnitId)
+                    .filter(Objects::nonNull)
+                    .findFirst()
+                    .orElse(null));
+        }
+        if (stockOut.getProdUnitId() == null) {
+            throw new RuntimeException("无法确定出库仓库，请携带 prodUnitId");
         }
         // 添加即生效：直接置为已出库状态，无需草稿确认流程
         stockOut.setOutStatus("已出库");

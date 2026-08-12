@@ -33,6 +33,12 @@ public class StockOutDetail {
     private Long outId;
 
     /**
+     * 出库仓库（生产单位ID，明细可跨仓库出库）
+     */
+    @TableField(value = "prod_unit_id")
+    private Long prodUnitId;
+
+    /**
      * 关联库存记录ID
      */
     @TableField(value = "stock_id")
