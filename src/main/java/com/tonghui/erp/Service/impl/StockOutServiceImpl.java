@@ -520,6 +520,13 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         if (StringUtils.hasText(stockOut.getOutStatus())) {
             wrapper.eq("out_status", stockOut.getOutStatus());
         }
+        // 出库日期范围查询（按整天含端点：起始00:00:00，结束23:59:59）
+        if (startDate != null) {
+            wrapper.ge("out_date", startDate.atStartOfDay());
+        }
+        if (endDate != null) {
+            wrapper.le("out_date", endDate.atTime(23, 59, 59));
+        }
 
         // 按编号倒序排列
         wrapper.orderByDesc("out_code");
@@ -711,7 +718,7 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         stockOut.setOutType(request.getOutType());
         stockOut.setProdUnitId(request.getProdUnitId());
         stockOut.setRelatedOrder(request.getRelatedOrder());
-        stockOut.setOutDate(LocalDate.now());
+        stockOut.setOutDate(LocalDateTime.now());
         stockOut.setOutStatus("草稿");
         stockOut.setRemark(request.getRemark());
         stockOutMapper.insert(stockOut);

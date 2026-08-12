@@ -103,11 +103,14 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
         // 添加即生效：直接置为已入库状态，无需草稿确认流程
         stockIn.setInStatus("已入库");
 
-        // 保存入库单主表
+        // 保存入库单主表（入库日期未传时默认为当前时间，精确到时分秒）
+        if (stockIn.getInDate() == null) {
+            stockIn.setInDate(java.time.LocalDateTime.now());
+        }
         stockInMapper.insert(stockIn);
 
-        // 保存明细表
-        java.time.LocalDate defaultDate = stockIn.getInDate() != null ? stockIn.getInDate() : java.time.LocalDate.now();
+        // 保存明细表（生产日期取入库日期当天）
+        java.time.LocalDate defaultDate = stockIn.getInDate().toLocalDate();
         for (StockInDetail detail : details) {
             detail.setInId(stockIn.getInId());
             // 确保 production_date 不为空
@@ -145,9 +148,9 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
             deleteWrapper.eq("in_id", stockIn.getInId());
             stockInDetailMapper.delete(deleteWrapper);
 
-            // 重新插入明细
+            // 重新插入明细（生产日期取入库日期当天）
             if (!details.isEmpty()) {
-                java.time.LocalDate defaultDate = stockIn.getInDate() != null ? stockIn.getInDate() : java.time.LocalDate.now();
+                java.time.LocalDate defaultDate = stockIn.getInDate() != null ? stockIn.getInDate().toLocalDate() : java.time.LocalDate.now();
                 for (StockInDetail detail : details) {
                     detail.setInId(stockIn.getInId());
                     // 确保 production_date 不为空
@@ -499,6 +502,13 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
         // 入库状态查询
         if (StringUtils.hasText(stockIn.getInStatus())) {
             wrapper.eq("in_status", stockIn.getInStatus());
+        }
+        // 入库日期范围查询（按整天含端点：起始00:00:00，结束23:59:59）
+        if (startDate != null) {
+            wrapper.ge("in_date", startDate.atStartOfDay());
+        }
+        if (endDate != null) {
+            wrapper.le("in_date", endDate.atTime(23, 59, 59));
         }
         
         // 按编号倒序排列

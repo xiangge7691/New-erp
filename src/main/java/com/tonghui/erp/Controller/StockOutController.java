@@ -136,20 +136,24 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
      * 高级查询出库单（支持多条件 + 分页 + 时间范围）
      * <p>
      * 可选查询条件：outCode（模糊匹配）、prodUnitId、customerId、relatedOrder（模糊匹配）、
-     * outDate、outStatus、outType、createdBy、updatedBy 等精确匹配条件，
+     * outStatus、outType、createdBy、updatedBy 等精确匹配条件，
      * 以及 createdTimeStart/End、updatedTimeStart/End、startDate/endDate 时间范围条件
+     * </p>
+     * <p>
+     * outDate 出库日期精确到时分秒（格式：yyyy-MM-dd HH:mm:ss 或 ISO 格式）；
+     * startDate/endDate 为出库日期范围（按整天含端点：起始 00:00:00，结束 23:59:59）
      * </p>
      *
      * 示例请求：
-     * GET /api/stockout/search?pageIndex=1&pageSize=20&outCode=OUT2025&prodUnitId=1&createdTimeStart=2025-01-01%2000:00:00&createdTimeEnd=2025-09-01%2023:59:59
+     * GET /api/stockout/search?pageIndex=1&pageSize=20&outCode=OUT2025&prodUnitId=1&createdTimeStart=2025-01-01%2000:00:00&createdTimeEnd=2025-09-01%2023:59:59&startDate=2026-08-01&endDate=2026-08-11
      *
      * @param stockOut  查询条件（自动从query参数映射）
      * @param createdTimeStart 创建时间起始
      * @param createdTimeEnd 创建时间结束
      * @param updatedTimeStart 更新时间起始
      * @param updatedTimeEnd 更新时间结束
-     * @param startDate 出库开始日期
-     * @param endDate   出库结束日期
+     * @param startDate 出库开始日期（yyyy-MM-dd，精确到当日00:00:00）
+     * @param endDate   出库结束日期（yyyy-MM-dd，精确到当日23:59:59）
      * @param pageIndex 页码
      * @param pageSize  每页大小
      * @return PagedResult&lt;StockOut&gt; 分页结果
@@ -203,8 +207,8 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
      * @param createdTimeEnd 创建时间结束
      * @param updatedTimeStart 更新时间起始
      * @param updatedTimeEnd 更新时间结束
-     * @param startDate 出库开始日期
-     * @param endDate   出库结束日期
+     * @param startDate 出库开始日期（yyyy-MM-dd，精确到当日00:00:00）
+     * @param endDate   出库结束日期（yyyy-MM-dd，精确到当日23:59:59）
      * @param pageIndex 页码
      * @param pageSize  每页大小
      * @return ApiResponse&lt;PagedResult&lt;StockOutWithDetailsDto&gt;&gt; 分页结果（包含明细）
@@ -248,7 +252,7 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
      * {
      *   "outType": "销售出库",
      *   "customerId": 1,
-     *   "outDate": "2026-07-01",
+     *   "outDate": "2026-07-01T10:30:00",
      *   "remark": "正常出库"
      * }
      *
@@ -450,7 +454,7 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
      *   "planId": 3,
      *   "planNumber": "Plan20260710001",
      *   "prodUnitId": 1,
-     *   "outDate": "2026-08-11",
+     *   "outDate": "2026-08-11T10:30:00",
      *   "remark": "按制剂处方直接批量出库",
      *   "details": [
      *     { "stockId": 12, "itemCode": "Y0084", "itemName": "甘草", "categoryName": "原料",

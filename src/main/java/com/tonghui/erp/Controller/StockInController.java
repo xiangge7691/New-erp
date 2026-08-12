@@ -165,28 +165,31 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
      * - prodUnitId：精确匹配
      * - supplierId：精确匹配
      * - relatedOrder：模糊匹配
-     * - inDate：精确匹配
      * - inStatus：状态过滤
      * - createdTimeStart：创建时间起始（大于等于）
      * - createdTimeEnd：创建时间结束（小于等于）
      * - updatedTimeStart：更新时间起始（大于等于）
      * - updatedTimeEnd：更新时间结束（小于等于）
-     * - startDate：入库开始日期（大于等于）
-     * - endDate：入库结束日期（小于等于）
+     * - startDate：入库开始日期（大于等于，按整天含端点：当日00:00:00）
+     * - endDate：入库结束日期（小于等于，按整天含端点：当日23:59:59）
      * - createdBy：创建人ID（精确匹配）
      * - updatedBy：更新人ID（精确匹配）
      * - inType：入库类型（精确匹配）
+     * </p>
+     * <p>
+     * inDate 入库日期精确到时分秒（JSON 格式：yyyy-MM-dd'T'HH:mm:ss）
+     * </p>
      *
      * 示例请求：
-     * GET /api/stockin/search?pageIndex=1&pageSize=20&inCode=IN2025&prodUnitId=1&createdTimeStart=2025-01-01%2000:00:00&createdTimeEnd=2025-09-01%2023:59:59
+     * GET /api/stockin/search?pageIndex=1&pageSize=20&inCode=IN2025&prodUnitId=1&createdTimeStart=2025-01-01%2000:00:00&createdTimeEnd=2025-09-01%2023:59:59&startDate=2026-08-01&endDate=2026-08-11
      *
      * @param stockIn   查询条件（自动从query参数映射）
      * @param createdTimeStart 创建时间起始
      * @param createdTimeEnd 创建时间结束
      * @param updatedTimeStart 更新时间起始
      * @param updatedTimeEnd 更新时间结束
-     * @param startDate 入库开始日期
-     * @param endDate   入库结束日期
+     * @param startDate 入库开始日期（yyyy-MM-dd，精确到当日00:00:00）
+     * @param endDate   入库结束日期（yyyy-MM-dd，精确到当日23:59:59）
      * @param pageIndex 页码
      * @param pageSize  每页大小
      * @return 分页结果
@@ -237,8 +240,8 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
      * @param createdTimeEnd 创建时间结束
      * @param updatedTimeStart 更新时间起始
      * @param updatedTimeEnd 更新时间结束
-     * @param startDate 入库开始日期
-     * @param endDate   入库结束日期
+     * @param startDate 入库开始日期（yyyy-MM-dd，精确到当日00:00:00）
+     * @param endDate   入库结束日期（yyyy-MM-dd，精确到当日23:59:59）
      * @param pageIndex 页码
      * @param pageSize  每页大小
      * @return 分页结果（包含明细）
@@ -281,7 +284,7 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
      * POST /api/stockin/withDetails
      * Content-Type: application/json
      * {
-     *   "inDate": "2026-07-01",
+     *   "inDate": "2026-07-01T10:30:00",
      *   "supplierId": 1,
      *   "prodUnitId": 1,
      *   "inType": "原料入库",
@@ -313,7 +316,7 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
      * PUT /api/stockin/1/withDetails
      * Content-Type: application/json
      * {
-     *   "inDate": "2026-07-01",
+     *   "inDate": "2026-07-01T10:30:00",
      *   "supplierId": 1,
      *   "details": [
      *     {"itemId": 1, "itemCode": "Y0001", "itemName": "甘草", "categoryName": "原料",

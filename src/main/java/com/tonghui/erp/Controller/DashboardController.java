@@ -36,6 +36,11 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/dashboard")
 public class DashboardController extends BaseController {
 
+    /**
+     * 日期时间格式化器（yyyy-MM-dd HH:mm:ss）
+     */
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
     // region 服务依赖注入
     // ===================================
     // 服务依赖注入
@@ -298,7 +303,7 @@ public class DashboardController extends BaseController {
                 todo.setId(si.getInId());
                 todo.setTodoType("待入库");
                 todo.setContent((si.getInCode() != null ? si.getInCode() : "入库单" + si.getInId()) + "待审核");
-                todo.setDueDate(si.getInDate() != null ? si.getInDate().toString() : "");
+                todo.setDueDate(si.getInDate() != null ? si.getInDate().format(DATE_TIME_FORMATTER) : "");
                 todo.setSourceModule("库存管理");
                 todo.setLink("入库管理.html");
                 allTodos.add(todo);
@@ -316,7 +321,7 @@ public class DashboardController extends BaseController {
                 todo.setId(si.getInId());
                 todo.setTodoType("待确认");
                 todo.setContent((si.getInCode() != null ? si.getInCode() : "入库单" + si.getInId()) + "已到货，待确认入库");
-                todo.setDueDate(si.getInDate() != null ? si.getInDate().toString() : "");
+                todo.setDueDate(si.getInDate() != null ? si.getInDate().format(DATE_TIME_FORMATTER) : "");
                 todo.setSourceModule("库存管理");
                 todo.setLink("入库管理.html");
                 allTodos.add(todo);
@@ -628,11 +633,11 @@ public class DashboardController extends BaseController {
     private QueryWrapper<StockIn> buildStockInTimeWrapper(String startMonth, String endMonth) {
         QueryWrapper<StockIn> wrapper = new QueryWrapper<>();
         if (startMonth != null && !startMonth.isEmpty()) {
-            wrapper.ge("in_date", startMonth + "-01");
+            wrapper.ge("in_date", LocalDate.parse(startMonth + "-01").atStartOfDay());
         }
         if (endMonth != null && !endMonth.isEmpty()) {
             LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
-            wrapper.le("in_date", end.toString());
+            wrapper.le("in_date", end.atTime(23, 59, 59));
         }
         return wrapper;
     }

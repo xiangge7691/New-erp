@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -626,7 +626,7 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         stockIn.setInType(acceptance.getSourceType() != null ? acceptance.getSourceType() : "采购入库");
         stockIn.setProdUnitId(acceptance.getProdUnitId());
         stockIn.setRelatedOrder(acceptance.getAcceptanceCode());
-        stockIn.setInDate(LocalDate.now());
+        stockIn.setInDate(LocalDateTime.now());
         stockIn.setInStatus("已入库");
         stockIn.setRemark("货物验收合格自动入库: " + acceptance.getAcceptanceCode());
         stockInMapper.insert(stockIn);

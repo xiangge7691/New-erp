@@ -5,7 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -79,10 +79,10 @@ public class StockOut extends AuditEntity {
     // ===================================
 
     /**
-     * 出库日期
+     * 出库日期（精确到时分秒）
      */
     @TableField(value = "out_date")
-    private LocalDate outDate;
+    private LocalDateTime outDate;
 
     /**
      * 出库总金额
