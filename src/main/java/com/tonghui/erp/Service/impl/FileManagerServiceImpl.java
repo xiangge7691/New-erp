@@ -590,6 +590,12 @@ public class FileManagerServiceImpl implements FileManagerService {
         return zipBytes;
     }
 
+    @Override
+    public boolean isDirectory(String relativePath, String root) {
+        Path target = resolveSafePath(relativePath, root);
+        return Files.isDirectory(target);
+    }
+
     // endregion
 
     // region 私有方法

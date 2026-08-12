@@ -155,5 +155,17 @@ public interface FileManagerService {
      */
     byte[] exportFolder(String relativePath, String root);
 
+    /**
+     * 判断相对路径是否为目录
+     * <p>
+     * 用于下载接口自动区分：路径指向文件夹时打包 ZIP，指向文件时直接下载
+     * </p>
+     *
+     * @param relativePath 相对路径（可为空，空路径视为根目录）
+     * @param root         根目录类型："business"（业务文件）或 "custom"（自定义文件）
+     * @return 是否为目录（路径不存在或为文件时返回 false）
+     */
+    boolean isDirectory(String relativePath, String root);
+
     // endregion
 }

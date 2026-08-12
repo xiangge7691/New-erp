@@ -48,10 +48,9 @@ import java.util.Set;
  * │ 5  │ /api/file-manager/copy       │ POST   │ 复制             │
  * │ 6  │ /api/file-manager/delete     │ DELETE │ 删除             │
  * │ 7  │ /api/file-manager/upload     │ POST   │ 上传文件         │
- * │ 8  │ /api/file-manager/download   │ GET    │ 下载文件         │
+ * │ 8  │ /api/file-manager/download   │ GET    │ 下载文件/导出文件夹（ZIP） │
  * │ 9  │ /api/file-manager/preview    │ GET    │ 预览文件         │
  * │ 10 │ /api/file-manager/search     │ GET    │ 搜索文件         │
- * │ 11 │ /api/file-manager/export-folder │ GET │ 导出文件夹（ZIP） │
  * └────┴──────────────────────────────┴────────┴──────────────────┘
  *
  * root 参数说明：
@@ -373,58 +372,44 @@ public class FileManagerController extends BaseController {
     }
 
     /**
-     * 下载文件
-     *
-     * 示例请求：GET /api/file-manager/download?path=文档/uuid.jpg&root=custom
-     *
-     * @param path 文件相对路径
-     * @param root 根目录类型
-     * @return 文件流
-     */
-    @GetMapping("/download")
-    public ResponseEntity<Resource> downloadFile(
-            @RequestParam String path,
-            @RequestParam(defaultValue = "custom") String root) {
-        try {
-            String filename = path.contains("/") ? path.substring(path.lastIndexOf('/') + 1) : path;
-
-            InputStream inputStream = fileManagerService.downloadFile(path, root);
-            InputStreamResource resource = new InputStreamResource(inputStream);
-
-            String encodedFilename = URLEncoder.encode(filename, StandardCharsets.UTF_8);
-
-            return ResponseEntity.ok()
-                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + encodedFilename)
-                    .body(resource);
-        } catch (IOException e) {
-            return ResponseEntity.internalServerError().build();
-        }
-    }
-
-    /**
-     * 导出文件夹（打包为 ZIP 下载）
+     * 下载文件或导出文件夹（合并接口）
      * <p>
-     * 递归打包整个文件夹（保留目录层级结构，文件名还原为原始文件名），返回 ZIP 文件流
+     * 根据 path 指向的对象自动区分处理方式：
+     * - path 为空或 "/" 或指向文件夹：递归打包为 ZIP 下载（保留目录层级结构，文件名还原为原始文件名）
+     * - path 指向单个文件：直接下载该文件
      * </p>
      *
      * 示例请求：
-     * GET /api/file-manager/export-folder?path=文档&root=custom
-     * GET /api/file-manager/export-folder?root=custom
+     * GET /api/file-manager/download?path=文档/uuid.jpg&root=custom
+     * GET /api/file-manager/download?path=文档&root=custom
+     * GET /api/file-manager/download?root=custom
      *
-     * @param path 文件夹相对路径（为空或 "/" 时导出整个根目录）
+     * @param path 文件或文件夹相对路径（为空或 "/" 时导出整个根目录为 ZIP）
      * @param root 根目录类型："business"（业务文件）或 "custom"（自定义文件，默认）
-     * @return ZIP 文件流（文件名：{文件夹名}.zip）
+     * @return 文件流（单文件：原文件；文件夹：{文件夹名}.zip）
      */
-    @GetMapping("/export-folder")
-    public ResponseEntity<Resource> exportFolder(
+    @GetMapping("/download")
+    public ResponseEntity<Resource> downloadFile(
             @RequestParam(required = false, defaultValue = "") String path,
             @RequestParam(defaultValue = "custom") String root) {
         try {
-            byte[] zipBytes = fileManagerService.exportFolder(path, root);
-            String folderName = getExportFolderName(path);
-            String filename = folderName + ".zip";
-            InputStreamResource resource = new InputStreamResource(new ByteArrayInputStream(zipBytes));
+            // 空路径 / 根目录 / 文件夹：打包为 ZIP 下载
+            if (!StringUtils.hasText(path) || "/".equals(path.trim())
+                    || fileManagerService.isDirectory(path, root)) {
+                byte[] zipBytes = fileManagerService.exportFolder(path, root);
+                String folderName = getExportFolderName(path);
+                String filename = folderName + ".zip";
+                InputStreamResource resource = new InputStreamResource(new ByteArrayInputStream(zipBytes));
+                String encodedFilename = URLEncoder.encode(filename, StandardCharsets.UTF_8);
+                return ResponseEntity.ok()
+                        .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + encodedFilename)
+                        .body(resource);
+            }
+            // 单文件下载
+            String filename = path.contains("/") ? path.substring(path.lastIndexOf('/') + 1) : path;
+            InputStream inputStream = fileManagerService.downloadFile(path, root);
+            InputStreamResource resource = new InputStreamResource(inputStream);
             String encodedFilename = URLEncoder.encode(filename, StandardCharsets.UTF_8);
             return ResponseEntity.ok()
                     .contentType(MediaType.APPLICATION_OCTET_STREAM)
