@@ -33,5 +33,17 @@ public interface FileOperationLogService {
      * @param pageSize      每页大小
      * @return 分页结果
      */
-    Page<FileOperationLog> queryLogs(String operationType, Long userId, LocalDateTime startTime, LocalDateTime endTime, int pageIndex, int pageSize);
+    /**
+     * 分页查询文件操作日志
+     *
+     * @param operationType 操作类型（可为空）
+     * @param userId        操作人ID（精确匹配，可为空）
+     * @param userName      操作人姓名（模糊匹配，可为空）
+     * @param startTime     操作时间起始（含边界，可为空）
+     * @param endTime       操作时间截止（含边界，可为空）
+     * @param pageIndex     页码（从0开始）
+     * @param pageSize      每页大小
+     * @return 分页日志结果
+     */
+    Page<FileOperationLog> queryLogs(String operationType, Long userId, String userName, LocalDateTime startTime, LocalDateTime endTime, int pageIndex, int pageSize);
 }

@@ -59,6 +59,11 @@ public class FileItemDto {
     private String deletedByName;
 
     /**
+     * 删除人登录账号（回收站专用，用于按账号模糊搜索）
+     */
+    private String deletedByAccount;
+
+    /**
      * 删除时间（回收站专用，格式 yyyy-MM-dd HH:mm:ss）
      */
     private String deletedTime;

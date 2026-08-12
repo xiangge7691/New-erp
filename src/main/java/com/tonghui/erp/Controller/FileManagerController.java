@@ -220,21 +220,24 @@ public class FileManagerController extends BaseController {
      *
      * 示例请求：
      * GET /api/file-manager/recycle-bin
+     * GET /api/file-manager/recycle-bin?deletedByName=超级&startTime=2026-01-01&endTime=2026-06-30 23:59:59
      * GET /api/file-manager/recycle-bin?deletedBy=1&startTime=2026-01-01&endTime=2026-06-30 23:59:59
      *
-     * @param deletedBy 删除人ID（可选）
-     * @param startTime 删除时间起始（可选，格式：yyyy-MM-dd 或 yyyy-MM-dd HH:mm:ss，含边界）
-     * @param endTime   删除时间截止（可选，格式：yyyy-MM-dd 或 yyyy-MM-dd HH:mm:ss，含边界）
+     * @param deletedByName 删除人姓名（可选，模糊匹配，二选一）
+     * @param deletedBy     删除人ID（可选，精确匹配，二选一）
+     * @param startTime     删除时间起始（可选，格式：yyyy-MM-dd 或 yyyy-MM-dd HH:mm:ss，含边界）
+     * @param endTime       删除时间截止（可选，格式：yyyy-MM-dd 或 yyyy-MM-dd HH:mm:ss，含边界）
      * @return 已删除的文件列表（含删除人、删除时间）
      */
     @GetMapping("/recycle-bin")
     public ApiResponse<List<FileItemDto>> listRecycleBin(
             @RequestParam(required = false) Long deletedBy,
+            @RequestParam(required = false) String deletedByName,
             @RequestParam(required = false) String startTime,
             @RequestParam(required = false) String endTime) {
         try {
             List<FileItemDto> result = fileManagerService.listRecycleBin(
-                    deletedBy, parseTimeParam(startTime, true), parseTimeParam(endTime, false));
+                    deletedBy, deletedByName, parseTimeParam(startTime, true), parseTimeParam(endTime, false));
             return success(result);
         } catch (Exception e) {
             return exception(e, "查看回收站");
@@ -293,10 +296,12 @@ public class FileManagerController extends BaseController {
      *
      * 示例请求：
      * GET /api/file-manager/operation-log?operationType=UPLOAD&pageIndex=0&pageSize=20
-     * GET /api/file-manager/operation-log?startTime=2026-01-01&endTime=2026-06-30 12:59:59&userId=1&pageIndex=0&pageSize=20
+     * GET /api/file-manager/operation-log?startTime=2026-01-01&endTime=2026-06-30 12:59:59&userName=超级&pageIndex=0&pageSize=20
+     * GET /api/file-manager/operation-log?userId=1&pageIndex=0&pageSize=20
      *
      * @param operationType 操作类型（可选）：UPLOAD/DOWNLOAD/PREVIEW/CREATE_FOLDER/DELETE/RESTORE/RENAME/MOVE/COPY
-     * @param userId        操作人ID（可选）
+     * @param userName      操作人姓名（可选，模糊匹配，二选一）
+     * @param userId        操作人ID（可选，精确匹配，二选一）
      * @param startTime     操作时间起始（可选，格式：yyyy-MM-dd 或 yyyy-MM-dd HH:mm:ss，含边界）
      * @param endTime       操作时间截止（可选，格式：yyyy-MM-dd 或 yyyy-MM-dd HH:mm:ss，含边界）
      * @param pageIndex     页码
@@ -306,6 +311,7 @@ public class FileManagerController extends BaseController {
     @GetMapping("/operation-log")
     public ApiResponse<Page<FileOperationLog>> queryOperationLog(
             @RequestParam(required = false) String operationType,
+            @RequestParam(required = false) String userName,
             @RequestParam(required = false) Long userId,
             @RequestParam(required = false) String startTime,
             @RequestParam(required = false) String endTime,
@@ -313,7 +319,7 @@ public class FileManagerController extends BaseController {
             @RequestParam(defaultValue = "20") int pageSize) {
         try {
             Page<FileOperationLog> result = fileOperationLogService.queryLogs(
-                    operationType, userId, parseTimeParam(startTime, true), parseTimeParam(endTime, false), pageIndex, pageSize);
+                    operationType, userId, userName, parseTimeParam(startTime, true), parseTimeParam(endTime, false), pageIndex, pageSize);
             return success(result);
         } catch (Exception e) {
             return exception(e, "查询操作日志");

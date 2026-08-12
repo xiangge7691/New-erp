@@ -384,7 +384,7 @@ public class FileManagerServiceImpl implements FileManagerService {
      * @return 已删除的文件列表（含删除人、删除时间）
      */
     @Override
-    public List<FileItemDto> listRecycleBin(Long deletedBy, LocalDateTime startTime, LocalDateTime endTime) {
+    public List<FileItemDto> listRecycleBin(Long deletedBy, String deletedByName, LocalDateTime startTime, LocalDateTime endTime) {
         Path basePath = resolveRootPath(ROOT_CUSTOM);
         Path recycleBin = basePath.resolve(RECYCLE_BIN_DIR);
         List<FileItemDto> results = new ArrayList<>();
@@ -437,10 +437,25 @@ public class FileManagerServiceImpl implements FileManagerService {
             throw new RuntimeException("读取回收站失败: " + e.getMessage());
         }
 
-        // 按删除人、删除时间段筛选
+        // 按删除人ID、删除人姓名、删除时间段筛选
         return results.stream().filter(item -> {
             if (deletedBy != null && !deletedBy.equals(item.getDeletedBy())) {
                 return false;
+            }
+            // 姓名模糊匹配（同时兼容真实姓名与登录账号）
+            if (StringUtils.hasText(deletedByName)
+                    && !StringUtils.hasText(item.getDeletedByName())
+                    && !StringUtils.hasText(item.getDeletedByAccount())) {
+                return false;
+            }
+            if (StringUtils.hasText(deletedByName)) {
+                boolean nameMatched = (StringUtils.hasText(item.getDeletedByName())
+                        && item.getDeletedByName().contains(deletedByName))
+                        || (StringUtils.hasText(item.getDeletedByAccount())
+                        && item.getDeletedByAccount().contains(deletedByName));
+                if (!nameMatched) {
+                    return false;
+                }
             }
             if (startTime != null || endTime != null) {
                 LocalDateTime deletedAt = parseDateTime(item.getDeletedTime());
@@ -495,7 +510,9 @@ public class FileManagerServiceImpl implements FileManagerService {
             return;
         }
         item.setDeletedBy(fi.getDeletedBy());
+        User user = fi.getDeletedBy() != null ? userMapper.selectById(fi.getDeletedBy()) : null;
         item.setDeletedByName(resolveUserName(fi.getDeletedBy()));
+        item.setDeletedByAccount(user != null ? user.getUserAccount() : null);
         item.setDeletedTime(fi.getDeletedAt() != null
                 ? fi.getDeletedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : null);
     }

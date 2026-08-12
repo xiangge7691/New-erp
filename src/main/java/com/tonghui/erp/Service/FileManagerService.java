@@ -99,7 +99,16 @@ public interface FileManagerService {
      * @param endTime   删除时间截止（可选，含边界）
      * @return 已删除的文件列表（含删除人、删除时间）
      */
-    List<FileItemDto> listRecycleBin(Long deletedBy, LocalDateTime startTime, LocalDateTime endTime);
+    /**
+     * 列出回收站内容（支持按删除人、删除时间段筛选）
+     *
+     * @param deletedBy     删除人ID（精确匹配，可为空）
+     * @param deletedByName 删除人姓名（模糊匹配，可为空）
+     * @param startTime     删除时间起始（含边界，可为空）
+     * @param endTime       删除时间截止（含边界，可为空）
+     * @return 回收站文件列表
+     */
+    List<FileItemDto> listRecycleBin(Long deletedBy, String deletedByName, LocalDateTime startTime, LocalDateTime endTime);
 
     // endregion
 
