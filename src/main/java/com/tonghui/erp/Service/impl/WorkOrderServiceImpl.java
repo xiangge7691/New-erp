@@ -279,7 +279,7 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
 
     /**
      * 高级查询工单（支持多条件组合查询和时间范围筛选）
-     * <p>支持按工单ID、工单编号、工单名称、制剂、关联计划ID、关联计划名称、当前状态等条件精确或模糊查询</p>
+     * <p>支持按工单ID、工单编号、工单名称、制剂、关联计划ID、关联计划名称、关联计划编号、当前状态等条件精确或模糊查询</p>
      *
      * @param workOrder 查询条件实体，非null字段将作为等值或模糊查询条件
      * @param keyword   关键字（对工单编号、工单名称、制剂编码、制剂名称、关联计划名称、关联计划编号进行模糊匹配，可选）
@@ -332,6 +332,16 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         }
         if (StringUtils.hasText(workOrder.getPlanName())) {
             wrapper.like("plan_name", workOrder.getPlanName());
+        }
+        // 按关联生产计划编号筛选：工单表无编号字段，先在生产计划表模糊匹配出计划ID，再按 plan_id 过滤
+        if (StringUtils.hasText(workOrder.getPlanNumber())) {
+            List<Long> planIdsByNumber = findPlanIdsByNumber(workOrder.getPlanNumber());
+            if (planIdsByNumber.isEmpty()) {
+                // 无匹配的计划编号，返回空结果
+                wrapper.eq("plan_id", -1L);
+            } else {
+                wrapper.in("plan_id", planIdsByNumber);
+            }
         }
         if (StringUtils.hasText(workOrder.getCurrentStatus())) {
             wrapper.eq("current_status", workOrder.getCurrentStatus());

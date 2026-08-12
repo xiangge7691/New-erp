@@ -70,6 +70,12 @@ public class WorkOrder extends AuditEntity {
     @TableField(value = "plan_name")
     private String planName;
 
+    /**
+     * 关联生产计划编号（查询参数专用，非表字段，经 production_plan 表匹配）
+     */
+    @TableField(exist = false)
+    private String planNumber;
+
     // endregion
 
     // region 业务字段

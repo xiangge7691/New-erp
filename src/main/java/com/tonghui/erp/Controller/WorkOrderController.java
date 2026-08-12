@@ -113,7 +113,8 @@ public class WorkOrderController extends BaseCrudController<WorkOrder, WorkOrder
      * 可选查询条件：workOrderCode（模糊匹配）、workOrderName（模糊匹配）、
      * preparationId（制剂ID精确匹配）、preparationCode（模糊匹配）、
      * preparationName（模糊匹配）、planId（关联计划ID精确匹配）、
-     * planName（关联计划名称模糊匹配）、currentStatus（当前状态精确匹配），
+     * planName（关联计划名称模糊匹配）、planNumber（关联生产计划编号模糊匹配）、
+     * currentStatus（当前状态精确匹配），
      * 以及 createdTimeStart/End、updatedTimeStart/End 时间范围条件
      * </p>
      * <p>
@@ -125,6 +126,7 @@ public class WorkOrderController extends BaseCrudController<WorkOrder, WorkOrder
      * GET /api/work-orders/search?pageIndex=1&pageSize=20&keyword=WO
      * GET /api/work-orders/search?pageIndex=1&pageSize=20&planId=1&currentStatus=生产中
      * GET /api/work-orders/search?pageIndex=1&pageSize=20&planName=益智健脑
+     * GET /api/work-orders/search?pageIndex=1&pageSize=20&planNumber=Plan20260730
      * GET /api/work-orders/search?pageIndex=1&pageSize=20&keyword=PP2026
      *
      * @param workOrder 查询条件（自动从query参数映射）
