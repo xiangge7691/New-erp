@@ -112,16 +112,23 @@ public class WorkOrderController extends BaseCrudController<WorkOrder, WorkOrder
      * <p>
      * 可选查询条件：workOrderCode（模糊匹配）、workOrderName（模糊匹配）、
      * preparationId（制剂ID精确匹配）、preparationCode（模糊匹配）、
-     * preparationName（模糊匹配）、planId（关联计划ID精确匹配）、currentStatus（当前状态精确匹配），
+     * preparationName（模糊匹配）、planId（关联计划ID精确匹配）、
+     * planName（关联计划名称模糊匹配）、currentStatus（当前状态精确匹配），
      * 以及 createdTimeStart/End、updatedTimeStart/End 时间范围条件
+     * </p>
+     * <p>
+     * keyword 关键字对工单编号、工单名称、制剂编码、制剂名称、
+     * 关联计划名称、关联计划编号进行模糊匹配
      * </p>
      *
      * 示例请求：
      * GET /api/work-orders/search?pageIndex=1&pageSize=20&keyword=WO
      * GET /api/work-orders/search?pageIndex=1&pageSize=20&planId=1&currentStatus=生产中
+     * GET /api/work-orders/search?pageIndex=1&pageSize=20&planName=益智健脑
+     * GET /api/work-orders/search?pageIndex=1&pageSize=20&keyword=PP2026
      *
      * @param workOrder 查询条件（自动从query参数映射）
-     * @param keyword 关键字（对工单编号、工单名称、制剂编码、制剂名称进行模糊匹配，可选）
+     * @param keyword 关键字（对工单编号、工单名称、制剂编码、制剂名称、关联计划名称、关联计划编号模糊匹配，可选）
      * @param createdTimeStart 创建时间起始（可选）
      * @param createdTimeEnd 创建时间结束（可选）
      * @param updatedTimeStart 更新时间起始（可选）

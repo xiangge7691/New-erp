@@ -9,6 +9,7 @@ import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.Equipment;
 import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.PreparationProcessTemplate;
+import com.tonghui.erp.Data.Entity.ProductionPlan;
 import com.tonghui.erp.Data.Entity.RoomInfo;
 import com.tonghui.erp.Data.Entity.WorkOrder;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessExecution;
@@ -31,6 +32,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 工单服务实现类
@@ -277,10 +279,10 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
 
     /**
      * 高级查询工单（支持多条件组合查询和时间范围筛选）
-     * <p>支持按工单ID、工单编号、工单名称、制剂、关联计划ID、当前状态等条件精确或模糊查询</p>
+     * <p>支持按工单ID、工单编号、工单名称、制剂、关联计划ID、关联计划名称、当前状态等条件精确或模糊查询</p>
      *
      * @param workOrder 查询条件实体，非null字段将作为等值或模糊查询条件
-     * @param keyword   关键字（对工单编号、工单名称、制剂编码、制剂名称进行模糊匹配，可选）
+     * @param keyword   关键字（对工单编号、工单名称、制剂编码、制剂名称、关联计划名称、关联计划编号进行模糊匹配，可选）
      * @param createdTimeStart 创建时间起始值（含）
      * @param createdTimeEnd   创建时间结束值（含）
      * @param updatedTimeStart 更新时间起始值（含）
@@ -301,9 +303,17 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         QueryWrapper<WorkOrder> wrapper = new QueryWrapper<>();
 
         if (StringUtils.hasText(keyword)) {
-            // 关键字对工单编号、工单名称、制剂编码、制剂名称进行模糊匹配
-            wrapper.and(w -> w.like("work_order_code", keyword).or().like("work_order_name", keyword)
-                    .or().like("preparation_code", keyword).or().like("preparation_name", keyword));
+            // 关键字对工单编号、工单名称、制剂编码、制剂名称、关联计划名称、关联计划编号进行模糊匹配
+            List<Long> planIdsByNumber = findPlanIdsByNumber(keyword);
+            wrapper.and(w -> {
+                w.like("work_order_code", keyword).or().like("work_order_name", keyword)
+                        .or().like("preparation_code", keyword).or().like("preparation_name", keyword)
+                        .or().like("plan_name", keyword);
+                // 关联计划编号不在工单表，需先在生产计划表中模糊匹配出计划ID，再按 plan_id 过滤
+                if (!planIdsByNumber.isEmpty()) {
+                    w.or().in("plan_id", planIdsByNumber);
+                }
+            });
         }
         if (workOrder.getWorkOrderId() != null) {
             wrapper.eq("work_order_id", workOrder.getWorkOrderId());
@@ -319,6 +329,9 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         }
         if (workOrder.getPlanId() != null) {
             wrapper.eq("plan_id", workOrder.getPlanId());
+        }
+        if (StringUtils.hasText(workOrder.getPlanName())) {
+            wrapper.like("plan_name", workOrder.getPlanName());
         }
         if (StringUtils.hasText(workOrder.getCurrentStatus())) {
             wrapper.eq("current_status", workOrder.getCurrentStatus());
@@ -396,6 +409,24 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         wrapper.orderByDesc("created_time");
 
         return this.page(page, wrapper);
+    }
+
+    /**
+     * 根据关键字在生产计划表的生产计划编号（plan_number）中模糊匹配，返回匹配的计划ID列表
+     * <p>
+     * 工单表未冗余生产计划编号字段，需通过 plan_id 关联 production_plan 表查询
+     * </p>
+     *
+     * @param keyword 关联计划编号关键字（可为空）
+     * @return 匹配的生产计划ID列表（无匹配返回空列表）
+     */
+    private List<Long> findPlanIdsByNumber(String keyword) {
+        if (!StringUtils.hasText(keyword)) {
+            return new ArrayList<>();
+        }
+        List<ProductionPlan> plans = productionPlanService.list(
+                new QueryWrapper<ProductionPlan>().like("plan_number", keyword));
+        return plans.stream().map(Plan -> Plan.getId().longValue()).collect(Collectors.toList());
     }
 
     // endregion
