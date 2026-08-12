@@ -1,6 +1,5 @@
 package com.tonghui.erp.Service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Data.Entity.InspectionPlan;
 import com.tonghui.erp.Data.mapper.InspectionPlanMapper;
@@ -49,6 +48,10 @@ public class InspectionPlanServiceImpl extends ServiceImpl<InspectionPlanMapper,
 
     /**
      * 校验计划编号是否唯一
+     * <p>
+     * 通过Mapper原生SQL统计包含软删除记录在内的全部记录，
+     * 避免已软删除记录占用的编号被误判为可用导致唯一索引冲突
+     * </p>
      *
      * @param code      计划编号
      * @param excludeId 需要排除的记录ID（修改时传入，新增时传null）
@@ -56,13 +59,7 @@ public class InspectionPlanServiceImpl extends ServiceImpl<InspectionPlanMapper,
      */
     @Override
     public boolean isCodeUnique(String code, Long excludeId) {
-        QueryWrapper<InspectionPlan> wrapper = new QueryWrapper<>();
-        wrapper.eq("plan_code", code)
-                .eq("is_deleted", 0);
-        if (excludeId != null) {
-            wrapper.ne("id", excludeId);
-        }
-        return count(wrapper) == 0;
+        return baseMapper.countByCodeIncludeDeleted(code, excludeId) == 0;
     }
 
     // endregion

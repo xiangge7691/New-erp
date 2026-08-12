@@ -24,4 +24,18 @@ public interface SamplingRecordMapper extends BaseMapper<SamplingRecord> {
      */
     @Select("SELECT sampling_code FROM sampling_record WHERE sampling_code LIKE CONCAT(#{prefix}, '%') ORDER BY sampling_code DESC LIMIT 1")
     String selectMaxCodeByPrefix(@Param("prefix") String prefix);
+
+    /**
+     * 统计指定取样编号的记录数（绕过软删除过滤，包含已删除记录）
+     * <p>
+     * 用于编号唯一性校验，避免已软删除记录占用的编号被误判为可用，
+     * 从而在插入时触发唯一索引冲突
+     * </p>
+     *
+     * @param code      取样编号
+     * @param excludeId 需要排除的记录ID（修改时传入，新增时传null）
+     * @return 匹配记录数
+     */
+    @Select("SELECT COUNT(*) FROM sampling_record WHERE sampling_code = #{code} AND (#{excludeId} IS NULL OR id <> #{excludeId})")
+    long countByCodeIncludeDeleted(@Param("code") String code, @Param("excludeId") Long excludeId);
 }

@@ -288,13 +288,14 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
      *   "supplierId": 1,
      *   "prodUnitId": 1,
      *   "inType": "原料入库",
+     *   "planNumber": "Plan20260730002",
      *   "details": [
      *     {"itemId": 1, "itemCode": "Y0001", "itemName": "甘草", "categoryName": "原料",
      *      "unitName": "kg", "batchNumber": "B20260801", "quantity": 100, "unitPrice": 10.50, "stockStatus": "合格"}
      *   ]
      * }
      *
-     * @param dto 入库单信息（含明细列表 details）
+     * @param dto 入库单信息（planNumber 为关联生产计划编号，人工填写，可选；含明细列表 details）
      * @return 入库单信息（successCount 为本次入库成功的明细条数）
      */
     @PostMapping("/withDetails")
@@ -318,6 +319,7 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
      * {
      *   "inDate": "2026-07-01T10:30:00",
      *   "supplierId": 1,
+     *   "planNumber": "Plan20260730002",
      *   "details": [
      *     {"itemId": 1, "itemCode": "Y0001", "itemName": "甘草", "categoryName": "原料",
      *      "unitName": "kg", "batchNumber": "B20260801", "quantity": 100, "unitPrice": 10.50}
@@ -325,7 +327,7 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
      * }
      *
      * @param id  入库单ID
-     * @param dto 入库单信息（含明细列表 details）
+     * @param dto 入库单信息（planNumber 为关联生产计划编号，人工填写，可选；含明细列表 details）
      * @return 更新后的入库单信息（successCount 为本次保存的明细条数）
      */
     @PutMapping("/{id}/withDetails")
