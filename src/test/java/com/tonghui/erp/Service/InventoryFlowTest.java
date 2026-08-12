@@ -21,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.sql.DataSource;
 import java.math.BigDecimal;
 import java.sql.Connection;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -129,7 +129,7 @@ public class InventoryFlowTest {
         StockIn stockIn = new StockIn();
         stockIn.setInType("采购入库");
         stockIn.setProdUnitId(prodUnitId);
-        stockIn.setInDate(LocalDate.now());
+        stockIn.setInDate(LocalDateTime.now());
         StockInDetail detail = new StockInDetail();
         detail.setItemType("material");
         detail.setItemCode("INV-TEST-001");
@@ -182,7 +182,7 @@ public class InventoryFlowTest {
         StockOut stockOut = new StockOut();
         stockOut.setOutType("生产领料出库");
         stockOut.setProdUnitId(prodUnitId);
-        stockOut.setOutDate(LocalDate.now());
+        stockOut.setOutDate(LocalDateTime.now());
         StockOutDetail outDetail = new StockOutDetail();
         outDetail.setStockId(stockId);
         outDetail.setItemCode("INV-TEST-002");
@@ -235,7 +235,7 @@ public class InventoryFlowTest {
             StockOut stockOut = new StockOut();
             stockOut.setOutType("销售出库");
             stockOut.setProdUnitId(prodUnitId);
-            stockOut.setOutDate(LocalDate.now());
+            stockOut.setOutDate(LocalDateTime.now());
             StockOutDetail outDetail = new StockOutDetail();
             outDetail.setStockId(stock.getStockId());
             outDetail.setItemCode("INV-TEST-003");
