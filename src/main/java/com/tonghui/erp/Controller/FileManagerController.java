@@ -216,16 +216,25 @@ public class FileManagerController extends BaseController {
     // ===================================
 
     /**
-     * 查看回收站
+     * 查看回收站（支持按删除人、删除时间段筛选）
      *
-     * 示例请求：GET /api/file-manager/recycle-bin
+     * 示例请求：
+     * GET /api/file-manager/recycle-bin
+     * GET /api/file-manager/recycle-bin?deletedBy=1&startTime=2026-01-01&endTime=2026-06-30 23:59:59
      *
-     * @return 已删除的文件列表
+     * @param deletedBy 删除人ID（可选）
+     * @param startTime 删除时间起始（可选，格式：yyyy-MM-dd 或 yyyy-MM-dd HH:mm:ss，含边界）
+     * @param endTime   删除时间截止（可选，格式：yyyy-MM-dd 或 yyyy-MM-dd HH:mm:ss，含边界）
+     * @return 已删除的文件列表（含删除人、删除时间）
      */
     @GetMapping("/recycle-bin")
-    public ApiResponse<List<FileItemDto>> listRecycleBin() {
+    public ApiResponse<List<FileItemDto>> listRecycleBin(
+            @RequestParam(required = false) Long deletedBy,
+            @RequestParam(required = false) String startTime,
+            @RequestParam(required = false) String endTime) {
         try {
-            List<FileItemDto> result = fileManagerService.listRecycleBin();
+            List<FileItemDto> result = fileManagerService.listRecycleBin(
+                    deletedBy, parseTimeParam(startTime, true), parseTimeParam(endTime, false));
             return success(result);
         } catch (Exception e) {
             return exception(e, "查看回收站");

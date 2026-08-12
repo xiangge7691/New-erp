@@ -48,5 +48,20 @@ public class FileItemDto {
      */
     private String iconType;
 
+    /**
+     * 删除人ID（回收站专用）
+     */
+    private Long deletedBy;
+
+    /**
+     * 删除人姓名（回收站专用，取用户真实姓名，无则回退登录账号）
+     */
+    private String deletedByName;
+
+    /**
+     * 删除时间（回收站专用，格式 yyyy-MM-dd HH:mm:ss）
+     */
+    private String deletedTime;
+
     // endregion
 }

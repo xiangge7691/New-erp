@@ -10,7 +10,9 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.FileInfo;
 import com.tonghui.erp.Data.Entity.FileOperationLog;
+import com.tonghui.erp.Data.Entity.User;
 import com.tonghui.erp.Data.mapper.FileInfoMapper;
+import com.tonghui.erp.Data.mapper.UserMapper;
 import com.tonghui.erp.Service.FileManagerService;
 import com.tonghui.erp.Service.FileOperationLogService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,6 +54,9 @@ public class FileManagerServiceImpl implements FileManagerService {
 
     @Autowired
     private FileOperationLogService fileOperationLogService;
+
+    @Autowired
+    private UserMapper userMapper;
 
     // endregion
 
@@ -369,8 +374,20 @@ public class FileManagerServiceImpl implements FileManagerService {
         fileOperationLogService.log(null, getOriginalName(target, fileName), normalizePath(relativePath), OP_DELETE, root, "永久删除");
     }
 
+    /**
+     * 列出回收站内容（扫描 .recycle-bin 目录）
+     * <p>
+     * 通过 file_info 表补充删除人、删除时间字段，
+     * 并支持按删除人、删除时间段筛选
+     * </p>
+     *
+     * @param deletedBy 删除人ID（可选，为空不过滤）
+     * @param startTime 删除时间起始（可选，含边界）
+     * @param endTime   删除时间截止（可选，含边界）
+     * @return 已删除的文件列表（含删除人、删除时间）
+     */
     @Override
-    public List<FileItemDto> listRecycleBin() {
+    public List<FileItemDto> listRecycleBin(Long deletedBy, LocalDateTime startTime, LocalDateTime endTime) {
         Path basePath = resolveRootPath(ROOT_CUSTOM);
         Path recycleBin = basePath.resolve(RECYCLE_BIN_DIR);
         List<FileItemDto> results = new ArrayList<>();
@@ -378,6 +395,9 @@ public class FileManagerServiceImpl implements FileManagerService {
         if (!Files.exists(recycleBin) || !Files.isDirectory(recycleBin)) {
             return results;
         }
+
+        // 预加载回收站内所有 file_info 记录（磁盘路径 -> 记录），用于补充删除人/删除时间
+        Map<String, FileInfo> recycleInfos = loadRecycleFileInfos();
 
         try (Stream<Path> stream = Files.list(recycleBin)) {
             stream.sorted(Comparator.comparing(p -> p.getFileName().toString()))
@@ -387,6 +407,12 @@ public class FileManagerServiceImpl implements FileManagerService {
                     String displayName = getOriginalName(path, diskName);
                     item.setName(displayName);
                     item.setPath(normalizePath(RECYCLE_BIN_DIR + "/" + diskName));
+
+                    // 补充删除人/删除时间（文件夹取子文件的删除记录）
+                    FileInfo fi = Files.isDirectory(path)
+                            ? findFolderRecycleInfo(path)
+                            : recycleInfos.get(path.toString());
+                    fillRecycleInfo(item, fi);
 
                     if (Files.isDirectory(path)) {
                         item.setDirectory(true);
@@ -414,7 +440,86 @@ public class FileManagerServiceImpl implements FileManagerService {
             throw new RuntimeException("读取回收站失败: " + e.getMessage());
         }
 
-        return results;
+        // 按删除人、删除时间段筛选
+        return results.stream().filter(item -> {
+            if (deletedBy != null && !deletedBy.equals(item.getDeletedBy())) {
+                return false;
+            }
+            if (startTime != null || endTime != null) {
+                LocalDateTime deletedAt = parseDateTime(item.getDeletedTime());
+                if (deletedAt == null) {
+                    return false;
+                }
+                if (startTime != null && deletedAt.isBefore(startTime)) {
+                    return false;
+                }
+                if (endTime != null && deletedAt.isAfter(endTime)) {
+                    return false;
+                }
+            }
+            return true;
+        }).collect(Collectors.toList());
+    }
+
+    /**
+     * 加载回收站内全部已删除的 file_info 记录（磁盘路径 -> 记录）
+     *
+     * @return 磁盘绝对路径到文件信息的映射
+     */
+    private Map<String, FileInfo> loadRecycleFileInfos() {
+        QueryWrapper<FileInfo> wrapper = new QueryWrapper<>();
+        wrapper.eq("is_deleted", 1);
+        wrapper.like("file_path", RECYCLE_BIN_DIR);
+        return fileInfoMapper.selectList(wrapper).stream()
+                .collect(Collectors.toMap(FileInfo::getFilePath, f -> f, (a, b) -> a));
+    }
+
+    /**
+     * 查找已删除文件夹的代表性 file_info 记录（取子文件中删除时间最新的一条）
+     *
+     * @param folderPath 回收站内文件夹的磁盘绝对路径
+     * @return file_info 记录，无匹配时返回 null
+     */
+    private FileInfo findFolderRecycleInfo(Path folderPath) {
+        QueryWrapper<FileInfo> wrapper = new QueryWrapper<>();
+        wrapper.eq("is_deleted", 1);
+        wrapper.like("file_path", folderPath.toString());
+        wrapper.orderByDesc("deleted_at");
+        wrapper.last("LIMIT 1");
+        return fileInfoMapper.selectOne(wrapper);
+    }
+
+    /**
+     * 将 file_info 记录的删除人、删除时间填充到回收站条目
+     *
+     * @param item 回收站条目
+     * @param fi   file_info 记录（可为空）
+     */
+    private void fillRecycleInfo(FileItemDto item, FileInfo fi) {
+        if (fi == null) {
+            return;
+        }
+        item.setDeletedBy(fi.getDeletedBy());
+        item.setDeletedByName(resolveUserName(fi.getDeletedBy()));
+        item.setDeletedTime(fi.getDeletedAt() != null
+                ? fi.getDeletedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : null);
+    }
+
+    /**
+     * 根据用户ID解析用户显示名称（真实姓名，无则回退登录账号）
+     *
+     * @param userId 用户ID（可为空）
+     * @return 用户名称，用户不存在或ID为空时返回 null
+     */
+    private String resolveUserName(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            return null;
+        }
+        return StringUtils.hasText(user.getUserName()) ? user.getUserName() : user.getUserAccount();
     }
 
     // endregion

@@ -9,6 +9,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -93,9 +94,12 @@ public interface FileManagerService {
     /**
      * 列出回收站内容（扫描 .recycle-bin 目录）
      *
-     * @return 已删除的文件列表
+     * @param deletedBy 删除人ID筛选（可选，为空不过滤）
+     * @param startTime 删除时间起始（可选，含边界）
+     * @param endTime   删除时间截止（可选，含边界）
+     * @return 已删除的文件列表（含删除人、删除时间）
      */
-    List<FileItemDto> listRecycleBin();
+    List<FileItemDto> listRecycleBin(Long deletedBy, LocalDateTime startTime, LocalDateTime endTime);
 
     // endregion
 
