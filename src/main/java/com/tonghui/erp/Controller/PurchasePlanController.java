@@ -3,6 +3,7 @@ package com.tonghui.erp.Controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Purchase.PurchasePlanWithDetailsDto;
 import com.tonghui.erp.Common.Dto.PurchasePlanStatusDto;
 import com.tonghui.erp.Data.Entity.PurchasePlan;
 import com.tonghui.erp.Data.Entity.PurchasePlanDetail;
@@ -38,6 +39,50 @@ public class PurchasePlanController extends BaseController {
                 return success(purchasePlan, "创建成功");
             }
             return error("创建失败");
+        } catch (Exception ex) {
+            return exception(ex, "创建采购计划失败");
+        }
+    }
+
+    /**
+     * 创建采购计划（主表和明细一起添加）
+     * <p>
+     * 一次请求同时保存采购计划主表及其明细列表，主表保存成功后自动生成计划编号，
+     * 明细按列表顺序自动生成序号
+     * </p>
+     *
+     * 示例请求：
+     * POST /api/purchase-plan/with-details
+     * Content-Type: application/json
+     * {
+     *   "title": "2025年5月采购计划",
+     *   "productionPlanId": 1,
+     *   "preparationCode": "Z00001",
+     *   "preparationName": "跌打除痹膏",
+     *   "status": "草稿",
+     *   "details": [
+     *     {
+     *       "materialId": 28,
+     *       "materialCode": "F0028",
+     *       "materialName": "麻油（食用）",
+     *       "materialCategory": "辅料",
+     *       "unit": "kg",
+     *       "standardQty": 6.00,
+     *       "purchaseQty": 6.00,
+     *       "stockQty": 0,
+     *       "difference": 6.00
+     *     }
+     *   ]
+     * }
+     *
+     * @param dto 采购计划主表信息（含明细列表details，明细可为空）
+     * @return ApiResponse&lt;PurchasePlan&gt; 保存后的采购计划（含主键ID）
+     */
+    @PostMapping("/with-details")
+    public ApiResponse<PurchasePlan> createWithDetails(@RequestBody PurchasePlanWithDetailsDto dto) {
+        try {
+            PurchasePlan plan = purchasePlanService.addPurchasePlanWithDetails(dto);
+            return success(plan, "创建成功");
         } catch (Exception ex) {
             return exception(ex, "创建采购计划失败");
         }

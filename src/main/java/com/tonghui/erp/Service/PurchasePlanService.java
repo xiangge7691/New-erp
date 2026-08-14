@@ -2,6 +2,7 @@ package com.tonghui.erp.Service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.tonghui.erp.Common.Dto.Purchase.PurchasePlanWithDetailsDto;
 import com.tonghui.erp.Data.Entity.PurchasePlan;
 
 import java.time.LocalDate;
@@ -19,6 +20,18 @@ public interface PurchasePlanService extends IService<PurchasePlan> {
      * @return 是否成功
      */
     boolean addPurchasePlan(PurchasePlan purchasePlan);
+
+    /**
+     * 创建采购计划（主表和明细一起添加）
+     * <p>
+     * 在一个事务中同时保存采购计划主表及明细列表：
+     * 先复用主表新增逻辑（自动生成计划编号），再按序批量插入明细（自动填充序号）
+     * </p>
+     *
+     * @param dto 采购计划主表信息（含明细列表，明细可为空）
+     * @return 保存后的采购计划（含主键ID）
+     */
+    PurchasePlan addPurchasePlanWithDetails(PurchasePlanWithDetailsDto dto);
 
     /**
      * 更新采购计划状态（通用状态变更接口）

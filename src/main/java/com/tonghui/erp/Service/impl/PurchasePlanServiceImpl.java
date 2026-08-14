@@ -3,6 +3,7 @@ package com.tonghui.erp.Service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.tonghui.erp.Common.Dto.Purchase.PurchasePlanWithDetailsDto;
 import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.PurchaseOrderItems;
@@ -82,6 +83,39 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
         }
 
         return this.save(purchasePlan);
+    }
+
+    /**
+     * 创建采购计划（主表和明细一起添加）
+     * <p>
+     * 在事务内先保存主表（自动生成编号、默认草稿状态），
+     * 再按列表顺序批量插入明细（自动填充序号、planId、软删除标记与版本号）
+     * </p>
+     *
+     * @param dto 采购计划主表信息（含明细列表，明细可为空）
+     * @return 保存后的采购计划（含主键ID）
+     */
+    @Override
+    @Transactional
+    public PurchasePlan addPurchasePlanWithDetails(PurchasePlanWithDetailsDto dto) {
+        // 保存主表并获取主键ID
+        addPurchasePlan(dto);
+
+        // 批量插入明细
+        List<PurchasePlanDetail> details = dto.getDetails();
+        if (details != null && !details.isEmpty()) {
+            for (int i = 0; i < details.size(); i++) {
+                PurchasePlanDetail detail = details.get(i);
+                detail.setId(null);
+                detail.setPlanId(dto.getId());
+                detail.setSequenceNumber(i + 1);
+                detail.setIsDeleted(0);
+                detail.setVersion(1);
+                purchasePlanDetailMapper.insert(detail);
+            }
+        }
+
+        return dto;
     }
 
     @Override
