@@ -2,6 +2,7 @@ package com.tonghui.erp.Controller;
 
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Preparation.PreparationFormulaStockDto;
 import com.tonghui.erp.Data.Entity.PreparationFormula;
 import com.tonghui.erp.Service.PreparationFormulaService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -194,6 +195,34 @@ public class PreparationFormulaController extends BaseCrudController<Preparation
             return success(formulas);
         } catch (Exception ex) {
             return exception(ex, "根据制剂编码查询处方信息");
+        }
+    }
+
+    /**
+     * 根据制剂查询处方信息（包含库存汇总数量）
+     * <p>
+     * 通过制剂ID或制剂编码定位制剂（二选一），返回处方明细列表，
+     * 每条明细附带该物料在库存中的汇总数量（按物料编码汇总所有批次与生产单位）
+     * </p>
+     *
+     * 示例请求：
+     * GET /api/preparation/formula/withStock?preparationId=1
+     * GET /api/preparation/formula/withStock?preparationCode=Z000001
+     *
+     * @param preparationId   制剂ID（可选，与preparationCode至少提供一个）
+     * @param preparationCode 制剂编码（可选，与preparationId至少提供一个）
+     * @return ApiResponse&lt;List&lt;PreparationFormulaStockDto&gt;&gt; 处方明细列表（含库存汇总数量）
+     */
+    @GetMapping("/withStock")
+    public ApiResponse<List<PreparationFormulaStockDto>> getFormulasByPreparationWithStock(
+            @RequestParam(required = false) Long preparationId,
+            @RequestParam(required = false) String preparationCode) {
+        try {
+            List<PreparationFormulaStockDto> formulas =
+                    preparationFormulaService.getFormulasByPreparationWithStock(preparationId, preparationCode);
+            return success(formulas);
+        } catch (Exception ex) {
+            return exception(ex, "根据制剂查询处方信息（含库存汇总数量）");
         }
     }
 

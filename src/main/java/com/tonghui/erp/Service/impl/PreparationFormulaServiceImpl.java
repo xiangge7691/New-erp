@@ -2,10 +2,12 @@ package com.tonghui.erp.Service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.tonghui.erp.Common.Dto.Preparation.PreparationFormulaStockDto;
 import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.PreparationFormula;
 import com.tonghui.erp.Data.mapper.PreparationFormulaMapper;
 import com.tonghui.erp.Data.mapper.PreparationMapper;
+import com.tonghui.erp.Data.mapper.StockMapper;
 import com.tonghui.erp.Service.PreparationFormulaService;
 import com.tonghui.erp.Common.utils.JwtHelper;
 import com.tonghui.erp.Common.Config.JwtConfig;
@@ -14,9 +16,14 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 制剂处方明细服务实现类
@@ -36,6 +43,9 @@ public class PreparationFormulaServiceImpl extends ServiceImpl<PreparationFormul
 
     @Autowired
     private PreparationMapper preparationMapper;
+
+    @Autowired
+    private StockMapper stockMapper;
 
     // endregion
 
@@ -164,6 +174,64 @@ public class PreparationFormulaServiceImpl extends ServiceImpl<PreparationFormul
     @Override
     public List<PreparationFormula> getAllFormulas() {
         return this.baseMapper.selectList(null);
+    }
+
+    /**
+     * 根据制剂查询处方明细（含库存汇总数量）
+     * <p>
+     * 通过制剂ID或制剂编码定位制剂（二选一），批量汇总各物料的库存数量后组装返回
+     * </p>
+     *
+     * @param preparationId   制剂ID（可为空）
+     * @param preparationCode 制剂编码（可为空，与preparationId至少提供一个）
+     * @return 处方明细（含库存汇总数量）列表
+     */
+    @Override
+    public List<PreparationFormulaStockDto> getFormulasByPreparationWithStock(Long preparationId, String preparationCode) {
+        if (preparationId == null && !StringUtils.hasText(preparationCode)) {
+            throw new RuntimeException("制剂ID与制剂编码至少提供一个");
+        }
+
+        QueryWrapper<PreparationFormula> wrapper = new QueryWrapper<>();
+        if (preparationId != null) {
+            wrapper.eq("preparation_id", preparationId);
+        } else {
+            wrapper.eq("preparation_code", preparationCode);
+        }
+        List<PreparationFormula> formulas = this.baseMapper.selectList(wrapper);
+
+        // 收集物料编码，批量查询库存汇总（按 item_code 汇总所有批次与生产单位）
+        Set<String> materialCodes = formulas.stream()
+                .map(PreparationFormula::getMaterialCode)
+                .filter(StringUtils::hasText)
+                .collect(Collectors.toSet());
+
+        Map<String, BigDecimal> stockQuantityMap = materialCodes.isEmpty()
+                ? Map.of()
+                : stockMapper.sumQuantityByMaterialCodes(List.copyOf(materialCodes)).stream()
+                        .collect(Collectors.toMap(
+                                m -> String.valueOf(m.get("item_code")),
+                                m -> m.get("total_quantity") != null
+                                        ? new BigDecimal(String.valueOf(m.get("total_quantity")))
+                                        : BigDecimal.ZERO,
+                                (a, b) -> a));
+
+        return formulas.stream().map(f -> {
+            PreparationFormulaStockDto dto = new PreparationFormulaStockDto();
+            dto.setPreparationId(f.getPreparationId());
+            dto.setPreparationCode(f.getPreparationCode());
+            dto.setPreparationName(f.getPreparationName());
+            dto.setFormulaId(f.getFormulaId());
+            dto.setMaterialId(f.getMaterialId());
+            dto.setMaterialCode(f.getMaterialCode());
+            dto.setMaterialName(f.getMaterialName());
+            dto.setMaterialCategory(f.getMaterialCategory());
+            dto.setDosage(f.getDosage());
+            dto.setUnitId(f.getUnitId());
+            dto.setUnitName(f.getUnitName());
+            dto.setStockQuantity(stockQuantityMap.getOrDefault(f.getMaterialCode(), BigDecimal.ZERO));
+            return dto;
+        }).collect(Collectors.toList());
     }
 
     // endregion

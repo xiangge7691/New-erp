@@ -5,6 +5,7 @@ import com.tonghui.erp.Data.Entity.Stock;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import java.time.LocalDate;
@@ -56,6 +57,24 @@ public interface StockMapper extends BaseMapper<Stock> {
      */
     @Update("UPDATE stock SET is_deleted = 1 WHERE prod_unit_id = #{prodUnitId} AND is_deleted = 0")
     int softDeleteByProdUnitId(@Param("prodUnitId") Long prodUnitId);
+
+    /**
+     * 按物料编码汇总库存数量（用于制剂处方查询时展示各物料的库存总量）
+     * <p>
+     * 汇总条件：物料类型（item_type='material'）、未删除（is_deleted=0）、编码在给定集合内，
+     * 按 item_code 分组求和 quantity
+     * </p>
+     *
+     * @param itemCodes 物料编码集合（非空）
+     * @return 汇总结果列表，每项含 item_code 与 total_quantity（数量）
+     */
+    @Select("<script>" +
+            "SELECT item_code, COALESCE(SUM(quantity), 0) AS total_quantity FROM stock " +
+            "WHERE item_type = 'material' AND is_deleted = 0 AND item_code IN " +
+            "<foreach collection='itemCodes' item='code' open='(' separator=',' close=')'>#{code}</foreach> " +
+            "GROUP BY item_code" +
+            "</script>")
+    List<Map<String, Object>> sumQuantityByMaterialCodes(@Param("itemCodes") List<String> itemCodes);
 
 }
 
