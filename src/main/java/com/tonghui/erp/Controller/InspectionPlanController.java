@@ -198,6 +198,17 @@ public class InspectionPlanController extends BaseController {
      *   "remark": "月检计划"
      * }
      *
+     * 必填字段：
+     *   planPeriod         计划月份/周次（必填）
+     *   inspectionType     检验类型（必填）
+     *   objectName         检验对象名称（必填）
+     *   inspectionSummary  检验项目概要（必填）
+     *   planTime           计划检验时间（必填）
+     *   status             状态（必填）
+     * 其他说明：
+     *   planCode 为空时系统自动生成（格式JH-YYYYMMDD-NNN），亦可手动传入，须唯一
+     *   以下字段选填：batchNo、spec、completeTime、remark
+     *
      * @param record 检验计划信息（编号为空时系统自动生成）
      * @return ApiResponse&lt;InspectionPlan&gt; 新增的检验计划
      */
@@ -252,6 +263,8 @@ public class InspectionPlanController extends BaseController {
      *   "status": "已完成",
      *   "completeTime": "2026-07-22"
      * }
+     *
+     * 必填字段说明：同新增接口（planCode 编号除外），修改时仅传需变更字段
      *
      * @param id     检验计划ID（路径参数）
      * @param record 更新的检验计划信息

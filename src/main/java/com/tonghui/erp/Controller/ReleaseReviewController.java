@@ -204,6 +204,18 @@ public class ReleaseReviewController extends BaseController {
      *   "remark": ""
      * }
      *
+     * 必填字段：
+     *   objectName        被检对象名称（必填）
+     *   batchNo           批号（必填）
+     *   releaseConclusion 放行结论（必填）
+     *   reviewer          审核人（必填）
+     *   reviewTime        审核时间（必填）
+     * 条件必填：
+     *   reviewOpinion     审核意见（放行结论=拒绝放行时必填）
+     * 其他说明：
+     *   releaseCode 为空时系统自动生成（格式FX-YYYYMMDD-NNN），亦可手动传入，须唯一
+     *   以下字段选填：relatedInspectionCode、spec、remark
+     *
      * @param record 审核放行信息（编号为空时系统自动生成，拒绝放行时审核意见必填）
      * @return ApiResponse&lt;ReleaseReview&gt; 新增的审核放行
      */
@@ -261,6 +273,8 @@ public class ReleaseReviewController extends BaseController {
      *   "releaseConclusion": "拒绝放行",
      *   "reviewOpinion": "外观性状不符合标准"
      * }
+     *
+     * 必填字段说明：同新增接口（releaseCode 编号除外），修改时仅传需变更字段
      *
      * @param id     审核放行ID（路径参数）
      * @param record 更新的审核放行信息

@@ -213,6 +213,20 @@ public class InspectionRecordController extends BaseController {
      *   "remark": "检验通过"
      * }
      *
+     * 必填字段：
+     *   objectName       被检对象名称（必填）
+     *   batchNo          批号（必填）
+     *   inspectionBasis  检验依据（必填）
+     *   inspectionItem   检验项目（必填）
+     *   inspector        检验人（必填）
+     *   reviewer         复核人（必填）
+     *   startTime        检验开始时间（必填）
+     *   endTime          检验结束时间（必填）
+     *   conclusion       总体结论（必填）
+     * 其他说明：
+     *   inspectionCode 为空时系统自动生成（格式JY-YYYYMMDD-NNN），亦可手动传入，须唯一
+     *   以下字段选填：relatedSamplingCode、spec、remark
+     *
      * @param record 检验记录信息（编号为空时系统自动生成）
      * @return ApiResponse&lt;InspectionRecord&gt; 新增的检验记录
      */
@@ -267,6 +281,8 @@ public class InspectionRecordController extends BaseController {
      *   "conclusion": "不合格",
      *   "remark": "含量超出标准范围"
      * }
+     *
+     * 必填字段说明：同新增接口（inspectionCode 编号除外），修改时仅传需变更字段
      *
      * @param id     检验记录ID（路径参数）
      * @param record 更新的检验记录信息

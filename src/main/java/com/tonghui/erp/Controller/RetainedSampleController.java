@@ -202,6 +202,20 @@ public class RetainedSampleController extends BaseController {
      *   "remark": "留样观察"
      * }
      *
+     * 必填字段：
+     *   materialName      物料名称（必填）
+     *   batchNo           批号（必填）
+     *   retainedQuantity  留样数量（必填）
+     *   retainedDate      留样日期（必填）
+     *   expiryDate        留样期限（必填）
+     *   storageLocation   存放位置（必填）
+     *   status            状态（必填）
+     * 条件必填：
+     *   destroyDate       销毁日期（状态=已销毁时必填）
+     * 其他说明：
+     *   retainedCode 为空时系统自动生成（格式LY-YYYYMMDD-NNN），亦可手动传入，须唯一
+     *   以下字段选填：relatedInspectionCode、spec、observationRecord、remark
+     *
      * @param record 留样记录信息（编号为空时系统自动生成）
      * @return ApiResponse&lt;RetainedSample&gt; 新增的留样记录
      */
@@ -260,6 +274,8 @@ public class RetainedSampleController extends BaseController {
      *   "destroyDate": "2027-07-21",
      *   "observationRecord": "留样期内性状稳定，无异常变化"
      * }
+     *
+     * 必填字段说明：同新增接口（retainedCode 编号除外），修改时仅传需变更字段
      *
      * @param id     留样记录ID（路径参数）
      * @param record 更新的留样记录信息

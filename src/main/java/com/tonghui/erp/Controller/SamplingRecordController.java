@@ -210,6 +210,17 @@ public class SamplingRecordController extends BaseController {
      *   "remark": "按检验计划取样"
      * }
      *
+     * 必填字段：
+     *   objectName        被检对象名称（必填）
+     *   batchNo           批号（必填）
+     *   samplingLocation  取样地点（必填）
+     *   samplingQuantity  取样量（必填）
+     *   sampler           取样人（必填）
+     *   samplingTime      取样时间（必填）
+     * 其他说明：
+     *   samplingCode 为空时系统自动生成（格式QY-YYYYMMDD-NNN），亦可手动传入，须唯一
+     *   以下字段选填：relatedPlanCode、spec、samplingCount、samplingMethod、remark
+     *
      * @param record 取样记录信息（编号为空时系统自动生成）
      * @return ApiResponse&lt;SamplingRecord&gt; 新增的取样记录
      */
@@ -264,6 +275,8 @@ public class SamplingRecordController extends BaseController {
      *   "samplingQuantity": "100g × 4份",
      *   "samplingCount": 4
      * }
+     *
+     * 必填字段说明：同新增接口（samplingCode 编号除外），修改时仅传需变更字段
      *
      * @param id     取样记录ID（路径参数）
      * @param record 更新的取样记录信息
