@@ -82,6 +82,18 @@ public class DashboardController extends BaseController {
     @Autowired
     private WorkOrderService workOrderService;
 
+    @Autowired
+    private PurchaseOrdersService purchaseOrdersService;
+
+    @Autowired
+    private AcceptanceOrderService acceptanceOrderService;
+
+    @Autowired
+    private StockOutService stockOutService;
+
+    @Autowired
+    private OrganizationService organizationService;
+
     // endregion
 
     // region 汇总和统计接口
@@ -414,6 +426,111 @@ public class DashboardController extends BaseController {
                 allTodos.add(todo);
             }
             typeCounts.put("环境管理", (long) upcomingDisinfection.size());
+
+            // 6. 低库存预警（库存数量低于安全库存，全员可见）
+            List<Stock> lowStocks = stockService.list(
+                new QueryWrapper<Stock>()
+                    .eq("is_deleted", 0)
+                    .gt("quantity", 0)
+                    .isNotNull("min_quantity")
+                    .apply("quantity <= min_quantity")
+                    .orderByDesc("updated_time"));
+            for (Stock s : lowStocks) {
+                TodoItemDto todo = new TodoItemDto();
+                todo.setId(s.getStockId());
+                todo.setTodoType("低库存");
+                todo.setContent(s.getItemName() + "库存" + s.getQuantity() + s.getUnitName()
+                    + "，低于安全库存" + s.getMinQuantity());
+                todo.setDueDate(s.getUpdatedTime() != null ? s.getUpdatedTime().format(DATE_TIME_FORMATTER) : "");
+                todo.setSourceModule("库存管理");
+                todo.setLink("/stock_info");
+                allTodos.add(todo);
+            }
+            typeCounts.put("低库存", (long) lowStocks.size());
+
+            // 7. 采购订单待采购（审批通过生成但未执行的采购订单）
+            List<PurchaseOrders> pendingPurchases = purchaseOrdersService.list(
+                new QueryWrapper<PurchaseOrders>()
+                    .eq("is_deleted", 0)
+                    .eq("status", "待采购")
+                    .orderByDesc("created_time"));
+            for (PurchaseOrders po : pendingPurchases) {
+                TodoItemDto todo = new TodoItemDto();
+                todo.setId(po.getId());
+                todo.setTodoType("采购订单");
+                todo.setContent((po.getPurchaseNumber() != null ? po.getPurchaseNumber() : "采购订单" + po.getId()) + "待采购");
+                todo.setDueDate(po.getProcessingDate() != null ? po.getProcessingDate().toString() : "");
+                todo.setSourceModule("采购管理");
+                todo.setLink("/inbound_info");
+                allTodos.add(todo);
+            }
+            typeCounts.put("采购订单", (long) pendingPurchases.size());
+
+            // 8. 验收流程待办（运输中/到货初验/物料检验/待退货）
+            List<AcceptanceOrder> pendingAcceptances = acceptanceOrderService.list(
+                new QueryWrapper<AcceptanceOrder>()
+                    .eq("is_deleted", 0)
+                    .in("status", Arrays.asList("运输中", "到货初验", "物料检验", "待退货"))
+                    .orderByDesc("created_time"));
+            Map<String, String> acceptanceContentMap = new HashMap<>();
+            acceptanceContentMap.put("运输中", "已发货，待确认到货");
+            acceptanceContentMap.put("到货初验", "待到货初验");
+            acceptanceContentMap.put("物料检验", "待检验");
+            acceptanceContentMap.put("待退货", "检验不合格，待退货");
+            for (AcceptanceOrder a : pendingAcceptances) {
+                TodoItemDto todo = new TodoItemDto();
+                todo.setId(a.getAcceptanceId());
+                todo.setTodoType("验收");
+                todo.setContent((a.getAcceptanceCode() != null ? a.getAcceptanceCode() : "验收单" + a.getAcceptanceId())
+                    + acceptanceContentMap.getOrDefault(a.getStatus(), "待处理"));
+                todo.setDueDate("");
+                todo.setSourceModule("验收管理");
+                todo.setLink("/inbound_info");
+                allTodos.add(todo);
+            }
+            typeCounts.put("验收", (long) pendingAcceptances.size());
+
+            // 9. 出库单待确认（草稿状态的出库单）
+            List<StockOut> pendingStockOuts = stockOutService.list(
+                new QueryWrapper<StockOut>()
+                    .eq("is_deleted", 0)
+                    .eq("out_status", "草稿")
+                    .orderByDesc("created_time"));
+            for (StockOut so : pendingStockOuts) {
+                TodoItemDto todo = new TodoItemDto();
+                todo.setId(so.getOutId());
+                todo.setTodoType("出库单");
+                todo.setContent((so.getOutCode() != null ? so.getOutCode() : "出库单" + so.getOutId()) + "待确认出库");
+                todo.setDueDate(so.getOutDate() != null ? so.getOutDate().toString() : "");
+                todo.setSourceModule("库存管理");
+                todo.setLink("/warehouse_management/stock");
+                allTodos.add(todo);
+            }
+            typeCounts.put("出库单", (long) pendingStockOuts.size());
+
+            // 10. 机构许可证到期（30天内到期或已过期）
+            List<Organization> expiringOrgs = organizationService.list(
+                new QueryWrapper<Organization>()
+                    .eq("is_deleted", 0)
+                    .isNotNull("expiry_date")
+                    .le("expiry_date", today.plusDays(30))
+                    .orderByAsc("expiry_date"));
+            for (Organization org : expiringOrgs) {
+                TodoItemDto todo = new TodoItemDto();
+                todo.setId(org.getId());
+                todo.setTodoType("机构证照");
+                long days = java.time.temporal.ChronoUnit.DAYS.between(today, org.getExpiryDate());
+                if (days < 0) {
+                    todo.setContent(org.getOrgName() + "许可证已过期" + Math.abs(days) + "天");
+                } else {
+                    todo.setContent(org.getOrgName() + "许可证还有" + days + "天到期");
+                }
+                todo.setDueDate(org.getExpiryDate().toString());
+                todo.setSourceModule("机构管理");
+                todo.setLink("/organization");
+                allTodos.add(todo);
+            }
+            typeCounts.put("机构证照", (long) expiringOrgs.size());
 
             typeCounts.put("全部", (long) allTodos.size());
 
