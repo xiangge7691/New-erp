@@ -692,16 +692,20 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
 
     /**
      * 写入库存流水记录
+     * <p>
+     * 供库存联动（入库/出库确认）及调拨、盘点、退库等业务共用，
+     * 统一记录交易前后数量、变动数量与关联单据信息
+     * </p>
      *
      * @param stock           库存实体
      * @param transactionType 交易类型（入库类型/出库类型中文值）
-     * @param relatedType     关联单据类型（stock_in/stock_out）
+     * @param relatedType     关联单据类型（stock_in/stock_out/transfer/check/return）
      * @param relatedId       关联单据ID
      * @param remark          备注
      * @param quantityBefore  交易前数量
      * @param quantityChange  变动数量（正数入库，负数出库）
      */
-    private void insertTransaction(Stock stock, String transactionType, String relatedType,
+    public void insertTransaction(Stock stock, String transactionType, String relatedType,
                                    Long relatedId, String remark,
                                    BigDecimal quantityBefore, BigDecimal quantityChange) {
         StockTransaction transaction = new StockTransaction();
