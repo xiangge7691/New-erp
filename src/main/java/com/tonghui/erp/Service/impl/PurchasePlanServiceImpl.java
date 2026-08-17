@@ -6,10 +6,12 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.Purchase.PurchasePlanWithDetailsDto;
 import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.Preparation;
+import com.tonghui.erp.Data.Entity.ProductionPlan;
 import com.tonghui.erp.Data.Entity.PurchaseOrderItems;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
 import com.tonghui.erp.Data.Entity.PurchasePlan;
 import com.tonghui.erp.Data.Entity.PurchasePlanDetail;
+import com.tonghui.erp.Data.mapper.ProductionPlanMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrderItemsMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrdersMapper;
 import com.tonghui.erp.Data.mapper.PurchasePlanDetailMapper;
@@ -51,6 +53,9 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
     @Autowired
     private PreparationService preparationService;
 
+    @Autowired
+    private ProductionPlanMapper productionPlanMapper;
+
     /** 采购订单编号生成最大重试次数（处理并发编号冲突） */
     private static final int MAX_RETRY = 3;
 
@@ -82,7 +87,47 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
             purchasePlan.setUpdatedBy(currentUserId);
         }
 
-        return this.save(purchasePlan);
+        boolean saved = this.save(purchasePlan);
+
+        // 回写关联生产计划的采购计划下达时间（仅首次写入，保留最早一次）
+        updateProductionPlanPurchaseTime(purchasePlan);
+
+        return saved;
+    }
+
+    /**
+     * 回写关联生产计划的采购计划下达时间
+     * <p>
+     * 采购计划创建成功后，将创建时间写入关联生产计划的 purchase_order_time 字段；
+     * 该字段已有值时跳过（多条采购计划关联同一生产计划时保留最早一次下达时间）
+     * </p>
+     *
+     * @param purchasePlan 已保存的采购计划（须含生产计划ID或编号）
+     */
+    private void updateProductionPlanPurchaseTime(PurchasePlan purchasePlan) {
+        if (purchasePlan.getProductionPlanId() == null
+                && !StringUtils.hasText(purchasePlan.getProductionPlanCode())) {
+            return;
+        }
+
+        // 定位关联生产计划（优先按ID，其次按编号）
+        ProductionPlan plan;
+        if (purchasePlan.getProductionPlanId() != null) {
+            plan = productionPlanMapper.selectById(purchasePlan.getProductionPlanId());
+        } else {
+            plan = productionPlanMapper.selectOne(
+                    new QueryWrapper<ProductionPlan>().eq("plan_number", purchasePlan.getProductionPlanCode()));
+        }
+        if (plan == null) {
+            return;
+        }
+
+        // 仅当未下达过采购计划时写入，保留最早一次
+        if (plan.getPurchaseOrderTime() == null) {
+            plan.setPurchaseOrderTime(purchasePlan.getCreatedTime() != null
+                    ? purchasePlan.getCreatedTime() : LocalDateTime.now());
+            productionPlanMapper.updateById(plan);
+        }
     }
 
     /**
