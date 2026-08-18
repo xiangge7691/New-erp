@@ -4,8 +4,10 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.Module;
+import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateTimeSerializer;
 import com.tonghui.erp.Common.utils.DateTimeUtils;
 import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
@@ -14,16 +16,17 @@ import org.springframework.context.annotation.Configuration;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 /**
- * Jackson日期时间反序列化配置
+ * Jackson日期时间序列化/反序列化配置
  * <p>
- * 全局配置 LocalDateTime/LocalDate 的反序列化器，兼容两种时间格式：
+ * 全局配置 LocalDateTime/LocalDate 的序列化器与反序列化器：
  * <ul>
- *   <li>空格格式：2026-08-10 10:00:00</li>
- *   <li>ISO格式：2026-08-10T10:00:00</li>
+ *   <li>序列化输出统一为不带T的空格格式：yyyy-MM-dd HH:mm:ss</li>
+ *   <li>反序列化兼容两种格式：yyyy-MM-dd HH:mm:ss 与 yyyy-MM-dd'T'HH:mm:ss</li>
  * </ul>
- * 适用于请求体JSON中的时间字段，序列化输出保持默认ISO格式
+ * 适用于请求体JSON中的时间字段与接口返回的时间字段
  * </p>
  */
 @Configuration
@@ -35,7 +38,7 @@ public class JacksonDateTimeConfig {
     // ===================================
 
     /**
-     * 注册灵活日期时间反序列化器
+     * 注册灵活日期时间序列化/反序列化器
      *
      * @return Jackson定制器
      */
@@ -43,6 +46,10 @@ public class JacksonDateTimeConfig {
     public Jackson2ObjectMapperBuilderCustomizer flexibleDateTimeCustomizer() {
         return builder -> {
             SimpleModule module = new SimpleModule();
+            // 序列化：输出不带T的空格格式 yyyy-MM-dd HH:mm:ss
+            module.addSerializer(LocalDateTime.class, new LocalDateTimeSerializer(
+                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+            // 反序列化：兼容空格与ISO两种格式
             module.addDeserializer(LocalDateTime.class, new FlexibleLocalDateTimeDeserializer());
             module.addDeserializer(LocalDate.class, new FlexibleLocalDateDeserializer());
             builder.modulesToInstall(module);

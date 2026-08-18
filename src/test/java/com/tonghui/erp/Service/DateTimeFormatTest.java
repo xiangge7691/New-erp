@@ -117,6 +117,29 @@ public class DateTimeFormatTest {
         }
     }
 
+    /**
+     * 测试Jackson JSON序列化输出不带T的空格格式
+     */
+    @Test
+    public void testJacksonSerialize() {
+        try {
+            TimeDto dto = new TimeDto();
+            dto.setTime(LocalDateTime.of(2026, 8, 10, 10, 0, 0));
+            dto.setDate(LocalDate.of(2026, 8, 10));
+            String json = objectMapper.writeValueAsString(dto);
+            System.out.println("序列化结果: " + json);
+            if (!json.contains("\"time\":\"2026-08-10 10:00:00\"")) {
+                System.err.println("测试失败: 序列化应输出不带T的空格格式: " + json);
+            }
+            if (json.contains("T")) {
+                System.err.println("测试失败: 序列化结果不应包含T分隔符: " + json);
+            }
+        } catch (Exception e) {
+            System.err.println("测试失败: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
     // endregion
 
     // region 测试辅助类
