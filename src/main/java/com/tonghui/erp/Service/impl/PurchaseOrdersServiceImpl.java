@@ -6,8 +6,12 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Purchase.PurchaseOrdersWithItemsDto;
+import com.tonghui.erp.Data.Entity.AcceptanceDetail;
+import com.tonghui.erp.Data.Entity.AcceptanceOrder;
 import com.tonghui.erp.Data.Entity.PurchaseOrderItems;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
+import com.tonghui.erp.Data.mapper.AcceptanceDetailMapper;
+import com.tonghui.erp.Data.mapper.AcceptanceOrderMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrderItemsMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrdersMapper;
 import com.tonghui.erp.Service.PurchaseOrdersService;
@@ -18,8 +22,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -44,6 +50,18 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
     /** 采购订单明细数据访问层，用于关联查询订单明细信息 */
     @Autowired
     private PurchaseOrderItemsMapper purchaseOrderItemsMapper;
+
+    /** 验收单数据访问层，用于自动生成货物验收单 */
+    @Autowired
+    private AcceptanceOrderMapper acceptanceOrderMapper;
+
+    /** 验收单明细数据访问层，用于自动生成验收明细 */
+    @Autowired
+    private AcceptanceDetailMapper acceptanceDetailMapper;
+
+    /** 序列号生成服务，用于自动生成验收单号 */
+    @Autowired
+    private SequenceServiceImpl sequenceService;
 
     // endregion
 
@@ -141,6 +159,10 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
 
     /**
      * 更新采购订单
+     * <p>
+     * 当状态更新为"运输中"时，自动生成对应的货物验收单（含明细，从采购订单明细复制），
+     * 同一采购订单仅生成一次（幂等）
+     * </p>
      *
      * @param purchaseOrders 采购订单实体，包含要更新的字段信息
      * @return 操作是否成功
@@ -148,7 +170,81 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
     @Override
     @Transactional
     public boolean updatePurchaseOrder(PurchaseOrders purchaseOrders) {
-        return this.updateById(purchaseOrders);
+        boolean updated = this.updateById(purchaseOrders);
+
+        // 触发式逻辑：状态更新为"运输中"时自动生成货物验收单
+        if (updated && StringUtils.hasText(String.valueOf(purchaseOrders.getStatus()))
+                && "运输中".equals(String.valueOf(purchaseOrders.getStatus()))) {
+            PurchaseOrders order = this.getById(purchaseOrders.getId());
+            if (order != null) {
+                createAcceptanceFromOrder(order);
+            }
+        }
+
+        return updated;
+    }
+
+    /**
+     * 根据采购订单自动生成货物验收单（含明细）
+     * <p>
+     * 幂等：同一采购订单号已存在验收单时不重复生成；
+     * 验收单初始状态为"运输中"，明细从采购订单明细复制，批号/效期留待检验阶段填写
+     * </p>
+     *
+     * @param order 采购订单
+     */
+    private void createAcceptanceFromOrder(PurchaseOrders order) {
+        // 幂等校验：按采购订单号查询是否已生成验收单
+        Long count = acceptanceOrderMapper.selectCount(new QueryWrapper<AcceptanceOrder>()
+                .eq("purchase_number", order.getPurchaseNumber()));
+        if (count != null && count > 0) {
+            return;
+        }
+
+        // 构造验收单主表（状态为"运输中"，走通确认到货流程）
+        AcceptanceOrder acceptance = new AcceptanceOrder();
+        acceptance.setAcceptanceCode(sequenceService.generateAcceptanceCode());
+        acceptance.setSourceType("采购入库");
+        acceptance.setRelatedOrder(order.getPurchaseNumber());
+        acceptance.setPurchaseNumber(order.getPurchaseNumber());
+        acceptance.setPlanCode(order.getPlanCode());
+        acceptance.setTitle(order.getTitle());
+        acceptance.setUnitName(order.getUnit());
+        acceptance.setPreparationCode(order.getPreparationCode());
+        acceptance.setPreparationName(order.getPreparationName());
+        acceptance.setSpec(order.getSpec());
+        acceptance.setBatchQty(order.getBatchQty());
+        acceptance.setPrescriptionMultiple(order.getPrescriptionMultiple());
+        acceptance.setProdUnitId(order.getProdUnitId());
+        acceptance.setStatus("运输中");
+        acceptanceOrderMapper.insert(acceptance);
+
+        // 从采购订单明细复制生成验收明细
+        List<PurchaseOrderItems> items = purchaseOrderItemsMapper.selectList(
+                new QueryWrapper<PurchaseOrderItems>().eq("order_id", order.getId()));
+        List<AcceptanceDetail> details = new ArrayList<>();
+        for (PurchaseOrderItems item : items) {
+            AcceptanceDetail detail = new AcceptanceDetail();
+            detail.setAcceptanceId(acceptance.getAcceptanceId());
+            detail.setSeq(item.getSequenceNumber() != null ? item.getSequenceNumber() : 0);
+            // 物料类型固定为material（stock_in_detail.item_type为枚举，现有数据均为此值），原料/辅料/包材由分类区分
+            detail.setItemType("material");
+            detail.setItemId(item.getMaterialId());
+            detail.setMaterialCode(item.getMaterialCode());
+            detail.setMaterialName(StringUtils.hasText(item.getProductName())
+                    ? item.getProductName() : item.getRawMaterialName());
+            detail.setMaterialCategory(item.getProcessingProperty());
+            detail.setUnitName(item.getUnit());
+            detail.setStandardDosage(item.getStandardDosage());
+            detail.setQuantity(item.getPurchaseQuantity());
+            detail.setUnitPrice(item.getUnitPrice());
+            detail.setAmount(item.getAmount());
+            acceptanceDetailMapper.insert(detail);
+            details.add(detail);
+        }
+        if (details.isEmpty()) {
+            throw new RuntimeException("采购订单没有明细，无法自动生成验收单");
+        }
     }
 
     /**

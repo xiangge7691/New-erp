@@ -7,10 +7,12 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Stock.AcceptanceWithDetailsDto;
 import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
+import com.tonghui.erp.Data.Entity.PurchaseOrders;
 import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.Entity.StockInDetail;
 import com.tonghui.erp.Data.mapper.AcceptanceDetailMapper;
 import com.tonghui.erp.Data.mapper.AcceptanceOrderMapper;
+import com.tonghui.erp.Data.mapper.PurchaseOrdersMapper;
 import com.tonghui.erp.Data.mapper.StockInDetailMapper;
 import com.tonghui.erp.Data.mapper.StockInMapper;
 import com.tonghui.erp.Service.AcceptanceOrderService;
@@ -61,6 +63,9 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
     /** 入库单明细数据访问层，验收入库时生成入库明细 */
     private final StockInDetailMapper stockInDetailMapper;
 
+    /** 采购订单数据访问层，验收合格入库后回写采购订单状态 */
+    private final PurchaseOrdersMapper purchaseOrdersMapper;
+
     /**
      * 构造函数注入依赖
      *
@@ -70,6 +75,7 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
      * @param stockService            库存服务
      * @param stockInMapper           入库单数据访问层
      * @param stockInDetailMapper     入库单明细数据访问层
+     * @param purchaseOrdersMapper    采购订单数据访问层
      */
     @Autowired
     public AcceptanceOrderServiceImpl(AcceptanceOrderMapper acceptanceOrderMapper,
@@ -77,13 +83,15 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
                                       SequenceServiceImpl sequenceService,
                                       StockService stockService,
                                       StockInMapper stockInMapper,
-                                      StockInDetailMapper stockInDetailMapper) {
+                                      StockInDetailMapper stockInDetailMapper,
+                                      PurchaseOrdersMapper purchaseOrdersMapper) {
         this.acceptanceOrderMapper = acceptanceOrderMapper;
         this.acceptanceDetailMapper = acceptanceDetailMapper;
         this.sequenceService = sequenceService;
         this.stockService = stockService;
         this.stockInMapper = stockInMapper;
         this.stockInDetailMapper = stockInDetailMapper;
+        this.purchaseOrdersMapper = purchaseOrdersMapper;
     }
 
     // endregion
@@ -487,6 +495,9 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
 
             // 库存联动：构造入库单与明细，调用公共库存服务增加库存并写流水
             applyAcceptanceInbound(acceptance, details);
+
+            // 回写关联采购订单状态为已完成（触发式闭环）
+            updatePurchaseOrderStatusOnInbound(acceptance);
         } else {
             acceptance.setStatus("待退货");
             appendRemark(acceptance, "检验不合格: " + (StringUtils.hasText(remark) ? remark : "质量不达标"));
@@ -660,6 +671,27 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
 
         // 调用公共库存服务：增加库存并写流水
         stockService.applyInbound(stockIn, stockInDetails);
+    }
+
+    /**
+     * 验收合格入库后回写关联采购订单状态为"已完成"
+     * <p>
+     * 按验收单关联的采购订单号定位采购订单，存在且状态非"已完成"时更新，
+     * 无关联采购订单时静默跳过（如非采购来源的验收单）
+     * </p>
+     *
+     * @param acceptance 已入库的验收单
+     */
+    private void updatePurchaseOrderStatusOnInbound(AcceptanceOrder acceptance) {
+        if (!StringUtils.hasText(acceptance.getPurchaseNumber())) {
+            return;
+        }
+        PurchaseOrders order = purchaseOrdersMapper.selectOne(new QueryWrapper<PurchaseOrders>()
+                .eq("purchase_number", acceptance.getPurchaseNumber()));
+        if (order != null && !"已完成".equals(String.valueOf(order.getStatus()))) {
+            order.setStatus("已完成");
+            purchaseOrdersMapper.updateById(order);
+        }
     }
 
     // endregion
