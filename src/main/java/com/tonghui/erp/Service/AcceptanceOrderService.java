@@ -6,6 +6,7 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Stock.AcceptanceWithDetailsDto;
 import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
+import com.tonghui.erp.Data.Entity.StockIn;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -175,13 +176,15 @@ public interface AcceptanceOrderService extends IService<AcceptanceOrder> {
 
     /**
      * 检验处理：物料检验 → 已入库（合格，自动增加库存并写流水）/ 待退货（不合格）
+     * <p>合格时自动生成入库单（主表携带关联生产计划编号/总金额/仓库/操作人）并返回</p>
      *
      * @param acceptanceId 验收单ID
      * @param pass         是否合格
      * @param prodUnitId   入库仓库（生产单位ID，合格时必填）
      * @param remark       检验备注
+     * @return 合格时返回自动生成的入库单，不合格时返回null
      */
-    void qualityCheck(Long acceptanceId, boolean pass, Long prodUnitId, String remark);
+    StockIn qualityCheck(Long acceptanceId, boolean pass, Long prodUnitId, String remark);
 
     /**
      * 重新收货：待退货 → 生成新验收单（明细沿用原单），原单标记为已退换

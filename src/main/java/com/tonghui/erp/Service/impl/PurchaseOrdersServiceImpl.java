@@ -231,8 +231,9 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
             detail.setItemType("material");
             detail.setItemId(item.getMaterialId());
             detail.setMaterialCode(item.getMaterialCode());
-            detail.setMaterialName(StringUtils.hasText(item.getProductName())
-                    ? item.getProductName() : item.getRawMaterialName());
+            // 物料名称：优先取原药材品名（真实物料名称），其次回退制剂名称
+            detail.setMaterialName(StringUtils.hasText(item.getRawMaterialName())
+                    ? item.getRawMaterialName() : item.getProductName());
             detail.setMaterialCategory(item.getProcessingProperty());
             detail.setUnitName(item.getUnit());
             detail.setStandardDosage(item.getStandardDosage());
