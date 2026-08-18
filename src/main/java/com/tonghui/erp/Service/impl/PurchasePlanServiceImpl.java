@@ -183,8 +183,9 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
             plan.setUpdatedBy(currentUserId);
         }
 
-        // 审批通过时，自动生成采购订单
+        // 审批通过时，处理日期自动取审核时间（生成的采购订单同步复制该日期）
         if ("已审批".equals(targetStatus)) {
+            plan.setProcessingDate(LocalDate.now());
             PurchaseOrders order = null;
             // 重试机制：处理采购订单编号并发冲突
             for (int i = 0; i < MAX_RETRY; i++) {

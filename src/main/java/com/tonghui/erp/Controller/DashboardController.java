@@ -501,7 +501,7 @@ public class DashboardController extends BaseController {
                 todo.setId(so.getOutId());
                 todo.setTodoType("出库单");
                 todo.setContent((so.getOutCode() != null ? so.getOutCode() : "出库单" + so.getOutId()) + "待确认出库");
-                todo.setDueDate(so.getOutDate() != null ? so.getOutDate().toString() : "");
+                todo.setDueDate(so.getOutDate() != null ? so.getOutDate().format(DATE_TIME_FORMATTER) : "");
                 todo.setSourceModule("库存管理");
                 todo.setLink("/warehouse_management/stock");
                 allTodos.add(todo);
