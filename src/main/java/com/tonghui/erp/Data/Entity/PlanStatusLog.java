@@ -70,25 +70,6 @@ public class PlanStatusLog {
 
     // endregion
 
-    // region 状态与审计字段
-    // ===================================
-    // 状态与审计字段
-    // ===================================
-
-    /**
-     * 是否已删除
-     */
-    @TableField(value = "is_deleted")
-    private Integer isDeleted;
-
-    /**
-     * 乐观锁版本号
-     */
-    @TableField(value = "version")
-    private Integer version;
-
-    // endregion
-
     // region 关联表显示字段
     // ===================================
     // 关联表显示字段

@@ -66,7 +66,7 @@
                 ) AS fifo_order
             FROM stock_in_detail sid
             INNER JOIN stock_in si ON sid.in_id = si.in_id
-            WHERE si.in_status = 'completed'
+            WHERE si.in_status = '已入库'
               AND sid.expiry_date IS NOT NULL
         ),
         
@@ -190,7 +190,7 @@
                 ) AS fifo_order
             FROM stock_in_detail sid
             INNER JOIN stock_in si ON sid.in_id = si.in_id
-            WHERE si.in_status = 'completed'
+            WHERE si.in_status = '已入库'
               AND sid.expiry_date IS NOT NULL
         ),
         total_out_by_item AS (
