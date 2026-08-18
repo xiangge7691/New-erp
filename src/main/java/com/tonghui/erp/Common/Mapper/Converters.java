@@ -52,6 +52,9 @@ public interface Converters {
     @Mapping(source = "userName", target = "name")
     @Mapping(source = "userStatus", target = "status")
     @Mapping(source = "userNotes", target = "notes")
+    @Mapping(target = "departments", ignore = true)
+    @Mapping(target = "primaryDepartment", ignore = true)
+    @Mapping(target = "roles", ignore = true)
     UserDto toUserDtoWithAssociations(User user);
 
     // endregion
@@ -73,6 +76,8 @@ public interface Converters {
      * Role -> RoleDto（完整转换，含关联数据）
      */
     @Mapping(source = "roleStatus", target = "status")
+    @Mapping(target = "users", ignore = true)
+    @Mapping(target = "permissions", ignore = true)
     RoleDto toRoleDtoWithAssociations(Role role);
 
     // endregion
@@ -98,6 +103,8 @@ public interface Converters {
     @Mapping(source = "permId", target = "id")
     @Mapping(source = "permStatus", target = "status")
     @Mapping(source = "permType", target = "permType", qualifiedByName = "objectToString")
+    @Mapping(target = "children", ignore = true)
+    @Mapping(target = "roles", ignore = true)
     PermissionDto toPermissionDtoWithAssociations(Permission permission);
 
     // endregion
