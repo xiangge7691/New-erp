@@ -9,7 +9,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -390,9 +389,10 @@ public class DataExporterImporter {
                 return 0L;
             }
         } else if (underlyingType == Date.class) {
-            // 处理日期时间转换
+            // 处理日期时间转换（兼容 yyyy-MM-dd HH:mm:ss 与 yyyy-MM-dd'T'HH:mm:ss 两种格式）
             try {
-                return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(value);
+                Date date = DateTimeUtils.parseToDate(value);
+                return date != null ? date : new Date();
             } catch (Exception e) {
                 return new Date();
             }

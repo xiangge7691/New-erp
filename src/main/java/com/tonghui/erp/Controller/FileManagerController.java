@@ -6,6 +6,7 @@ import com.tonghui.erp.Common.Dto.FileManager.DirectoryListingDto;
 import com.tonghui.erp.Common.Dto.FileManager.FileItemDto;
 import com.tonghui.erp.Common.Dto.FileManager.FileSearchRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.utils.DateTimeUtils;
 import com.tonghui.erp.Data.Entity.FileInfo;
 import com.tonghui.erp.Data.Entity.FileOperationLog;
 import com.tonghui.erp.Service.FileManagerService;
@@ -329,7 +330,8 @@ public class FileManagerController extends BaseController {
     /**
      * 解析时间范围参数
      * <p>
-     * 支持 yyyy-MM-dd（起始日 00:00:00，截止日 23:59:59.999）与 yyyy-MM-dd HH:mm:ss 两种格式
+     * 支持 yyyy-MM-dd（起始日 00:00:00，截止日 23:59:59.999）、
+     * yyyy-MM-dd HH:mm:ss 与 yyyy-MM-dd'T'HH:mm:ss 两种完整时间格式
      * 格式错误或无内容时返回 null（不参与筛选）
      * </p>
      *
@@ -342,14 +344,14 @@ public class FileManagerController extends BaseController {
             return null;
         }
         String trimmed = timeStr.trim();
-        // 完整时间格式：yyyy-MM-dd HH:mm:ss
+        // 完整时间格式（兼容空格与ISO两种格式）
         try {
-            return LocalDateTime.parse(trimmed, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            return DateTimeUtils.parseDateTime(trimmed);
         } catch (DateTimeParseException ignored) {
         }
         // 仅日期格式：yyyy-MM-dd
         try {
-            LocalDate date = LocalDate.parse(trimmed, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            LocalDate date = DateTimeUtils.parseDate(trimmed);
             return isStart ? date.atStartOfDay() : date.atTime(LocalTime.MAX);
         } catch (DateTimeParseException ignored) {
         }

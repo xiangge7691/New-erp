@@ -7,6 +7,7 @@ import com.tonghui.erp.Common.Dto.FileManager.DirectoryListingDto;
 import com.tonghui.erp.Common.Dto.FileManager.FileItemDto;
 import com.tonghui.erp.Common.Dto.FileManager.FileSearchRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.utils.DateTimeUtils;
 import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.FileInfo;
 import com.tonghui.erp.Data.Entity.FileOperationLog;
@@ -821,19 +822,15 @@ public class FileManagerServiceImpl implements FileManagerService {
 
     /**
      * 解析日期时间字符串
+     * <p>
+     * 兼容 yyyy-MM-dd HH:mm:ss 与 yyyy-MM-dd'T'HH:mm:ss 两种格式
+     * </p>
      *
-     * @param dateTimeStr 日期时间字符串，格式：yyyy-MM-dd HH:mm:ss
+     * @param dateTimeStr 日期时间字符串
      * @return LocalDateTime 对象，解析失败返回 null
      */
     private LocalDateTime parseDateTime(String dateTimeStr) {
-        if (!StringUtils.hasText(dateTimeStr)) {
-            return null;
-        }
-        try {
-            return LocalDateTime.parse(dateTimeStr, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-        } catch (DateTimeParseException e) {
-            return null;
-        }
+        return DateTimeUtils.tryParseDateTime(dateTimeStr);
     }
 
     /**

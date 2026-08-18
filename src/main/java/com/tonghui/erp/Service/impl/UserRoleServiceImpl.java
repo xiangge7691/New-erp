@@ -9,6 +9,7 @@ import com.tonghui.erp.Data.mapper.UserRoleMapper;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.UserRoleDto;
 import com.tonghui.erp.Common.Mapper.Converters;
+import com.tonghui.erp.Common.utils.DateTimeUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -150,15 +151,13 @@ public class UserRoleServiceImpl extends ServiceImpl<UserRoleMapper, UserRole>
 
         // 创建时间起始筛选
         if (createdStartTime != null && !createdStartTime.isEmpty()) {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-            LocalDateTime startTime = LocalDateTime.parse(createdStartTime, formatter);
+            LocalDateTime startTime = DateTimeUtils.parseDateTime(createdStartTime);
             queryWrapper.ge("created_time", startTime);
         }
 
         // 创建时间结束筛选
         if (createdEndTime != null && !createdEndTime.isEmpty()) {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-            LocalDateTime endTime = LocalDateTime.parse(createdEndTime, formatter);
+            LocalDateTime endTime = DateTimeUtils.parseDateTime(createdEndTime);
             queryWrapper.le("created_time", endTime);
         }
 
@@ -226,14 +225,12 @@ public class UserRoleServiceImpl extends ServiceImpl<UserRoleMapper, UserRole>
         }
 
         if (createdStartTime != null && !createdStartTime.isEmpty()) {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-            LocalDateTime startTime = LocalDateTime.parse(createdStartTime, formatter);
+            LocalDateTime startTime = DateTimeUtils.parseDateTime(createdStartTime);
             queryWrapper.ge("created_time", startTime);
         }
 
         if (createdEndTime != null && !createdEndTime.isEmpty()) {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-            LocalDateTime endTime = LocalDateTime.parse(createdEndTime, formatter);
+            LocalDateTime endTime = DateTimeUtils.parseDateTime(createdEndTime);
             queryWrapper.le("created_time", endTime);
         }
 

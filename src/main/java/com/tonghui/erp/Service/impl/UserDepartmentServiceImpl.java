@@ -9,11 +9,11 @@ import com.tonghui.erp.Data.mapper.UserDepartmentMapper;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.UserDepartmentDto;
 import com.tonghui.erp.Common.Mapper.Converters;
+import com.tonghui.erp.Common.utils.DateTimeUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -142,14 +142,12 @@ public class UserDepartmentServiceImpl extends ServiceImpl<UserDepartmentMapper,
         }
         
         if (createdStartTime != null && !createdStartTime.isEmpty()) {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-            LocalDateTime startTime = LocalDateTime.parse(createdStartTime, formatter);
+            LocalDateTime startTime = DateTimeUtils.parseDateTime(createdStartTime);
             queryWrapper.ge("created_time", startTime);
         }
         
         if (createdEndTime != null && !createdEndTime.isEmpty()) {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-            LocalDateTime endTime = LocalDateTime.parse(createdEndTime, formatter);
+            LocalDateTime endTime = DateTimeUtils.parseDateTime(createdEndTime);
             queryWrapper.le("created_time", endTime);
         }
         
