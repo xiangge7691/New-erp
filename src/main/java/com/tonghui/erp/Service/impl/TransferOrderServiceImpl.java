@@ -134,13 +134,20 @@ public class TransferOrderServiceImpl extends ServiceImpl<TransferOrderMapper, T
      * 获取指定仓库的可用物料列表（含批次数量）
      *
      * @param warehouse 仓库名称
+     * @param keyword   搜索关键词（按物料编码/物料名称模糊匹配，可选）
      * @return 物料列表（按物料编码分组）
      */
     @Override
-    public List<WarehouseMaterialDto> getWarehouseMaterials(String warehouse) {
+    public List<WarehouseMaterialDto> getWarehouseMaterials(String warehouse, String keyword) {
         Long prodUnitId = resolveProdUnitId(warehouse);
-        List<Stock> stocks = stockMapper.selectList(
-                new QueryWrapper<Stock>().eq("prod_unit_id", prodUnitId).orderByAsc("item_code"));
+        QueryWrapper<Stock> wrapper = new QueryWrapper<Stock>()
+                .eq("prod_unit_id", prodUnitId);
+        // 关键词对物料编码、物料名称进行模糊匹配
+        if (StringUtils.hasText(keyword)) {
+            wrapper.and(w -> w.like("item_code", keyword).or().like("item_name", keyword));
+        }
+        wrapper.orderByAsc("item_code");
+        List<Stock> stocks = stockMapper.selectList(wrapper);
 
         // 按物料编码分组统计批次数量
         Map<String, WarehouseMaterialDto> grouped = new LinkedHashMap<>();
@@ -325,8 +332,9 @@ public class TransferOrderServiceImpl extends ServiceImpl<TransferOrderMapper, T
         BigDecimal srcAfter = src.getQuantity().subtract(detail.getTransferQuantity());
         if (srcAfter.compareTo(BigDecimal.ZERO) == 0) {
             // 调空后软删除该库存行
-            src.setIsDeleted(1);
-            stockMapper.updateById(src);
+            // 注意：全局软删除配置下 updateById 不会将 is_deleted 放入 SET 子句，
+            // 必须使用 deleteById 才会生成 UPDATE ... SET is_deleted=1
+            stockMapper.deleteById(src.getStockId());
         } else {
             src.setQuantity(srcAfter);
             stockMapper.updateById(src);

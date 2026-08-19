@@ -42,9 +42,10 @@ public interface TransferOrderService extends IService<TransferOrder> {
      * 获取指定仓库的可用物料列表（含批次数量）
      *
      * @param warehouse 仓库名称
+     * @param keyword   搜索关键词（按物料编码/物料名称模糊匹配，可选）
      * @return 物料列表（按物料编码分组）
      */
-    List<WarehouseMaterialDto> getWarehouseMaterials(String warehouse);
+    List<WarehouseMaterialDto> getWarehouseMaterials(String warehouse, String keyword);
 
     /**
      * 获取指定仓库某物料的批次库存详情

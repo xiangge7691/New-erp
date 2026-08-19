@@ -8,10 +8,12 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Purchase.PurchaseOrdersWithItemsDto;
 import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
+import com.tonghui.erp.Data.Entity.Material;
 import com.tonghui.erp.Data.Entity.PurchaseOrderItems;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
 import com.tonghui.erp.Data.mapper.AcceptanceDetailMapper;
 import com.tonghui.erp.Data.mapper.AcceptanceOrderMapper;
+import com.tonghui.erp.Data.mapper.MaterialMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrderItemsMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrdersMapper;
 import com.tonghui.erp.Service.PurchaseOrdersService;
@@ -62,6 +64,10 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
     /** 序列号生成服务，用于自动生成验收单号 */
     @Autowired
     private SequenceServiceImpl sequenceService;
+
+    /** 物料数据访问层，自动生成验收单时按物料主数据校正物料名称 */
+    @Autowired
+    private MaterialMapper materialMapper;
 
     // endregion
 
@@ -222,6 +228,16 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
         // 从采购订单明细复制生成验收明细
         List<PurchaseOrderItems> items = purchaseOrderItemsMapper.selectList(
                 new QueryWrapper<PurchaseOrderItems>().eq("order_id", order.getId()));
+
+        // 批量加载物料主数据，用于校正物料名称（物料表为名称唯一权威来源，避免复制字段陈旧/错位）
+        List<Long> materialIds = items.stream()
+                .map(PurchaseOrderItems::getMaterialId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        Map<Long, Material> materialMap = materialIds.isEmpty() ? Map.of() : materialMapper.selectBatchIds(materialIds)
+                .stream().collect(Collectors.toMap(Material::getMaterialId, m -> m, (a, b) -> a));
+
         List<AcceptanceDetail> details = new ArrayList<>();
         for (PurchaseOrderItems item : items) {
             AcceptanceDetail detail = new AcceptanceDetail();
@@ -231,9 +247,9 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
             detail.setItemType("material");
             detail.setItemId(item.getMaterialId());
             detail.setMaterialCode(item.getMaterialCode());
-            // 物料名称：优先取原药材品名（真实物料名称），其次回退制剂名称
-            detail.setMaterialName(StringUtils.hasText(item.getRawMaterialName())
-                    ? item.getRawMaterialName() : item.getProductName());
+            // 物料名称：优先取物料主数据（material表），其次原药材品名，最后回退制剂名称
+            // （product_name 字段在计划复制时存的是"原料/辅料/包材"分类，绝不能作为物料名称）
+            detail.setMaterialName(resolveMaterialName(item, materialMap));
             detail.setMaterialCategory(item.getProcessingProperty());
             detail.setUnitName(item.getUnit());
             detail.setStandardDosage(item.getStandardDosage());
@@ -246,6 +262,30 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
         if (details.isEmpty()) {
             throw new RuntimeException("采购订单没有明细，无法自动生成验收单");
         }
+    }
+
+    /**
+     * 解析验收明细物料名称
+     * <p>物料主数据（material 表）为名称唯一权威来源，其次原药材品名，最后回退制剂名称</p>
+     *
+     * @param item       采购订单明细
+     * @param materialMap 已加载的物料主数据（按物料ID索引）
+     * @return 物料名称
+     */
+    private String resolveMaterialName(PurchaseOrderItems item, Map<Long, Material> materialMap) {
+        // 优先：物料主数据名称
+        if (item.getMaterialId() != null) {
+            Material material = materialMap.get(item.getMaterialId());
+            if (material != null && StringUtils.hasText(material.getMaterialName())) {
+                return material.getMaterialName();
+            }
+        }
+        // 其次：原药材品名（真实物料名称）
+        if (StringUtils.hasText(item.getRawMaterialName())) {
+            return item.getRawMaterialName();
+        }
+        // 最后：制剂名称
+        return item.getProductName();
     }
 
     /**

@@ -3,11 +3,13 @@ package com.tonghui.erp.Service;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
+import com.tonghui.erp.Data.Entity.Material;
 import com.tonghui.erp.Data.Entity.PurchaseOrderItems;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
 import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.mapper.AcceptanceDetailMapper;
 import com.tonghui.erp.Data.mapper.AcceptanceOrderMapper;
+import com.tonghui.erp.Data.mapper.MaterialMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrderItemsMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrdersMapper;
 import org.junit.jupiter.api.Test;
@@ -39,10 +41,10 @@ public class PurchaseOrderStatusFlowTest {
     private static final String TEST_ITEM_CODE = "TESTFLOW001";
     /** 测试物料名称（原药材品名，作为验收单物料名称） */
     private static final String TEST_ITEM_NAME = "状态流程测试物料";
-    /** 测试制剂名称（不应作为物料名称） */
-    private static final String TEST_PRODUCT_NAME = "测试制剂名称";
     /** 测试批次号 */
     private static final String TEST_BATCH = "TFLOW01";
+    /** 陈旧的原药材品名（验证物料主数据优先级） */
+    private static final String STALE_RAW_NAME = "陈旧物料名";
     /** 入库仓库ID（耒阳制剂室） */
     private static final Long INBOUND_UNIT_ID = 7L;
 
@@ -55,6 +57,9 @@ public class PurchaseOrderStatusFlowTest {
     /** 采购订单明细Mapper */
     @Autowired
     private PurchaseOrderItemsMapper purchaseOrderItemsMapper;
+    /** 物料Mapper（创建物料主数据） */
+    @Autowired
+    private MaterialMapper materialMapper;
     /** 验收单服务 */
     @Autowired
     private AcceptanceOrderService acceptanceOrderService;
@@ -280,7 +285,7 @@ public class PurchaseOrderStatusFlowTest {
             update.setStatus("运输中");
             purchaseOrdersService.updatePurchaseOrder(update);
 
-            // 查询自动生成的验收单，断言物料名称取原药材品名
+            // 查询自动生成的验收单，断言物料名称取物料主数据（非制剂名称、非陈旧原药材品名）
             AcceptanceOrder acceptance = acceptanceOrderMapper.selectOne(
                     new QueryWrapper<AcceptanceOrder>().eq("purchase_number", testOrderNo));
             if (acceptance == null) {
@@ -292,9 +297,9 @@ public class PurchaseOrderStatusFlowTest {
                     new QueryWrapper<AcceptanceDetail>().eq("acceptance_id", acceptanceId));
             AcceptanceDetail detail = details.get(0);
             if (!TEST_ITEM_NAME.equals(detail.getMaterialName())) {
-                System.err.println("测试失败: 验收明细物料名称应为 " + TEST_ITEM_NAME + ", 实际: " + detail.getMaterialName());
+                System.err.println("测试失败: 验收明细物料名称应为物料主数据 " + TEST_ITEM_NAME + ", 实际: " + detail.getMaterialName());
             } else {
-                System.out.println("验收明细物料名称正确（取原药材品名）: " + detail.getMaterialName());
+                System.out.println("验收明细物料名称正确（取物料主数据）: " + detail.getMaterialName());
             }
 
             // 补批号并置为"物料检验"
@@ -358,6 +363,9 @@ public class PurchaseOrderStatusFlowTest {
      * @return 创建的采购订单
      */
     private PurchaseOrders createOrder() {
+        // 清理历史残留的同编码物料（避免唯一索引冲突）
+        jdbcTemplate.update("DELETE FROM material WHERE material_code = ?", TEST_ITEM_CODE);
+
         PurchaseOrders order = new PurchaseOrders();
         order.setPurchaseNumber(testOrderNo);
         order.setTitle("状态流程测试订单");
@@ -373,13 +381,23 @@ public class PurchaseOrderStatusFlowTest {
         order.setProductionPlanCode("PRODPLAN" + System.currentTimeMillis());
         purchaseOrdersService.addPurchaseOrder(order);
 
+        // 创建物料主数据（验收单物料名称应以物料表为准）
+        Material material = new Material();
+        material.setMaterialCode(TEST_ITEM_CODE);
+        material.setMaterialName(TEST_ITEM_NAME);
+        material.setCategoryName("原料");
+        material.setUnitName("kg");
+        material.setMaterialStatus(1);
+        materialMapper.insert(material);
+
         PurchaseOrderItems item = new PurchaseOrderItems();
         item.setOrderId(order.getId());
         item.setSequenceNumber(1);
+        item.setMaterialId(material.getMaterialId());
         item.setMaterialCode(TEST_ITEM_CODE);
-        // 制剂名称与物料名称分开设置，用于验证验收单物料名称取原药材品名
-        item.setProductName(TEST_PRODUCT_NAME);
-        item.setRawMaterialName(TEST_ITEM_NAME);
+        // 制剂名称存分类、原药材品名为陈旧值，均与物料主数据不同，用于验证物料表名称优先
+        item.setProductName("原料");
+        item.setRawMaterialName(STALE_RAW_NAME);
         item.setDose(new BigDecimal("1.0"));
         item.setUnit("kg");
         item.setProcessingProperty("原料");
@@ -423,6 +441,8 @@ public class PurchaseOrderStatusFlowTest {
                 jdbcTemplate.update("DELETE FROM purchase_order_items WHERE order_id = ?", orderId);
                 jdbcTemplate.update("DELETE FROM purchase_orders WHERE id = ?", orderId);
             }
+            // 5. 清理物料主数据（purchase_order_items.material_id 无外键约束，可安全删除）
+            jdbcTemplate.update("DELETE FROM material WHERE material_code = ?", TEST_ITEM_CODE);
         } catch (Exception e) {
             System.err.println("清理测试数据失败: " + e.getMessage());
         }

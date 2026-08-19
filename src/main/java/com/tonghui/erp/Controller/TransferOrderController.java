@@ -28,7 +28,7 @@ import java.util.List;
  * ├────┼─────────────────────────────────────────────────┼────────┼──────────────────────────────────────┤
  * │ 1  │ /api/warehouse/transfer-orders                  │ GET    │ 查询调拨单列表（分页）               │
  * │ 2  │ /api/warehouse/transfer-orders/warehouses       │ GET    │ 获取仓库列表                         │
- * │ 3  │ /api/warehouse/transfer-orders/materials        │ GET    │ 获取仓库可用物料列表                 │
+ * │ 3  │ /api/warehouse/transfer-orders/materials        │ GET    │ 获取仓库可用物料列表（支持关键词）   │
  * │ 4  │ /api/warehouse/transfer-orders/material-batches │ GET    │ 获取物料批次库存详情                 │
  * │ 5  │ /api/warehouse/transfer-orders                  │ POST   │ 新增调拨单                           │
  * │ 6  │ /api/warehouse/transfer-orders/{id}             │ GET    │ 查询调拨单详情                       │
@@ -117,15 +117,18 @@ public class TransferOrderController extends BaseController {
      * 获取仓库可用物料列表（含批次数量）
      *
      * 示例请求：
-     * GET /api/warehouse/transfer-orders/materials?warehouse=原料仓
+     * GET /api/warehouse/transfer-orders/materials?warehouse=原料仓&keyword=当归
      *
      * @param warehouse 仓库名称（必填）
+     * @param keyword   搜索关键词（按物料编码/物料名称模糊匹配，可选）
      * @return ApiResponse&lt;List&lt;WarehouseMaterialDto&gt;&gt; 物料列表（按物料编码分组，含批次数量）
      */
     @GetMapping("/materials")
-    public ApiResponse<List<WarehouseMaterialDto>> materials(@RequestParam String warehouse) {
+    public ApiResponse<List<WarehouseMaterialDto>> materials(
+            @RequestParam String warehouse,
+            @RequestParam(required = false) String keyword) {
         try {
-            return success(transferOrderService.getWarehouseMaterials(warehouse));
+            return success(transferOrderService.getWarehouseMaterials(warehouse, keyword));
         } catch (Exception ex) {
             return exception(ex, "获取仓库可用物料");
         }
