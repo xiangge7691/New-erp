@@ -33,7 +33,9 @@ import java.util.stream.Collectors;
  * 货物验收单业务实现类
  * <p>
  * 实现AcceptanceOrderService接口，提供验收单的增删改查、明细管理、状态流转
- * （运输中→到货初验→物料检验→已入库/待退货→已退换）以及检验合格入库的库存联动能力
+ * （运输中→到货初验→物料检验→已入库/待退货→已退换）以及检验合格入库的库存联动能力。
+ * 验收单每次状态变更时按同名映射同步关联采购订单状态（到货初验/物料检验/待退货/已入库），
+ * 保证货物验收与采购状态实时对应
  * </p>
  */
 @Service
@@ -434,7 +436,7 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         acceptanceOrderMapper.updateById(acceptance);
 
         // 同步关联采购订单状态为"到货初验"
-        syncPurchaseOrderStatus(acceptance, "到货初验");
+        syncPurchaseOrderStatus(acceptance);
     }
 
     /**
@@ -459,12 +461,16 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
             appendRemark(acceptance, "初验不合格: " + (StringUtils.hasText(remark) ? remark : "存在质量问题"));
         }
         acceptanceOrderMapper.updateById(acceptance);
+
+        // 同步关联采购订单状态为"物料检验"或"待退货"
+        syncPurchaseOrderStatus(acceptance);
     }
 
     /**
      * 检验处理：物料检验 → 已入库（合格，自动增加库存并写流水）/ 待退货（不合格）
      * <p>合格时校验每种物料必须填写批号，并选择入库仓库，随后联动库存表和库存流水，
-     * 同时自动生成入库单（主表携带关联生产计划编号/总金额/仓库/操作人）并返回</p>
+     * 同时自动生成入库单（主表携带关联生产计划编号/总金额/仓库/操作人）并返回，
+     * 并同步关联采购订单状态为"已入库"；不合格时同步为"待退货"</p>
      *
      * @param acceptanceId 验收单ID
      * @param pass         是否合格
@@ -502,20 +508,25 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
             // 库存联动：构造入库单与明细，调用公共库存服务增加库存并写流水，返回自动生成的入库单
             StockIn stockIn = applyAcceptanceInbound(acceptance, details);
 
-            // 回写关联采购订单状态为已完成（触发式闭环）
-            updatePurchaseOrderStatusOnInbound(acceptance);
+            // 同步关联采购订单状态为"已入库"（触发式闭环，与验收单状态一致）
+            syncPurchaseOrderStatus(acceptance);
 
             return stockIn;
         } else {
             acceptance.setStatus("待退货");
             appendRemark(acceptance, "检验不合格: " + (StringUtils.hasText(remark) ? remark : "质量不达标"));
             acceptanceOrderMapper.updateById(acceptance);
+
+            // 同步关联采购订单状态为"待退货"
+            syncPurchaseOrderStatus(acceptance);
+
             return null;
         }
     }
 
     /**
      * 重新收货：待退货 → 生成新验收单（明细沿用原单），原单标记为已退换
+     * <p>同步关联采购订单状态为"到货初验"，跟随新生成的验收单</p>
      *
      * @param acceptanceId 验收单ID
      * @return 新生成的验收单
@@ -538,6 +549,9 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         newAcceptance.setRemark("由 " + original.getAcceptanceCode() + " 退货后重新收货");
         newAcceptance.setOriginalAcceptanceCode(null);
         acceptanceOrderMapper.insert(newAcceptance);
+
+        // 同步关联采购订单状态为"到货初验"（跟随新验收单）
+        syncPurchaseOrderStatus(newAcceptance);
 
         // 明细沿用原单、批号清空
         List<AcceptanceDetail> originalDetails = getDetailsByAcceptanceId(acceptanceId);
@@ -719,29 +733,22 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
     }
 
     /**
-     * 验收合格入库后回写关联采购订单状态为"已完成"
+     * 同步关联采购订单状态（按验收单当前状态同名映射）
      * <p>
-     * 按验收单关联的采购订单号定位采购订单，存在且状态非"已完成"时更新，
-     * 无关联采购订单时静默跳过（如非采购来源的验收单）
-     * </p>
-     *
-     * @param acceptance 已入库的验收单
-     */
-    private void updatePurchaseOrderStatusOnInbound(AcceptanceOrder acceptance) {
-        syncPurchaseOrderStatus(acceptance, "已完成");
-    }
-
-    /**
-     * 同步关联采购订单状态
-     * <p>
+     * 状态对应：运输中→运输中、到货初验→到货初验、物料检验→物料检验、
+     * 待退货→待退货、已入库→已入库；已退换为验收单终态不映射（采购订单跟随重新收货生成的新验收单）。
      * 按验收单关联的采购订单号（优先 purchase_number，其次 related_order）定位采购订单，
-     * 存在且状态与目标状态不同时更新；无关联采购订单时静默跳过（如非采购来源的验收单）
+     * 存在且状态与目标不同时更新；无关联采购订单或状态无映射时静默跳过（如非采购来源的验收单）
      * </p>
      *
-     * @param acceptance 验收单
-     * @param status     目标采购订单状态
+     * @param acceptance 状态已变更的验收单
      */
-    private void syncPurchaseOrderStatus(AcceptanceOrder acceptance, Object status) {
+    private void syncPurchaseOrderStatus(AcceptanceOrder acceptance) {
+        String acceptanceStatus = String.valueOf(acceptance.getStatus());
+        // 已退换为验收单终态，不参与采购订单同步
+        if ("已退换".equals(acceptanceStatus) || !StringUtils.hasText(acceptanceStatus)) {
+            return;
+        }
         String purchaseNumber = StringUtils.hasText(acceptance.getPurchaseNumber())
                 ? acceptance.getPurchaseNumber() : acceptance.getRelatedOrder();
         if (!StringUtils.hasText(purchaseNumber)) {
@@ -749,8 +756,8 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         }
         PurchaseOrders order = purchaseOrdersMapper.selectOne(new QueryWrapper<PurchaseOrders>()
                 .eq("purchase_number", purchaseNumber));
-        if (order != null && !status.equals(String.valueOf(order.getStatus()))) {
-            order.setStatus(status);
+        if (order != null && !acceptanceStatus.equals(String.valueOf(order.getStatus()))) {
+            order.setStatus(acceptanceStatus);
             purchaseOrdersMapper.updateById(order);
         }
     }
