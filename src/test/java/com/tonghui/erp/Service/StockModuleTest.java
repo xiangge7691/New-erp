@@ -9,7 +9,7 @@ import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.Entity.StockInDetail;
 import com.tonghui.erp.Data.Entity.StockOut;
 import com.tonghui.erp.Data.Entity.StockOutDetail;
-import com.tonghui.erp.Data.Entity.StockTransaction;
+import com.tonghui.erp.Common.Dto.Stock.StockTransactionDto;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Data.mapper.StockMapper;
 import org.junit.jupiter.api.Test;
@@ -118,7 +118,7 @@ public class StockModuleTest {
         assertEquals(0, new BigDecimal("8.000").compareTo(stock.getQuantity()), "库存数量应为8");
 
         // 流水已生成
-        List<StockTransaction> transactions = stockService.getTransactionsByStockId(stock.getStockId());
+        List<StockTransactionDto> transactions = stockService.getTransactionsByStockId(stock.getStockId());
         assertEquals(1, transactions.size(), "应生成1条入库流水");
 
         // 出库单号生成
@@ -167,7 +167,7 @@ public class StockModuleTest {
         assertEquals(0, new BigDecimal("14.000").compareTo(after.getQuantity()), "出库后库存应为14");
 
         // 出库流水
-        List<StockTransaction> transactions = stockService.getTransactionsByStockId(stockId);
+        List<StockTransactionDto> transactions = stockService.getTransactionsByStockId(stockId);
         assertEquals(1, transactions.size(), "应生成1条出库流水");
         assertEquals(0, new BigDecimal("-6.000").compareTo((BigDecimal) transactions.get(0).getQuantityChange()),
                 "流水数量变化应为-6");

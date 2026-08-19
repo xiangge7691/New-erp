@@ -7,11 +7,13 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Stock.AcceptanceWithDetailsDto;
 import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
+import com.tonghui.erp.Data.Entity.Material;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
 import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.Entity.StockInDetail;
 import com.tonghui.erp.Data.mapper.AcceptanceDetailMapper;
 import com.tonghui.erp.Data.mapper.AcceptanceOrderMapper;
+import com.tonghui.erp.Data.mapper.MaterialMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrdersMapper;
 import com.tonghui.erp.Data.mapper.StockInDetailMapper;
 import com.tonghui.erp.Data.mapper.StockInMapper;
@@ -68,6 +70,9 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
     /** 采购订单数据访问层，验收合格入库后回写采购订单状态 */
     private final PurchaseOrdersMapper purchaseOrdersMapper;
 
+    /** 物料主数据访问层，入库明细名称/分类以物料主数据为权威来源 */
+    private final MaterialMapper materialMapper;
+
     /**
      * 构造函数注入依赖
      *
@@ -78,6 +83,7 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
      * @param stockInMapper           入库单数据访问层
      * @param stockInDetailMapper     入库单明细数据访问层
      * @param purchaseOrdersMapper    采购订单数据访问层
+     * @param materialMapper          物料主数据访问层
      */
     @Autowired
     public AcceptanceOrderServiceImpl(AcceptanceOrderMapper acceptanceOrderMapper,
@@ -86,7 +92,8 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
                                       StockService stockService,
                                       StockInMapper stockInMapper,
                                       StockInDetailMapper stockInDetailMapper,
-                                      PurchaseOrdersMapper purchaseOrdersMapper) {
+                                      PurchaseOrdersMapper purchaseOrdersMapper,
+                                      MaterialMapper materialMapper) {
         this.acceptanceOrderMapper = acceptanceOrderMapper;
         this.acceptanceDetailMapper = acceptanceDetailMapper;
         this.sequenceService = sequenceService;
@@ -94,6 +101,7 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         this.stockInMapper = stockInMapper;
         this.stockInDetailMapper = stockInDetailMapper;
         this.purchaseOrdersMapper = purchaseOrdersMapper;
+        this.materialMapper = materialMapper;
     }
 
     // endregion
@@ -669,15 +677,21 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         stockInMapper.insert(stockIn);
 
         // 构造并保存入库明细（库存状态默认合格）
+        // 物料名称/分类/单位以物料主数据（material表）为权威来源，防止验收明细误传分类值污染入库单与库存
+        Map<String, Material> materialMap = loadMaterialMapByCode(details);
         List<StockInDetail> stockInDetails = details.stream().map(d -> {
             StockInDetail sid = new StockInDetail();
             sid.setInId(stockIn.getInId());
             sid.setItemType(StringUtils.hasText(d.getItemType()) ? d.getItemType() : "material");
             sid.setItemId(d.getItemId());
             sid.setItemCode(d.getMaterialCode());
-            sid.setItemName(d.getMaterialName());
-            sid.setCategoryName(d.getMaterialCategory());
-            sid.setUnitName(d.getUnitName());
+            Material material = materialMap.get(d.getMaterialCode());
+            sid.setItemName(material != null && StringUtils.hasText(material.getMaterialName())
+                    ? material.getMaterialName() : d.getMaterialName());
+            sid.setCategoryName(material != null && StringUtils.hasText(material.getCategoryName())
+                    ? material.getCategoryName() : d.getMaterialCategory());
+            sid.setUnitName(material != null && StringUtils.hasText(material.getUnitName())
+                    ? material.getUnitName() : d.getUnitName());
             sid.setBatchNumber(d.getBatchNumber());
             // 入库数量：优先取入库数量，其次实际到货数量，最后回退采购数量
             BigDecimal inboundQty = d.getInboundQty() != null ? d.getInboundQty()
@@ -730,6 +744,31 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
             }
         }
         return acceptance.getPlanCode();
+    }
+
+    /**
+     * 按物料编码加载物料主数据映射
+     * <p>
+     * 用于验收入库时以物料主数据名称/分类/单位为权威来源覆盖入库明细，
+     * 避免验收明细误传分类值（如"原料"/"辅料"）污染入库单与库存
+     * </p>
+     *
+     * @param details 验收明细列表
+     * @return 物料编码到物料主数据的映射，未匹配时为空映射
+     */
+    private Map<String, Material> loadMaterialMapByCode(List<AcceptanceDetail> details) {
+        List<String> codes = details.stream()
+                .map(AcceptanceDetail::getMaterialCode)
+                .filter(StringUtils::hasText)
+                .distinct()
+                .collect(Collectors.toList());
+        if (codes.isEmpty()) {
+            return Map.of();
+        }
+        QueryWrapper<Material> wrapper = new QueryWrapper<>();
+        wrapper.in("material_code", codes);
+        return materialMapper.selectList(wrapper).stream()
+                .collect(Collectors.toMap(Material::getMaterialCode, m -> m, (a, b) -> a));
     }
 
     /**

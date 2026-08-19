@@ -12,6 +12,7 @@ import com.tonghui.erp.Data.mapper.AcceptanceOrderMapper;
 import com.tonghui.erp.Data.mapper.MaterialMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrderItemsMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrdersMapper;
+import com.tonghui.erp.Common.Dto.Stock.StockTransactionDto;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -70,6 +71,9 @@ public class PurchaseOrderStatusFlowTest {
     /** 验收单明细Mapper */
     @Autowired
     private AcceptanceDetailMapper acceptanceDetailMapper;
+    /** 库存服务（验证库存流水绑定入库单与验收单） */
+    @Autowired
+    private StockService stockService;
     /** JdbcTemplate（用于物理删除测试数据，绕开软删除） */
     @Autowired
     private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
@@ -516,6 +520,148 @@ public void testQualityCheckWriteBackOrderStatus() {
         } finally {
             // 重新收货产生两张验收单，按采购订单号整体清理
             cleanup(orderId, null, null, null, null, null);
+        }
+    }
+
+    /**
+     * 测试验收合格入库时物料名称以物料主数据为权威来源
+     * <p>
+     * 即使验收明细 material_name 被误传为分类值（如"原料"），
+     * 生成的入库单明细与库存记录的 item_name 也必须取物料主数据名称
+     * </p>
+     */
+    @Test
+    public void testQualityCheckInboundOverridesWrongMaterialName() {
+        Long orderId = null;
+        Long acceptanceId = null;
+        try {
+            PurchaseOrders order = createOrder();
+            orderId = order.getId();
+            AcceptanceOrder acceptance = setupTransitAcceptance(order);
+            if (acceptance == null) {
+                System.err.println("测试失败: 未生成验收单");
+                return;
+            }
+            acceptanceId = acceptance.getAcceptanceId();
+            List<AcceptanceDetail> details = acceptanceDetailMapper.selectList(
+                    new QueryWrapper<AcceptanceDetail>().eq("acceptance_id", acceptanceId));
+            AcceptanceDetail detail = details.get(0);
+            // 模拟旧 bug：验收明细物料名称被误填为分类值
+            detail.setMaterialName("原料");
+            detail.setBatchNumber(TEST_BATCH);
+            detail.setExpiryDate(LocalDate.now().plusYears(1));
+            acceptanceDetailMapper.updateById(detail);
+            AcceptanceOrder toInspect = new AcceptanceOrder();
+            toInspect.setAcceptanceId(acceptanceId);
+            toInspect.setStatus("物料检验");
+            acceptanceOrderMapper.updateById(toInspect);
+
+            StockIn stockIn = acceptanceOrderService.qualityCheck(acceptanceId, true, INBOUND_UNIT_ID, "测试合格");
+            if (stockIn == null) {
+                System.err.println("测试失败: 未返回自动生成的入库单");
+                return;
+            }
+            // 入库单明细名称应为物料主数据名称，而非验收明细的分类值
+            List<java.util.Map<String, Object>> detailRows = jdbcTemplate.queryForList(
+                    "SELECT item_name, category_name FROM stock_in_detail WHERE in_id = ? AND is_deleted = 0", stockIn.getInId());
+            if (detailRows.isEmpty()) {
+                System.err.println("测试失败: 未生成入库单明细");
+            } else {
+                String actualName = String.valueOf(detailRows.get(0).get("item_name"));
+                if (!TEST_ITEM_NAME.equals(actualName)) {
+                    System.err.println("测试失败: 入库明细名称应为物料主数据 " + TEST_ITEM_NAME + ", 实际: " + actualName);
+                } else {
+                    System.out.println("入库明细名称正确（取物料主数据）: " + actualName);
+                }
+            }
+            // 库存记录名称/分类应来自物料主数据
+            List<java.util.Map<String, Object>> stockRows = jdbcTemplate.queryForList(
+                    "SELECT stock_id, item_name, category_name FROM stock WHERE item_code = ? AND is_deleted = 0", TEST_ITEM_CODE);
+            if (stockRows.isEmpty()) {
+                System.err.println("测试失败: 未生成库存记录");
+            } else {
+                String stockName = String.valueOf(stockRows.get(0).get("item_name"));
+                if (!TEST_ITEM_NAME.equals(stockName)) {
+                    System.err.println("测试失败: 库存名称应为物料主数据 " + TEST_ITEM_NAME + ", 实际: " + stockName);
+                } else {
+                    System.out.println("库存名称正确（取物料主数据）: " + stockName);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("测试失败: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            cleanup(orderId, acceptanceId, null, null, null, null);
+        }
+    }
+
+    /**
+     * 测试库存流水携带绑定的入库单号与验收单（检验单）号
+     * <p>
+     * 验收合格入库后，按库存ID查询流水，入库来源流水应回显 inCode（入库单号）
+     * 与 acceptanceCode（验收单号）
+     * </p>
+     */
+    @Test
+    public void testStockTransactionsCarryInboundAndAcceptanceCode() {
+        Long orderId = null;
+        Long acceptanceId = null;
+        try {
+            PurchaseOrders order = createOrder();
+            orderId = order.getId();
+            AcceptanceOrder acceptance = setupTransitAcceptance(order);
+            if (acceptance == null) {
+                System.err.println("测试失败: 未生成验收单");
+                return;
+            }
+            acceptanceId = acceptance.getAcceptanceId();
+            List<AcceptanceDetail> details = acceptanceDetailMapper.selectList(
+                    new QueryWrapper<AcceptanceDetail>().eq("acceptance_id", acceptanceId));
+            AcceptanceDetail detail = details.get(0);
+            detail.setBatchNumber(TEST_BATCH);
+            detail.setExpiryDate(LocalDate.now().plusYears(1));
+            acceptanceDetailMapper.updateById(detail);
+            AcceptanceOrder toInspect = new AcceptanceOrder();
+            toInspect.setAcceptanceId(acceptanceId);
+            toInspect.setStatus("物料检验");
+            acceptanceOrderMapper.updateById(toInspect);
+
+            StockIn stockIn = acceptanceOrderService.qualityCheck(acceptanceId, true, INBOUND_UNIT_ID, "测试合格");
+            if (stockIn == null) {
+                System.err.println("测试失败: 未返回自动生成的入库单");
+                return;
+            }
+            List<java.util.Map<String, Object>> stockRows = jdbcTemplate.queryForList(
+                    "SELECT stock_id FROM stock WHERE item_code = ? AND is_deleted = 0", TEST_ITEM_CODE);
+            if (stockRows.isEmpty()) {
+                System.err.println("测试失败: 未生成库存记录");
+                return;
+            }
+            Long stockId = ((Number) stockRows.get(0).get("stock_id")).longValue();
+            List<StockTransactionDto> transactions = stockService.getTransactionsByStockId(stockId);
+            StockTransactionDto inbound = transactions.stream()
+                    .filter(t -> "stock_in".equals(String.valueOf(t.getRelatedType())))
+                    .findFirst().orElse(null);
+            if (inbound == null) {
+                System.err.println("测试失败: 未找到入库流水");
+            } else {
+                if (!stockIn.getInCode().equals(inbound.getInCode())) {
+                    System.err.println("测试失败: 流水入库单号应为 " + stockIn.getInCode() + ", 实际: " + inbound.getInCode());
+                } else {
+                    System.out.println("流水入库单号: " + inbound.getInCode());
+                }
+                String expectedAcceptanceCode = acceptance.getAcceptanceCode();
+                if (!expectedAcceptanceCode.equals(inbound.getAcceptanceCode())) {
+                    System.err.println("测试失败: 流水验收单号应为 " + expectedAcceptanceCode + ", 实际: " + inbound.getAcceptanceCode());
+                } else {
+                    System.out.println("流水验收单号: " + inbound.getAcceptanceCode());
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("测试失败: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            cleanup(orderId, acceptanceId, null, null, null, null);
         }
     }
 

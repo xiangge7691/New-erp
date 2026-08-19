@@ -7,7 +7,7 @@ import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.Entity.StockInDetail;
 import com.tonghui.erp.Data.Entity.StockOut;
 import com.tonghui.erp.Data.Entity.StockOutDetail;
-import com.tonghui.erp.Data.Entity.StockTransaction;
+import com.tonghui.erp.Common.Dto.Stock.StockTransactionDto;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Data.mapper.StockMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -148,7 +148,7 @@ public class InventoryFlowTest {
         Stock stock = findStock("INV-TEST-001", prodUnitId, "INV-BT-001");
         assertNotNull(stock, "添加入库后库存批次应存在");
         assertEquals(0, new BigDecimal("5.000").compareTo(stock.getQuantity()), "库存数量应为5");
-        List<StockTransaction> transactions = stockService.getTransactionsByStockId(stock.getStockId());
+        List<StockTransactionDto> transactions = stockService.getTransactionsByStockId(stock.getStockId());
         assertEquals(1, transactions.size(), "添加入库后应有1条流水");
         assertEquals("采购入库", String.valueOf(transactions.get(0).getTransactionType()), "流水类型应为采购入库");
 
@@ -156,7 +156,7 @@ public class InventoryFlowTest {
         stockInService.cancelStockIn(inId);
         Stock afterCancel = stockMapper.selectById(stock.getStockId());
         assertNull(afterCancel, "取消入库后库存批次应被删除（数量归零）");
-        List<StockTransaction> afterCancelTxs = stockService.getTransactionsByStockId(stock.getStockId());
+        List<StockTransactionDto> afterCancelTxs = stockService.getTransactionsByStockId(stock.getStockId());
         assertEquals(2, afterCancelTxs.size(), "取消入库后应有2条流水（入库+调整）");
         assertTrue(afterCancelTxs.stream().anyMatch(t -> "调整".equals(String.valueOf(t.getTransactionType()))),
                 "取消入库后应包含调整类型流水");
@@ -199,7 +199,7 @@ public class InventoryFlowTest {
         Stock afterConfirm = stockMapper.selectById(stockId);
         assertNotNull(afterConfirm, "出库后库存批次应存在");
         assertEquals(0, new BigDecimal("6.000").compareTo(afterConfirm.getQuantity()), "出库后库存应为6");
-        List<StockTransaction> transactions = stockService.getTransactionsByStockId(stockId);
+        List<StockTransactionDto> transactions = stockService.getTransactionsByStockId(stockId);
         assertEquals(1, transactions.size(), "出库后应有1条流水");
         assertTrue(new BigDecimal("-4.000").compareTo(
                 (BigDecimal) transactions.get(0).getQuantityChange()) == 0, "流水数量变化应为-4");
@@ -209,7 +209,7 @@ public class InventoryFlowTest {
         Stock afterCancel = stockMapper.selectById(stockId);
         assertNotNull(afterCancel, "取消出库后库存批次应存在");
         assertEquals(0, new BigDecimal("10.000").compareTo(afterCancel.getQuantity()), "取消出库后库存应恢复为10");
-        List<StockTransaction> afterCancelTxs = stockService.getTransactionsByStockId(stockId);
+        List<StockTransactionDto> afterCancelTxs = stockService.getTransactionsByStockId(stockId);
         assertEquals(2, afterCancelTxs.size(), "取消出库后应有2条流水（出库+调整）");
         assertTrue(afterCancelTxs.stream().anyMatch(t -> "调整".equals(String.valueOf(t.getTransactionType()))),
                 "取消出库后应包含调整类型流水");

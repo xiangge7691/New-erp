@@ -4,9 +4,9 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Stock.StockGroupedDto;
+import com.tonghui.erp.Common.Dto.Stock.StockTransactionDto;
 import com.tonghui.erp.Common.Dto.Stock.StockWithDetailsDto;
 import com.tonghui.erp.Data.Entity.Stock;
-import com.tonghui.erp.Data.Entity.StockTransaction;
 import com.tonghui.erp.Service.StockService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -219,9 +219,9 @@ public class StockController extends BaseController {
      * @return 库存流水列表
      */
     @GetMapping("/{id}/transactions")
-    public ApiResponse<List<StockTransaction>> getTransactions(@PathVariable Long id) {
+    public ApiResponse<List<StockTransactionDto>> getTransactions(@PathVariable Long id) {
         try {
-            List<StockTransaction> transactions = stockService.getTransactionsByStockId(id);
+            List<StockTransactionDto> transactions = stockService.getTransactionsByStockId(id);
             return success(transactions);
         } catch (Exception ex) {
             return exception(ex, "查询库存流水失败");

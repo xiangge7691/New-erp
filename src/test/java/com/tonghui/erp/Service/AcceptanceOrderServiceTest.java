@@ -4,7 +4,7 @@ import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Data.Entity.Stock;
-import com.tonghui.erp.Data.Entity.StockTransaction;
+import com.tonghui.erp.Common.Dto.Stock.StockTransactionDto;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Data.mapper.StockMapper;
 import com.tonghui.erp.Service.impl.SequenceServiceImpl;
@@ -160,7 +160,7 @@ public class AcceptanceOrderServiceTest {
         assertEquals(0, first.getQuantity().compareTo(stock.getQuantity()), "库存数量应与验收数量一致");
 
         // 断言库存流水写入（入库类型为验收来源类型）
-        List<StockTransaction> transactions = stockService.getTransactionsByStockId(stock.getStockId());
+        List<StockTransactionDto> transactions = stockService.getTransactionsByStockId(stock.getStockId());
         assertFalse(transactions.isEmpty(), "检验合格入库后应写入库存流水");
         assertTrue(transactions.stream().anyMatch(t -> "采购入库".equals(String.valueOf(t.getTransactionType()))),
                 "流水类型应为采购入库");

@@ -5,13 +5,13 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Stock.ExpiryWarningDTO;
 import com.tonghui.erp.Common.Dto.Stock.ExpiryWarningStatsDTO;
 import com.tonghui.erp.Common.Dto.Stock.StockGroupedDto;
+import com.tonghui.erp.Common.Dto.Stock.StockTransactionDto;
 import com.tonghui.erp.Common.Dto.Stock.StockWithDetailsDto;
 import com.tonghui.erp.Data.Entity.Stock;
 import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.Entity.StockInDetail;
 import com.tonghui.erp.Data.Entity.StockOut;
 import com.tonghui.erp.Data.Entity.StockOutDetail;
-import com.tonghui.erp.Data.Entity.StockTransaction;
 import com.baomidou.mybatisplus.extension.service.IService;
 
 import java.math.BigDecimal;
@@ -169,12 +169,12 @@ public interface StockService extends IService<Stock> {
                            BigDecimal quantityBefore, BigDecimal quantityChange);
 
     /**
-     * 根据库存ID查询库存流水列表
+     * 根据库存ID查询库存流水列表（含绑定的入库单与验收单信息）
      *
      * @param stockId 库存ID
      * @return 流水列表
      */
-    List<StockTransaction> getTransactionsByStockId(Long stockId);
+    List<StockTransactionDto> getTransactionsByStockId(Long stockId);
 
     // endregion
 

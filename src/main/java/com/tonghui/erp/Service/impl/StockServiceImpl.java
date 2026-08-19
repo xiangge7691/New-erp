@@ -8,6 +8,7 @@ import com.tonghui.erp.Common.Dto.Stock.ExpiryWarningDTO;
 import com.tonghui.erp.Common.Dto.Stock.ExpiryWarningStatsDTO;
 import com.tonghui.erp.Common.Dto.Stock.StockBatchDto;
 import com.tonghui.erp.Common.Dto.Stock.StockGroupedDto;
+import com.tonghui.erp.Common.Dto.Stock.StockTransactionDto;
 import com.tonghui.erp.Common.Dto.Stock.StockWithDetailsDto;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Data.Entity.Stock;
@@ -17,6 +18,7 @@ import com.tonghui.erp.Data.Entity.StockOut;
 import com.tonghui.erp.Data.Entity.StockOutDetail;
 import com.tonghui.erp.Data.Entity.StockTransaction;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
+import com.tonghui.erp.Data.mapper.StockInMapper;
 import com.tonghui.erp.Data.mapper.StockMapper;
 import com.tonghui.erp.Data.mapper.StockOutDetailMapper;
 import com.tonghui.erp.Data.mapper.StockTransactionMapper;
@@ -64,6 +66,10 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
     /** 生产单位数据访问层，用于仓库名称映射 */
     @Autowired
     private ProductionUnitMapper productionUnitMapper;
+
+    /** 入库单数据访问层，用于解析流水绑定的入库单与验收单 */
+    @Autowired
+    private StockInMapper stockInMapper;
 
     // endregion
 
@@ -201,8 +207,10 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
         QueryWrapper<StockTransaction> transactionWrapper = new QueryWrapper<>();
         transactionWrapper.in("stock_id", parentIds);
         List<StockTransaction> allTransactions = stockTransactionMapper.selectList(transactionWrapper);
-        Map<Long, List<StockTransaction>> transactionsMap = allTransactions.stream()
-                .collect(Collectors.groupingBy(StockTransaction::getStockId));
+        // 解析流水绑定的入库单与验收单信息
+        List<StockTransactionDto> transactionDtos = resolveInboundLink(allTransactions);
+        Map<Long, List<StockTransactionDto>> transactionsMap = transactionDtos.stream()
+                .collect(Collectors.groupingBy(StockTransactionDto::getStockId));
 
         // 批量查询关联的出库明细
         QueryWrapper<StockOutDetail> outDetailWrapper = new QueryWrapper<>();
@@ -546,17 +554,57 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
     }
 
     /**
-     * 根据库存ID查询库存流水列表
+     * 根据库存ID查询库存流水列表（含绑定的入库单与验收单信息）
      *
      * @param stockId 库存ID
      * @return 流水列表
      */
     @Override
-    public List<StockTransaction> getTransactionsByStockId(Long stockId) {
+    public List<StockTransactionDto> getTransactionsByStockId(Long stockId) {
         QueryWrapper<StockTransaction> wrapper = new QueryWrapper<>();
         wrapper.eq("stock_id", stockId);
         wrapper.orderByDesc("transaction_date");
-        return stockTransactionMapper.selectList(wrapper);
+        List<StockTransaction> transactions = stockTransactionMapper.selectList(wrapper);
+        return resolveInboundLink(transactions);
+    }
+
+    /**
+     * 解析流水绑定的入库单与验收单（检验单）信息
+     * <p>
+     * 对来源为入库单（related_type=stock_in）的流水，按 related_id 反查入库单，
+     * 回填入库单ID、入库单号以及验收单号（入库单.related_order 当前即验收单号）
+     * </p>
+     *
+     * @param transactions 库存交易流水列表
+     * @return 携带入库单/验收单绑定信息的流水DTO列表
+     */
+    private List<StockTransactionDto> resolveInboundLink(List<StockTransaction> transactions) {
+        if (transactions == null || transactions.isEmpty()) {
+            return List.of();
+        }
+        // 收集入库流水关联的入库单ID
+        List<Long> inIds = transactions.stream()
+                .filter(t -> "stock_in".equals(String.valueOf(t.getRelatedType())))
+                .map(StockTransaction::getRelatedId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        Map<Long, StockIn> inMap = inIds.isEmpty() ? Map.of()
+                : stockInMapper.selectBatchIds(inIds).stream()
+                        .collect(Collectors.toMap(StockIn::getInId, si -> si, (a, b) -> a));
+        // 组装流水DTO
+        return transactions.stream().map(t -> {
+            StockTransactionDto dto = new StockTransactionDto();
+            BeanUtils.copyProperties(t, dto);
+            StockIn stockIn = "stock_in".equals(String.valueOf(t.getRelatedType()))
+                    ? inMap.get(t.getRelatedId()) : null;
+            if (stockIn != null) {
+                dto.setInId(stockIn.getInId());
+                dto.setInCode(stockIn.getInCode());
+                dto.setAcceptanceCode(stockIn.getRelatedOrder());
+            }
+            return dto;
+        }).collect(Collectors.toList());
     }
 
     // endregion
