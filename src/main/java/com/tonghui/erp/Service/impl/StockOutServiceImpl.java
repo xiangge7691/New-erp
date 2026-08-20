@@ -458,6 +458,7 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
      * 高级查询出库单（支持多条件组合查询和时间范围筛选）
      *
      * @param stockOut           查询条件实体
+     * @param keyword            关键字（模糊匹配出库单号、生产计划编号、生产计划名称，可空）
      * @param createdTimeStart   创建时间起始值（含）
      * @param createdTimeEnd     创建时间结束值（含）
      * @param updatedTimeStart   更新时间起始值（含）
@@ -469,12 +470,20 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
      * @return 出库单分页结果
      */
     @Override
-    public Page<StockOut> queryStockOuts(StockOut stockOut, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, LocalDate startDate, LocalDate endDate, int pageIndex, int pageSize) {
+    public Page<StockOut> queryStockOuts(StockOut stockOut, String keyword, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, LocalDate startDate, LocalDate endDate, int pageIndex, int pageSize) {
         // 将页码从0开始转换为1开始
         int actualPageIndex = pageIndex + 1;
 
         Page<StockOut> page = new Page<>(actualPageIndex, pageSize);
         QueryWrapper<StockOut> wrapper = new QueryWrapper<>();
+
+        // 关键字查询：匹配出库单号、生产计划编号、生产计划名称（生产计划名称经 production_plan 子查询关联）
+        if (StringUtils.hasText(keyword)) {
+            wrapper.and(w -> w.like("out_code", keyword)
+                    .or().like("plan_number", keyword)
+                    .or().apply("EXISTS (SELECT 1 FROM production_plan pp WHERE pp.plan_number = stock_out.plan_number "
+                            + "AND pp.plan_name LIKE {0} AND pp.is_deleted = 0)", "%" + keyword + "%"));
+        }
 
         if (stockOut.getOutId() != null) {
             wrapper.eq("out_id", stockOut.getOutId());
@@ -546,6 +555,7 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
      * <p>先分页查询出库单主表数据，再批量查询关联的出库明细</p>
      *
      * @param stockOut           查询条件实体
+     * @param keyword            关键字（模糊匹配出库单号、生产计划编号、生产计划名称，可空）
      * @param createdTimeStart   创建时间起始值（含）
      * @param createdTimeEnd     创建时间结束值（含）
      * @param updatedTimeStart   更新时间起始值（含）
@@ -557,9 +567,9 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
      * @return 带子表关联数据的出库单分页结果
      */
     @Override
-    public PagedResult<StockOutWithDetailsDto> searchWithDetails(StockOut stockOut, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, LocalDate startDate, LocalDate endDate, int pageNum, int pageSize) {
+    public PagedResult<StockOutWithDetailsDto> searchWithDetails(StockOut stockOut, String keyword, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, LocalDate startDate, LocalDate endDate, int pageNum, int pageSize) {
         // 查询出库单主表分页数据
-        Page<StockOut> parentPage = queryStockOuts(stockOut, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd, startDate, endDate, pageNum, pageSize);
+        Page<StockOut> parentPage = queryStockOuts(stockOut, keyword, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd, startDate, endDate, pageNum, pageSize);
         List<StockOut> parents = parentPage.getRecords();
 
         PagedResult<StockOutWithDetailsDto> result = new PagedResult<>();

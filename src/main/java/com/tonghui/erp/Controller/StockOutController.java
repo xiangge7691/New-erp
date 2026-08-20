@@ -82,7 +82,7 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
 
         // 使用StockOutService的queryStockOuts方法进行查询
         StockOut stockOut = new StockOut();
-        Page<StockOut> pageResult = stockOutService.queryStockOuts(stockOut, null, null, null, null, null, null, safePageIndex, safePageSize);
+        Page<StockOut> pageResult = stockOutService.queryStockOuts(stockOut, null, null, null, null, null, null, null, safePageIndex, safePageSize);
 
         // 转换为PagedResult
         PagedResult<StockOut> pagedResult = new PagedResult<>();
@@ -145,9 +145,10 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
      * </p>
      *
      * 示例请求：
-     * GET /api/stockout/search?pageIndex=1&pageSize=20&outCode=OUT2025&prodUnitId=1&createdTimeStart=2025-01-01%2000:00:00&createdTimeEnd=2025-09-01%2023:59:59&startDate=2026-08-01&endDate=2026-08-11
+     * GET /api/stockout/search?pageIndex=1&pageSize=20&keyword=PLAN2025&outCode=OUT2025&prodUnitId=1&createdTimeStart=2025-01-01%2000:00:00&createdTimeEnd=2025-09-01%2023:59:59&startDate=2026-08-01&endDate=2026-08-11
      *
      * @param stockOut  查询条件（自动从query参数映射）
+     * @param keyword   关键字（模糊匹配出库单号、生产计划编号、生产计划名称，可空）
      * @param createdTimeStart 创建时间起始
      * @param createdTimeEnd 创建时间结束
      * @param updatedTimeStart 更新时间起始
@@ -160,6 +161,7 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
      */
     @GetMapping("/search")
     public PagedResult<StockOut> queryStockOuts(StockOut stockOut,
+                                                @RequestParam(required = false) String keyword,
                                                 @RequestParam(required = false) LocalDateTime createdTimeStart,
                                                 @RequestParam(required = false) LocalDateTime createdTimeEnd,
                                                 @RequestParam(required = false) LocalDateTime updatedTimeStart,
@@ -174,7 +176,7 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
         int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
 
         // 获取分页结果
-        Page<StockOut> pageResult = stockOutService.queryStockOuts(stockOut, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd, startDate, endDate, safePageIndex, safePageSize);
+        Page<StockOut> pageResult = stockOutService.queryStockOuts(stockOut, keyword, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd, startDate, endDate, safePageIndex, safePageSize);
 
         // 转换为统一的PagedResult格式
         PagedResult<StockOut> pagedResult = new PagedResult<>();
@@ -196,13 +198,15 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
     /**
      * 高级查询出库单（包含明细子表）
      * <p>
-     * 与 /search 接口类似，但返回结果中包含出库明细子表信息
+     * 与 /search 接口类似，但返回结果中包含出库明细子表信息；
+     * 支持关键字 keyword 模糊匹配出库单号、生产计划编号、生产计划名称
      * </p>
      *
      * 示例请求：
-     * GET /api/stockout/search-with-details?pageIndex=1&pageSize=20&outCode=OUT2025
+     * GET /api/stockout/search-with-details?pageIndex=1&pageSize=20&keyword=PLAN2025&outCode=OUT2025
      *
      * @param stockOut  查询条件
+     * @param keyword   关键字（模糊匹配出库单号、生产计划编号、生产计划名称，可空）
      * @param createdTimeStart 创建时间起始
      * @param createdTimeEnd 创建时间结束
      * @param updatedTimeStart 更新时间起始
@@ -215,6 +219,7 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
      */
 @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<StockOutWithDetailsDto>> searchWithDetails(StockOut stockOut,
+                                                                               @RequestParam(required = false) String keyword,
                                                                                @RequestParam(required = false) LocalDateTime createdTimeStart,
                                                                                @RequestParam(required = false) LocalDateTime createdTimeEnd,
                                                                                @RequestParam(required = false) LocalDateTime updatedTimeStart,
@@ -226,7 +231,7 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
         try {
             int safePageIndex = Math.max(0, pageIndex);
             int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
-            PagedResult<StockOutWithDetailsDto> result = stockOutService.searchWithDetails(stockOut, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd, startDate, endDate, safePageIndex, safePageSize);
+            PagedResult<StockOutWithDetailsDto> result = stockOutService.searchWithDetails(stockOut, keyword, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd, startDate, endDate, safePageIndex, safePageSize);
             return success(result);
         } catch (Exception ex) {
             return exception(ex, "查询失败");

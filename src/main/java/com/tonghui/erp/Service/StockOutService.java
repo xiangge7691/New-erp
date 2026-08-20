@@ -168,6 +168,7 @@ public interface StockOutService extends IService<StockOut> {
      * 高级查询出库单（支持分页）
      *
      * @param stockOut  查询条件
+     * @param keyword   关键字（模糊匹配出库单号、生产计划编号、生产计划名称，可空）
      * @param createdTimeStart 创建时间起始
      * @param createdTimeEnd 创建时间结束
      * @param updatedTimeStart 更新时间起始
@@ -178,7 +179,7 @@ public interface StockOutService extends IService<StockOut> {
      * @param pageSize  每页大小
      * @return 分页结果
      */
-    Page<StockOut> queryStockOuts(StockOut stockOut, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, LocalDate startDate, LocalDate endDate, int pageNum, int pageSize);
+    Page<StockOut> queryStockOuts(StockOut stockOut, String keyword, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, LocalDate startDate, LocalDate endDate, int pageNum, int pageSize);
 
     // endregion
 
@@ -191,6 +192,7 @@ public interface StockOutService extends IService<StockOut> {
      * 高级查询出库单（包含明细子表）
      *
      * @param stockOut  查询条件
+     * @param keyword   关键字（模糊匹配出库单号、生产计划编号、生产计划名称，可空）
      * @param createdTimeStart 创建时间起始
      * @param createdTimeEnd 创建时间结束
      * @param updatedTimeStart 更新时间起始
@@ -201,7 +203,7 @@ public interface StockOutService extends IService<StockOut> {
      * @param pageSize  每页大小
      * @return 分页结果（包含明细）
      */
-    PagedResult<StockOutWithDetailsDto> searchWithDetails(StockOut stockOut, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, LocalDate startDate, LocalDate endDate, int pageNum, int pageSize);
+    PagedResult<StockOutWithDetailsDto> searchWithDetails(StockOut stockOut, String keyword, LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd, LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd, LocalDate startDate, LocalDate endDate, int pageNum, int pageSize);
 
     // endregion
 
