@@ -414,6 +414,42 @@ public class ReturnOrderServiceTest {
         }
     }
 
+    /**
+     * 测试出库单查询（/stockout/search）返回操作人姓名（createdByName）
+     * <p>
+     * 出库单创建时无登录态 createdBy=1，查询应解析出用户姓名"超级管理员"
+     * </p>
+     */
+    @Test
+    public void testStockOutSearchReturnsOperatorName() {
+        Long stockId = null;
+        Long outId = null;
+        try {
+            Stock stock = createStock(new BigDecimal("5.0"));
+            stockId = stock.getStockId();
+            outId = createStockOut(stock.getStockId(), new BigDecimal("3.0"));
+
+            StockOut query = new StockOut();
+            query.setOutCode(testOutCode);
+            Page<StockOut> page = stockOutService.queryStockOuts(query, null, null, null, null, null, null, null, 0, 10);
+            StockOut hit = page.getRecords().stream()
+                    .filter(r -> testOutCode.equals(r.getOutCode()))
+                    .findFirst().orElse(null);
+            if (hit == null) {
+                System.err.println("测试失败: 未查询到出库单");
+            } else if (!"超级管理员".equals(hit.getCreatedByName())) {
+                System.err.println("测试失败: 出库单操作人姓名应为超级管理员, 实际: " + hit.getCreatedByName());
+            } else {
+                System.out.println("出库单操作人姓名: " + hit.getCreatedByName());
+            }
+        } catch (Exception e) {
+            System.err.println("测试失败: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            cleanup(stockId, outId, null);
+        }
+    }
+
     // endregion
 
     // region 私有工具方法

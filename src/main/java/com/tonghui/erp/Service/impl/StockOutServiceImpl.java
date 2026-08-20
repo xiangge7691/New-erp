@@ -81,6 +81,10 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
     @Autowired
     private ProductionUnitMapper productionUnitMapper;
 
+    /** 用户数据访问层，用于操作人姓名映射 */
+    @Autowired
+    private com.tonghui.erp.Data.mapper.UserMapper userMapper;
+
     /**
      * 构造函数注入依赖
      *
@@ -540,7 +544,47 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         // 按编号倒序排列
         wrapper.orderByDesc("out_code");
 
-        return stockOutMapper.selectPage(page, wrapper);
+        Page<StockOut> result = stockOutMapper.selectPage(page, wrapper);
+
+        // 批量解析操作人姓名（按创建人/更新人ID关联用户表）
+        List<StockOut> records = result.getRecords();
+        if (!records.isEmpty()) {
+            Map<Long, com.tonghui.erp.Data.Entity.User> userMap = loadUserMap(records);
+            records.forEach(r -> {
+                if (r.getCreatedBy() != null) {
+                    com.tonghui.erp.Data.Entity.User creator = userMap.get(r.getCreatedBy());
+                    r.setCreatedByName(creator != null
+                            ? (StringUtils.hasText(creator.getUserName()) ? creator.getUserName() : creator.getUserAccount())
+                            : null);
+                }
+                if (r.getUpdatedBy() != null) {
+                    com.tonghui.erp.Data.Entity.User updater = userMap.get(r.getUpdatedBy());
+                    r.setUpdatedByName(updater != null
+                            ? (StringUtils.hasText(updater.getUserName()) ? updater.getUserName() : updater.getUserAccount())
+                            : null);
+                }
+            });
+        }
+        return result;
+    }
+
+    /**
+     * 批量加载操作人/更新人用户映射（按用户ID索引）
+     *
+     * @param records 出库单列表
+     * @return 用户ID到用户实体的映射，无数据时返回空映射
+     */
+    private Map<Long, com.tonghui.erp.Data.Entity.User> loadUserMap(List<StockOut> records) {
+        List<Long> userIds = records.stream()
+                .flatMap(r -> java.util.stream.Stream.of(r.getCreatedBy(), r.getUpdatedBy()))
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        return userMapper.selectBatchIds(userIds).stream()
+                .collect(Collectors.toMap(com.tonghui.erp.Data.Entity.User::getUserId, u -> u, (a, b) -> a));
     }
 
     // endregion

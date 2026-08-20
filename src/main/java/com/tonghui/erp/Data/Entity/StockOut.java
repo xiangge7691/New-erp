@@ -103,6 +103,18 @@ public class StockOut extends AuditEntity {
     private String remark;
 
     /**
+     * 创建人姓名（非表字段，查询时按创建人ID解析填充）
+     */
+    @TableField(exist = false)
+    private String createdByName;
+
+    /**
+     * 更新人姓名（非表字段，查询时按更新人ID解析填充）
+     */
+    @TableField(exist = false)
+    private String updatedByName;
+
+    /**
      * 审批实例ID
      */
     @TableField(value = "approval_instance_id")

@@ -17,11 +17,13 @@ import com.tonghui.erp.Data.Entity.StockInDetail;
 import com.tonghui.erp.Data.Entity.StockOut;
 import com.tonghui.erp.Data.Entity.StockOutDetail;
 import com.tonghui.erp.Data.Entity.StockTransaction;
+import com.tonghui.erp.Data.Entity.User;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Data.mapper.StockInMapper;
 import com.tonghui.erp.Data.mapper.StockMapper;
 import com.tonghui.erp.Data.mapper.StockOutDetailMapper;
 import com.tonghui.erp.Data.mapper.StockTransactionMapper;
+import com.tonghui.erp.Data.mapper.UserMapper;
 import com.tonghui.erp.Service.StockService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -66,6 +68,10 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
     /** 生产单位数据访问层，用于仓库名称映射 */
     @Autowired
     private ProductionUnitMapper productionUnitMapper;
+
+    /** 用户数据访问层，用于操作人姓名映射 */
+    @Autowired
+    private UserMapper userMapper;
 
     /** 入库单数据访问层，用于解析流水绑定的入库单与验收单 */
     @Autowired
@@ -592,6 +598,15 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
         Map<Long, StockIn> inMap = inIds.isEmpty() ? Map.of()
                 : stockInMapper.selectBatchIds(inIds).stream()
                         .collect(Collectors.toMap(StockIn::getInId, si -> si, (a, b) -> a));
+        // 批量加载操作人姓名（按流水创建人ID关联用户表）
+        List<Long> userIds = transactions.stream()
+                .map(StockTransaction::getCreatedBy)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        Map<Long, User> userMap = userIds.isEmpty() ? Map.of()
+                : userMapper.selectBatchIds(userIds).stream()
+                        .collect(Collectors.toMap(User::getUserId, u -> u, (a, b) -> a));
         // 组装流水DTO
         return transactions.stream().map(t -> {
             StockTransactionDto dto = new StockTransactionDto();
@@ -602,6 +617,13 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
                 dto.setInId(stockIn.getInId());
                 dto.setInCode(stockIn.getInCode());
                 dto.setAcceptanceCode(stockIn.getRelatedOrder());
+            }
+            // 回填操作人姓名
+            if (t.getCreatedBy() != null) {
+                User creator = userMap.get(t.getCreatedBy());
+                dto.setCreatedByName(creator != null
+                        ? (StringUtils.hasText(creator.getUserName()) ? creator.getUserName() : creator.getUserAccount())
+                        : null);
             }
             return dto;
         }).collect(Collectors.toList());

@@ -676,6 +676,11 @@ public void testQualityCheckWriteBackOrderStatus() {
                 } else {
                     System.out.println("流水验收单号: " + inbound.getAcceptanceCode());
                 }
+                if (!"超级管理员".equals(inbound.getCreatedByName())) {
+                    System.err.println("测试失败: 流水操作人姓名应为超级管理员, 实际: " + inbound.getCreatedByName());
+                } else {
+                    System.out.println("流水操作人姓名: " + inbound.getCreatedByName());
+                }
             }
         } catch (Exception e) {
             System.err.println("测试失败: " + e.getMessage());

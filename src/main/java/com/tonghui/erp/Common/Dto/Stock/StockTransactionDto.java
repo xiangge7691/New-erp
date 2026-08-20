@@ -7,8 +7,8 @@ import lombok.EqualsAndHashCode;
 /**
  * 库存流水扩展数据传输对象
  * <p>
- * 在库存交易记录基础上扩展来源入库单与验收单（检验单）的绑定信息，
- * 用于库存查询页面查看流水时回显对应的入库单号与验收单号
+ * 在库存交易记录基础上扩展来源入库单与验收单（检验单）的绑定信息及操作人姓名，
+ * 用于库存查询页面查看流水时回显对应的入库单号、验收单号与操作人
  * </p>
  */
 @Data
@@ -29,4 +29,9 @@ public class StockTransactionDto extends StockTransaction {
      * 来源验收单/检验单号（仅验收合格自动入库的流水有值，如 YS-20260819-001）
      */
     private String acceptanceCode;
+
+    /**
+     * 操作人姓名（按流水创建人ID解析，如 超级管理员）
+     */
+    private String createdByName;
 }
