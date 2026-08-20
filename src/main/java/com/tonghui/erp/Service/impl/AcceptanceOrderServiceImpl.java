@@ -5,18 +5,23 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Stock.AcceptanceWithDetailsDto;
+import com.tonghui.erp.Common.Dto.Stock.StockInWithNamesDto;
 import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
 import com.tonghui.erp.Data.Entity.Material;
+import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
 import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.Entity.StockInDetail;
+import com.tonghui.erp.Data.Entity.User;
 import com.tonghui.erp.Data.mapper.AcceptanceDetailMapper;
 import com.tonghui.erp.Data.mapper.AcceptanceOrderMapper;
 import com.tonghui.erp.Data.mapper.MaterialMapper;
+import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrdersMapper;
 import com.tonghui.erp.Data.mapper.StockInDetailMapper;
 import com.tonghui.erp.Data.mapper.StockInMapper;
+import com.tonghui.erp.Data.mapper.UserMapper;
 import com.tonghui.erp.Service.AcceptanceOrderService;
 import com.tonghui.erp.Service.StockService;
 import org.springframework.beans.BeanUtils;
@@ -73,6 +78,12 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
     /** 物料主数据访问层，入库明细名称/分类以物料主数据为权威来源 */
     private final MaterialMapper materialMapper;
 
+    /** 用户数据访问层，解析入库单操作人姓名 */
+    private final UserMapper userMapper;
+
+    /** 生产单位数据访问层，解析入库单仓库名称 */
+    private final ProductionUnitMapper productionUnitMapper;
+
     /**
      * 构造函数注入依赖
      *
@@ -84,6 +95,8 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
      * @param stockInDetailMapper     入库单明细数据访问层
      * @param purchaseOrdersMapper    采购订单数据访问层
      * @param materialMapper          物料主数据访问层
+     * @param userMapper              用户数据访问层
+     * @param productionUnitMapper    生产单位数据访问层
      */
     @Autowired
     public AcceptanceOrderServiceImpl(AcceptanceOrderMapper acceptanceOrderMapper,
@@ -93,7 +106,9 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
                                       StockInMapper stockInMapper,
                                       StockInDetailMapper stockInDetailMapper,
                                       PurchaseOrdersMapper purchaseOrdersMapper,
-                                      MaterialMapper materialMapper) {
+                                      MaterialMapper materialMapper,
+                                      UserMapper userMapper,
+                                      ProductionUnitMapper productionUnitMapper) {
         this.acceptanceOrderMapper = acceptanceOrderMapper;
         this.acceptanceDetailMapper = acceptanceDetailMapper;
         this.sequenceService = sequenceService;
@@ -102,6 +117,8 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         this.stockInDetailMapper = stockInDetailMapper;
         this.purchaseOrdersMapper = purchaseOrdersMapper;
         this.materialMapper = materialMapper;
+        this.userMapper = userMapper;
+        this.productionUnitMapper = productionUnitMapper;
     }
 
     // endregion
@@ -488,7 +505,7 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
      */
     @Override
     @Transactional
-    public StockIn qualityCheck(Long acceptanceId, boolean pass, Long prodUnitId, String remark) {
+    public StockInWithNamesDto qualityCheck(Long acceptanceId, boolean pass, Long prodUnitId, String remark) {
         AcceptanceOrder acceptance = getAcceptanceOrThrow(acceptanceId);
         if (!"物料检验".equals(acceptance.getStatus())) {
             throw new RuntimeException("仅物料检验状态的验收单可进行检验");
@@ -519,7 +536,8 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
             // 同步关联采购订单状态为"已入库"（触发式闭环，与验收单状态一致）
             syncPurchaseOrderStatus(acceptance);
 
-            return stockIn;
+            // 组装返回DTO：补全操作人姓名与仓库名称
+            return buildStockInWithNames(stockIn);
         } else {
             acceptance.setStatus("待退货");
             appendRemark(acceptance, "检验不合格: " + (StringUtils.hasText(remark) ? remark : "质量不达标"));
@@ -769,6 +787,35 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         wrapper.in("material_code", codes);
         return materialMapper.selectList(wrapper).stream()
                 .collect(Collectors.toMap(Material::getMaterialCode, m -> m, (a, b) -> a));
+    }
+
+    /**
+     * 组装入库单返回DTO，补全操作人姓名与仓库名称
+     * <p>
+     * 操作人姓名取用户表 userName（空则回退 userAccount），仓库名称取生产单位表 prodUnitName，
+     * 均未找到时保持null，不影响正常返回
+     * </p>
+     *
+     * @param stockIn 自动生成的入库单
+     * @return 携带操作人姓名与仓库名称的入库单DTO
+     */
+    private StockInWithNamesDto buildStockInWithNames(StockIn stockIn) {
+        StockInWithNamesDto dto = new StockInWithNamesDto();
+        BeanUtils.copyProperties(stockIn, dto);
+        if (stockIn.getCreatedBy() != null) {
+            User user = userMapper.selectById(stockIn.getCreatedBy());
+            if (user != null) {
+                dto.setCreatedByName(StringUtils.hasText(user.getUserName())
+                        ? user.getUserName() : user.getUserAccount());
+            }
+        }
+        if (stockIn.getProdUnitId() != null) {
+            ProductionUnit unit = productionUnitMapper.selectById(stockIn.getProdUnitId());
+            if (unit != null) {
+                dto.setWarehouseName(unit.getProdUnitName());
+            }
+        }
+        return dto;
     }
 
     /**

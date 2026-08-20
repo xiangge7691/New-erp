@@ -7,9 +7,9 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Stock.AcceptanceActionRequest;
 import com.tonghui.erp.Common.Dto.Stock.AcceptanceWithDetailsDto;
 import com.tonghui.erp.Common.Dto.Stock.AcceptanceWithDetailsRequest;
+import com.tonghui.erp.Common.Dto.Stock.StockInWithNamesDto;
 import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
-import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Service.AcceptanceOrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -433,7 +433,8 @@ public class AcceptanceOrderController extends BaseController {
 
     /**
      * 检验处理：合格 → 已入库（自动增加库存并写流水）；不合格 → 待退货
-     * <p>合格时自动生成入库单并返回，主表携带关联生产计划编号/总金额/仓库/操作人</p>
+     * <p>合格时自动生成入库单并返回，主表携带关联生产计划编号/总金额/仓库/操作人，
+     * 并回填操作人姓名（createdByName）与仓库名（warehouseName）</p>
      *
      * 示例请求：
      * POST /api/acceptance/1/quality-check
@@ -442,7 +443,7 @@ public class AcceptanceOrderController extends BaseController {
      *
      * @param id      验收单ID
      * @param request 检验请求（pass-是否合格，prodUnitId-入库仓库，remark-备注）
-     * @return 合格时返回自动生成的入库单（含 planNumber/totalAmount/prodUnitId/createdBy），不合格时返回true
+     * @return 合格时返回自动生成的入库单（含 planNumber/totalAmount/prodUnitId/createdBy/createdByName/warehouseName），不合格时返回true
      */
     @PostMapping("/{id}/quality-check")
     public ApiResponse<Object> qualityCheck(@PathVariable Long id, @RequestBody(required = false) AcceptanceActionRequest request) {
@@ -450,7 +451,7 @@ public class AcceptanceOrderController extends BaseController {
             boolean pass = request != null && Boolean.TRUE.equals(request.getPass());
             Long prodUnitId = request != null ? request.getProdUnitId() : null;
             String remark = request != null ? request.getRemark() : null;
-            StockIn stockIn = acceptanceOrderService.qualityCheck(id, pass, prodUnitId, remark);
+            StockInWithNamesDto stockIn = acceptanceOrderService.qualityCheck(id, pass, prodUnitId, remark);
             if (pass) {
                 return success(stockIn, "检验合格，已入库，库存已更新");
             }

@@ -12,7 +12,11 @@ import com.tonghui.erp.Data.mapper.AcceptanceOrderMapper;
 import com.tonghui.erp.Data.mapper.MaterialMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrderItemsMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrdersMapper;
+import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Stock.StockInWithDetailsDto;
+import com.tonghui.erp.Common.Dto.Stock.StockInWithNamesDto;
 import com.tonghui.erp.Common.Dto.Stock.StockTransactionDto;
+import com.tonghui.erp.Service.StockInService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -74,6 +78,9 @@ public class PurchaseOrderStatusFlowTest {
     /** 库存服务（验证库存流水绑定入库单与验收单） */
     @Autowired
     private StockService stockService;
+    /** 入库单服务（验证入库单查询回填操作人姓名/仓库名称） */
+    @Autowired
+    private StockInService stockInService;
     /** JdbcTemplate（用于物理删除测试数据，绕开软删除） */
     @Autowired
     private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
@@ -317,7 +324,7 @@ public void testQualityCheckWriteBackOrderStatus() {
             acceptanceOrderMapper.updateById(toInspect);
 
             // 检验合格（触发自动入库并返回入库单）
-            StockIn stockIn = acceptanceOrderService.qualityCheck(acceptanceId, true, INBOUND_UNIT_ID, "测试合格");
+            StockInWithNamesDto stockIn = acceptanceOrderService.qualityCheck(acceptanceId, true, INBOUND_UNIT_ID, "测试合格");
             if (stockIn == null) {
                 System.err.println("测试失败: 未返回自动生成的入库单");
             } else {
@@ -345,6 +352,18 @@ public void testQualityCheckWriteBackOrderStatus() {
                     System.err.println("测试失败: 入库单操作人缺失");
                 } else {
                     System.out.println("入库单操作人(createdBy): " + stockIn.getCreatedBy());
+                }
+                // 仓库名称：应解析为生产单位名称（测试环境 prodUnitId=7 → 耒阳制剂室）
+                if (!"耒阳制剂室".equals(stockIn.getWarehouseName())) {
+                    System.err.println("测试失败: 入库单仓库名称应为耒阳制剂室, 实际: " + stockIn.getWarehouseName());
+                } else {
+                    System.out.println("入库单仓库名称: " + stockIn.getWarehouseName());
+                }
+                // 操作人姓名：应解析为用户姓名（无登录态默认用户1 → 超级管理员）
+                if (!"超级管理员".equals(stockIn.getCreatedByName())) {
+                    System.err.println("测试失败: 入库单操作人姓名应为超级管理员, 实际: " + stockIn.getCreatedByName());
+                } else {
+                    System.out.println("入库单操作人姓名: " + stockIn.getCreatedByName());
                 }
             }
         } catch (Exception e) {
@@ -656,6 +675,75 @@ public void testQualityCheckWriteBackOrderStatus() {
                 } else {
                     System.out.println("流水验收单号: " + inbound.getAcceptanceCode());
                 }
+            }
+        } catch (Exception e) {
+            System.err.println("测试失败: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            cleanup(orderId, acceptanceId, null, null, null, null);
+        }
+    }
+
+    /**
+     * 测试入库单查询接口回填操作人姓名与仓库名称
+     * <p>
+     * 验收合格自动入库后，通过 searchWithDetails 查询该入库单，
+     * 返回结果应携带 createdByName（操作人姓名）与 warehouseName（仓库名称）
+     * </p>
+     */
+    @Test
+    public void testStockInSearchReturnsOperatorAndWarehouseName() {
+        Long orderId = null;
+        Long acceptanceId = null;
+        try {
+            PurchaseOrders order = createOrder();
+            orderId = order.getId();
+            AcceptanceOrder acceptance = setupTransitAcceptance(order);
+            if (acceptance == null) {
+                System.err.println("测试失败: 未生成验收单");
+                return;
+            }
+            acceptanceId = acceptance.getAcceptanceId();
+            List<AcceptanceDetail> details = acceptanceDetailMapper.selectList(
+                    new QueryWrapper<AcceptanceDetail>().eq("acceptance_id", acceptanceId));
+            AcceptanceDetail detail = details.get(0);
+            detail.setBatchNumber(TEST_BATCH);
+            detail.setExpiryDate(LocalDate.now().plusYears(1));
+            acceptanceDetailMapper.updateById(detail);
+            AcceptanceOrder toInspect = new AcceptanceOrder();
+            toInspect.setAcceptanceId(acceptanceId);
+            toInspect.setStatus("物料检验");
+            acceptanceOrderMapper.updateById(toInspect);
+
+            StockIn stockIn = acceptanceOrderService.qualityCheck(acceptanceId, true, INBOUND_UNIT_ID, "测试合格");
+            if (stockIn == null) {
+                System.err.println("测试失败: 未返回自动生成的入库单");
+                return;
+            }
+            // 按入库单号查询（带明细子表）
+            StockIn query = new StockIn();
+            query.setInCode(stockIn.getInCode());
+            PagedResult<StockInWithDetailsDto> result = stockInService.searchWithDetails(
+                    query, null, null, null, null, null, null, 0, 10);
+            if (result.getItems().isEmpty()) {
+                System.err.println("测试失败: 未查询到入库单 " + stockIn.getInCode());
+                return;
+            }
+            StockInWithDetailsDto dto = result.getItems().get(0);
+            if (!stockIn.getInCode().equals(dto.getInCode())) {
+                System.err.println("测试失败: 查询入库单号不符: " + dto.getInCode());
+            } else {
+                System.out.println("查询入库单号: " + dto.getInCode());
+            }
+            if (!"超级管理员".equals(dto.getCreatedByName())) {
+                System.err.println("测试失败: 操作人姓名应为超级管理员, 实际: " + dto.getCreatedByName());
+            } else {
+                System.out.println("查询操作人姓名: " + dto.getCreatedByName());
+            }
+            if (!"耒阳制剂室".equals(dto.getWarehouseName())) {
+                System.err.println("测试失败: 仓库名称应为耒阳制剂室, 实际: " + dto.getWarehouseName());
+            } else {
+                System.out.println("查询仓库名称: " + dto.getWarehouseName());
             }
         } catch (Exception e) {
             System.err.println("测试失败: " + e.getMessage());

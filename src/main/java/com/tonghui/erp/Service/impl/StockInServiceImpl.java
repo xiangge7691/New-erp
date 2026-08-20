@@ -6,10 +6,14 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Stock.StockInWithDetailsDto;
+import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.Entity.StockInDetail;
+import com.tonghui.erp.Data.Entity.User;
+import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Data.mapper.StockInMapper;
 import com.tonghui.erp.Data.mapper.StockInDetailMapper;
+import com.tonghui.erp.Data.mapper.UserMapper;
 import com.tonghui.erp.Service.StockInService;
 import com.tonghui.erp.Service.StockService;
 import org.springframework.beans.BeanUtils;
@@ -52,23 +56,35 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
     /** 库存服务，用于入库确认时的库存联动 */
     private final StockService stockService;
 
+    /** 用户数据访问层，解析操作人/更新人姓名 */
+    private final UserMapper userMapper;
+
+    /** 生产单位数据访问层，解析仓库名称 */
+    private final ProductionUnitMapper productionUnitMapper;
+
     /**
      * 构造函数注入依赖
      *
-     * @param stockInMapper      入库单数据访问层
+     * @param stockInMapper       入库单数据访问层
      * @param stockInDetailMapper 入库单明细数据访问层
-     * @param sequenceService    序列号生成服务
-     * @param stockService       库存服务
+     * @param sequenceService     序列号生成服务
+     * @param stockService        库存服务
+     * @param userMapper          用户数据访问层
+     * @param productionUnitMapper 生产单位数据访问层
      */
     @Autowired
     public StockInServiceImpl(StockInMapper stockInMapper,
                               StockInDetailMapper stockInDetailMapper,
                               SequenceServiceImpl sequenceService,
-                              StockService stockService) {
+                              StockService stockService,
+                              UserMapper userMapper,
+                              ProductionUnitMapper productionUnitMapper) {
         this.stockInMapper = stockInMapper;
         this.stockInDetailMapper = stockInDetailMapper;
         this.sequenceService = sequenceService;
         this.stockService = stockService;
+        this.userMapper = userMapper;
+        this.productionUnitMapper = productionUnitMapper;
     }
 
     // endregion
@@ -562,11 +578,37 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
         Map<Long, List<StockInDetail>> detailsMap = allDetails.stream()
                 .collect(Collectors.groupingBy(StockInDetail::getInId));
 
+        // 批量解析操作人/更新人姓名与仓库名称
+        Map<Long, User> userMap = loadUserMap(parents);
+        Map<Long, ProductionUnit> unitMap = loadProductionUnitMap(parents);
+
         // 组装带子表数据的DTO
         List<StockInWithDetailsDto> dtos = parents.stream().map(parent -> {
             StockInWithDetailsDto dto = new StockInWithDetailsDto();
             BeanUtils.copyProperties(parent, dto);
             dto.setDetails(detailsMap.getOrDefault(parent.getInId(), List.of()));
+            // 回填操作人姓名/更新人姓名（取userName，空则回退userAccount）
+            if (parent.getCreatedBy() != null) {
+                User creator = userMap.get(parent.getCreatedBy());
+                if (creator != null) {
+                    dto.setCreatedByName(StringUtils.hasText(creator.getUserName())
+                            ? creator.getUserName() : creator.getUserAccount());
+                }
+            }
+            if (parent.getUpdatedBy() != null) {
+                User updater = userMap.get(parent.getUpdatedBy());
+                if (updater != null) {
+                    dto.setUpdatedByName(StringUtils.hasText(updater.getUserName())
+                            ? updater.getUserName() : updater.getUserAccount());
+                }
+            }
+            // 回填仓库名称
+            if (parent.getProdUnitId() != null) {
+                ProductionUnit unit = unitMap.get(parent.getProdUnitId());
+                if (unit != null) {
+                    dto.setWarehouseName(unit.getProdUnitName());
+                }
+            }
             return dto;
         }).collect(Collectors.toList());
 
@@ -575,6 +617,44 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
         result.setPageIndex(pageNum);
         result.setPageSize(pageSize);
         return result;
+    }
+
+    /**
+     * 批量加载操作人/更新人用户映射（按用户ID索引）
+     *
+     * @param parents 入库单列表
+     * @return 用户ID到用户实体的映射，无数据时返回空映射
+     */
+    private Map<Long, User> loadUserMap(List<StockIn> parents) {
+        List<Long> userIds = parents.stream()
+                .flatMap(p -> java.util.stream.Stream.of(p.getCreatedBy(), p.getUpdatedBy()))
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        return userMapper.selectBatchIds(userIds).stream()
+                .collect(Collectors.toMap(User::getUserId, u -> u, (a, b) -> a));
+    }
+
+    /**
+     * 批量加载仓库名称映射（按生产单位ID索引）
+     *
+     * @param parents 入库单列表
+     * @return 生产单位ID到生产单位实体的映射，无数据时返回空映射
+     */
+    private Map<Long, ProductionUnit> loadProductionUnitMap(List<StockIn> parents) {
+        List<Long> unitIds = parents.stream()
+                .map(StockIn::getProdUnitId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (unitIds.isEmpty()) {
+            return Map.of();
+        }
+        return productionUnitMapper.selectBatchIds(unitIds).stream()
+                .collect(Collectors.toMap(ProductionUnit::getProdUnitId, u -> u, (a, b) -> a));
     }
 
     // endregion

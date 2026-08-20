@@ -231,6 +231,10 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
 
     /**
      * 高级查询入库单（包含明细子表）
+     * <p>
+     * 返回结果携带入库明细列表，并回填操作人姓名（createdByName）、更新人姓名（updatedByName）、
+     * 仓库名称（warehouseName）
+     * </p>
      *
      * 示例请求：
      * GET /api/stockin/search-with-details?pageIndex=1&pageSize=20&inCode=IN2025
@@ -244,7 +248,7 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
      * @param endDate   入库结束日期（yyyy-MM-dd，精确到当日23:59:59）
      * @param pageIndex 页码
      * @param pageSize  每页大小
-     * @return 分页结果（包含明细）
+     * @return 分页结果（包含明细及操作人姓名/仓库名称）
      */
     @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<StockInWithDetailsDto>> searchWithDetails(StockIn stockIn,
