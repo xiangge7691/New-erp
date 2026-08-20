@@ -421,11 +421,21 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         Map<Long, List<AcceptanceDetail>> detailsMap = allDetails.stream()
                 .collect(Collectors.groupingBy(AcceptanceDetail::getAcceptanceId));
 
+        // 批量解析仓库名称（按生产单位ID关联 production_unit 表）
+        Map<Long, ProductionUnit> unitMap = loadProductionUnitMap(parents);
+
         // 组装带子表数据的DTO
         List<AcceptanceWithDetailsDto> dtos = parents.stream().map(parent -> {
             AcceptanceWithDetailsDto dto = new AcceptanceWithDetailsDto();
             BeanUtils.copyProperties(parent, dto);
             dto.setDetails(detailsMap.getOrDefault(parent.getAcceptanceId(), List.of()));
+            // 回填仓库名称
+            if (parent.getProdUnitId() != null) {
+                ProductionUnit unit = unitMap.get(parent.getProdUnitId());
+                if (unit != null) {
+                    dto.setWarehouseName(unit.getProdUnitName());
+                }
+            }
             return dto;
         }).collect(Collectors.toList());
 
@@ -787,6 +797,25 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         wrapper.in("material_code", codes);
         return materialMapper.selectList(wrapper).stream()
                 .collect(Collectors.toMap(Material::getMaterialCode, m -> m, (a, b) -> a));
+    }
+
+    /**
+     * 批量加载生产单位映射（按生产单位ID索引）
+     *
+     * @param parents 验收单列表
+     * @return 生产单位ID到生产单位实体的映射，无数据时返回空映射
+     */
+    private Map<Long, ProductionUnit> loadProductionUnitMap(List<AcceptanceOrder> parents) {
+        List<Long> unitIds = parents.stream()
+                .map(AcceptanceOrder::getProdUnitId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (unitIds.isEmpty()) {
+            return Map.of();
+        }
+        return productionUnitMapper.selectBatchIds(unitIds).stream()
+                .collect(Collectors.toMap(ProductionUnit::getProdUnitId, u -> u, (a, b) -> a));
     }
 
     /**

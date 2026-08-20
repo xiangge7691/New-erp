@@ -118,7 +118,20 @@ public class ReturnOrderServiceImpl extends ServiceImpl<ReturnOrderMapper, Retur
                             + "AND d.material_name LIKE CONCAT('%', {0}, '%')", keyword));
         }
         wrapper.orderByDesc("created_time");
-        return this.page(page, wrapper);
+        Page<ReturnOrder> result = this.page(page, wrapper);
+
+        // 批量解析生产计划名称（按生产计划编号关联 production_plan 表）
+        List<ReturnOrder> records = result.getRecords();
+        if (!records.isEmpty()) {
+            List<String> planNos = records.stream()
+                    .map(ReturnOrder::getProductionPlanNo)
+                    .filter(StringUtils::hasText)
+                    .distinct()
+                    .collect(Collectors.toList());
+            Map<String, String> planNameMap = resolvePlanNames(planNos);
+            records.forEach(r -> r.setProductionPlanName(planNameMap.get(r.getProductionPlanNo())));
+        }
+        return result;
     }
 
     /**

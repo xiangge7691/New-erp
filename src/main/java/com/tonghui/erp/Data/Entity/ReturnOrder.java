@@ -51,6 +51,12 @@ public class ReturnOrder extends AuditEntity {
     private String productionPlanNo;
 
     /**
+     * 生产计划名称（非表字段，查询时按生产计划编号解析填充）
+     */
+    @TableField(exist = false)
+    private String productionPlanName;
+
+    /**
      * 物料种数
      */
     @TableField(value = "material_count")

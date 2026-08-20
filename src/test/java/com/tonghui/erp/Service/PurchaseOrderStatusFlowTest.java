@@ -13,6 +13,7 @@ import com.tonghui.erp.Data.mapper.MaterialMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrderItemsMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrdersMapper;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Stock.AcceptanceWithDetailsDto;
 import com.tonghui.erp.Common.Dto.Stock.StockInWithDetailsDto;
 import com.tonghui.erp.Common.Dto.Stock.StockInWithNamesDto;
 import com.tonghui.erp.Common.Dto.Stock.StockTransactionDto;
@@ -744,6 +745,54 @@ public void testQualityCheckWriteBackOrderStatus() {
                 System.err.println("测试失败: 仓库名称应为耒阳制剂室, 实际: " + dto.getWarehouseName());
             } else {
                 System.out.println("查询仓库名称: " + dto.getWarehouseName());
+            }
+        } catch (Exception e) {
+            System.err.println("测试失败: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            cleanup(orderId, acceptanceId, null, null, null, null);
+        }
+    }
+
+    /**
+     * 测试验收单高级查询（带明细）返回仓库名称（warehouseName）
+     * <p>
+     * 验收单创建时已携带生产单位ID，searchWithDetails 应解析出仓库名称
+     * </p>
+     */
+    @Test
+    public void testAcceptanceSearchReturnsWarehouseName() {
+        Long orderId = null;
+        Long acceptanceId = null;
+        try {
+            PurchaseOrders order = createOrder();
+            orderId = order.getId();
+            AcceptanceOrder acceptance = setupTransitAcceptance(order);
+            if (acceptance == null) {
+                System.err.println("测试失败: 未生成验收单");
+                return;
+            }
+            acceptanceId = acceptance.getAcceptanceId();
+
+            // 高级查询验收单（带明细），断言仓库名称被回填
+            AcceptanceOrder query = new AcceptanceOrder();
+            query.setAcceptanceId(acceptanceId);
+            PagedResult<AcceptanceWithDetailsDto> result = acceptanceOrderService.searchWithDetails(
+                    query, null, 0, 10);
+            if (result.getItems().isEmpty()) {
+                System.err.println("测试失败: 未查询到验收单");
+                return;
+            }
+            AcceptanceWithDetailsDto dto = result.getItems().get(0);
+            if (!acceptance.getAcceptanceId().equals(dto.getAcceptanceId())) {
+                System.err.println("测试失败: 查询验收单ID不符: " + dto.getAcceptanceId());
+            } else {
+                System.out.println("查询验收单编号: " + dto.getAcceptanceCode());
+            }
+            if (!"耒阳制剂室".equals(dto.getWarehouseName())) {
+                System.err.println("测试失败: 仓库名称应为耒阳制剂室, 实际: " + dto.getWarehouseName());
+            } else {
+                System.out.println("验收查询仓库名称: " + dto.getWarehouseName());
             }
         } catch (Exception e) {
             System.err.println("测试失败: " + e.getMessage());

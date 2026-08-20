@@ -52,6 +52,10 @@ public class ReturnOrderServiceTest {
     private static final String TEST_BATCH = "RBATCH01";
     /** 测试出库单号（动态唯一，避免软删除残留与唯一索引冲突） */
     private final String testOutCode = "TESTCK" + System.currentTimeMillis();
+    /** 测试生产计划编号（动态唯一） */
+    private final String testPlanNo = "TESTPLANR" + System.currentTimeMillis();
+    /** 测试生产计划名称 */
+    private static final String TEST_PLAN_NAME = "退库测试计划单";
     /** 仓库名称（原料仓） */
     private static final String WAREHOUSE = "原料仓";
     /** 仓库ID（原料仓） */
@@ -75,6 +79,9 @@ public class ReturnOrderServiceTest {
     /** 出库明细Mapper */
     @Autowired
     private StockOutDetailMapper stockOutDetailMapper;
+    /** 生产计划Mapper（创建生产计划主数据以验证计划名称回填） */
+    @Autowired
+    private com.tonghui.erp.Data.mapper.ProductionPlanMapper productionPlanMapper;
     /** JdbcTemplate（用于物理删除测试数据，绕开软删除） */
     @Autowired
     private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
@@ -298,6 +305,62 @@ public class ReturnOrderServiceTest {
         }
     }
 
+    /**
+     * 测试退库单列表查询回填生产计划名称（productionPlanName）
+     * <p>
+     * 创建带生产计划编号的退库单，列表查询时按编号关联 production_plan 解析计划名称
+     * </p>
+     */
+    @Test
+    public void testQueryReturnOrdersFillsProductionPlanName() {
+        Long stockId = null;
+        Long outId = null;
+        Long orderId = null;
+        try {
+            // 创建生产计划主数据（用于解析计划名称）
+            com.tonghui.erp.Data.Entity.ProductionPlan plan = new com.tonghui.erp.Data.Entity.ProductionPlan();
+            plan.setPlanNumber(testPlanNo);
+            plan.setPlanName(TEST_PLAN_NAME);
+            plan.setPreparationCode("TESTP1");
+            plan.setPreparationName("测试制剂");
+            plan.setPlanQuantity(new BigDecimal("1"));
+            plan.setPlanType("生产计划");
+            productionPlanMapper.insert(plan);
+
+            Stock stock = createStock(new BigDecimal("5.0"));
+            stockId = stock.getStockId();
+            outId = createStockOut(stock.getStockId(), new BigDecimal("3.0"));
+
+            ReturnOrderCreateDto dto = new ReturnOrderCreateDto();
+            dto.setOutOrderNo(testOutCode);
+            ReturnItemRequest item = new ReturnItemRequest();
+            item.setInventoryKey(TEST_ITEM_CODE + "_" + WAREHOUSE + "_" + TEST_BATCH);
+            item.setReturnQuantity(new BigDecimal("1.0"));
+            dto.setItems(List.of(item));
+            ReturnOrder order = returnOrderService.createReturnOrder(dto);
+            orderId = order.getId();
+
+            // 列表查询，断言生产计划名称被解析回填
+            Page<ReturnOrder> page = returnOrderService.queryReturnOrders(testOutCode, 0, 10);
+            ReturnOrder hit = page.getRecords().stream()
+                    .filter(r -> testOutCode.equals(r.getOutOrderNo()))
+                    .findFirst().orElse(null);
+            if (hit == null) {
+                System.err.println("测试失败: 未查询到退库单");
+            } else if (!TEST_PLAN_NAME.equals(hit.getProductionPlanName())) {
+                System.err.println("测试失败: 生产计划名称应为 " + TEST_PLAN_NAME + ", 实际: " + hit.getProductionPlanName());
+            } else {
+                System.out.println("退库单生产计划名称: " + hit.getProductionPlanName());
+            }
+        } catch (Exception e) {
+            System.err.println("测试失败: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            cleanup(stockId, outId, orderId);
+            jdbcTemplate.update("DELETE FROM production_plan WHERE plan_number = ?", testPlanNo);
+        }
+    }
+
     // endregion
 
     // region 私有工具方法
@@ -338,6 +401,7 @@ public class ReturnOrderServiceTest {
         out.setOutCode(testOutCode);
         out.setOutType("生产领料出库");
         out.setProdUnitId(WAREHOUSE_UNIT_ID);
+        out.setPlanNumber(testPlanNo);
         out.setOutDate(LocalDateTime.now());
         out.setOutStatus("已出库");
         out.setTotalAmount(new BigDecimal("0.00"));
