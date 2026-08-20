@@ -589,6 +589,9 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         Map<Long, List<StockOutDetail>> detailsMap = allDetails.stream()
                 .collect(Collectors.groupingBy(StockOutDetail::getOutId));
 
+        // 批量解析明细仓库名称（按生产单位ID关联 production_unit 表）
+        fillDetailWarehouseNames(allDetails);
+
         // 组装带子表数据的DTO
         List<StockOutWithDetailsDto> dtos = parents.stream().map(parent -> {
             StockOutWithDetailsDto dto = new StockOutWithDetailsDto();
@@ -804,6 +807,32 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
             batch.setStockStatus(s.getStockStatus() != null ? String.valueOf(s.getStockStatus()) : null);
             return batch;
         }).collect(Collectors.toList());
+    }
+
+    /**
+     * 批量回填出库明细的仓库名称
+     * <p>按明细中的生产单位ID（prodUnitId）一次性查询生产单位表并设置仓库名称</p>
+     *
+     * @param details 出库明细列表（可为空）
+     */
+    private void fillDetailWarehouseNames(List<StockOutDetail> details) {
+        if (details == null || details.isEmpty()) {
+            return;
+        }
+        List<Long> unitIds = details.stream()
+                .map(StockOutDetail::getProdUnitId)
+                .filter(id -> id != null)
+                .distinct()
+                .collect(Collectors.toList());
+        if (unitIds.isEmpty()) {
+            return;
+        }
+        Map<Long, String> unitNames = productionUnitMapper
+                .selectList(new QueryWrapper<ProductionUnit>().in("prod_unit_id", unitIds))
+                .stream()
+                .collect(Collectors.toMap(ProductionUnit::getProdUnitId,
+                        ProductionUnit::getProdUnitName, (a, b) -> a));
+        details.forEach(d -> d.setWarehouseName(unitNames.getOrDefault(d.getProdUnitId(), "")));
     }
 
     // endregion

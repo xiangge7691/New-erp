@@ -2,10 +2,12 @@ package com.tonghui.erp.Service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Warehouse.AvailableOutOrderDto;
 import com.tonghui.erp.Common.Dto.Warehouse.OutOrderMaterialDto;
 import com.tonghui.erp.Common.Dto.Warehouse.ReturnItemRequest;
 import com.tonghui.erp.Common.Dto.Warehouse.ReturnOrderCreateDto;
+import com.tonghui.erp.Common.Dto.Stock.StockOutWithDetailsDto;
 import com.tonghui.erp.Data.Entity.ReturnOrder;
 import com.tonghui.erp.Data.Entity.ReturnOrderDetail;
 import com.tonghui.erp.Data.Entity.Stock;
@@ -82,6 +84,9 @@ public class ReturnOrderServiceTest {
     /** 生产计划Mapper（创建生产计划主数据以验证计划名称回填） */
     @Autowired
     private com.tonghui.erp.Data.mapper.ProductionPlanMapper productionPlanMapper;
+    /** 出库单服务（验证出库明细返回仓库名称） */
+    @Autowired
+    private StockOutService stockOutService;
     /** JdbcTemplate（用于物理删除测试数据，绕开软删除） */
     @Autowired
     private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
@@ -358,6 +363,54 @@ public class ReturnOrderServiceTest {
         } finally {
             cleanup(stockId, outId, orderId);
             jdbcTemplate.update("DELETE FROM production_plan WHERE plan_number = ?", testPlanNo);
+        }
+    }
+
+    /**
+     * 测试出库单高级查询（带明细）返回明细仓库名称（warehouseName）
+     * <p>
+     * 出库明细携带生产单位ID，searchWithDetails 应解析出仓库名称
+     * </p>
+     */
+    @Test
+    public void testStockOutSearchReturnsDetailWarehouseName() {
+        Long stockId = null;
+        Long outId = null;
+        try {
+            Stock stock = createStock(new BigDecimal("5.0"));
+            stockId = stock.getStockId();
+            outId = createStockOut(stock.getStockId(), new BigDecimal("3.0"));
+
+            // 高级查询出库单（带明细），断言明细仓库名称被回填
+            StockOut query = new StockOut();
+            query.setOutCode(testOutCode);
+            PagedResult<StockOutWithDetailsDto> result = stockOutService.searchWithDetails(
+                    query, null, null, null, null, null, null, null, 0, 10);
+            if (result.getItems().isEmpty()) {
+                System.err.println("测试失败: 未查询到出库单 " + testOutCode);
+                return;
+            }
+            StockOutWithDetailsDto dto = result.getItems().get(0);
+            if (!testOutCode.equals(dto.getOutCode())) {
+                System.err.println("测试失败: 查询出库单号不符: " + dto.getOutCode());
+            } else {
+                System.out.println("查询出库单号: " + dto.getOutCode());
+            }
+            if (dto.getDetails().isEmpty()) {
+                System.err.println("测试失败: 出库明细为空");
+            } else {
+                String name = dto.getDetails().get(0).getWarehouseName();
+                if (!WAREHOUSE.equals(name)) {
+                    System.err.println("测试失败: 明细仓库名称应为 " + WAREHOUSE + ", 实际: " + name);
+                } else {
+                    System.out.println("明细仓库名称: " + name);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("测试失败: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            cleanup(stockId, outId, null);
         }
     }
 

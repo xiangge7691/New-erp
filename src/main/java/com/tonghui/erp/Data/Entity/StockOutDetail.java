@@ -39,6 +39,12 @@ public class StockOutDetail {
     private Long prodUnitId;
 
     /**
+     * 仓库名称（非表字段，查询时按生产单位ID解析填充）
+     */
+    @TableField(exist = false)
+    private String warehouseName;
+
+    /**
      * 关联库存记录ID
      */
     @TableField(value = "stock_id")
