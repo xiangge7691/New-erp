@@ -11,6 +11,7 @@ import com.tonghui.erp.Data.Entity.Stock;
 import com.tonghui.erp.Data.Entity.StockTransaction;
 import com.tonghui.erp.Data.Entity.TransferOrder;
 import com.tonghui.erp.Data.Entity.TransferOrderDetail;
+import com.tonghui.erp.Common.Dto.Stock.StockTransactionDto;
 import com.tonghui.erp.Data.mapper.StockMapper;
 import com.tonghui.erp.Data.mapper.StockTransactionMapper;
 import com.tonghui.erp.Data.mapper.TransferOrderDetailMapper;
@@ -62,6 +63,9 @@ public class TransferOrderServiceTest {
     /** 调拨单服务 */
     @Autowired
     private TransferOrderService transferOrderService;
+    /** 库存服务（用于查询库存流水） */
+    @Autowired
+    private StockService stockService;
     /** 库存Mapper */
     @Autowired
     private StockMapper stockMapper;
@@ -351,6 +355,61 @@ public class TransferOrderServiceTest {
             throw new RuntimeException("关键词模糊查询测试失败: " + e.getMessage(), e);
         } finally {
             cleanup(stockId, null);
+        }
+    }
+
+    /**
+     * 测试调拨流水携带调拨单号（inCode）
+     * <p>
+     * 调拨后，目标仓的调拨入库流水应通过 getTransactionsByStockId 返回
+     * inCode = 调拨单号（transferNo）
+     * </p>
+     */
+    @Test
+    public void testTransferTransactionsCarryTransferNo() {
+        Long sourceStockId = null;
+        Long orderId = null;
+        try {
+            Stock stock = createStock(FROM_UNIT_ID, new BigDecimal("1.5"));
+            sourceStockId = stock.getStockId();
+
+            TransferOrderCreateDto dto = new TransferOrderCreateDto();
+            dto.setFromWarehouse(FROM_WAREHOUSE);
+            dto.setToWarehouse(TO_WAREHOUSE);
+            dto.setRemark("流水单号测试调拨");
+            TransferItemRequest item = new TransferItemRequest();
+            item.setInventoryKey(TEST_ITEM_CODE + "_" + FROM_WAREHOUSE + "_" + TEST_BATCH);
+            item.setTransferQuantity(new BigDecimal("0.5"));
+            dto.setItems(List.of(item));
+
+            TransferOrder order = transferOrderService.createTransferOrder(dto);
+            orderId = order.getId();
+            System.out.println("调拨单号: " + order.getTransferNo());
+
+            // 查询目标仓库存的流水（调拨入库）
+            Stock dest = stockMapper.selectOne(new QueryWrapper<Stock>()
+                    .eq("prod_unit_id", TO_UNIT_ID)
+                    .eq("item_code", TEST_ITEM_CODE)
+                    .eq("batch_number", TEST_BATCH)
+                    .eq("is_deleted", 0));
+            assertNotNull(dest, "目标库存行应存在");
+
+            List<StockTransactionDto> txs = stockService.getTransactionsByStockId(dest.getStockId());
+            StockTransactionDto inbound = txs.stream()
+                    .filter(t -> "调拨入库".equals(String.valueOf(t.getTransactionType())))
+                    .findFirst().orElse(null);
+            if (inbound == null) {
+                System.err.println("测试失败: 未找到调拨入库流水");
+            } else if (!order.getTransferNo().equals(inbound.getInCode())) {
+                System.err.println("测试失败: 调拨入库流水 inCode 应为 " + order.getTransferNo() + ", 实际: " + inbound.getInCode());
+            } else {
+                System.out.println("调拨流水调拨单号: " + inbound.getInCode());
+            }
+        } catch (Exception e) {
+            System.err.println("测试失败: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            cleanup(sourceStockId, orderId);
         }
     }
 

@@ -10,19 +10,25 @@ import com.tonghui.erp.Common.Dto.Stock.StockBatchDto;
 import com.tonghui.erp.Common.Dto.Stock.StockGroupedDto;
 import com.tonghui.erp.Common.Dto.Stock.StockTransactionDto;
 import com.tonghui.erp.Common.Dto.Stock.StockWithDetailsDto;
+import com.tonghui.erp.Data.Entity.CheckOrder;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
+import com.tonghui.erp.Data.Entity.ReturnOrder;
 import com.tonghui.erp.Data.Entity.Stock;
 import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.Entity.StockInDetail;
 import com.tonghui.erp.Data.Entity.StockOut;
 import com.tonghui.erp.Data.Entity.StockOutDetail;
 import com.tonghui.erp.Data.Entity.StockTransaction;
+import com.tonghui.erp.Data.Entity.TransferOrder;
 import com.tonghui.erp.Data.Entity.User;
+import com.tonghui.erp.Data.mapper.CheckOrderMapper;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
+import com.tonghui.erp.Data.mapper.ReturnOrderMapper;
 import com.tonghui.erp.Data.mapper.StockInMapper;
 import com.tonghui.erp.Data.mapper.StockMapper;
 import com.tonghui.erp.Data.mapper.StockOutDetailMapper;
 import com.tonghui.erp.Data.mapper.StockTransactionMapper;
+import com.tonghui.erp.Data.mapper.TransferOrderMapper;
 import com.tonghui.erp.Data.mapper.UserMapper;
 import com.tonghui.erp.Service.StockService;
 import org.springframework.beans.BeanUtils;
@@ -76,6 +82,18 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
     /** 入库单数据访问层，用于解析流水绑定的入库单与验收单 */
     @Autowired
     private StockInMapper stockInMapper;
+
+    /** 调拨单数据访问层，用于解析调拨流水对应的调拨单号 */
+    @Autowired
+    private TransferOrderMapper transferOrderMapper;
+
+    /** 盘点单数据访问层，用于解析盘点流水对应的盘点单号 */
+    @Autowired
+    private CheckOrderMapper checkOrderMapper;
+
+    /** 退库单数据访问层，用于解析退库流水对应的退库单号 */
+    @Autowired
+    private ReturnOrderMapper returnOrderMapper;
 
     // endregion
 
@@ -575,29 +593,61 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
     }
 
     /**
-     * 解析流水绑定的入库单与验收单（检验单）信息
+     * 解析流水绑定的单据信息（入库单/调拨单/盘点单/退库单）
      * <p>
-     * 对来源为入库单（related_type=stock_in）的流水，按 related_id 反查入库单，
-     * 回填入库单ID、入库单号以及验收单号（入库单.related_order 当前即验收单号）
+     * 按 related_type 分别反查对应单据表，回填单号到 DTO.inCode 字段：
+     * stock_in → 入库单号（同时回填 inId 与验收单号），
+     * transfer → 调拨单号，check → 盘点单号，return → 退库单号
      * </p>
      *
      * @param transactions 库存交易流水列表
-     * @return 携带入库单/验收单绑定信息的流水DTO列表
+     * @return 携带单据绑定信息的流水DTO列表
      */
     private List<StockTransactionDto> resolveInboundLink(List<StockTransaction> transactions) {
         if (transactions == null || transactions.isEmpty()) {
             return List.of();
         }
-        // 收集入库流水关联的入库单ID
+
+        // 按关联类型分组收集ID
         List<Long> inIds = transactions.stream()
                 .filter(t -> "stock_in".equals(String.valueOf(t.getRelatedType())))
                 .map(StockTransaction::getRelatedId)
                 .filter(java.util.Objects::nonNull)
                 .distinct()
                 .collect(Collectors.toList());
+        List<Long> transferIds = transactions.stream()
+                .filter(t -> "transfer".equals(String.valueOf(t.getRelatedType())))
+                .map(StockTransaction::getRelatedId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        List<Long> checkIds = transactions.stream()
+                .filter(t -> "check".equals(String.valueOf(t.getRelatedType())))
+                .map(StockTransaction::getRelatedId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        List<Long> returnIds = transactions.stream()
+                .filter(t -> "return".equals(String.valueOf(t.getRelatedType())))
+                .map(StockTransaction::getRelatedId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+
+        // 批量查询各单据表，构建ID→单号映射
         Map<Long, StockIn> inMap = inIds.isEmpty() ? Map.of()
                 : stockInMapper.selectBatchIds(inIds).stream()
                         .collect(Collectors.toMap(StockIn::getInId, si -> si, (a, b) -> a));
+        Map<Long, TransferOrder> transferMap = transferIds.isEmpty() ? Map.of()
+                : transferOrderMapper.selectBatchIds(transferIds).stream()
+                        .collect(Collectors.toMap(TransferOrder::getId, t -> t, (a, b) -> a));
+        Map<Long, CheckOrder> checkMap = checkIds.isEmpty() ? Map.of()
+                : checkOrderMapper.selectBatchIds(checkIds).stream()
+                        .collect(Collectors.toMap(CheckOrder::getId, c -> c, (a, b) -> a));
+        Map<Long, ReturnOrder> returnMap = returnIds.isEmpty() ? Map.of()
+                : returnOrderMapper.selectBatchIds(returnIds).stream()
+                        .collect(Collectors.toMap(ReturnOrder::getId, r -> r, (a, b) -> a));
+
         // 批量加载操作人姓名（按流水创建人ID关联用户表）
         List<Long> userIds = transactions.stream()
                 .map(StockTransaction::getCreatedBy)
@@ -607,16 +657,36 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
         Map<Long, User> userMap = userIds.isEmpty() ? Map.of()
                 : userMapper.selectBatchIds(userIds).stream()
                         .collect(Collectors.toMap(User::getUserId, u -> u, (a, b) -> a));
+
         // 组装流水DTO
         return transactions.stream().map(t -> {
             StockTransactionDto dto = new StockTransactionDto();
             BeanUtils.copyProperties(t, dto);
-            StockIn stockIn = "stock_in".equals(String.valueOf(t.getRelatedType()))
-                    ? inMap.get(t.getRelatedId()) : null;
-            if (stockIn != null) {
-                dto.setInId(stockIn.getInId());
-                dto.setInCode(stockIn.getInCode());
-                dto.setAcceptanceCode(stockIn.getRelatedOrder());
+            String type = String.valueOf(t.getRelatedType());
+            Long relatedId = t.getRelatedId();
+            // 按关联类型反查单据号填入 inCode
+            if ("stock_in".equals(type)) {
+                StockIn stockIn = relatedId != null ? inMap.get(relatedId) : null;
+                if (stockIn != null) {
+                    dto.setInId(stockIn.getInId());
+                    dto.setInCode(stockIn.getInCode());
+                    dto.setAcceptanceCode(stockIn.getRelatedOrder());
+                }
+            } else if ("transfer".equals(type)) {
+                TransferOrder to = relatedId != null ? transferMap.get(relatedId) : null;
+                if (to != null) {
+                    dto.setInCode(to.getTransferNo());
+                }
+            } else if ("check".equals(type)) {
+                CheckOrder co = relatedId != null ? checkMap.get(relatedId) : null;
+                if (co != null) {
+                    dto.setInCode(co.getCheckNo());
+                }
+            } else if ("return".equals(type)) {
+                ReturnOrder ro = relatedId != null ? returnMap.get(relatedId) : null;
+                if (ro != null) {
+                    dto.setInCode(ro.getReturnNo());
+                }
             }
             // 回填操作人姓名
             if (t.getCreatedBy() != null) {

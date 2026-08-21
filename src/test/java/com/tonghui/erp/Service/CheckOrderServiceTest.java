@@ -9,6 +9,7 @@ import com.tonghui.erp.Data.Entity.CheckOrder;
 import com.tonghui.erp.Data.Entity.CheckOrderDetail;
 import com.tonghui.erp.Data.Entity.Stock;
 import com.tonghui.erp.Data.Entity.StockTransaction;
+import com.tonghui.erp.Common.Dto.Stock.StockTransactionDto;
 import com.tonghui.erp.Data.mapper.CheckOrderDetailMapper;
 import com.tonghui.erp.Data.mapper.StockMapper;
 import com.tonghui.erp.Data.mapper.StockTransactionMapper;
@@ -52,6 +53,9 @@ public class CheckOrderServiceTest {
     /** 盘点单服务 */
     @Autowired
     private CheckOrderService checkOrderService;
+    /** 库存服务（用于查询库存流水） */
+    @Autowired
+    private StockService stockService;
     /** 库存Mapper */
     @Autowired
     private StockMapper stockMapper;
@@ -280,6 +284,52 @@ public class CheckOrderServiceTest {
             e.printStackTrace();
         } finally {
             cleanup(stockId, null);
+        }
+    }
+
+    /**
+     * 测试盘点流水携带盘点单号（inCode）
+     * <p>
+     * 盘盈后，通过 getTransactionsByStockId 查询库存流水，
+     * 盘盈入库流水应返回 inCode = 盘点单号（checkNo）
+     * </p>
+     */
+    @Test
+    public void testCheckTransactionsCarryCheckNo() {
+        Long stockId = null;
+        Long orderId = null;
+        try {
+            Stock stock = createStock(new BigDecimal("1.0"));
+            stockId = stock.getStockId();
+
+            CheckOrderCreateDto dto = new CheckOrderCreateDto();
+            dto.setWarehouse(WAREHOUSE);
+            CheckItemRequest item = new CheckItemRequest();
+            item.setInventoryKey(TEST_ITEM_CODE + "_" + WAREHOUSE + "_" + TEST_BATCH);
+            item.setActualStock(new BigDecimal("1.5"));
+            dto.setItems(List.of(item));
+
+            CheckOrder order = checkOrderService.createCheckOrder(dto);
+            orderId = order.getId();
+            System.out.println("盘点单号: " + order.getCheckNo());
+
+            // 查询库存流水，断言盘盈入库流水携带盘点单号
+            List<StockTransactionDto> txs = stockService.getTransactionsByStockId(stockId);
+            StockTransactionDto profitIn = txs.stream()
+                    .filter(t -> "盘盈入库".equals(String.valueOf(t.getTransactionType())))
+                    .findFirst().orElse(null);
+            if (profitIn == null) {
+                System.err.println("测试失败: 未找到盘盈入库流水");
+            } else if (!order.getCheckNo().equals(profitIn.getInCode())) {
+                System.err.println("测试失败: 盘盈入库流水 inCode 应为 " + order.getCheckNo() + ", 实际: " + profitIn.getInCode());
+            } else {
+                System.out.println("盘点流水盘点单号: " + profitIn.getInCode());
+            }
+        } catch (Exception e) {
+            System.err.println("测试失败: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            cleanup(stockId, orderId);
         }
     }
 

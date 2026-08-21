@@ -8,6 +8,7 @@ import com.tonghui.erp.Common.Dto.Warehouse.OutOrderMaterialDto;
 import com.tonghui.erp.Common.Dto.Warehouse.ReturnItemRequest;
 import com.tonghui.erp.Common.Dto.Warehouse.ReturnOrderCreateDto;
 import com.tonghui.erp.Common.Dto.Stock.StockOutWithDetailsDto;
+import com.tonghui.erp.Common.Dto.Stock.StockTransactionDto;
 import com.tonghui.erp.Data.Entity.ReturnOrder;
 import com.tonghui.erp.Data.Entity.ReturnOrderDetail;
 import com.tonghui.erp.Data.Entity.Stock;
@@ -66,6 +67,9 @@ public class ReturnOrderServiceTest {
     /** 退库单服务 */
     @Autowired
     private ReturnOrderService returnOrderService;
+    /** 库存服务（用于查询库存流水） */
+    @Autowired
+    private StockService stockService;
     /** 库存Mapper */
     @Autowired
     private StockMapper stockMapper;
@@ -442,11 +446,59 @@ public class ReturnOrderServiceTest {
             } else {
                 System.out.println("出库单操作人姓名: " + hit.getCreatedByName());
             }
-        } catch (Exception e) {
+} catch (Exception e) {
             System.err.println("测试失败: " + e.getMessage());
             e.printStackTrace();
         } finally {
             cleanup(stockId, outId, null);
+        }
+    }
+
+    /**
+     * 测试退库流水携带退库单号（inCode）
+     * <p>
+     * 退库后，通过 getTransactionsByStockId 查询库存流水，
+     * 退库流水应返回 inCode = 退库单号（returnNo）
+     * </p>
+     */
+    @Test
+    public void testReturnTransactionsCarryReturnNo() {
+        Long stockId = null;
+        Long outId = null;
+        Long orderId = null;
+        try {
+            Stock stock = createStock(new BigDecimal("5.0"));
+            stockId = stock.getStockId();
+            outId = createStockOut(stock.getStockId(), new BigDecimal("3.0"));
+
+            ReturnOrderCreateDto dto = new ReturnOrderCreateDto();
+            dto.setOutOrderNo(testOutCode);
+            ReturnItemRequest item = new ReturnItemRequest();
+            item.setInventoryKey(TEST_ITEM_CODE + "_" + WAREHOUSE + "_" + TEST_BATCH);
+            item.setReturnQuantity(new BigDecimal("1.0"));
+            dto.setItems(List.of(item));
+            ReturnOrder order = returnOrderService.createReturnOrder(dto);
+            orderId = order.getId();
+            System.out.println("退库单号: " + order.getReturnNo());
+
+            // 查询库存流水，断言退库流水携带退库单号
+            List<StockTransactionDto> txs = stockService.getTransactionsByStockId(stockId);
+            StockTransactionDto returnTx = txs.stream()
+                    .filter(t -> "退库".equals(String.valueOf(t.getTransactionType())))
+                    .findFirst().orElse(null);
+            if (returnTx == null) {
+                System.err.println("测试失败: 未找到退库流水");
+            } else if (!order.getReturnNo().equals(returnTx.getInCode())) {
+                System.err.println("测试失败: 退库流水 inCode 应为 " + order.getReturnNo() + ", 实际: " + returnTx.getInCode());
+            } else {
+                System.out.println("退库流水退库单号: " + returnTx.getInCode());
+            }
+        } catch (Exception e) {
+            System.err.println("测试失败: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            cleanup(stockId, outId, orderId);
+            jdbcTemplate.update("DELETE FROM production_plan WHERE plan_number = ?", testPlanNo);
         }
     }
 
