@@ -27,6 +27,7 @@ import com.tonghui.erp.Data.mapper.ReturnOrderMapper;
 import com.tonghui.erp.Data.mapper.StockInMapper;
 import com.tonghui.erp.Data.mapper.StockMapper;
 import com.tonghui.erp.Data.mapper.StockOutDetailMapper;
+import com.tonghui.erp.Data.mapper.StockOutMapper;
 import com.tonghui.erp.Data.mapper.StockTransactionMapper;
 import com.tonghui.erp.Data.mapper.TransferOrderMapper;
 import com.tonghui.erp.Data.mapper.UserMapper;
@@ -94,6 +95,10 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
     /** 退库单数据访问层，用于解析退库流水对应的退库单号 */
     @Autowired
     private ReturnOrderMapper returnOrderMapper;
+
+    /** 出库单数据访问层，用于解析出库流水对应的出库单号 */
+    @Autowired
+    private StockOutMapper stockOutMapper;
 
     // endregion
 
@@ -633,6 +638,12 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
                 .filter(java.util.Objects::nonNull)
                 .distinct()
                 .collect(Collectors.toList());
+        List<Long> outIds = transactions.stream()
+                .filter(t -> "stock_out".equals(String.valueOf(t.getRelatedType())))
+                .map(StockTransaction::getRelatedId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
 
         // 批量查询各单据表，构建ID→单号映射
         Map<Long, StockIn> inMap = inIds.isEmpty() ? Map.of()
@@ -647,6 +658,9 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
         Map<Long, ReturnOrder> returnMap = returnIds.isEmpty() ? Map.of()
                 : returnOrderMapper.selectBatchIds(returnIds).stream()
                         .collect(Collectors.toMap(ReturnOrder::getId, r -> r, (a, b) -> a));
+        Map<Long, StockOut> outMap = outIds.isEmpty() ? Map.of()
+                : stockOutMapper.selectBatchIds(outIds).stream()
+                        .collect(Collectors.toMap(StockOut::getOutId, o -> o, (a, b) -> a));
 
         // 批量加载操作人姓名（按流水创建人ID关联用户表）
         List<Long> userIds = transactions.stream()
@@ -686,6 +700,11 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
                 ReturnOrder ro = relatedId != null ? returnMap.get(relatedId) : null;
                 if (ro != null) {
                     dto.setInCode(ro.getReturnNo());
+                }
+            } else if ("stock_out".equals(type)) {
+                StockOut so = relatedId != null ? outMap.get(relatedId) : null;
+                if (so != null) {
+                    dto.setInCode(so.getOutCode());
                 }
             }
             // 回填操作人姓名
