@@ -149,7 +149,8 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
 
         // 根据日期字段自动计算工单状态
         workOrder.setCurrentStatus(resolveStatus(workOrder.getConfigDate(),
-                workOrder.getConfigCompleteTime(), workOrder.getArchiveTime()));
+                workOrder.getConfigCompleteTime(), workOrder.getArchiveTime(),
+                workOrder.getInspectionStart(), workOrder.getInspectionEnd()));
 
         // 获取当前用户ID
         Long currentUserId = EntityUtils.getCurrentUserId();
@@ -218,7 +219,12 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
                 : (existing != null ? existing.getConfigCompleteTime() : null);
         LocalDateTime archiveTime = workOrder.getArchiveTime() != null ? workOrder.getArchiveTime()
                 : (existing != null ? existing.getArchiveTime() : null);
-        workOrder.setCurrentStatus(resolveStatus(configDate, configCompleteTime, archiveTime));
+        LocalDateTime inspectionStart = workOrder.getInspectionStart() != null ? workOrder.getInspectionStart()
+                : (existing != null ? existing.getInspectionStart() : null);
+        LocalDateTime inspectionEnd = workOrder.getInspectionEnd() != null ? workOrder.getInspectionEnd()
+                : (existing != null ? existing.getInspectionEnd() : null);
+        workOrder.setCurrentStatus(resolveStatus(configDate, configCompleteTime, archiveTime,
+                inspectionStart, inspectionEnd));
 
         boolean updated = this.updateById(workOrder);
 
@@ -464,9 +470,13 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
      * @param archiveTime       归档时间
      * @return 计算后的工单状态
      */
-    private String resolveStatus(LocalDateTime configDate, LocalDateTime configCompleteTime, LocalDateTime archiveTime) {
+    private String resolveStatus(LocalDateTime configDate, LocalDateTime configCompleteTime,
+            LocalDateTime archiveTime, LocalDateTime inspectionStart, LocalDateTime inspectionEnd) {
         if (archiveTime != null) {
             return "已归档";
+        }
+        if (inspectionStart != null && inspectionEnd != null) {
+            return "已检验";
         }
         if (configCompleteTime != null) {
             return "已生产";
