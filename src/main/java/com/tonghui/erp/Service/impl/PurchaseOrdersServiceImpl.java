@@ -213,7 +213,7 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
         acceptance.setSourceType("采购入库");
         acceptance.setRelatedOrder(order.getPurchaseNumber());
         acceptance.setPurchaseNumber(order.getPurchaseNumber());
-        acceptance.setPlanCode(order.getPlanCode());
+        acceptance.setPlanCode(order.getProductionPlanCode());
         acceptance.setTitle(order.getTitle());
         acceptance.setUnitName(order.getUnit());
         acceptance.setPreparationCode(order.getPreparationCode());
@@ -222,6 +222,7 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
         acceptance.setBatchQty(order.getBatchQty());
         acceptance.setPrescriptionMultiple(order.getPrescriptionMultiple());
         acceptance.setProdUnitId(order.getProdUnitId());
+        acceptance.setDeliveryDate(order.getExpectedDeliveryDate());
         acceptance.setStatus("运输中");
         acceptanceOrderMapper.insert(acceptance);
 
