@@ -52,4 +52,9 @@ public class AvailableBatchDto {
      * 库存状态
      */
     private String stockStatus;
+
+    /**
+     * 关联生产计划编号
+     */
+    private String planNumber;
 }

@@ -849,6 +849,7 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
             batch.setAmount(s.getUnitPrice() != null && requiredQty != null
                     ? requiredQty.multiply(s.getUnitPrice()) : null);
             batch.setStockStatus(s.getStockStatus() != null ? String.valueOf(s.getStockStatus()) : null);
+            batch.setPlanNumber(s.getPlanNumber());
             return batch;
         }).collect(Collectors.toList());
     }

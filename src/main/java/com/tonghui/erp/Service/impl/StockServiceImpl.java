@@ -431,6 +431,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
                 stock.setProductionDate(detail.getProductionDate());
                 stock.setExpiryDate(detail.getExpiryDate());
                 stock.setStockStatus(StringUtils.hasText(detail.getStockStatus()) ? detail.getStockStatus() : "合格");
+                stock.setPlanNumber(stockIn.getPlanNumber());
                 this.getBaseMapper().insert(stock);
             }
 

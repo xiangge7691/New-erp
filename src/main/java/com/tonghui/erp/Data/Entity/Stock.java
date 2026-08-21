@@ -127,6 +127,12 @@ public class Stock extends AuditEntity {
     private String storageLocation;
 
     /**
+     * 关联生产计划编号（入库时自动写入）
+     */
+    @TableField(value = "plan_number")
+    private String planNumber;
+
+    /**
      * 库存状态
      */
     @TableField(value = "stock_status")
