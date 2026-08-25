@@ -123,7 +123,8 @@ public class SupplierAuditServiceImpl extends ServiceImpl<SupplierAuditMapper, S
      */
     @Override
     public Page<SupplierAudit> getSupplierAuditList(int pageIndex, int pageSize) {
-        Page<SupplierAudit> page = new Page<>(pageIndex, pageSize);
+        // pageIndex 从0开始，Page.current 从1开始，需 +1 转换
+        Page<SupplierAudit> page = new Page<>(pageIndex + 1, pageSize);
         QueryWrapper<SupplierAudit> wrapper = new QueryWrapper<>();
         wrapper.eq("is_deleted", 0);
         wrapper.orderByDesc("audit_date");
@@ -151,7 +152,8 @@ public class SupplierAuditServiceImpl extends ServiceImpl<SupplierAuditMapper, S
     public Page<SupplierAudit> querySupplierAudits(SupplierAudit supplierAudit,
                                                     LocalDateTime auditDateStart, LocalDateTime auditDateEnd,
                                                     int pageIndex, int pageSize) {
-        Page<SupplierAudit> page = new Page<>(pageIndex, pageSize);
+        // pageIndex 从0开始，Page.current 从1开始，需 +1 转换
+        Page<SupplierAudit> page = new Page<>(pageIndex + 1, pageSize);
         QueryWrapper<SupplierAudit> wrapper = new QueryWrapper<>();
 
         // 未删除条件
