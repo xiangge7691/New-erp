@@ -41,11 +41,11 @@ public class EnergyRecordServiceTest {
     // ===================================
 
     /**
-     * 构造基础能耗记录（电，2026-08，表底 4010/4510，单价 4.84）
+     * 构造基础能耗记录（电，2026-11，表底 4010/4510，单价 4.84）
      */
     private EnergyRecord buildElectricRecord() {
         EnergyRecord record = new EnergyRecord();
-        record.setMonth("2026-08");
+        record.setMonth("2026-11");
         record.setEnergyType("电");
         record.setLastMeterReading(new BigDecimal("4010.000"));
         record.setCurrentMeterReading(new BigDecimal("4510.000"));
@@ -75,7 +75,7 @@ public class EnergyRecordServiceTest {
     @Test
     public void testUnitMappingWaterAndGas() {
         EnergyRecord water = new EnergyRecord();
-        water.setMonth("2026-08");
+        water.setMonth("2026-11");
         water.setEnergyType("自来水");
         water.setActualUsage(new BigDecimal("30.000"));
         water.setUnitPrice(new BigDecimal("26.000"));
@@ -83,7 +83,7 @@ public class EnergyRecordServiceTest {
         assertEquals("立方米", savedWater.getUnit(), "自来水的计量单位应为立方米");
 
         EnergyRecord gas = new EnergyRecord();
-        gas.setMonth("2026-08");
+        gas.setMonth("2026-11");
         gas.setEnergyType("燃气");
         gas.setActualUsage(new BigDecimal("40.000"));
         gas.setUnitPrice(new BigDecimal("29.500"));
@@ -192,13 +192,13 @@ public class EnergyRecordServiceTest {
     public void testPageQueryWithSummary() {
         EnergyRecord electric = energyRecordService.create(buildElectricRecord(), null);
         EnergyRecord water = new EnergyRecord();
-        water.setMonth("2026-08");
+        water.setMonth("2026-11");
         water.setEnergyType("自来水");
         water.setActualUsage(new BigDecimal("30.000"));
         water.setUnitPrice(new BigDecimal("26.000"));
         energyRecordService.create(water, null);
 
-        EnergyRecordPageResult result = energyRecordService.pageQuery("2026-08", "电", 0, 20);
+        EnergyRecordPageResult result = energyRecordService.pageQuery("2026-11", "电", 0, 20);
         assertTrue(result.getItems().stream().anyMatch(r -> r.getRecordId().equals(electric.getRecordId())),
                 "列表中应包含本次新建的电费记录");
         assertNotNull(result.getSummary(), "应返回汇总");
@@ -217,7 +217,7 @@ public class EnergyRecordServiceTest {
     public void testSoftDeleteFiltersFromList() {
         EnergyRecord record = energyRecordService.create(buildElectricRecord(), null);
         energyRecordService.delete(record.getRecordId());
-        EnergyRecordPageResult result = energyRecordService.pageQuery("2026-08", "电", 0, 20);
+        EnergyRecordPageResult result = energyRecordService.pageQuery("2026-11", "电", 0, 20);
         assertTrue(result.getItems().stream().noneMatch(r -> r.getRecordId().equals(record.getRecordId())),
                 "软删除后的记录不应出现在列表中");
     }
