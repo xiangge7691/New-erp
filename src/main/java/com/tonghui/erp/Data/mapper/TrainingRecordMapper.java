@@ -18,13 +18,17 @@ public interface TrainingRecordMapper extends BaseMapper<TrainingRecord> {
 
     /**
      * 获取当年最大培训序号
+     * <p>
+     * 统计包含软删除在内的所有记录序号，确保自动生成的编号不与任何
+     * 已存在记录（含软删除记录）冲突，避免触发唯一索引冲突
+     * </p>
      *
      * @param year 年份（如2026）
      * @return 最大序号
      */
     @Select("SELECT IFNULL(MAX(CAST(SUBSTRING(training_no, LENGTH(#{year}) + 8) AS UNSIGNED)), 0) " +
             "FROM training_record " +
-            "WHERE training_no LIKE CONCAT('TRAIN-', #{year}, '-%') AND is_deleted = 0")
+            "WHERE training_no LIKE CONCAT('TRAIN-', #{year}, '-%')")
     Integer getMaxSeqByYear(@Param("year") String year);
 
     /**
