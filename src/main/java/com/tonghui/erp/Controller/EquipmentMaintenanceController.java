@@ -98,7 +98,7 @@ public class EquipmentMaintenanceController extends BaseController {
      * @param equipmentId 设备ID（可选）
      * @param equipmentType 设备类型（可选）：设备/仪器/公共设施，通过关联equipment表筛选
      * @param maintenanceType 维保类型（可选）
-     * @param keyword 关键词（可选），模糊匹配维保内容
+     * @param keyword 关键词（可选），模糊匹配维保内容、设备编码（固定资产编号）、设备名称
      * @param maintainer 维保人（可选）
      * @param maintenanceCompany 维保公司（可选）
      * @param maintenanceDateStart 维保日期起始（可选）
@@ -143,7 +143,20 @@ public class EquipmentMaintenanceController extends BaseController {
             wrapper.eq("maintenance_type", maintenanceType);
         }
         if (StringUtils.hasText(keyword)) {
-            wrapper.like("maintenance_content", keyword);
+            // 模糊匹配维保内容、设备编码（固定资产编号）、设备名称：先按编码/名称查询匹配的设备ID集合，
+            // 再以 (维保内容 LIKE ? OR 设备ID IN (...)) 的组合条件过滤维保记录
+            QueryWrapper<Equipment> eqWrapper = new QueryWrapper<>();
+            eqWrapper.eq("is_deleted", 0);
+            eqWrapper.and(q -> q.like("fixed_asset_code", keyword).or().like("equipment_name", keyword));
+            List<Integer> equipmentIds = equipmentService.list(eqWrapper).stream()
+                    .map(Equipment::getEquipmentId)
+                    .collect(Collectors.toList());
+            wrapper.and(w -> {
+                w.like("maintenance_content", keyword);
+                if (!equipmentIds.isEmpty()) {
+                    w.or().in("equipment_id", equipmentIds);
+                }
+            });
         }
         if (StringUtils.hasText(maintainer)) {
             wrapper.like("maintainer", maintainer);
