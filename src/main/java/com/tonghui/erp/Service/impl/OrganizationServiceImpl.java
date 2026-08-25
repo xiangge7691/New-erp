@@ -74,6 +74,12 @@ public class OrganizationServiceImpl extends ServiceImpl<OrganizationMapper, Org
         dto.setPrepRoomLeader(org.getPrepRoomLeader());
         dto.setPreparationAddress(org.getPreparationAddress());
         dto.setPreparationScope(org.getPreparationScope());
+        dto.setRegisteredAddress(org.getRegisteredAddress());
+        dto.setContactPerson(org.getContactPerson());
+        dto.setContactPhone(org.getContactPhone());
+        dto.setBuildingArea(org.getBuildingArea());
+        dto.setCleanArea(org.getCleanArea());
+        dto.setPreparationCategory(org.getPreparationCategory());
         dto.setIssuingAuthority(org.getIssuingAuthority());
         dto.setIssueDate(org.getIssueDate());
         dto.setExpiryDate(org.getExpiryDate());

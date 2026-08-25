@@ -108,6 +108,49 @@ public class Organization extends AuditEntity {
 
     // endregion
 
+    // region 许可证基础信息
+    // ===================================
+    // 许可证基础信息
+    // ===================================
+
+    /**
+     * 注册地址
+     */
+    @TableField(value = "registered_address")
+    private String registeredAddress;
+
+    /**
+     * 联系人
+     */
+    @TableField(value = "contact_person")
+    private String contactPerson;
+
+    /**
+     * 电话
+     */
+    @TableField(value = "contact_phone")
+    private String contactPhone;
+
+    /**
+     * 建筑面积
+     */
+    @TableField(value = "building_area")
+    private String buildingArea;
+
+    /**
+     * 洁净区面积
+     */
+    @TableField(value = "clean_area")
+    private String cleanArea;
+
+    /**
+     * 制剂类别（多选，逗号分隔：化学药、中成药、其他）
+     */
+    @TableField(value = "preparation_category")
+    private String preparationCategory;
+
+    // endregion
+
     // region 许可证信息
     // ===================================
     // 许可证信息
