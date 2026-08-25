@@ -70,6 +70,8 @@ public class ReleaseReviewController extends BaseController {
      * @param reviewer           审核人（可选，模糊匹配）
      * @param startTime          审核开始时间（可选，格式：yyyy-MM-dd HH:mm:ss）
      * @param endTime            审核结束时间（可选，格式：yyyy-MM-dd HH:mm:ss）
+     * @param createdTimeStart   创建时间起始（可选，格式：yyyy-MM-dd HH:mm:ss）
+     * @param createdTimeEnd     创建时间结束（可选，格式：yyyy-MM-dd HH:mm:ss）
      * @param pageIndex          页码索引，从0开始（默认0）
      * @param pageSize           每页数量（默认10）
      * @return ApiResponse&lt;PagedResult&lt;ReleaseReview&gt;&gt; 分页结果
@@ -84,12 +86,14 @@ public class ReleaseReviewController extends BaseController {
             @RequestParam(required = false) String reviewer,
             @RequestParam(required = false) String startTime,
             @RequestParam(required = false) String endTime,
+            @RequestParam(required = false) String createdTimeStart,
+            @RequestParam(required = false) String createdTimeEnd,
             @RequestParam(defaultValue = "0") int pageIndex,
             @RequestParam(defaultValue = "10") int pageSize) {
         try {
             Page<ReleaseReview> page = new Page<>(pageIndex + 1, pageSize);
             QueryWrapper<ReleaseReview> wrapper = buildQueryWrapper(releaseCode, relatedInspectionCode, objectName,
-                    batchNo, releaseConclusion, reviewer, startTime, endTime);
+                    batchNo, releaseConclusion, reviewer, startTime, endTime, createdTimeStart, createdTimeEnd);
             Page<ReleaseReview> pageResult = releaseReviewService.page(page, wrapper);
 
             PagedResult<ReleaseReview> result = new PagedResult<>();
@@ -131,7 +135,7 @@ public class ReleaseReviewController extends BaseController {
             @RequestParam(required = false) String endTime) {
         try {
             QueryWrapper<ReleaseReview> wrapper = buildQueryWrapper(releaseCode, relatedInspectionCode, objectName,
-                    batchNo, releaseConclusion, reviewer, startTime, endTime);
+                    batchNo, releaseConclusion, reviewer, startTime, endTime, null, null);
             wrapper.orderByDesc("review_time");
             return success(releaseReviewService.list(wrapper));
         } catch (Exception e) {
@@ -347,11 +351,13 @@ public class ReleaseReviewController extends BaseController {
      * @param reviewer           审核人（模糊匹配）
      * @param startTime          审核开始时间
      * @param endTime            审核结束时间
+     * @param createdTimeStart   创建时间起始
+     * @param createdTimeEnd     创建时间结束
      * @return 查询条件Wrapper
      */
     private QueryWrapper<ReleaseReview> buildQueryWrapper(String releaseCode, String relatedInspectionCode,
             String objectName, String batchNo, String releaseConclusion, String reviewer,
-            String startTime, String endTime) {
+            String startTime, String endTime, String createdTimeStart, String createdTimeEnd) {
         QueryWrapper<ReleaseReview> wrapper = new QueryWrapper<>();
         wrapper.eq("is_deleted", 0);
         if (StringUtils.hasText(releaseCode)) wrapper.like("release_code", releaseCode);
@@ -362,6 +368,8 @@ public class ReleaseReviewController extends BaseController {
         if (StringUtils.hasText(reviewer)) wrapper.like("reviewer", reviewer);
         if (StringUtils.hasText(startTime)) wrapper.ge("review_time", startTime);
         if (StringUtils.hasText(endTime)) wrapper.le("review_time", endTime);
+        if (StringUtils.hasText(createdTimeStart)) wrapper.ge("created_time", createdTimeStart);
+        if (StringUtils.hasText(createdTimeEnd)) wrapper.le("created_time", createdTimeEnd);
         wrapper.orderByDesc("review_time");
         return wrapper;
     }

@@ -69,6 +69,8 @@ public class RetainedSampleController extends BaseController {
      * @param status          状态（可选，精确匹配）
      * @param startDate       留样开始日期（可选，格式：yyyy-MM-dd）
      * @param endDate         留样结束日期（可选，格式：yyyy-MM-dd）
+     * @param createdTimeStart 创建时间起始（可选，格式：yyyy-MM-dd HH:mm:ss）
+     * @param createdTimeEnd   创建时间结束（可选，格式：yyyy-MM-dd HH:mm:ss）
      * @param pageIndex       页码索引，从0开始（默认0）
      * @param pageSize        每页数量（默认10）
      * @return ApiResponse&lt;PagedResult&lt;RetainedSample&gt;&gt; 分页结果
@@ -82,12 +84,14 @@ public class RetainedSampleController extends BaseController {
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) String createdTimeStart,
+            @RequestParam(required = false) String createdTimeEnd,
             @RequestParam(defaultValue = "0") int pageIndex,
             @RequestParam(defaultValue = "10") int pageSize) {
         try {
             Page<RetainedSample> page = new Page<>(pageIndex + 1, pageSize);
             QueryWrapper<RetainedSample> wrapper = buildQueryWrapper(retainedCode, relatedInspectionCode,
-                    materialName, batchNo, status, startDate, endDate);
+                    materialName, batchNo, status, startDate, endDate, createdTimeStart, createdTimeEnd);
             Page<RetainedSample> pageResult = retainedSampleService.page(page, wrapper);
 
             PagedResult<RetainedSample> result = new PagedResult<>();
@@ -127,7 +131,7 @@ public class RetainedSampleController extends BaseController {
             @RequestParam(required = false) String endDate) {
         try {
             QueryWrapper<RetainedSample> wrapper = buildQueryWrapper(retainedCode, relatedInspectionCode,
-                    materialName, batchNo, status, startDate, endDate);
+                    materialName, batchNo, status, startDate, endDate, null, null);
             wrapper.orderByDesc("retained_date");
             return success(retainedSampleService.list(wrapper));
         } catch (Exception e) {
@@ -347,10 +351,13 @@ public class RetainedSampleController extends BaseController {
      * @param status          状态（精确匹配）
      * @param startDate       留样开始日期
      * @param endDate         留样结束日期
+     * @param createdTimeStart 创建时间起始
+     * @param createdTimeEnd   创建时间结束
      * @return 查询条件Wrapper
      */
     private QueryWrapper<RetainedSample> buildQueryWrapper(String retainedCode, String relatedInspectionCode,
-            String materialName, String batchNo, String status, String startDate, String endDate) {
+            String materialName, String batchNo, String status, String startDate, String endDate,
+            String createdTimeStart, String createdTimeEnd) {
         QueryWrapper<RetainedSample> wrapper = new QueryWrapper<>();
         wrapper.eq("is_deleted", 0);
         if (StringUtils.hasText(retainedCode)) wrapper.like("retained_code", retainedCode);
@@ -360,6 +367,8 @@ public class RetainedSampleController extends BaseController {
         if (StringUtils.hasText(status)) wrapper.eq("status", status);
         if (StringUtils.hasText(startDate)) wrapper.ge("retained_date", startDate);
         if (StringUtils.hasText(endDate)) wrapper.le("retained_date", endDate);
+        if (StringUtils.hasText(createdTimeStart)) wrapper.ge("created_time", createdTimeStart);
+        if (StringUtils.hasText(createdTimeEnd)) wrapper.le("created_time", createdTimeEnd);
         wrapper.orderByDesc("retained_date");
         return wrapper;
     }
