@@ -9,6 +9,7 @@ import com.tonghui.erp.Common.Dto.Stock.StockInWithNamesDto;
 import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
 import com.tonghui.erp.Data.Entity.Material;
+import com.tonghui.erp.Data.Entity.ProductionPlan;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
 import com.tonghui.erp.Data.Entity.StockIn;
@@ -17,6 +18,7 @@ import com.tonghui.erp.Data.Entity.User;
 import com.tonghui.erp.Data.mapper.AcceptanceDetailMapper;
 import com.tonghui.erp.Data.mapper.AcceptanceOrderMapper;
 import com.tonghui.erp.Data.mapper.MaterialMapper;
+import com.tonghui.erp.Data.mapper.ProductionPlanMapper;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrdersMapper;
 import com.tonghui.erp.Data.mapper.StockInDetailMapper;
@@ -84,6 +86,9 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
     /** 生产单位数据访问层，解析入库单仓库名称 */
     private final ProductionUnitMapper productionUnitMapper;
 
+    /** 生产计划数据访问层，解析关联生产计划标题 */
+    private final ProductionPlanMapper productionPlanMapper;
+
     /**
      * 构造函数注入依赖
      *
@@ -97,6 +102,7 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
      * @param materialMapper          物料主数据访问层
      * @param userMapper              用户数据访问层
      * @param productionUnitMapper    生产单位数据访问层
+     * @param productionPlanMapper    生产计划数据访问层
      */
     @Autowired
     public AcceptanceOrderServiceImpl(AcceptanceOrderMapper acceptanceOrderMapper,
@@ -108,7 +114,8 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
                                       PurchaseOrdersMapper purchaseOrdersMapper,
                                       MaterialMapper materialMapper,
                                       UserMapper userMapper,
-                                      ProductionUnitMapper productionUnitMapper) {
+                                      ProductionUnitMapper productionUnitMapper,
+                                      ProductionPlanMapper productionPlanMapper) {
         this.acceptanceOrderMapper = acceptanceOrderMapper;
         this.acceptanceDetailMapper = acceptanceDetailMapper;
         this.sequenceService = sequenceService;
@@ -119,6 +126,7 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         this.materialMapper = materialMapper;
         this.userMapper = userMapper;
         this.productionUnitMapper = productionUnitMapper;
+        this.productionPlanMapper = productionPlanMapper;
     }
 
     // endregion
@@ -699,6 +707,11 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         stockIn.setRelatedOrder(acceptance.getAcceptanceCode());
         // 关联生产计划编号：优先取关联采购订单的生产计划编号，其次回退验收单自带计划编号
         stockIn.setPlanNumber(resolvePlanNumber(acceptance));
+        // 关联采购单标题：复用采购订单查询结果，无匹配时置空
+        PurchaseOrders purchaseOrder = resolvePurchaseOrder(acceptance);
+        stockIn.setRelatedOrderTitle(purchaseOrder != null ? purchaseOrder.getTitle() : null);
+        // 关联生产计划标题：按生产计划编号反查计划名称，无匹配时置空
+        stockIn.setPlanTitle(resolvePlanTitle(stockIn.getPlanNumber()));
         stockIn.setInDate(LocalDateTime.now());
         stockIn.setInStatus("已入库");
         stockIn.setRemark("货物验收合格自动入库: " + acceptance.getAcceptanceCode());
@@ -752,6 +765,26 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
     }
 
     /**
+     * 解析关联采购订单
+     * <p>
+     * 优先取验收单携带的采购单号（purchase_number），无则回退关联单号。
+     * 用于复用同一查询结果获取采购单标题与生产计划编号，避免重复查询
+     * </p>
+     *
+     * @param acceptance 验收单
+     * @return 关联采购订单，无关联采购订单时返回null
+     */
+    private PurchaseOrders resolvePurchaseOrder(AcceptanceOrder acceptance) {
+        String purchaseNumber = StringUtils.hasText(acceptance.getPurchaseNumber())
+                ? acceptance.getPurchaseNumber() : acceptance.getRelatedOrder();
+        if (StringUtils.hasText(purchaseNumber)) {
+            return purchaseOrdersMapper.selectOne(new QueryWrapper<PurchaseOrders>()
+                    .eq("purchase_number", purchaseNumber));
+        }
+        return null;
+    }
+
+    /**
      * 解析关联生产计划编号
      * <p>
      * 优先取关联采购订单携带的生产计划编号（purchase_orders.production_plan_code，
@@ -762,16 +795,30 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
      * @return 生产计划编号，无匹配时返回null
      */
     private String resolvePlanNumber(AcceptanceOrder acceptance) {
-        String purchaseNumber = StringUtils.hasText(acceptance.getPurchaseNumber())
-                ? acceptance.getPurchaseNumber() : acceptance.getRelatedOrder();
-        if (StringUtils.hasText(purchaseNumber)) {
-            PurchaseOrders order = purchaseOrdersMapper.selectOne(new QueryWrapper<PurchaseOrders>()
-                    .eq("purchase_number", purchaseNumber));
-            if (order != null && StringUtils.hasText(order.getProductionPlanCode())) {
-                return order.getProductionPlanCode();
-            }
+        PurchaseOrders order = resolvePurchaseOrder(acceptance);
+        if (order != null && StringUtils.hasText(order.getProductionPlanCode())) {
+            return order.getProductionPlanCode();
         }
         return acceptance.getPlanCode();
+    }
+
+    /**
+     * 解析关联生产计划标题
+     * <p>
+     * 按生产计划编号（production_plan.plan_number）反查计划名称（plan_name），
+     * 用于入库单展示关联生产计划标题，无匹配时返回null
+     * </p>
+     *
+     * @param planNumber 生产计划编号
+     * @return 生产计划标题（计划名称），无匹配时返回null
+     */
+    private String resolvePlanTitle(String planNumber) {
+        if (!StringUtils.hasText(planNumber)) {
+            return null;
+        }
+        ProductionPlan plan = productionPlanMapper.selectOne(new QueryWrapper<ProductionPlan>()
+                .eq("plan_number", planNumber));
+        return plan != null ? plan.getPlanName() : null;
     }
 
     /**

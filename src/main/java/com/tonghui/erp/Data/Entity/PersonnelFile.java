@@ -107,6 +107,24 @@ public class PersonnelFile extends AuditEntity {
     private LocalDate entryDate;
 
     /**
+     * 出生年月
+     */
+    @TableField(value = "birth_date")
+    private LocalDate birthDate;
+
+    /**
+     * 参加工作时间
+     */
+    @TableField(value = "work_start_date")
+    private LocalDate workStartDate;
+
+    /**
+     * 职务
+     */
+    @TableField(value = "position_title")
+    private String positionTitle;
+
+    /**
      * 任职简历
      */
     @TableField(value = "work_experience")

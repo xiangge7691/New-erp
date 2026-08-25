@@ -67,6 +67,12 @@ public class Preparation extends AuditEntity {
     private String packageSpec;
 
     /**
+     * 执行标准
+     */
+    @TableField(value = "executive_standard")
+    private String executiveStandard;
+
+    /**
      * 制剂备案
      */
     @TableField(value = "record_info")

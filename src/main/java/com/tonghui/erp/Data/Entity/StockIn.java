@@ -65,6 +65,18 @@ public class StockIn extends AuditEntity {
     @TableField(value = "plan_number")
     private String planNumber;
 
+    /**
+     * 关联采购单标题（对应 purchase_orders.title）
+     */
+    @TableField(value = "related_order_title")
+    private String relatedOrderTitle;
+
+    /**
+     * 关联生产计划标题（对应 production_plan.plan_name）
+     */
+    @TableField(value = "plan_title")
+    private String planTitle;
+
     // endregion
 
     // region 业务字段
