@@ -233,6 +233,9 @@ public class PurchaseSuppliersServiceImpl extends ServiceImpl<PurchaseSuppliersM
             wrapper.eq("status", purchaseSuppliers.getStatus());
         }
 
+        // 数据列表按创建时间倒序排列（最新创建在前）
+        wrapper.orderByDesc("created_time");
+
         return this.page(page, wrapper);
     }
 
