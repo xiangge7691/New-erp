@@ -179,8 +179,13 @@ public class FileManagerServiceImpl implements FileManagerService {
         } catch (IOException e) {
             throw new RuntimeException("重命名失败: " + e.getMessage());
         }
-        // 更新 file_info 中的 filePath 和 originalPath
+        // 更新 file_info 中的 filePath、originalPath 以及原始文件名（列表展示名称取自 originalName）
         updateFileInfoPaths(source, target, basePath);
+        FileInfo fi = findFileInfoByPath(target.toString());
+        if (fi != null && StringUtils.hasText(newName)) {
+            fi.setOriginalName(newName);
+            fileInfoMapper.updateById(fi);
+        }
         fileOperationLogService.log(null, getOriginalName(target, oldName), relativePath, OP_RENAME, root, oldName + " → " + newName);
     }
 
