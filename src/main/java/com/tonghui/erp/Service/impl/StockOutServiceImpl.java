@@ -24,6 +24,7 @@ import com.tonghui.erp.Data.mapper.StockOutMapper;
 import com.tonghui.erp.Data.mapper.StockOutDetailMapper;
 import com.tonghui.erp.Service.StockOutService;
 import com.tonghui.erp.Service.StockService;
+import com.tonghui.erp.Service.ProductionPlanService;
 
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,6 +72,9 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
     /** 生产计划数据访问层，用于批量出库按处方查询 */
     private final ProductionPlanMapper productionPlanMapper;
 
+    /** 生产计划服务，出库确认时回写出库时间并刷新计划状态 */
+    private final ProductionPlanService productionPlanService;
+
     /** 制剂处方数据访问层，用于批量出库按处方查询 */
     private final PreparationFormulaMapper preparationFormulaMapper;
 
@@ -95,6 +99,7 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
      * @param productionPlanMapper      生产计划数据访问层
      * @param preparationFormulaMapper  制剂处方数据访问层
      * @param stockMapper               库存数据访问层
+     * @param productionPlanService     生产计划服务
      */
     @Autowired
     public StockOutServiceImpl(StockOutMapper stockOutMapper,
@@ -103,7 +108,8 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
                                StockService stockService,
                                ProductionPlanMapper productionPlanMapper,
                                PreparationFormulaMapper preparationFormulaMapper,
-                               StockMapper stockMapper) {
+                               StockMapper stockMapper,
+                               ProductionPlanService productionPlanService) {
         this.stockOutMapper = stockOutMapper;
         this.stockOutDetailMapper = stockOutDetailMapper;
         this.sequenceService = sequenceService;
@@ -111,6 +117,7 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         this.productionPlanMapper = productionPlanMapper;
         this.preparationFormulaMapper = preparationFormulaMapper;
         this.stockMapper = stockMapper;
+        this.productionPlanService = productionPlanService;
     }
 
     // endregion
@@ -180,6 +187,8 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
 
         // 库存联动：逐条校验库存充足并扣减库存批次写流水（库存不足抛异常整体回滚）
         stockService.applyOutbound(stockOut, details);
+        // 出库创建即已出库，回写关联生产计划的出库时间并刷新状态
+        syncPlanOutboundTime(stockOut);
     }
 
     /**
@@ -308,6 +317,8 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         // 更新出库单状态为已出库
         stockOut.setOutStatus("已出库");
         stockOutMapper.updateById(stockOut);
+        // 出库确认后回写关联生产计划的出库时间并刷新状态
+        syncPlanOutboundTime(stockOut);
     }
 
     /**
@@ -335,6 +346,43 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         // 更新出库单状态为已取消
         stockOut.setOutStatus("已取消");
         stockOutMapper.updateById(stockOut);
+    }
+
+    /**
+     * 出库确认后回写关联生产计划的出库时间并刷新状态
+     * <p>
+     * 按出库单携带的计划ID（plan_id）或计划编号（plan_number）定位生产计划，
+     * 出库时间取计划已有值与当前出库单出库日期中较晚的一个（只填不倒退），随后刷新计划状态。
+     * 出库单未关联生产计划时不做任何处理
+     * </p>
+     *
+     * @param stockOut 已确认出库的出库单
+     */
+    private void syncPlanOutboundTime(StockOut stockOut) {
+        if (stockOut == null
+                || (stockOut.getPlanId() == null && !StringUtils.hasText(stockOut.getPlanNumber()))) {
+            return;
+        }
+        ProductionPlan plan;
+        if (stockOut.getPlanId() != null) {
+            plan = productionPlanMapper.selectById(stockOut.getPlanId());
+        } else {
+            plan = productionPlanMapper.selectOne(new QueryWrapper<ProductionPlan>()
+                    .eq("plan_number", stockOut.getPlanNumber()));
+        }
+        if (plan == null) {
+            return;
+        }
+        // 出库时间取最晚值（幂等，不倒退已有时间）
+        LocalDateTime outDate = stockOut.getOutDate();
+        if (outDate != null
+                && (plan.getOutboundTime() == null || outDate.isAfter(plan.getOutboundTime()))) {
+            plan.setOutboundTime(outDate);
+            plan.setUpdatedTime(LocalDateTime.now());
+            productionPlanMapper.updateById(plan);
+        }
+        // 刷新生产计划状态（工单均已完成时计划自动变为已完成）
+        productionPlanService.refreshPlanStatus(plan.getId());
     }
 
     // endregion
@@ -808,6 +856,8 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         // 更新出库单状态为已出库
         stockOut.setOutStatus("已出库");
         stockOutMapper.updateById(stockOut);
+        // 出库确认后回写关联生产计划的出库时间并刷新状态
+        syncPlanOutboundTime(stockOut);
         return stockOut;
     }
 

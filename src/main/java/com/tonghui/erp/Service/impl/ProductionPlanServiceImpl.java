@@ -389,8 +389,68 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
         if (plan != null) {
             plan.setCurrentStatus(status);
             plan.setCurrentStatusDate(LocalDateTime.now());
+            // 同步关联工单的实际发生时间到生产计划（只填不倒退，重复刷新幂等）
+            syncWorkOrderTimes(plan, workOrders);
             plan.setUpdatedTime(LocalDateTime.now());
             this.updateById(plan);
+        }
+    }
+
+    /**
+     * 将关联工单的实际发生时间汇总同步到生产计划
+     * <p>
+     * 合并规则：
+     * <ul>
+     *   <li>生产开始/检验开始：取所有工单对应时间中最早的一个（计划始于首个工单开始）</li>
+     *   <li>生产结束/检验结束/出库/归档：取所有工单对应时间中最晚的一个（计划终于末个工单完成）</li>
+     * </ul>
+     * 以计划当前已有值为初始值参与合并，保证幂等——重复刷新不会倒退已有时间。
+     * 生产结束时间优先取工单配置完成时间（configCompleteTime），为空时回退生产完成时间（productionCompleteTime）
+     * </p>
+     *
+     * @param plan       生产计划（会就地修改时间字段，调用方负责落库）
+     * @param workOrders 计划关联的未删除工单列表
+     */
+    private void syncWorkOrderTimes(ProductionPlan plan, List<WorkOrder> workOrders) {
+        // 生产开始时间：取最早配置日期（配置日期有值即代表进入生产）
+        for (WorkOrder wo : workOrders) {
+            if (wo.getConfigDate() != null
+                    && (plan.getProductionStartTime() == null
+                        || wo.getConfigDate().isBefore(plan.getProductionStartTime()))) {
+                plan.setProductionStartTime(wo.getConfigDate());
+            }
+            // 生产结束时间：取最晚配置完成时间（缺省回退生产完成时间）
+            LocalDateTime completeTime = wo.getConfigCompleteTime() != null
+                    ? wo.getConfigCompleteTime() : wo.getProductionCompleteTime();
+            if (completeTime != null
+                    && (plan.getProductionEndTime() == null
+                        || completeTime.isAfter(plan.getProductionEndTime()))) {
+                plan.setProductionEndTime(completeTime);
+            }
+            // 检验开始时间：取最早
+            if (wo.getInspectionStart() != null
+                    && (plan.getInspectionStartTime() == null
+                        || wo.getInspectionStart().isBefore(plan.getInspectionStartTime()))) {
+                plan.setInspectionStartTime(wo.getInspectionStart());
+            }
+            // 检验结束时间：取最晚
+            if (wo.getInspectionEnd() != null
+                    && (plan.getInspectionEndTime() == null
+                        || wo.getInspectionEnd().isAfter(plan.getInspectionEndTime()))) {
+                plan.setInspectionEndTime(wo.getInspectionEnd());
+            }
+            // 出库时间：取最晚
+            if (wo.getOutboundTime() != null
+                    && (plan.getOutboundTime() == null
+                        || wo.getOutboundTime().isAfter(plan.getOutboundTime()))) {
+                plan.setOutboundTime(wo.getOutboundTime());
+            }
+            // 归档时间：取最晚
+            if (wo.getArchiveTime() != null
+                    && (plan.getArchiveTime() == null
+                        || wo.getArchiveTime().isAfter(plan.getArchiveTime()))) {
+                plan.setArchiveTime(wo.getArchiveTime());
+            }
         }
     }
 
