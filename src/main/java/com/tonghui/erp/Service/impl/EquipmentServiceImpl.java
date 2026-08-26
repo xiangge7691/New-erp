@@ -351,6 +351,9 @@ public class EquipmentServiceImpl extends ServiceImpl<EquipmentMapper, Equipment
             wrapper.le("updated_time", updatedTimeEnd);
         }
 
+        // 设备列表按创建时间倒序排列（最新创建的在前）
+        wrapper.orderByDesc("created_time");
+
         Page<Equipment> resultPage = baseMapper.selectPage(page, wrapper);
         
         fillRoomNames(resultPage.getRecords());
