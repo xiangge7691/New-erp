@@ -2,6 +2,8 @@ package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.ProductionPlanWithRecordsDto;
 import com.tonghui.erp.Common.Dto.Dashboard.*;
 import com.tonghui.erp.Data.Entity.*;
 import com.tonghui.erp.Service.*;
@@ -554,28 +556,56 @@ public class DashboardController extends BaseController {
      * 订单跟踪看板
      *
      * 示例请求：
-     * GET /api/dashboard/order-tracking?startMonth=2026-01&endMonth=2026-06&status=生产中
+     * GET /api/dashboard/order-tracking?startMonth=2026-01&endMonth=2026-06&status=生产中&pageIndex=0&pageSize=20
      *
      * @param startMonth 起始月份（格式：2026-01，可选）
      * @param endMonth   结束月份（格式：2026-06，可选）
      * @param status     订单状态（可选），如待生产、生产中、已完成
-     * @return 订单跟踪列表
+     * @param pageIndex  页码（从0开始）
+     * @param pageSize   每页数量
+     * @return 订单跟踪分页列表
      */
     @GetMapping("/order-tracking")
-    public ApiResponse<List<OrderTrackingDto>> getOrderTracking(
+    public ApiResponse<PagedResult<OrderTrackingDto>> getOrderTracking(
             @RequestParam(required = false) String startMonth,
             @RequestParam(required = false) String endMonth,
-            @RequestParam(required = false) String status) {
+            @RequestParam(required = false) String status,
+            @RequestParam int pageIndex,
+            @RequestParam int pageSize) {
         try {
-            QueryWrapper<ProductionPlan> wrapper = buildTimeWrapper(startMonth, endMonth);
-            if (status != null && !status.isEmpty()) {
-                // 状态已落库，直接按中文状态值精确匹配（待生产/生产中/已完成）
-                wrapper.eq("current_status", status);
-            }
-            wrapper.orderByDesc("created_time");
+            int safePageIndex = Math.max(0, pageIndex);
+            int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
 
-            List<ProductionPlan> plans = productionPlanService.list(wrapper);
-            List<OrderTrackingDto> trackingList = plans.stream().map(plan -> {
+            // 构建创建时间范围
+            LocalDateTime createdTimeStart = null;
+            LocalDateTime createdTimeEnd = null;
+            if (startMonth != null && !startMonth.isEmpty()) {
+                createdTimeStart = LocalDate.parse(startMonth + "-01").atStartOfDay();
+            }
+            if (endMonth != null && !endMonth.isEmpty()) {
+                LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
+                createdTimeEnd = end.atTime(23, 59, 59);
+            }
+
+            // 构建状态过滤条件
+            ProductionPlan planFilter = new ProductionPlan();
+            if (status != null && !status.isEmpty()) {
+                planFilter.setCurrentStatus(status);
+            }
+
+            // 调用分页查询，获取带工单关联的生产计划
+            PagedResult<ProductionPlanWithRecordsDto> planResult = productionPlanService.searchWithDetails(
+                    planFilter, null,
+                    createdTimeStart, createdTimeEnd, null, null,
+                    null, null, null, null,
+                    null, null,
+                    null, null, null, null,
+                    null, null, null, null,
+                    null, null, null,
+                    safePageIndex, safePageSize);
+
+            // 将 ProductionPlanWithRecordsDto 映射为 OrderTrackingDto，日期取最晚工单时间
+            List<OrderTrackingDto> trackingList = planResult.getItems().stream().map(plan -> {
                 OrderTrackingDto dto = new OrderTrackingDto();
                 dto.setId(plan.getId().longValue());
                 dto.setOrderName(plan.getPreparationName());
@@ -583,25 +613,55 @@ public class DashboardController extends BaseController {
                 dto.setBatchNo(plan.getPlanNumber());
                 dto.setHospital(plan.getUnitName());
                 dto.setCurrentStatus(plan.getCurrentStatus());
+
+                // 下单日期取计划创建时间
                 if (plan.getCreatedTime() != null) {
                     dto.setOrderDate(plan.getCreatedTime().format(DateTimeFormatter.ofPattern("MM-dd")));
                 }
-                if (plan.getProductionStartTime() != null) {
-                    dto.setProductionDate(plan.getProductionStartTime().format(DateTimeFormatter.ofPattern("MM-dd")));
+
+                // 从关联工单中取最晚完成时间
+                List<WorkOrder> workOrders = plan.getWorkOrders();
+                if (workOrders != null && !workOrders.isEmpty()) {
+                    // 生产日期：取最晚工单的 configCompleteTime（生产完成时间）
+                    workOrders.stream()
+                            .map(WorkOrder::getConfigCompleteTime)
+                            .filter(Objects::nonNull)
+                            .max(LocalDateTime::compareTo)
+                            .ifPresent(time -> dto.setProductionDate(time.format(DateTimeFormatter.ofPattern("MM-dd"))));
+
+                    // 检验日期：取最晚工单的 inspectionEnd（检验完成时间）
+                    workOrders.stream()
+                            .map(WorkOrder::getInspectionEnd)
+                            .filter(Objects::nonNull)
+                            .max(LocalDateTime::compareTo)
+                            .ifPresent(time -> dto.setInspectionDate(time.format(DateTimeFormatter.ofPattern("MM-dd"))));
+
+                    // 出库日期：取最晚工单的 outboundTime
+                    workOrders.stream()
+                            .map(WorkOrder::getOutboundTime)
+                            .filter(Objects::nonNull)
+                            .max(LocalDateTime::compareTo)
+                            .ifPresent(time -> dto.setOutboundDate(time.format(DateTimeFormatter.ofPattern("MM-dd"))));
+
+                    // 归档日期：取最晚工单的 archiveTime
+                    workOrders.stream()
+                            .map(WorkOrder::getArchiveTime)
+                            .filter(Objects::nonNull)
+                            .max(LocalDateTime::compareTo)
+                            .ifPresent(time -> dto.setArchiveDate(time.format(DateTimeFormatter.ofPattern("MM-dd"))));
                 }
-                if (plan.getInspectionStartTime() != null) {
-                    dto.setInspectionDate(plan.getInspectionStartTime().format(DateTimeFormatter.ofPattern("MM-dd")));
-                }
-                if (plan.getOutboundTime() != null) {
-                    dto.setOutboundDate(plan.getOutboundTime().format(DateTimeFormatter.ofPattern("MM-dd")));
-                }
-                if (plan.getArchiveTime() != null) {
-                    dto.setArchiveDate(plan.getArchiveTime().format(DateTimeFormatter.ofPattern("MM-dd")));
-                }
+
                 return dto;
             }).collect(Collectors.toList());
 
-            return success(trackingList);
+            // 组装分页结果
+            PagedResult<OrderTrackingDto> result = new PagedResult<>();
+            result.setItems(trackingList);
+            result.setTotalCount(planResult.getTotalCount());
+            result.setPageIndex(planResult.getPageIndex());
+            result.setPageSize(planResult.getPageSize());
+
+            return success(result);
         } catch (Exception e) {
             return exception(e, "操作");
         }

@@ -56,27 +56,22 @@ public class OrderTrackingDto {
     private String orderDate;
 
     /**
-     * 采购日期
-     */
-    private String purchaseDate;
-
-    /**
-     * 生产日期
+     * 生产日期（取最晚工单的 configCompleteTime）
      */
     private String productionDate;
 
     /**
-     * 检验日期
+     * 检验日期（取最晚工单的 inspectionEnd）
      */
     private String inspectionDate;
 
     /**
-     * 出库日期
+     * 出库日期（取最晚工单的 outboundTime）
      */
     private String outboundDate;
 
     /**
-     * 归档日期
+     * 归档日期（取最晚工单的 archiveTime）
      */
     private String archiveDate;
 
