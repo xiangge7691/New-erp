@@ -570,11 +570,13 @@ public class DashboardController extends BaseController {
             @RequestParam(required = false) String startMonth,
             @RequestParam(required = false) String endMonth,
             @RequestParam(required = false) String status,
-            @RequestParam int pageIndex,
-            @RequestParam int pageSize) {
+            @RequestParam(defaultValue = "-1") int pageIndex,
+            @RequestParam(defaultValue = "-1") int pageSize) {
         try {
-            int safePageIndex = Math.max(0, pageIndex);
-            int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
+            // -1 表示不分页，返回全部数据
+            boolean returnAll = pageIndex == -1 || pageSize == -1;
+            int safePageIndex = returnAll ? 0 : Math.max(0, pageIndex);
+            int safePageSize = returnAll ? Integer.MAX_VALUE : (pageSize <= 0 ? 20 : Math.max(1, pageSize));
 
             // 构建创建时间范围
             LocalDateTime createdTimeStart = null;
