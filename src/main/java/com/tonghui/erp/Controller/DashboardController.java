@@ -660,8 +660,8 @@ public class DashboardController extends BaseController {
             PagedResult<OrderTrackingDto> result = new PagedResult<>();
             result.setItems(trackingList);
             result.setTotalCount(planResult.getTotalCount());
-            result.setPageIndex(planResult.getPageIndex());
-            result.setPageSize(planResult.getPageSize());
+            result.setPageIndex(returnAll ? 0 : planResult.getPageIndex());
+            result.setPageSize(returnAll ? 0 : planResult.getPageSize());
 
             return success(result);
         } catch (Exception e) {
