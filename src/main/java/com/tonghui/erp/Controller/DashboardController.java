@@ -178,26 +178,26 @@ public class DashboardController extends BaseController {
         try {
             DashboardMetricsDto metrics = new DashboardMetricsDto();
 
-            // 预估产值/总订单量：查 work_order 表（按 created_time 筛选）
-            QueryWrapper<WorkOrder> woWrapper = buildWorkOrderTimeWrapper(startMonth, endMonth);
-            List<WorkOrder> workOrders = workOrderService.list(woWrapper);
-
-            // 预估产值：SUM(batch_qty * settlement_price)
+            // 预估产值：生产任务按配置日期筛选，total_amount 求和
+            QueryWrapper<WorkOrder> woConfigWrapper = buildWorkOrderConfigDateWrapper(startMonth, endMonth);
+            List<WorkOrder> workOrders = workOrderService.list(woConfigWrapper);
             double estimatedValue = workOrders.stream()
-                .filter(wo -> wo.getBatchQty() != null && wo.getSettlementPrice() != null)
-                .mapToDouble(wo -> wo.getBatchQty().doubleValue() * wo.getSettlementPrice().doubleValue())
+                .filter(wo -> wo.getTotalAmount() != null)
+                .mapToDouble(wo -> wo.getTotalAmount().doubleValue())
                 .sum();
             metrics.setEstimatedOutputValue(Math.round(estimatedValue * 100.0) / 100.0);
 
-            // 总订单量：COUNT(*)
-            metrics.setTotalOrders((long) workOrders.size());
+            // 总订单量：生产计划按创建时间筛选，COUNT
+            QueryWrapper<ProductionPlan> planWrapper = buildPlanCreatedTimeWrapper(startMonth, endMonth);
+            long totalOrders = productionPlanService.count(planWrapper);
+            metrics.setTotalOrders(totalOrders);
 
-            // 总交付量：查 work_order 表（按 delivery_time 筛选）
-            QueryWrapper<WorkOrder> deliveryWrapper = buildWorkOrderDeliveryTimeWrapper(startMonth, endMonth);
+            // 总交付量：生产任务进度=生产完（productionCompleteTime有值），按创建时间筛选，COUNT
+            QueryWrapper<WorkOrder> deliveryWrapper = buildWorkOrderProductionCompleteWrapper(startMonth, endMonth);
             long deliveries = workOrderService.count(deliveryWrapper);
             metrics.setTotalDeliveries(deliveries);
 
-            // 总采购额：入库金额求和
+            // 总采购额：入库管理按入库时间筛选，total_amount 求和
             QueryWrapper<StockIn> stockInWrapper = buildStockInTimeWrapper(startMonth, endMonth);
             List<StockIn> stockIns = stockInService.list(stockInWrapper);
             double purchaseAmount = stockIns.stream()
@@ -206,17 +206,9 @@ public class DashboardController extends BaseController {
                 .sum();
             metrics.setTotalPurchaseAmount(Math.round(purchaseAmount * 100.0) / 100.0);
 
-            // 待生产数量：current_status = '待生产' 且在时间范围内
-            QueryWrapper<ProductionPlan> pendingWrapper = new QueryWrapper<>();
-            pendingWrapper.eq("is_deleted", 0)
-                          .eq("current_status", "待生产");
-            if (startMonth != null && !startMonth.isEmpty()) {
-                pendingWrapper.ge("created_time", startMonth + "-01 00:00:00");
-            }
-            if (endMonth != null && !endMonth.isEmpty()) {
-                LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
-                pendingWrapper.le("created_time", end.atTime(23, 59, 59));
-            }
+            // 待生产数量：生产计划进度=待生产，按创建时间筛选，COUNT
+            QueryWrapper<ProductionPlan> pendingWrapper = buildPlanCreatedTimeWrapper(startMonth, endMonth);
+            pendingWrapper.eq("current_status", "待生产");
             long pending = productionPlanService.count(pendingWrapper);
             metrics.setPendingProduction(pending);
 
@@ -693,70 +685,50 @@ public class DashboardController extends BaseController {
         try {
             ChartDataDto chartData = new ChartDataDto();
 
-            // 预加载制剂→剂型大类映射
-            Map<String, String> preparationDosageMap = new HashMap<>();
-            preparationService.list().forEach(p ->
-                preparationDosageMap.put(p.getPreparationCode(), p.getDosageCategory() != null ? p.getDosageCategory() : "其他")
-            );
+            // === 交付数量扇形图：生产计划进度=已完成，按计划生产时间筛选，按剂型（preparationName）分组 ===
+            QueryWrapper<ProductionPlan> completedPlanWrapper = buildPlanProductionTimeWrapper(startMonth, endMonth);
+            completedPlanWrapper.eq("current_status", "已完成");
+            List<ProductionPlan> completedPlans = productionPlanService.list(completedPlanWrapper);
 
-            // === 交付数量按剂型（月度）：查 work_order（按 delivery_time 筛选） ===
-            QueryWrapper<WorkOrder> deliveryWrapper = buildWorkOrderDeliveryTimeWrapper(startMonth, endMonth);
-            List<WorkOrder> deliveryOrders = workOrderService.list(deliveryWrapper);
+            Map<String, Long> deliveryByDosage = completedPlans.stream()
+                .filter(p -> p.getPreparationName() != null)
+                .collect(Collectors.groupingBy(
+                    ProductionPlan::getPreparationName,
+                    Collectors.counting()
+                ));
 
-            Map<String, Map<String, Long>> deliveryByMonth = new LinkedHashMap<>();
-            for (WorkOrder wo : deliveryOrders) {
-                String month = wo.getDeliveryTime() != null
-                    ? wo.getDeliveryTime().format(DateTimeFormatter.ofPattern("M月"))
-                    : "未知";
-                String dosageForm = preparationDosageMap.getOrDefault(wo.getPreparationCode(), "其他");
-                deliveryByMonth.computeIfAbsent(month, k -> new LinkedHashMap<>())
-                    .merge(dosageForm, 1L, Long::sum);
-            }
-
-            // 组装交付数量结果（含总计）
+            // 组装交付数量扇形图结果
             List<Map<String, Object>> deliveryList = new ArrayList<>();
-            deliveryByMonth.forEach((month, data) -> {
+            deliveryByDosage.forEach((dosage, count) -> {
                 Map<String, Object> item = new LinkedHashMap<>();
-                item.put("月份", month);
-                long total = 0;
-                for (Long v : data.values()) total += v;
-                item.putAll(data);
-                item.put("总计", total);
+                item.put("剂型", dosage);
+                item.put("数量", count);
                 deliveryList.add(item);
             });
             chartData.setDeliveryByDosageForm(deliveryList);
 
-            // === 预估产值按剂型（月度）：查 work_order（按 created_time 筛选） ===
-            QueryWrapper<WorkOrder> revenueWrapper = buildWorkOrderTimeWrapper(startMonth, endMonth);
+            // === 预估产值扇形图：生产任务有配置完成时间，按配置完成时间筛选，按剂型（preparationName）分组，total_amount 求和 ===
+            QueryWrapper<WorkOrder> revenueWrapper = buildWorkOrderConfigCompleteTimeWrapper(startMonth, endMonth);
             List<WorkOrder> revenueOrders = workOrderService.list(revenueWrapper);
 
-            Map<String, Map<String, Double>> revenueByMonth = new LinkedHashMap<>();
-            for (WorkOrder wo : revenueOrders) {
-                String month = wo.getCreatedTime() != null
-                    ? wo.getCreatedTime().format(DateTimeFormatter.ofPattern("M月"))
-                    : "未知";
-                String dosageForm = preparationDosageMap.getOrDefault(wo.getPreparationCode(), "其他");
-                double amount = (wo.getBatchQty() != null && wo.getSettlementPrice() != null)
-                    ? wo.getBatchQty().doubleValue() * wo.getSettlementPrice().doubleValue()
-                    : 0.0;
-                revenueByMonth.computeIfAbsent(month, k -> new LinkedHashMap<>())
-                    .merge(dosageForm, amount, Double::sum);
-            }
+            Map<String, Double> revenueByDosage = revenueOrders.stream()
+                .filter(wo -> wo.getPreparationName() != null && wo.getTotalAmount() != null)
+                .collect(Collectors.groupingBy(
+                    WorkOrder::getPreparationName,
+                    Collectors.summingDouble(wo -> wo.getTotalAmount().doubleValue())
+                ));
 
-            // 组装预估产值结果（含总计）
+            // 组装预估产值扇形图结果
             List<Map<String, Object>> revenueList = new ArrayList<>();
-            revenueByMonth.forEach((month, data) -> {
+            revenueByDosage.forEach((dosage, amount) -> {
                 Map<String, Object> item = new LinkedHashMap<>();
-                item.put("月份", month);
-                double total = 0;
-                for (Double v : data.values()) total += v;
-                data.forEach((k, v) -> item.put(k, Math.round(v * 100.0) / 100.0));
-                item.put("总计", Math.round(total * 100.0) / 100.0);
+                item.put("剂型", dosage);
+                item.put("金额", Math.round(amount * 100.0) / 100.0);
                 revenueList.add(item);
             });
             chartData.setRevenueByMonth(revenueList);
 
-            // === 库存资金占用（按分类分组，计算金额=数量*单价） ===
+            // === 库存资金占用：按原料/辅料/包材分类，计算总价值（数量*单价） ===
             List<Stock> allStocks = stockService.list();
             Map<String, Double> fundOccupation = allStocks.stream()
                 .filter(s -> s.getIsDeleted() == null || s.getIsDeleted() == 0)
@@ -857,6 +829,108 @@ public class DashboardController extends BaseController {
         if (endMonth != null && !endMonth.isEmpty()) {
             LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
             wrapper.le("delivery_time", end.atTime(23, 59, 59));
+        }
+        return wrapper;
+    }
+
+    /**
+     * 构建工单配置日期时间范围查询条件
+     *
+     * @param startMonth 起始月份（格式：2026-01）
+     * @param endMonth   结束月份（格式：2026-06）
+     * @return 查询条件
+     */
+    private QueryWrapper<WorkOrder> buildWorkOrderConfigDateWrapper(String startMonth, String endMonth) {
+        QueryWrapper<WorkOrder> wrapper = new QueryWrapper<>();
+        wrapper.eq("is_deleted", 0);
+        if (startMonth != null && !startMonth.isEmpty()) {
+            wrapper.ge("config_date", startMonth + "-01 00:00:00");
+        }
+        if (endMonth != null && !endMonth.isEmpty()) {
+            LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
+            wrapper.le("config_date", end.atTime(23, 59, 59));
+        }
+        return wrapper;
+    }
+
+    /**
+     * 构建生产计划创建时间范围查询条件
+     *
+     * @param startMonth 起始月份（格式：2026-01）
+     * @param endMonth   结束月份（格式：2026-06）
+     * @return 查询条件
+     */
+    private QueryWrapper<ProductionPlan> buildPlanCreatedTimeWrapper(String startMonth, String endMonth) {
+        QueryWrapper<ProductionPlan> wrapper = new QueryWrapper<>();
+        wrapper.eq("is_deleted", 0);
+        if (startMonth != null && !startMonth.isEmpty()) {
+            wrapper.ge("created_time", startMonth + "-01 00:00:00");
+        }
+        if (endMonth != null && !endMonth.isEmpty()) {
+            LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
+            wrapper.le("created_time", end.atTime(23, 59, 59));
+        }
+        return wrapper;
+    }
+
+    /**
+     * 构建工单生产完成时间范围查询条件（进度=生产完）
+     *
+     * @param startMonth 起始月份（格式：2026-01）
+     * @param endMonth   结束月份（格式：2026-06）
+     * @return 查询条件
+     */
+    private QueryWrapper<WorkOrder> buildWorkOrderProductionCompleteWrapper(String startMonth, String endMonth) {
+        QueryWrapper<WorkOrder> wrapper = new QueryWrapper<>();
+        wrapper.eq("is_deleted", 0)
+               .isNotNull("production_complete_time");
+        if (startMonth != null && !startMonth.isEmpty()) {
+            wrapper.ge("created_time", startMonth + "-01 00:00:00");
+        }
+        if (endMonth != null && !endMonth.isEmpty()) {
+            LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
+            wrapper.le("created_time", end.atTime(23, 59, 59));
+        }
+        return wrapper;
+    }
+
+    /**
+     * 构建生产计划计划生产时间范围查询条件
+     *
+     * @param startMonth 起始月份（格式：2026-01）
+     * @param endMonth   结束月份（格式：2026-06）
+     * @return 查询条件
+     */
+    private QueryWrapper<ProductionPlan> buildPlanProductionTimeWrapper(String startMonth, String endMonth) {
+        QueryWrapper<ProductionPlan> wrapper = new QueryWrapper<>();
+        wrapper.eq("is_deleted", 0);
+        if (startMonth != null && !startMonth.isEmpty()) {
+            wrapper.ge("plan_production_time", startMonth + "-01 00:00:00");
+        }
+        if (endMonth != null && !endMonth.isEmpty()) {
+            LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
+            wrapper.le("plan_production_time", end.atTime(23, 59, 59));
+        }
+        return wrapper;
+    }
+
+    /**
+     * 构建工单配置完成时间范围查询条件
+     *
+     * @param startMonth 起始月份（格式：2026-01）
+     * @param endMonth   结束月份（格式：2026-06）
+     * @return 查询条件
+     */
+    private QueryWrapper<WorkOrder> buildWorkOrderConfigCompleteTimeWrapper(String startMonth, String endMonth) {
+        QueryWrapper<WorkOrder> wrapper = new QueryWrapper<>();
+        wrapper.eq("is_deleted", 0)
+               .isNotNull("config_complete_time");
+        if (startMonth != null && !startMonth.isEmpty()) {
+            wrapper.ge("config_complete_time", startMonth + "-01 00:00:00");
+        }
+        if (endMonth != null && !endMonth.isEmpty()) {
+            LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
+            wrapper.le("config_complete_time", end.atTime(23, 59, 59));
         }
         return wrapper;
     }
