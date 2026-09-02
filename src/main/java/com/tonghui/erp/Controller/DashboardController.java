@@ -898,7 +898,7 @@ public class DashboardController extends BaseController {
     }
 
     /**
-     * 构建工单生产完成时间范围查询条件（进度=生产完）
+     * 构建工单生产完成时间范围查询条件（进度=已生产/已检验/已归档）
      *
      * @param startMonth 起始月份（格式：2026-01）
      * @param endMonth   结束月份（格式：2026-06）
@@ -907,7 +907,7 @@ public class DashboardController extends BaseController {
     private QueryWrapper<WorkOrder> buildWorkOrderProductionCompleteWrapper(String startMonth, String endMonth) {
         QueryWrapper<WorkOrder> wrapper = new QueryWrapper<>();
         wrapper.eq("is_deleted", 0)
-               .isNotNull("production_complete_time");
+               .in("current_status", "已生产", "已检验", "已归档");
         if (startMonth != null && !startMonth.isEmpty()) {
             wrapper.ge("created_time", startMonth + "-01 00:00:00");
         }
