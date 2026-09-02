@@ -685,45 +685,69 @@ public class DashboardController extends BaseController {
         try {
             ChartDataDto chartData = new ChartDataDto();
 
-            // === 交付数量扇形图：生产计划进度=已完成，按计划生产时间筛选，按剂型（preparationName）分组 ===
+            // === 预加载制剂编码→剂型大类映射 ===
+            Map<String, String> preparationDosageMap = new HashMap<>();
+            preparationService.list().forEach(p ->
+                preparationDosageMap.put(p.getPreparationCode(),
+                    p.getDosageCategory() != null ? p.getDosageCategory() : "其他")
+            );
+
+            // === 交付数量（按剂型大类+月份）：生产计划进度=已完成，按计划生产时间筛选 ===
             QueryWrapper<ProductionPlan> completedPlanWrapper = buildPlanProductionTimeWrapper(startMonth, endMonth);
             completedPlanWrapper.eq("current_status", "已完成");
             List<ProductionPlan> completedPlans = productionPlanService.list(completedPlanWrapper);
 
-            Map<String, Long> deliveryByDosage = completedPlans.stream()
-                .filter(p -> p.getPreparationName() != null)
-                .collect(Collectors.groupingBy(
-                    ProductionPlan::getPreparationName,
-                    Collectors.counting()
-                ));
+            // 按月份+剂型大类聚合
+            Map<String, Map<String, Long>> deliveryByMonth = new LinkedHashMap<>();
+            for (ProductionPlan plan : completedPlans) {
+                String month = plan.getPlanProductionTime() != null
+                    ? plan.getPlanProductionTime().format(DateTimeFormatter.ofPattern("M月"))
+                    : "未知";
+                String dosageCategory = preparationDosageMap.getOrDefault(
+                    plan.getPreparationCode(), "其他");
+                deliveryByMonth.computeIfAbsent(month, k -> new LinkedHashMap<>())
+                    .merge(dosageCategory, 1L, Long::sum);
+            }
 
-            // 组装交付数量扇形图结果
+            // 组装交付数量结果（含总计）
             List<Map<String, Object>> deliveryList = new ArrayList<>();
-            deliveryByDosage.forEach((dosage, count) -> {
+            deliveryByMonth.forEach((month, data) -> {
                 Map<String, Object> item = new LinkedHashMap<>();
-                item.put("剂型", dosage);
-                item.put("数量", count);
+                item.put("月份", month);
+                long total = 0;
+                for (Long v : data.values()) total += v;
+                item.putAll(data);
+                item.put("总计", total);
                 deliveryList.add(item);
             });
             chartData.setDeliveryByDosageForm(deliveryList);
 
-            // === 预估产值扇形图：生产任务有配置完成时间，按配置完成时间筛选，按剂型（preparationName）分组，total_amount 求和 ===
+            // === 预估产值（按剂型大类+月份）：生产任务有配置完成时间，按配置完成时间筛选，total_amount 求和 ===
             QueryWrapper<WorkOrder> revenueWrapper = buildWorkOrderConfigCompleteTimeWrapper(startMonth, endMonth);
             List<WorkOrder> revenueOrders = workOrderService.list(revenueWrapper);
 
-            Map<String, Double> revenueByDosage = revenueOrders.stream()
-                .filter(wo -> wo.getPreparationName() != null && wo.getTotalAmount() != null)
-                .collect(Collectors.groupingBy(
-                    WorkOrder::getPreparationName,
-                    Collectors.summingDouble(wo -> wo.getTotalAmount().doubleValue())
-                ));
+            // 按月份+剂型大类聚合
+            Map<String, Map<String, Double>> revenueByMonth = new LinkedHashMap<>();
+            for (WorkOrder wo : revenueOrders) {
+                String month = wo.getConfigCompleteTime() != null
+                    ? wo.getConfigCompleteTime().format(DateTimeFormatter.ofPattern("M月"))
+                    : "未知";
+                String dosageCategory = preparationDosageMap.getOrDefault(
+                    wo.getPreparationCode(), "其他");
+                double amount = wo.getTotalAmount() != null ? wo.getTotalAmount().doubleValue() : 0.0;
+                revenueByMonth.computeIfAbsent(month, k -> new LinkedHashMap<>())
+                    .merge(dosageCategory, amount, Double::sum);
+            }
 
-            // 组装预估产值扇形图结果
+            // 组装预估产值结果（含总计）
             List<Map<String, Object>> revenueList = new ArrayList<>();
-            revenueByDosage.forEach((dosage, amount) -> {
+            revenueByMonth.forEach((month, data) -> {
                 Map<String, Object> item = new LinkedHashMap<>();
-                item.put("剂型", dosage);
-                item.put("金额", Math.round(amount * 100.0) / 100.0);
+                item.put("月份", month);
+                double total = 0;
+                for (Double v : data.values()) total += v;
+                data.forEach((k, v) -> item.put(k, Math.round(v * 100.0) / 100.0));
+                item.put("总计", Math.round(total * 100.0) / 100.0);
                 revenueList.add(item);
             });
             chartData.setRevenueByMonth(revenueList);
