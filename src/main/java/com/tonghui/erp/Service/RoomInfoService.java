@@ -17,10 +17,11 @@ public interface RoomInfoService extends IService<RoomInfo> {
      * 
      * @param roomName 房间名称（模糊匹配），为空时查询所有
      * @param keyword 关键字（对房间编码、房间名称进行模糊匹配，可选）
+     * @param roomStatus 房间状态（精确匹配，1-启用，0-停用），为空时查询所有
      * @param pageRequest 分页参数，包含页码和每页数量等信息
      * @return 分页结果，包含查询到的房间列表和分页信息
      */
-    PagedResult<RoomInfo> searchByName(String roomName, String keyword, PageRequestDto pageRequest);
+    PagedResult<RoomInfo> searchByName(String roomName, String keyword, Integer roomStatus, PageRequestDto pageRequest);
     
     /**
      * 根据房间位置模糊查询（分页）

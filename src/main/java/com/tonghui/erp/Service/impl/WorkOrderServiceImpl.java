@@ -293,6 +293,8 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
      * @param createdTimeEnd   创建时间结束值（含）
      * @param updatedTimeStart 更新时间起始值（含）
      * @param updatedTimeEnd   更新时间结束值（含）
+     * @param configDateStart  配置日期起始值（含）
+     * @param configDateEnd    配置日期结束值（含）
      * @param pageNum          页码，从0开始
      * @param pageSize         每页数量
      * @return 工单分页结果
@@ -302,6 +304,7 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
                                            String keyword,
                                            LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
                                            LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
+                                           LocalDateTime configDateStart, LocalDateTime configDateEnd,
                                            int pageNum, int pageSize) {
         int actualPageNum = pageNum + 1;
 
@@ -419,6 +422,13 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         }
         if (updatedTimeEnd != null) {
             wrapper.le("updated_time", updatedTimeEnd);
+        }
+        // 配置日期时间范围查询
+        if (configDateStart != null) {
+            wrapper.ge("config_date", configDateStart);
+        }
+        if (configDateEnd != null) {
+            wrapper.le("config_date", configDateEnd);
         }
 
         // 按创建时间倒序排列，新创建的显示在最前

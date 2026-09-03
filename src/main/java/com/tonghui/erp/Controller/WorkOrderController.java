@@ -60,7 +60,7 @@ public class WorkOrderController extends BaseCrudController<WorkOrder, WorkOrder
         // 使用WorkOrderService的queryWorkOrders方法进行查询
         WorkOrder workOrder = new WorkOrder();
         Page<WorkOrder> pageResult = workOrderService.queryWorkOrders(workOrder,
-                null, null, null, null, null, safePageIndex, safePageSize);
+                null, null, null, null, null, null, null, safePageIndex, safePageSize);
 
         // 转换为PagedResult
         PagedResult<WorkOrder> pagedResult = new PagedResult<>();
@@ -135,6 +135,8 @@ public class WorkOrderController extends BaseCrudController<WorkOrder, WorkOrder
      * @param createdTimeEnd 创建时间结束（可选）
      * @param updatedTimeStart 更新时间起始（可选）
      * @param updatedTimeEnd 更新时间结束（可选）
+     * @param configDateStart 配置日期起始（可选）
+     * @param configDateEnd 配置日期结束（可选）
      * @param pageIndex 页码
      * @param pageSize  每页大小
      * @return ApiResponse&lt;PagedResult&lt;WorkOrder&gt;&gt; 分页结果
@@ -146,6 +148,8 @@ public class WorkOrderController extends BaseCrudController<WorkOrder, WorkOrder
                                                                @RequestParam(required = false) java.time.LocalDateTime createdTimeEnd,
                                                                @RequestParam(required = false) java.time.LocalDateTime updatedTimeStart,
                                                                @RequestParam(required = false) java.time.LocalDateTime updatedTimeEnd,
+                                                               @RequestParam(required = false) java.time.LocalDateTime configDateStart,
+                                                               @RequestParam(required = false) java.time.LocalDateTime configDateEnd,
                                                                @RequestParam int pageIndex,
                                                                @RequestParam int pageSize) {
         // 页码从0开始的处理，确保不为负数
@@ -156,6 +160,7 @@ public class WorkOrderController extends BaseCrudController<WorkOrder, WorkOrder
         // 获取分页结果
         Page<WorkOrder> pageResult = workOrderService.queryWorkOrders(workOrder,
                 keyword, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd,
+                configDateStart, configDateEnd,
                 safePageIndex, safePageSize);
 
         // 转换为统一的PagedResult格式

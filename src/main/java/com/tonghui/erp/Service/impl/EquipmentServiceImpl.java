@@ -154,7 +154,7 @@ public class EquipmentServiceImpl extends ServiceImpl<EquipmentMapper, Equipment
         
         return this.lambdaQuery()
                 .eq(Equipment::getRoomId, roomId)
-                .eq(Equipment::getEquipmentStatus, 1)
+                .eq(Equipment::getEquipmentStatus, "正常")
                 .orderByAsc(Equipment::getEquipmentName)
                 .list();
     }

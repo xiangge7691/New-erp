@@ -60,6 +60,8 @@ public interface WorkOrderService extends IService<WorkOrder> {
      * @param createdTimeEnd 创建时间结束
      * @param updatedTimeStart 更新时间起始
      * @param updatedTimeEnd 更新时间结束
+     * @param configDateStart 配置日期起始
+     * @param configDateEnd 配置日期结束
      * @param pageNum 页码
      * @param pageSize 每页大小
      * @return 分页结果
@@ -68,6 +70,7 @@ public interface WorkOrderService extends IService<WorkOrder> {
                                     String keyword,
                                     LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
                                     LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
+                                    LocalDateTime configDateStart, LocalDateTime configDateEnd,
                                     int pageNum, int pageSize);
     
     /**

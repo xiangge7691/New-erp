@@ -84,7 +84,7 @@ public class RoomInfoController extends BaseCrudController<RoomInfo, RoomInfo, I
         PageRequestDto pageRequest = new PageRequestDto();
         pageRequest.setPageIndex(pageIndex);
         pageRequest.setPageSize(pageSize);
-        return roomInfoService.searchByName(null, null, pageRequest);
+        return roomInfoService.searchByName(null, null, null, pageRequest);
     }
 
     /**
@@ -218,14 +218,15 @@ public class RoomInfoController extends BaseCrudController<RoomInfo, RoomInfo, I
     /**
      * 搜索房间
      * <p>
-     * 支持按房间名称模糊搜索，返回分页结果
+     * 支持按房间名称模糊搜索、按状态精确搜索，返回分页结果
      * </p>
      *
      * 示例请求：
-     * GET /api/room/search?keyword=洁净车间&pageIndex=0&pageSize=10
+     * GET /api/room/search?keyword=洁净车间&roomStatus=1&pageIndex=0&pageSize=10
      *
      * @param roomName 房间名称（可选，支持模糊搜索）
      * @param keyword 关键字（对房间编码、房间名称进行模糊匹配，可选）
+     * @param roomStatus 房间状态（可选，1-启用，0-停用）
      * @param pageRequest 分页请求参数（页码、页面大小）
      * @return ApiResponse&lt;PagedResult&lt;RoomInfo&gt;&gt; 房间列表（分页）
      */
@@ -233,10 +234,11 @@ public class RoomInfoController extends BaseCrudController<RoomInfo, RoomInfo, I
     public ApiResponse<PagedResult<RoomInfo>> searchRooms(
             @RequestParam(required = false) String roomName,
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Integer roomStatus,
             @ModelAttribute PageRequestDto pageRequest) {
         try {
             pageRequest = processPageRequest(pageRequest);
-            PagedResult<RoomInfo> result = roomInfoService.searchByName(roomName, keyword, pageRequest);
+            PagedResult<RoomInfo> result = roomInfoService.searchByName(roomName, keyword, roomStatus, pageRequest);
             return success(result);
         } catch (Exception ex) {
             return exception(ex, "搜索房间");

@@ -183,7 +183,7 @@ public class EquipmentPersonnelModuleTest {
         PageRequestDto pageRequest = new PageRequestDto();
         pageRequest.setPageIndex(-1);
         pageRequest.setPageSize(-1);
-        PagedResult<RoomInfo> search = roomInfoService.searchByName(roomName, null, pageRequest);
+        PagedResult<RoomInfo> search = roomInfoService.searchByName(roomName, null, null, pageRequest);
         assertTrue(search.getTotalCount() >= 1, "按名称搜索应命中新建洁净室");
 
         // 删除

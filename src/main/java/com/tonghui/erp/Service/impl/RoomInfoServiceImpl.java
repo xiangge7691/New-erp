@@ -101,7 +101,7 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoMapper, RoomInfo>
      * @return 分页结果，包含查询到的房间列表和分页信息
      */
     @Override
-    public PagedResult<RoomInfo> searchByName(String roomName, String keyword, PageRequestDto pageRequest) {
+    public PagedResult<RoomInfo> searchByName(String roomName, String keyword, Integer roomStatus, PageRequestDto pageRequest) {
         // 创建 Page 对象，处理全量数据的情况
         Page<RoomInfo> page;
         if (pageRequest.getPageIndex() == -1 || pageRequest.getPageSize() == -1) {
@@ -123,6 +123,11 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoMapper, RoomInfo>
         // 如果 roomName 不为空，则添加模糊查询条件
         if (roomName != null && !roomName.isEmpty()) {
             query.like(RoomInfo::getRoomName, roomName);
+        }
+
+        // 如果 roomStatus 不为空，则添加状态精确查询条件
+        if (roomStatus != null) {
+            query.eq(RoomInfo::getRoomStatus, roomStatus);
         }
 
         Page<RoomInfo> resultPage = query.page(page);
@@ -230,7 +235,7 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoMapper, RoomInfo>
      */
     @Override
     public PagedResult<RoomInfoWithDetailsDto> searchWithDetails(String roomName, String keyword, PageRequestDto pageRequest) {
-        PagedResult<RoomInfo> baseResult = searchByName(roomName, keyword, pageRequest);
+        PagedResult<RoomInfo> baseResult = searchByName(roomName, keyword, null, pageRequest);
 
         PagedResult<RoomInfoWithDetailsDto> result = new PagedResult<>();
         result.setTotalCount(baseResult.getTotalCount());
