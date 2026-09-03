@@ -5,6 +5,7 @@ import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.FileInfo;
 import com.tonghui.erp.Service.FileInfoService;
+import com.tonghui.erp.Service.FileOperationLogService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
@@ -124,6 +125,12 @@ public class FileController extends BaseController {
     @Autowired
     private FileInfoService fileInfoService;
 
+    /**
+     * 文件操作日志服务
+     */
+    @Autowired
+    private FileOperationLogService fileOperationLogService;
+
     // region 按业务路径上传
     // ===================================
     // 按业务路径上传
@@ -184,6 +191,8 @@ public class FileController extends BaseController {
             @RequestParam(required = false) String customPath) {
         try {
             FileInfo fileInfo = fileInfoService.uploadFileWithBusinessPath(file, businessType, businessId, entityName, description, customPath);
+            // 记录操作日志
+            fileOperationLogService.log(fileInfo.getFileId(), fileInfo.getOriginalName(), fileInfo.getFilePath(), "UPLOAD", "business", null);
             return success(fileInfo, "文件上传成功");
         } catch (IOException e) {
             return exception(e, "文件上传");
@@ -223,6 +232,8 @@ public class FileController extends BaseController {
             @RequestParam(value = "businessType", required = false) String businessType) {
         try {
             FileInfo fileInfo = fileInfoService.uploadFileWithBusiness(file, category, description, businessId, businessType);
+            // 记录操作日志
+            fileOperationLogService.log(fileInfo.getFileId(), fileInfo.getOriginalName(), fileInfo.getFilePath(), "UPLOAD", "business", null);
             return success(fileInfo, "文件上传成功");
         } catch (IOException e) {
             return exception(e, "文件上传");
@@ -266,6 +277,9 @@ public class FileController extends BaseController {
 
             InputStream inputStream = fileInfoService.getFileInputStream(id);
             InputStreamResource resource = new InputStreamResource(inputStream);
+
+            // 记录操作日志
+            fileOperationLogService.log(fileInfo.getFileId(), fileInfo.getOriginalName(), fileInfo.getFilePath(), "DOWNLOAD", "business", null);
 
             String contentType = fileInfo.getContentType();
             if (contentType == null || !contentType.startsWith("image/")) {
@@ -370,7 +384,13 @@ public class FileController extends BaseController {
     @DeleteMapping("/{id}")
     public ApiResponse<Boolean> deleteFile(@PathVariable Long id) {
         try {
+            // 先获取文件信息，用于记录操作日志
+            FileInfo fileInfo = fileInfoService.getById(id);
             boolean result = fileInfoService.deleteFile(id);
+            // 记录操作日志
+            if (result && fileInfo != null) {
+                fileOperationLogService.log(id, fileInfo.getOriginalName(), fileInfo.getFilePath(), "DELETE", "business", null);
+            }
             return success(result, result ? "文件删除成功" : "文件删除失败");
         } catch (Exception e) {
             return exception(e, "文件删除");
