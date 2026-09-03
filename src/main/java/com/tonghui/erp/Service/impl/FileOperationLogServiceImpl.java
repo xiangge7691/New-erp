@@ -4,7 +4,9 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.FileOperationLog;
+import com.tonghui.erp.Data.Entity.User;
 import com.tonghui.erp.Data.mapper.FileOperationLogMapper;
+import com.tonghui.erp.Data.mapper.UserMapper;
 import com.tonghui.erp.Service.FileOperationLogService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +26,12 @@ public class FileOperationLogServiceImpl implements FileOperationLogService {
     @Autowired
     private FileOperationLogMapper fileOperationLogMapper;
 
+    /**
+     * 用户信息Mapper
+     */
+    @Autowired
+    private UserMapper userMapper;
+
     @Override
     public void log(Long fileId, String fileName, String filePath, String operationType, String rootType, String detail) {
         FileOperationLog log = new FileOperationLog();
@@ -41,15 +49,28 @@ public class FileOperationLogServiceImpl implements FileOperationLogService {
 
     /**
      * 从请求上下文中获取当前用户名
+     * <p>
+     * 优先从 request attribute 获取，如果获取不到则从数据库查询用户信息
+     * </p>
      */
     private String getCurrentUserName() {
         try {
             ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
             if (attributes != null) {
                 HttpServletRequest request = attributes.getRequest();
+                // 1. 先尝试从 request attribute 获取
                 Object username = request.getAttribute("username");
                 if (username != null) {
                     return username.toString();
+                }
+                // 2. 从数据库查询用户信息
+                Long userId = EntityUtils.getCurrentUserId();
+                if (userId != null && userId > 0) {
+                    User user = userMapper.selectById(userId);
+                    if (user != null) {
+                        // 优先返回真实姓名，如果没有则返回登录账号
+                        return StringUtils.hasText(user.getUserName()) ? user.getUserName() : user.getUserAccount();
+                    }
                 }
             }
         } catch (Exception ignored) {
