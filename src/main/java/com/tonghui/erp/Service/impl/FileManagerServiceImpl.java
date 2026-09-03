@@ -13,6 +13,7 @@ import com.tonghui.erp.Data.Entity.FileInfo;
 import com.tonghui.erp.Data.Entity.FileOperationLog;
 import com.tonghui.erp.Data.Entity.User;
 import com.tonghui.erp.Data.mapper.FileInfoMapper;
+import com.tonghui.erp.Data.mapper.FileOperationLogMapper;
 import com.tonghui.erp.Data.mapper.UserMapper;
 import com.tonghui.erp.Service.FileManagerService;
 import com.tonghui.erp.Service.FileOperationLogService;
@@ -55,6 +56,12 @@ public class FileManagerServiceImpl implements FileManagerService {
 
     @Autowired
     private FileOperationLogService fileOperationLogService;
+
+    /**
+     * 文件操作日志Mapper
+     */
+    @Autowired
+    private FileOperationLogMapper fileOperationLogMapper;
 
     @Autowired
     private UserMapper userMapper;
@@ -253,7 +260,10 @@ public class FileManagerServiceImpl implements FileManagerService {
         if (Files.isDirectory(recycleTarget)) {
             try (Stream<Path> walk = Files.walk(recycleTarget)) {
                 walk.filter(Files::isRegularFile).forEach(path -> {
-                    FileInfo fi = findFileInfoByPath(target.resolve(basePath.relativize(path).toString()).toString());
+                    // 正确计算原始路径：以回收站内文件相对文件夹的路径，拼接到删除前文件夹路径上
+                    // （原实现用 basePath.relativize(path) 会带上 .recycle-bin 前缀导致路径错误，找不到记录）
+                    Path relativeToFolder = recycleTarget.relativize(path);
+                    FileInfo fi = findFileInfoByPath(target.resolve(relativeToFolder).toString());
                     if (fi == null) {
                         fi = findFileInfoByPath(path.toString());
                     }
@@ -507,12 +517,28 @@ public class FileManagerServiceImpl implements FileManagerService {
 
     /**
      * 将 file_info 记录的删除人、删除时间填充到回收站条目
+     * <p>
+     * 当 file_info 记录不存在时（如空文件夹或文件未登记），
+     * 从 file_operation_log 操作日志表中补充删除人、删除时间
+     * </p>
      *
      * @param item 回收站条目
      * @param fi   file_info 记录（可为空）
      */
     private void fillRecycleInfo(FileItemDto item, FileInfo fi) {
         if (fi == null) {
+            // 从操作日志表补充删除人、删除时间（file_operation_log 中 file_id 为 null 表示文件夹操作）
+            FileOperationLog opLog = fileOperationLogMapper.selectLatestByNameAndType(
+                    Paths.get(item.getPath()).getFileName().toString(), OP_DELETE);
+            if (opLog == null) {
+                return;
+            }
+            item.setDeletedBy(opLog.getUserId());
+            User user = opLog.getUserId() != null ? userMapper.selectById(opLog.getUserId()) : null;
+            item.setDeletedByName(opLog.getUserName() != null ? opLog.getUserName() : resolveUserName(opLog.getUserId()));
+            item.setDeletedByAccount(user != null ? user.getUserAccount() : null);
+            item.setDeletedTime(opLog.getCreatedTime() != null
+                    ? opLog.getCreatedTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : null);
             return;
         }
         item.setDeletedBy(fi.getDeletedBy());
