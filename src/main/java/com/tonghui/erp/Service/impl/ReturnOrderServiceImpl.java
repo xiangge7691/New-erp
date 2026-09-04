@@ -553,7 +553,8 @@ public class ReturnOrderServiceImpl extends ServiceImpl<ReturnOrderMapper, Retur
      */
     private Map<String, String> resolvePlanNames(List<String> planNumbers) {
         if (planNumbers == null || planNumbers.isEmpty()) {
-            return Map.of();
+            // 使用 HashMap 而非 Map.of()：后续 planNameMap.get(null) 需容忍空集合（不可变 Map 对 null key 会抛 NPE）
+            return new HashMap<>();
         }
         List<ProductionPlan> plans = productionPlanMapper.selectList(
                 new QueryWrapper<ProductionPlan>().in("plan_number", planNumbers));
