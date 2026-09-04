@@ -299,6 +299,59 @@ public class FileController extends BaseController {
 
     // endregion
 
+    // region 按ID预览文件
+    // ===================================
+    // 按ID预览文件
+    // ===================================
+
+    /**
+     * 按文件ID预览文件（不计入操作日志）
+     * <p>
+     * 与下载接口的区别：Content-Disposition 为 inline（浏览器内直接显示），
+     * 而非 attachment（触发下载）；不记录操作日志
+     * </p>
+     *
+     * @param id 文件ID（路径参数）
+     * @return 文件流（用于前端预览）
+     *
+     * 请求示例：
+     * GET /api/files/preview/101
+     *
+     * 响应：
+     * HTTP/1.1 200 OK
+     * Content-Type: image/jpeg
+     * Content-Disposition: inline; filename*=UTF-8''维修单.jpg
+     * [二进制文件内容]
+     */
+    @GetMapping("/preview/{id}")
+    public ResponseEntity<Resource> previewFile(@PathVariable Long id) {
+        try {
+            FileInfo fileInfo = fileInfoService.getById(id);
+            if (fileInfo == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            InputStream inputStream = fileInfoService.getFileInputStream(id);
+            InputStreamResource resource = new InputStreamResource(inputStream);
+
+            String contentType = fileInfo.getContentType();
+            if (contentType == null || contentType.isBlank()) {
+                contentType = "application/octet-stream";
+            }
+
+            String filename = URLEncoder.encode(fileInfo.getOriginalName(), StandardCharsets.UTF_8);
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(contentType))
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename*=UTF-8''" + filename)
+                    .body(resource);
+        } catch (IOException e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    // endregion
+
     // region 获取文件元数据
     // ===================================
     // 获取文件元数据
