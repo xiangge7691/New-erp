@@ -82,7 +82,7 @@ public class CheckOrderServiceTest {
     @Test
     public void testQueryCheckOrders() {
         try {
-            Page<CheckOrder> page = checkOrderService.queryCheckOrders(null, null, 0, 10);
+            Page<CheckOrder> page = checkOrderService.queryCheckOrders(null, null, null, null, 0, 10);
             System.out.println("盘点单总数: " + page.getTotal());
         } catch (Exception e) {
             System.err.println("测试失败: " + e.getMessage());
