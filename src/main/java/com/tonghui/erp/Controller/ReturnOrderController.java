@@ -61,6 +61,8 @@ public class ReturnOrderController extends BaseController {
      * GET /api/warehouse/return-orders?keyword=TK-20260817&pageIndex=0&pageSize=20
      *
      * @param keyword   搜索关键词（退库单号/出库单号/物料名称，可选）
+     * @param startTime 创建时间起始（可选，格式：yyyy-MM-dd HH:mm:ss）
+     * @param endTime   创建时间结束（可选，格式：yyyy-MM-dd HH:mm:ss）
      * @param pageIndex 页码（从0开始）
      * @param pageSize  每页数量（默认20）
      * @return ApiResponse&lt;PagedResult&lt;ReturnOrder&gt;&gt; 分页结果（主表信息列表）
@@ -68,6 +70,8 @@ public class ReturnOrderController extends BaseController {
     @GetMapping
     public ApiResponse<PagedResult<ReturnOrder>> list(
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String startTime,
+            @RequestParam(required = false) String endTime,
             @RequestParam(defaultValue = "0") int pageIndex,
             @RequestParam(defaultValue = "20") int pageSize) {
         try {
@@ -75,7 +79,7 @@ public class ReturnOrderController extends BaseController {
             int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
 
             Page<ReturnOrder> page = returnOrderService.queryReturnOrders(
-                    keyword, safePageIndex, safePageSize);
+                    keyword, startTime, endTime, safePageIndex, safePageSize);
 
             PagedResult<ReturnOrder> result = new PagedResult<>();
             result.setItems(page.getRecords());

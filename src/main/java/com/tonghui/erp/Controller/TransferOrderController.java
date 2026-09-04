@@ -68,6 +68,8 @@ public class TransferOrderController extends BaseController {
      *
      * @param type      类型筛选（调拨出库/调拨入库，可选）
      * @param keyword   搜索关键词（调拨单号/物料名称，可选）
+     * @param startTime 创建时间起始（可选，格式：yyyy-MM-dd HH:mm:ss）
+     * @param endTime   创建时间结束（可选，格式：yyyy-MM-dd HH:mm:ss）
      * @param pageIndex 页码（从0开始）
      * @param pageSize  每页数量（默认20）
      * @return ApiResponse&lt;PagedResult&lt;TransferOrder&gt;&gt; 分页结果（主表信息列表）
@@ -76,6 +78,8 @@ public class TransferOrderController extends BaseController {
     public ApiResponse<PagedResult<TransferOrder>> list(
             @RequestParam(required = false) String type,
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String startTime,
+            @RequestParam(required = false) String endTime,
             @RequestParam(defaultValue = "0") int pageIndex,
             @RequestParam(defaultValue = "20") int pageSize) {
         try {
@@ -83,7 +87,7 @@ public class TransferOrderController extends BaseController {
             int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
 
             Page<TransferOrder> page = transferOrderService.queryTransferOrders(
-                    type, keyword, safePageIndex, safePageSize);
+                    type, keyword, startTime, endTime, safePageIndex, safePageSize);
 
             PagedResult<TransferOrder> result = new PagedResult<>();
             result.setItems(page.getRecords());

@@ -23,11 +23,13 @@ public interface CheckOrderService extends IService<CheckOrder> {
      *
      * @param warehouse 仓库名称筛选（可选）
      * @param keyword   搜索关键词（盘点单号/物料名称，可选）
+     * @param startTime 创建时间起始（可选）
+     * @param endTime   创建时间结束（可选）
      * @param pageIndex 页码（从0开始）
      * @param pageSize  每页数量
      * @return 分页结果（主表信息列表）
      */
-    Page<CheckOrder> queryCheckOrders(String warehouse, String keyword, int pageIndex, int pageSize);
+    Page<CheckOrder> queryCheckOrders(String warehouse, String keyword, String startTime, String endTime, int pageIndex, int pageSize);
 
     /**
      * 获取所有仓库名称列表（生产单位名称）

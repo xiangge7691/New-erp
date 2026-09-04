@@ -61,6 +61,8 @@ public class CheckOrderController extends BaseController {
      *
      * @param warehouse 仓库名称筛选（可选）
      * @param keyword   搜索关键词（盘点单号/物料名称，可选）
+     * @param startTime 创建时间起始（可选，格式：yyyy-MM-dd HH:mm:ss）
+     * @param endTime   创建时间结束（可选，格式：yyyy-MM-dd HH:mm:ss）
      * @param pageIndex 页码（从0开始）
      * @param pageSize  每页数量（默认20）
      * @return ApiResponse&lt;PagedResult&lt;CheckOrder&gt;&gt; 分页结果（主表信息列表）
@@ -69,6 +71,8 @@ public class CheckOrderController extends BaseController {
     public ApiResponse<PagedResult<CheckOrder>> list(
             @RequestParam(required = false) String warehouse,
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String startTime,
+            @RequestParam(required = false) String endTime,
             @RequestParam(defaultValue = "0") int pageIndex,
             @RequestParam(defaultValue = "20") int pageSize) {
         try {
@@ -76,7 +80,7 @@ public class CheckOrderController extends BaseController {
             int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
 
             Page<CheckOrder> page = checkOrderService.queryCheckOrders(
-                    warehouse, keyword, safePageIndex, safePageSize);
+                    warehouse, keyword, startTime, endTime, safePageIndex, safePageSize);
 
             PagedResult<CheckOrder> result = new PagedResult<>();
             result.setItems(page.getRecords());

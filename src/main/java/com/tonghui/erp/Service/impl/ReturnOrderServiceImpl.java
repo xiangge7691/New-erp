@@ -103,12 +103,14 @@ public class ReturnOrderServiceImpl extends ServiceImpl<ReturnOrderMapper, Retur
      * 分页查询退库单列表
      *
      * @param keyword   搜索关键词（退库单号/出库单号/物料名称，可选）
+     * @param startTime 创建时间起始（可选）
+     * @param endTime   创建时间结束（可选）
      * @param pageIndex 页码（从0开始）
      * @param pageSize  每页数量
      * @return 分页结果（主表信息列表）
      */
     @Override
-    public Page<ReturnOrder> queryReturnOrders(String keyword, int pageIndex, int pageSize) {
+    public Page<ReturnOrder> queryReturnOrders(String keyword, String startTime, String endTime, int pageIndex, int pageSize) {
         Page<ReturnOrder> page = new Page<>(pageIndex + 1, pageSize);
         QueryWrapper<ReturnOrder> wrapper = new QueryWrapper<>();
         if (StringUtils.hasText(keyword)) {
@@ -116,6 +118,13 @@ public class ReturnOrderServiceImpl extends ServiceImpl<ReturnOrderMapper, Retur
                     .or().like("out_order_no", keyword)
                     .or().exists("SELECT 1 FROM return_order_detail d WHERE d.return_order_id = return_order.id "
                             + "AND d.material_name LIKE CONCAT('%', {0}, '%')", keyword));
+        }
+        // 创建时间范围查询
+        if (StringUtils.hasText(startTime)) {
+            wrapper.ge("created_time", startTime);
+        }
+        if (StringUtils.hasText(endTime)) {
+            wrapper.le("created_time", endTime);
         }
         wrapper.orderByDesc("created_time");
         Page<ReturnOrder> result = this.page(page, wrapper);

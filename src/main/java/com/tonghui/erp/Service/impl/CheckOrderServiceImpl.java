@@ -80,12 +80,14 @@ public class CheckOrderServiceImpl extends ServiceImpl<CheckOrderMapper, CheckOr
      *
      * @param warehouse 仓库名称筛选（可选）
      * @param keyword   搜索关键词（盘点单号/物料名称，可选）
+     * @param startTime 创建时间起始（可选）
+     * @param endTime   创建时间结束（可选）
      * @param pageIndex 页码（从0开始）
      * @param pageSize  每页数量
      * @return 分页结果（主表信息列表）
      */
     @Override
-    public Page<CheckOrder> queryCheckOrders(String warehouse, String keyword, int pageIndex, int pageSize) {
+    public Page<CheckOrder> queryCheckOrders(String warehouse, String keyword, String startTime, String endTime, int pageIndex, int pageSize) {
         Page<CheckOrder> page = new Page<>(pageIndex + 1, pageSize);
         QueryWrapper<CheckOrder> wrapper = new QueryWrapper<>();
 
@@ -97,6 +99,13 @@ public class CheckOrderServiceImpl extends ServiceImpl<CheckOrderMapper, CheckOr
             wrapper.and(w -> w.like("check_no", keyword)
                     .or().exists("SELECT 1 FROM check_order_detail d WHERE d.check_order_id = check_order.id "
                             + "AND d.material_name LIKE CONCAT('%', {0}, '%')", keyword));
+        }
+        // 创建时间范围查询
+        if (StringUtils.hasText(startTime)) {
+            wrapper.ge("created_time", startTime);
+        }
+        if (StringUtils.hasText(endTime)) {
+            wrapper.le("created_time", endTime);
         }
         wrapper.orderByDesc("created_time");
         return this.page(page, wrapper);

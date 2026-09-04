@@ -85,12 +85,14 @@ public class TransferOrderServiceImpl extends ServiceImpl<TransferOrderMapper, T
      *
      * @param type      类型筛选：调拨出库（按调出仓库模糊匹配keyword）/调拨入库（按调入仓库模糊匹配keyword），可选
      * @param keyword   搜索关键词（调拨单号/物料名称），可选
+     * @param startTime 创建时间起始（可选）
+     * @param endTime   创建时间结束（可选）
      * @param pageIndex 页码（从0开始）
      * @param pageSize  每页数量
      * @return 分页结果（主表信息列表）
      */
     @Override
-    public Page<TransferOrder> queryTransferOrders(String type, String keyword, int pageIndex, int pageSize) {
+    public Page<TransferOrder> queryTransferOrders(String type, String keyword, String startTime, String endTime, int pageIndex, int pageSize) {
         Page<TransferOrder> page = new Page<>(pageIndex + 1, pageSize);
         QueryWrapper<TransferOrder> wrapper = new QueryWrapper<>();
 
@@ -112,6 +114,14 @@ public class TransferOrderServiceImpl extends ServiceImpl<TransferOrderMapper, T
             wrapper.and(w -> w.like("transfer_no", keyword)
                     .or().exists("SELECT 1 FROM transfer_order_detail d WHERE d.transfer_order_id = transfer_order.id "
                             + "AND d.material_name LIKE CONCAT('%', {0}, '%')", keyword));
+        }
+
+        // 创建时间范围查询
+        if (StringUtils.hasText(startTime)) {
+            wrapper.ge("created_time", startTime);
+        }
+        if (StringUtils.hasText(endTime)) {
+            wrapper.le("created_time", endTime);
         }
 
         wrapper.orderByDesc("created_time");
