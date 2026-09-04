@@ -108,7 +108,7 @@ public class ReturnOrderServiceTest {
     @Test
     public void testQueryReturnOrders() {
         try {
-            Page<ReturnOrder> page = returnOrderService.queryReturnOrders(null, 0, 10);
+            Page<ReturnOrder> page = returnOrderService.queryReturnOrders(null, null, null, 0, 10);
             System.out.println("退库单总数: " + page.getTotal());
         } catch (Exception e) {
             System.err.println("测试失败: " + e.getMessage());
@@ -350,7 +350,7 @@ public class ReturnOrderServiceTest {
             orderId = order.getId();
 
             // 列表查询，断言生产计划名称被解析回填
-            Page<ReturnOrder> page = returnOrderService.queryReturnOrders(testOutCode, 0, 10);
+            Page<ReturnOrder> page = returnOrderService.queryReturnOrders(testOutCode, null, null, 0, 10);
             ReturnOrder hit = page.getRecords().stream()
                     .filter(r -> testOutCode.equals(r.getOutOrderNo()))
                     .findFirst().orElse(null);

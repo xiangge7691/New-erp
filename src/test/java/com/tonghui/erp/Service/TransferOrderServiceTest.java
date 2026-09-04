@@ -92,7 +92,7 @@ public class TransferOrderServiceTest {
     @Test
     public void testQueryTransferOrders() {
         try {
-            Page<TransferOrder> page = transferOrderService.queryTransferOrders(null, null, 0, 10);
+            Page<TransferOrder> page = transferOrderService.queryTransferOrders(null, null, null, null, 0, 10);
             System.out.println("调拨单总数: " + page.getTotal());
         } catch (Exception e) {
             System.err.println("测试失败: " + e.getMessage());
