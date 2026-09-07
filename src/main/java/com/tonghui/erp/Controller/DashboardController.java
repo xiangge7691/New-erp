@@ -185,17 +185,21 @@ public class DashboardController extends BaseController {
                 .filter(wo -> wo.getTotalAmount() != null)
                 .mapToDouble(wo -> wo.getTotalAmount().doubleValue())
                 .sum();
-            metrics.setEstimatedOutputValue(Math.round(estimatedValue * 100.0) / 100.0);
+            metrics.setEstimatedOutputValue(new MetricsItem<>(
+                Math.round(estimatedValue * 100.0) / 100.0,
+                toWorkOrderMetricDetails(workOrders)));
 
             // 总订单量：生产计划按创建时间筛选，COUNT
             QueryWrapper<ProductionPlan> planWrapper = buildPlanCreatedTimeWrapper(startMonth, endMonth);
-            long totalOrders = productionPlanService.count(planWrapper);
-            metrics.setTotalOrders(totalOrders);
+            List<ProductionPlan> allPlans = productionPlanService.list(planWrapper);
+            metrics.setTotalOrders(new MetricsItem<>((long) allPlans.size(),
+                toPlanMetricDetails(allPlans)));
 
             // 总交付量：生产任务进度=生产完（productionCompleteTime有值），按创建时间筛选，COUNT
             QueryWrapper<WorkOrder> deliveryWrapper = buildWorkOrderProductionCompleteWrapper(startMonth, endMonth);
-            long deliveries = workOrderService.count(deliveryWrapper);
-            metrics.setTotalDeliveries(deliveries);
+            List<WorkOrder> deliveredOrders = workOrderService.list(deliveryWrapper);
+            metrics.setTotalDeliveries(new MetricsItem<>((long) deliveredOrders.size(),
+                toWorkOrderMetricDetails(deliveredOrders)));
 
             // 总采购额：入库管理按入库时间筛选，total_amount 求和
             QueryWrapper<StockIn> stockInWrapper = buildStockInTimeWrapper(startMonth, endMonth);
@@ -204,13 +208,16 @@ public class DashboardController extends BaseController {
                 .filter(s -> s.getTotalAmount() != null)
                 .mapToDouble(s -> s.getTotalAmount().doubleValue())
                 .sum();
-            metrics.setTotalPurchaseAmount(Math.round(purchaseAmount * 100.0) / 100.0);
+            metrics.setTotalPurchaseAmount(new MetricsItem<>(
+                Math.round(purchaseAmount * 100.0) / 100.0,
+                toStockInMetricDetails(stockIns)));
 
             // 待生产数量：生产计划进度=待生产，按创建时间筛选，COUNT
             QueryWrapper<ProductionPlan> pendingWrapper = buildPlanCreatedTimeWrapper(startMonth, endMonth);
             pendingWrapper.eq("current_status", "待生产");
-            long pending = productionPlanService.count(pendingWrapper);
-            metrics.setPendingProduction(pending);
+            List<ProductionPlan> pendingPlans = productionPlanService.list(pendingWrapper);
+            metrics.setPendingProduction(new MetricsItem<>((long) pendingPlans.size(),
+                toPlanMetricDetails(pendingPlans)));
 
             return success(metrics);
         } catch (Exception e) {
@@ -710,7 +717,7 @@ public class DashboardController extends BaseController {
             }
 
             // 组装交付数量结果（含总计）
-            List<Map<String, Object>> deliveryList = new ArrayList<>();
+            List<Map<String, Object>> deliverySummary = new ArrayList<>();
             deliveryByMonth.forEach((month, data) -> {
                 Map<String, Object> item = new LinkedHashMap<>();
                 item.put("月份", month);
@@ -718,9 +725,30 @@ public class DashboardController extends BaseController {
                 for (Long v : data.values()) total += v;
                 item.putAll(data);
                 item.put("总计", total);
-                deliveryList.add(item);
+                deliverySummary.add(item);
             });
-            chartData.setDeliveryByDosageForm(deliveryList);
+
+            // 交付图表明细：按月份+剂型分组
+            List<DeliveryChartDetailDto> deliveryDetails = new ArrayList<>();
+            deliveryByMonth.forEach((month, dosageMap) ->
+                dosageMap.forEach((dosage, count) -> {
+                    DeliveryChartDetailDto detail = new DeliveryChartDetailDto();
+                    detail.setMonth(month);
+                    detail.setDosageCategory(dosage);
+                    detail.setRecords(completedPlans.stream()
+                        .filter(p -> dosage.equals(preparationDosageMap.getOrDefault(p.getPreparationCode(), "其他")))
+                        .filter(p -> p.getPlanProductionTime() != null
+                            && month.equals(p.getPlanProductionTime().format(DateTimeFormatter.ofPattern("M月"))))
+                        .map(this::toDeliveryChartRecord)
+                        .collect(Collectors.toList()));
+                    deliveryDetails.add(detail);
+                })
+            );
+
+            ChartDataDto.DeliveryChartData deliveryData = new ChartDataDto.DeliveryChartData();
+            deliveryData.setSummary(deliverySummary);
+            deliveryData.setDetails(deliveryDetails);
+            chartData.setDeliveryByDosageForm(deliveryData);
 
             // === 预估产值（按剂型大类+月份）：生产任务有配置完成时间，按配置完成时间筛选，total_amount 求和 ===
             QueryWrapper<WorkOrder> revenueWrapper = buildWorkOrderConfigCompleteTimeWrapper(startMonth, endMonth);
@@ -740,7 +768,7 @@ public class DashboardController extends BaseController {
             }
 
             // 组装预估产值结果（含总计）
-            List<Map<String, Object>> revenueList = new ArrayList<>();
+            List<Map<String, Object>> revenueSummary = new ArrayList<>();
             revenueByMonth.forEach((month, data) -> {
                 Map<String, Object> item = new LinkedHashMap<>();
                 item.put("月份", month);
@@ -748,9 +776,30 @@ public class DashboardController extends BaseController {
                 for (Double v : data.values()) total += v;
                 data.forEach((k, v) -> item.put(k, Math.round(v * 100.0) / 100.0));
                 item.put("总计", Math.round(total * 100.0) / 100.0);
-                revenueList.add(item);
+                revenueSummary.add(item);
             });
-            chartData.setRevenueByMonth(revenueList);
+
+            // 产值图表明细：按月份+剂型分组
+            List<RevenueChartDetailDto> revenueDetails = new ArrayList<>();
+            revenueByMonth.forEach((month, dosageMap) ->
+                dosageMap.forEach((dosage, amount) -> {
+                    RevenueChartDetailDto detail = new RevenueChartDetailDto();
+                    detail.setMonth(month);
+                    detail.setDosageCategory(dosage);
+                    detail.setRecords(revenueOrders.stream()
+                        .filter(wo -> dosage.equals(preparationDosageMap.getOrDefault(wo.getPreparationCode(), "其他")))
+                        .filter(wo -> wo.getConfigCompleteTime() != null
+                            && month.equals(wo.getConfigCompleteTime().format(DateTimeFormatter.ofPattern("M月"))))
+                        .map(this::toRevenueChartRecord)
+                        .collect(Collectors.toList()));
+                    revenueDetails.add(detail);
+                })
+            );
+
+            ChartDataDto.RevenueChartData revenueData = new ChartDataDto.RevenueChartData();
+            revenueData.setSummary(revenueSummary);
+            revenueData.setDetails(revenueDetails);
+            chartData.setRevenueByMonth(revenueData);
 
             // === 库存资金占用：按原料/辅料/包材分类，计算总价值（数量*单价） ===
             List<Stock> allStocks = stockService.list();
@@ -764,7 +813,26 @@ public class DashboardController extends BaseController {
                         return qty * price;
                     })
                 ));
-            chartData.setInventoryFundOccupation(fundOccupation);
+
+            // 库存图表明细：按类别分组
+            Map<String, List<Stock>> stocksByCategory = allStocks.stream()
+                .filter(s -> s.getIsDeleted() == null || s.getIsDeleted() == 0)
+                .collect(Collectors.groupingBy(
+                    s -> s.getCategoryName() != null ? s.getCategoryName() : "其他"));
+            List<InventoryChartDetailDto> inventoryDetails = new ArrayList<>();
+            stocksByCategory.forEach((category, stocks) -> {
+                InventoryChartDetailDto detail = new InventoryChartDetailDto();
+                detail.setCategory(category);
+                detail.setRecords(stocks.stream()
+                    .map(this::toInventoryChartRecord)
+                    .collect(Collectors.toList()));
+                inventoryDetails.add(detail);
+            });
+
+            ChartDataDto.InventoryChartData inventoryData = new ChartDataDto.InventoryChartData();
+            inventoryData.setSummary(fundOccupation);
+            inventoryData.setDetails(inventoryDetails);
+            chartData.setInventoryFundOccupation(inventoryData);
 
             return success(chartData);
         } catch (Exception e) {
@@ -778,6 +846,139 @@ public class DashboardController extends BaseController {
     // ===================================
     // 私有辅助方法
     // ===================================
+
+    /**
+     * 将工单列表转换为指标明细DTO列表
+     *
+     * @param workOrders 工单列表
+     * @return 工单指标明细DTO列表
+     */
+    private List<WorkOrderMetricDetailDto> toWorkOrderMetricDetails(List<WorkOrder> workOrders) {
+        return workOrders.stream().map(wo -> {
+            WorkOrderMetricDetailDto dto = new WorkOrderMetricDetailDto();
+            dto.setWorkOrderId(wo.getWorkOrderId());
+            dto.setWorkOrderCode(wo.getWorkOrderCode());
+            dto.setPreparationCode(wo.getPreparationCode());
+            dto.setPreparationName(wo.getPreparationName());
+            dto.setBatchQty(wo.getBatchQty());
+            dto.setTotalAmount(wo.getTotalAmount());
+            dto.setCurrentStatus(wo.getCurrentStatus());
+            dto.setConfigDate(formatDateTime(wo.getConfigDate()));
+            dto.setConfigCompleteTime(formatDateTime(wo.getConfigCompleteTime()));
+            dto.setProductionCompleteTime(formatDateTime(wo.getProductionCompleteTime()));
+            return dto;
+        }).collect(Collectors.toList());
+    }
+
+    /**
+     * 将生产计划列表转换为指标明细DTO列表
+     *
+     * @param plans 生产计划列表
+     * @return 生产计划指标明细DTO列表
+     */
+    private List<ProductionPlanMetricDetailDto> toPlanMetricDetails(List<ProductionPlan> plans) {
+        return plans.stream().map(p -> {
+            ProductionPlanMetricDetailDto dto = new ProductionPlanMetricDetailDto();
+            dto.setPlanId(p.getId());
+            dto.setPlanNumber(p.getPlanNumber());
+            dto.setPreparationCode(p.getPreparationCode());
+            dto.setPreparationName(p.getPreparationName());
+            dto.setPlanQuantity(p.getPlanQuantity());
+            dto.setCurrentStatus(p.getCurrentStatus());
+            dto.setPlanProductionTime(formatDateTime(p.getPlanProductionTime()));
+            dto.setCreatedTime(formatDateTime(p.getCreatedTime()));
+            return dto;
+        }).collect(Collectors.toList());
+    }
+
+    /**
+     * 将入库单列表转换为指标明细DTO列表
+     *
+     * @param stockIns 入库单列表
+     * @return 入库单指标明细DTO列表
+     */
+    private List<StockInMetricDetailDto> toStockInMetricDetails(List<StockIn> stockIns) {
+        return stockIns.stream().map(si -> {
+            StockInMetricDetailDto dto = new StockInMetricDetailDto();
+            dto.setInId(si.getInId());
+            dto.setInCode(si.getInCode());
+            dto.setInType(si.getInType());
+            dto.setTotalAmount(si.getTotalAmount());
+            dto.setInStatus(si.getInStatus());
+            dto.setInDate(formatDateTime(si.getInDate()));
+            return dto;
+        }).collect(Collectors.toList());
+    }
+
+    /**
+     * 将生产计划转换为交付图表记录DTO
+     *
+     * @param plan 生产计划
+     * @return 交付图表记录DTO
+     */
+    private DeliveryChartRecordDto toDeliveryChartRecord(ProductionPlan plan) {
+        DeliveryChartRecordDto dto = new DeliveryChartRecordDto();
+        dto.setPlanId(plan.getId());
+        dto.setPlanNumber(plan.getPlanNumber());
+        dto.setPreparationCode(plan.getPreparationCode());
+        dto.setPreparationName(plan.getPreparationName());
+        dto.setPlanQuantity(plan.getPlanQuantity());
+        dto.setPlanProductionTime(formatDateTime(plan.getPlanProductionTime()));
+        dto.setCurrentStatus(plan.getCurrentStatus());
+        return dto;
+    }
+
+    /**
+     * 将工单转换为产值图表记录DTO
+     *
+     * @param wo 工单
+     * @return 产值图表记录DTO
+     */
+    private RevenueChartRecordDto toRevenueChartRecord(WorkOrder wo) {
+        RevenueChartRecordDto dto = new RevenueChartRecordDto();
+        dto.setWorkOrderId(wo.getWorkOrderId());
+        dto.setWorkOrderCode(wo.getWorkOrderCode());
+        dto.setPreparationCode(wo.getPreparationCode());
+        dto.setPreparationName(wo.getPreparationName());
+        dto.setBatchQty(wo.getBatchQty());
+        dto.setTotalAmount(wo.getTotalAmount());
+        dto.setCurrentStatus(wo.getCurrentStatus());
+        dto.setConfigCompleteTime(formatDateTime(wo.getConfigCompleteTime()));
+        return dto;
+    }
+
+    /**
+     * 将库存记录转换为库存图表记录DTO
+     *
+     * @param stock 库存记录
+     * @return 库存图表记录DTO
+     */
+    private InventoryChartRecordDto toInventoryChartRecord(Stock stock) {
+        InventoryChartRecordDto dto = new InventoryChartRecordDto();
+        dto.setStockId(stock.getStockId());
+        dto.setItemCode(stock.getItemCode());
+        dto.setItemName(stock.getItemName());
+        dto.setCategoryName(stock.getCategoryName());
+        dto.setUnitName(stock.getUnitName());
+        dto.setQuantity(stock.getQuantity());
+        dto.setUnitPrice(stock.getUnitPrice());
+        // 计算总价值
+        double qty = stock.getQuantity() != null ? stock.getQuantity().doubleValue() : 0.0;
+        double price = stock.getUnitPrice() != null ? stock.getUnitPrice().doubleValue() : 0.0;
+        dto.setTotalValue(Math.round(qty * price * 100.0) / 100.0);
+        dto.setBatchNumber(stock.getBatchNumber());
+        return dto;
+    }
+
+    /**
+     * 格式化日期时间为字符串（null安全）
+     *
+     * @param dateTime 日期时间
+     * @return 格式化后的字符串，null输入返回null
+     */
+    private String formatDateTime(LocalDateTime dateTime) {
+        return dateTime != null ? dateTime.format(DATE_TIME_FORMATTER) : null;
+    }
 
     /**
      * 构建生产计划时间范围查询条件
