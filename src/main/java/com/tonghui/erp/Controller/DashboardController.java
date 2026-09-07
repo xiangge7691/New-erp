@@ -813,6 +813,8 @@ public class DashboardController extends BaseController {
                         return qty * price;
                     })
                 ));
+            // 过滤金额为0的类别
+            fundOccupation.entrySet().removeIf(e -> e.getValue() <= 0);
 
             // 库存图表明细：按类别分组
             Map<String, List<Stock>> stocksByCategory = allStocks.stream()
@@ -821,12 +823,17 @@ public class DashboardController extends BaseController {
                     s -> s.getCategoryName() != null ? s.getCategoryName() : "其他"));
             List<InventoryChartDetailDto> inventoryDetails = new ArrayList<>();
             stocksByCategory.forEach((category, stocks) -> {
-                InventoryChartDetailDto detail = new InventoryChartDetailDto();
-                detail.setCategory(category);
-                detail.setRecords(stocks.stream()
+                List<InventoryChartRecordDto> records = stocks.stream()
                     .map(this::toInventoryChartRecord)
-                    .collect(Collectors.toList()));
-                inventoryDetails.add(detail);
+                    .filter(r -> r.getTotalValue() != null
+                        && r.getTotalValue().compareTo(java.math.BigDecimal.ZERO) > 0)
+                    .collect(Collectors.toList());
+                if (!records.isEmpty()) {
+                    InventoryChartDetailDto detail = new InventoryChartDetailDto();
+                    detail.setCategory(category);
+                    detail.setRecords(records);
+                    inventoryDetails.add(detail);
+                }
             });
 
             ChartDataDto.InventoryChartData inventoryData = new ChartDataDto.InventoryChartData();
