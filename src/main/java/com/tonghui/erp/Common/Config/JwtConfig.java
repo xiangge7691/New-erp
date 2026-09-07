@@ -39,16 +39,15 @@ public class JwtConfig {
     
     /**
      * JWT过期时间 - 单位：分钟
-     * 默认值：480分钟（8小时）
+     * 默认值：2147483647分钟（约4085年，相当于无限时长）
      */
-    private int expiresInMinutes = 480;
+    private int expiresInMinutes = 2147483647;
     
     /**
      * 刷新令牌过期时间 - 单位：分钟
-     * 默认值：10080分钟（7天）
-     * 计算方式：7天 * 24小时/天 * 60分钟/小时 = 10080分钟
+     * 默认值：2147483647分钟（约4085年，相当于无限时长）
      */
-    private int refreshExpiresInMinutes = 10080; // 默认7天
+    private int refreshExpiresInMinutes = 2147483647;
 
     // endregion
 }

@@ -57,8 +57,8 @@ jwt:
   secret-key: default_secret_key_which_should_be_replaced
   issuer: ErpSys
   audience: ErpSysUsers
-  expires-in-minutes: 120
-  refresh-expires-in-minutes: 10080
+  expires-in-minutes: 2147483647
+  refresh-expires-in-minutes: 2147483647
 
 # 在现有配置基础上添加
 file:
