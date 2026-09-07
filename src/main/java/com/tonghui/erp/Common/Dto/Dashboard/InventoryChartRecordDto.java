@@ -1,6 +1,7 @@
 package com.tonghui.erp.Common.Dto.Dashboard;
 
 import lombok.Data;
+import java.math.BigDecimal;
 
 /**
  * 库存图表单条库存记录DTO
@@ -16,31 +17,49 @@ public class InventoryChartRecordDto {
     // 数据字段
     // ===================================
 
-    /** 库存ID */
+    /**
+     * 库存ID
+     */
     private Long stockId;
 
-    /** 物料编码 */
+    /**
+     * 物料编码
+     */
     private String itemCode;
 
-    /** 物料名称 */
+    /**
+     * 物料名称
+     */
     private String itemName;
 
-    /** 类别名称 */
+    /**
+     * 类别名称（原料/辅料/包材/制剂）
+     */
     private String categoryName;
 
-    /** 单位 */
+    /**
+     * 单位
+     */
     private String unitName;
 
-    /** 数量 */
-    private Object quantity;
+    /**
+     * 数量
+     */
+    private BigDecimal quantity;
 
-    /** 单价 */
-    private Object unitPrice;
+    /**
+     * 单价（元）
+     */
+    private BigDecimal unitPrice;
 
-    /** 总价值（数量 × 单价） */
-    private Object totalValue;
+    /**
+     * 总价值（数量 × 单价）
+     */
+    private BigDecimal totalValue;
 
-    /** 批号 */
+    /**
+     * 批号
+     */
     private String batchNumber;
 
     // endregion

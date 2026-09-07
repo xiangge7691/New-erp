@@ -186,7 +186,7 @@ public class DashboardController extends BaseController {
                 .mapToDouble(wo -> wo.getTotalAmount().doubleValue())
                 .sum();
             metrics.setEstimatedOutputValue(new MetricsItem<>(
-                Math.round(estimatedValue * 100.0) / 100.0,
+                BigDecimal.valueOf(Math.round(estimatedValue * 100.0) / 100.0),
                 toWorkOrderMetricDetails(workOrders)));
 
             // 总订单量：生产计划按创建时间筛选，COUNT
@@ -209,7 +209,7 @@ public class DashboardController extends BaseController {
                 .mapToDouble(s -> s.getTotalAmount().doubleValue())
                 .sum();
             metrics.setTotalPurchaseAmount(new MetricsItem<>(
-                Math.round(purchaseAmount * 100.0) / 100.0,
+                BigDecimal.valueOf(Math.round(purchaseAmount * 100.0) / 100.0),
                 toStockInMetricDetails(stockIns)));
 
             // 待生产数量：生产计划进度=待生产，按创建时间筛选，COUNT
@@ -965,7 +965,7 @@ public class DashboardController extends BaseController {
         // 计算总价值
         double qty = stock.getQuantity() != null ? stock.getQuantity().doubleValue() : 0.0;
         double price = stock.getUnitPrice() != null ? stock.getUnitPrice().doubleValue() : 0.0;
-        dto.setTotalValue(Math.round(qty * price * 100.0) / 100.0);
+        dto.setTotalValue(BigDecimal.valueOf(Math.round(qty * price * 100.0) / 100.0));
         dto.setBatchNumber(stock.getBatchNumber());
         return dto;
     }

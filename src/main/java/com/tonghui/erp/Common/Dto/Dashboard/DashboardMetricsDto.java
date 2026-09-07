@@ -1,6 +1,7 @@
 package com.tonghui.erp.Common.Dto.Dashboard;
 
 import lombok.Data;
+import java.math.BigDecimal;
 
 /**
  * 核心指标DTO（含明细）
@@ -20,7 +21,7 @@ public class DashboardMetricsDto {
     /**
      * 预估产值：汇总值（万元）+ 工单明细
      */
-    private MetricsItem<Double, WorkOrderMetricDetailDto> estimatedOutputValue;
+    private MetricsItem<BigDecimal, WorkOrderMetricDetailDto> estimatedOutputValue;
 
     /**
      * 总订单量：汇总值（单）+ 生产计划明细
@@ -35,7 +36,7 @@ public class DashboardMetricsDto {
     /**
      * 总采购额：汇总值（万元）+ 入库单明细
      */
-    private MetricsItem<Double, StockInMetricDetailDto> totalPurchaseAmount;
+    private MetricsItem<BigDecimal, StockInMetricDetailDto> totalPurchaseAmount;
 
     /**
      * 待生产数量：汇总值（批）+ 待生产计划明细
