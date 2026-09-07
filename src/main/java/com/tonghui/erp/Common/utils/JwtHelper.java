@@ -46,7 +46,7 @@ public class JwtHelper {
         
         // 创建用户声明
         Date now = new Date();
-        Date expiration = new Date(now.getTime() + expiresInMinutes * 60 * 1000L);
+        Date expiration = new Date(now.getTime() + (long) expiresInMinutes * 60 * 1000L);
         
         JwtBuilder builder = Jwts.builder()
                 .claim("userId", userId)
