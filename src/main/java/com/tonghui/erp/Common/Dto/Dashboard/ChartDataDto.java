@@ -37,6 +37,12 @@ public class ChartDataDto {
      */
     private InventoryChartData inventoryFundOccupation;
 
+    /**
+     * 月度入库金额情况（按类别堆叠柱状图）
+     * <p>summary: 每月各类别（原-辅-包）的入库金额聚合；details: 按月份+类别分组的入库明细</p>
+     */
+    private StockInChartData monthlyStockInAmount;
+
     // endregion
 
     // region 嵌套数据结构
@@ -96,6 +102,31 @@ public class ChartDataDto {
          * 按类别分组的库存物品明细
          */
         private List<InventoryChartDetailDto> details;
+    }
+
+    // endregion
+
+    // region 月度入库金额图表数据结构
+    // ===================================
+    // 月度入库金额图表数据结构
+    // ===================================
+
+    /**
+     * 月度入库金额图表数据
+     * <p>包含按月份聚合的 summary 和按月份+类别分组的 details</p>
+     */
+    @Data
+    public static class StockInChartData {
+
+        /**
+         * 月度聚合数据（堆叠柱状图渲染，每月含原料/辅料/包材金额及总计）
+         */
+        private List<Map<String, Object>> summary;
+
+        /**
+         * 按月份+类别分组的入库明细记录
+         */
+        private List<StockInChartDetailDto> details;
     }
 
     // endregion

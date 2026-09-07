@@ -6,6 +6,7 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.ProductionPlanWithRecordsDto;
 import com.tonghui.erp.Common.Dto.Dashboard.*;
 import com.tonghui.erp.Data.Entity.*;
+import com.tonghui.erp.Data.mapper.StockInDetailMapper;
 import com.tonghui.erp.Service.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -95,6 +96,9 @@ public class DashboardController extends BaseController {
 
     @Autowired
     private OrganizationService organizationService;
+
+    @Autowired
+    private StockInDetailMapper stockInDetailMapper;
 
     // endregion
 
@@ -841,6 +845,87 @@ public class DashboardController extends BaseController {
             inventoryData.setDetails(inventoryDetails);
             chartData.setInventoryFundOccupation(inventoryData);
 
+            // === 月度入库金额情况：按月份+类别（原料/辅料/包材）聚合，堆叠柱状图 ===
+            // 查询入库明细关联入库主表，按月份和类别汇总金额
+            QueryWrapper<StockIn> stockInChartWrapper = buildStockInTimeWrapper(startMonth, endMonth);
+            stockInChartWrapper.eq("in_status", "已入库");
+            List<StockIn> chartStockIns = stockInService.list(stockInChartWrapper);
+            Set<Long> chartInIds = chartStockIns.stream().map(StockIn::getInId).collect(Collectors.toSet());
+
+            // 按入库单ID→日期映射
+            Map<Long, String> inIdToMonthMap = chartStockIns.stream()
+                .collect(Collectors.toMap(
+                    StockIn::getInId,
+                    si -> si.getInDate() != null
+                        ? si.getInDate().format(DateTimeFormatter.ofPattern("M月"))
+                        : "未知",
+                    (a, b) -> a));
+
+            // 按入库单ID→入库单映射（用于获取 inCode 和 inDate）
+            Map<Long, StockIn> inIdToStockInMap = chartStockIns.stream()
+                .collect(Collectors.toMap(StockIn::getInId, si -> si, (a, b) -> a));
+
+            // 查询入库明细（仅已入库的单据）
+            List<StockInDetail> chartDetails = chartInIds.isEmpty()
+                ? List.of()
+                : stockInDetailMapper.selectList(
+                    new QueryWrapper<StockInDetail>()
+                        .in("in_id", chartInIds)
+                        .eq("is_deleted", 0));
+
+            // 按月份+类别聚合金额
+            Map<String, Map<String, BigDecimal>> stockInByMonth = new LinkedHashMap<>();
+            for (StockInDetail detail : chartDetails) {
+                String month = inIdToMonthMap.getOrDefault(detail.getInId(), "未知");
+                String category = detail.getCategoryName() != null ? detail.getCategoryName() : "其他";
+                BigDecimal amount = detail.getAmount() != null ? detail.getAmount() : BigDecimal.ZERO;
+                stockInByMonth.computeIfAbsent(month, k -> new LinkedHashMap<>())
+                    .merge(category, amount, BigDecimal::add);
+            }
+
+            // 组装 summary（堆叠柱状图数据，含金额总计）
+            List<Map<String, Object>> stockInSummary = new ArrayList<>();
+            stockInByMonth.forEach((month, categoryMap) -> {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("月份", month);
+                BigDecimal total = BigDecimal.ZERO;
+                for (BigDecimal v : categoryMap.values()) total = total.add(v);
+                categoryMap.forEach((k, v) -> item.put(k, v));
+                item.put("金额总计", total);
+                stockInSummary.add(item);
+            });
+
+            // 组装 details（按月份+类别分组的入库明细）
+            List<StockInChartDetailDto> stockInDetails = new ArrayList<>();
+            stockInByMonth.forEach((month, categoryMap) ->
+                categoryMap.forEach((category, amount) -> {
+                    StockInChartDetailDto detail = new StockInChartDetailDto();
+                    detail.setMonth(month);
+                    detail.setCategory(category);
+                    detail.setRecords(chartDetails.stream()
+                        .filter(d -> inIdToMonthMap.containsKey(d.getInId()))
+                        .filter(d -> month.equals(inIdToMonthMap.get(d.getInId())))
+                        .filter(d -> category.equals(d.getCategoryName() != null ? d.getCategoryName() : "其他"))
+                        .map(d -> {
+                            StockInChartRecordDto r = toStockInChartRecord(d);
+                            StockIn si = inIdToStockInMap.get(d.getInId());
+                            if (si != null) {
+                                r.setInCode(si.getInCode());
+                                r.setInDate(si.getInDate() != null
+                                    ? si.getInDate().format(DATE_TIME_FORMATTER) : null);
+                            }
+                            return r;
+                        })
+                        .collect(Collectors.toList()));
+                    stockInDetails.add(detail);
+                })
+            );
+
+            ChartDataDto.StockInChartData stockInData = new ChartDataDto.StockInChartData();
+            stockInData.setSummary(stockInSummary);
+            stockInData.setDetails(stockInDetails);
+            chartData.setMonthlyStockInAmount(stockInData);
+
             return success(chartData);
         } catch (Exception e) {
             return exception(e, "操作");
@@ -974,6 +1059,24 @@ public class DashboardController extends BaseController {
         double price = stock.getUnitPrice() != null ? stock.getUnitPrice().doubleValue() : 0.0;
         dto.setTotalValue(BigDecimal.valueOf(Math.round(qty * price * 100.0) / 100.0));
         dto.setBatchNumber(stock.getBatchNumber());
+        return dto;
+    }
+
+    /**
+     * 将入库明细转换为入库金额图表记录DTO
+     *
+     * @param detail 入库明细
+     * @return 入库金额图表记录DTO
+     */
+    private StockInChartRecordDto toStockInChartRecord(StockInDetail detail) {
+        StockInChartRecordDto dto = new StockInChartRecordDto();
+        dto.setInDetailId(detail.getInDetailId());
+        dto.setItemCode(detail.getItemCode());
+        dto.setItemName(detail.getItemName());
+        dto.setCategoryName(detail.getCategoryName());
+        dto.setQuantity(detail.getQuantity());
+        dto.setUnitPrice(detail.getUnitPrice());
+        dto.setAmount(detail.getAmount());
         return dto;
     }
 
