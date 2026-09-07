@@ -18,10 +18,14 @@ public class InventoryChartDetailDto {
     // 数据字段
     // ===================================
 
-    /** 库存类别（如"原料"、"包材"） */
+    /**
+     * 库存类别（如"原料"、"包材"）
+     */
     private String category;
 
-    /** 该类别下的库存物品明细 */
+    /**
+     * 该类别下的库存物品明细
+     */
     private List<InventoryChartRecordDto> records;
 
     // endregion

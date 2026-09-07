@@ -18,13 +18,19 @@ public class RevenueChartDetailDto {
     // 数据字段
     // ===================================
 
-    /** 月份（如"8月"） */
+    /**
+     * 月份（如"8月"）
+     */
     private String month;
 
-    /** 剂型大类 */
+    /**
+     * 剂型大类
+     */
     private String dosageCategory;
 
-    /** 该剂型下的工单明细 */
+    /**
+     * 该剂型下的工单明细
+     */
     private List<RevenueChartRecordDto> records;
 
     // endregion

@@ -46,34 +46,55 @@ public class ChartDataDto {
 
     /**
      * 交付数量图表数据
+     * <p>包含月度聚合 summary 和按月份+剂型分组的 details</p>
      */
     @Data
     public static class DeliveryChartData {
-        /** 月度聚合数据（前端柱状图/折线图渲染） */
+
+        /**
+         * 月度聚合数据（前端柱状图/折线图渲染）
+         */
         private List<Map<String, Object>> summary;
-        /** 按月份+剂型分组的明细记录 */
+
+        /**
+         * 按月份+剂型分组的明细记录
+         */
         private List<DeliveryChartDetailDto> details;
     }
 
     /**
      * 预估产值图表数据
+     * <p>包含月度聚合 summary 和按月份+剂型分组的 details</p>
      */
     @Data
     public static class RevenueChartData {
-        /** 月度聚合数据（前端柱状图/折线图渲染） */
+
+        /**
+         * 月度聚合数据（前端柱状图/折线图渲染）
+         */
         private List<Map<String, Object>> summary;
-        /** 按月份+剂型分组的明细记录 */
+
+        /**
+         * 按月份+剂型分组的明细记录
+         */
         private List<RevenueChartDetailDto> details;
     }
 
     /**
      * 库存资金占用图表数据
+     * <p>包含按类别汇总的 summary 和按类别分组的 details</p>
      */
     @Data
     public static class InventoryChartData {
-        /** 按类别的总价值（前端饼图/环形图渲染） */
+
+        /**
+         * 按类别的总价值（前端饼图/环形图渲染）
+         */
         private Map<String, Double> summary;
-        /** 按类别分组的库存物品明细 */
+
+        /**
+         * 按类别分组的库存物品明细
+         */
         private List<InventoryChartDetailDto> details;
     }
 

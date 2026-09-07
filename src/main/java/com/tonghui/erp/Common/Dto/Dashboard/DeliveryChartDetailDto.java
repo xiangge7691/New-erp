@@ -18,13 +18,19 @@ public class DeliveryChartDetailDto {
     // 数据字段
     // ===================================
 
-    /** 月份（如"8月"） */
+    /**
+     * 月份（如"8月"）
+     */
     private String month;
 
-    /** 剂型大类（如"散剂"、"合剂"） */
+    /**
+     * 剂型大类（如"散剂"、"合剂"）
+     */
     private String dosageCategory;
 
-    /** 该剂型下的生产计划明细 */
+    /**
+     * 该剂型下的生产计划明细
+     */
     private List<DeliveryChartRecordDto> records;
 
     // endregion
