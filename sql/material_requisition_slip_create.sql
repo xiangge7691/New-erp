@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS material_requisition_slip_detail (
     actual_qty      DECIMAL(12,2) NULL     COMMENT '实发数量(药剂科填写)',
     batch_number    VARCHAR(50)   NULL     COMMENT '入库批号',
     unit_price      DECIMAL(10,2) NULL     COMMENT '单价(保留2位小数)',
+    remark          VARCHAR(500)  NULL     COMMENT '备注',
     is_deleted      TINYINT       NOT NULL DEFAULT 0 COMMENT '软删除标记',
     version         INT           NOT NULL DEFAULT 1 COMMENT '乐观锁版本号',
     INDEX idx_slip_id (slip_id)

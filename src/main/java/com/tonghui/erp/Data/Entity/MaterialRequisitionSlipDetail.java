@@ -98,6 +98,12 @@ public class MaterialRequisitionSlipDetail {
     @TableField(value = "unit_price")
     private BigDecimal unitPrice;
 
+    /**
+     * 备注
+     */
+    @TableField(value = "remark")
+    private String remark;
+
     // endregion
 
     // region 状态字段
