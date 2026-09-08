@@ -159,6 +159,46 @@ public class SequenceServiceImpl {
 
     // endregion
 
+    // region 领料单号生成
+    // ===================================
+    // 领料单号生成
+    // ===================================
+
+    /**
+     * 生成物料领料单号
+     * <p>
+     * 编号格式：LL + 年月日(8位) + 序号(3位)，例如：LL-20260908-001
+     * 通过查询当天领料单表中最大编号并递增生成，保证每天编号唯一
+     * </p>
+     *
+     * @return 生成的唯一领料单号
+     */
+    public String generateSlipCode() {
+        // 日期部分，格式为yyyyMMdd
+        String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        // 查询当天最大的领料单号并加1
+        try {
+            String maxCode = jdbcTemplate.queryForObject(
+                    "SELECT MAX(slip_code) FROM material_requisition_slip WHERE slip_code LIKE 'LL-" + dateStr + "%'",
+                    String.class);
+
+            if (maxCode != null) {
+                // 提取序号部分并加1，格式为LL-(2) + 日期(8位) = 前12位，从第12位开始是序号
+                String seqStr = maxCode.substring(12);
+                int seq = Integer.parseInt(seqStr);
+                return String.format("LL-%s-%03d", dateStr, seq + 1);
+            } else {
+                // 当天无记录，从1开始
+                return String.format("LL-%s-%03d", dateStr, 1);
+            }
+        } catch (Exception e) {
+            // 出现异常时返回默认值
+            return String.format("LL-%s-%03d", dateStr, 1);
+        }
+    }
+
+    // endregion
+
     // region 质量检验模块编号生成
     // ===================================
     // 质量检验模块编号生成

@@ -25,9 +25,11 @@ import com.tonghui.erp.Data.mapper.StockInDetailMapper;
 import com.tonghui.erp.Data.mapper.StockInMapper;
 import com.tonghui.erp.Data.mapper.UserMapper;
 import com.tonghui.erp.Service.AcceptanceOrderService;
+import com.tonghui.erp.Service.MaterialRequisitionSlipService;
 import com.tonghui.erp.Service.StockService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -89,6 +91,9 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
     /** 生产计划数据访问层，解析关联生产计划标题 */
     private final ProductionPlanMapper productionPlanMapper;
 
+    /** 领料单服务，验收单状态变更时回写领料单状态 */
+    private MaterialRequisitionSlipService materialRequisitionSlipService;
+
     /**
      * 构造函数注入依赖
      *
@@ -127,6 +132,15 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         this.userMapper = userMapper;
         this.productionUnitMapper = productionUnitMapper;
         this.productionPlanMapper = productionPlanMapper;
+    }
+
+    /**
+     * 设置领料单服务（setter注入，@Lazy打破循环依赖）
+     */
+    @Lazy
+    @Autowired
+    public void setMaterialRequisitionSlipService(MaterialRequisitionSlipService materialRequisitionSlipService) {
+        this.materialRequisitionSlipService = materialRequisitionSlipService;
     }
 
     // endregion
@@ -480,6 +494,9 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
 
         // 同步关联采购订单状态为"到货初验"
         syncPurchaseOrderStatus(acceptance);
+
+        // 同步关联领料单状态为"验收中"
+        syncMaterialRequisitionSlipStatus(acceptance, "验收中");
     }
 
     /**
@@ -553,6 +570,9 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
 
             // 同步关联采购订单状态为"已入库"（触发式闭环，与验收单状态一致）
             syncPurchaseOrderStatus(acceptance);
+
+            // 同步关联领料单状态为"已入库"
+            syncMaterialRequisitionSlipStatus(acceptance, "已入库");
 
             // 组装返回DTO：补全操作人姓名与仓库名称
             return buildStockInWithNames(stockIn);
@@ -921,6 +941,27 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         if (order != null && !acceptanceStatus.equals(String.valueOf(order.getStatus()))) {
             order.setStatus(acceptanceStatus);
             purchaseOrdersMapper.updateById(order);
+        }
+    }
+
+    /**
+     * 同步关联领料单状态
+     * <p>
+     * 按验收单关联的领料单ID（related_slip_id）定位领料单，
+     * 存在且领料单服务已注入时调用updateStatus回写状态；无关联领料单时静默跳过
+     * </p>
+     *
+     * @param acceptance     状态已变更的验收单
+     * @param targetStatus   目标状态
+     */
+    private void syncMaterialRequisitionSlipStatus(AcceptanceOrder acceptance, String targetStatus) {
+        if (acceptance.getRelatedSlipId() == null || materialRequisitionSlipService == null) {
+            return;
+        }
+        try {
+            materialRequisitionSlipService.updateStatus(acceptance.getRelatedSlipId(), targetStatus);
+        } catch (Exception e) {
+            // 领料单状态回写失败不影响验收单主流程
         }
     }
 

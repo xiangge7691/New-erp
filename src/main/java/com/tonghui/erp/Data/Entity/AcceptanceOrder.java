@@ -48,6 +48,12 @@ public class AcceptanceOrder extends AuditEntity {
     private String relatedOrder;
 
     /**
+     * 关联领料单ID（领料单自动生成验收单时回填）
+     */
+    @TableField(value = "related_slip_id")
+    private Long relatedSlipId;
+
+    /**
      * 关联采购计划编号
      */
     @TableField(value = "purchase_number")
