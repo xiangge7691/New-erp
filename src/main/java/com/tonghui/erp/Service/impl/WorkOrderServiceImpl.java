@@ -607,6 +607,40 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         
         return String.format("%s%04d", prefix, nextSeq);
     }
+
+    /**
+     * 查询生产中任务列表（供请检记录下拉选择）
+     * <p>
+     * 筛选状态为"生产中"的工单（configDate有值且configCompleteTime为空），
+     * 支持按关键字模糊匹配工单编号/制剂编码/制剂名称
+     * </p>
+     *
+     * @param keyword   关键字（可选）
+     * @param pageIndex 页码（从0开始）
+     * @param pageSize  每页大小
+     * @return 生产中任务分页结果
+     */
+    @Override
+    public Page<WorkOrder> getInProgressWorkOrders(String keyword, int pageIndex, int pageSize) {
+        int actualPageNum = pageIndex + 1;
+        Page<WorkOrder> page = new Page<>(actualPageNum, pageSize);
+        QueryWrapper<WorkOrder> wrapper = new QueryWrapper<>();
+
+        // 筛选"生产中"状态：configDate有值 且 configCompleteTime为空
+        wrapper.isNotNull("config_date");
+        wrapper.isNull("config_complete_time");
+        wrapper.eq("is_deleted", 0);
+
+        if (StringUtils.hasText(keyword)) {
+            wrapper.and(w -> w
+                    .like("work_order_code", keyword)
+                    .or().like("preparation_code", keyword)
+                    .or().like("preparation_name", keyword));
+        }
+
+        wrapper.orderByDesc("created_time");
+        return this.page(page, wrapper);
+    }
     
     // endregion
 }

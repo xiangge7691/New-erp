@@ -270,6 +270,19 @@ public class SequenceServiceImpl {
     }
 
     /**
+     * 生成请检编号
+     * <p>
+     * 编号格式：QJ + 日期(8位) + 序号(3位)，例如：QJ-20260908-001
+     * 通过查询当天请检记录表中最大编号并递增生成，保证每天编号唯一
+     * </p>
+     *
+     * @return 生成的唯一请检编号
+     */
+    public String generateInspectionRequestCode() {
+        return generateMaxCodeByPrefix("QJ");
+    }
+
+    /**
      * 通用编号生成器（绕过软删除过滤查询当天最大编号并递增）
      * <p>
      * 编号格式：{前缀}-{yyyyMMdd}-{3位序号}，通过原生SQL MAX查询当天的最大编号，
@@ -309,6 +322,11 @@ public class SequenceServiceImpl {
                 case "LY":
                     maxCode = jdbcTemplate.queryForObject(
                             "SELECT MAX(retained_code) FROM retained_sample WHERE retained_code LIKE 'LY-" + dateStr + "%'",
+                            String.class);
+                    break;
+                case "QJ":
+                    maxCode = jdbcTemplate.queryForObject(
+                            "SELECT MAX(inspection_code) FROM inspection_request WHERE inspection_code LIKE 'QJ-" + dateStr + "%'",
                             String.class);
                     break;
                 default:

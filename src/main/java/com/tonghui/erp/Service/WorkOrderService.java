@@ -78,4 +78,18 @@ public interface WorkOrderService extends IService<WorkOrder> {
      * @return 工单编号
      */
     String generateWorkOrderCode();
+
+    /**
+     * 查询生产中任务列表（供请检记录下拉选择）
+     * <p>
+     * 筛选状态为"生产中"的工单（configDate有值且configCompleteTime为空），
+     * 支持按关键字模糊匹配工单编号/制剂编码/制剂名称
+     * </p>
+     *
+     * @param keyword   关键字（可选，模糊匹配工单编号/制剂编码/制剂名称）
+     * @param pageIndex 页码（从0开始）
+     * @param pageSize  每页大小
+     * @return 生产中任务分页结果
+     */
+    Page<WorkOrder> getInProgressWorkOrders(String keyword, int pageIndex, int pageSize);
 }
