@@ -88,6 +88,18 @@ public class MaterialRequisitionSlip extends AuditEntity {
     @TableField(value = "apply_time")
     private LocalDateTime applyTime;
 
+    /**
+     * 物料类型（原料/辅料/包材）
+     */
+    @TableField(value = "material_type")
+    private String materialType;
+
+    /**
+     * 处方倍数
+     */
+    @TableField(value = "multiplier")
+    private java.math.BigDecimal multiplier;
+
     // endregion
 
     // region 状态与关联字段

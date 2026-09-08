@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS material_requisition_slip (
     to_dept               VARCHAR(100) NOT NULL COMMENT '发放科室(固定:医院药剂科)',
     applicant             VARCHAR(50)  NOT NULL COMMENT '领料人',
     apply_time            DATETIME     NOT NULL COMMENT '领料时间',
+    material_type         VARCHAR(20)  NULL     COMMENT '物料类型(原料/辅料/包材)',
+    multiplier            DECIMAL(10,2) NULL    COMMENT '处方倍数',
     status                VARCHAR(20)  NOT NULL DEFAULT '待发放' COMMENT '状态(待发放/验收中/已入库/已作废)',
     acceptance_order_id   BIGINT       NULL     COMMENT '关联验收单ID',
     remark                VARCHAR(500) NULL     COMMENT '备注',
