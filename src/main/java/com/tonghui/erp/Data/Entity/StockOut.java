@@ -71,6 +71,12 @@ public class StockOut extends AuditEntity {
     @TableField(value = "plan_number")
     private String planNumber;
 
+    /**
+     * 关联制剂名称（查询时从 production_plan 回填，非表字段）
+     */
+    @TableField(exist = false)
+    private String preparationName;
+
     // endregion
 
     // region 业务字段

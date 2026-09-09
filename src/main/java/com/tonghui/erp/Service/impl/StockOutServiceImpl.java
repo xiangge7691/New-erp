@@ -613,6 +613,17 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
                 }
             });
         }
+
+        // 批量解析关联制剂名称（通过 plan_number 关联 production_plan）
+        if (!records.isEmpty()) {
+            Map<String, String> preparationNameMap = loadPreparationNameMapByPlanNumber(records);
+            records.forEach(r -> {
+                if (StringUtils.hasText(r.getPlanNumber())) {
+                    r.setPreparationName(preparationNameMap.get(r.getPlanNumber()));
+                }
+            });
+        }
+
         return result;
     }
 
@@ -633,6 +644,31 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         }
         return userMapper.selectBatchIds(userIds).stream()
                 .collect(Collectors.toMap(com.tonghui.erp.Data.Entity.User::getUserId, u -> u, (a, b) -> a));
+    }
+
+    /**
+     * 批量加载关联制剂名称映射（通过出库单 plan_number 关联生产计划）
+     *
+     * @param records 出库单列表
+     * @return 生产计划编号到制剂名称的映射，无数据时返回空映射
+     */
+    private Map<String, String> loadPreparationNameMapByPlanNumber(List<StockOut> records) {
+        List<String> planNumbers = records.stream()
+                .map(StockOut::getPlanNumber)
+                .filter(StringUtils::hasText)
+                .distinct()
+                .collect(Collectors.toList());
+        if (planNumbers.isEmpty()) {
+            return Map.of();
+        }
+        QueryWrapper<ProductionPlan> wrapper = new QueryWrapper<>();
+        wrapper.in("plan_number", planNumbers);
+        wrapper.select("plan_number", "preparation_name");
+        return productionPlanMapper.selectList(wrapper).stream()
+                .collect(Collectors.toMap(
+                        ProductionPlan::getPlanNumber,
+                        p -> p.getPreparationName() != null ? p.getPreparationName() : "",
+                        (a, b) -> a));
     }
 
     // endregion

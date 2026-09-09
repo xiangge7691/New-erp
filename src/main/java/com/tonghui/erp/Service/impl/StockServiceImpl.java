@@ -11,6 +11,7 @@ import com.tonghui.erp.Common.Dto.Stock.StockGroupedDto;
 import com.tonghui.erp.Common.Dto.Stock.StockTransactionDto;
 import com.tonghui.erp.Common.Dto.Stock.StockWithDetailsDto;
 import com.tonghui.erp.Data.Entity.CheckOrder;
+import com.tonghui.erp.Data.Entity.ProductionPlan;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Data.Entity.ReturnOrder;
 import com.tonghui.erp.Data.Entity.Stock;
@@ -22,6 +23,7 @@ import com.tonghui.erp.Data.Entity.StockTransaction;
 import com.tonghui.erp.Data.Entity.TransferOrder;
 import com.tonghui.erp.Data.Entity.User;
 import com.tonghui.erp.Data.mapper.CheckOrderMapper;
+import com.tonghui.erp.Data.mapper.ProductionPlanMapper;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Data.mapper.ReturnOrderMapper;
 import com.tonghui.erp.Data.mapper.StockInMapper;
@@ -99,6 +101,10 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
     /** 出库单数据访问层，用于解析出库流水对应的出库单号 */
     @Autowired
     private StockOutMapper stockOutMapper;
+
+    /** 生产计划数据访问层，用于解析关联制剂名称 */
+    @Autowired
+    private ProductionPlanMapper productionPlanMapper;
 
     // endregion
 
@@ -182,7 +188,20 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
             wrapper.le("updated_time", updatedTimeEnd);
         }
 
-        return this.getBaseMapper().selectPage(page, wrapper);
+        Page<Stock> result = this.getBaseMapper().selectPage(page, wrapper);
+
+        // 批量解析关联制剂名称（通过 plan_number 关联 production_plan）
+        List<Stock> records = result.getRecords();
+        if (!records.isEmpty()) {
+            Map<String, String> preparationNameMap = loadPreparationNameMapByPlanNumber(records);
+            records.forEach(r -> {
+                if (StringUtils.hasText(r.getPlanNumber())) {
+                    r.setPreparationName(preparationNameMap.get(r.getPlanNumber()));
+                }
+            });
+        }
+
+        return result;
     }
 
     /**
@@ -773,6 +792,9 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
         // 仓库名称映射（一次性查询生产单位表）
         Map<Long, String> unitNames = loadUnitNames(allStocks);
 
+        // 批量解析关联制剂名称（通过 plan_number 关联 production_plan）
+        Map<String, String> preparationNameMap = loadPreparationNameMapByPlanNumber(allStocks);
+
         // 按物料编码分组
         Map<String, List<Stock>> grouped = allStocks.stream()
                 .collect(Collectors.groupingBy(Stock::getItemCode));
@@ -784,6 +806,12 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
             dto.setItemName(first.getItemName());
             dto.setCategoryName(first.getCategoryName());
             dto.setUnitName(first.getUnitName());
+            // 关联制剂名称（取组内第一个有值的）
+            String prepName = batchStocks.stream()
+                    .map(s -> preparationNameMap.get(s.getPlanNumber()))
+                    .filter(StringUtils::hasText)
+                    .findFirst().orElse(null);
+            dto.setPreparationName(prepName);
             // 总库存 = 所有批次数量之和
             dto.setTotalQuantity(batchStocks.stream()
                     .map(Stock::getQuantity)
@@ -841,6 +869,31 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
         return productionUnitMapper.selectList(wrapper).stream()
                 .collect(Collectors.toMap(ProductionUnit::getProdUnitId,
                         ProductionUnit::getProdUnitName, (a, b) -> a));
+    }
+
+    /**
+     * 批量加载关联制剂名称映射（通过库存 plan_number 关联生产计划）
+     *
+     * @param stocks 库存列表
+     * @return 生产计划编号到制剂名称的映射
+     */
+    private Map<String, String> loadPreparationNameMapByPlanNumber(List<Stock> stocks) {
+        List<String> planNumbers = stocks.stream()
+                .map(Stock::getPlanNumber)
+                .filter(StringUtils::hasText)
+                .distinct()
+                .collect(Collectors.toList());
+        if (planNumbers.isEmpty()) {
+            return Map.of();
+        }
+        QueryWrapper<ProductionPlan> wrapper = new QueryWrapper<>();
+        wrapper.in("plan_number", planNumbers);
+        wrapper.select("plan_number", "preparation_name");
+        return productionPlanMapper.selectList(wrapper).stream()
+                .collect(Collectors.toMap(
+                        ProductionPlan::getPlanNumber,
+                        p -> p.getPreparationName() != null ? p.getPreparationName() : "",
+                        (a, b) -> a));
     }
 
     // endregion

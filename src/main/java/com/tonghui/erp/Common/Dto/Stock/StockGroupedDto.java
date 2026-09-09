@@ -36,6 +36,11 @@ public class StockGroupedDto {
     private String unitName;
 
     /**
+     * 关联制剂名称
+     */
+    private String preparationName;
+
+    /**
      * 总库存数量（所有批次之和）
      */
     private BigDecimal totalQuantity;

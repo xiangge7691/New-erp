@@ -6,10 +6,12 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Stock.StockInWithDetailsDto;
+import com.tonghui.erp.Data.Entity.AcceptanceOrder;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.Entity.StockInDetail;
 import com.tonghui.erp.Data.Entity.User;
+import com.tonghui.erp.Data.mapper.AcceptanceOrderMapper;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Data.mapper.StockInMapper;
 import com.tonghui.erp.Data.mapper.StockInDetailMapper;
@@ -62,6 +64,9 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
     /** 生产单位数据访问层，解析仓库名称 */
     private final ProductionUnitMapper productionUnitMapper;
 
+    /** 验收单数据访问层，解析关联制剂名称 */
+    private final AcceptanceOrderMapper acceptanceOrderMapper;
+
     /**
      * 构造函数注入依赖
      *
@@ -71,6 +76,7 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
      * @param stockService        库存服务
      * @param userMapper          用户数据访问层
      * @param productionUnitMapper 生产单位数据访问层
+     * @param acceptanceOrderMapper 验收单数据访问层
      */
     @Autowired
     public StockInServiceImpl(StockInMapper stockInMapper,
@@ -78,13 +84,15 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
                               SequenceServiceImpl sequenceService,
                               StockService stockService,
                               UserMapper userMapper,
-                              ProductionUnitMapper productionUnitMapper) {
+                              ProductionUnitMapper productionUnitMapper,
+                              AcceptanceOrderMapper acceptanceOrderMapper) {
         this.stockInMapper = stockInMapper;
         this.stockInDetailMapper = stockInDetailMapper;
         this.sequenceService = sequenceService;
         this.stockService = stockService;
         this.userMapper = userMapper;
         this.productionUnitMapper = productionUnitMapper;
+        this.acceptanceOrderMapper = acceptanceOrderMapper;
     }
 
     // endregion
@@ -582,11 +590,18 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
         Map<Long, User> userMap = loadUserMap(parents);
         Map<Long, ProductionUnit> unitMap = loadProductionUnitMap(parents);
 
+        // 批量解析关联制剂名称（通过 related_order 关联 acceptance_order.acceptance_code）
+        Map<String, String> preparationNameMap = loadPreparationNameMap(parents);
+
         // 组装带子表数据的DTO
         List<StockInWithDetailsDto> dtos = parents.stream().map(parent -> {
             StockInWithDetailsDto dto = new StockInWithDetailsDto();
             BeanUtils.copyProperties(parent, dto);
             dto.setDetails(detailsMap.getOrDefault(parent.getInId(), List.of()));
+            // 回填关联制剂名称
+            if (StringUtils.hasText(parent.getRelatedOrder())) {
+                dto.setPreparationName(preparationNameMap.get(parent.getRelatedOrder()));
+            }
             // 回填操作人姓名/更新人姓名（取userName，空则回退userAccount）
             if (parent.getCreatedBy() != null) {
                 User creator = userMap.get(parent.getCreatedBy());
@@ -655,6 +670,31 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
         }
         return productionUnitMapper.selectBatchIds(unitIds).stream()
                 .collect(Collectors.toMap(ProductionUnit::getProdUnitId, u -> u, (a, b) -> a));
+    }
+
+    /**
+     * 批量加载关联制剂名称映射（通过入库单 related_order 关联验收单 acceptance_code）
+     *
+     * @param parents 入库单列表
+     * @return 验收单号到制剂名称的映射，无数据时返回空映射
+     */
+    private Map<String, String> loadPreparationNameMap(List<StockIn> parents) {
+        List<String> acceptanceCodes = parents.stream()
+                .map(StockIn::getRelatedOrder)
+                .filter(StringUtils::hasText)
+                .distinct()
+                .collect(Collectors.toList());
+        if (acceptanceCodes.isEmpty()) {
+            return Map.of();
+        }
+        QueryWrapper<AcceptanceOrder> wrapper = new QueryWrapper<>();
+        wrapper.in("acceptance_code", acceptanceCodes);
+        wrapper.select("acceptance_code", "preparation_name");
+        return acceptanceOrderMapper.selectList(wrapper).stream()
+                .collect(Collectors.toMap(
+                        AcceptanceOrder::getAcceptanceCode,
+                        a -> a.getPreparationName() != null ? a.getPreparationName() : "",
+                        (a, b) -> a));
     }
 
     // endregion

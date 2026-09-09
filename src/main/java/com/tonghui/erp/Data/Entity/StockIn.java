@@ -77,6 +77,12 @@ public class StockIn extends AuditEntity {
     @TableField(value = "plan_title")
     private String planTitle;
 
+    /**
+     * 关联制剂名称（查询时从 acceptance_order 回填，非表字段）
+     */
+    @TableField(exist = false)
+    private String preparationName;
+
     // endregion
 
     // region 业务字段

@@ -139,6 +139,38 @@ public class ReturnOrderServiceImpl extends ServiceImpl<ReturnOrderMapper, Retur
                     .collect(Collectors.toList());
             Map<String, String> planNameMap = resolvePlanNames(planNos);
             records.forEach(r -> r.setProductionPlanName(planNameMap.get(r.getProductionPlanNo())));
+
+            // 批量解析关联制剂名称（两步：out_order_no → stock_out.plan_number → production_plan.preparation_name）
+            List<String> outOrderNos = records.stream()
+                    .map(ReturnOrder::getOutOrderNo)
+                    .filter(StringUtils::hasText)
+                    .distinct()
+                    .collect(Collectors.toList());
+            if (!outOrderNos.isEmpty()) {
+                // 第一步：通过 out_order_no 查询 stock_out 获取 plan_number
+                QueryWrapper<StockOut> outWrapper = new QueryWrapper<>();
+                outWrapper.in("out_code", outOrderNos);
+                outWrapper.select("out_code", "plan_number");
+                Map<String, String> outToPlanMap = stockOutMapper.selectList(outWrapper).stream()
+                        .collect(Collectors.toMap(StockOut::getOutCode, so -> so.getPlanNumber() != null ? so.getPlanNumber() : "", (a, b) -> a));
+
+                // 第二步：通过 plan_number 查询 production_plan 获取 preparation_name
+                List<String> linkedPlanNumbers = outToPlanMap.values().stream()
+                        .filter(StringUtils::hasText)
+                        .distinct()
+                        .collect(Collectors.toList());
+                if (!linkedPlanNumbers.isEmpty()) {
+                    Map<String, String> planToPrepNameMap = resolvePreparationNames(linkedPlanNumbers);
+                    records.forEach(r -> {
+                        if (StringUtils.hasText(r.getOutOrderNo())) {
+                            String planNo = outToPlanMap.get(r.getOutOrderNo());
+                            if (StringUtils.hasText(planNo)) {
+                                r.setPreparationName(planToPrepNameMap.get(planNo));
+                            }
+                        }
+                    });
+                }
+            }
         }
         return result;
     }
@@ -575,6 +607,25 @@ public class ReturnOrderServiceImpl extends ServiceImpl<ReturnOrderMapper, Retur
             return null;
         }
         return resolvePlanNames(List.of(planNumber)).getOrDefault(planNumber, null);
+    }
+
+    /**
+     * 批量解析生产计划编号对应的制剂名称
+     *
+     * @param planNumbers 生产计划编号集合
+     * @return 生产计划编号 → 制剂名称
+     */
+    private Map<String, String> resolvePreparationNames(List<String> planNumbers) {
+        if (planNumbers == null || planNumbers.isEmpty()) {
+            return new HashMap<>();
+        }
+        QueryWrapper<ProductionPlan> wrapper = new QueryWrapper<>();
+        wrapper.in("plan_number", planNumbers);
+        wrapper.select("plan_number", "preparation_name");
+        return productionPlanMapper.selectList(wrapper).stream().collect(Collectors.toMap(
+                ProductionPlan::getPlanNumber,
+                p -> p.getPreparationName() != null ? p.getPreparationName() : "",
+                (a, b) -> a));
     }
 
     /**

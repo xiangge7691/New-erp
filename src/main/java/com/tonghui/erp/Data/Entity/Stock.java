@@ -133,6 +133,12 @@ public class Stock extends AuditEntity {
     private String planNumber;
 
     /**
+     * 关联制剂名称（查询时从 production_plan 回填，非表字段）
+     */
+    @TableField(exist = false)
+    private String preparationName;
+
+    /**
      * 库存状态
      */
     @TableField(value = "stock_status")
