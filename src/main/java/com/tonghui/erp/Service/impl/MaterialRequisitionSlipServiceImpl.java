@@ -235,6 +235,15 @@ public class MaterialRequisitionSlipServiceImpl extends ServiceImpl<MaterialRequ
         List<MaterialRequisitionSlipDetail> details = getDetailsBySlipId(slipId);
         dto.setDetails(details);
 
+        // 回填关联验收单号
+        if (slip.getAcceptanceOrderId() != null) {
+            com.tonghui.erp.Data.Entity.AcceptanceOrder acceptance =
+                    acceptanceOrderService.getAcceptanceById(slip.getAcceptanceOrderId());
+            if (acceptance != null) {
+                dto.setAcceptanceCode(acceptance.getAcceptanceCode());
+            }
+        }
+
         return dto;
     }
 
@@ -309,11 +318,29 @@ public class MaterialRequisitionSlipServiceImpl extends ServiceImpl<MaterialRequ
         Map<Long, List<MaterialRequisitionSlipDetail>> detailsMap = allDetails.stream()
                 .collect(Collectors.groupingBy(MaterialRequisitionSlipDetail::getSlipId));
 
+        // 批量查询关联验收单号
+        List<Long> acceptanceIds = parents.stream()
+                .map(MaterialRequisitionSlip::getAcceptanceOrderId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        Map<Long, String> acceptanceCodeMap = Map.of();
+        if (!acceptanceIds.isEmpty()) {
+            List<com.tonghui.erp.Data.Entity.AcceptanceOrder> acceptances = acceptanceOrderService.listByIds(acceptanceIds);
+            acceptanceCodeMap = acceptances.stream()
+                    .collect(Collectors.toMap(
+                            com.tonghui.erp.Data.Entity.AcceptanceOrder::getAcceptanceId,
+                            com.tonghui.erp.Data.Entity.AcceptanceOrder::getAcceptanceCode,
+                            (a, b) -> a));
+        }
+
         // 组装带子表数据的DTO
+        Map<Long, String> finalAcceptanceCodeMap = acceptanceCodeMap;
         return parents.stream().map(parent -> {
             MaterialRequisitionSlipWithDetailsDto dto = new MaterialRequisitionSlipWithDetailsDto();
             BeanUtils.copyProperties(parent, dto);
             dto.setDetails(detailsMap.getOrDefault(parent.getId(), List.of()));
+            dto.setAcceptanceCode(finalAcceptanceCodeMap.get(parent.getAcceptanceOrderId()));
             return dto;
         }).collect(Collectors.toList());
     }
