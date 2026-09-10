@@ -1,0 +1,53 @@
+package com.tonghui.erp.Common.Config;
+
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
+
+/**
+ * JWT配置类
+ * <p>
+ * 从application.yml中读取JWT相关配置属性，包括密钥、签发者、
+ * 受众、过期时间等
+ * </p>
+ */
+@Data
+@Component
+@ConfigurationProperties(prefix = "jwt")
+public class JwtConfig {
+    
+    // region 配置属性
+    // ===================================
+    // 配置属性
+    // ===================================
+    
+    /**
+     * JWT密钥 - 用于签名和验证JWT令牌
+     * 注意：在生产环境中应使用更安全的密钥，并从环境变量或配置中心获取
+     */
+    private String secretKey = "default_secret_key_which_should_be_replaced";
+    
+    /**
+     * JWT签发者 - 标识此JWT由哪个系统或服务签发
+     */
+    private String issuer = "ErpSys";
+    
+    /**
+     * JWT受众 - 标识此JWT的目标接收方
+     */
+    private String audience = "ErpSysUsers";
+    
+    /**
+     * JWT过期时间 - 单位：分钟
+     * 默认值：2147483647分钟（约4085年，相当于无限时长）
+     */
+    private int expiresInMinutes = 2147483647;
+    
+    /**
+     * 刷新令牌过期时间 - 单位：分钟
+     * 默认值：2147483647分钟（约4085年，相当于无限时长）
+     */
+    private int refreshExpiresInMinutes = 2147483647;
+
+    // endregion
+}

@@ -1,0 +1,143 @@
+package com.tonghui.erp.Data.Entity;
+
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+/**
+ * 入库主表
+ * @TableName stock_in
+ */
+@TableName(value ="stock_in")
+@Data
+@EqualsAndHashCode(callSuper = true)
+public class StockIn extends AuditEntity {
+
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
+    /**
+     * 入库单唯一标识
+     */
+    @TableId(value = "in_id", type = IdType.AUTO)
+    private Long inId;
+
+    /**
+     * 入库单号（唯一）
+     */
+    @TableField(value = "in_code")
+    private String inCode;
+
+    /**
+     * 入库类型：采购入库/成品入库/直接入库（对齐前端入库管理页面枚举）
+     */
+    @TableField(value = "in_type")
+    private String inType;
+
+    /**
+     * 入库仓库（生产单位ID）
+     */
+    @TableField(value = "prod_unit_id")
+    private Long prodUnitId;
+
+    /**
+     * 供应商ID（如果是采购入库）
+     */
+    @TableField(value = "supplier_id")
+    private Long supplierId;
+
+    /**
+     * 关联单号（采购单号、生产批号等）
+     */
+    @TableField(value = "related_order")
+    private String relatedOrder;
+
+    /**
+     * 关联生产计划编号（人工填写，对应 production_plan.plan_number）
+     */
+    @TableField(value = "plan_number")
+    private String planNumber;
+
+    /**
+     * 关联采购单标题（对应 purchase_orders.title）
+     */
+    @TableField(value = "related_order_title")
+    private String relatedOrderTitle;
+
+    /**
+     * 关联生产计划标题（对应 production_plan.plan_name）
+     */
+    @TableField(value = "plan_title")
+    private String planTitle;
+
+    /**
+     * 关联制剂名称（查询时从 acceptance_order 回填，非表字段）
+     */
+    @TableField(exist = false)
+    private String preparationName;
+
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
+
+    /**
+     * 入库日期（精确到时分秒）
+     */
+    @TableField(value = "in_date")
+    private LocalDateTime inDate;
+
+    /**
+     * 入库总金额
+     */
+    @TableField(value = "total_amount")
+    private BigDecimal totalAmount;
+
+    /**
+     * 状态：草稿/已确认/已完成/已取消
+     */
+    @TableField(value = "in_status")
+    private String inStatus;
+
+    /**
+     * 备注
+     */
+    @TableField(value = "remark")
+    private String remark;
+
+    /**
+     * 审批实例ID
+     */
+    @TableField(value = "approval_instance_id")
+    private Long approvalInstanceId;
+
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
+    /**
+     * 是否已删除
+     */
+    @TableField(value = "is_deleted")
+    private Integer isDeleted;
+
+    /**
+     * 乐观锁版本号
+     */
+    @TableField(value = "version")
+    private Integer version;
+
+    // endregion
+}

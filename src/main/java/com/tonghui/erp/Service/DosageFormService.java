@@ -1,0 +1,55 @@
+package com.tonghui.erp.Service;
+
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.tonghui.erp.Common.Dto.DosageForm.DosageFormWithDetailsDto;
+import com.tonghui.erp.Common.Dto.PageRequestDto;
+import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Data.Entity.DosageForm;
+
+import java.util.List;
+
+/**
+ * 药品剂型服务接口
+ * <p>
+ * 针对表【dosage_form(药品剂型分类表)】的数据库操作Service接口，提供药品剂型的增删改查等业务逻辑接口
+ * </p>
+ */
+public interface DosageFormService extends IService<DosageForm> {
+    
+    // region 剂型查询方法
+    // ===================================
+    // 剂型查询方法
+    // ===================================
+    
+    /**
+     * 根据剂型大类模糊查询（分页）
+     *
+     * @param dosageCategory 剂型大类（模糊匹配），为空时查询所有
+     * @param pageRequest 分页参数，包含页码和每页数量等信息
+     * @return 分页结果，包含查询到的剂型列表和分页信息
+     */
+    PagedResult<DosageForm> searchByName(String dosageCategory, PageRequestDto pageRequest);
+
+    Page<DosageForm> queryDosageForms(DosageForm dosageForm, int pageNum, int pageSize);
+
+    PagedResult<DosageFormWithDetailsDto> searchWithDetails(DosageForm dosageForm, int pageNum, int pageSize);
+
+    /**
+     * 清理指定剂型大类下已被软删除的记录（释放唯一键约束）
+     *
+     * @param dosageCategory 剂型大类
+     * @return 清理的记录数
+     */
+    int cleanSoftDeletedByDosageCategory(String dosageCategory);
+
+    /**
+     * 根据剂型大类查询去重后的剂型名称列表
+     *
+     * @param dosageCategory 剂型大类
+     * @return 去重后的剂型名称列表
+     */
+    List<String> getDistinctDosageNamesByCategory(String dosageCategory);
+
+    // endregion
+}

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.PurchaseOrderItemsMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.PurchaseOrderItems">
+            <id property="id" column="id" />
+            <result property="orderId" column="order_id" />
+            <result property="sequenceNumber" column="sequence_number" />
+            <result property="productName" column="product_name" />
+            <result property="rawMaterialName" column="raw_material_name" />
+            <result property="dose" column="dose" />
+            <result property="unit" column="unit" />
+            <result property="processingProperty" column="processing_property" />
+            <result property="stock" column="stock" />
+            <result property="purchaseQuantity" column="purchase_quantity" />
+            <result property="difference" column="difference" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,order_id,sequence_number,product_name,raw_material_name,dose,
+        unit,processing_property,stock,purchase_quantity,difference
+    </sql>
+</mapper>

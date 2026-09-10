@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.StockOutSequenceMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.StockOutSequence">
+            <id property="seqDate" column="seq_date" />
+            <result property="seqNumber" column="seq_number" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        seq_date,seq_number
+    </sql>
+</mapper>

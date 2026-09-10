@@ -1,0 +1,141 @@
+package com.tonghui.erp.Data.Entity;
+
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+/**
+ * 审批节点定义
+ * @TableName approval_node
+ */
+@TableName(value ="approval_node")
+@Data
+@EqualsAndHashCode(callSuper = true)
+public class ApprovalNode extends AuditEntity {
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
+    /**
+     * 主键ID
+     */
+    @TableId(value = "id", type = IdType.AUTO)
+    private Long id;
+
+    /**
+     * 流程ID
+     */
+    @TableField(value = "workflow_id")
+    private Long workflowId;
+
+    /**
+     * 节点名称
+     */
+    @TableField(value = "node_name")
+    private String nodeName;
+
+    /**
+     * 节点顺序
+     */
+    @TableField(value = "node_order")
+    private Integer nodeOrder;
+
+    /**
+     * 审批角色ID
+     */
+    @TableField(value = "role_id")
+    private Long roleId;
+
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
+
+    /**
+     * 是否需要绑定业务
+     */
+    @TableField(value = "need_bind_business")
+    private Boolean needBindBusiness;
+
+    /**
+     * 创建绑定类型
+     */
+    @TableField(value = "bind_type")
+    private String bindType;
+
+    /**
+     * 进入节点提示
+     */
+    @TableField(value = "enter_node_prompt")
+    private String enterNodePrompt;
+
+    /**
+     * 通过后业务状态
+     */
+    @TableField(value = "after_pass_status")
+    private String afterPassStatus;
+
+    /**
+     * 驳回提示
+     */
+    @TableField(value = "reject_prompt")
+    private String rejectPrompt;
+
+    /**
+     * 驳回后业务状态（用于配置驳回时业务单据的目标状态）
+     */
+    @TableField(value = "after_reject_status")
+    private String afterRejectStatus;
+
+    /**
+     * 驳回到哪个节点（为null时驳回到第一个节点）
+     */
+    @TableField(value = "reject_to_node_id")
+    private Long rejectToNodeId;
+
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
+    /**
+     * 是否已删除
+     */
+    @TableField(value = "is_deleted")
+    private Integer isDeleted;
+
+    /**
+     * 乐观锁版本号
+     */
+    @TableField(value = "version")
+    private Integer version;
+
+    // endregion
+
+    // region 关联表显示字段
+    // ===================================
+    // 关联表显示字段
+    // ===================================
+
+    /**
+     * 流程名称（关联approval_workflow表）
+     */
+    @TableField(exist = false)
+    private String workflowName;
+
+    /**
+     * 角色名称（关联role表）
+     */
+    @TableField(exist = false)
+    private String roleName;
+
+    // endregion
+}

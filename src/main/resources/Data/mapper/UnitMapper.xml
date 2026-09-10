@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.UnitMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.Unit">
+            <id property="unitId" column="unit_id" />
+            <result property="unitName" column="unit_name" />
+            <result property="symbol" column="symbol" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        unit_id,unit_name,symbol
+    </sql>
+</mapper>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.FileInfoMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.FileInfo">
+            <id property="fileId" column="file_id" />
+            <result property="originalName" column="original_name" />
+            <result property="storedName" column="stored_name" />
+            <result property="filePath" column="file_path" />
+            <result property="fileSize" column="file_size" />
+            <result property="contentType" column="content_type" />
+            <result property="fileExtension" column="file_extension" />
+            <result property="fileMd5" column="file_md5" />
+            <result property="category" column="category" />
+            <result property="description" column="description" />
+            <result property="fileUrl" column="file_url" />
+            <result property="storageType" column="storage_type" />
+            <result property="businessId" column="business_id" />
+            <result property="businessType" column="business_type" />
+            <result property="createdBy" column="created_by" />
+            <result property="createdTime" column="created_time" />
+            <result property="updatedTime" column="updated_time" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        file_id,original_name,stored_name,file_path,file_size,content_type,
+        file_extension,file_md5,category,description,file_url,
+        storage_type,business_id,business_type,created_by,created_time,
+        updated_time
+    </sql>
+</mapper>

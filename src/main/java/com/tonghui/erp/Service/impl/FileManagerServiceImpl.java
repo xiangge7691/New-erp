@@ -1,0 +1,1142 @@
+package com.tonghui.erp.Service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Config.FileStorageConfig;
+import com.tonghui.erp.Common.Dto.FileManager.DirectoryListingDto;
+import com.tonghui.erp.Common.Dto.FileManager.FileItemDto;
+import com.tonghui.erp.Common.Dto.FileManager.FileSearchRequestDto;
+import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.utils.DateTimeUtils;
+import com.tonghui.erp.Common.utils.EntityUtils;
+import com.tonghui.erp.Data.Entity.FileInfo;
+import com.tonghui.erp.Data.Entity.FileOperationLog;
+import com.tonghui.erp.Data.Entity.User;
+import com.tonghui.erp.Data.mapper.FileInfoMapper;
+import com.tonghui.erp.Data.mapper.FileOperationLogMapper;
+import com.tonghui.erp.Data.mapper.UserMapper;
+import com.tonghui.erp.Service.FileManagerService;
+import com.tonghui.erp.Service.FileOperationLogService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.*;
+import java.nio.file.attribute.FileTime;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+
+/**
+ * 文件管理器服务实现
+ */
+@Service
+public class FileManagerServiceImpl implements FileManagerService {
+
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
+    @Autowired
+    private FileStorageConfig fileStorageConfig;
+
+    @Autowired
+    private FileInfoMapper fileInfoMapper;
+
+    @Autowired
+    private FileOperationLogService fileOperationLogService;
+
+    /**
+     * 文件操作日志Mapper
+     */
+    @Autowired
+    private FileOperationLogMapper fileOperationLogMapper;
+
+    @Autowired
+    private UserMapper userMapper;
+
+    // endregion
+
+    // region 常量定义
+    // ===================================
+    // 常量定义
+    // ===================================
+
+    /** 业务文件根目录类型 */
+    private static final String ROOT_BUSINESS = "business";
+
+    /** 自定义文件根目录类型 */
+    private static final String ROOT_CUSTOM = "custom";
+
+    /** 回收站目录名（隐藏目录） */
+    private static final String RECYCLE_BIN_DIR = ".recycle-bin";
+
+    /** 操作类型常量 */
+    private static final String OP_UPLOAD = "UPLOAD";
+    private static final String OP_DOWNLOAD = "DOWNLOAD";
+    private static final String OP_PREVIEW = "PREVIEW";
+    private static final String OP_CREATE_FOLDER = "CREATE_FOLDER";
+    private static final String OP_DELETE = "DELETE";
+    private static final String OP_RESTORE = "RESTORE";
+    private static final String OP_RENAME = "RENAME";
+    private static final String OP_MOVE = "MOVE";
+    private static final String OP_COPY = "COPY";
+
+    // endregion
+
+    // region 目录操作
+    // ===================================
+    // 目录操作
+    // ===================================
+
+    @Override
+    public DirectoryListingDto listDirectory(String relativePath, String root) {
+        Path basePath = resolveRootPath(root);
+        Path targetDir = resolveSafePath(relativePath, root);
+
+        DirectoryListingDto result = new DirectoryListingDto();
+        result.setCurrentPath(normalizePath(relativePath));
+        result.setParentPath(getParentPath(relativePath));
+
+        List<FileItemDto> folders = new ArrayList<>();
+        List<FileItemDto> files = new ArrayList<>();
+
+        if (Files.exists(targetDir) && Files.isDirectory(targetDir)) {
+            try (Stream<Path> stream = Files.list(targetDir)) {
+                stream.filter(path -> !path.getFileName().toString().equals(RECYCLE_BIN_DIR))
+                    .sorted(Comparator.comparing(p -> p.getFileName().toString()))
+                    .forEach(path -> {
+                        FileItemDto item = new FileItemDto();
+                        String diskName = path.getFileName().toString();
+                        String displayName = Files.isDirectory(path) ? diskName : getOriginalName(path, diskName);
+                        item.setName(displayName);
+                        item.setPath(normalizePath(basePath.relativize(path).toString()));
+
+                        if (Files.isDirectory(path)) {
+                            item.setDirectory(true);
+                            item.setSize(calculateFolderSize(path));
+                            item.setIconType("folder");
+                            try {
+                                item.setModifiedTime(formatTime(Files.getLastModifiedTime(path)));
+                            } catch (IOException e) {
+                                item.setModifiedTime("");
+                            }
+                            folders.add(item);
+                        } else {
+                            item.setDirectory(false);
+                            try {
+                                item.setSize(Files.size(path));
+                            } catch (IOException e) {
+                                item.setSize(0L);
+                            }
+                            item.setExtension(getExtension(displayName));
+                            item.setIconType(getIconType(item.getExtension()));
+                            try {
+                                item.setModifiedTime(formatTime(Files.getLastModifiedTime(path)));
+                            } catch (IOException e) {
+                                item.setModifiedTime("");
+                            }
+                            files.add(item);
+                        }
+                    });
+            } catch (IOException e) {
+                throw new RuntimeException("读取目录失败: " + e.getMessage());
+            }
+        }
+
+        result.setFolders(folders);
+        result.setFiles(files);
+        return result;
+    }
+
+    @Override
+    public void createFolder(String parentPath, String folderName, String root) {
+        validatePath(folderName);
+        Path dir = resolveSafePath(parentPath, root).resolve(folderName);
+        try {
+            Files.createDirectories(dir);
+        } catch (IOException e) {
+            throw new RuntimeException("创建文件夹失败: " + e.getMessage());
+        }
+        String path = normalizePath(StringUtils.hasText(parentPath) ? parentPath + "/" + folderName : folderName);
+        fileOperationLogService.log(null, folderName, path, OP_CREATE_FOLDER, root, null);
+    }
+
+    @Override
+    public void rename(String relativePath, String newName, String root) {
+        checkNotBusiness(root, "重命名");
+        validatePath(newName);
+        Path basePath = resolveRootPath(root);
+        Path source = resolveSafePath(relativePath, root);
+        Path target = source.getParent().resolve(newName);
+        String oldName = source.getFileName().toString();
+        try {
+            Files.move(source, target, StandardCopyOption.ATOMIC_MOVE);
+        } catch (IOException e) {
+            throw new RuntimeException("重命名失败: " + e.getMessage());
+        }
+        // 更新 file_info 中的 filePath、originalPath 以及原始文件名（列表展示名称取自 originalName）
+        updateFileInfoPaths(source, target, basePath);
+        FileInfo fi = findFileInfoByPath(target.toString());
+        if (fi != null && StringUtils.hasText(newName)) {
+            fi.setOriginalName(newName);
+            fileInfoMapper.updateById(fi);
+        }
+        fileOperationLogService.log(null, getOriginalName(target, oldName), relativePath, OP_RENAME, root, oldName + " → " + newName);
+    }
+
+    @Override
+    public void move(String sourcePath, String targetDirectory, String root) {
+        checkNotBusiness(root, "移动");
+        Path basePath = resolveRootPath(root);
+        Path source = resolveSafePath(sourcePath, root);
+        Path targetDir = resolveSafePath(targetDirectory, root);
+        Path target = targetDir.resolve(source.getFileName().toString());
+        try {
+            Files.createDirectories(targetDir);
+            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            throw new RuntimeException("移动失败: " + e.getMessage());
+        }
+        // 更新 file_info 中的 filePath 和 originalPath
+        updateFileInfoPaths(source, target, basePath);
+        fileOperationLogService.log(null, getOriginalName(target, source.getFileName().toString()), sourcePath, OP_MOVE, root, "→ " + targetDirectory);
+    }
+
+    @Override
+    public void copy(String sourcePath, String targetDirectory, String root) {
+        checkNotBusiness(root, "复制");
+        Path source = resolveSafePath(sourcePath, root);
+        Path targetDir = resolveSafePath(targetDirectory, root);
+        try {
+            Files.createDirectories(targetDir);
+            if (Files.isDirectory(source)) {
+                copyDirectory(source, targetDir.resolve(source.getFileName().toString()));
+            } else {
+                Files.copy(source, targetDir.resolve(source.getFileName().toString()), StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("复制失败: " + e.getMessage());
+        }
+        fileOperationLogService.log(null, getOriginalName(source, source.getFileName().toString()), sourcePath, OP_COPY, root, "→ " + targetDirectory);
+    }
+
+    @Override
+    public void delete(String relativePath, String root) {
+        checkNotBusiness(root, "删除");
+        Path basePath = resolveRootPath(root);
+        Path target = resolveSafePath(relativePath, root);
+        Path recycleBin = basePath.resolve(RECYCLE_BIN_DIR);
+        String fileName = target.getFileName().toString();
+        String originalPath = normalizePath(basePath.relativize(target).toString());
+
+        // 确保回收站目录存在
+        try {
+            Files.createDirectories(recycleBin);
+        } catch (IOException e) {
+            throw new RuntimeException("创建回收站目录失败: " + e.getMessage());
+        }
+
+        // 移动到回收站
+        Path recycleTarget = recycleBin.resolve(fileName);
+        try {
+            Files.move(target, recycleTarget, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            throw new RuntimeException("删除失败: " + e.getMessage());
+        }
+
+        // 软删除 file_info 记录，保存原始路径并更新当前路径
+        if (Files.isDirectory(recycleTarget)) {
+            try (Stream<Path> walk = Files.walk(recycleTarget)) {
+                walk.filter(Files::isRegularFile).forEach(path -> {
+                    // 正确计算原始路径：以回收站内文件相对文件夹的路径，拼接到删除前文件夹路径上
+                    // （原实现用 basePath.relativize(path) 会带上 .recycle-bin 前缀导致路径错误，找不到记录）
+                    Path relativeToFolder = recycleTarget.relativize(path);
+                    FileInfo fi = findFileInfoByPath(target.resolve(relativeToFolder).toString());
+                    if (fi == null) {
+                        fi = findFileInfoByPath(path.toString());
+                    }
+                    if (fi != null) {
+                        fi.setOriginalPath(fi.getFilePath());
+                        fi.setFilePath(path.toString());
+                        softDeleteFileInfo(fi);
+                    }
+                });
+            } catch (IOException e) {
+                throw new RuntimeException("删除失败: " + e.getMessage());
+            }
+        } else {
+            FileInfo fi = findFileInfoByPath(target.toString());
+            if (fi == null) {
+                fi = findFileInfoByStoredName(fileName);
+            }
+            if (fi != null) {
+                fi.setOriginalPath(fi.getFilePath());
+                fi.setFilePath(recycleTarget.toString());
+                softDeleteFileInfo(fi);
+            }
+        }
+
+        fileOperationLogService.log(null, getOriginalName(target, fileName), normalizePath(relativePath), OP_DELETE, root, null);
+    }
+
+    @Override
+    public void restore(String relativePath, String root) {
+        checkNotBusiness(root, "恢复");
+        Path basePath = resolveRootPath(root);
+        Path recycleBin = basePath.resolve(RECYCLE_BIN_DIR);
+        String fileName = Paths.get(relativePath).getFileName().toString();
+        Path source = recycleBin.resolve(fileName);
+
+        if (!Files.exists(source)) {
+            throw new RuntimeException("恢复失败: 回收站中不存在该文件");
+        }
+
+        // 从 file_info 获取原始路径（回收站记录 is_deleted 可能为1，须绕过软删除过滤查找）
+        String originalPath = null;
+        if (Files.isRegularFile(source)) {
+            FileInfo fi = findFileInfoByPathIgnoreDeleted(source.toString());
+            if (fi != null && StringUtils.hasText(fi.getOriginalPath())) {
+                originalPath = fi.getOriginalPath();
+            }
+        }
+
+        // 确定恢复目标路径
+        Path target;
+        if (StringUtils.hasText(originalPath)) {
+            target = basePath.resolve(originalPath).normalize();
+        } else {
+            String fallback = Paths.get(relativePath).getParent() != null
+                    ? Paths.get(relativePath).getParent().toString() : "";
+            target = resolveSafePath(fallback, root).resolve(fileName);
+        }
+
+        try {
+            Files.createDirectories(target.getParent());
+            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            throw new RuntimeException("恢复失败: " + e.getMessage());
+        }
+
+        // 恢复 file_info 记录并更新路径（回收站记录 is_deleted 可能为1，须绕过软删除过滤查找）
+        if (Files.isDirectory(target)) {
+            try (Stream<Path> walk = Files.walk(target)) {
+                walk.filter(Files::isRegularFile).forEach(path -> {
+                    FileInfo fi = findFileInfoByPathIgnoreDeleted(source.resolve(target.relativize(path).toString()).toString());
+                    if (fi == null) {
+                        fi = findFileInfoByPathIgnoreDeleted(path.toString());
+                    }
+                    if (fi != null) {
+                        fi.setFilePath(path.toString());
+                        fi.setOriginalPath(null);
+                        restoreFileInfo(fi);
+                    }
+                });
+            } catch (IOException e) {
+                throw new RuntimeException("恢复失败: " + e.getMessage());
+            }
+        } else {
+            FileInfo fi = findFileInfoByPathIgnoreDeleted(source.toString());
+            if (fi != null) {
+                fi.setFilePath(target.toString());
+                fi.setOriginalPath(null);
+                restoreFileInfo(fi);
+            }
+        }
+
+        fileOperationLogService.log(null, getOriginalName(target, fileName), normalizePath(relativePath), OP_RESTORE, root, null);
+    }
+
+    @Override
+    public void permanentDelete(String relativePath, String root) {
+        checkNotBusiness(root, "永久删除");
+        Path basePath = resolveRootPath(root);
+        Path recycleBin = basePath.resolve(RECYCLE_BIN_DIR);
+        String fileName = Paths.get(relativePath).getFileName().toString();
+        Path target = recycleBin.resolve(fileName);
+
+        if (!Files.exists(target)) {
+            throw new RuntimeException("永久删除失败: 回收站中不存在该文件");
+        }
+
+        // 物理删除磁盘文件
+        try {
+            if (Files.isDirectory(target)) {
+                deleteDirectory(target);
+            } else {
+                Files.deleteIfExists(target);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("永久删除失败: " + e.getMessage());
+        }
+
+        // 物理删除 file_info 记录（原生DELETE：wrapper.delete 会因逻辑删除被转为 UPDATE 而失效）
+        fileInfoMapper.deleteByPathLike(fileName);
+
+        fileOperationLogService.log(null, getOriginalName(target, fileName), normalizePath(relativePath), OP_DELETE, root, "永久删除");
+    }
+
+    /**
+     * 列出回收站内容（扫描 .recycle-bin 目录）
+     * <p>
+     * 通过 file_info 表补充删除人、删除时间字段，
+     * 并支持按删除人、删除时间段筛选
+     * </p>
+     *
+     * @param deletedBy 删除人ID（可选，为空不过滤）
+     * @param startTime 删除时间起始（可选，含边界）
+     * @param endTime   删除时间截止（可选，含边界）
+     * @return 已删除的文件列表（含删除人、删除时间）
+     */
+    @Override
+    public List<FileItemDto> listRecycleBin(Long deletedBy, String deletedByName, LocalDateTime startTime, LocalDateTime endTime) {
+        Path basePath = resolveRootPath(ROOT_CUSTOM);
+        Path recycleBin = basePath.resolve(RECYCLE_BIN_DIR);
+        List<FileItemDto> results = new ArrayList<>();
+
+        if (!Files.exists(recycleBin) || !Files.isDirectory(recycleBin)) {
+            return results;
+        }
+
+        // 预加载回收站内所有 file_info 记录（磁盘路径 -> 记录），用于补充删除人/删除时间
+        Map<String, FileInfo> recycleInfos = loadRecycleFileInfos();
+
+        try (Stream<Path> stream = Files.list(recycleBin)) {
+            stream.sorted(Comparator.comparing(p -> p.getFileName().toString()))
+                .forEach(path -> {
+                    FileItemDto item = new FileItemDto();
+                    String diskName = path.getFileName().toString();
+                    String displayName = Files.isDirectory(path) ? diskName : resolveRecycleOriginalName(path, diskName);
+                    item.setName(displayName);
+                    item.setPath(normalizePath(RECYCLE_BIN_DIR + "/" + diskName));
+
+                    // 补充删除人/删除时间（文件夹取子文件的删除记录）
+                    FileInfo fi = Files.isDirectory(path)
+                            ? findFolderRecycleInfo(path)
+                            : recycleInfos.get(path.toString());
+                    fillRecycleInfo(item, fi);
+
+                    if (Files.isDirectory(path)) {
+                        item.setDirectory(true);
+                        item.setSize(calculateFolderSize(path));
+                        item.setIconType("folder");
+                    } else {
+                        item.setDirectory(false);
+                        try {
+                            item.setSize(Files.size(path));
+                        } catch (IOException e) {
+                            item.setSize(0L);
+                        }
+                        String ext = getExtension(displayName);
+                        item.setExtension(ext);
+                        item.setIconType(getIconType(ext));
+                    }
+                    try {
+                        item.setModifiedTime(formatTime(Files.getLastModifiedTime(path)));
+                    } catch (IOException e) {
+                        item.setModifiedTime("");
+                    }
+                    results.add(item);
+                });
+        } catch (IOException e) {
+            throw new RuntimeException("读取回收站失败: " + e.getMessage());
+        }
+
+        // 按删除人ID、删除人姓名、删除时间段筛选
+        return results.stream().filter(item -> {
+            if (deletedBy != null && !deletedBy.equals(item.getDeletedBy())) {
+                return false;
+            }
+            // 姓名模糊匹配（同时兼容真实姓名与登录账号）
+            if (StringUtils.hasText(deletedByName)
+                    && !StringUtils.hasText(item.getDeletedByName())
+                    && !StringUtils.hasText(item.getDeletedByAccount())) {
+                return false;
+            }
+            if (StringUtils.hasText(deletedByName)) {
+                boolean nameMatched = (StringUtils.hasText(item.getDeletedByName())
+                        && item.getDeletedByName().contains(deletedByName))
+                        || (StringUtils.hasText(item.getDeletedByAccount())
+                        && item.getDeletedByAccount().contains(deletedByName));
+                if (!nameMatched) {
+                    return false;
+                }
+            }
+            if (startTime != null || endTime != null) {
+                LocalDateTime deletedAt = parseDateTime(item.getDeletedTime());
+                if (deletedAt == null) {
+                    return false;
+                }
+                if (startTime != null && deletedAt.isBefore(startTime)) {
+                    return false;
+                }
+                if (endTime != null && deletedAt.isAfter(endTime)) {
+                    return false;
+                }
+            }
+            return true;
+        }).collect(Collectors.toList());
+    }
+
+    /**
+     * 加载回收站内全部已删除的 file_info 记录（磁盘路径 -> 记录）
+     * <p>
+     * 使用原生SQL按路径匹配（绕过软删除过滤，兼容 is_deleted=0/1 两种历史状态）
+     * </p>
+     *
+     * @return 磁盘绝对路径到文件信息的映射
+     */
+    private Map<String, FileInfo> loadRecycleFileInfos() {
+        return fileInfoMapper.selectRecycleInfos(RECYCLE_BIN_DIR).stream()
+                .collect(Collectors.toMap(FileInfo::getFilePath, f -> f, (a, b) -> a));
+    }
+
+    /**
+     * 查找已删除文件夹的代表性 file_info 记录（取子文件中删除时间最新的一条）
+     * <p>
+     * 使用原生SQL（绕过软删除过滤，兼容 is_deleted=0/1 两种历史状态）
+     * </p>
+     *
+     * @param folderPath 回收站内文件夹的磁盘绝对路径
+     * @return file_info 记录，无匹配时返回 null
+     */
+    private FileInfo findFolderRecycleInfo(Path folderPath) {
+        return fileInfoMapper.selectLatestRecycleInfo(folderPath.toString());
+    }
+
+    /**
+     * 将 file_info 记录的删除人、删除时间填充到回收站条目
+     * <p>
+     * 当 file_info 记录不存在时（如空文件夹或文件未登记），
+     * 从 file_operation_log 操作日志表中补充删除人、删除时间
+     * </p>
+     *
+     * @param item 回收站条目
+     * @param fi   file_info 记录（可为空）
+     */
+    private void fillRecycleInfo(FileItemDto item, FileInfo fi) {
+        if (fi == null) {
+            // 从操作日志表补充删除人、删除时间（file_operation_log 中 file_id 为 null 表示文件夹操作）
+            FileOperationLog opLog = fileOperationLogMapper.selectLatestByNameAndType(
+                    Paths.get(item.getPath()).getFileName().toString(), OP_DELETE);
+            if (opLog == null) {
+                return;
+            }
+            item.setDeletedBy(opLog.getUserId());
+            User user = opLog.getUserId() != null ? userMapper.selectById(opLog.getUserId()) : null;
+            item.setDeletedByName(opLog.getUserName() != null ? opLog.getUserName() : resolveUserName(opLog.getUserId()));
+            item.setDeletedByAccount(user != null ? user.getUserAccount() : null);
+            item.setDeletedTime(opLog.getCreatedTime() != null
+                    ? opLog.getCreatedTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : null);
+            return;
+        }
+        item.setDeletedBy(fi.getDeletedBy());
+        User user = fi.getDeletedBy() != null ? userMapper.selectById(fi.getDeletedBy()) : null;
+        item.setDeletedByName(resolveUserName(fi.getDeletedBy()));
+        item.setDeletedByAccount(user != null ? user.getUserAccount() : null);
+        item.setDeletedTime(fi.getDeletedAt() != null
+                ? fi.getDeletedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : null);
+    }
+
+    /**
+     * 根据用户ID解析用户显示名称（真实姓名，无则回退登录账号）
+     *
+     * @param userId 用户ID（可为空）
+     * @return 用户名称，用户不存在或ID为空时返回 null
+     */
+    private String resolveUserName(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            return null;
+        }
+        return StringUtils.hasText(user.getUserName()) ? user.getUserName() : user.getUserAccount();
+    }
+
+    // endregion
+
+    // region 文件操作
+    // ===================================
+    // 文件操作
+    // ===================================
+
+    @Override
+    public FileInfo uploadFile(MultipartFile file, String relativeDir, String root) throws IOException {
+        Path dir = resolveSafePath(relativeDir, root);
+        Files.createDirectories(dir);
+
+        String originalName = file.getOriginalFilename();
+        String extension = getExtension(originalName);
+        String storedName = UUID.randomUUID().toString().replace("-", "") + (StringUtils.hasText(extension) ? "." + extension : "");
+        Path target = dir.resolve(storedName);
+
+        Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
+
+        FileInfo fileInfo = new FileInfo();
+        fileInfo.setOriginalName(originalName);
+        fileInfo.setStoredName(storedName);
+        fileInfo.setFilePath(target.toString());
+        fileInfo.setFileSize(file.getSize());
+        fileInfo.setContentType(file.getContentType());
+        fileInfo.setFileExtension(extension);
+        fileInfo.setStorageType("LOCAL");
+        fileInfo.setCategory("FILE_MANAGER");
+
+        Long currentUserId = EntityUtils.getCurrentUserId();
+        fileInfo.setCreatedBy(currentUserId);
+        fileInfo.setCreatedTime(LocalDateTime.now());
+        fileInfo.setUpdatedTime(LocalDateTime.now());
+
+        fileInfoMapper.insert(fileInfo);
+        fileInfo.setFileUrl("/api/files/" + fileInfo.getFileId());
+        fileInfoMapper.updateById(fileInfo);
+
+        String path = normalizePath(StringUtils.hasText(relativeDir) ? relativeDir + "/" + originalName : originalName);
+        fileOperationLogService.log(fileInfo.getFileId(), originalName, path, OP_UPLOAD, root, null);
+
+        return fileInfo;
+    }
+
+    @Override
+    public InputStream downloadFile(String relativePath, String root) throws IOException {
+        Path file = resolveSafePath(relativePath, root);
+        if (!Files.exists(file) || Files.isDirectory(file)) {
+            throw new IOException("文件不存在: " + relativePath);
+        }
+        String fileName = file.getFileName().toString();
+        FileInfo fi = findFileInfoByPath(file.toString());
+        fileOperationLogService.log(fi != null ? fi.getFileId() : null, getOriginalName(file, fileName), normalizePath(relativePath), OP_DOWNLOAD, root, null);
+        return Files.newInputStream(file);
+    }
+
+    @Override
+    public InputStream previewFile(String relativePath, String root) throws IOException {
+        Path file = resolveSafePath(relativePath, root);
+        if (!Files.exists(file) || Files.isDirectory(file)) {
+            throw new IOException("文件不存在: " + relativePath);
+        }
+        String fileName = file.getFileName().toString();
+        FileInfo fi = findFileInfoByPath(file.toString());
+        fileOperationLogService.log(fi != null ? fi.getFileId() : null, getOriginalName(file, fileName), normalizePath(relativePath), OP_PREVIEW, root, null);
+        return Files.newInputStream(file);
+    }
+
+    @Override
+    public PagedResult<FileItemDto> searchFiles(FileSearchRequestDto request) {
+        String keyword = request.getKeyword();
+        String searchPath = request.getPath();
+        String root = request.getRoot();
+        Long minSize = request.getMinSize();
+        Long maxSize = request.getMaxSize();
+        LocalDateTime modifiedAfter = parseDateTime(request.getModifiedAfter());
+        LocalDateTime modifiedBefore = parseDateTime(request.getModifiedBefore());
+
+        Path searchRoot = resolveSafePath(searchPath, root);
+        Path basePath = resolveRootPath(root);
+        List<FileItemDto> allResults = new ArrayList<>();
+
+        if (!Files.exists(searchRoot)) {
+            return buildPagedResult(allResults, request);
+        }
+
+        try (Stream<Path> walk = Files.walk(searchRoot)) {
+            walk.filter(path -> {
+                // 文件名关键词匹配（可选）
+                if (StringUtils.hasText(keyword)) {
+                    String name = path.getFileName().toString().toLowerCase();
+                    if (!name.contains(keyword.toLowerCase())) {
+                        return false;
+                    }
+                }
+                // 路径模糊匹配（可选）
+                if (StringUtils.hasText(searchPath)) {
+                    String relativePath = normalizePath(basePath.relativize(path).toString()).toLowerCase();
+                    String searchLower = searchPath.toLowerCase();
+                    if (!relativePath.contains(searchLower)) {
+                        return false;
+                    }
+                }
+                // 文件大小筛选（仅文件）
+                if (Files.isRegularFile(path)) {
+                    try {
+                        long size = Files.size(path);
+                        if (minSize != null && size < minSize) return false;
+                        if (maxSize != null && size > maxSize) return false;
+                    } catch (IOException e) {
+                        return false;
+                    }
+                }
+                // 修改日期筛选
+                try {
+                    FileTime ft = Files.getLastModifiedTime(path);
+                    LocalDateTime ldt = LocalDateTime.ofInstant(ft.toInstant(), ZoneId.systemDefault());
+                    if (modifiedAfter != null && ldt.isBefore(modifiedAfter)) return false;
+                    if (modifiedBefore != null && ldt.isAfter(modifiedBefore)) return false;
+                } catch (IOException e) {
+                    return false;
+                }
+                return true;
+            }).forEach(path -> {
+                FileItemDto item = new FileItemDto();
+                String diskName = path.getFileName().toString();
+                String displayName = Files.isDirectory(path) ? diskName : getOriginalName(path, diskName);
+                item.setName(displayName);
+                item.setPath(normalizePath(basePath.relativize(path).toString()));
+
+                if (Files.isDirectory(path)) {
+                    item.setDirectory(true);
+                    item.setSize(calculateFolderSize(path));
+                    item.setIconType("folder");
+                } else {
+                    item.setDirectory(false);
+                    try {
+                        item.setSize(Files.size(path));
+                    } catch (IOException e) {
+                        item.setSize(0L);
+                    }
+                    String ext = getExtension(displayName);
+                    item.setExtension(ext);
+                    item.setIconType(getIconType(ext));
+                }
+                try {
+                    item.setModifiedTime(formatTime(Files.getLastModifiedTime(path)));
+                } catch (IOException e) {
+                    item.setModifiedTime("");
+                }
+                allResults.add(item);
+            });
+        } catch (IOException e) {
+            throw new RuntimeException("搜索失败: " + e.getMessage());
+        }
+
+        return buildPagedResult(allResults, request);
+    }
+
+    @Override
+    public byte[] exportFolder(String relativePath, String root) {
+        Path target = resolveSafePath(relativePath, root);
+        if (!Files.exists(target)) {
+            throw new RuntimeException("导出失败: 路径不存在: " + relativePath);
+        }
+        String folderName = getRootFolderName(relativePath);
+        Path basePath = resolveRootPath(root);
+        byte[] zipBytes = zipFolder(target, folderName, basePath);
+        String logPath = normalizePath(StringUtils.hasText(relativePath) ? relativePath : folderName);
+        fileOperationLogService.log(null, folderName, logPath, OP_DOWNLOAD, root, "导出文件夹zip");
+        return zipBytes;
+    }
+
+    @Override
+    public boolean isDirectory(String relativePath, String root) {
+        Path target = resolveSafePath(relativePath, root);
+        return Files.isDirectory(target);
+    }
+
+    // endregion
+
+    // region 私有方法
+    // ===================================
+    // 私有方法
+    // ===================================
+
+    /**
+     * 递归将文件夹打包为 ZIP 文件
+     * <p>
+     * 保留目录层级结构，zip 内文件名还原为原始文件名（非UUID存储名），排除回收站目录
+     * </p>
+     *
+     * @param target     待导出的文件或文件夹路径
+     * @param folderName zip 根级目录名（zip 内第一层目录名称）
+     * @param basePath   当前 root 的基础路径（用于排除回收站）
+     * @return ZIP 文件字节数组
+     */
+    private byte[] zipFolder(Path target, String folderName, Path basePath) {
+        Path recycleBin = basePath.resolve(RECYCLE_BIN_DIR).toAbsolutePath().normalize();
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             ZipOutputStream zos = new ZipOutputStream(baos)) {
+            if (Files.isDirectory(target)) {
+                // 递归收集所有条目（排除回收站目录）
+                List<Path> paths;
+                try (Stream<Path> walk = Files.walk(target)) {
+                    paths = walk.filter(p -> !p.toAbsolutePath().normalize().startsWith(recycleBin))
+                            .collect(Collectors.toList());
+                }
+                for (Path path : paths) {
+                    String rel = normalizePath(target.relativize(path).toString());
+                    if (rel.isEmpty()) {
+                        continue;
+                    }
+                    if (Files.isDirectory(path)) {
+                        // 添加目录占位条目，保留空文件夹结构
+                        zos.putNextEntry(new ZipEntry(folderName + "/" + rel + "/"));
+                        zos.closeEntry();
+                    } else {
+                        // 文件使用还原后的原始文件名
+                        String diskName = path.getFileName().toString();
+                        String displayName = getOriginalName(path, diskName);
+                        String parentRel = rel.substring(0, rel.length() - diskName.length());
+                        zos.putNextEntry(new ZipEntry(folderName + "/" + parentRel + displayName));
+                        Files.copy(path, zos);
+                        zos.closeEntry();
+                    }
+                }
+            } else {
+                // 导出单个文件
+                String displayName = getOriginalName(target, target.getFileName().toString());
+                zos.putNextEntry(new ZipEntry(folderName + "/" + displayName));
+                Files.copy(target, zos);
+                zos.closeEntry();
+            }
+            zos.finish();
+            return baos.toByteArray();
+        } catch (IOException e) {
+            throw new RuntimeException("导出失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取导出时的 zip 根级目录名
+     * <p>
+     * 有相对路径时取路径最后一段，路径为空或为根目录时返回 "root"
+     * </p>
+     *
+     * @param relativePath 相对路径（可为空）
+     * @return 根级目录名
+     */
+    private String getRootFolderName(String relativePath) {
+        if (!StringUtils.hasText(relativePath) || "/".equals(relativePath.trim())) {
+            return "root";
+        }
+        String trimmed = relativePath.trim();
+        String name = trimmed.substring(trimmed.lastIndexOf('/') + 1);
+        return name.isEmpty() ? "root" : name;
+    }
+
+    /**
+     * 递归计算文件夹大小
+     * <p>
+     * 遍历文件夹下所有文件，累加文件大小
+     * </p>
+     *
+     * @param folder 文件夹路径
+     * @return 文件夹内所有文件的总大小（字节）
+     */
+    private long calculateFolderSize(Path folder) {
+        if (!Files.exists(folder) || !Files.isDirectory(folder)) {
+            return 0L;
+        }
+        long[] size = {0L};
+        try (Stream<Path> walk = Files.walk(folder)) {
+            walk.filter(Files::isRegularFile).forEach(path -> {
+                try {
+                    size[0] += Files.size(path);
+                } catch (IOException ignored) {
+                }
+            });
+        } catch (IOException ignored) {
+        }
+        return size[0];
+    }
+
+    /**
+     * 解析日期时间字符串
+     * <p>
+     * 兼容 yyyy-MM-dd HH:mm:ss 与 yyyy-MM-dd'T'HH:mm:ss 两种格式
+     * </p>
+     *
+     * @param dateTimeStr 日期时间字符串
+     * @return LocalDateTime 对象，解析失败返回 null
+     */
+    private LocalDateTime parseDateTime(String dateTimeStr) {
+        return DateTimeUtils.tryParseDateTime(dateTimeStr);
+    }
+
+    /**
+     * 构建分页结果
+     *
+     * @param allResults 全部结果列表
+     * @param request    搜索请求参数（含分页信息）
+     * @return 分页结果
+     */
+    private PagedResult<FileItemDto> buildPagedResult(List<FileItemDto> allResults, FileSearchRequestDto request) {
+        int pageIndex = request.getPageIndex();
+        int pageSize = request.getPageSize();
+        long totalCount = allResults.size();
+        int fromIndex = pageIndex * pageSize;
+        int toIndex = Math.min(fromIndex + pageSize, allResults.size());
+
+        List<FileItemDto> pageItems = fromIndex < allResults.size()
+            ? allResults.subList(fromIndex, toIndex)
+            : new ArrayList<>();
+
+        PagedResult<FileItemDto> pagedResult = new PagedResult<>();
+        pagedResult.setItems(pageItems);
+        pagedResult.setTotalCount(totalCount);
+        pagedResult.setPageIndex(pageIndex);
+        pagedResult.setPageSize(pageSize);
+        return pagedResult;
+    }
+
+    /**
+     * 根据磁盘文件路径查找原始文件名（绕过软删除过滤，用于回收站列表）
+     * <p>
+     * 优先从 file_info 表获取 originalName，找不到时返回磁盘文件名；
+     * 回收站内的记录 is_deleted 可能为1，普通查询查不到，须用原生SQL
+     * </p>
+     *
+     * @param filePath     磁盘文件路径
+     * @param fallbackName 兜底文件名
+     * @return 原始文件名或兜底文件名
+     */
+    private String resolveRecycleOriginalName(Path filePath, String fallbackName) {
+        FileInfo fi = findFileInfoByPathIgnoreDeleted(filePath.toString());
+        if (fi != null && StringUtils.hasText(fi.getOriginalName())) {
+            return fi.getOriginalName();
+        }
+        FileInfo byStoredName = fileInfoMapper.selectByStoredNameIgnoreDeleted(filePath.getFileName().toString());
+        if (byStoredName != null && StringUtils.hasText(byStoredName.getOriginalName())) {
+            return byStoredName.getOriginalName();
+        }
+        return fallbackName;
+    }
+
+    /**
+     * 根据磁盘文件路径查找原始文件名
+     * 优先从 file_info 表获取 originalName，找不到时返回磁盘文件名
+     *
+     * @param filePath     磁盘文件路径
+     * @param fallbackName 兜底文件名
+     * @return 原始文件名或兜底文件名
+     */
+    private String getOriginalName(Path filePath, String fallbackName) {
+        FileInfo fi = findFileInfoByPath(filePath.toString());
+        if (fi != null && StringUtils.hasText(fi.getOriginalName())) {
+            return fi.getOriginalName();
+        }
+        String diskFileName = filePath.getFileName().toString();
+        fi = findFileInfoByStoredName(diskFileName);
+        if (fi != null && StringUtils.hasText(fi.getOriginalName())) {
+            return fi.getOriginalName();
+        }
+        return fallbackName;
+    }
+
+    /**
+     * 文件移动/重命名后，更新 file_info 中的 filePath 和 originalPath
+     *
+     * @param oldPath 移动前的路径
+     * @param newPath 移动后的路径
+     * @param basePath 基础路径
+     */
+    private void updateFileInfoPaths(Path oldPath, Path newPath, Path basePath) {
+        if (Files.isDirectory(newPath)) {
+            try (Stream<Path> walk = Files.walk(newPath)) {
+                walk.filter(Files::isRegularFile).forEach(path -> {
+                    Path oldFilePath = oldPath.resolve(newPath.relativize(path));
+                    FileInfo fi = findFileInfoByPath(oldFilePath.toString());
+                    if (fi == null) {
+                        fi = findFileInfoByPath(path.toString());
+                    }
+                    if (fi != null) {
+                        fi.setFilePath(path.toString());
+                        fi.setOriginalPath(basePath.relativize(path).toString());
+                        fileInfoMapper.updateById(fi);
+                    }
+                });
+            } catch (IOException ignored) {
+            }
+        } else {
+            FileInfo fi = findFileInfoByPath(oldPath.toString());
+            if (fi != null) {
+                fi.setFilePath(newPath.toString());
+                fi.setOriginalPath(basePath.relativize(newPath).toString());
+                fileInfoMapper.updateById(fi);
+            }
+        }
+    }
+
+    /**
+     * 根据根目录类型获取对应的基础路径
+     */
+    private Path resolveRootPath(String root) {
+        if (ROOT_CUSTOM.equals(root)) {
+            return Paths.get(fileStorageConfig.getCustomPath()).toAbsolutePath().normalize();
+        }
+        return Paths.get(resolveBasePath()).toAbsolutePath().normalize();
+    }
+
+    /**
+     * 检查是否为业务文件，是则抛出异常
+     */
+    private void checkNotBusiness(String root, String action) {
+        if (ROOT_BUSINESS.equals(root)) {
+            throw new SecurityException("业务文件不允许" + action);
+        }
+    }
+
+    /**
+     * 根据文件路径查找对应的 FileInfo 记录
+     */
+    private FileInfo findFileInfoByPath(String filePath) {
+        QueryWrapper<FileInfo> wrapper = new QueryWrapper<>();
+        wrapper.eq("file_path", filePath);
+        return fileInfoMapper.selectOne(wrapper);
+    }
+
+    /**
+     * 根据完整路径查找 FileInfo 记录（绕过软删除过滤）
+     * <p>
+     * 回收站内的记录 is_deleted 可能为1，MyBatis-Plus 查询会自动过滤，
+     * 恢复/永久删除等流程需使用原生SQL查找
+     * </p>
+     */
+    private FileInfo findFileInfoByPathIgnoreDeleted(String filePath) {
+        return fileInfoMapper.selectByPathIgnoreDeleted(filePath);
+    }
+
+    /**
+     * 根据存储文件名（UUID）查找 FileInfo 记录
+     */
+    private FileInfo findFileInfoByStoredName(String storedName) {
+        QueryWrapper<FileInfo> wrapper = new QueryWrapper<>();
+        wrapper.eq("stored_name", storedName);
+        return fileInfoMapper.selectOne(wrapper);
+    }
+
+    /**
+     * 软删除 FileInfo 记录（移入回收站）
+     * <p>
+     * 使用原生SQL强制写入 is_deleted=1（MyBatis-Plus 逻辑删除配置会使
+     * updateById 自动排除该字段，导致软删标记写不进去）
+     * </p>
+     */
+    private void softDeleteFileInfo(FileInfo fi) {
+        fi.setDeletedAt(LocalDateTime.now());
+        fi.setDeletedBy(EntityUtils.getCurrentUserId());
+        fileInfoMapper.markSoftDeleted(fi.getFileId(), fi.getFilePath(), fi.getOriginalPath(),
+                fi.getDeletedAt(), fi.getDeletedBy());
+    }
+
+    /**
+     * 恢复 FileInfo 记录（从回收站恢复）
+     * <p>
+     * 使用原生SQL强制写入 is_deleted=0 并清空删除时间、删除人
+     * </p>
+     */
+    private void restoreFileInfo(FileInfo fi) {
+        fileInfoMapper.markRestored(fi.getFileId(), fi.getFilePath(), fi.getOriginalPath());
+    }
+
+    private String resolveBasePath() {
+        String envPath = System.getenv("ERP_FILE_STORAGE_PATH");
+        if (StringUtils.hasText(envPath)) return envPath;
+        String sysPath = System.getProperty("erp.file.storage.path");
+        if (StringUtils.hasText(sysPath)) return sysPath;
+        return fileStorageConfig.getBasePath();
+    }
+
+    private Path resolveSafePath(String relativePath, String root) {
+        Path basePath = resolveRootPath(root);
+        if (!StringUtils.hasText(relativePath) || "/".equals(relativePath.trim())) {
+            return basePath;
+        }
+        Path resolved = basePath.resolve(relativePath.trim()).normalize();
+        if (!resolved.startsWith(basePath)) {
+            throw new SecurityException("非法路径访问: " + relativePath);
+        }
+        return resolved;
+    }
+
+    private void validatePath(String name) {
+        if (!StringUtils.hasText(name)) {
+            throw new IllegalArgumentException("名称不能为空");
+        }
+        if (name.contains("..") || name.contains("/") || name.contains("\\")) {
+            throw new SecurityException("非法路径: " + name);
+        }
+    }
+
+    private String normalizePath(String path) {
+        if (path == null) return "";
+        return path.replace("\\", "/");
+    }
+
+    private String getParentPath(String relativePath) {
+        if (!StringUtils.hasText(relativePath) || "/".equals(relativePath.trim())) {
+            return null;
+        }
+        Path parent = Paths.get(relativePath.trim()).getParent();
+        return parent != null ? normalizePath(parent.toString()) : null;
+    }
+
+    private String getExtension(String filename) {
+        if (filename == null || !filename.contains(".")) return "";
+        return filename.substring(filename.lastIndexOf('.') + 1).toLowerCase();
+    }
+
+    private String getIconType(String extension) {
+        if (!StringUtils.hasText(extension)) return "other";
+        Set<String> images = Set.of("jpg", "jpeg", "png", "gif", "bmp", "webp", "svg");
+        Set<String> docs = Set.of("pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "csv");
+        Set<String> videos = Set.of("mp4", "avi", "mov", "wmv", "flv", "mkv");
+        Set<String> audios = Set.of("mp3", "wav", "flac", "aac", "ogg");
+        Set<String> archives = Set.of("zip", "rar", "7z", "tar", "gz");
+
+        if (images.contains(extension)) return "image";
+        if (docs.contains(extension)) return "document";
+        if (videos.contains(extension)) return "video";
+        if (audios.contains(extension)) return "audio";
+        if (archives.contains(extension)) return "archive";
+        return "other";
+    }
+
+    private String formatTime(java.nio.file.attribute.FileTime fileTime) {
+        return LocalDateTime.ofInstant(fileTime.toInstant(), java.time.ZoneId.systemDefault())
+            .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+    }
+
+    private void copyDirectory(Path source, Path target) throws IOException {
+        Files.createDirectories(target);
+        try (Stream<Path> stream = Files.list(source)) {
+            stream.forEach(child -> {
+                try {
+                    Path childTarget = target.resolve(child.getFileName().toString());
+                    if (Files.isDirectory(child)) {
+                        copyDirectory(child, childTarget);
+                    } else {
+                        Files.copy(child, childTarget, StandardCopyOption.REPLACE_EXISTING);
+                    }
+                } catch (IOException e) {
+                    throw new RuntimeException("复制失败: " + e.getMessage());
+                }
+            });
+        }
+    }
+
+    private void deleteDirectory(Path dir) throws IOException {
+        try (Stream<Path> stream = Files.walk(dir)) {
+            stream.sorted(Comparator.reverseOrder()).forEach(path -> {
+                try {
+                    Files.deleteIfExists(path);
+                } catch (IOException e) {
+                    throw new RuntimeException("删除失败: " + e.getMessage());
+                }
+            });
+        }
+    }
+
+    // endregion
+}

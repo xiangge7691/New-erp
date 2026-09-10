@@ -1,0 +1,95 @@
+package com.tonghui.erp.Service;
+
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.tonghui.erp.Common.Dto.PageRequestDto;
+import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Data.Entity.WorkOrder;
+
+import java.time.LocalDateTime;
+
+/**
+ * 工单服务接口
+ * <p>
+ * 提供工单相关的业务逻辑接口，包括工单的增删改查、
+ * 工单编号自动生成、高级查询等功能
+ * </p>
+ */
+public interface WorkOrderService extends IService<WorkOrder> {
+    
+    /**
+     * 获取工单列表（分页）
+     * @param pageRequestDto 分页请求参数
+     * @return 分页结果
+     */
+    PagedResult<WorkOrder> getWorkOrderList(PageRequestDto pageRequestDto);
+
+    /**
+     * 添加工单
+     * @param workOrder 工单信息
+     * @return 是否添加成功
+     */
+    boolean addWorkOrder(WorkOrder workOrder);
+
+    /**
+     * 更新工单
+     * @param workOrder 工单信息
+     * @return 是否更新成功
+     */
+    boolean updateWorkOrder(WorkOrder workOrder);
+
+    /**
+     * 删除工单
+     * @param workOrderId 工单ID
+     * @return 是否删除成功
+     */
+    boolean deleteWorkOrder(Long workOrderId);
+
+    /**
+     * 根据ID获取工单
+     * @param workOrderId 工单ID
+     * @return 工单信息
+     */
+    WorkOrder getWorkOrderById(Long workOrderId);
+
+    /**
+     * 查询工单（支持多条件 + 分页 + 时间范围）
+     * @param workOrder 查询条件
+     * @param keyword 关键字（对工单编号、工单名称、制剂编码、制剂名称进行模糊匹配，可选）
+     * @param createdTimeStart 创建时间起始
+     * @param createdTimeEnd 创建时间结束
+     * @param updatedTimeStart 更新时间起始
+     * @param updatedTimeEnd 更新时间结束
+     * @param configDateStart 配置日期起始
+     * @param configDateEnd 配置日期结束
+     * @param pageNum 页码
+     * @param pageSize 每页大小
+     * @return 分页结果
+     */
+    Page<WorkOrder> queryWorkOrders(WorkOrder workOrder,
+                                    String keyword,
+                                    LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
+                                    LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
+                                    LocalDateTime configDateStart, LocalDateTime configDateEnd,
+                                    int pageNum, int pageSize);
+    
+    /**
+     * 生成工单编号
+     * @return 工单编号
+     */
+    String generateWorkOrderCode();
+
+    /**
+     * 查询生产中任务列表（供请检记录下拉选择）
+     * <p>
+     * 筛选状态为"生产中"的工单（configDate有值且configCompleteTime为空），
+     * 支持按关键字模糊匹配工单编号/制剂编码/制剂名称
+     * </p>
+     *
+     * @param keyword   关键字（可选，模糊匹配工单编号/制剂编码/制剂名称）
+     * @param pageIndex 页码（从0开始）
+     * @param pageSize  每页大小
+     * @return 生产中任务分页结果
+     */
+    Page<WorkOrder> getInProgressWorkOrders(String keyword, int pageIndex, int pageSize);
+}

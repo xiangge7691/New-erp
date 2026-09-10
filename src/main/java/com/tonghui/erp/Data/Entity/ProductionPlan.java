@@ -1,0 +1,246 @@
+package com.tonghui.erp.Data.Entity;
+
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+/**
+ * 生产计划主表
+ * @TableName production_plan
+ */
+@TableName(value ="production_plan")
+@Data
+@EqualsAndHashCode(callSuper = true)
+public class ProductionPlan extends AuditEntity {
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
+    /**
+     * 计划唯一标识
+     */
+    @TableId(value = "id", type = IdType.AUTO)
+    private Integer id;
+
+    /**
+     * 计划编号
+     */
+    @TableField(value = "plan_number")
+    private String planNumber;
+
+    /**
+     * 计划名称
+     */
+    @TableField(value = "plan_name")
+    private String planName;
+
+    /**
+     * 关联单号（销售订单号）
+     */
+    @TableField(value = "related_order")
+    private String relatedOrder;
+
+    /**
+     * 制剂ID
+     */
+    @TableField(value = "preparation_id")
+    private Long preparationId;
+
+    /**
+     * 制剂编码
+     */
+    @TableField(value = "preparation_code")
+    private String preparationCode;
+
+    /**
+     * 制剂名称
+     */
+    @TableField(value = "preparation_name")
+    private String preparationName;
+
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
+
+    /**
+     * 计划数量（批量）
+     */
+    @TableField(value = "plan_quantity")
+    private BigDecimal planQuantity;
+
+    /**
+     * 生产计划类型（自主加工/委托加工/试生产）
+     */
+    @TableField(value = "plan_type")
+    private String planType;
+
+    /**
+     * 备注信息
+     */
+    @TableField(value = "remark")
+    private String remark;
+
+    /**
+     * 是否已归档（0-未归档，1-已归档）
+     */
+    @TableField(value = "is_archived")
+    private Integer isArchived;
+
+    /**
+     * 制剂所属单位
+     */
+    @TableField(value = "unit_name")
+    private String unitName;
+
+    /**
+     * 生产单位
+     */
+    @TableField(value = "production_unit")
+    private String productionUnit;
+
+    /**
+     * 单价
+     */
+    @TableField(value = "unit_price")
+    private BigDecimal unitPrice;
+
+    /**
+     * 成品数量
+     */
+    @TableField(value = "finished_quantity")
+    private BigDecimal finishedQuantity;
+
+    /**
+     * 周期（天）
+     */
+    @TableField(value = "production_cycle")
+    private Integer productionCycle;
+
+    /**
+     * 得率（百分比）
+     */
+    @TableField(value = "yield_rate")
+    private BigDecimal yieldRate;
+
+    /**
+     * 总金额（成品数量*单价）
+     */
+    @TableField(value = "total_amount")
+    private BigDecimal totalAmount;
+
+    /**
+     * 生产开始时间
+     */
+    @TableField(value = "production_start_time")
+    private LocalDateTime productionStartTime;
+
+    /**
+     * 生产结束时间
+     */
+    @TableField(value = "production_end_time")
+    private LocalDateTime productionEndTime;
+
+    /**
+     * 检验开始时间
+     */
+    @TableField(value = "inspection_start_time")
+    private LocalDateTime inspectionStartTime;
+
+    /**
+     * 检验结束时间
+     */
+    @TableField(value = "inspection_end_time")
+    private LocalDateTime inspectionEndTime;
+
+    /**
+     * 出库时间
+     */
+    @TableField(value = "outbound_time")
+    private LocalDateTime outboundTime;
+
+    /**
+     * 归档时间
+     */
+    @TableField(value = "archive_time")
+    private LocalDateTime archiveTime;
+
+    /**
+     * 计划生产时间
+     */
+    @TableField(value = "plan_production_time")
+    private LocalDateTime planProductionTime;
+
+    /**
+     * 需交付时间
+     */
+    @TableField(value = "delivery_time")
+    private LocalDateTime deliveryTime;
+
+    /**
+     * 采购计划下达时间
+     */
+    @TableField(value = "purchase_order_time")
+    private LocalDateTime purchaseOrderTime;
+
+    /**
+     * 是否加急（0-否，1-是）
+     */
+    @TableField(value = "is_urgent")
+    private Integer isUrgent;
+
+    /**
+     * 计划单文件
+     */
+    @TableField(value = "plan_file")
+    private String planFile;
+
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
+    /**
+     * 当前状态（生产计划生命周期状态，由 Service 根据关联工单状态动态计算并落库，无需手动赋值）
+     * <p>
+     * 取值与中文对照：
+     * <ul>
+     *   <li>待生产 - 计划新建且未关联任何工单</li>
+     *   <li>生产中 - 计划已关联工单，且存在未出库的工单</li>
+     *   <li>已完成 - 计划关联的所有工单均已出库或已归档</li>
+     * </ul>
+     * </p>
+     */
+    @TableField(value = "current_status")
+    private String currentStatus;
+
+    /**
+     * 当前状态时间
+     */
+    @TableField(value = "current_status_date")
+    private LocalDateTime currentStatusDate;
+
+    /**
+     * 是否已删除
+     */
+    @TableField(value = "is_deleted")
+    private Integer isDeleted;
+
+    /**
+     * 乐观锁版本号
+     */
+    @TableField(value = "version")
+    private Integer version;
+
+    // endregion
+}

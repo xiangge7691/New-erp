@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.ProductionPlanMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.ProductionPlan">
+            <id property="id" column="id" />
+            <result property="planNumber" column="plan_number" />
+            <result property="relatedOrder" column="related_order" />
+            <result property="preparationCode" column="preparation_code" />
+            <result property="preparationName" column="preparation_name" />
+            <result property="planQuantity" column="plan_quantity" />
+            <result property="planType" column="plan_type" />
+            <result property="currentStatus" column="current_status" />
+            <result property="currentStatusDate" column="current_status_date" />
+            <result property="createdTime" column="created_time" />
+            <result property="createdBy" column="created_by" />
+            <result property="updatedTime" column="updated_time" />
+            <result property="updatedBy" column="updated_by" />
+            <result property="remark" column="remark" />
+            <result property="isArchived" column="is_archived" />
+            <result property="unitName" column="unit_name" />
+            <result property="productionUnit" column="production_unit" />
+            <result property="unitPrice" column="unit_price" />
+            <result property="finishedQuantity" column="finished_quantity" />
+            <result property="productionCycle" column="production_cycle" />
+            <result property="yieldRate" column="yield_rate" />
+            <result property="totalAmount" column="total_amount" />
+            <result property="productionStartTime" column="production_start_time" />
+            <result property="productionEndTime" column="production_end_time" />
+            <result property="inspectionStartTime" column="inspection_start_time" />
+            <result property="inspectionEndTime" column="inspection_end_time" />
+            <result property="outboundTime" column="outbound_time" />
+            <result property="archiveTime" column="archive_time" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,plan_number,related_order,preparation_code,preparation_name,plan_quantity,
+        plan_type,current_status,current_status_date,created_time,created_by,
+        updated_time,updated_by,remark,is_archived,unit_name,
+        production_unit,unit_price,finished_quantity,production_cycle,yield_rate,
+        total_amount,production_start_time,production_end_time,inspection_start_time,
+        inspection_end_time,outbound_time,archive_time
+    </sql>
+</mapper>

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.RoomInfoMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.RoomInfo">
+            <id property="roomId" column="room_id" />
+            <result property="roomCode" column="room_code" />
+            <result property="roomName" column="room_name" />
+            <result property="roomLocation" column="room_location" />
+            <result property="area" column="area" />
+            <result property="productionType" column="production_type" />
+            <result property="dustRoom" column="dust_room" />
+            <result property="cleanArea" column="clean_area" />
+            <result property="cleanGrade" column="clean_grade" />
+            <result property="remark" column="remark" />
+            <result property="roomStatus" column="room_status" />
+            <result property="disinfectionCycle" column="disinfection_cycle" />
+            <result property="cleanInspectionCycle" column="clean_inspection_cycle" />
+            <result property="cleaningCycle" column="cleaning_cycle" />
+            <result property="isDeleted" column="is_deleted" />
+            <result property="version" column="version" />
+            <result property="createdBy" column="created_by" />
+            <result property="createdTime" column="created_time" />
+            <result property="updatedBy" column="updated_by" />
+            <result property="updatedTime" column="updated_time" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        room_id,room_code,room_name,room_location,area,production_type,dust_room,clean_area,
+        clean_grade,remark,room_status,disinfection_cycle,clean_inspection_cycle,cleaning_cycle,
+        is_deleted,version,created_by,created_time,updated_by,updated_time
+    </sql>
+</mapper>

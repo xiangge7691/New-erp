@@ -1,0 +1,111 @@
+package com.tonghui.erp.Data.Entity;
+
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+/**
+ * 生产单位信息表
+ * @TableName production_unit
+ */
+@TableName(value ="production_unit")
+@Data
+@EqualsAndHashCode(callSuper = true)
+public class ProductionUnit extends AuditEntity {
+
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
+    /**
+     * 生产单位唯一标识
+     */
+    @TableId(value = "prod_unit_id", type = IdType.AUTO)
+    private Long prodUnitId;
+
+    /**
+     * 生产单位编号（唯一性约束）
+     */
+    @TableField(value = "prod_unit_code")
+    private String prodUnitCode;
+
+    /**
+     * 生产单位名称
+     */
+    @TableField(value = "prod_unit_name")
+    private String prodUnitName;
+
+    /**
+     * 生产单位地址
+     */
+    @TableField(value = "prod_unit_address")
+    private String prodUnitAddress;
+
+    /**
+     * 负责人姓名
+     */
+    @TableField(value = "prod_unit_manager")
+    private String prodUnitManager;
+
+    /**
+     * 联系电话
+     */
+    @TableField(value = "prod_unit_phone")
+    private String prodUnitPhone;
+
+    /**
+     * 位置
+     */
+    @TableField(value = "location")
+    private String location;
+
+    /**
+     * 使用面积（平方米）
+     */
+    @TableField(value = "usage_area")
+    private java.math.BigDecimal usageArea;
+
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
+
+    /**
+     * 状态：0停用/1启用
+     */
+    @TableField(value = "prod_unit_status")
+    private Integer prodUnitStatus;
+
+    /**
+     * 备注信息
+     */
+    @TableField(value = "prod_unit_remark")
+    private String prodUnitRemark;
+
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
+    /**
+     * 是否已删除
+     */
+    @TableField(value = "is_deleted")
+    private Integer isDeleted;
+
+    /**
+     * 乐观锁版本号
+     */
+    @TableField(value = "version")
+    private Integer version;
+
+    // endregion
+}

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.CleaningRecordMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.CleaningRecord">
+        <id property="id" column="id" />
+        <result property="roomId" column="room_id" />
+        <result property="cleaningDate" column="cleaning_date" />
+        <result property="cleaningArea" column="cleaning_area" />
+        <result property="cleaningMethod" column="cleaning_method" />
+        <result property="cleaningPerson" column="cleaning_person" />
+        <result property="cleaningCycle" column="cleaning_cycle" />
+        <result property="nextCleaningDate" column="next_cleaning_date" />
+        <result property="attachment" column="attachment" />
+        <result property="remark" column="remark" />
+        <result property="createdTime" column="created_time" />
+        <result property="updatedTime" column="updated_time" />
+        <result property="isDeleted" column="is_deleted" />
+        <result property="version" column="version" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,room_id,cleaning_date,cleaning_area,cleaning_method,cleaning_person,
+        cleaning_cycle,next_cleaning_date,attachment,remark,created_time,updated_time,
+        is_deleted,version
+    </sql>
+</mapper>

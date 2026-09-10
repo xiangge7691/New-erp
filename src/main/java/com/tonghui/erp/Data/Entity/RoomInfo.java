@@ -1,0 +1,148 @@
+package com.tonghui.erp.Data.Entity;
+
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import java.math.BigDecimal;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+/**
+ * 房间表，用于记录设备所在房间的信息。
+ * @TableName room_info
+ */
+@TableName(value ="room_info")
+@Data
+@EqualsAndHashCode(callSuper = true)
+public class RoomInfo extends AuditEntity {
+
+    // region 基本信息字段
+    // ===================================
+    // 基本信息字段
+    // ===================================
+
+    /**
+     * 房间 ID，主键。唯一标识，自增长。
+     */
+    @TableId(value = "room_id", type = IdType.AUTO)
+    private Integer roomId;
+
+    /**
+     * 房间编码（唯一编号，如 RJ-001、QJ-001）
+     */
+    @TableField(value = "room_code")
+    private String roomCode;
+
+    /**
+     * 房间名。唯一标识房间的名称，如"提取一室"、"动力机房"。
+     */
+    @TableField(value = "room_name")
+    private String roomName;
+
+    /**
+     * 房间位置。描述房间的具体位置，如"A 栋 3 楼 301"。
+     */
+    @TableField(value = "room_location")
+    private String roomLocation;
+
+    // endregion
+
+    // region 业务字段
+    // ===================================
+    // 业务字段
+    // ===================================
+
+    /**
+     * 面积。房间的面积，单位为平方米（㎡）。
+     */
+    @TableField(value = "area")
+    private BigDecimal area;
+
+    /**
+     * 生产制剂类型。多选：内服/外用/眼用。
+     */
+    @TableField(value = "production_type")
+    private String productionType;
+
+    /**
+     * 是否为产尘操作间。
+     */
+    @TableField(value = "dust_room")
+    private Boolean dustRoom;
+
+    /**
+     * 是否为洁净区。
+     */
+    @TableField(value = "clean_area")
+    private Boolean cleanArea;
+
+    /**
+     * 洁净等级。当洁净区=是时填写：A级/B级/C级/D级。
+     */
+    @TableField(value = "clean_grade")
+    private String cleanGrade;
+
+    /**
+     * 备注。房间的附加说明信息，可为空。
+     */
+    @TableField(value = "remark")
+    private String remark;
+
+    /**
+     * 房间状态。1-启用/可用，0-停用/不可用。默认启用。
+     */
+    @TableField(value = "room_status")
+    private Integer roomStatus;
+
+    /**
+     * 消毒周期(天)
+     */
+    @TableField(value = "disinfection_cycle")
+    private Integer disinfectionCycle;
+
+    /**
+     * 洁净检测周期(天)
+     */
+    @TableField(value = "clean_inspection_cycle")
+    private Integer cleanInspectionCycle;
+
+    /**
+     * 清洁周期(天)
+     */
+    @TableField(value = "cleaning_cycle")
+    private Integer cleaningCycle;
+
+    /**
+     * 功能间分类（车间/仓储/检验/工程）
+     */
+    @TableField(value = "function_type")
+    private String functionType;
+
+    /**
+     * 涉及工序（多个以逗号分隔）
+     */
+    @TableField(value = "related_processes")
+    private String relatedProcesses;
+
+    // endregion
+
+    // region 状态与审计字段
+    // ===================================
+    // 状态与审计字段
+    // ===================================
+
+    /**
+     * 是否已删除
+     */
+    @TableField(value = "is_deleted")
+    private Integer isDeleted;
+
+    /**
+     * 乐观锁版本号
+     */
+    @TableField(value = "version")
+    private Integer version;
+
+    // endregion
+}

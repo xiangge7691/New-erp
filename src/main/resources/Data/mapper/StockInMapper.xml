@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.StockInMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.StockIn">
+            <id property="inId" column="in_id" />
+            <result property="inCode" column="in_code" />
+            <result property="inType" column="in_type" />
+            <result property="prodUnitId" column="prod_unit_id" />
+            <result property="supplierId" column="supplier_id" />
+            <result property="relatedOrder" column="related_order" />
+            <result property="inDate" column="in_date" />
+            <result property="totalAmount" column="total_amount" />
+            <result property="inStatus" column="in_status" />
+            <result property="remark" column="remark" />
+            <result property="createdBy" column="created_by" />
+            <result property="createdTime" column="created_time" />
+            <result property="updatedBy" column="updated_by" />
+            <result property="updatedTime" column="updated_time" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        in_id,in_code,in_type,prod_unit_id,supplier_id,related_order,
+        in_date,total_amount,in_status,remark,created_by,
+        created_time,updated_by,updated_time
+    </sql>
+</mapper>

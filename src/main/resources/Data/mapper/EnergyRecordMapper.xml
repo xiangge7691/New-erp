@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.EnergyRecordMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.EnergyRecord">
+        <id property="recordId" column="record_id" />
+        <result property="month" column="month" />
+        <result property="energyType" column="energy_type" />
+        <result property="unit" column="unit" />
+        <result property="lastMeterReading" column="last_meter_reading" />
+        <result property="currentMeterReading" column="current_meter_reading" />
+        <result property="actualUsage" column="actual_usage" />
+        <result property="unitPrice" column="unit_price" />
+        <result property="totalAmount" column="total_amount" />
+        <result property="remark" column="remark" />
+        <result property="operatorId" column="operator_id" />
+        <result property="operatorName" column="operator_name" />
+        <result property="createdBy" column="created_by" />
+        <result property="updatedBy" column="updated_by" />
+        <result property="createdTime" column="created_time" />
+        <result property="updatedTime" column="updated_time" />
+        <result property="isDeleted" column="is_deleted" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        record_id,month,energy_type,unit,last_meter_reading,current_meter_reading,actual_usage,unit_price,total_amount,remark,operator_id,operator_name,created_by,updated_by,created_time,updated_time,is_deleted
+    </sql>
+</mapper>

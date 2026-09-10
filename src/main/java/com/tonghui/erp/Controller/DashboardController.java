@@ -1,0 +1,1274 @@
+package com.tonghui.erp.Controller;
+
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.ProductionPlanWithRecordsDto;
+import com.tonghui.erp.Common.Dto.Dashboard.*;
+import com.tonghui.erp.Data.Entity.*;
+import com.tonghui.erp.Data.mapper.StockInDetailMapper;
+import com.tonghui.erp.Service.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.stream.Collectors;
+
+/**
+ * 首页仪表盘控制器
+ *
+ * 接口清单：
+ * ┌────┬──────────────────────────────────────┬────────┬─────────────────────────────────────┐
+ * │ #  │ 接口                                 │ 方法   │ 说明                                │
+ * ├────┼──────────────────────────────────────┼────────┼─────────────────────────────────────┤
+ * │ 1  │ /api/dashboard/summary               │ GET   │ 获取首页汇总数据                    │
+ * │ 2  │ /api/dashboard/metrics               │ GET   │ 核心指标卡片数据                    │
+ * │ 3  │ /api/dashboard/todos                 │ GET   │ 待办事项列表                        │
+ * │ 4  │ /api/dashboard/order-tracking        │ GET   │ 订单跟踪看板                        │
+ * │ 5  │ /api/dashboard/charts                │ GET   │ 图表数据                            │
+ * └────┴──────────────────────────────────────┴────────┴─────────────────────────────────────┘
+ */
+@RestController
+@RequestMapping("/api/dashboard")
+public class DashboardController extends BaseController {
+
+    /**
+     * 日期时间格式化器（yyyy-MM-dd HH:mm:ss）
+     */
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+    // region 服务依赖注入
+    // ===================================
+    // 服务依赖注入
+    // ===================================
+
+    @Autowired
+    private ProductionPlanService productionPlanService;
+
+    @Autowired
+    private StockService stockService;
+
+    @Autowired
+    private ApprovalInstanceService approvalInstanceService;
+
+    @Autowired
+    private EquipmentMaintenanceService equipmentMaintenanceService;
+
+    @Autowired
+    private PersonnelFileService personnelFileService;
+
+    @Autowired
+    private StockInService stockInService;
+
+    @Autowired
+    private DisinfectionRecordService disinfectionRecordService;
+
+    @Autowired
+    private PreparationService preparationService;
+
+    @Autowired
+    private PersonnelCertificateService personnelCertificateService;
+
+    @Autowired
+    private EquipmentService equipmentService;
+
+    @Autowired
+    private RoomInfoService roomInfoService;
+
+    @Autowired
+    private WorkOrderService workOrderService;
+
+    @Autowired
+    private PurchaseOrdersService purchaseOrdersService;
+
+    @Autowired
+    private AcceptanceOrderService acceptanceOrderService;
+
+    @Autowired
+    private StockOutService stockOutService;
+
+    @Autowired
+    private OrganizationService organizationService;
+
+    @Autowired
+    private StockInDetailMapper stockInDetailMapper;
+
+    // endregion
+
+    // region 汇总和统计接口
+    // ===================================
+    // 汇总和统计接口
+    // ===================================
+
+    /**
+     * 获取首页汇总数据（保留旧接口兼容）
+     *
+     * 示例请求：
+     * GET /api/dashboard/summary
+     *
+     * @return 汇总数据，包含生产统计、库存预警、审批统计等
+     */
+// @GetMapping("/summary")
+    public ApiResponse<DashboardSummaryDto> getSummary() {
+        try {
+            DashboardSummaryDto summary = new DashboardSummaryDto();
+
+            ProductionStatsDto productionStats = new ProductionStatsDto();
+            productionStats.setTotalPlans(productionPlanService.count());
+            // 生产计划状态已落库（待生产/生产中/已完成），直接按状态列统计
+            // 进行中：生产中
+            productionStats.setInProgress(productionPlanService.count(
+                new QueryWrapper<ProductionPlan>().eq("current_status", "生产中")));
+            // 已完成：已完成
+            productionStats.setCompleted(productionPlanService.count(
+                new QueryWrapper<ProductionPlan>().eq("current_status", "已完成")));
+            // 待处理：待生产
+            productionStats.setPending(productionPlanService.count(
+                new QueryWrapper<ProductionPlan>().eq("current_status", "待生产")));
+            summary.setProductionStats(productionStats);
+
+            StockWarningStatsDto stockWarnings = new StockWarningStatsDto();
+            List<Stock> allStocks = stockService.list(
+                new QueryWrapper<Stock>().isNotNull("min_quantity"));
+            long lowStock = allStocks.stream()
+                .filter(s -> s.getQuantity() != null && s.getMinQuantity() != null
+                    && s.getQuantity().compareTo(s.getMinQuantity()) <= 0)
+                .count();
+            LocalDate today = LocalDate.now();
+            long expiringSoon = stockService.count(
+                new QueryWrapper<Stock>()
+                    .ge("expiry_date", today)
+                    .le("expiry_date", today.plusDays(30)));
+            long expired = stockService.count(
+                new QueryWrapper<Stock>().lt("expiry_date", today));
+            stockWarnings.setLowStock(lowStock);
+            stockWarnings.setExpiringSoon(expiringSoon);
+            stockWarnings.setExpired(expired);
+            summary.setStockWarnings(stockWarnings);
+
+            ApprovalStatsDto approvalStats = new ApprovalStatsDto();
+            approvalStats.setPendingApproval(approvalInstanceService.count(
+                new QueryWrapper<ApprovalInstance>().eq("status", "PENDING")));
+            approvalStats.setMyPending(0);
+            summary.setApprovalStats(approvalStats);
+
+            return success(summary);
+        } catch (Exception e) {
+            return exception(e, "操作");
+        }
+    }
+
+    /**
+     * 核心指标卡片数据
+     *
+     * 示例请求：
+     * GET /api/dashboard/metrics?startMonth=2026-01&endMonth=2026-06
+     *
+     * @param startMonth 起始月份（格式：2026-01）
+     * @param endMonth   结束月份（格式：2026-06）
+     * @return 核心指标数据，包含预估产值、总订单量、总交付量、总采购额、待生产数量
+     */
+    @GetMapping("/metrics")
+    public ApiResponse<DashboardMetricsDto> getMetrics(
+            @RequestParam(required = false) String startMonth,
+            @RequestParam(required = false) String endMonth) {
+        try {
+            DashboardMetricsDto metrics = new DashboardMetricsDto();
+
+            // 预估产值：生产任务按配置日期筛选，total_amount 求和
+            QueryWrapper<WorkOrder> woConfigWrapper = buildWorkOrderConfigDateWrapper(startMonth, endMonth);
+            List<WorkOrder> workOrders = workOrderService.list(woConfigWrapper);
+            double estimatedValue = workOrders.stream()
+                .filter(wo -> wo.getTotalAmount() != null)
+                .mapToDouble(wo -> wo.getTotalAmount().doubleValue())
+                .sum();
+            metrics.setEstimatedOutputValue(new MetricsItem<>(
+                BigDecimal.valueOf(Math.round(estimatedValue * 100.0) / 100.0),
+                toWorkOrderMetricDetails(workOrders)));
+
+            // 总订单量：生产计划按创建时间筛选，COUNT
+            QueryWrapper<ProductionPlan> planWrapper = buildPlanCreatedTimeWrapper(startMonth, endMonth);
+            List<ProductionPlan> allPlans = productionPlanService.list(planWrapper);
+            metrics.setTotalOrders(new MetricsItem<>((long) allPlans.size(),
+                toPlanMetricDetails(allPlans)));
+
+            // 总交付量：生产任务进度=生产完（productionCompleteTime有值），按创建时间筛选，COUNT
+            QueryWrapper<WorkOrder> deliveryWrapper = buildWorkOrderProductionCompleteWrapper(startMonth, endMonth);
+            List<WorkOrder> deliveredOrders = workOrderService.list(deliveryWrapper);
+            metrics.setTotalDeliveries(new MetricsItem<>((long) deliveredOrders.size(),
+                toWorkOrderMetricDetails(deliveredOrders)));
+
+            // 总采购额：入库管理按入库时间筛选，total_amount 求和
+            QueryWrapper<StockIn> stockInWrapper = buildStockInTimeWrapper(startMonth, endMonth);
+            List<StockIn> stockIns = stockInService.list(stockInWrapper);
+            double purchaseAmount = stockIns.stream()
+                .filter(s -> s.getTotalAmount() != null)
+                .mapToDouble(s -> s.getTotalAmount().doubleValue())
+                .sum();
+            metrics.setTotalPurchaseAmount(new MetricsItem<>(
+                BigDecimal.valueOf(Math.round(purchaseAmount * 100.0) / 100.0),
+                toStockInMetricDetails(stockIns)));
+
+            // 待生产数量：生产计划进度=待生产，按创建时间筛选，COUNT
+            QueryWrapper<ProductionPlan> pendingWrapper = buildPlanCreatedTimeWrapper(startMonth, endMonth);
+            pendingWrapper.eq("current_status", "待生产");
+            List<ProductionPlan> pendingPlans = productionPlanService.list(pendingWrapper);
+            metrics.setPendingProduction(new MetricsItem<>((long) pendingPlans.size(),
+                toPlanMetricDetails(pendingPlans)));
+
+            return success(metrics);
+        } catch (Exception e) {
+            return exception(e, "操作");
+        }
+    }
+
+    // endregion
+
+    // region 待办事项接口
+    // ===================================
+    // 待办事项接口
+    // ===================================
+
+    /**
+     * 待办事项列表
+     *
+     * 示例请求：
+     * GET /api/dashboard/todos
+     *
+     * @return 待办事项列表，包含设备维保、库存预警、人员健康证、环境管理等提醒
+     */
+    @GetMapping("/todos")
+    public ApiResponse<TodoListDto> getTodos() {
+        try {
+            List<TodoItemDto> allTodos = new ArrayList<>();
+            Map<String, Long> typeCounts = new LinkedHashMap<>();
+            LocalDate today = LocalDate.now();
+
+            // 1. 设备维保提醒
+            List<EquipmentMaintenance> upcomingMaintenance = equipmentMaintenanceService.findUpcomingMaintenance(30);
+            // 批量查询设备名称
+            Set<Long> equipmentIds = upcomingMaintenance.stream()
+                .map(EquipmentMaintenance::getEquipmentId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+            Map<Long, String> equipmentNameMap = new HashMap<>();
+            if (!equipmentIds.isEmpty()) {
+                equipmentService.listByIds(equipmentIds).forEach(e ->
+                    equipmentNameMap.put(e.getEquipmentId().longValue(), e.getEquipmentName()));
+            }
+            for (EquipmentMaintenance m : upcomingMaintenance) {
+                TodoItemDto todo = new TodoItemDto();
+                todo.setId(m.getMaintenanceId());
+                todo.setTodoType("设备维保");
+                String equipmentName = equipmentNameMap.getOrDefault(m.getEquipmentId(), "设备" + m.getEquipmentId());
+                if (m.getNextMaintenanceDate() != null) {
+                    long days = java.time.temporal.ChronoUnit.DAYS.between(today, m.getNextMaintenanceDate());
+                    if (days < 0) {
+                        todo.setContent(equipmentName + "已超期维保" + Math.abs(days) + "天！");
+                    } else {
+                        todo.setContent(equipmentName + "距离下次维保还有" + days + "天");
+                    }
+                    todo.setDueDate(m.getNextMaintenanceDate().toString());
+                }
+                todo.setSourceModule("设备管理");
+                todo.setLink("设备.html?openMaintenance=" + m.getEquipmentId());
+                allTodos.add(todo);
+            }
+            typeCounts.put("设备维保", (long) upcomingMaintenance.size());
+
+            // 2. 库存预警
+            List<Stock> expiringStocks = stockService.list(
+                new QueryWrapper<Stock>()
+                    .eq("is_deleted", 0)
+                    .gt("quantity", 0)
+                    .isNotNull("expiry_date")
+                    .le("expiry_date", today.plusDays(30))
+                    .orderByAsc("expiry_date"));
+            for (Stock s : expiringStocks) {
+                TodoItemDto todo = new TodoItemDto();
+                todo.setId(s.getStockId());
+                todo.setTodoType("库存预警");
+                long days = java.time.temporal.ChronoUnit.DAYS.between(today, s.getExpiryDate());
+                String itemName = s.getItemName() != null ? s.getItemName() : "物料" + s.getItemId();
+                if (days < 0) {
+                    todo.setContent(itemName + "已过期" + Math.abs(days) + "天");
+                } else {
+                    todo.setContent(itemName + "将在" + days + "天后过期");
+                }
+                todo.setDueDate(s.getExpiryDate().toString());
+                todo.setSourceModule("库存管理");
+                todo.setLink("库存有效期预警.html");
+                allTodos.add(todo);
+            }
+            typeCounts.put("库存预警", (long) expiringStocks.size());
+
+            // 2.5 待入库
+            List<StockIn> pendingStockIns = stockInService.list(
+                new QueryWrapper<StockIn>()
+                    .eq("is_deleted", 0)
+                    .eq("in_status", "草稿")
+                    .orderByDesc("created_time"));
+            for (StockIn si : pendingStockIns) {
+                TodoItemDto todo = new TodoItemDto();
+                todo.setId(si.getInId());
+                todo.setTodoType("待入库");
+                todo.setContent((si.getInCode() != null ? si.getInCode() : "入库单" + si.getInId()) + "待审核");
+                todo.setDueDate(si.getInDate() != null ? si.getInDate().format(DATE_TIME_FORMATTER) : "");
+                todo.setSourceModule("库存管理");
+                todo.setLink("入库管理.html");
+                allTodos.add(todo);
+            }
+            typeCounts.put("待入库", (long) pendingStockIns.size());
+
+            // 2.6 待确认
+            List<StockIn> unconfirmedStockIns = stockInService.list(
+                new QueryWrapper<StockIn>()
+                    .eq("is_deleted", 0)
+                    .eq("in_status", "已到货")
+                    .orderByDesc("created_time"));
+            for (StockIn si : unconfirmedStockIns) {
+                TodoItemDto todo = new TodoItemDto();
+                todo.setId(si.getInId());
+                todo.setTodoType("待确认");
+                todo.setContent((si.getInCode() != null ? si.getInCode() : "入库单" + si.getInId()) + "已到货，待确认入库");
+                todo.setDueDate(si.getInDate() != null ? si.getInDate().format(DATE_TIME_FORMATTER) : "");
+                todo.setSourceModule("库存管理");
+                todo.setLink("入库管理.html");
+                allTodos.add(todo);
+            }
+            typeCounts.put("待确认", (long) unconfirmedStockIns.size());
+
+            // 3. 人员健康证到期
+            List<PersonnelFile> expiringCerts = personnelFileService.findExpiringHealthCerts(30);
+            for (PersonnelFile p : expiringCerts) {
+                TodoItemDto todo = new TodoItemDto();
+                todo.setId(p.getPersonnelFileId());
+                todo.setTodoType("人员管理");
+                String name = p.getName() != null ? p.getName() : "人员" + p.getPersonnelFileId();
+                if (p.getHealthCertExpire() != null) {
+                    long days = java.time.temporal.ChronoUnit.DAYS.between(today, p.getHealthCertExpire());
+                    if (days < 0) {
+                        todo.setContent(name + "健康证已过期" + Math.abs(days) + "天");
+                    } else {
+                        todo.setContent(name + "健康证还有" + days + "天到期");
+                    }
+                    todo.setDueDate(p.getHealthCertExpire().toString());
+                }
+                todo.setSourceModule("人员管理");
+                todo.setLink("人员档案.html");
+                allTodos.add(todo);
+            }
+
+            // 3.5 人员证书到期（从证书子表查询）
+            List<PersonnelCertificate> expiringCertificates = personnelCertificateService.findExpiringCertificates(30);
+            // 批量查询人员名称
+            Set<Long> certPersonnelIds = expiringCertificates.stream()
+                .map(PersonnelCertificate::getPersonnelFileId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+            Map<Long, String> certPersonnelNameMap = new HashMap<>();
+            if (!certPersonnelIds.isEmpty()) {
+                personnelFileService.listByIds(certPersonnelIds).forEach(p ->
+                    certPersonnelNameMap.put(p.getPersonnelFileId(), p.getName()));
+            }
+            for (PersonnelCertificate cert : expiringCertificates) {
+                TodoItemDto todo = new TodoItemDto();
+                todo.setId(cert.getCertificateId());
+                todo.setTodoType("人员管理");
+                String personName = certPersonnelNameMap.getOrDefault(cert.getPersonnelFileId(), "人员" + cert.getPersonnelFileId());
+                String certName = cert.getCertificateName() != null ? cert.getCertificateName() : "证书";
+                if (cert.getExpiryDate() != null) {
+                    long days = java.time.temporal.ChronoUnit.DAYS.between(today, cert.getExpiryDate());
+                    if (days < 0) {
+                        todo.setContent(personName + "的" + certName + "已过期" + Math.abs(days) + "天");
+                    } else {
+                        todo.setContent(personName + "的" + certName + "还有" + days + "天到期");
+                    }
+                    todo.setDueDate(cert.getExpiryDate().toString());
+                }
+                todo.setSourceModule("人员管理");
+                todo.setLink("人员档案.html");
+                allTodos.add(todo);
+            }
+            // 更新人员管理计数（健康证 + 证书子表）
+            typeCounts.put("人员管理", (long) expiringCerts.size() + expiringCertificates.size());
+
+            // 5. 环境管理（消毒到期提醒）
+            List<DisinfectionRecord> upcomingDisinfection = disinfectionRecordService.findUpcomingDisinfection(30);
+            // 批量查询房间名称
+            Set<Integer> roomIds = upcomingDisinfection.stream()
+                .map(DisinfectionRecord::getRoomId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+            Map<Integer, String> roomNameMap = new HashMap<>();
+            if (!roomIds.isEmpty()) {
+                roomInfoService.listByIds(roomIds).forEach(r ->
+                    roomNameMap.put(r.getRoomId(), r.getRoomName()));
+            }
+            for (DisinfectionRecord d : upcomingDisinfection) {
+                TodoItemDto todo = new TodoItemDto();
+                todo.setId(d.getId());
+                todo.setTodoType("环境管理");
+                String roomName = roomNameMap.getOrDefault(d.getRoomId(), "车间" + d.getRoomId());
+                if (d.getNextDisinfectionDate() != null) {
+                    long days = java.time.temporal.ChronoUnit.DAYS.between(today, d.getNextDisinfectionDate());
+                    if (days < 0) {
+                        todo.setContent(roomName + "已超期消毒" + Math.abs(days) + "天！");
+                    } else {
+                        todo.setContent(roomName + "距离下次消毒还有" + days + "天");
+                    }
+                    todo.setDueDate(d.getNextDisinfectionDate().toString());
+                }
+                todo.setSourceModule("环境管理");
+                todo.setLink("车间详情.html?id=" + d.getRoomId());
+                allTodos.add(todo);
+            }
+            typeCounts.put("环境管理", (long) upcomingDisinfection.size());
+
+            // 6. 低库存预警（库存数量低于安全库存，全员可见）
+            List<Stock> lowStocks = stockService.list(
+                new QueryWrapper<Stock>()
+                    .eq("is_deleted", 0)
+                    .gt("quantity", 0)
+                    .isNotNull("min_quantity")
+                    .apply("quantity <= min_quantity")
+                    .orderByDesc("updated_time"));
+            for (Stock s : lowStocks) {
+                TodoItemDto todo = new TodoItemDto();
+                todo.setId(s.getStockId());
+                todo.setTodoType("低库存");
+                todo.setContent(s.getItemName() + "库存" + s.getQuantity() + s.getUnitName()
+                    + "，低于安全库存" + s.getMinQuantity());
+                todo.setDueDate(s.getUpdatedTime() != null ? s.getUpdatedTime().format(DATE_TIME_FORMATTER) : "");
+                todo.setSourceModule("库存管理");
+                todo.setLink("/stock_info");
+                allTodos.add(todo);
+            }
+            typeCounts.put("低库存", (long) lowStocks.size());
+
+            // 7. 采购订单待采购（审批通过生成但未执行的采购订单）
+            List<PurchaseOrders> pendingPurchases = purchaseOrdersService.list(
+                new QueryWrapper<PurchaseOrders>()
+                    .eq("is_deleted", 0)
+                    .eq("status", "待采购")
+                    .orderByDesc("created_time"));
+            for (PurchaseOrders po : pendingPurchases) {
+                TodoItemDto todo = new TodoItemDto();
+                todo.setId(po.getId());
+                todo.setTodoType("采购订单");
+                todo.setContent((po.getPurchaseNumber() != null ? po.getPurchaseNumber() : "采购订单" + po.getId()) + "待采购");
+                todo.setDueDate(po.getProcessingDate() != null ? po.getProcessingDate().toString() : "");
+                todo.setSourceModule("采购管理");
+                todo.setLink("/inbound_info");
+                allTodos.add(todo);
+            }
+            typeCounts.put("采购订单", (long) pendingPurchases.size());
+
+            // 8. 验收流程待办（运输中/到货初验/物料检验/待退货）
+            List<AcceptanceOrder> pendingAcceptances = acceptanceOrderService.list(
+                new QueryWrapper<AcceptanceOrder>()
+                    .eq("is_deleted", 0)
+                    .in("status", Arrays.asList("运输中", "到货初验", "物料检验", "待退货"))
+                    .orderByDesc("created_time"));
+            Map<String, String> acceptanceContentMap = new HashMap<>();
+            acceptanceContentMap.put("运输中", "已发货，待确认到货");
+            acceptanceContentMap.put("到货初验", "待到货初验");
+            acceptanceContentMap.put("物料检验", "待检验");
+            acceptanceContentMap.put("待退货", "检验不合格，待退货");
+            for (AcceptanceOrder a : pendingAcceptances) {
+                TodoItemDto todo = new TodoItemDto();
+                todo.setId(a.getAcceptanceId());
+                todo.setTodoType("验收");
+                todo.setContent((a.getAcceptanceCode() != null ? a.getAcceptanceCode() : "验收单" + a.getAcceptanceId())
+                    + acceptanceContentMap.getOrDefault(a.getStatus(), "待处理"));
+                todo.setDueDate("");
+                todo.setSourceModule("验收管理");
+                todo.setLink("/inbound_info");
+                allTodos.add(todo);
+            }
+            typeCounts.put("验收", (long) pendingAcceptances.size());
+
+            // 9. 出库单待确认（草稿状态的出库单）
+            List<StockOut> pendingStockOuts = stockOutService.list(
+                new QueryWrapper<StockOut>()
+                    .eq("is_deleted", 0)
+                    .eq("out_status", "草稿")
+                    .orderByDesc("created_time"));
+            for (StockOut so : pendingStockOuts) {
+                TodoItemDto todo = new TodoItemDto();
+                todo.setId(so.getOutId());
+                todo.setTodoType("出库单");
+                todo.setContent((so.getOutCode() != null ? so.getOutCode() : "出库单" + so.getOutId()) + "待确认出库");
+                todo.setDueDate(so.getOutDate() != null ? so.getOutDate().format(DATE_TIME_FORMATTER) : "");
+                todo.setSourceModule("库存管理");
+                todo.setLink("/warehouse_management/stock");
+                allTodos.add(todo);
+            }
+            typeCounts.put("出库单", (long) pendingStockOuts.size());
+
+            // 10. 机构许可证到期（30天内到期或已过期）
+            List<Organization> expiringOrgs = organizationService.list(
+                new QueryWrapper<Organization>()
+                    .eq("is_deleted", 0)
+                    .isNotNull("expiry_date")
+                    .le("expiry_date", today.plusDays(30))
+                    .orderByAsc("expiry_date"));
+            for (Organization org : expiringOrgs) {
+                TodoItemDto todo = new TodoItemDto();
+                todo.setId(org.getId());
+                todo.setTodoType("机构证照");
+                long days = java.time.temporal.ChronoUnit.DAYS.between(today, org.getExpiryDate());
+                if (days < 0) {
+                    todo.setContent(org.getOrgName() + "许可证已过期" + Math.abs(days) + "天");
+                } else {
+                    todo.setContent(org.getOrgName() + "许可证还有" + days + "天到期");
+                }
+                todo.setDueDate(org.getExpiryDate().toString());
+                todo.setSourceModule("机构管理");
+                todo.setLink("/organization");
+                allTodos.add(todo);
+            }
+            typeCounts.put("机构证照", (long) expiringOrgs.size());
+
+            typeCounts.put("全部", (long) allTodos.size());
+
+            TodoListDto result = new TodoListDto();
+            result.setItems(allTodos);
+            result.setTypeCounts(typeCounts);
+            return success(result);
+        } catch (Exception e) {
+            return exception(e, "操作");
+        }
+    }
+
+    // endregion
+
+    // region 订单跟踪接口
+    // ===================================
+    // 订单跟踪接口
+    // ===================================
+
+    /**
+     * 订单跟踪看板
+     *
+     * 示例请求：
+     * GET /api/dashboard/order-tracking?startMonth=2026-01&endMonth=2026-06&status=生产中&pageIndex=0&pageSize=20
+     *
+     * @param startMonth 起始月份（格式：2026-01，可选）
+     * @param endMonth   结束月份（格式：2026-06，可选）
+     * @param status     订单状态（可选），如待生产、生产中、已完成
+     * @param pageIndex  页码（从0开始）
+     * @param pageSize   每页数量
+     * @return 订单跟踪分页列表
+     */
+    @GetMapping("/order-tracking")
+    public ApiResponse<PagedResult<OrderTrackingDto>> getOrderTracking(
+            @RequestParam(required = false) String startMonth,
+            @RequestParam(required = false) String endMonth,
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "-1") int pageIndex,
+            @RequestParam(defaultValue = "-1") int pageSize) {
+        try {
+            // -1 表示不分页，返回全部数据
+            boolean returnAll = pageIndex == -1 || pageSize == -1;
+            int safePageIndex = returnAll ? 0 : Math.max(0, pageIndex);
+            int safePageSize = returnAll ? Integer.MAX_VALUE : (pageSize <= 0 ? 20 : Math.max(1, pageSize));
+
+            // 构建创建时间范围
+            LocalDateTime createdTimeStart = null;
+            LocalDateTime createdTimeEnd = null;
+            if (startMonth != null && !startMonth.isEmpty()) {
+                createdTimeStart = LocalDate.parse(startMonth + "-01").atStartOfDay();
+            }
+            if (endMonth != null && !endMonth.isEmpty()) {
+                LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
+                createdTimeEnd = end.atTime(23, 59, 59);
+            }
+
+            // 构建状态过滤条件
+            ProductionPlan planFilter = new ProductionPlan();
+            if (status != null && !status.isEmpty()) {
+                planFilter.setCurrentStatus(status);
+            }
+
+            // 调用分页查询，获取带工单关联的生产计划
+            PagedResult<ProductionPlanWithRecordsDto> planResult = productionPlanService.searchWithDetails(
+                    planFilter, null,
+                    createdTimeStart, createdTimeEnd, null, null,
+                    null, null, null, null,
+                    null, null,
+                    null, null, null, null,
+                    null, null, null, null,
+                    null, null, null,
+                    safePageIndex, safePageSize);
+
+            // 将 ProductionPlanWithRecordsDto 映射为 OrderTrackingDto，日期取最晚工单时间
+            List<OrderTrackingDto> trackingList = planResult.getItems().stream().map(plan -> {
+                OrderTrackingDto dto = new OrderTrackingDto();
+                dto.setId(plan.getId().longValue());
+                dto.setOrderName(plan.getPreparationName());
+                dto.setQuantity(plan.getPlanQuantity() != null ? plan.getPlanQuantity() + "" : "");
+                dto.setBatchNo(plan.getPlanNumber());
+                dto.setHospital(plan.getUnitName());
+                dto.setCurrentStatus(plan.getCurrentStatus());
+
+                // 下单日期取计划创建时间
+                if (plan.getCreatedTime() != null) {
+                    dto.setOrderDate(plan.getCreatedTime().format(DateTimeFormatter.ofPattern("MM-dd")));
+                }
+
+                // 从关联工单中取最晚完成时间
+                List<WorkOrder> workOrders = plan.getWorkOrders();
+                if (workOrders != null && !workOrders.isEmpty()) {
+                    // 生产日期：取最晚工单的 configCompleteTime（生产完成时间）
+                    workOrders.stream()
+                            .map(WorkOrder::getConfigCompleteTime)
+                            .filter(Objects::nonNull)
+                            .max(LocalDateTime::compareTo)
+                            .ifPresent(time -> dto.setProductionDate(time.format(DateTimeFormatter.ofPattern("MM-dd"))));
+
+                    // 检验日期：取最晚工单的 inspectionEnd（检验完成时间）
+                    workOrders.stream()
+                            .map(WorkOrder::getInspectionEnd)
+                            .filter(Objects::nonNull)
+                            .max(LocalDateTime::compareTo)
+                            .ifPresent(time -> dto.setInspectionDate(time.format(DateTimeFormatter.ofPattern("MM-dd"))));
+
+                    // 出库日期：取最晚工单的 outboundTime
+                    workOrders.stream()
+                            .map(WorkOrder::getOutboundTime)
+                            .filter(Objects::nonNull)
+                            .max(LocalDateTime::compareTo)
+                            .ifPresent(time -> dto.setOutboundDate(time.format(DateTimeFormatter.ofPattern("MM-dd"))));
+
+                    // 归档日期：取最晚工单的 archiveTime
+                    workOrders.stream()
+                            .map(WorkOrder::getArchiveTime)
+                            .filter(Objects::nonNull)
+                            .max(LocalDateTime::compareTo)
+                            .ifPresent(time -> dto.setArchiveDate(time.format(DateTimeFormatter.ofPattern("MM-dd"))));
+                }
+
+                return dto;
+            }).collect(Collectors.toList());
+
+            // 组装分页结果
+            PagedResult<OrderTrackingDto> result = new PagedResult<>();
+            result.setItems(trackingList);
+            result.setTotalCount(planResult.getTotalCount());
+            result.setPageIndex(returnAll ? 0 : planResult.getPageIndex());
+            result.setPageSize(returnAll ? 0 : planResult.getPageSize());
+
+            return success(result);
+        } catch (Exception e) {
+            return exception(e, "操作");
+        }
+    }
+
+    // endregion
+
+    // region 图表数据接口
+    // ===================================
+    // 图表数据接口
+    // ===================================
+
+    /**
+     * 图表数据
+     *
+     * 示例请求：
+     * GET /api/dashboard/charts?startMonth=2026-01&endMonth=2026-06
+     *
+     * @param startMonth 起始月份（格式：2026-01，可选）
+     * @param endMonth   结束月份（格式：2026-06，可选）
+     * @return 图表数据，包含交付数量、收入趋势、库存资金占用等
+     */
+    @GetMapping("/charts")
+    public ApiResponse<ChartDataDto> getCharts(
+            @RequestParam(required = false) String startMonth,
+            @RequestParam(required = false) String endMonth) {
+        try {
+            ChartDataDto chartData = new ChartDataDto();
+
+            // === 预加载制剂编码→剂型大类映射 ===
+            Map<String, String> preparationDosageMap = new HashMap<>();
+            preparationService.list().forEach(p ->
+                preparationDosageMap.put(p.getPreparationCode(),
+                    p.getDosageCategory() != null ? p.getDosageCategory() : "其他")
+            );
+
+            // === 交付数量（按剂型大类+月份）：生产计划进度=已完成，按计划生产时间筛选 ===
+            QueryWrapper<ProductionPlan> completedPlanWrapper = buildPlanProductionTimeWrapper(startMonth, endMonth);
+            completedPlanWrapper.eq("current_status", "已完成");
+            List<ProductionPlan> completedPlans = productionPlanService.list(completedPlanWrapper);
+
+            // 按月份+剂型大类聚合
+            Map<String, Map<String, Long>> deliveryByMonth = new LinkedHashMap<>();
+            for (ProductionPlan plan : completedPlans) {
+                String month = plan.getPlanProductionTime() != null
+                    ? plan.getPlanProductionTime().format(DateTimeFormatter.ofPattern("M月"))
+                    : "未知";
+                String dosageCategory = preparationDosageMap.getOrDefault(
+                    plan.getPreparationCode(), "其他");
+                deliveryByMonth.computeIfAbsent(month, k -> new LinkedHashMap<>())
+                    .merge(dosageCategory, 1L, Long::sum);
+            }
+
+            // 组装交付数量结果（含总计）
+            List<Map<String, Object>> deliverySummary = new ArrayList<>();
+            deliveryByMonth.forEach((month, data) -> {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("月份", month);
+                long total = 0;
+                for (Long v : data.values()) total += v;
+                item.putAll(data);
+                item.put("总计", total);
+                deliverySummary.add(item);
+            });
+
+            // 交付图表明细：按月份+剂型分组
+            List<DeliveryChartDetailDto> deliveryDetails = new ArrayList<>();
+            deliveryByMonth.forEach((month, dosageMap) ->
+                dosageMap.forEach((dosage, count) -> {
+                    DeliveryChartDetailDto detail = new DeliveryChartDetailDto();
+                    detail.setMonth(month);
+                    detail.setDosageCategory(dosage);
+                    detail.setRecords(completedPlans.stream()
+                        .filter(p -> dosage.equals(preparationDosageMap.getOrDefault(p.getPreparationCode(), "其他")))
+                        .filter(p -> p.getPlanProductionTime() != null
+                            && month.equals(p.getPlanProductionTime().format(DateTimeFormatter.ofPattern("M月"))))
+                        .map(this::toDeliveryChartRecord)
+                        .collect(Collectors.toList()));
+                    deliveryDetails.add(detail);
+                })
+            );
+
+            ChartDataDto.DeliveryChartData deliveryData = new ChartDataDto.DeliveryChartData();
+            deliveryData.setSummary(deliverySummary);
+            deliveryData.setDetails(deliveryDetails);
+            chartData.setDeliveryByDosageForm(deliveryData);
+
+            // === 预估产值（按剂型大类+月份）：生产任务有配置完成时间，按配置完成时间筛选，total_amount 求和 ===
+            QueryWrapper<WorkOrder> revenueWrapper = buildWorkOrderConfigCompleteTimeWrapper(startMonth, endMonth);
+            List<WorkOrder> revenueOrders = workOrderService.list(revenueWrapper);
+
+            // 按月份+剂型大类聚合
+            Map<String, Map<String, Double>> revenueByMonth = new LinkedHashMap<>();
+            for (WorkOrder wo : revenueOrders) {
+                String month = wo.getConfigCompleteTime() != null
+                    ? wo.getConfigCompleteTime().format(DateTimeFormatter.ofPattern("M月"))
+                    : "未知";
+                String dosageCategory = preparationDosageMap.getOrDefault(
+                    wo.getPreparationCode(), "其他");
+                double amount = wo.getTotalAmount() != null ? wo.getTotalAmount().doubleValue() : 0.0;
+                revenueByMonth.computeIfAbsent(month, k -> new LinkedHashMap<>())
+                    .merge(dosageCategory, amount, Double::sum);
+            }
+
+            // 组装预估产值结果（含总计）
+            List<Map<String, Object>> revenueSummary = new ArrayList<>();
+            revenueByMonth.forEach((month, data) -> {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("月份", month);
+                double total = 0;
+                for (Double v : data.values()) total += v;
+                data.forEach((k, v) -> item.put(k, Math.round(v * 100.0) / 100.0));
+                item.put("总计", Math.round(total * 100.0) / 100.0);
+                revenueSummary.add(item);
+            });
+
+            // 产值图表明细：按月份+剂型分组
+            List<RevenueChartDetailDto> revenueDetails = new ArrayList<>();
+            revenueByMonth.forEach((month, dosageMap) ->
+                dosageMap.forEach((dosage, amount) -> {
+                    RevenueChartDetailDto detail = new RevenueChartDetailDto();
+                    detail.setMonth(month);
+                    detail.setDosageCategory(dosage);
+                    detail.setRecords(revenueOrders.stream()
+                        .filter(wo -> dosage.equals(preparationDosageMap.getOrDefault(wo.getPreparationCode(), "其他")))
+                        .filter(wo -> wo.getConfigCompleteTime() != null
+                            && month.equals(wo.getConfigCompleteTime().format(DateTimeFormatter.ofPattern("M月"))))
+                        .map(this::toRevenueChartRecord)
+                        .collect(Collectors.toList()));
+                    revenueDetails.add(detail);
+                })
+            );
+
+            ChartDataDto.RevenueChartData revenueData = new ChartDataDto.RevenueChartData();
+            revenueData.setSummary(revenueSummary);
+            revenueData.setDetails(revenueDetails);
+            chartData.setRevenueByMonth(revenueData);
+
+            // === 库存资金占用：按原料/辅料/包材分类，计算总价值（数量*单价） ===
+            List<Stock> allStocks = stockService.list();
+            Map<String, Double> fundOccupation = allStocks.stream()
+                .filter(s -> s.getIsDeleted() == null || s.getIsDeleted() == 0)
+                .collect(Collectors.groupingBy(
+                    s -> s.getCategoryName() != null ? s.getCategoryName() : "其他",
+                    Collectors.summingDouble(s -> {
+                        double qty = s.getQuantity() != null ? s.getQuantity().doubleValue() : 0.0;
+                        double price = s.getUnitPrice() != null ? s.getUnitPrice().doubleValue() : 0.0;
+                        return qty * price;
+                    })
+                ));
+            // 过滤金额为0的类别
+            fundOccupation.entrySet().removeIf(e -> e.getValue() <= 0);
+
+            // 库存图表明细：按类别分组
+            Map<String, List<Stock>> stocksByCategory = allStocks.stream()
+                .filter(s -> s.getIsDeleted() == null || s.getIsDeleted() == 0)
+                .collect(Collectors.groupingBy(
+                    s -> s.getCategoryName() != null ? s.getCategoryName() : "其他"));
+            List<InventoryChartDetailDto> inventoryDetails = new ArrayList<>();
+            stocksByCategory.forEach((category, stocks) -> {
+                List<InventoryChartRecordDto> records = stocks.stream()
+                    .map(this::toInventoryChartRecord)
+                    .filter(r -> r.getTotalValue() != null
+                        && r.getTotalValue().compareTo(java.math.BigDecimal.ZERO) > 0)
+                    .collect(Collectors.toList());
+                if (!records.isEmpty()) {
+                    InventoryChartDetailDto detail = new InventoryChartDetailDto();
+                    detail.setCategory(category);
+                    detail.setRecords(records);
+                    inventoryDetails.add(detail);
+                }
+            });
+
+            ChartDataDto.InventoryChartData inventoryData = new ChartDataDto.InventoryChartData();
+            inventoryData.setSummary(fundOccupation);
+            inventoryData.setDetails(inventoryDetails);
+            chartData.setInventoryFundOccupation(inventoryData);
+
+            // === 月度入库金额情况：按月份+类别（原料/辅料/包材）聚合，堆叠柱状图 ===
+            // 查询入库明细关联入库主表，按月份和类别汇总金额
+            QueryWrapper<StockIn> stockInChartWrapper = buildStockInTimeWrapper(startMonth, endMonth);
+            stockInChartWrapper.eq("in_status", "已入库");
+            List<StockIn> chartStockIns = stockInService.list(stockInChartWrapper);
+            Set<Long> chartInIds = chartStockIns.stream().map(StockIn::getInId).collect(Collectors.toSet());
+
+            // 按入库单ID→日期映射
+            Map<Long, String> inIdToMonthMap = chartStockIns.stream()
+                .collect(Collectors.toMap(
+                    StockIn::getInId,
+                    si -> si.getInDate() != null
+                        ? si.getInDate().format(DateTimeFormatter.ofPattern("M月"))
+                        : "未知",
+                    (a, b) -> a));
+
+            // 按入库单ID→入库单映射（用于获取 inCode 和 inDate）
+            Map<Long, StockIn> inIdToStockInMap = chartStockIns.stream()
+                .collect(Collectors.toMap(StockIn::getInId, si -> si, (a, b) -> a));
+
+            // 查询入库明细（仅已入库的单据）
+            List<StockInDetail> chartDetails = chartInIds.isEmpty()
+                ? List.of()
+                : stockInDetailMapper.selectList(
+                    new QueryWrapper<StockInDetail>()
+                        .in("in_id", chartInIds)
+                        .eq("is_deleted", 0));
+
+            // 按月份+类别聚合金额
+            Map<String, Map<String, BigDecimal>> stockInByMonth = new LinkedHashMap<>();
+            for (StockInDetail detail : chartDetails) {
+                String month = inIdToMonthMap.getOrDefault(detail.getInId(), "未知");
+                String category = detail.getCategoryName() != null ? detail.getCategoryName() : "其他";
+                BigDecimal amount = detail.getAmount() != null ? detail.getAmount() : BigDecimal.ZERO;
+                stockInByMonth.computeIfAbsent(month, k -> new LinkedHashMap<>())
+                    .merge(category, amount, BigDecimal::add);
+            }
+
+            // 组装 summary（堆叠柱状图数据，含金额总计）
+            List<Map<String, Object>> stockInSummary = new ArrayList<>();
+            stockInByMonth.forEach((month, categoryMap) -> {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("月份", month);
+                BigDecimal total = BigDecimal.ZERO;
+                for (BigDecimal v : categoryMap.values()) total = total.add(v);
+                categoryMap.forEach((k, v) -> item.put(k, v));
+                item.put("金额总计", total);
+                stockInSummary.add(item);
+            });
+
+            // 组装 details（按月份+类别分组的入库明细）
+            List<StockInChartDetailDto> stockInDetails = new ArrayList<>();
+            stockInByMonth.forEach((month, categoryMap) ->
+                categoryMap.forEach((category, amount) -> {
+                    StockInChartDetailDto detail = new StockInChartDetailDto();
+                    detail.setMonth(month);
+                    detail.setCategory(category);
+                    detail.setRecords(chartDetails.stream()
+                        .filter(d -> inIdToMonthMap.containsKey(d.getInId()))
+                        .filter(d -> month.equals(inIdToMonthMap.get(d.getInId())))
+                        .filter(d -> category.equals(d.getCategoryName() != null ? d.getCategoryName() : "其他"))
+                        .map(d -> {
+                            StockInChartRecordDto r = toStockInChartRecord(d);
+                            StockIn si = inIdToStockInMap.get(d.getInId());
+                            if (si != null) {
+                                r.setInCode(si.getInCode());
+                                r.setInDate(si.getInDate() != null
+                                    ? si.getInDate().format(DATE_TIME_FORMATTER) : null);
+                            }
+                            return r;
+                        })
+                        .collect(Collectors.toList()));
+                    stockInDetails.add(detail);
+                })
+            );
+
+            ChartDataDto.StockInChartData stockInData = new ChartDataDto.StockInChartData();
+            stockInData.setSummary(stockInSummary);
+            stockInData.setDetails(stockInDetails);
+            chartData.setMonthlyStockInAmount(stockInData);
+
+            return success(chartData);
+        } catch (Exception e) {
+            return exception(e, "操作");
+        }
+    }
+
+    // endregion
+
+    // region 私有辅助方法
+    // ===================================
+    // 私有辅助方法
+    // ===================================
+
+    /**
+     * 将工单列表转换为指标明细DTO列表
+     *
+     * @param workOrders 工单列表
+     * @return 工单指标明细DTO列表
+     */
+    private List<WorkOrderMetricDetailDto> toWorkOrderMetricDetails(List<WorkOrder> workOrders) {
+        return workOrders.stream().map(wo -> {
+            WorkOrderMetricDetailDto dto = new WorkOrderMetricDetailDto();
+            dto.setWorkOrderId(wo.getWorkOrderId());
+            dto.setWorkOrderCode(wo.getWorkOrderCode());
+            dto.setPreparationCode(wo.getPreparationCode());
+            dto.setPreparationName(wo.getPreparationName());
+            dto.setBatchQty(wo.getBatchQty());
+            dto.setTotalAmount(wo.getTotalAmount());
+            dto.setCurrentStatus(wo.getCurrentStatus());
+            dto.setConfigDate(formatDateTime(wo.getConfigDate()));
+            dto.setConfigCompleteTime(formatDateTime(wo.getConfigCompleteTime()));
+            dto.setProductionCompleteTime(formatDateTime(wo.getProductionCompleteTime()));
+            return dto;
+        }).collect(Collectors.toList());
+    }
+
+    /**
+     * 将生产计划列表转换为指标明细DTO列表
+     *
+     * @param plans 生产计划列表
+     * @return 生产计划指标明细DTO列表
+     */
+    private List<ProductionPlanMetricDetailDto> toPlanMetricDetails(List<ProductionPlan> plans) {
+        return plans.stream().map(p -> {
+            ProductionPlanMetricDetailDto dto = new ProductionPlanMetricDetailDto();
+            dto.setPlanId(p.getId());
+            dto.setPlanNumber(p.getPlanNumber());
+            dto.setPreparationCode(p.getPreparationCode());
+            dto.setPreparationName(p.getPreparationName());
+            dto.setPlanQuantity(p.getPlanQuantity());
+            dto.setCurrentStatus(p.getCurrentStatus());
+            dto.setPlanProductionTime(formatDateTime(p.getPlanProductionTime()));
+            dto.setCreatedTime(formatDateTime(p.getCreatedTime()));
+            return dto;
+        }).collect(Collectors.toList());
+    }
+
+    /**
+     * 将入库单列表转换为指标明细DTO列表
+     *
+     * @param stockIns 入库单列表
+     * @return 入库单指标明细DTO列表
+     */
+    private List<StockInMetricDetailDto> toStockInMetricDetails(List<StockIn> stockIns) {
+        return stockIns.stream().map(si -> {
+            StockInMetricDetailDto dto = new StockInMetricDetailDto();
+            dto.setInId(si.getInId());
+            dto.setInCode(si.getInCode());
+            dto.setInType(si.getInType());
+            dto.setTotalAmount(si.getTotalAmount());
+            dto.setInStatus(si.getInStatus());
+            dto.setInDate(formatDateTime(si.getInDate()));
+            return dto;
+        }).collect(Collectors.toList());
+    }
+
+    /**
+     * 将生产计划转换为交付图表记录DTO
+     *
+     * @param plan 生产计划
+     * @return 交付图表记录DTO
+     */
+    private DeliveryChartRecordDto toDeliveryChartRecord(ProductionPlan plan) {
+        DeliveryChartRecordDto dto = new DeliveryChartRecordDto();
+        dto.setPlanId(plan.getId());
+        dto.setPlanNumber(plan.getPlanNumber());
+        dto.setPreparationCode(plan.getPreparationCode());
+        dto.setPreparationName(plan.getPreparationName());
+        dto.setPlanQuantity(plan.getPlanQuantity());
+        dto.setPlanProductionTime(formatDateTime(plan.getPlanProductionTime()));
+        dto.setCurrentStatus(plan.getCurrentStatus());
+        return dto;
+    }
+
+    /**
+     * 将工单转换为产值图表记录DTO
+     *
+     * @param wo 工单
+     * @return 产值图表记录DTO
+     */
+    private RevenueChartRecordDto toRevenueChartRecord(WorkOrder wo) {
+        RevenueChartRecordDto dto = new RevenueChartRecordDto();
+        dto.setWorkOrderId(wo.getWorkOrderId());
+        dto.setWorkOrderCode(wo.getWorkOrderCode());
+        dto.setPreparationCode(wo.getPreparationCode());
+        dto.setPreparationName(wo.getPreparationName());
+        dto.setBatchQty(wo.getBatchQty());
+        dto.setTotalAmount(wo.getTotalAmount());
+        dto.setCurrentStatus(wo.getCurrentStatus());
+        dto.setConfigCompleteTime(formatDateTime(wo.getConfigCompleteTime()));
+        return dto;
+    }
+
+    /**
+     * 将库存记录转换为库存图表记录DTO
+     *
+     * @param stock 库存记录
+     * @return 库存图表记录DTO
+     */
+    private InventoryChartRecordDto toInventoryChartRecord(Stock stock) {
+        InventoryChartRecordDto dto = new InventoryChartRecordDto();
+        dto.setStockId(stock.getStockId());
+        dto.setItemCode(stock.getItemCode());
+        dto.setItemName(stock.getItemName());
+        dto.setCategoryName(stock.getCategoryName());
+        dto.setUnitName(stock.getUnitName());
+        dto.setQuantity(stock.getQuantity());
+        dto.setUnitPrice(stock.getUnitPrice());
+        // 计算总价值
+        double qty = stock.getQuantity() != null ? stock.getQuantity().doubleValue() : 0.0;
+        double price = stock.getUnitPrice() != null ? stock.getUnitPrice().doubleValue() : 0.0;
+        dto.setTotalValue(BigDecimal.valueOf(Math.round(qty * price * 100.0) / 100.0));
+        dto.setBatchNumber(stock.getBatchNumber());
+        return dto;
+    }
+
+    /**
+     * 将入库明细转换为入库金额图表记录DTO
+     *
+     * @param detail 入库明细
+     * @return 入库金额图表记录DTO
+     */
+    private StockInChartRecordDto toStockInChartRecord(StockInDetail detail) {
+        StockInChartRecordDto dto = new StockInChartRecordDto();
+        dto.setInDetailId(detail.getInDetailId());
+        dto.setItemCode(detail.getItemCode());
+        dto.setItemName(detail.getItemName());
+        dto.setCategoryName(detail.getCategoryName());
+        dto.setQuantity(detail.getQuantity());
+        dto.setUnitPrice(detail.getUnitPrice());
+        dto.setAmount(detail.getAmount());
+        return dto;
+    }
+
+    /**
+     * 格式化日期时间为字符串（null安全）
+     *
+     * @param dateTime 日期时间
+     * @return 格式化后的字符串，null输入返回null
+     */
+    private String formatDateTime(LocalDateTime dateTime) {
+        return dateTime != null ? dateTime.format(DATE_TIME_FORMATTER) : null;
+    }
+
+    /**
+     * 构建生产计划时间范围查询条件
+     *
+     * @param startMonth 起始月份（格式：2026-01）
+     * @param endMonth   结束月份（格式：2026-06）
+     * @return 查询条件
+     */
+    private QueryWrapper<ProductionPlan> buildTimeWrapper(String startMonth, String endMonth) {
+        QueryWrapper<ProductionPlan> wrapper = new QueryWrapper<>();
+        if (startMonth != null && !startMonth.isEmpty()) {
+            wrapper.ge("created_time", startMonth + "-01 00:00:00");
+        }
+        if (endMonth != null && !endMonth.isEmpty()) {
+            LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
+            wrapper.le("created_time", end.atTime(23, 59, 59));
+        }
+        return wrapper;
+    }
+
+    /**
+     * 构建入库单时间范围查询条件
+     *
+     * @param startMonth 起始月份（格式：2026-01）
+     * @param endMonth   结束月份（格式：2026-06）
+     * @return 查询条件
+     */
+    private QueryWrapper<StockIn> buildStockInTimeWrapper(String startMonth, String endMonth) {
+        QueryWrapper<StockIn> wrapper = new QueryWrapper<>();
+        if (startMonth != null && !startMonth.isEmpty()) {
+            wrapper.ge("in_date", LocalDate.parse(startMonth + "-01").atStartOfDay());
+        }
+        if (endMonth != null && !endMonth.isEmpty()) {
+            LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
+            wrapper.le("in_date", end.atTime(23, 59, 59));
+        }
+        return wrapper;
+    }
+
+    /**
+     * 构建工单时间范围查询条件
+     *
+     * @param startMonth 起始月份（格式：2026-01）
+     * @param endMonth   结束月份（格式：2026-06）
+     * @return 查询条件
+     */
+    private QueryWrapper<WorkOrder> buildWorkOrderTimeWrapper(String startMonth, String endMonth) {
+        QueryWrapper<WorkOrder> wrapper = new QueryWrapper<>();
+        wrapper.eq("is_deleted", 0);
+        if (startMonth != null && !startMonth.isEmpty()) {
+            wrapper.ge("created_time", startMonth + "-01 00:00:00");
+        }
+        if (endMonth != null && !endMonth.isEmpty()) {
+            LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
+            wrapper.le("created_time", end.atTime(23, 59, 59));
+        }
+        return wrapper;
+    }
+
+    /**
+     * 构建工单交付时间范围查询条件
+     *
+     * @param startMonth 起始月份（格式：2026-01）
+     * @param endMonth   结束月份（格式：2026-06）
+     * @return 查询条件
+     */
+    private QueryWrapper<WorkOrder> buildWorkOrderDeliveryTimeWrapper(String startMonth, String endMonth) {
+        QueryWrapper<WorkOrder> wrapper = new QueryWrapper<>();
+        wrapper.eq("is_deleted", 0);
+        if (startMonth != null && !startMonth.isEmpty()) {
+            wrapper.ge("delivery_time", startMonth + "-01 00:00:00");
+        }
+        if (endMonth != null && !endMonth.isEmpty()) {
+            LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
+            wrapper.le("delivery_time", end.atTime(23, 59, 59));
+        }
+        return wrapper;
+    }
+
+    /**
+     * 构建工单配置日期时间范围查询条件
+     *
+     * @param startMonth 起始月份（格式：2026-01）
+     * @param endMonth   结束月份（格式：2026-06）
+     * @return 查询条件
+     */
+    private QueryWrapper<WorkOrder> buildWorkOrderConfigDateWrapper(String startMonth, String endMonth) {
+        QueryWrapper<WorkOrder> wrapper = new QueryWrapper<>();
+        wrapper.eq("is_deleted", 0);
+        if (startMonth != null && !startMonth.isEmpty()) {
+            wrapper.ge("config_date", startMonth + "-01 00:00:00");
+        }
+        if (endMonth != null && !endMonth.isEmpty()) {
+            LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
+            wrapper.le("config_date", end.atTime(23, 59, 59));
+        }
+        return wrapper;
+    }
+
+    /**
+     * 构建生产计划创建时间范围查询条件
+     *
+     * @param startMonth 起始月份（格式：2026-01）
+     * @param endMonth   结束月份（格式：2026-06）
+     * @return 查询条件
+     */
+    private QueryWrapper<ProductionPlan> buildPlanCreatedTimeWrapper(String startMonth, String endMonth) {
+        QueryWrapper<ProductionPlan> wrapper = new QueryWrapper<>();
+        wrapper.eq("is_deleted", 0);
+        if (startMonth != null && !startMonth.isEmpty()) {
+            wrapper.ge("created_time", startMonth + "-01 00:00:00");
+        }
+        if (endMonth != null && !endMonth.isEmpty()) {
+            LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
+            wrapper.le("created_time", end.atTime(23, 59, 59));
+        }
+        return wrapper;
+    }
+
+    /**
+     * 构建工单生产完成时间范围查询条件（进度=已生产/已检验/已归档）
+     *
+     * @param startMonth 起始月份（格式：2026-01）
+     * @param endMonth   结束月份（格式：2026-06）
+     * @return 查询条件
+     */
+    private QueryWrapper<WorkOrder> buildWorkOrderProductionCompleteWrapper(String startMonth, String endMonth) {
+        QueryWrapper<WorkOrder> wrapper = new QueryWrapper<>();
+        wrapper.eq("is_deleted", 0)
+               .in("current_status", "已生产", "已检验", "已归档");
+        if (startMonth != null && !startMonth.isEmpty()) {
+            wrapper.ge("created_time", startMonth + "-01 00:00:00");
+        }
+        if (endMonth != null && !endMonth.isEmpty()) {
+            LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
+            wrapper.le("created_time", end.atTime(23, 59, 59));
+        }
+        return wrapper;
+    }
+
+    /**
+     * 构建生产计划计划生产时间范围查询条件
+     *
+     * @param startMonth 起始月份（格式：2026-01）
+     * @param endMonth   结束月份（格式：2026-06）
+     * @return 查询条件
+     */
+    private QueryWrapper<ProductionPlan> buildPlanProductionTimeWrapper(String startMonth, String endMonth) {
+        QueryWrapper<ProductionPlan> wrapper = new QueryWrapper<>();
+        wrapper.eq("is_deleted", 0);
+        if (startMonth != null && !startMonth.isEmpty()) {
+            wrapper.ge("plan_production_time", startMonth + "-01 00:00:00");
+        }
+        if (endMonth != null && !endMonth.isEmpty()) {
+            LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
+            wrapper.le("plan_production_time", end.atTime(23, 59, 59));
+        }
+        return wrapper;
+    }
+
+    /**
+     * 构建工单配置完成时间范围查询条件
+     *
+     * @param startMonth 起始月份（格式：2026-01）
+     * @param endMonth   结束月份（格式：2026-06）
+     * @return 查询条件
+     */
+    private QueryWrapper<WorkOrder> buildWorkOrderConfigCompleteTimeWrapper(String startMonth, String endMonth) {
+        QueryWrapper<WorkOrder> wrapper = new QueryWrapper<>();
+        wrapper.eq("is_deleted", 0)
+               .isNotNull("config_complete_time");
+        if (startMonth != null && !startMonth.isEmpty()) {
+            wrapper.ge("config_complete_time", startMonth + "-01 00:00:00");
+        }
+        if (endMonth != null && !endMonth.isEmpty()) {
+            LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
+            wrapper.le("config_complete_time", end.atTime(23, 59, 59));
+        }
+        return wrapper;
+    }
+
+    // endregion
+}

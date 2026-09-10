@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.StockTransactionMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.StockTransaction">
+            <id property="transactionId" column="transaction_id" />
+            <result property="stockId" column="stock_id" />
+            <result property="transactionType" column="transaction_type" />
+            <result property="transactionDate" column="transaction_date" />
+            <result property="relatedId" column="related_id" />
+            <result property="relatedType" column="related_type" />
+            <result property="quantityBefore" column="quantity_before" />
+            <result property="quantityChange" column="quantity_change" />
+            <result property="quantityAfter" column="quantity_after" />
+            <result property="batchNumber" column="batch_number" />
+            <result property="remark" column="remark" />
+            <result property="createdBy" column="created_by" />
+            <result property="createdTime" column="created_time" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        transaction_id,stock_id,transaction_type,transaction_date,related_id,related_type,
+        quantity_before,quantity_change,quantity_after,batch_number,remark,
+        created_by,created_time
+    </sql>
+</mapper>
