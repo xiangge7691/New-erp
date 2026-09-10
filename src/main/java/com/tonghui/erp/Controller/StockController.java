@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Stock.StockGroupedDto;
+import com.tonghui.erp.Common.Dto.Stock.StockGroupedByBatchDto;
+import com.tonghui.erp.Common.Dto.Stock.StockTransactionDetailDto;
 import com.tonghui.erp.Common.Dto.Stock.StockTransactionDto;
 import com.tonghui.erp.Common.Dto.Stock.StockWithDetailsDto;
 import com.tonghui.erp.Data.Entity.Stock;
@@ -225,6 +227,135 @@ public class StockController extends BaseController {
             return success(transactions);
         } catch (Exception ex) {
             return exception(ex, "查询库存流水失败");
+        }
+    }
+
+    /**
+     * 按批次号+制剂名称分组查询库存
+     * <p>
+     * 用于库存查询页面按"批次+制剂分组 + 明细展开"的展示模式，
+     * 每个分组下显示同批次+制剂的所有库存记录（含来源入库单号）
+     * </p>
+     *
+     * 示例请求：
+     * GET /api/stock/grouped-by-batch?pageIndex=0&pageSize=20&batchNumber=A&preparationName=伸腿
+     *
+     * @param batchNumber     批次号（可选，模糊匹配）
+     * @param preparationName 制剂名称（可选，模糊匹配）
+     * @param itemCode        物料编码（可选，模糊匹配）
+     * @param itemName        物料名称（可选，模糊匹配）
+     * @param categoryName    分类名称（可选，精确匹配）
+     * @param prodUnitId      仓库ID（可选，精确匹配）
+     * @param stockStatus     库存状态（可选，精确匹配）
+     * @param showZero        是否显示零库存
+     * @param pageIndex       页码
+     * @param pageSize        每页大小
+     * @return 分组分页结果
+     */
+    @GetMapping("/grouped-by-batch")
+    public ApiResponse<PagedResult<StockGroupedByBatchDto>> groupedSearchByBatch(
+            @RequestParam(required = false) String batchNumber,
+            @RequestParam(required = false) String preparationName,
+            @RequestParam(required = false) String itemCode,
+            @RequestParam(required = false) String itemName,
+            @RequestParam(required = false) String categoryName,
+            @RequestParam(required = false) Long prodUnitId,
+            @RequestParam(required = false) String stockStatus,
+            @RequestParam(defaultValue = "false") boolean showZero,
+            @RequestParam(defaultValue = "0") int pageIndex,
+            @RequestParam(defaultValue = "20") int pageSize) {
+        try {
+            PagedResult<StockGroupedByBatchDto> result = stockService.groupedSearchByBatchAndPreparation(
+                    itemCode, itemName, batchNumber, preparationName,
+                    categoryName, prodUnitId, stockStatus, showZero,
+                    pageIndex, pageSize);
+            return success(result);
+        } catch (Exception e) {
+            return exception(e, "按批次查询库存");
+        }
+    }
+
+    /**
+     * 根据库存ID查询流水列表（增强版，含物品/仓库/关联单据信息）
+     *
+     * 示例请求：
+     * GET /api/stock/1/transaction-details
+     *
+     * @param id 库存ID
+     * @return 流水详细列表
+     */
+    @GetMapping("/{id}/transaction-details")
+    public ApiResponse<List<StockTransactionDetailDto>> getTransactionDetails(@PathVariable Long id) {
+        try {
+            List<StockTransactionDetailDto> result = stockService.getTransactionDetailsByStockId(id);
+            return success(result);
+        } catch (Exception e) {
+            return exception(e, "查询库存流水");
+        }
+    }
+
+    /**
+     * 根据批次号+制剂名称查询流水列表
+     *
+     * 示例请求：
+     * GET /api/stock/transactions-by-batch?batchNumber=A&preparationName=伸腿
+     *
+     * @param batchNumber     批次号（可选，模糊匹配）
+     * @param preparationName 制剂名称（可选，模糊匹配）
+     * @param itemCode        物料编码（可选，模糊匹配）
+     * @return 流水详细列表
+     */
+    @GetMapping("/transactions-by-batch")
+    public ApiResponse<List<StockTransactionDetailDto>> getTransactionDetailsByBatch(
+            @RequestParam(required = false) String batchNumber,
+            @RequestParam(required = false) String preparationName,
+            @RequestParam(required = false) String itemCode) {
+        try {
+            List<StockTransactionDetailDto> result = stockService.getTransactionDetailsByBatch(
+                    batchNumber, preparationName, itemCode);
+            return success(result);
+        } catch (Exception e) {
+            return exception(e, "按批次查询流水");
+        }
+    }
+
+    /**
+     * 根据入库单ID查询流水列表
+     *
+     * 示例请求：
+     * GET /api/stock/transactions-by-stock-in/1
+     *
+     * @param stockInId 入库单ID
+     * @return 流水详细列表
+     */
+    @GetMapping("/transactions-by-stock-in/{stockInId}")
+    public ApiResponse<List<StockTransactionDetailDto>> getTransactionDetailsByStockIn(
+            @PathVariable Long stockInId) {
+        try {
+            List<StockTransactionDetailDto> result = stockService.getTransactionDetailsByStockInId(stockInId);
+            return success(result);
+        } catch (Exception e) {
+            return exception(e, "按入库单查询流水");
+        }
+    }
+
+    /**
+     * 根据出库单ID查询流水列表
+     *
+     * 示例请求：
+     * GET /api/stock/transactions-by-stock-out/1
+     *
+     * @param stockOutId 出库单ID
+     * @return 流水详细列表
+     */
+    @GetMapping("/transactions-by-stock-out/{stockOutId}")
+    public ApiResponse<List<StockTransactionDetailDto>> getTransactionDetailsByStockOut(
+            @PathVariable Long stockOutId) {
+        try {
+            List<StockTransactionDetailDto> result = stockService.getTransactionDetailsByStockOutId(stockOutId);
+            return success(result);
+        } catch (Exception e) {
+            return exception(e, "按出库单查询流水");
         }
     }
 

@@ -67,6 +67,18 @@ public class StockTransaction extends AuditEntity {
     private Object relatedType;
 
     /**
+     * 关联业务单号（采购单/生产计划等）
+     */
+    @TableField(value = "related_order_code")
+    private String relatedOrderCode;
+
+    /**
+     * 业务单类型
+     */
+    @TableField(value = "related_order_type")
+    private String relatedOrderType;
+
+    /**
      * 交易前数量
      */
     @TableField(value = "quantity_before")
@@ -89,6 +101,24 @@ public class StockTransaction extends AuditEntity {
      */
     @TableField(value = "batch_number")
     private String batchNumber;
+
+    /**
+     * 物品编码
+     */
+    @TableField(value = "item_code")
+    private String itemCode;
+
+    /**
+     * 物品名称
+     */
+    @TableField(value = "item_name")
+    private String itemName;
+
+    /**
+     * 仓库ID
+     */
+    @TableField(value = "prod_unit_id")
+    private Long prodUnitId;
 
     /**
      * 备注

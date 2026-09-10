@@ -6,8 +6,11 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Stock.ExpiryWarningDTO;
 import com.tonghui.erp.Common.Dto.Stock.ExpiryWarningStatsDTO;
+import com.tonghui.erp.Common.Dto.Stock.StockBatchDetailDto;
 import com.tonghui.erp.Common.Dto.Stock.StockBatchDto;
 import com.tonghui.erp.Common.Dto.Stock.StockGroupedDto;
+import com.tonghui.erp.Common.Dto.Stock.StockGroupedByBatchDto;
+import com.tonghui.erp.Common.Dto.Stock.StockTransactionDetailDto;
 import com.tonghui.erp.Common.Dto.Stock.StockTransactionDto;
 import com.tonghui.erp.Common.Dto.Stock.StockWithDetailsDto;
 import com.tonghui.erp.Data.Entity.CheckOrder;
@@ -45,6 +48,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -964,6 +968,438 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
             } else {
                 dto.setWarningLevel("normal");
             }
+        }
+    }
+
+    // endregion
+
+    // region 按批次+制剂分组查询
+    // ===================================
+    // 按批次+制剂分组查询
+    // ===================================
+
+    /**
+     * 按批次号+制剂名称分组查询库存（支持筛选与分页）
+     */
+    @Override
+    public PagedResult<StockGroupedByBatchDto> groupedSearchByBatchAndPreparation(
+            String itemCode, String itemName, String batchNumber, String preparationName,
+            String categoryName, Long prodUnitId, String stockStatus, boolean showZero,
+            int pageIndex, int pageSize) {
+
+        // 1. 查询所有库存记录
+        QueryWrapper<Stock> wrapper = new QueryWrapper<>();
+        if (StringUtils.hasText(itemCode)) wrapper.like("item_code", itemCode);
+        if (StringUtils.hasText(itemName)) wrapper.like("item_name", itemName);
+        if (StringUtils.hasText(batchNumber)) wrapper.like("batch_number", batchNumber);
+        if (StringUtils.hasText(categoryName)) wrapper.eq("category_name", categoryName);
+        if (prodUnitId != null) wrapper.eq("prod_unit_id", prodUnitId);
+        if (StringUtils.hasText(stockStatus)) wrapper.eq("stock_status", stockStatus);
+        if (!showZero) wrapper.gt("quantity", 0);
+        wrapper.orderByAsc("batch_number");
+
+        List<Stock> allStocks = this.getBaseMapper().selectList(wrapper);
+
+        // 2. 批量加载关联数据
+        Map<Long, String> unitNames = loadUnitNames(allStocks);
+        Map<String, String> preparationNameMap = loadPreparationNameMapByPlanNumber(allStocks);
+        Map<Long, String> stockInCodeMap = loadStockInCodeMap(allStocks);
+
+        // 3. 填充 preparationName
+        for (Stock stock : allStocks) {
+            if (!StringUtils.hasText(stock.getPreparationName())) {
+                stock.setPreparationName(preparationNameMap.get(stock.getPlanNumber()));
+            }
+        }
+
+        // 4. 过滤 preparationName（如果指定了筛选条件）
+        if (StringUtils.hasText(preparationName)) {
+            allStocks = allStocks.stream()
+                    .filter(s -> s.getPreparationName() != null && 
+                                 s.getPreparationName().contains(preparationName))
+                    .collect(Collectors.toList());
+        }
+
+        // 5. 按 batchNumber + preparationName 分组
+        Map<String, List<Stock>> grouped = allStocks.stream()
+                .collect(Collectors.groupingBy(s ->
+                    s.getBatchNumber() + "|" +
+                    (s.getPreparationName() != null ? s.getPreparationName() : "")));
+
+        // 6. 转换为 DTO
+        List<StockGroupedByBatchDto> groups = grouped.entrySet().stream()
+                .map(entry -> {
+                    List<Stock> batchStocks = entry.getValue();
+                    Stock first = batchStocks.get(0);
+
+                    StockGroupedByBatchDto dto = new StockGroupedByBatchDto();
+                    dto.setBatchNumber(first.getBatchNumber());
+                    dto.setPreparationName(first.getPreparationName());
+
+                    // 总库存
+                    dto.setTotalQuantity(batchStocks.stream()
+                            .map(Stock::getQuantity)
+                            .filter(q -> q != null)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add));
+
+                    // 明细列表
+                    dto.setDetails(batchStocks.stream().map(s -> {
+                        StockBatchDetailDto detail = new StockBatchDetailDto();
+                        detail.setStockId(s.getStockId());
+                        detail.setItemCode(s.getItemCode());
+                        detail.setItemName(s.getItemName());
+                        detail.setCategoryName(s.getCategoryName());
+                        detail.setUnitName(s.getUnitName());
+                        detail.setWarehouseName(unitNames.getOrDefault(s.getProdUnitId(), ""));
+                        detail.setStockStatus(s.getStockStatus() != null ? String.valueOf(s.getStockStatus()) : null);
+                        detail.setQuantity(s.getQuantity());
+                        detail.setRelatedOrderCode(stockInCodeMap.get(s.getStockInId()));
+                        detail.setProductionDate(s.getProductionDate());
+                        detail.setExpiryDate(s.getExpiryDate());
+                        detail.setUnitPrice(s.getUnitPrice());
+                        return detail;
+                    }).collect(Collectors.toList()));
+
+                    return dto;
+                })
+                .collect(Collectors.toList());
+
+        // 7. 按 preparationName 排序
+        groups.sort(Comparator.comparing(StockGroupedByBatchDto::getPreparationName)
+                .thenComparing(StockGroupedByBatchDto::getBatchNumber));
+
+        // 8. 内存分页
+        int total = groups.size();
+        int from = pageIndex * pageSize;
+        int to = Math.min(from + pageSize, total);
+        List<StockGroupedByBatchDto> pageData = from < total ? groups.subList(from, to) : List.of();
+
+        PagedResult<StockGroupedByBatchDto> result = new PagedResult<>();
+        result.setItems(pageData);
+        result.setTotalCount(total);
+        result.setPageIndex(pageIndex);
+        result.setPageSize(pageSize);
+        return result;
+    }
+
+    /**
+     * 加载库存关联的入库单号映射
+     *
+     * @param stocks 库存列表
+     * @return 入库单ID到入库单号的映射
+     */
+    private Map<Long, String> loadStockInCodeMap(List<Stock> stocks) {
+        List<Long> stockInIds = stocks.stream()
+                .map(Stock::getStockInId)
+                .filter(id -> id != null)
+                .distinct()
+                .collect(Collectors.toList());
+
+        if (stockInIds.isEmpty()) return Map.of();
+
+        QueryWrapper<StockIn> wrapper = new QueryWrapper<>();
+        wrapper.in("in_id", stockInIds);
+        wrapper.select("in_id", "in_code");
+        return stockInMapper.selectList(wrapper).stream()
+                .collect(Collectors.toMap(StockIn::getInId, StockIn::getInCode, (a, b) -> a));
+    }
+
+    // endregion
+
+    // region 细化流水查询
+    // ===================================
+    // 细化流水查询
+    // ===================================
+
+    /**
+     * 根据库存ID查询流水列表（增强版）
+     */
+    @Override
+    public List<StockTransactionDetailDto> getTransactionDetailsByStockId(Long stockId) {
+        QueryWrapper<StockTransaction> wrapper = new QueryWrapper<>();
+        wrapper.eq("stock_id", stockId);
+        wrapper.orderByDesc("transaction_date");
+        List<StockTransaction> transactions = stockTransactionMapper.selectList(wrapper);
+        return buildTransactionDetails(transactions);
+    }
+
+    /**
+     * 根据批次号+制剂名称查询流水列表
+     */
+    @Override
+    public List<StockTransactionDetailDto> getTransactionDetailsByBatch(
+            String batchNumber, String preparationName, String itemCode) {
+
+        // 1. 先查询匹配的库存记录
+        QueryWrapper<Stock> stockWrapper = new QueryWrapper<>();
+        if (StringUtils.hasText(batchNumber)) stockWrapper.like("batch_number", batchNumber);
+        if (StringUtils.hasText(itemCode)) stockWrapper.like("item_code", itemCode);
+        List<Stock> stocks = this.getBaseMapper().selectList(stockWrapper);
+
+        // 2. 过滤 preparationName（需要先填充）
+        Map<String, String> preparationNameMap = loadPreparationNameMapByPlanNumber(stocks);
+        List<Long> stockIds = stocks.stream()
+                .filter(s -> {
+                    String prepName = s.getPreparationName();
+                    if (!StringUtils.hasText(prepName)) {
+                        prepName = preparationNameMap.get(s.getPlanNumber());
+                    }
+                    return preparationName == null ||
+                           (prepName != null && prepName.contains(preparationName));
+                })
+                .map(Stock::getStockId)
+                .collect(Collectors.toList());
+
+        if (stockIds.isEmpty()) return List.of();
+
+        // 3. 查询这些库存记录的流水
+        QueryWrapper<StockTransaction> txWrapper = new QueryWrapper<>();
+        txWrapper.in("stock_id", stockIds);
+        txWrapper.orderByDesc("transaction_date");
+        List<StockTransaction> transactions = stockTransactionMapper.selectList(txWrapper);
+        return buildTransactionDetails(transactions);
+    }
+
+    /**
+     * 根据入库单ID查询流水列表
+     */
+    @Override
+    public List<StockTransactionDetailDto> getTransactionDetailsByStockInId(Long stockInId) {
+        QueryWrapper<StockTransaction> wrapper = new QueryWrapper<>();
+        wrapper.eq("related_type", "stock_in");
+        wrapper.eq("related_id", stockInId);
+        wrapper.orderByDesc("transaction_date");
+        List<StockTransaction> transactions = stockTransactionMapper.selectList(wrapper);
+        return buildTransactionDetails(transactions);
+    }
+
+    /**
+     * 根据出库单ID查询流水列表
+     */
+    @Override
+    public List<StockTransactionDetailDto> getTransactionDetailsByStockOutId(Long stockOutId) {
+        QueryWrapper<StockTransaction> wrapper = new QueryWrapper<>();
+        wrapper.eq("related_type", "stock_out");
+        wrapper.eq("related_id", stockOutId);
+        wrapper.orderByDesc("transaction_date");
+        List<StockTransaction> transactions = stockTransactionMapper.selectList(wrapper);
+        return buildTransactionDetails(transactions);
+    }
+
+    /**
+     * 构建流水详细DTO（核心方法）
+     *
+     * @param transactions 流水记录列表
+     * @return 流水详细DTO列表
+     */
+    private List<StockTransactionDetailDto> buildTransactionDetails(List<StockTransaction> transactions) {
+        if (transactions == null || transactions.isEmpty()) return List.of();
+
+        // 1. 批量加载关联数据
+        Map<Long, Stock> stockMap = loadStockMapForTransactions(transactions);
+        Map<Long, String> unitNames = loadUnitNamesForTransactions(transactions);
+        Map<String, String> docCodeMap = loadDocumentCodes(transactions);
+        Map<Long, User> userMap = loadUserMapForTransactions(transactions);
+
+        // 2. 转换为 DTO
+        return transactions.stream().map(t -> {
+            StockTransactionDetailDto dto = new StockTransactionDetailDto();
+
+            // 基本信息
+            dto.setTransactionId(t.getTransactionId());
+            dto.setTransactionType(t.getTransactionType() != null ? String.valueOf(t.getTransactionType()) : null);
+            dto.setTransactionDate(t.getTransactionDate());
+
+            // 物品信息（从 stock 表获取，优先使用 transaction 中的字段）
+            Stock stock = stockMap.get(t.getStockId());
+            if (stock != null) {
+                dto.setItemCode(stock.getItemCode());
+                dto.setItemName(stock.getItemName());
+                dto.setCategoryName(stock.getCategoryName());
+                dto.setUnitName(stock.getUnitName());
+                dto.setProdUnitId(stock.getProdUnitId());
+                dto.setWarehouseName(unitNames.getOrDefault(stock.getProdUnitId(), ""));
+            } else {
+                // 如果 stock 已删除，从 transaction 字段获取
+                dto.setItemCode(t.getItemCode());
+                dto.setItemName(t.getItemName());
+                dto.setProdUnitId(t.getProdUnitId());
+                dto.setWarehouseName(unitNames.getOrDefault(t.getProdUnitId(), ""));
+            }
+
+            dto.setBatchNumber(t.getBatchNumber());
+
+            // 数量信息
+            dto.setQuantityBefore(t.getQuantityBefore());
+            dto.setQuantityChange(t.getQuantityChange());
+            dto.setQuantityAfter(t.getQuantityAfter());
+
+            // 关联单据
+            String relatedType = t.getRelatedType() != null ? String.valueOf(t.getRelatedType()) : null;
+            String docCode = docCodeMap.get(relatedType + "_" + t.getRelatedId());
+            dto.setRelatedDocCode(docCode);
+            dto.setRelatedDocType(resolveDocType(relatedType));
+            dto.setRelatedOrderCode(t.getRelatedOrderCode());
+            dto.setRelatedOrderType(t.getRelatedOrderType());
+
+            // 操作人
+            User user = userMap.get(t.getCreatedBy());
+            dto.setCreatedByName(user != null ? user.getUserName() : null);
+
+            return dto;
+        }).collect(Collectors.toList());
+    }
+
+    /**
+     * 加载库存记录映射（用于流水查询）
+     *
+     * @param transactions 流水记录列表
+     * @return 库存ID到库存记录的映射
+     */
+    private Map<Long, Stock> loadStockMapForTransactions(List<StockTransaction> transactions) {
+        List<Long> stockIds = transactions.stream()
+                .map(StockTransaction::getStockId)
+                .filter(id -> id != null)
+                .distinct()
+                .collect(Collectors.toList());
+
+        if (stockIds.isEmpty()) return Map.of();
+
+        return this.getBaseMapper().selectBatchIds(stockIds).stream()
+                .collect(Collectors.toMap(Stock::getStockId, s -> s, (a, b) -> a));
+    }
+
+    /**
+     * 加载仓库名称映射（用于流水查询）
+     *
+     * @param transactions 流水记录列表
+     * @return 仓库ID到仓库名称的映射
+     */
+    private Map<Long, String> loadUnitNamesForTransactions(List<StockTransaction> transactions) {
+        List<Long> unitIds = transactions.stream()
+                .map(StockTransaction::getProdUnitId)
+                .filter(id -> id != null)
+                .distinct()
+                .collect(Collectors.toList());
+
+        // 也从关联的 stock 记录获取仓库ID
+        Map<Long, Stock> stockMap = loadStockMapForTransactions(transactions);
+        stockMap.values().stream()
+                .map(Stock::getProdUnitId)
+                .filter(id -> id != null)
+                .forEach(unitIds::add);
+
+        unitIds = unitIds.stream().distinct().collect(Collectors.toList());
+
+        if (unitIds.isEmpty()) return Map.of();
+
+        QueryWrapper<ProductionUnit> wrapper = new QueryWrapper<>();
+        wrapper.in("prod_unit_id", unitIds);
+        return productionUnitMapper.selectList(wrapper).stream()
+                .collect(Collectors.toMap(ProductionUnit::getProdUnitId,
+                        ProductionUnit::getProdUnitName, (a, b) -> a));
+    }
+
+    /**
+     * 加载关联单据号映射
+     *
+     * @param transactions 流水记录列表
+     * @return 关联类型_ID 到单据号的映射
+     */
+    private Map<String, String> loadDocumentCodes(List<StockTransaction> transactions) {
+        Map<String, String> docCodeMap = new java.util.HashMap<>();
+
+        // 按关联类型分组收集ID
+        List<Long> inIds = transactions.stream()
+                .filter(t -> "stock_in".equals(String.valueOf(t.getRelatedType())))
+                .map(StockTransaction::getRelatedId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        List<Long> transferIds = transactions.stream()
+                .filter(t -> "transfer".equals(String.valueOf(t.getRelatedType())))
+                .map(StockTransaction::getRelatedId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        List<Long> checkIds = transactions.stream()
+                .filter(t -> "check".equals(String.valueOf(t.getRelatedType())))
+                .map(StockTransaction::getRelatedId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        List<Long> returnIds = transactions.stream()
+                .filter(t -> "return".equals(String.valueOf(t.getRelatedType())))
+                .map(StockTransaction::getRelatedId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        List<Long> outIds = transactions.stream()
+                .filter(t -> "stock_out".equals(String.valueOf(t.getRelatedType())))
+                .map(StockTransaction::getRelatedId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+
+        // 批量查询各单据表
+        if (!inIds.isEmpty()) {
+            stockInMapper.selectBatchIds(inIds).forEach(si ->
+                docCodeMap.put("stock_in_" + si.getInId(), si.getInCode()));
+        }
+        if (!transferIds.isEmpty()) {
+            transferOrderMapper.selectBatchIds(transferIds).forEach(to ->
+                docCodeMap.put("transfer_" + to.getId(), to.getTransferNo()));
+        }
+        if (!checkIds.isEmpty()) {
+            checkOrderMapper.selectBatchIds(checkIds).forEach(co ->
+                docCodeMap.put("check_" + co.getId(), co.getCheckNo()));
+        }
+        if (!returnIds.isEmpty()) {
+            returnOrderMapper.selectBatchIds(returnIds).forEach(ro ->
+                docCodeMap.put("return_" + ro.getId(), ro.getReturnNo()));
+        }
+        if (!outIds.isEmpty()) {
+            stockOutMapper.selectBatchIds(outIds).forEach(so ->
+                docCodeMap.put("stock_out_" + so.getOutId(), so.getOutCode()));
+        }
+
+        return docCodeMap;
+    }
+
+    /**
+     * 加载用户映射（用于流水查询）
+     *
+     * @param transactions 流水记录列表
+     * @return 用户ID到用户的映射
+     */
+    private Map<Long, User> loadUserMapForTransactions(List<StockTransaction> transactions) {
+        List<Long> userIds = transactions.stream()
+                .map(StockTransaction::getCreatedBy)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+
+        if (userIds.isEmpty()) return Map.of();
+
+        return userMapper.selectBatchIds(userIds).stream()
+                .collect(Collectors.toMap(User::getUserId, u -> u, (a, b) -> a));
+    }
+
+    /**
+     * 解析单据类型中文名
+     *
+     * @param relatedType 关联类型
+     * @return 中文名称
+     */
+    private String resolveDocType(String relatedType) {
+        if (relatedType == null) return null;
+        switch (relatedType) {
+            case "stock_in": return "入库";
+            case "stock_out": return "出库";
+            case "transfer": return "调拨";
+            case "check": return "盘点";
+            case "return": return "退库";
+            default: return relatedType;
         }
     }
 

@@ -133,6 +133,18 @@ public class Stock extends AuditEntity {
     private String planNumber;
 
     /**
+     * 关联入库单ID（可空，用于追溯来源）
+     */
+    @TableField(value = "stock_in_id")
+    private Long stockInId;
+
+    /**
+     * 关联入库明细ID（可空）
+     */
+    @TableField(value = "stock_in_detail_id")
+    private Long stockInDetailId;
+
+    /**
      * 关联制剂名称（查询时从 production_plan 回填，非表字段）
      */
     @TableField(exist = false)

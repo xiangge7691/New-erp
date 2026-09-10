@@ -5,6 +5,8 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Stock.ExpiryWarningDTO;
 import com.tonghui.erp.Common.Dto.Stock.ExpiryWarningStatsDTO;
 import com.tonghui.erp.Common.Dto.Stock.StockGroupedDto;
+import com.tonghui.erp.Common.Dto.Stock.StockGroupedByBatchDto;
+import com.tonghui.erp.Common.Dto.Stock.StockTransactionDetailDto;
 import com.tonghui.erp.Common.Dto.Stock.StockTransactionDto;
 import com.tonghui.erp.Common.Dto.Stock.StockWithDetailsDto;
 import com.tonghui.erp.Data.Entity.Stock;
@@ -203,6 +205,79 @@ public interface StockService extends IService<Stock> {
     PagedResult<StockGroupedDto> groupedSearch(String itemCode, String itemName, String categoryName,
                                                Long prodUnitId, String stockStatus, boolean showZero,
                                                int pageIndex, int pageSize);
+
+    // endregion
+
+    // region 按批次+制剂分组查询
+    // ===================================
+    // 按批次+制剂分组查询
+    // ===================================
+
+    /**
+     * 按批次号+制剂名称分组查询库存（支持筛选与分页）
+     * <p>
+     * 返回每个批次+制剂组合的总库存及明细列表（含来源入库单号），
+     * 用于库存查询页面按"批次+制剂分组 + 明细展开"的展示模式
+     * </p>
+     *
+     * @param itemCode        物料编码（模糊匹配）
+     * @param itemName        物料名称（模糊匹配）
+     * @param batchNumber     批次号（模糊匹配）
+     * @param preparationName 制剂名称（模糊匹配）
+     * @param categoryName    分类名称（等值匹配）
+     * @param prodUnitId      仓库（生产单位ID，等值匹配）
+     * @param stockStatus     库存状态（等值匹配：合格/待检/不合格）
+     * @param showZero        是否显示零库存
+     * @param pageIndex       页码，从0开始
+     * @param pageSize        每页大小
+     * @return 分组分页结果
+     */
+    PagedResult<StockGroupedByBatchDto> groupedSearchByBatchAndPreparation(
+        String itemCode, String itemName, String batchNumber, String preparationName,
+        String categoryName, Long prodUnitId, String stockStatus, boolean showZero,
+        int pageIndex, int pageSize);
+
+    // endregion
+
+    // region 细化流水查询
+    // ===================================
+    // 细化流水查询
+    // ===================================
+
+    /**
+     * 根据库存ID查询流水列表（增强版，含物品/仓库/关联单据信息）
+     *
+     * @param stockId 库存ID
+     * @return 流水详细列表
+     */
+    List<StockTransactionDetailDto> getTransactionDetailsByStockId(Long stockId);
+
+    /**
+     * 根据批次号+制剂名称查询流水列表
+     *
+     * @param batchNumber     批次号（模糊匹配）
+     * @param preparationName 制剂名称（模糊匹配）
+     * @param itemCode        物料编码（模糊匹配）
+     * @return 流水详细列表
+     */
+    List<StockTransactionDetailDto> getTransactionDetailsByBatch(
+        String batchNumber, String preparationName, String itemCode);
+
+    /**
+     * 根据入库单ID查询流水列表
+     *
+     * @param stockInId 入库单ID
+     * @return 流水详细列表
+     */
+    List<StockTransactionDetailDto> getTransactionDetailsByStockInId(Long stockInId);
+
+    /**
+     * 根据出库单ID查询流水列表
+     *
+     * @param stockOutId 出库单ID
+     * @return 流水详细列表
+     */
+    List<StockTransactionDetailDto> getTransactionDetailsByStockOutId(Long stockOutId);
 
     // endregion
 }
