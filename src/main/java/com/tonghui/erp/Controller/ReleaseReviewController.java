@@ -4,7 +4,9 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Data.Entity.InspectionRecord;
 import com.tonghui.erp.Data.Entity.ReleaseReview;
+import com.tonghui.erp.Data.mapper.InspectionRecordMapper;
 import com.tonghui.erp.Service.ReleaseReviewService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
@@ -13,6 +15,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 审核放行控制器
@@ -48,6 +52,12 @@ public class ReleaseReviewController extends BaseController {
      */
     @Autowired
     private ReleaseReviewService releaseReviewService;
+
+    /**
+     * 检验记录数据访问层
+     */
+    @Autowired
+    private InspectionRecordMapper inspectionRecordMapper;
 
     // endregion
 
@@ -95,6 +105,9 @@ public class ReleaseReviewController extends BaseController {
             QueryWrapper<ReleaseReview> wrapper = buildQueryWrapper(releaseCode, relatedInspectionCode, objectName,
                     batchNo, releaseConclusion, reviewer, startTime, endTime, createdTimeStart, createdTimeEnd);
             Page<ReleaseReview> pageResult = releaseReviewService.page(page, wrapper);
+
+            // 填充关联的生产任务编号和制剂信息
+            fillWorkOrderInfo(pageResult.getRecords());
 
             PagedResult<ReleaseReview> result = new PagedResult<>();
             result.setItems(pageResult.getRecords());
@@ -339,6 +352,50 @@ public class ReleaseReviewController extends BaseController {
     // ===================================
     // 私有工具方法
     // ===================================
+
+    /**
+     * 批量填充审核放行记录关联的生产任务编号和制剂信息
+     * <p>
+     * 通过 related_inspection_record_code 关联检验记录，获取工单编号和制剂信息
+     * </p>
+     *
+     * @param records 审核放行记录列表
+     */
+    private void fillWorkOrderInfo(List<ReleaseReview> records) {
+        if (records == null || records.isEmpty()) {
+            return;
+        }
+
+        // 获取所有关联的检验记录编号
+        List<String> inspectionRecordCodes = records.stream()
+                .map(ReleaseReview::getRelatedInspectionRecordCode)
+                .filter(StringUtils::hasText)
+                .distinct()
+                .collect(Collectors.toList());
+
+        if (inspectionRecordCodes.isEmpty()) {
+            return;
+        }
+
+        // 批量查询检验记录
+        QueryWrapper<InspectionRecord> recordWrapper = new QueryWrapper<>();
+        recordWrapper.in("inspection_code", inspectionRecordCodes);
+        recordWrapper.select("inspection_code", "work_order_code", "preparation_code", "preparation_name");
+        Map<String, InspectionRecord> recordMap = inspectionRecordMapper.selectList(recordWrapper).stream()
+                .collect(Collectors.toMap(InspectionRecord::getInspectionCode, r -> r, (a, b) -> a));
+
+        // 回填信息
+        for (ReleaseReview record : records) {
+            if (StringUtils.hasText(record.getRelatedInspectionRecordCode())) {
+                InspectionRecord inspectionRecord = recordMap.get(record.getRelatedInspectionRecordCode());
+                if (inspectionRecord != null) {
+                    record.setWorkOrderCode(inspectionRecord.getWorkOrderCode());
+                    record.setPreparationCode(inspectionRecord.getPreparationCode());
+                    record.setPreparationName(inspectionRecord.getPreparationName());
+                }
+            }
+        }
+    }
 
     /**
      * 构建审核放行查询条件

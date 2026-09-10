@@ -125,4 +125,16 @@ public interface ProductionPlanService extends IService<ProductionPlan> {
      * @return 关联的生产计划，工单未关联计划或计划不存在时抛出异常
      */
     ProductionPlan getPlanByWorkOrder(Long workOrderId);
+
+    /**
+     * 作废生产计划
+     * <p>
+     * 将生产计划状态设置为"作废"，同时作废所有关联的工单
+     * 已完成或已作废的计划不能再次作废
+     * </p>
+     *
+     * @param planId 生产计划ID
+     * @return 是否作废成功
+     */
+    boolean voidProductionPlan(Integer planId);
 }

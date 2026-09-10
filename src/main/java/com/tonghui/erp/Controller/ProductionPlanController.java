@@ -357,4 +357,38 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
     }
 
     // endregion
+
+    // region 生产计划作废
+    // ===================================
+    // 生产计划作废
+    // ===================================
+
+    /**
+     * 作废生产计划
+     * <p>
+     * 将生产计划状态设置为"作废"，同时作废所有关联的工单
+     * 已完成或已作废的计划不能再次作废
+     * </p>
+     *
+     * 示例请求：
+     * PUT /api/production-plans/1/void
+     *
+     * @param id 生产计划ID
+     * @return ApiResponse&lt;Boolean&gt; 作废结果
+     */
+    @PutMapping("/{id}/void")
+    public ApiResponse<Boolean> voidProductionPlan(@PathVariable Integer id) {
+        try {
+            boolean result = productionPlanService.voidProductionPlan(id);
+            if (result) {
+                return success(true, "作废成功");
+            } else {
+                return error("作废失败，生产计划不存在或已完成/已作废");
+            }
+        } catch (Exception ex) {
+            return exception(ex, "作废生产计划");
+        }
+    }
+
+    // endregion
 }

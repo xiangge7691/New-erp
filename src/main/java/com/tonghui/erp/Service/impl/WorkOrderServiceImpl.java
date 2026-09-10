@@ -1,6 +1,7 @@
 package com.tonghui.erp.Service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
@@ -640,6 +641,31 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
 
         wrapper.orderByDesc("created_time");
         return this.page(page, wrapper);
+    }
+
+    /**
+     * 作废工单
+     * <p>
+     * 将工单状态设置为"作废"，作废后不可再进行其他操作
+     * </p>
+     *
+     * @param workOrderId 工单ID
+     * @return 是否作废成功
+     */
+    @Override
+    public boolean voidWorkOrder(Long workOrderId) {
+        WorkOrder workOrder = this.getById(workOrderId);
+        if (workOrder == null) {
+            return false;
+        }
+        // 已归档或已作废的工单不能再次作废
+        if ("已归档".equals(workOrder.getCurrentStatus()) || "作废".equals(workOrder.getCurrentStatus())) {
+            return false;
+        }
+        UpdateWrapper<WorkOrder> updateWrapper = new UpdateWrapper<>();
+        updateWrapper.eq("work_order_id", workOrderId);
+        updateWrapper.set("current_status", "作废");
+        return this.update(updateWrapper);
     }
     
     // endregion

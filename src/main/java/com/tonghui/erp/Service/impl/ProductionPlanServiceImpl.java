@@ -3,6 +3,7 @@ package com.tonghui.erp.Service.impl;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.ProductionPlanWithRecordsDto;
 import com.tonghui.erp.Data.Entity.ProductionPlan;
@@ -493,6 +494,46 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
             throw new RuntimeException("关联的生产计划不存在: " + workOrder.getPlanId());
         }
         return plan;
+    }
+
+    /**
+     * 作废生产计划
+     * <p>
+     * 将生产计划状态设置为"作废"，同时作废所有关联的工单
+     * 已完成或已作废的计划不能再次作废
+     * </p>
+     *
+     * @param planId 生产计划ID
+     * @return 是否作废成功
+     */
+    @Override
+    public boolean voidProductionPlan(Integer planId) {
+        ProductionPlan plan = this.getById(planId);
+        if (plan == null) {
+            return false;
+        }
+        // 已完成或已作废的计划不能再次作废
+        if ("已完成".equals(plan.getCurrentStatus()) || "作废".equals(plan.getCurrentStatus())) {
+            return false;
+        }
+        
+        // 作废所有关联的工单
+        QueryWrapper<WorkOrder> workOrderWrapper = new QueryWrapper<>();
+        workOrderWrapper.eq("plan_id", planId);
+        workOrderWrapper.ne("current_status", "作废");
+        List<WorkOrder> workOrders = workOrderMapper.selectList(workOrderWrapper);
+        for (WorkOrder wo : workOrders) {
+            UpdateWrapper<WorkOrder> updateWrapper = new UpdateWrapper<>();
+            updateWrapper.eq("work_order_id", wo.getWorkOrderId());
+            updateWrapper.set("current_status", "作废");
+            workOrderMapper.update(null, updateWrapper);
+        }
+        
+        // 作废生产计划
+        UpdateWrapper<ProductionPlan> updateWrapper = new UpdateWrapper<>();
+        updateWrapper.eq("plan_id", planId);
+        updateWrapper.set("current_status", "作废");
+        return this.update(updateWrapper);
     }
 
     // endregion

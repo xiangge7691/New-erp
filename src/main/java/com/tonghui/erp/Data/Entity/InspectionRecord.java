@@ -46,6 +46,12 @@ public class InspectionRecord extends AuditEntity {
     private String relatedSamplingCode;
 
     /**
+     * 关联请检编号（可空，用于关联请检记录获取工单和制剂信息）
+     */
+    @TableField(value = "related_inspection_request_code")
+    private String relatedInspectionRequestCode;
+
+    /**
      * 被检对象名称
      */
     @TableField(value = "object_name")
@@ -117,6 +123,31 @@ public class InspectionRecord extends AuditEntity {
      */
     @TableField(value = "remark")
     private String remark;
+
+    // endregion
+
+    // region 关联信息字段（非数据库字段，查询时填充）
+    // ===================================
+    // 关联信息字段（非数据库字段，查询时填充）
+    // ===================================
+
+    /**
+     * 关联生产任务编号（通过取样记录关联工单）
+     */
+    @TableField(exist = false)
+    private String workOrderCode;
+
+    /**
+     * 关联制剂编码（通过取样记录关联制剂）
+     */
+    @TableField(exist = false)
+    private String preparationCode;
+
+    /**
+     * 关联制剂名称（通过取样记录关联制剂）
+     */
+    @TableField(exist = false)
+    private String preparationName;
 
     // endregion
 

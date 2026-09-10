@@ -538,7 +538,19 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
         // 按编号倒序排列
         wrapper.orderByDesc("in_code");
 
-        return stockInMapper.selectPage(page, wrapper);
+        Page<StockIn> result = stockInMapper.selectPage(page, wrapper);
+
+        // 批量解析关联制剂名称（通过 related_order 关联 acceptance_order.acceptance_code）
+        if (!result.getRecords().isEmpty()) {
+            Map<String, String> preparationNameMap = loadPreparationNameMap(result.getRecords());
+            for (StockIn record : result.getRecords()) {
+                if (StringUtils.hasText(record.getRelatedOrder())) {
+                    record.setPreparationName(preparationNameMap.get(record.getRelatedOrder()));
+                }
+            }
+        }
+
+        return result;
     }
 
     // endregion

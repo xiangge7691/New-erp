@@ -46,6 +46,12 @@ public class ReleaseReview extends AuditEntity {
     private String relatedInspectionCode;
 
     /**
+     * 关联检验记录编号（可空，用于关联检验记录获取工单和制剂信息）
+     */
+    @TableField(value = "related_inspection_record_code")
+    private String relatedInspectionRecordCode;
+
+    /**
      * 被检对象名称
      */
     @TableField(value = "object_name")
@@ -99,6 +105,31 @@ public class ReleaseReview extends AuditEntity {
      */
     @TableField(value = "remark")
     private String remark;
+
+    // endregion
+
+    // region 关联信息字段（非数据库字段，查询时填充）
+    // ===================================
+    // 关联信息字段（非数据库字段，查询时填充）
+    // ===================================
+
+    /**
+     * 关联生产任务编号（通过检验记录关联工单）
+     */
+    @TableField(exist = false)
+    private String workOrderCode;
+
+    /**
+     * 关联制剂编码（通过检验记录关联制剂）
+     */
+    @TableField(exist = false)
+    private String preparationCode;
+
+    /**
+     * 关联制剂名称（通过检验记录关联制剂）
+     */
+    @TableField(exist = false)
+    private String preparationName;
 
     // endregion
 

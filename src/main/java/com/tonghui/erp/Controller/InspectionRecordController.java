@@ -5,6 +5,10 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.InspectionRecord;
+import com.tonghui.erp.Data.Entity.InspectionRequest;
+import com.tonghui.erp.Data.Entity.WorkOrder;
+import com.tonghui.erp.Data.mapper.InspectionRequestMapper;
+import com.tonghui.erp.Data.mapper.WorkOrderMapper;
 import com.tonghui.erp.Service.InspectionRecordService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
@@ -13,6 +17,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 检验记录控制器
@@ -50,6 +56,18 @@ public class InspectionRecordController extends BaseController {
      */
     @Autowired
     private InspectionRecordService inspectionRecordService;
+
+    /**
+     * 请检记录数据访问层
+     */
+    @Autowired
+    private InspectionRequestMapper inspectionRequestMapper;
+
+    /**
+     * 工单数据访问层
+     */
+    @Autowired
+    private WorkOrderMapper workOrderMapper;
 
     // endregion
 
@@ -95,6 +113,9 @@ public class InspectionRecordController extends BaseController {
             QueryWrapper<InspectionRecord> wrapper = buildQueryWrapper(inspectionCode, relatedSamplingCode,
                     objectName, batchNo, inspectionBasis, inspector, conclusion, startTime, endTime);
             Page<InspectionRecord> pageResult = inspectionRecordService.page(page, wrapper);
+
+            // 填充关联的生产任务编号和制剂信息
+            fillWorkOrderInfo(pageResult.getRecords());
 
             PagedResult<InspectionRecord> result = new PagedResult<>();
             result.setItems(pageResult.getRecords());
@@ -340,6 +361,50 @@ public class InspectionRecordController extends BaseController {
     // ===================================
     // 私有工具方法
     // ===================================
+
+    /**
+     * 批量填充检验记录关联的生产任务编号和制剂信息
+     * <p>
+     * 通过 related_inspection_request_code 关联请检记录，获取工单编号和制剂信息
+     * </p>
+     *
+     * @param records 检验记录列表
+     */
+    private void fillWorkOrderInfo(List<InspectionRecord> records) {
+        if (records == null || records.isEmpty()) {
+            return;
+        }
+
+        // 获取所有关联的请检编号
+        List<String> requestCodes = records.stream()
+                .map(InspectionRecord::getRelatedInspectionRequestCode)
+                .filter(StringUtils::hasText)
+                .distinct()
+                .collect(Collectors.toList());
+
+        if (requestCodes.isEmpty()) {
+            return;
+        }
+
+        // 批量查询请检记录
+        QueryWrapper<InspectionRequest> requestWrapper = new QueryWrapper<>();
+        requestWrapper.in("inspection_code", requestCodes);
+        requestWrapper.select("inspection_code", "work_order_id", "work_order_code", "preparation_code", "preparation_name");
+        Map<String, InspectionRequest> requestMap = inspectionRequestMapper.selectList(requestWrapper).stream()
+                .collect(Collectors.toMap(InspectionRequest::getInspectionCode, r -> r, (a, b) -> a));
+
+        // 回填信息
+        for (InspectionRecord record : records) {
+            if (StringUtils.hasText(record.getRelatedInspectionRequestCode())) {
+                InspectionRequest request = requestMap.get(record.getRelatedInspectionRequestCode());
+                if (request != null) {
+                    record.setWorkOrderCode(request.getWorkOrderCode());
+                    record.setPreparationCode(request.getPreparationCode());
+                    record.setPreparationName(request.getPreparationName());
+                }
+            }
+        }
+    }
 
     /**
      * 构建检验记录查询条件

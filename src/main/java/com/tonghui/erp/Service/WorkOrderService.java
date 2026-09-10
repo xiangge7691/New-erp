@@ -92,4 +92,15 @@ public interface WorkOrderService extends IService<WorkOrder> {
      * @return 生产中任务分页结果
      */
     Page<WorkOrder> getInProgressWorkOrders(String keyword, int pageIndex, int pageSize);
+
+    /**
+     * 作废工单
+     * <p>
+     * 将工单状态设置为"作废"，作废后不可再进行其他操作
+     * </p>
+     *
+     * @param workOrderId 工单ID
+     * @return 是否作废成功
+     */
+    boolean voidWorkOrder(Long workOrderId);
 }

@@ -196,6 +196,41 @@ public class WorkOrderController extends BaseCrudController<WorkOrder, WorkOrder
         String code = workOrderService.generateWorkOrderCode();
         return success(code, "工单编号生成成功");
     }
-    
+
+    // endregion
+
+    // region 工单作废
+    // ===================================
+    // 工单作废
+    // ===================================
+
+    /**
+     * 作废工单
+     * <p>
+     * 将工单状态设置为"作废"，作废后不可再进行其他操作
+     * 已归档或已作废的工单不能再次作废
+     * </p>
+     *
+     * 示例请求：
+     * PUT /api/work-orders/1/void
+     *
+     * @param id 工单ID
+     * @return ApiResponse&lt;Boolean&gt; 作废结果
+     */
+    @PutMapping("/{id}/void")
+    public ApiResponse<Boolean> voidWorkOrder(@PathVariable Long id) {
+        try {
+            boolean result = workOrderService.voidWorkOrder(id);
+            if (result) {
+                return success(true, "作废成功");
+            } else {
+                return error("作废失败，工单不存在或已归档/已作废");
+            }
+        } catch (Exception ex) {
+            return exception(ex, "作废工单");
+        }
+    }
+
+    // endregion
     // endregion
 }
