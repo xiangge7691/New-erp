@@ -19,6 +19,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 库存服务接口
@@ -177,6 +178,41 @@ public interface StockService extends IService<Stock> {
      * @return 流水列表
      */
     List<StockTransactionDto> getTransactionsByStockId(Long stockId);
+
+    // endregion
+
+    // region 出库扣减（FIFO/手动/退库）
+    // ===================================
+    // 出库扣减（FIFO/手动/退库）
+    // ===================================
+
+    /**
+     * 先入先出扣减库存（按 stock_in_id 升序，先入库的先扣减）
+     *
+     * @param outId       出库单ID
+     * @param itemCode    物品编码
+     * @param prodUnitId  仓库ID
+     * @param batchNumber 批号
+     * @param quantity    扣减数量
+     */
+    void deductStockFIFO(Long outId, String itemCode, Long prodUnitId,
+                         String batchNumber, BigDecimal quantity);
+
+    /**
+     * 手动选择扣减库存
+     *
+     * @param outId             出库单ID
+     * @param stockIdQuantityMap stock_id → 扣减数量
+     */
+    void deductStockManual(Long outId, Map<Long, BigDecimal> stockIdQuantityMap);
+
+    /**
+     * 退库扣减：反向扣减原出库单对应的库存记录
+     *
+     * @param returnOutId   退库单ID（新出库单）
+     * @param originalOutId 原出库单ID
+     */
+    void deductStockReturn(Long returnOutId, Long originalOutId);
 
     // endregion
 

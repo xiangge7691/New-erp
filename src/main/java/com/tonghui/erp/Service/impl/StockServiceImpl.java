@@ -413,17 +413,20 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
             if (detail.getQuantity() == null || detail.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
                 throw new RuntimeException("入库数量必须大于0: " + detail.getItemName());
             }
-            // 按 物品编码 + 生产单位 + 批号 定位库存批次
+
+            // 按 物品编码 + 生产单位 + 批号 + 入库单ID + 库存状态 定位库存批次
             QueryWrapper<Stock> wrapper = new QueryWrapper<>();
             wrapper.eq("item_code", detail.getItemCode());
             wrapper.eq("prod_unit_id", stockIn.getProdUnitId());
             wrapper.eq("batch_number", detail.getBatchNumber());
+            wrapper.eq("stock_in_id", stockIn.getInId());
+            wrapper.eq("stock_status", StringUtils.hasText(detail.getStockStatus()) ? detail.getStockStatus() : "合格");
             Stock existing = this.getBaseMapper().selectOne(wrapper);
 
             BigDecimal before = existing != null ? existing.getQuantity() : BigDecimal.ZERO;
             Stock stock;
             if (existing != null) {
-                // 同批次再次入库：数量累加，单价以最新入库单价为准
+                // 同入库单+同批次再次入库：数量累加，单价以最新入库单价为准
                 stock = existing;
                 stock.setQuantity(stock.getQuantity().add(detail.getQuantity()));
                 if (detail.getUnitPrice() != null) {
@@ -437,7 +440,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
                 }
                 this.getBaseMapper().updateById(stock);
             } else {
-                // 新增库存批次
+                // 新增库存批次（每条入库明细创建独立库存记录）
                 stock = new Stock();
                 stock.setProdUnitId(stockIn.getProdUnitId());
                 // 物品类型字段为Object类型，先转换为String再判断
@@ -455,6 +458,9 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
                 stock.setExpiryDate(detail.getExpiryDate());
                 stock.setStockStatus(StringUtils.hasText(detail.getStockStatus()) ? detail.getStockStatus() : "合格");
                 stock.setPlanNumber(stockIn.getPlanNumber());
+                // 设置入库单关联字段（用于追溯来源）
+                stock.setStockInId(stockIn.getInId());
+                stock.setStockInDetailId(detail.getInDetailId());
                 this.getBaseMapper().insert(stock);
             }
 
@@ -605,6 +611,127 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
                     before, detail.getQuantity());
         }
     }
+
+    // endregion
+
+    // region 出库扣减（FIFO/手动/退库）
+    // ===================================
+    // 出库扣减（FIFO/手动/退库）
+    // ===================================
+
+    /**
+     * 先入先出扣减库存（按 stock_in_id 升序，先入库的先扣减）
+     *
+     * @param outId       出库单ID
+     * @param itemCode    物品编码
+     * @param prodUnitId  仓库ID
+     * @param batchNumber 批号
+     * @param quantity    扣减数量
+     */
+    @Override
+    @Transactional
+    public void deductStockFIFO(Long outId, String itemCode, Long prodUnitId,
+                                String batchNumber, BigDecimal quantity) {
+        // 查询可用库存（按 stock_in_id 升序，先入库的先扣减）
+        QueryWrapper<Stock> wrapper = new QueryWrapper<>();
+        wrapper.eq("item_code", itemCode);
+        wrapper.eq("prod_unit_id", prodUnitId);
+        wrapper.eq("batch_number", batchNumber);
+        wrapper.gt("quantity", 0);
+        wrapper.orderByAsc("stock_in_id");
+        List<Stock> availableStocks = this.getBaseMapper().selectList(wrapper);
+
+        BigDecimal remaining = quantity;
+        for (Stock stock : availableStocks) {
+            if (remaining.compareTo(BigDecimal.ZERO) <= 0) break;
+
+            BigDecimal deduct = stock.getQuantity().min(remaining);
+            BigDecimal before = stock.getQuantity();
+            stock.setQuantity(stock.getQuantity().subtract(deduct));
+            this.getBaseMapper().updateById(stock);
+
+            // 记录出库流水
+            insertTransaction(stock, "出库", "stock_out", outId,
+                    "FIFO出库扣减", before, deduct.negate());
+
+            remaining = remaining.subtract(deduct);
+        }
+
+        if (remaining.compareTo(BigDecimal.ZERO) > 0) {
+            throw new RuntimeException("库存不足: " + itemCode + " " + batchNumber
+                    + "（还需 " + remaining.toPlainString() + "）");
+        }
+    }
+
+    /**
+     * 手动选择扣减库存
+     *
+     * @param outId             出库单ID
+     * @param stockIdQuantityMap stock_id → 扣减数量
+     */
+    @Override
+    @Transactional
+    public void deductStockManual(Long outId, Map<Long, BigDecimal> stockIdQuantityMap) {
+        for (Map.Entry<Long, BigDecimal> entry : stockIdQuantityMap.entrySet()) {
+            Long stockId = entry.getKey();
+            BigDecimal deductQuantity = entry.getValue();
+
+            Stock stock = this.getBaseMapper().selectById(stockId);
+            if (stock == null) {
+                throw new RuntimeException("库存记录不存在: stockId=" + stockId);
+            }
+            if (stock.getQuantity().compareTo(deductQuantity) < 0) {
+                throw new RuntimeException("库存不足: " + stock.getItemName() + " " + stock.getBatchNumber()
+                        + "（当前 " + stock.getQuantity().toPlainString()
+                        + "，需出库 " + deductQuantity.toPlainString() + "）");
+            }
+
+            BigDecimal before = stock.getQuantity();
+            stock.setQuantity(stock.getQuantity().subtract(deductQuantity));
+            this.getBaseMapper().updateById(stock);
+
+            // 记录出库流水
+            insertTransaction(stock, "出库", "stock_out", outId,
+                    "手动选择出库扣减", before, deductQuantity.negate());
+        }
+    }
+
+    /**
+     * 退库扣减：反向扣减原出库单对应的库存记录
+     *
+     * @param returnOutId   退库单ID（新出库单）
+     * @param originalOutId 原出库单ID
+     */
+    @Override
+    @Transactional
+    public void deductStockReturn(Long returnOutId, Long originalOutId) {
+        // 查询原出库单的所有出库明细
+        QueryWrapper<StockOutDetail> wrapper = new QueryWrapper<>();
+        wrapper.eq("out_id", originalOutId);
+        List<StockOutDetail> originalDetails = stockOutDetailMapper.selectList(wrapper);
+
+        if (originalDetails == null || originalDetails.isEmpty()) {
+            throw new RuntimeException("原出库单无出库明细: outId=" + originalOutId);
+        }
+
+        // 反向扣减这些库存记录
+        for (StockOutDetail detail : originalDetails) {
+            Stock stock = this.getBaseMapper().selectById(detail.getStockId());
+            if (stock == null) {
+                throw new RuntimeException("原库存记录不存在: stockId=" + detail.getStockId());
+            }
+
+            BigDecimal before = stock.getQuantity();
+            stock.setQuantity(stock.getQuantity().subtract(detail.getQuantity()));
+            this.getBaseMapper().updateById(stock);
+
+            // 记录退库流水
+            insertTransaction(stock, "退库", "stock_out", returnOutId,
+                    "退库扣减（原出库单: " + originalOutId + "）", before, detail.getQuantity().negate());
+        }
+    }
+
+    // endregion
 
     /**
      * 根据库存ID查询库存流水列表（含绑定的入库单与验收单信息）
@@ -936,6 +1063,10 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
         BigDecimal after = quantityBefore.add(quantityChange);
         transaction.setQuantityAfter(after.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : after);
         transaction.setBatchNumber(stock.getBatchNumber());
+        // 设置物品和仓库信息（用于流水查询）
+        transaction.setItemCode(stock.getItemCode());
+        transaction.setItemName(stock.getItemName());
+        transaction.setProdUnitId(stock.getProdUnitId());
         transaction.setRemark(remark);
         stockTransactionMapper.insert(transaction);
     }
