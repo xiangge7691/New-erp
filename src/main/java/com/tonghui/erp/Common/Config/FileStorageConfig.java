@@ -123,7 +123,6 @@ public class FileStorageConfig {
         put("TRAINING", "培训管理");
         put("DOSAGE_FORM", "剂型信息");
         put("ENERGY", "能耗管理");
-        put("INSPECTION_REQUEST", "请检管理");
         put("GENERAL", "通用文件");
     }};
 
@@ -165,6 +164,8 @@ public class FileStorageConfig {
         put("ENERGY_RECORD", "能耗记录");
         put("REQUEST", "请检单");
         put("SAMPLE", "样品");
+        put("SAMPLING", "取样");
+        put("INSPECTION_RECORD", "请检记录");
     }};
 
     // endregion

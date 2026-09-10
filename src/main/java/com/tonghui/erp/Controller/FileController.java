@@ -84,6 +84,8 @@ import java.util.List;
  * 质量管理（QUALITY）：
  * - QUALITY_RECORD           → 质量管理/记录
  * - QUALITY_INSPECTION       → 质量管理/质检
+ * - QUALITY_SAMPLING         → 质量管理/取样
+ * - QUALITY_INSPECTION_RECORD → 质量管理/请检记录
  * - QUALITY_CERTIFICATE      → 质量管理/证书
  * - QUALITY_REPORT           → 质量管理/报告
  *

@@ -406,7 +406,19 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         // 按编号倒序排列
         wrapper.orderByDesc("acceptance_code");
 
-        return acceptanceOrderMapper.selectPage(page, wrapper);
+        Page<AcceptanceOrder> result = acceptanceOrderMapper.selectPage(page, wrapper);
+
+        // 批量解析关联制剂名称（通过 plan_code 关联 production_plan）
+        if (!result.getRecords().isEmpty()) {
+            Map<String, String> preparationNameMap = loadPreparationNameMap(result.getRecords());
+            result.getRecords().forEach(r -> {
+                if (StringUtils.hasText(r.getPlanCode())) {
+                    r.setPreparationName(preparationNameMap.get(r.getPlanCode()));
+                }
+            });
+        }
+
+        return result;
     }
 
     /**
@@ -864,6 +876,31 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         wrapper.in("material_code", codes);
         return materialMapper.selectList(wrapper).stream()
                 .collect(Collectors.toMap(Material::getMaterialCode, m -> m, (a, b) -> a));
+    }
+
+    /**
+     * 批量加载关联制剂名称映射（通过验收单 plan_code 关联 production_plan）
+     *
+     * @param parents 验收单列表
+     * @return 生产计划编号到制剂名称的映射，无数据时返回空映射
+     */
+    private Map<String, String> loadPreparationNameMap(List<AcceptanceOrder> parents) {
+        List<String> planCodes = parents.stream()
+                .map(AcceptanceOrder::getPlanCode)
+                .filter(StringUtils::hasText)
+                .distinct()
+                .collect(Collectors.toList());
+        if (planCodes.isEmpty()) {
+            return Map.of();
+        }
+        QueryWrapper<ProductionPlan> wrapper = new QueryWrapper<>();
+        wrapper.in("plan_number", planCodes);
+        wrapper.select("plan_number", "preparation_name");
+        return productionPlanMapper.selectList(wrapper).stream()
+                .collect(Collectors.toMap(
+                        ProductionPlan::getPlanNumber,
+                        p -> p.getPreparationName() != null ? p.getPreparationName() : "",
+                        (a, b) -> a));
     }
 
     /**
