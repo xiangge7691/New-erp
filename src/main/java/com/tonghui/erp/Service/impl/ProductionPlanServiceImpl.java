@@ -531,7 +531,7 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
         
         // 作废生产计划
         UpdateWrapper<ProductionPlan> updateWrapper = new UpdateWrapper<>();
-        updateWrapper.eq("plan_id", planId);
+        updateWrapper.eq("id", planId);
         updateWrapper.set("current_status", "作废");
         return this.update(updateWrapper);
     }
