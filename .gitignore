@@ -31,3 +31,11 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# 上传文件
+uploaded-files/
+
+# 系统文件
+.DS_Store
+.trae/
+.mimocode/
