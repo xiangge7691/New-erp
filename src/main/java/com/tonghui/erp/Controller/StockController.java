@@ -168,28 +168,33 @@ public class StockController extends BaseController {
     // ===================================
 
     /**
-     * 按物料编码分组查询库存（含批次明细与仓库名称）
+     * 按批次号+制剂名称分组查询库存（含明细与仓库名称）
      * <p>
-     * 用于库存查询页面"按物料分组 + 展开批次"的展示模式，支持搜索/状态/仓库/分类筛选及显示零库存
+     * 用于库存查询页面"按批次+制剂分组 + 明细展开"的展示模式，
+     * 每个分组下显示同批次+制剂的所有库存记录（含来源入库单号）
      * </p>
      *
      * 示例请求：
-     * GET /api/stock/grouped-search?pageIndex=0&pageSize=20&itemName=甘草&stockStatus=合格&prodUnitId=1&categoryName=原料&showZero=false
+     * GET /api/stock/grouped-search?pageIndex=0&pageSize=20&batchNumber=A&preparationName=伸腿&stockStatus=合格
      *
-     * @param itemCode     物料编码（模糊匹配，选填）
-     * @param itemName     物料名称（模糊匹配，选填）
-     * @param categoryName 分类名称（等值匹配，选填）
-     * @param prodUnitId   仓库（生产单位ID，选填）
-     * @param stockStatus  库存状态（选填：合格/待检/不合格）
-     * @param showZero     是否显示零库存（选填，默认false）
-     * @param pageIndex    页码，从0开始
-     * @param pageSize     每页大小
-     * @return 分组分页结果（物料组列表，含批次明细）
+     * @param itemCode        物料编码（模糊匹配，选填）
+     * @param itemName        物料名称（模糊匹配，选填）
+     * @param batchNumber     批次号（模糊匹配，选填）
+     * @param preparationName 制剂名称（模糊匹配，选填）
+     * @param categoryName    分类名称（等值匹配，选填）
+     * @param prodUnitId      仓库（生产单位ID，选填）
+     * @param stockStatus     库存状态（选填：合格/待检/不合格）
+     * @param showZero        是否显示零库存（选填，默认false）
+     * @param pageIndex       页码，从0开始
+     * @param pageSize        每页大小
+     * @return 分组分页结果（批次+制剂组列表，含明细）
      */
     @GetMapping("/grouped-search")
-    public ApiResponse<PagedResult<StockGroupedDto>> groupedSearch(
+    public ApiResponse<PagedResult<StockGroupedByBatchDto>> groupedSearch(
             @RequestParam(required = false) String itemCode,
             @RequestParam(required = false) String itemName,
+            @RequestParam(required = false) String batchNumber,
+            @RequestParam(required = false) String preparationName,
             @RequestParam(required = false) String categoryName,
             @RequestParam(required = false) Long prodUnitId,
             @RequestParam(required = false) String stockStatus,
@@ -199,8 +204,9 @@ public class StockController extends BaseController {
         try {
             int safePageIndex = Math.max(0, pageIndex);
             int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
-            PagedResult<StockGroupedDto> result = stockService.groupedSearch(
-                    itemCode, itemName, categoryName, prodUnitId, stockStatus, showZero,
+            PagedResult<StockGroupedByBatchDto> result = stockService.groupedSearchByBatchAndPreparation(
+                    itemCode, itemName, batchNumber, preparationName,
+                    categoryName, prodUnitId, stockStatus, showZero,
                     safePageIndex, safePageSize);
             return success(result);
         } catch (Exception ex) {
