@@ -49,6 +49,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -797,19 +798,19 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
                 .collect(Collectors.toList());
 
         // 批量查询各单据表，构建ID→单号映射
-        Map<Long, StockIn> inMap = inIds.isEmpty() ? Map.of()
+        Map<Long, StockIn> inMap = inIds.isEmpty() ? new HashMap<>()
                 : stockInMapper.selectBatchIds(inIds).stream()
                         .collect(Collectors.toMap(StockIn::getInId, si -> si, (a, b) -> a));
-        Map<Long, TransferOrder> transferMap = transferIds.isEmpty() ? Map.of()
+        Map<Long, TransferOrder> transferMap = transferIds.isEmpty() ? new HashMap<>()
                 : transferOrderMapper.selectBatchIds(transferIds).stream()
                         .collect(Collectors.toMap(TransferOrder::getId, t -> t, (a, b) -> a));
-        Map<Long, CheckOrder> checkMap = checkIds.isEmpty() ? Map.of()
+        Map<Long, CheckOrder> checkMap = checkIds.isEmpty() ? new HashMap<>()
                 : checkOrderMapper.selectBatchIds(checkIds).stream()
                         .collect(Collectors.toMap(CheckOrder::getId, c -> c, (a, b) -> a));
-        Map<Long, ReturnOrder> returnMap = returnIds.isEmpty() ? Map.of()
+        Map<Long, ReturnOrder> returnMap = returnIds.isEmpty() ? new HashMap<>()
                 : returnOrderMapper.selectBatchIds(returnIds).stream()
                         .collect(Collectors.toMap(ReturnOrder::getId, r -> r, (a, b) -> a));
-        Map<Long, StockOut> outMap = outIds.isEmpty() ? Map.of()
+        Map<Long, StockOut> outMap = outIds.isEmpty() ? new HashMap<>()
                 : stockOutMapper.selectBatchIds(outIds).stream()
                         .collect(Collectors.toMap(StockOut::getOutId, o -> o, (a, b) -> a));
 
@@ -819,7 +820,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
                 .filter(java.util.Objects::nonNull)
                 .distinct()
                 .collect(Collectors.toList());
-        Map<Long, User> userMap = userIds.isEmpty() ? Map.of()
+        Map<Long, User> userMap = userIds.isEmpty() ? new HashMap<>()
                 : userMapper.selectBatchIds(userIds).stream()
                         .collect(Collectors.toMap(User::getUserId, u -> u, (a, b) -> a));
 
@@ -993,7 +994,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
                 .distinct()
                 .collect(Collectors.toList());
         if (unitIds.isEmpty()) {
-            return Map.of();
+            return new HashMap<>();
         }
         QueryWrapper<ProductionUnit> wrapper = new QueryWrapper<>();
         wrapper.in("prod_unit_id", unitIds);
@@ -1016,7 +1017,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
                 .distinct()
                 .collect(Collectors.toList());
         if (planNumbers.isEmpty()) {
-            return Map.of();
+            return new HashMap<>();
         }
         QueryWrapper<ProductionPlan> wrapper = new QueryWrapper<>();
         wrapper.in("plan_number", planNumbers);
@@ -1229,7 +1230,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
                 .distinct()
                 .collect(Collectors.toList());
 
-        if (stockInIds.isEmpty()) return Map.of();
+        if (stockInIds.isEmpty()) return new HashMap<>();
 
         QueryWrapper<StockIn> wrapper = new QueryWrapper<>();
         wrapper.in("in_id", stockInIds);
@@ -1398,7 +1399,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
                 .distinct()
                 .collect(Collectors.toList());
 
-        if (stockIds.isEmpty()) return Map.of();
+        if (stockIds.isEmpty()) return new HashMap<>();
 
         return this.getBaseMapper().selectBatchIds(stockIds).stream()
                 .collect(Collectors.toMap(Stock::getStockId, s -> s, (a, b) -> a));
@@ -1426,7 +1427,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
 
         unitIds = unitIds.stream().distinct().collect(Collectors.toList());
 
-        if (unitIds.isEmpty()) return Map.of();
+        if (unitIds.isEmpty()) return new HashMap<>();
 
         QueryWrapper<ProductionUnit> wrapper = new QueryWrapper<>();
         wrapper.in("prod_unit_id", unitIds);
@@ -1514,7 +1515,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
                 .distinct()
                 .collect(Collectors.toList());
 
-        if (userIds.isEmpty()) return Map.of();
+        if (userIds.isEmpty()) return new HashMap<>();
 
         return userMapper.selectBatchIds(userIds).stream()
                 .collect(Collectors.toMap(User::getUserId, u -> u, (a, b) -> a));
