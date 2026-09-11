@@ -951,6 +951,10 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         return stocks.stream().map(s -> {
             AvailableBatchDto batch = new AvailableBatchDto();
             batch.setStockId(s.getStockId());
+            batch.setItemCode(s.getItemCode());
+            batch.setItemName(s.getItemName());
+            batch.setCategoryName(s.getCategoryName());
+            batch.setUnitName(s.getUnitName());
             batch.setBatchNumber(s.getBatchNumber());
             batch.setProdUnitId(s.getProdUnitId());
             batch.setWarehouseName(unitNames.getOrDefault(s.getProdUnitId(), ""));

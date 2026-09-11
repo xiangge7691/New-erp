@@ -13,11 +13,13 @@ import com.tonghui.erp.Common.Dto.Warehouse.WarehouseMaterialDto;
 import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Data.Entity.Stock;
+import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.Entity.TransferOrder;
 import com.tonghui.erp.Data.Entity.TransferOrderDetail;
 import com.tonghui.erp.Data.Entity.User;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Data.mapper.StockMapper;
+import com.tonghui.erp.Data.mapper.StockInMapper;
 import com.tonghui.erp.Data.mapper.TransferOrderDetailMapper;
 import com.tonghui.erp.Data.mapper.TransferOrderMapper;
 import com.tonghui.erp.Data.mapper.UserMapper;
@@ -37,6 +39,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 调拨单服务实现类
@@ -60,6 +63,10 @@ public class TransferOrderServiceImpl extends ServiceImpl<TransferOrderMapper, T
 
     @Autowired
     private StockMapper stockMapper;
+
+    /** 入库单数据访问层，用于库存标识解析 */
+    @Autowired
+    private StockInMapper stockInMapper;
 
     @Autowired
     private ProductionUnitMapper productionUnitMapper;
@@ -196,9 +203,18 @@ public class TransferOrderServiceImpl extends ServiceImpl<TransferOrderMapper, T
                 .eq("item_code", materialCode)
                 .orderByAsc("batch_number"));
 
+        // 批量加载入库单号映射
+        List<Long> stockInIds = stocks.stream().map(Stock::getStockInId).filter(java.util.Objects::nonNull).distinct().collect(Collectors.toList());
+        Map<Long, String> inCodeMapTemp = new java.util.HashMap<>();
+        if (!stockInIds.isEmpty()) {
+            inCodeMapTemp = stockInMapper.selectList(new QueryWrapper<StockIn>().in("in_id", stockInIds))
+                    .stream().collect(Collectors.toMap(StockIn::getInId, StockIn::getInCode, (a, b) -> a));
+        }
+        Map<Long, String> inCodeMap = inCodeMapTemp;
+
         return stocks.stream().map(stock -> {
             MaterialBatchDto dto = new MaterialBatchDto();
-            dto.setInventoryKey(buildInventoryKey(stock.getItemCode(), warehouse, stock.getBatchNumber()));
+            dto.setInventoryKey(buildInventoryKey(stock.getItemCode(), inCodeMap.get(stock.getStockInId())));
             dto.setMaterialCode(stock.getItemCode());
             dto.setMaterialName(stock.getItemName());
             dto.setCategory(stock.getCategoryName());
@@ -273,7 +289,8 @@ public class TransferOrderServiceImpl extends ServiceImpl<TransferOrderMapper, T
             TransferOrderDetail detail = new TransferOrderDetail();
             detail.setSrcStockId(src.getStockId());
             detail.setSrcInventoryKey(item.getInventoryKey());
-            detail.setDstInventoryKey(buildInventoryKey(src.getItemCode(), dto.getToWarehouse(), src.getBatchNumber()));
+            // 调入方入库单号在调拨确认时生成，此处用物料编码占位
+            detail.setDstInventoryKey(src.getItemCode());
             detail.setMaterialCode(src.getItemCode());
             detail.setMaterialName(src.getItemName());
             detail.setCategory(src.getCategoryName());
@@ -488,7 +505,7 @@ public class TransferOrderServiceImpl extends ServiceImpl<TransferOrderMapper, T
     /**
      * 根据库存标识反查调出库存记录
      * <p>
-     * 库存标识格式：物料编码_仓库名_批号，按 编码+仓库+批号 三要素定位库存行
+     * 库存标识格式：物料编码_入库单号，通过入库单号精确定位库存行
      * </p>
      *
      * @param inventoryKey 库存标识
@@ -498,49 +515,54 @@ public class TransferOrderServiceImpl extends ServiceImpl<TransferOrderMapper, T
      */
     private Stock resolveSrcStock(String inventoryKey, String warehouse, Long prodUnitId) {
         String[] parts = parseInventoryKey(inventoryKey);
-        List<Stock> stocks = stockMapper.selectList(new QueryWrapper<Stock>()
-                .eq("item_code", parts[0])
-                .eq("prod_unit_id", prodUnitId)
-                .eq("batch_number", parts[2]));
-        if (stocks.isEmpty()) {
+        String itemCode = parts[0];
+        String inCode = parts[1];
+        // 通过入库单号反查 stockInId
+        StockIn stockIn = stockInMapper.selectOne(new QueryWrapper<StockIn>().eq("in_code", inCode));
+        if (stockIn == null) {
+            throw new RuntimeException("入库单不存在: " + inCode);
+        }
+        // 按 item_code + stock_in_id 精确定位库存
+        Stock stock = stockMapper.selectOne(new QueryWrapper<Stock>()
+                .eq("item_code", itemCode)
+                .eq("stock_in_id", stockIn.getInId()));
+        if (stock == null) {
             throw new RuntimeException("库存记录不存在: " + inventoryKey);
         }
-        return stocks.get(0);
+        return stock;
     }
 
     /**
-     * 解析库存标识（物料编码_仓库名_批号）
+     * 解析库存标识（物料编码_入库单号）
      *
      * @param inventoryKey 库存标识
-     * @return [物料编码, 仓库名, 批号]
+     * @return [物料编码, 入库单号]
      */
     private String[] parseInventoryKey(String inventoryKey) {
         if (!StringUtils.hasText(inventoryKey)) {
             throw new RuntimeException("库存标识不能为空");
         }
-        int lastSep = inventoryKey.lastIndexOf('_');
-        if (lastSep <= 0) {
-            throw new RuntimeException("库存标识格式错误: " + inventoryKey);
+        int sep = inventoryKey.indexOf('_');
+        if (sep <= 0) {
+            throw new RuntimeException("库存标识格式错误（应为：物料编码_入库单号）: " + inventoryKey);
         }
-        String batch = inventoryKey.substring(lastSep + 1);
-        String rest = inventoryKey.substring(0, lastSep);
-        int firstSep = rest.indexOf('_');
-        if (firstSep <= 0) {
-            throw new RuntimeException("库存标识格式错误: " + inventoryKey);
+        String itemCode = inventoryKey.substring(0, sep);
+        String inCode = inventoryKey.substring(sep + 1);
+        if (!StringUtils.hasText(itemCode) || !StringUtils.hasText(inCode)) {
+            throw new RuntimeException("库存标识格式错误（应为：物料编码_入库单号）: " + inventoryKey);
         }
-        return new String[]{rest.substring(0, firstSep), rest.substring(firstSep + 1), batch};
+        return new String[]{itemCode, inCode};
     }
 
     /**
-     * 构建库存标识（物料编码_仓库名_批号）
+     * 构建库存标识（物料编码_入库单号）
      *
      * @param materialCode 物料编码
-     * @param warehouse    仓库名称
-     * @param batchNo      批号
+     * @param inCode       入库单号
      * @return 库存标识
      */
-    private String buildInventoryKey(String materialCode, String warehouse, String batchNo) {
-        return materialCode + "_" + warehouse + "_" + batchNo;
+    private String buildInventoryKey(String materialCode, String inCode) {
+        return materialCode + "_" + (inCode != null ? inCode : "");
     }
 
     /**

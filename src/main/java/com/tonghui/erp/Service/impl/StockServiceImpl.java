@@ -488,8 +488,23 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
             return;
         }
         for (StockOutDetail detail : details) {
+            // 通过 inventoryKey 解析 stockId（与盘点/调拨/退库统一标识格式）
+            if (detail.getStockId() == null && StringUtils.hasText(detail.getInventoryKey())) {
+                String[] parts = parseInventoryKey(detail.getInventoryKey());
+                StockIn stockIn = stockInMapper.selectOne(new QueryWrapper<StockIn>().eq("in_code", parts[1]));
+                if (stockIn == null) {
+                    throw new RuntimeException("入库单不存在: " + parts[1]);
+                }
+                Stock resolved = this.getBaseMapper().selectOne(new QueryWrapper<Stock>()
+                        .eq("item_code", parts[0])
+                        .eq("stock_in_id", stockIn.getInId()));
+                if (resolved == null) {
+                    throw new RuntimeException("库存记录不存在: " + detail.getInventoryKey());
+                }
+                detail.setStockId(resolved.getStockId());
+            }
             if (detail.getStockId() == null) {
-                throw new RuntimeException("出库明细缺少库存批次(stockId): " + detail.getItemName());
+                throw new RuntimeException("出库明细缺少库存批次(stockId或inventoryKey): " + detail.getItemName());
             }
             if (detail.getQuantity() == null || detail.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
                 throw new RuntimeException("出库数量必须大于0: " + detail.getItemName());
@@ -518,6 +533,28 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
                     "stock_out", stockOut.getOutId(), stockOut.getOutCode(), stockOut.getRemark(),
                     before, detail.getQuantity().negate());
         }
+    }
+
+    /**
+     * 解析库存标识（物料编码_入库单号）
+     *
+     * @param inventoryKey 库存标识
+     * @return [物料编码, 入库单号]
+     */
+    private String[] parseInventoryKey(String inventoryKey) {
+        if (!StringUtils.hasText(inventoryKey)) {
+            throw new RuntimeException("库存标识不能为空");
+        }
+        int sep = inventoryKey.indexOf('_');
+        if (sep <= 0) {
+            throw new RuntimeException("库存标识格式错误（应为：物料编码_入库单号）: " + inventoryKey);
+        }
+        String itemCode = inventoryKey.substring(0, sep);
+        String inCode = inventoryKey.substring(sep + 1);
+        if (!StringUtils.hasText(itemCode) || !StringUtils.hasText(inCode)) {
+            throw new RuntimeException("库存标识格式错误（应为：物料编码_入库单号）: " + inventoryKey);
+        }
+        return new String[]{itemCode, inCode};
     }
 
     /**

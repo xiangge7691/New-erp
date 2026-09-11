@@ -19,6 +19,26 @@ public class AvailableBatchDto {
     private Long stockId;
 
     /**
+     * 物料编码
+     */
+    private String itemCode;
+
+    /**
+     * 物料名称
+     */
+    private String itemName;
+
+    /**
+     * 分类名称
+     */
+    private String categoryName;
+
+    /**
+     * 单位名称
+     */
+    private String unitName;
+
+    /**
      * 批次号
      */
     private String batchNumber;
