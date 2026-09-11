@@ -6,6 +6,7 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.ProductionPlanWithRecordsDto;
 import com.tonghui.erp.Common.Dto.Dashboard.*;
 import com.tonghui.erp.Data.Entity.*;
+import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Data.mapper.StockInDetailMapper;
 import com.tonghui.erp.Service.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -99,6 +100,10 @@ public class DashboardController extends BaseController {
 
     @Autowired
     private StockInDetailMapper stockInDetailMapper;
+
+    /** 生产单位数据访问层，用于库存预警仓库名称映射 */
+    @Autowired
+    private ProductionUnitMapper productionUnitMapper;
 
     // endregion
 
@@ -291,16 +296,36 @@ public class DashboardController extends BaseController {
                     .isNotNull("expiry_date")
                     .le("expiry_date", today.plusDays(30))
                     .orderByAsc("expiry_date"));
+
+            // 批量加载仓库名称映射
+            List<Long> warningWarehouseIds = expiringStocks.stream()
+                    .map(Stock::getProdUnitId)
+                    .filter(id -> id != null)
+                    .distinct()
+                    .collect(Collectors.toList());
+            Map<Long, String> warningWarehouseNameMap = new HashMap<>();
+            if (!warningWarehouseIds.isEmpty()) {
+                warningWarehouseNameMap = productionUnitMapper.selectList(
+                        new QueryWrapper<ProductionUnit>().in("prod_unit_id", warningWarehouseIds))
+                    .stream()
+                    .collect(Collectors.toMap(
+                        ProductionUnit::getProdUnitId,
+                        ProductionUnit::getProdUnitName,
+                        (a, b) -> a));
+            }
+
             for (Stock s : expiringStocks) {
                 TodoItemDto todo = new TodoItemDto();
                 todo.setId(s.getStockId());
                 todo.setTodoType("库存预警");
                 long days = java.time.temporal.ChronoUnit.DAYS.between(today, s.getExpiryDate());
-                String itemName = s.getItemName() != null ? s.getItemName() : "物料" + s.getItemId();
+                String warehouseName = warningWarehouseNameMap.getOrDefault(s.getProdUnitId(), "未知仓库");
+                String itemName = s.getItemName() != null ? s.getItemName() : "未知药品";
+                String batchInfo = s.getBatchNumber() != null ? s.getBatchNumber() : "未知批号";
                 if (days < 0) {
-                    todo.setContent(itemName + "已过期" + Math.abs(days) + "天");
+                    todo.setContent(warehouseName + "-" + itemName + "-" + batchInfo + "已过期" + Math.abs(days) + "天");
                 } else {
-                    todo.setContent(itemName + "将在" + days + "天后过期");
+                    todo.setContent(warehouseName + "-" + itemName + "-" + batchInfo + "将在" + days + "天后过期");
                 }
                 todo.setDueDate(s.getExpiryDate().toString());
                 todo.setSourceModule("库存管理");
