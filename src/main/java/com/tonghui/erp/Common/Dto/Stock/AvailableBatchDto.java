@@ -57,4 +57,9 @@ public class AvailableBatchDto {
      * 关联生产计划编号
      */
     private String planNumber;
+
+    /**
+     * 来源入库单号
+     */
+    private String relatedOrderCode;
 }

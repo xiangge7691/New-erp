@@ -14,11 +14,13 @@ import com.tonghui.erp.Data.Entity.ProductionPlan;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Data.Entity.PreparationFormula;
 import com.tonghui.erp.Data.Entity.Stock;
+import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.Entity.StockOut;
 import com.tonghui.erp.Data.Entity.StockOutDetail;
 import com.tonghui.erp.Data.mapper.PreparationFormulaMapper;
 import com.tonghui.erp.Data.mapper.ProductionPlanMapper;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
+import com.tonghui.erp.Data.mapper.StockInMapper;
 import com.tonghui.erp.Data.mapper.StockMapper;
 import com.tonghui.erp.Data.mapper.StockOutMapper;
 import com.tonghui.erp.Data.mapper.StockOutDetailMapper;
@@ -84,6 +86,10 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
     /** 生产单位数据访问层，用于仓库名称映射 */
     @Autowired
     private ProductionUnitMapper productionUnitMapper;
+
+    /** 入库单数据访问层，用于关联入库单号查询 */
+    @Autowired
+    private StockInMapper stockInMapper;
 
     /** 用户数据访问层，用于操作人姓名映射 */
     @Autowired
@@ -924,6 +930,24 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
                         .collect(Collectors.toMap(ProductionUnit::getProdUnitId,
                                 ProductionUnit::getProdUnitName, (a, b) -> a));
 
+        // 来源入库单号映射（一次性查询入库单表）
+        List<Long> stockInIds = stocks.stream()
+                .map(Stock::getStockInId)
+                .filter(id -> id != null)
+                .distinct()
+                .collect(Collectors.toList());
+        Map<Long, String> stockInCodeMap;
+        if (!stockInIds.isEmpty()) {
+            QueryWrapper<StockIn> siWrapper = new QueryWrapper<>();
+            siWrapper.in("in_id", stockInIds);
+            siWrapper.select("in_id", "in_code");
+            stockInCodeMap = stockInMapper.selectList(siWrapper).stream()
+                    .filter(si -> si.getInId() != null && StringUtils.hasText(si.getInCode()))
+                    .collect(Collectors.toMap(StockIn::getInId, StockIn::getInCode, (a, b) -> a));
+        } else {
+            stockInCodeMap = new java.util.HashMap<>();
+        }
+
         return stocks.stream().map(s -> {
             AvailableBatchDto batch = new AvailableBatchDto();
             batch.setStockId(s.getStockId());
@@ -936,6 +960,7 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
                     ? requiredQty.multiply(s.getUnitPrice()) : null);
             batch.setStockStatus(s.getStockStatus() != null ? String.valueOf(s.getStockStatus()) : null);
             batch.setPlanNumber(s.getPlanNumber());
+            batch.setRelatedOrderCode(stockInCodeMap.get(s.getStockInId()));
             return batch;
         }).collect(Collectors.toList());
     }
