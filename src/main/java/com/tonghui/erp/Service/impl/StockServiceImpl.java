@@ -1195,9 +1195,11 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
                 })
                 .collect(Collectors.toList());
 
-        // 7. 按 preparationName 排序
-        groups.sort(Comparator.comparing(StockGroupedByBatchDto::getPreparationName)
-                .thenComparing(StockGroupedByBatchDto::getBatchNumber));
+        // 7. 按 preparationName 排序（处理 null 值）
+        groups.sort(Comparator.comparing(StockGroupedByBatchDto::getPreparationName, 
+                        Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(StockGroupedByBatchDto::getBatchNumber,
+                        Comparator.nullsLast(Comparator.naturalOrder())));
 
         // 8. 内存分页
         int total = groups.size();
