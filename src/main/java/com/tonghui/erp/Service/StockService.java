@@ -163,12 +163,13 @@ public interface StockService extends IService<Stock> {
      * @param transactionType 交易类型（入库类型/出库类型中文值）
      * @param relatedType     关联单据类型（stock_in/stock_out/transfer/check/return）
      * @param relatedId       关联单据ID
+     * @param relatedOrderCode 关联业务单据号（如入库单号、出库单号等，可为空）
      * @param remark          备注
      * @param quantityBefore  交易前数量
      * @param quantityChange  变动数量（正数入库，负数出库）
      */
     void insertTransaction(Stock stock, String transactionType, String relatedType,
-                           Long relatedId, String remark,
+                           Long relatedId, String relatedOrderCode, String remark,
                            BigDecimal quantityBefore, BigDecimal quantityChange);
 
     /**

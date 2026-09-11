@@ -467,7 +467,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
 
             // 写入库存流水（入库）
             insertTransaction(stock, stockIn.getInType() != null ? stockIn.getInType() : "入库",
-                    "stock_in", stockIn.getInId(), stockIn.getRemark(), before, detail.getQuantity());
+                    "stock_in", stockIn.getInId(), stockIn.getInCode(), stockIn.getRemark(), before, detail.getQuantity());
         }
     }
 
@@ -515,7 +515,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
 
             // 写入库存流水（出库，数量为负）
             insertTransaction(stock, stockOut.getOutType() != null ? stockOut.getOutType() : "出库",
-                    "stock_out", stockOut.getOutId(), stockOut.getRemark(),
+                    "stock_out", stockOut.getOutId(), stockOut.getOutCode(), stockOut.getRemark(),
                     before, detail.getQuantity().negate());
         }
     }
@@ -558,7 +558,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
                 this.getBaseMapper().updateById(stock);
             }
             // 写入调整流水（数量为负）
-            insertTransaction(stock, "调整", "stock_in", stockIn.getInId(),
+            insertTransaction(stock, "调整", "stock_in", stockIn.getInId(), stockIn.getInCode(),
                     "入库单取消回滚: " + (stockIn.getInCode() != null ? stockIn.getInCode() : ""),
                     before, detail.getQuantity().negate());
         }
@@ -607,7 +607,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
                 before = BigDecimal.ZERO;
             }
             // 写入调整流水（数量为正）
-            insertTransaction(stock, "调整", "stock_out", stockOut.getOutId(),
+            insertTransaction(stock, "调整", "stock_out", stockOut.getOutId(), stockOut.getOutCode(),
                     "出库单取消回滚: " + (stockOut.getOutCode() != null ? stockOut.getOutCode() : ""),
                     before, detail.getQuantity());
         }
@@ -633,6 +633,10 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
     @Transactional
     public void deductStockFIFO(Long outId, String itemCode, Long prodUnitId,
                                 String batchNumber, BigDecimal quantity) {
+        // 查询出库单号
+        StockOut stockOut = stockOutMapper.selectById(outId);
+        String outCode = stockOut != null ? stockOut.getOutCode() : null;
+
         // 查询可用库存（按 stock_in_id 升序，先入库的先扣减）
         QueryWrapper<Stock> wrapper = new QueryWrapper<>();
         wrapper.eq("item_code", itemCode);
@@ -652,7 +656,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
             this.getBaseMapper().updateById(stock);
 
             // 记录出库流水
-            insertTransaction(stock, "出库", "stock_out", outId,
+            insertTransaction(stock, "出库", "stock_out", outId, outCode,
                     "FIFO出库扣减", before, deduct.negate());
 
             remaining = remaining.subtract(deduct);
@@ -673,6 +677,10 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
     @Override
     @Transactional
     public void deductStockManual(Long outId, Map<Long, BigDecimal> stockIdQuantityMap) {
+        // 查询出库单号
+        StockOut stockOut = stockOutMapper.selectById(outId);
+        String outCode = stockOut != null ? stockOut.getOutCode() : null;
+
         for (Map.Entry<Long, BigDecimal> entry : stockIdQuantityMap.entrySet()) {
             Long stockId = entry.getKey();
             BigDecimal deductQuantity = entry.getValue();
@@ -692,7 +700,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
             this.getBaseMapper().updateById(stock);
 
             // 记录出库流水
-            insertTransaction(stock, "出库", "stock_out", outId,
+            insertTransaction(stock, "出库", "stock_out", outId, outCode,
                     "手动选择出库扣减", before, deductQuantity.negate());
         }
     }
@@ -706,6 +714,10 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
     @Override
     @Transactional
     public void deductStockReturn(Long returnOutId, Long originalOutId) {
+        // 查询退库出库单号
+        StockOut returnOut = stockOutMapper.selectById(returnOutId);
+        String returnOutCode = returnOut != null ? returnOut.getOutCode() : null;
+
         // 查询原出库单的所有出库明细
         QueryWrapper<StockOutDetail> wrapper = new QueryWrapper<>();
         wrapper.eq("out_id", originalOutId);
@@ -727,7 +739,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
             this.getBaseMapper().updateById(stock);
 
             // 记录退库流水
-            insertTransaction(stock, "退库", "stock_out", returnOutId,
+            insertTransaction(stock, "退库", "stock_out", returnOutId, returnOutCode,
                     "退库扣减（原出库单: " + originalOutId + "）", before, detail.getQuantity().negate());
         }
     }
@@ -1047,12 +1059,13 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
      * @param transactionType 交易类型（入库类型/出库类型中文值）
      * @param relatedType     关联单据类型（stock_in/stock_out/transfer/check/return）
      * @param relatedId       关联单据ID
+     * @param relatedOrderCode 关联业务单据号（如入库单号、出库单号等，可为空）
      * @param remark          备注
      * @param quantityBefore  交易前数量
      * @param quantityChange  变动数量（正数入库，负数出库）
      */
     public void insertTransaction(Stock stock, String transactionType, String relatedType,
-                                   Long relatedId, String remark,
+                                   Long relatedId, String relatedOrderCode, String remark,
                                    BigDecimal quantityBefore, BigDecimal quantityChange) {
         StockTransaction transaction = new StockTransaction();
         transaction.setStockId(stock.getStockId());
@@ -1060,6 +1073,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
         transaction.setTransactionDate(LocalDateTime.now());
         transaction.setRelatedId(relatedId);
         transaction.setRelatedType(relatedType);
+        transaction.setRelatedOrderCode(relatedOrderCode);
         transaction.setQuantityBefore(quantityBefore);
         transaction.setQuantityChange(quantityChange);
         BigDecimal after = quantityBefore.add(quantityChange);

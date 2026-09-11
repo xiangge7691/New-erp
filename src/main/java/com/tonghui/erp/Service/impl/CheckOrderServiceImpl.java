@@ -260,7 +260,7 @@ public class CheckOrderServiceImpl extends ServiceImpl<CheckOrderMapper, CheckOr
 
         // 逐项调整库存并写流水
         for (CheckOrderDetail detail : details) {
-            applyCheckAdjustment(order.getId(), detail);
+            applyCheckAdjustment(order.getId(), order.getCheckNo(), detail);
         }
 
         return order;
@@ -273,10 +273,11 @@ public class CheckOrderServiceImpl extends ServiceImpl<CheckOrderMapper, CheckOr
      * 生成盘盈入库（正变动）或盘亏出库（负变动）流水
      * </p>
      *
-     * @param orderId 盘点单主表ID
-     * @param detail  盘点明细（含差异与结果）
+     * @param orderId  盘点单主表ID
+     * @param checkNo  盘点单号（流水关联单据号）
+     * @param detail   盘点明细（含差异与结果）
      */
-    private void applyCheckAdjustment(Long orderId, CheckOrderDetail detail) {
+    private void applyCheckAdjustment(Long orderId, String checkNo, CheckOrderDetail detail) {
         int cmp = detail.getDifference().compareTo(BigDecimal.ZERO);
         if (cmp != 0) {
             Stock stock = stockMapper.selectById(detail.getStockId());
@@ -294,7 +295,7 @@ public class CheckOrderServiceImpl extends ServiceImpl<CheckOrderMapper, CheckOr
 
             // 写入盘点调整流水（盘盈为正变动、盘亏为负变动）
             String transactionType = cmp > 0 ? "盘盈入库" : "盘亏出库";
-            stockService.insertTransaction(stock, transactionType, "check", orderId,
+            stockService.insertTransaction(stock, transactionType, "check", orderId, checkNo,
                     "盘点单: " + orderId, before, detail.getDifference());
         }
 

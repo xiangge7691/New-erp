@@ -379,7 +379,7 @@ public class ReturnOrderServiceImpl extends ServiceImpl<ReturnOrderMapper, Retur
 
         // 逐项回增库存并写流水
         for (ReturnOrderDetail detail : details) {
-            applyReturn(order.getId(), dto.getOutOrderNo(), detail);
+            applyReturn(order.getId(), dto.getOutOrderNo(), order.getReturnNo(), detail);
         }
 
         return order;
@@ -394,9 +394,10 @@ public class ReturnOrderServiceImpl extends ServiceImpl<ReturnOrderMapper, Retur
      *
      * @param orderId    退库单主表ID
      * @param outOrderNo 出库单号（流水备注用）
+     * @param returnNo   退库单号（流水关联单据号）
      * @param detail     退库明细（含出库明细ID与回增数量）
      */
-    private void applyReturn(Long orderId, String outOrderNo, ReturnOrderDetail detail) {
+    private void applyReturn(Long orderId, String outOrderNo, String returnNo, ReturnOrderDetail detail) {
         StockOutDetail outDetail = stockOutDetailMapper.selectById(detail.getOutDetailId());
         if (outDetail == null) {
             throw new RuntimeException("出库明细不存在: " + detail.getMaterialName());
@@ -428,7 +429,7 @@ public class ReturnOrderServiceImpl extends ServiceImpl<ReturnOrderMapper, Retur
         }
 
         // 写入退库流水（正变动）
-        stockService.insertTransaction(stock, "退库", "return", orderId,
+        stockService.insertTransaction(stock, "退库", "return", orderId, returnNo,
                 "退库单: " + orderId + "，出库单: " + outOrderNo, before, detail.getReturnQuantity());
 
         // 落库明细

@@ -313,7 +313,7 @@ public class TransferOrderServiceImpl extends ServiceImpl<TransferOrderMapper, T
 
         // 逐项执行库存变更 + 流水 + 明细
         for (TransferOrderDetail detail : details) {
-            applyTransfer(dto, fromUnitId, toUnitId, order.getId(), detail);
+            applyTransfer(dto, fromUnitId, toUnitId, order.getId(), order.getTransferNo(), detail);
         }
 
         return order;
@@ -330,10 +330,11 @@ public class TransferOrderServiceImpl extends ServiceImpl<TransferOrderMapper, T
      * @param fromUnitId 调出生产单位ID
      * @param toUnitId   调入生产单位ID
      * @param orderId    调拨单主表ID
+     * @param transferNo 调拨单号（流水关联单据号）
      * @param detail     调拨明细（含调出库存信息）
      */
     private void applyTransfer(TransferOrderCreateDto dto, Long fromUnitId, Long toUnitId,
-                               Long orderId, TransferOrderDetail detail) {
+                               Long orderId, String transferNo, TransferOrderDetail detail) {
         // 1. 扣减调出库存
         Stock src = stockMapper.selectById(detail.getSrcStockId());
         if (src == null) {
@@ -384,9 +385,9 @@ public class TransferOrderServiceImpl extends ServiceImpl<TransferOrderMapper, T
 
         // 3. 写入两条库存流水（调拨出库为负变动、调拨入库为正变动）
         String remark = "调拨单: " + orderId;
-        stockService.insertTransaction(src, "调拨出库", "transfer", orderId, remark,
+        stockService.insertTransaction(src, "调拨出库", "transfer", orderId, transferNo, remark,
                 detail.getSrcStock(), detail.getTransferQuantity().negate());
-        stockService.insertTransaction(dst, "调拨入库", "transfer", orderId, remark,
+        stockService.insertTransaction(dst, "调拨入库", "transfer", orderId, transferNo, remark,
                 dstBefore, detail.getTransferQuantity());
 
         // 4. 落库明细（补充调入前库存与调入库存ID）
