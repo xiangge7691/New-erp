@@ -3,6 +3,8 @@ package com.tonghui.erp.Controller;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.ModelAttribute;
 
 /**
@@ -12,6 +14,11 @@ import org.springframework.web.bind.annotation.ModelAttribute;
  * </p>
  */
 public abstract class BaseController {
+
+    /**
+     * 日志记录器
+     */
+    private static final Logger log = LoggerFactory.getLogger(BaseController.class);
 
     // region 分页处理方法
     // ===================================
@@ -94,6 +101,7 @@ public abstract class BaseController {
      * @return 错误响应
      */
     protected <T> ApiResponse<T> exception(Exception ex, String operation) {
+        log.error("接口异常: {} - {}", operation, ex.getMessage(), ex);
         return ApiResponse.errorResponse(operation + "失败: " + ex.getMessage());
     }
     

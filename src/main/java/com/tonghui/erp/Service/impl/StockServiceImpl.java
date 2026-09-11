@@ -998,6 +998,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
         QueryWrapper<ProductionUnit> wrapper = new QueryWrapper<>();
         wrapper.in("prod_unit_id", unitIds);
         return productionUnitMapper.selectList(wrapper).stream()
+                .filter(u -> u.getProdUnitId() != null && StringUtils.hasText(u.getProdUnitName()))
                 .collect(Collectors.toMap(ProductionUnit::getProdUnitId,
                         ProductionUnit::getProdUnitName, (a, b) -> a));
     }
@@ -1234,6 +1235,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
         wrapper.in("in_id", stockInIds);
         wrapper.select("in_id", "in_code");
         return stockInMapper.selectList(wrapper).stream()
+                .filter(si -> si.getInId() != null && StringUtils.hasText(si.getInCode()))
                 .collect(Collectors.toMap(StockIn::getInId, StockIn::getInCode, (a, b) -> a));
     }
 
