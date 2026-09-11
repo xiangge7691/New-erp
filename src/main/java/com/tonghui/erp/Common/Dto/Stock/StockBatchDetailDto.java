@@ -36,6 +36,11 @@ public class StockBatchDetailDto {
     private String warehouseName;
 
     /**
+     * 仓库ID（生产单位ID）
+     */
+    private Long prodUnitId;
+
+    /**
      * 库存状态：合格/待检/不合格
      */
     private String stockStatus;

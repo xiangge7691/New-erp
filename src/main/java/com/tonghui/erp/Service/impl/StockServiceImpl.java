@@ -1233,6 +1233,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
                                 detail.setBatchNumber(s.getBatchNumber());
                                 detail.setPreparationName(s.getPreparationName());
                                 detail.setWarehouseName(unitNames.getOrDefault(s.getProdUnitId(), ""));
+                                detail.setProdUnitId(s.getProdUnitId());
                                 detail.setStockStatus(s.getStockStatus() != null
                                         ? String.valueOf(s.getStockStatus()) : null);
                                 detail.setQuantity(s.getQuantity());
