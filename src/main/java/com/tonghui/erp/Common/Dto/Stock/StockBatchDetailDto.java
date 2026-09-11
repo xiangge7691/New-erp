@@ -6,10 +6,10 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
- * 批次明细数据传输对象
+ * 库存分组查询明细数据传输对象（第二级 - 扁平明细）
  * <p>
- * 用于库存分组查询中每个批次+制剂下的明细展示，
- * 包含物料信息、仓库信息、库存状态及来源入库单号
+ * 每行代表一条独立的库存记录，包含批号、制剂名称、仓库、状态、数量、来源等信息。
+ * 按批号排序，同一物料下的所有记录扁平展示
  * </p>
  */
 @Data
@@ -21,24 +21,14 @@ public class StockBatchDetailDto {
     private Long stockId;
 
     /**
-     * 物料编码
+     * 批号
      */
-    private String itemCode;
+    private String batchNumber;
 
     /**
-     * 物料名称
+     * 制剂名称
      */
-    private String itemName;
-
-    /**
-     * 分类名称（原料/辅料/包材/成品）
-     */
-    private String categoryName;
-
-    /**
-     * 计量单位
-     */
-    private String unitName;
+    private String preparationName;
 
     /**
      * 仓库名称
@@ -74,4 +64,9 @@ public class StockBatchDetailDto {
      * 单价
      */
     private BigDecimal unitPrice;
+
+    /**
+     * 金额（quantity × unitPrice，后端计算）
+     */
+    private BigDecimal amount;
 }

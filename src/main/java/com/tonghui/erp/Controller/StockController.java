@@ -237,51 +237,6 @@ public class StockController extends BaseController {
     }
 
     /**
-     * 按批次号+制剂名称分组查询库存
-     * <p>
-     * 用于库存查询页面按"批次+制剂分组 + 明细展开"的展示模式，
-     * 每个分组下显示同批次+制剂的所有库存记录（含来源入库单号）
-     * </p>
-     *
-     * 示例请求：
-     * GET /api/stock/grouped-by-batch?pageIndex=0&pageSize=20&batchNumber=A&preparationName=伸腿
-     *
-     * @param batchNumber     批次号（可选，模糊匹配）
-     * @param preparationName 制剂名称（可选，模糊匹配）
-     * @param itemCode        物料编码（可选，模糊匹配）
-     * @param itemName        物料名称（可选，模糊匹配）
-     * @param categoryName    分类名称（可选，精确匹配）
-     * @param prodUnitId      仓库ID（可选，精确匹配）
-     * @param stockStatus     库存状态（可选，精确匹配）
-     * @param showZero        是否显示零库存
-     * @param pageIndex       页码
-     * @param pageSize        每页大小
-     * @return 分组分页结果
-     */
-    @GetMapping("/grouped-by-batch")
-    public ApiResponse<PagedResult<StockGroupedByBatchDto>> groupedSearchByBatch(
-            @RequestParam(required = false) String batchNumber,
-            @RequestParam(required = false) String preparationName,
-            @RequestParam(required = false) String itemCode,
-            @RequestParam(required = false) String itemName,
-            @RequestParam(required = false) String categoryName,
-            @RequestParam(required = false) Long prodUnitId,
-            @RequestParam(required = false) String stockStatus,
-            @RequestParam(defaultValue = "false") boolean showZero,
-            @RequestParam(defaultValue = "0") int pageIndex,
-            @RequestParam(defaultValue = "20") int pageSize) {
-        try {
-            PagedResult<StockGroupedByBatchDto> result = stockService.groupedSearchByBatchAndPreparation(
-                    itemCode, itemName, batchNumber, preparationName,
-                    categoryName, prodUnitId, stockStatus, showZero,
-                    pageIndex, pageSize);
-            return success(result);
-        } catch (Exception e) {
-            return exception(e, "按批次查询库存");
-        }
-    }
-
-    /**
      * 根据库存ID查询流水列表（增强版，含物品/仓库/关联单据信息）
      *
      * 示例请求：

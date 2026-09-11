@@ -1148,59 +1148,87 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
         // 4. 过滤 preparationName（如果指定了筛选条件）
         if (StringUtils.hasText(preparationName)) {
             allStocks = allStocks.stream()
-                    .filter(s -> s.getPreparationName() != null && 
+                    .filter(s -> s.getPreparationName() != null &&
                                  s.getPreparationName().contains(preparationName))
                     .collect(Collectors.toList());
         }
 
-        // 5. 按 batchNumber + preparationName 分组
-        Map<String, List<Stock>> grouped = allStocks.stream()
-                .collect(Collectors.groupingBy(s ->
-                    s.getBatchNumber() + "|" +
-                    (s.getPreparationName() != null ? s.getPreparationName() : "")));
+        // 5. 按 itemCode 分组
+        Map<String, List<Stock>> byItemCode = allStocks.stream()
+                .collect(Collectors.groupingBy(Stock::getItemCode));
 
-        // 6. 转换为 DTO
-        List<StockGroupedByBatchDto> groups = grouped.entrySet().stream()
+        // 6. 构建物料分组 DTO
+        List<StockGroupedByBatchDto> groups = byItemCode.entrySet().stream()
                 .map(entry -> {
-                    List<Stock> batchStocks = entry.getValue();
-                    Stock first = batchStocks.get(0);
+                    List<Stock> itemStocks = entry.getValue();
+                    Stock first = itemStocks.get(0);
 
                     StockGroupedByBatchDto dto = new StockGroupedByBatchDto();
-                    dto.setBatchNumber(first.getBatchNumber());
-                    dto.setPreparationName(first.getPreparationName());
+                    dto.setItemCode(first.getItemCode());
+                    dto.setItemName(first.getItemName());
+                    dto.setCategoryName(first.getCategoryName());
+                    dto.setUnitName(first.getUnitName());
+
+                    // 构建扁平明细列表（按批号+制剂排序）
+                    List<StockBatchDetailDto> details = itemStocks.stream()
+                            .sorted(Comparator.comparing(Stock::getBatchNumber,
+                                            Comparator.nullsLast(Comparator.naturalOrder()))
+                                    .thenComparing(s -> s.getPreparationName() != null
+                                            ? s.getPreparationName() : "",
+                                        Comparator.naturalOrder()))
+                            .map(s -> {
+                                StockBatchDetailDto detail = new StockBatchDetailDto();
+                                detail.setStockId(s.getStockId());
+                                detail.setBatchNumber(s.getBatchNumber());
+                                detail.setPreparationName(s.getPreparationName());
+                                detail.setWarehouseName(unitNames.getOrDefault(s.getProdUnitId(), ""));
+                                detail.setStockStatus(s.getStockStatus() != null
+                                        ? String.valueOf(s.getStockStatus()) : null);
+                                detail.setQuantity(s.getQuantity());
+                                detail.setRelatedOrderCode(stockInCodeMap.get(s.getStockInId()));
+                                detail.setProductionDate(s.getProductionDate());
+                                detail.setExpiryDate(s.getExpiryDate());
+                                detail.setUnitPrice(s.getUnitPrice());
+                                // 计算金额
+                                if (s.getQuantity() != null && s.getUnitPrice() != null) {
+                                    detail.setAmount(s.getQuantity().multiply(s.getUnitPrice()));
+                                } else {
+                                    detail.setAmount(BigDecimal.ZERO);
+                                }
+                                return detail;
+                            })
+                            .collect(Collectors.toList());
+
+                    dto.setDetails(details);
+                    dto.setEntryCount(details.size());
+
+                    // 批次数（distinct batchNumber）
+                    dto.setBatchCount((int) itemStocks.stream()
+                            .map(Stock::getBatchNumber)
+                            .filter(java.util.Objects::nonNull)
+                            .distinct()
+                            .count());
 
                     // 总库存
-                    dto.setTotalQuantity(batchStocks.stream()
+                    dto.setTotalQuantity(itemStocks.stream()
                             .map(Stock::getQuantity)
                             .filter(q -> q != null)
                             .reduce(BigDecimal.ZERO, BigDecimal::add));
 
-                    // 明细列表
-                    dto.setDetails(batchStocks.stream().map(s -> {
-                        StockBatchDetailDto detail = new StockBatchDetailDto();
-                        detail.setStockId(s.getStockId());
-                        detail.setItemCode(s.getItemCode());
-                        detail.setItemName(s.getItemName());
-                        detail.setCategoryName(s.getCategoryName());
-                        detail.setUnitName(s.getUnitName());
-                        detail.setWarehouseName(unitNames.getOrDefault(s.getProdUnitId(), ""));
-                        detail.setStockStatus(s.getStockStatus() != null ? String.valueOf(s.getStockStatus()) : null);
-                        detail.setQuantity(s.getQuantity());
-                        detail.setRelatedOrderCode(stockInCodeMap.get(s.getStockInId()));
-                        detail.setProductionDate(s.getProductionDate());
-                        detail.setExpiryDate(s.getExpiryDate());
-                        detail.setUnitPrice(s.getUnitPrice());
-                        return detail;
-                    }).collect(Collectors.toList()));
+                    // 总金额
+                    dto.setTotalValue(details.stream()
+                            .map(StockBatchDetailDto::getAmount)
+                            .filter(a -> a != null)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add));
 
                     return dto;
                 })
                 .collect(Collectors.toList());
 
-        // 7. 按 preparationName 排序（处理 null 值）
-        groups.sort(Comparator.comparing(StockGroupedByBatchDto::getPreparationName, 
+        // 7. 排序：按分类名称→物料编码（null 排最后）
+        groups.sort(Comparator.comparing(StockGroupedByBatchDto::getCategoryName,
                         Comparator.nullsLast(Comparator.naturalOrder()))
-                .thenComparing(StockGroupedByBatchDto::getBatchNumber,
+                .thenComparing(StockGroupedByBatchDto::getItemCode,
                         Comparator.nullsLast(Comparator.naturalOrder())));
 
         // 8. 内存分页
