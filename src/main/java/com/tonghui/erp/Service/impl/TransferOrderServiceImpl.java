@@ -368,11 +368,12 @@ public class TransferOrderServiceImpl extends ServiceImpl<TransferOrderMapper, T
             stockMapper.updateById(src);
         }
 
-        // 2. 增加调入库存（同批次累加，无则新增）
+        // 2. 增加调入库存（同物料+同批号+同入库单累加，无则新增）
         QueryWrapper<Stock> dstWrapper = new QueryWrapper<>();
         dstWrapper.eq("item_code", detail.getMaterialCode());
         dstWrapper.eq("prod_unit_id", toUnitId);
         dstWrapper.eq("batch_number", detail.getBatchNo());
+        dstWrapper.eq("stock_in_id", src.getStockInId());
         Stock dst = stockMapper.selectOne(dstWrapper);
         BigDecimal dstBefore;
         if (dst != null) {
@@ -395,6 +396,7 @@ public class TransferOrderServiceImpl extends ServiceImpl<TransferOrderMapper, T
             dst.setExpiryDate(src.getExpiryDate());
             dst.setStorageLocation(src.getStorageLocation());
             dst.setStockStatus(src.getStockStatus());
+            dst.setStockInId(src.getStockInId());
             dst.setRemark("调拨入库: " + dto.getFromWarehouse() + "→" + dto.getToWarehouse());
             stockMapper.insert(dst);
             dstBefore = BigDecimal.ZERO;
