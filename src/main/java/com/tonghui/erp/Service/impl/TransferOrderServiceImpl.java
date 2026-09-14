@@ -524,10 +524,11 @@ public class TransferOrderServiceImpl extends ServiceImpl<TransferOrderMapper, T
         if (stockIn == null) {
             throw new RuntimeException("入库单不存在: " + inCode);
         }
-        // 按 item_code + stock_in_id 精确定位库存
+        // 按 item_code + stock_in_id + prod_unit_id 精确定位库存
         Stock stock = stockMapper.selectOne(new QueryWrapper<Stock>()
                 .eq("item_code", itemCode)
-                .eq("stock_in_id", stockIn.getInId()));
+                .eq("stock_in_id", stockIn.getInId())
+                .eq("prod_unit_id", prodUnitId));
         if (stock == null) {
             throw new RuntimeException("库存记录不存在: " + inventoryKey);
         }
