@@ -29,11 +29,12 @@ public interface FileOperationLogService {
      * @param userId        操作人ID（精确匹配，可为空）
      * @param userName      操作人姓名（模糊匹配，可为空）
      * @param businessType  业务类型（可为空）
+     * @param rootType      根目录类型（business=系统文件/custom=用户文件，可为空）
      * @param startTime     操作时间起始（含边界，可为空）
      * @param endTime       操作时间截止（含边界，可为空）
      * @param pageIndex     页码（从0开始）
      * @param pageSize      每页大小
      * @return 分页日志结果
      */
-    Page<FileOperationLog> queryLogs(String operationType, Long userId, String userName, String businessType, LocalDateTime startTime, LocalDateTime endTime, int pageIndex, int pageSize);
+    Page<FileOperationLog> queryLogs(String operationType, Long userId, String userName, String businessType, String rootType, LocalDateTime startTime, LocalDateTime endTime, int pageIndex, int pageSize);
 }

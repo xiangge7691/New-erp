@@ -120,6 +120,13 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
             throw new RuntimeException("入库单没有明细，无法入库");
         }
 
+        // 成品入库时，关联生产任务号为必填项
+        if ("成品入库".equals(stockIn.getInType())) {
+            if (stockIn.getWorkOrderId() == null || !StringUtils.hasText(stockIn.getWorkOrderCode())) {
+                throw new RuntimeException("成品入库时关联生产任务号为必填项");
+            }
+        }
+
         // 自动生成入库单号（如果未提供）
         if (!StringUtils.hasText(stockIn.getInCode())) {
             stockIn.setInCode(sequenceService.generateStockInCode());

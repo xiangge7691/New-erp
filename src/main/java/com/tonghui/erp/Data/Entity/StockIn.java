@@ -66,6 +66,18 @@ public class StockIn extends AuditEntity {
     private String planNumber;
 
     /**
+     * 关联生产任务ID（成品入库时必填，对应 work_order.work_order_id）
+     */
+    @TableField(value = "work_order_id")
+    private Long workOrderId;
+
+    /**
+     * 关联生产任务编号（成品入库时必填，对应 work_order.work_order_code）
+     */
+    @TableField(value = "work_order_code")
+    private String workOrderCode;
+
+    /**
      * 关联采购单标题（对应 purchase_orders.title）
      */
     @TableField(value = "related_order_title")

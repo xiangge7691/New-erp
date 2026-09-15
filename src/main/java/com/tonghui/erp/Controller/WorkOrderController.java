@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.*;
  * │ 5  │ /api/work-orders/{id}              │ DELETE │ 删除工单                     │
  * │ 6  │ /api/work-orders/search            │ GET    │ 高级查询工单（支持多条件）   │
  * │ 7  │ /api/work-orders/generate-code     │ GET    │ 自动生成工单编号             │
+ * │ 8  │ /api/work-orders/by-out-type       │ GET    │ 按出库类型筛选工单           │
  * └────┴────────────────────────────────────┴────────┴──────────────────────────────┘
  */
 @RestController
@@ -174,7 +175,57 @@ public class WorkOrderController extends BaseCrudController<WorkOrder, WorkOrder
     }
 
     // endregion
-    
+
+    // region 按出库类型筛选工单
+    // ===================================
+    // 按出库类型筛选工单
+    // ===================================
+
+    /**
+     * 按出库类型筛选工单列表（供出库单关联生产任务下拉选择）
+     * <p>
+     * 销售出库：仅展示"已生产"及之后状态的工单（已生产、检验中、已检验、已放行、已入库、已归档），
+     * 因为销售出库的成品必须已经生产完成。
+     * 生产领料出库：仅展示"已生产"之前状态的工单（待生产、生产中），
+     * 因为领料出库发生在生产过程中。
+     * </p>
+     *
+     * 示例请求：
+     * GET /api/work-orders/by-out-type?outType=销售出库&pageIndex=0&pageSize=20
+     * GET /api/work-orders/by-out-type?outType=生产领料出库&keyword=GD&pageIndex=0&pageSize=20
+     *
+     * @param outType   出库类型（销售出库/生产领料出库，必填）
+     * @param keyword   关键字（可选，模糊匹配工单编号/制剂编码/制剂名称）
+     * @param pageIndex 页码（从0开始，默认0）
+     * @param pageSize  每页大小（默认20）
+     * @return ApiResponse&lt;PagedResult&lt;WorkOrder&gt;&gt; 符合条件的工单分页结果
+     */
+    @GetMapping("/by-out-type")
+    public ApiResponse<PagedResult<WorkOrder>> getWorkOrdersByOutType(
+            @RequestParam String outType,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "0") int pageIndex,
+            @RequestParam(defaultValue = "20") int pageSize) {
+        try {
+            int safePageIndex = Math.max(0, pageIndex);
+            int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
+
+            Page<WorkOrder> pageResult = workOrderService.getWorkOrdersByOutType(outType, keyword, safePageIndex, safePageSize);
+
+            PagedResult<WorkOrder> pagedResult = new PagedResult<>();
+            pagedResult.setItems(pageResult.getRecords());
+            pagedResult.setTotalCount(pageResult.getTotal());
+            pagedResult.setPageIndex(safePageIndex);
+            pagedResult.setPageSize((int) pageResult.getSize());
+
+            return success(pagedResult);
+        } catch (Exception ex) {
+            return exception(ex, "按出库类型查询工单列表");
+        }
+    }
+
+    // endregion
+
     // region 工单编号生成
     // ===================================
     // 工单编号生成

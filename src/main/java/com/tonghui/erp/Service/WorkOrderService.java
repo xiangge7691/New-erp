@@ -94,6 +94,39 @@ public interface WorkOrderService extends IService<WorkOrder> {
     Page<WorkOrder> getInProgressWorkOrders(String keyword, int pageIndex, int pageSize);
 
     /**
+     * 按出库类型筛选工单列表（供出库单关联生产任务下拉选择）
+     * <p>
+     * 销售出库：仅展示"已生产"及之后状态的工单（已生产、检验中、已检验、已放行、已入库、已归档），
+     * 因为销售出库的成品必须已经生产完成。
+     * 生产领料出库：仅展示"已生产"之前状态的工单（待生产、生产中），
+     * 因为领料出库发生在生产过程中。
+     * </p>
+     *
+     * @param outType   出库类型（销售出库/生产领料出库）
+     * @param keyword   关键字（可选，模糊匹配工单编号/制剂编码/制剂名称）
+     * @param pageIndex 页码（从0开始）
+     * @param pageSize  每页大小
+     * @return 符合条件的工单分页结果
+     */
+    Page<WorkOrder> getWorkOrdersByOutType(String outType, String keyword, int pageIndex, int pageSize);
+
+    /**
+     * 同步工单时间字段并重新计算状态
+     * <p>
+     * 当请检记录、检验记录、审核放行绑定了生产任务时，
+     * 自动将对应时间回填到工单并触发状态流转。
+     * 支持的时间字段：inspectionStart（检验开始时间）、inspectionEnd（检验结束时间）、
+     * auditReleaseTime（审核放行时间）
+     * </p>
+     *
+     * @param workOrderId 工单ID
+     * @param timeField   要更新的时间字段名（inspectionStart/inspectionEnd/auditReleaseTime）
+     * @param timeValue   时间值
+     * @return 是否更新成功
+     */
+    boolean syncWorkOrderTime(Long workOrderId, String timeField, java.time.LocalDateTime timeValue);
+
+    /**
      * 作废工单
      * <p>
      * 将工单状态设置为"作废"，作废后不可再进行其他操作

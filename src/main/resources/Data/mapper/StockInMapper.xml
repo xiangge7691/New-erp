@@ -11,10 +11,16 @@
             <result property="prodUnitId" column="prod_unit_id" />
             <result property="supplierId" column="supplier_id" />
             <result property="relatedOrder" column="related_order" />
+            <result property="planNumber" column="plan_number" />
+            <result property="workOrderId" column="work_order_id" />
+            <result property="workOrderCode" column="work_order_code" />
+            <result property="relatedOrderTitle" column="related_order_title" />
+            <result property="planTitle" column="plan_title" />
             <result property="inDate" column="in_date" />
             <result property="totalAmount" column="total_amount" />
             <result property="inStatus" column="in_status" />
             <result property="remark" column="remark" />
+            <result property="approvalInstanceId" column="approval_instance_id" />
             <result property="createdBy" column="created_by" />
             <result property="createdTime" column="created_time" />
             <result property="updatedBy" column="updated_by" />
@@ -23,7 +29,8 @@
 
     <sql id="Base_Column_List">
         in_id,in_code,in_type,prod_unit_id,supplier_id,related_order,
-        in_date,total_amount,in_status,remark,created_by,
+        plan_number,work_order_id,work_order_code,related_order_title,plan_title,
+        in_date,total_amount,in_status,remark,approval_instance_id,created_by,
         created_time,updated_by,updated_time
     </sql>
 </mapper>

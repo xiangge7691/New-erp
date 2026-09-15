@@ -79,7 +79,7 @@ public class FileOperationLogServiceImpl implements FileOperationLogService {
     }
 
     @Override
-    public Page<FileOperationLog> queryLogs(String operationType, Long userId, String userName, String businessType, LocalDateTime startTime, LocalDateTime endTime, int pageIndex, int pageSize) {
+    public Page<FileOperationLog> queryLogs(String operationType, Long userId, String userName, String businessType, String rootType, LocalDateTime startTime, LocalDateTime endTime, int pageIndex, int pageSize) {
         Page<FileOperationLog> page = new Page<>(pageIndex + 1, pageSize);
         QueryWrapper<FileOperationLog> wrapper = new QueryWrapper<>();
         if (StringUtils.hasText(operationType)) {
@@ -95,6 +95,10 @@ public class FileOperationLogServiceImpl implements FileOperationLogService {
         // 业务类型筛选
         if (StringUtils.hasText(businessType)) {
             wrapper.eq("business_type", businessType);
+        }
+        // 根目录类型筛选（business=系统文件/custom=用户文件）
+        if (StringUtils.hasText(rootType)) {
+            wrapper.eq("root_type", rootType);
         }
         // 操作时间范围筛选（含边界）
         if (startTime != null) {

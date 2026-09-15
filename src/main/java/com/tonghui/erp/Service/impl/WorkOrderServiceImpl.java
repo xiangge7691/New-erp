@@ -667,6 +667,118 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
     }
 
     /**
+     * 按出库类型筛选工单列表（供出库单关联生产任务下拉选择）
+     * <p>
+     * 销售出库：仅展示"已生产"及之后状态的工单（configCompleteTime有值），
+     * 因为销售出库的成品必须已经生产完成。
+     * 生产领料出库：仅展示"已生产"之前状态的工单（configCompleteTime为空），
+     * 因为领料出库发生在生产过程中。
+     * </p>
+     *
+     * @param outType   出库类型（销售出库/生产领料出库）
+     * @param keyword   关键字（可选，模糊匹配工单编号/制剂编码/制剂名称）
+     * @param pageIndex 页码（从0开始）
+     * @param pageSize  每页大小
+     * @return 符合条件的工单分页结果
+     */
+    @Override
+    public Page<WorkOrder> getWorkOrdersByOutType(String outType, String keyword, int pageIndex, int pageSize) {
+        int actualPageNum = pageIndex + 1;
+        Page<WorkOrder> page = new Page<>(actualPageNum, pageSize);
+        QueryWrapper<WorkOrder> wrapper = new QueryWrapper<>();
+        wrapper.eq("is_deleted", 0);
+
+        if ("销售出库".equals(outType)) {
+            // 销售出库：已生产及之后的状态（configCompleteTime不为空）
+            wrapper.isNotNull("config_complete_time");
+        } else if ("生产领料出库".equals(outType)) {
+            // 生产领料出库：已生产之前的状态（待生产、生产中，configCompleteTime为空）
+            wrapper.isNull("config_complete_time");
+        }
+
+        if (StringUtils.hasText(keyword)) {
+            wrapper.and(w -> w
+                    .like("work_order_code", keyword)
+                    .or().like("preparation_code", keyword)
+                    .or().like("preparation_name", keyword));
+        }
+
+        wrapper.orderByDesc("created_time");
+        return this.page(page, wrapper);
+    }
+
+    /**
+     * 同步工单时间字段并重新计算状态
+     * <p>
+     * 当请检记录、检验记录、审核放行绑定了生产任务时，
+     * 自动将对应时间回填到工单并触发状态流转。
+     * 仅在对应时间字段当前为空时才更新，避免覆盖已有数据。
+     * </p>
+     *
+     * @param workOrderId 工单ID
+     * @param timeField   要更新的时间字段名（inspectionStart/inspectionEnd/auditReleaseTime）
+     * @param timeValue   时间值
+     * @return 是否更新成功
+     */
+    @Override
+    @Transactional
+    public boolean syncWorkOrderTime(Long workOrderId, String timeField, LocalDateTime timeValue) {
+        if (workOrderId == null || timeValue == null || !StringUtils.hasText(timeField)) {
+            return false;
+        }
+
+        WorkOrder existing = this.getById(workOrderId);
+        if (existing == null) {
+            return false;
+        }
+
+        // 根据字段名设置对应的时间字段，仅在当前值为空时更新
+        switch (timeField) {
+            case "inspectionStart":
+                if (existing.getInspectionStart() != null) {
+                    return false; // 已有值，不覆盖
+                }
+                existing.setInspectionStart(timeValue);
+                break;
+            case "inspectionEnd":
+                if (existing.getInspectionEnd() != null) {
+                    return false; // 已有值，不覆盖
+                }
+                existing.setInspectionEnd(timeValue);
+                break;
+            case "auditReleaseTime":
+                if (existing.getAuditReleaseTime() != null) {
+                    return false; // 已有值，不覆盖
+                }
+                existing.setAuditReleaseTime(timeValue);
+                break;
+            default:
+                return false; // 不支持的字段
+        }
+
+        // 重新计算工单状态
+        LocalDateTime configDate = existing.getConfigDate();
+        LocalDateTime configCompleteTime = existing.getConfigCompleteTime();
+        LocalDateTime archiveTime = existing.getArchiveTime();
+        LocalDateTime inspectionStart = existing.getInspectionStart();
+        LocalDateTime inspectionEnd = existing.getInspectionEnd();
+        LocalDateTime auditReleaseTime = existing.getAuditReleaseTime();
+        LocalDateTime inboundTime = existing.getInboundTime();
+        existing.setCurrentStatus(resolveStatus(configDate, configCompleteTime, archiveTime,
+                inspectionStart, inspectionEnd, auditReleaseTime, inboundTime));
+        existing.setUpdatedTime(LocalDateTime.now());
+
+        boolean updated = this.updateById(existing);
+
+        // 更新成功后，联动刷新关联生产计划的状态
+        if (updated && existing.getPlanId() != null) {
+            productionPlanService.refreshPlanStatus(existing.getPlanId().intValue());
+        }
+
+        return updated;
+    }
+
+    /**
      * 作废工单
      * <p>
      * 将工单状态设置为"作废"，作废后不可再进行其他操作
