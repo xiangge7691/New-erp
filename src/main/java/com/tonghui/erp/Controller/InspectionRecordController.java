@@ -404,14 +404,23 @@ public class InspectionRecordController extends BaseController {
         Map<String, InspectionRequest> requestMap = inspectionRequestMapper.selectList(requestWrapper).stream()
                 .collect(Collectors.toMap(InspectionRequest::getInspectionCode, r -> r, (a, b) -> a));
 
-        // 回填信息
+        // 回填信息（仅填充数据库中为空的字段，兼容旧行数据）
         for (InspectionRecord record : records) {
             if (StringUtils.hasText(record.getRelatedInspectionRequestCode())) {
                 InspectionRequest request = requestMap.get(record.getRelatedInspectionRequestCode());
                 if (request != null) {
-                    record.setWorkOrderCode(request.getWorkOrderCode());
-                    record.setPreparationCode(request.getPreparationCode());
-                    record.setPreparationName(request.getPreparationName());
+                    if (record.getWorkOrderId() == null) {
+                        record.setWorkOrderId(request.getWorkOrderId());
+                    }
+                    if (!StringUtils.hasText(record.getWorkOrderCode())) {
+                        record.setWorkOrderCode(request.getWorkOrderCode());
+                    }
+                    if (!StringUtils.hasText(record.getPreparationName())) {
+                        record.setPreparationName(request.getPreparationName());
+                    }
+                    if (!StringUtils.hasText(record.getPreparationCode())) {
+                        record.setPreparationCode(request.getPreparationCode());
+                    }
                 }
             }
         }
@@ -438,9 +447,10 @@ public class InspectionRecordController extends BaseController {
         requestWrapper.last("LIMIT 1");
         InspectionRequest inspectionRequest = inspectionRequestMapper.selectOne(requestWrapper);
 
-        // 仅成品类型回填工单检验结束时间
+        // 仅成品类型且结论为合格时回填工单检验结束时间
         if (inspectionRequest != null && inspectionRequest.getWorkOrderId() != null
-                && "成品".equals(inspectionRequest.getItemCategory())) {
+                && "成品".equals(inspectionRequest.getItemCategory())
+                && "合格".equals(record.getConclusion())) {
             workOrderService.syncWorkOrderTime(inspectionRequest.getWorkOrderId(), "inspectionEnd", record.getEndTime());
         }
     }
