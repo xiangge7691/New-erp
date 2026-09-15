@@ -18,6 +18,7 @@ import com.tonghui.erp.Data.mapper.StockInDetailMapper;
 import com.tonghui.erp.Data.mapper.UserMapper;
 import com.tonghui.erp.Service.StockInService;
 import com.tonghui.erp.Service.StockService;
+import com.tonghui.erp.Service.WorkOrderService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -67,6 +68,9 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
     /** 验收单数据访问层，解析关联制剂名称 */
     private final AcceptanceOrderMapper acceptanceOrderMapper;
 
+    /** 工单服务，用于成品入库回填工单入库时间与状态 */
+    private final WorkOrderService workOrderService;
+
     /**
      * 构造函数注入依赖
      *
@@ -77,6 +81,7 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
      * @param userMapper          用户数据访问层
      * @param productionUnitMapper 生产单位数据访问层
      * @param acceptanceOrderMapper 验收单数据访问层
+     * @param workOrderService    工单服务
      */
     @Autowired
     public StockInServiceImpl(StockInMapper stockInMapper,
@@ -85,7 +90,8 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
                               StockService stockService,
                               UserMapper userMapper,
                               ProductionUnitMapper productionUnitMapper,
-                              AcceptanceOrderMapper acceptanceOrderMapper) {
+                              AcceptanceOrderMapper acceptanceOrderMapper,
+                              WorkOrderService workOrderService) {
         this.stockInMapper = stockInMapper;
         this.stockInDetailMapper = stockInDetailMapper;
         this.sequenceService = sequenceService;
@@ -93,6 +99,7 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
         this.userMapper = userMapper;
         this.productionUnitMapper = productionUnitMapper;
         this.acceptanceOrderMapper = acceptanceOrderMapper;
+        this.workOrderService = workOrderService;
     }
 
     // endregion
@@ -157,6 +164,11 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
 
         // 库存联动：按明细 upsert 库存批次并写流水（库存校验失败抛异常整体回滚）
         stockService.applyInbound(stockIn, details);
+
+        // 成品入库时回填工单入库时间与状态（已入库）
+        if ("成品入库".equals(stockIn.getInType()) && stockIn.getWorkOrderId() != null && stockIn.getInDate() != null) {
+            workOrderService.syncWorkOrderTime(stockIn.getWorkOrderId(), "inboundTime", stockIn.getInDate());
+        }
     }
 
     /**

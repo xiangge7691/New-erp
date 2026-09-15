@@ -116,11 +116,11 @@ public interface WorkOrderService extends IService<WorkOrder> {
      * 当请检记录、检验记录、审核放行绑定了生产任务时，
      * 自动将对应时间回填到工单并触发状态流转。
      * 支持的时间字段：inspectionStart（检验开始时间）、inspectionEnd（检验结束时间）、
-     * auditReleaseTime（审核放行时间）
+     * auditReleaseTime（审核放行时间）、inboundTime（入库时间）
      * </p>
      *
      * @param workOrderId 工单ID
-     * @param timeField   要更新的时间字段名（inspectionStart/inspectionEnd/auditReleaseTime）
+     * @param timeField   要更新的时间字段名（inspectionStart/inspectionEnd/auditReleaseTime/inboundTime）
      * @param timeValue   时间值
      * @return 是否更新成功
      */

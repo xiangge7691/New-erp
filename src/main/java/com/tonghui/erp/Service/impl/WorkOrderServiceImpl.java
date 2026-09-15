@@ -752,6 +752,12 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
                 }
                 existing.setAuditReleaseTime(timeValue);
                 break;
+            case "inboundTime":
+                if (existing.getInboundTime() != null) {
+                    return false; // 已有值，不覆盖
+                }
+                existing.setInboundTime(timeValue);
+                break;
             default:
                 return false; // 不支持的字段
         }

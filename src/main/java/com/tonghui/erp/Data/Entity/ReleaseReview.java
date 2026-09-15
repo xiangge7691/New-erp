@@ -52,10 +52,28 @@ public class ReleaseReview extends AuditEntity {
     private String relatedInspectionRecordCode;
 
     /**
+     * 关联生产任务ID
+     */
+    @TableField(value = "work_order_id")
+    private Long workOrderId;
+
+    /**
+     * 关联生产任务编号
+     */
+    @TableField(value = "work_order_code")
+    private String workOrderCode;
+
+    /**
      * 被检对象名称
      */
     @TableField(value = "object_name")
     private String objectName;
+
+    /**
+     * 关联制剂名称
+     */
+    @TableField(value = "preparation_name")
+    private String preparationName;
 
     /**
      * 批号
@@ -114,22 +132,10 @@ public class ReleaseReview extends AuditEntity {
     // ===================================
 
     /**
-     * 关联生产任务编号（通过检验记录关联工单）
-     */
-    @TableField(exist = false)
-    private String workOrderCode;
-
-    /**
      * 关联制剂编码（通过检验记录关联制剂）
      */
     @TableField(exist = false)
     private String preparationCode;
-
-    /**
-     * 关联制剂名称（通过检验记录关联制剂）
-     */
-    @TableField(exist = false)
-    private String preparationName;
 
     // endregion
 
