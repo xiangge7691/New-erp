@@ -445,52 +445,69 @@ public class ReleaseReviewController extends BaseController {
             return;
         }
 
-        // 优先使用审核放行记录直接关联的工单ID
         Long workOrderId = record.getWorkOrderId();
-        String itemCategory = "成品";
 
-        // 未直接关联工单时，通过链路回退查询（兼容旧数据）
         if (workOrderId == null) {
-            // 优先用 relatedInspectionRecordCode，其次用 relatedInspectionCode
-            String inspectionCodeToUse = StringUtils.hasText(record.getRelatedInspectionRecordCode())
-                    ? record.getRelatedInspectionRecordCode()
-                    : record.getRelatedInspectionCode();
-            if (StringUtils.hasText(inspectionCodeToUse)) {
-                // 通过检验记录编号查找检验记录，获取关联请检编号
-                QueryWrapper<InspectionRecord> recordWrapper = new QueryWrapper<>();
-                recordWrapper.eq("inspection_code", inspectionCodeToUse);
-                recordWrapper.select("work_order_id", "related_inspection_request_code", "item_category");
-                recordWrapper.last("LIMIT 1");
-                InspectionRecord inspectionRecord = inspectionRecordMapper.selectOne(recordWrapper);
+            // 回退1：用 relatedInspectionRecordCode 查检验记录表
+            if (StringUtils.hasText(record.getRelatedInspectionRecordCode())) {
+                workOrderId = findWorkOrderIdViaInspectionRecord(record.getRelatedInspectionRecordCode());
+            }
 
-                if (inspectionRecord == null) {
-                    return;
-                }
+            // 回退2：用 relatedInspectionCode 查检验记录表
+            if (workOrderId == null && StringUtils.hasText(record.getRelatedInspectionCode())) {
+                workOrderId = findWorkOrderIdViaInspectionRecord(record.getRelatedInspectionCode());
+            }
 
-                // 优先从检验记录直接取工单ID
-                if (inspectionRecord.getWorkOrderId() != null) {
-                    workOrderId = inspectionRecord.getWorkOrderId();
-                    itemCategory = inspectionRecord.getItemCategory();
-                } else if (StringUtils.hasText(inspectionRecord.getRelatedInspectionRequestCode())) {
-                    // 通过请检编号查找请检记录，获取工单ID和被检品属性
-                    QueryWrapper<com.tonghui.erp.Data.Entity.InspectionRequest> requestWrapper = new QueryWrapper<>();
-                    requestWrapper.eq("inspection_code", inspectionRecord.getRelatedInspectionRequestCode());
-                    requestWrapper.select("work_order_id", "item_category");
-                    requestWrapper.last("LIMIT 1");
-                    com.tonghui.erp.Data.Entity.InspectionRequest inspectionRequest = inspectionRequestMapper.selectOne(requestWrapper);
-                    if (inspectionRequest == null) {
-                        return;
-                    }
-                    workOrderId = inspectionRequest.getWorkOrderId();
-                    itemCategory = inspectionRequest.getItemCategory();
-                }
+            // 回退3：用 relatedInspectionCode 直接查请检表（前端可能传的是请检编号）
+            if (workOrderId == null && StringUtils.hasText(record.getRelatedInspectionCode())) {
+                workOrderId = findWorkOrderIdViaInspectionRequest(record.getRelatedInspectionCode());
             }
         }
 
-        // 仅成品类型回填工单审核放行时间
-        if (workOrderId != null && "成品".equals(itemCategory)) {
+        if (workOrderId != null) {
             workOrderService.syncWorkOrderTime(workOrderId, "auditReleaseTime", record.getReviewTime());
         }
+    }
+
+    /**
+     * 通过检验记录编号查找关联的工单ID
+     *
+     * @param inspectionCode 检验记录编号
+     * @return 工单ID，未找到返回null
+     */
+    private Long findWorkOrderIdViaInspectionRecord(String inspectionCode) {
+        QueryWrapper<InspectionRecord> wrapper = new QueryWrapper<>();
+        wrapper.eq("inspection_code", inspectionCode);
+        wrapper.select("work_order_id", "related_inspection_request_code");
+        wrapper.last("LIMIT 1");
+        InspectionRecord inspectionRecord = inspectionRecordMapper.selectOne(wrapper);
+        if (inspectionRecord == null) {
+            return null;
+        }
+        // 优先从检验记录直接取工单ID
+        if (inspectionRecord.getWorkOrderId() != null) {
+            return inspectionRecord.getWorkOrderId();
+        }
+        // 回退：通过请检编号查请检表取工单ID
+        if (StringUtils.hasText(inspectionRecord.getRelatedInspectionRequestCode())) {
+            return findWorkOrderIdViaInspectionRequest(inspectionRecord.getRelatedInspectionRequestCode());
+        }
+        return null;
+    }
+
+    /**
+     * 通过请检编号查找关联的工单ID
+     *
+     * @param inspectionRequestCode 请检编号
+     * @return 工单ID，未找到返回null
+     */
+    private Long findWorkOrderIdViaInspectionRequest(String inspectionRequestCode) {
+        QueryWrapper<com.tonghui.erp.Data.Entity.InspectionRequest> wrapper = new QueryWrapper<>();
+        wrapper.eq("inspection_code", inspectionRequestCode);
+        wrapper.select("work_order_id");
+        wrapper.last("LIMIT 1");
+        com.tonghui.erp.Data.Entity.InspectionRequest inspectionRequest = inspectionRequestMapper.selectOne(wrapper);
+        return inspectionRequest != null ? inspectionRequest.getWorkOrderId() : null;
     }
 
     /**
