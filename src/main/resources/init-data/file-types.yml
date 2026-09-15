@@ -1,0 +1,72 @@
+# ===================================
+# 文件业务类型目录映射配置
+# ===================================
+init-data:
+  file-types:
+    # 是否启用文件业务类型初始化
+    enabled: true
+    # 父类型 -> 顶级中文目录名
+    parent-types:
+      EQUIPMENT: 设备管理
+      PRODUCTION: 生产管理
+      PREPARATION: 制剂管理
+      MATERIAL: 物料管理
+      STOCK: 库存管理
+      PURCHASE: 采购管理
+      QUALITY: 质量管理
+      PERSONNEL: 人员管理
+      ROOM: 车间环境
+      ENVIRONMENT: 环境管理
+      APPROVAL: 审批管理
+      SUPPLIER: 供应商管理
+      CUSTOMER: 客户管理
+      ORGANIZATION: 机构管理
+      TRAINING: 培训管理
+      DOSAGE_FORM: 剂型信息
+      ENERGY: 能耗管理
+      GENERAL: 通用文件
+      GOODS_ACCEPTANCE: 货物验收
+      AUDIT_RELEASE: 审核放行
+      SAMPLE_RETENTION: 留样管理
+      VERIFICATION: 验证方案
+    # 子类型 -> 子目录名（全局统一，不含父目录前缀）
+    sub-types:
+      MAINTENANCE: 维保
+      PHOTO: 照片
+      DOCUMENT: 文档
+      PLAN: 计划
+      RECORD: 记录
+      PROCESS: 工序
+      REPORT: 报告
+      FORMULA: 配方
+      SPEC: 规格
+      FILE: 文件
+      CERTIFICATE: 证书
+      IN_PURCHASE: 入库单/原料
+      IN_AUXILIARY: 入库单/辅料
+      IN_PACKAGING: 入库单/包材
+      IN_PRODUCT: 入库单/成品
+      OUT_SALES: 出库单/销售
+      OUT_PRODUCTION: 出库单/领料
+      OUT_RETURN: 出库单/退货
+      ORDER: 订单
+      CONTRACT: 合同
+      INVOICE: 发票
+      INSPECTION: 质检
+      ATTACHMENT: 附件
+      CLEAN_INSPECTION: 洁净检测
+      CLEANING_RECORD: 清洁记录
+      TEMPERATURE_HUMIDITY: 温湿度记录
+      PRESSURE_DIFFERENCE: 压差记录
+      DISINFECTION: 消毒记录
+      LICENSE: 许可
+      AUDIT: 审核
+      ENERGY_RECORD: 能耗记录
+      REQUEST: 请检单
+      SAMPLE: 样品
+      SAMPLING: 取样
+      INSPECTION_RECORD: 请检记录
+      WAYBILL: 随货清单
+      INSPECTION_REPORT: 检验报告
+      RELEASE_RECORD: 放行记录
+      RETENTION_RECORD: 留样记录

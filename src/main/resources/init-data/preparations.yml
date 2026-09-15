@@ -1,0 +1,360 @@
+# ===================================
+# 制剂信息初始化配置
+# ===================================
+init-data:
+  preparations:
+    # 是否启用制剂信息初始化
+    enabled: true
+    # 制剂列表
+    data:
+      - preparation-code: Z00002
+        preparation-name: 黄药粉
+        status: 1
+      - preparation-code: Z00003
+        preparation-name: 安络小皮伞酒
+        status: 1
+      - preparation-code: Z00004
+        preparation-name: 天元胶囊
+        status: 1
+      - preparation-code: Z00005
+        preparation-name: 益肾壮骨胶囊
+        status: 1
+      - preparation-code: Z00006
+        preparation-name: 平瘤康胶囊
+        status: 1
+      - preparation-code: Z00007
+        preparation-name: 杏桔止咳合剂
+        status: 1
+      - preparation-code: Z00008
+        preparation-name: 生津玉液合剂
+        status: 1
+      - preparation-code: Z00009
+        preparation-name: 复方赤丹红止痛合剂
+        status: 1
+      - preparation-code: Z00010
+        preparation-name: 七味消毒合剂
+        status: 1
+      - preparation-code: Z00011
+        preparation-name: 抗骨刺增生合剂
+        status: 1
+      - preparation-code: Z00023
+        preparation-name: 阴炎净洗液
+        status: 1
+      - preparation-code: Z00024
+        preparation-name: 银花清热洗液
+        status: 1
+      - preparation-code: Z00033
+        preparation-name: 荆芥止咳合剂
+        status: 1
+      - preparation-code: Z00034
+        preparation-name: 利胆化石合剂
+        status: 1
+      - preparation-code: Z00035
+        preparation-name: 益气养阴合剂
+        status: 1
+      - preparation-code: Z00036
+        preparation-name: 金黄宣肺合剂
+        status: 1
+      - preparation-code: Z00037
+        preparation-name: 胃和胶囊
+        status: 1
+      - preparation-code: Z00038
+        preparation-name: 类风湿胶囊
+        status: 1
+      - preparation-code: Z00039
+        preparation-name: 骨痹胶囊
+        status: 1
+      - preparation-code: Z00040
+        preparation-name: 麻痛消胶囊
+        status: 1
+      - preparation-code: Z00041
+        preparation-name: 补钙壮骨胶囊
+        status: 1
+      - preparation-code: Z00055
+        preparation-name: 健脾护肝胶囊
+        status: 1
+      - preparation-code: Z00056
+        preparation-name: 新伤跌打胶囊
+        status: 1
+      - preparation-code: Z00074
+        preparation-name: 康龙胶囊
+        status: 1
+      - preparation-code: Z00078
+        preparation-name: 荆杏清热化痰合剂
+        status: 1
+      - preparation-code: Z00079
+        preparation-name: 夏柴散乳合剂
+        status: 1
+      - preparation-code: Z00084
+        preparation-name: 祛白乌发合剂
+        status: 1
+      - preparation-code: Z00085
+        preparation-name: 苦参黄柏洗液
+        status: 1
+      - preparation-code: Z00095
+        preparation-name: 天麻解眩合剂
+        status: 1
+      - preparation-code: Z00096
+        preparation-name: 葛根桑椹合剂
+        status: 1
+      - preparation-code: Z00100
+        preparation-name: 滴菌净洗剂
+        status: 1
+      - preparation-code: Z00116
+        preparation-name: 青娥膏
+        status: 1
+      - preparation-code: Z00117
+        preparation-name: 资生膏
+        status: 1
+      - preparation-code: Z00118
+        preparation-name: 离兑膏
+        status: 1
+      - preparation-code: Z00119
+        preparation-name: 扶正固本膏
+        status: 1
+      - preparation-code: Z00120
+        preparation-name: 益肾养巢膏
+        status: 1
+      - preparation-code: Z00121
+        preparation-name: 扶阳膏
+        status: 1
+      - preparation-code: Z00122
+        preparation-name: 归脾膏
+        status: 1
+      - preparation-code: Z00123
+        preparation-name: 补肺益肾汤浓煎液
+        status: 1
+      - preparation-code: Z00124
+        preparation-name: 补阳还五汤浓煎液
+        status: 1
+      - preparation-code: Z00125
+        preparation-name: 肺癌康复汤浓煎液
+        status: 1
+      - preparation-code: Z00126
+        preparation-name: 扶正生津汤浓煎液
+        status: 1
+      - preparation-code: Z00127
+        preparation-name: 妇炎浓煎液
+        status: 1
+      - preparation-code: Z00128
+        preparation-name: 灌肠方浓煎液
+        status: 1
+      - preparation-code: Z00129
+        preparation-name: 健脾和胃汤浓煎液
+        status: 1
+      - preparation-code: Z00130
+        preparation-name: 降氮汤浓煎液
+        status: 1
+      - preparation-code: Z00131
+        preparation-name: 颈椎汤浓煎液
+        status: 1
+      - preparation-code: Z00132
+        preparation-name: 离兑汤浓煎液
+        status: 1
+      - preparation-code: Z00133
+        preparation-name: 尿石通汤浓煎液
+        status: 1
+      - preparation-code: Z00134
+        preparation-name: 强心汤浓煎液
+        status: 1
+      - preparation-code: Z00135
+        preparation-name: 青娥汤浓煎液
+        status: 1
+      - preparation-code: Z00136
+        preparation-name: 三升汤浓煎液
+        status: 1
+      - preparation-code: Z00137
+        preparation-name: 疏肝散结汤浓煎液
+        status: 1
+      - preparation-code: Z00138
+        preparation-name: 醒脾汤浓煎液
+        status: 1
+      - preparation-code: Z00139
+        preparation-name: 腰椎汤浓煎液
+        status: 1
+      - preparation-code: Z00140
+        preparation-name: 阴洗浓煎液
+        status: 1
+      - preparation-code: Z00141
+        preparation-name: 肢伤汤浓煎液
+        status: 1
+      - preparation-code: Z00142
+        preparation-name: 舒筋通痹汤
+        status: 1
+      - preparation-code: Z00143
+        preparation-name: 归脾汤
+        status: 1
+      - preparation-code: Z00144
+        preparation-name: 黄参洗液
+        status: 1
+      - preparation-code: Z00146
+        preparation-name: 鑫睦补肾扶阳膏
+        status: 1
+      - preparation-code: Z00147
+        preparation-name: 鑫睦滋肾养阴膏
+        status: 1
+      - preparation-code: Z00148
+        preparation-name: 鑫睦阴阳双补培元膏
+        status: 1
+      - preparation-code: Z00149
+        preparation-name: 鑫睦益肾健脾散
+        status: 1
+      - preparation-code: Z00164
+        preparation-name: 邵阳制剂室公用辅料
+        status: 1
+      - preparation-code: Z00165
+        preparation-name: 沙棘培元合剂
+        status: 1
+      - preparation-code: Z00166
+        preparation-name: 沙棘人参养肝合剂
+        status: 1
+      - preparation-code: Z00167
+        preparation-name: 补肺平喘合剂
+        status: 1
+      - preparation-code: Z00175
+        preparation-name: 清瘟退热合剂
+        status: 1
+      - preparation-code: Z00180
+        preparation-name: 灌肠汤浓煎液
+        status: 1
+      - preparation-code: Z00183
+        preparation-name: 痔疮一洗散
+        status: 1
+      - preparation-code: Z00184
+        preparation-name: 止痛消瘀散
+        status: 1
+      - preparation-code: Z00185
+        preparation-name: 邵阳浓煎液牛皮纸袋
+        status: 1
+      - preparation-code: Z00186
+        preparation-name: 邵阳膏方外包材
+        status: 1
+      - preparation-code: Z00192
+        preparation-name: 鑫睦参鹿膏
+        status: 1
+      - preparation-code: Z00193
+        preparation-name: 九仁润肠膏
+        status: 1
+      - preparation-code: Z00196
+        preparation-name: 地黄润肺合剂
+        status: 1
+      - preparation-code: Z00197
+        preparation-name: 麻黄散寒合剂
+        status: 1
+      - preparation-code: Z00201
+        preparation-name: 小儿咳停合剂
+        status: 1
+      - preparation-code: Z00202
+        preparation-name: 肤柏舒洗剂
+        status: 1
+      - preparation-code: Z00205
+        preparation-name: 化痰通络合剂
+        status: 1
+      - preparation-code: Z00209
+        preparation-name: 七味接骨胶囊
+        status: 1
+      - preparation-code: Z00215
+        preparation-name: 射麻咳喘合剂
+        status: 1
+      - preparation-code: Z00216
+        preparation-name: 银花解毒洗液
+        status: 1
+      - preparation-code: Z00217
+        preparation-name: 辛苍鼻炎合剂
+        status: 1
+      - preparation-code: Z00223
+        preparation-name: 活血溶栓胶囊
+        status: 1
+      - preparation-code: Z00235
+        preparation-name: 麻黄止咳合剂
+        status: 1
+      - preparation-code: Z00236
+        preparation-name: 清热排毒合剂
+        status: 1
+      - preparation-code: Z00247
+        preparation-name: 祛风除湿洗液
+        status: 1
+      - preparation-code: Z00251
+        preparation-name: 葶苈平喘合剂
+        status: 1
+      - preparation-code: Z00256
+        preparation-name: 骨痹平合剂
+        status: 1
+      - preparation-code: Z00257
+        preparation-name: 心脉康合剂
+        status: 1
+      - preparation-code: Z00258
+        preparation-name: 脑脉苏合剂
+        status: 1
+      - preparation-code: Z00263
+        preparation-name: 甲辰终之气方
+        status: 1
+      - preparation-code: Z00264
+        preparation-name: 骨刺止痛胶囊
+        status: 1
+      - preparation-code: Z00265
+        preparation-name: 苦参阴炎洗剂
+        status: 1
+      - preparation-code: Z00266
+        preparation-name: 银连抗病毒感冒合剂
+        status: 1
+      - preparation-code: Z00267
+        preparation-name: 逍遥汤浓煎剂
+        status: 1
+      - preparation-code: Z00269
+        preparation-name: 苦参清热洗液
+        status: 1
+      - preparation-code: Z00270
+        preparation-name: 放射性皮炎方浓煎剂
+        status: 1
+      - preparation-code: Z00295
+        preparation-name: 静脉灵处方（静脉炎酊）
+        status: 1
+      - preparation-code: Z00296
+        preparation-name: 参黄杀虫止痒洗剂
+        status: 1
+      - preparation-code: Z00297
+        preparation-name: 调营养血合剂
+        status: 1
+      - preparation-code: Z00298
+        preparation-name: 三升益气合剂
+        status: 1
+      - preparation-code: Z00299
+        preparation-name: 延胡止痛胶囊
+        status: 1
+      - preparation-code: Z00300
+        preparation-name: 益肾健脑合剂
+        status: 1
+      - preparation-code: Z00310
+        preparation-name: 心脑活络合剂
+        status: 1
+      - preparation-code: Z00313
+        preparation-name: 敷和汤（浓煎剂）
+        status: 1
+      - preparation-code: Z00319
+        preparation-name: 补肾活血汤浓剂
+        status: 1
+      - preparation-code: Z00320
+        preparation-name: 和营止痛汤浓煎剂
+        status: 1
+      - preparation-code: Z00321
+        preparation-name: 三黄正骨洗剂
+        status: 1
+      - preparation-code: Z00322
+        preparation-name: 舒筋透骨洗剂
+        status: 1
+      - preparation-code: Z00323
+        preparation-name: 龙胆祛湿止痒洗剂
+        status: 1
+      - preparation-code: Z00333
+        preparation-name: 泄下通腑灌肠方
+        status: 1
+      - preparation-code: Z00334
+        preparation-name: 消肿止痛坐浴方
+        status: 1
+      - preparation-code: Z00336
+        preparation-name: 金翘薄荷潄液
+        status: 1
+      - preparation-code: Z00338
+        preparation-name: 燥湿止痒洗液
+        status: 1

@@ -1,0 +1,17 @@
+# ===================================
+# Root用户/角色初始化配置
+# ===================================
+init-data:
+  root:
+    # 是否启用root用户/角色初始化
+    enabled: true
+    # root用户账号
+    user-account: root
+    # root用户姓名
+    user-name: 超级管理员
+    # root用户密码（明文，启动时自动Argon2加密）
+    password: root
+    # root角色名称
+    role-name: root
+    # root角色描述
+    role-desc: 超级管理员角色，拥有系统所有权限

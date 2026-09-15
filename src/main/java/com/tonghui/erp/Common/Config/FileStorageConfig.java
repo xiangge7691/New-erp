@@ -1,18 +1,19 @@
 package com.tonghui.erp.Common.Config;
 
+import com.tonghui.erp.Common.Config.InitDataConfig.FileTypeInitConfig;
 import lombok.Data;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 文件存储配置类
  * <p>
- * 配置文件存储路径、大小限制、允许类型、业务类型目录映射等
+ * 配置文件存储路径、大小限制、允许类型等
+ * 业务类型目录映射已迁移到init-data/file-types.yml，通过FileTypeInitConfig读取
  * 支持通过application.yml或环境变量进行覆盖
  * </p>
  */
@@ -20,6 +21,30 @@ import java.util.Map;
 @Component
 @ConfigurationProperties(prefix = "file")
 public class FileStorageConfig {
+
+    // region 字段定义
+    // ===================================
+    // 字段定义
+    // ===================================
+
+    /**
+     * 文件业务类型目录映射配置
+     */
+    private final FileTypeInitConfig fileTypeConfig;
+
+    // endregion
+
+    // region 构造方法
+    // ===================================
+    // 构造方法
+    // ===================================
+
+    @Autowired
+    public FileStorageConfig(FileTypeInitConfig fileTypeConfig) {
+        this.fileTypeConfig = fileTypeConfig;
+    }
+
+    // endregion
 
     // region 配置属性
     // ===================================
@@ -95,92 +120,9 @@ public class FileStorageConfig {
 
     // endregion
 
-    // region 业务类型分级映射
+    // region 目录解析方法（委托给FileTypeInitConfig）
     // ===================================
-    // 业务类型分级映射
-    // ===================================
-
-    /**
-     * 父类型 -> 顶级中文目录名
-     * 命名规范：{父类型}_{子类型}
-     * 目录结构：{顶级目录}/{子目录}
-     */
-    private Map<String, String> businessTypeDirMap = new HashMap<>() {{
-        put("EQUIPMENT", "设备管理");
-        put("PRODUCTION", "生产管理");
-        put("PREPARATION", "制剂管理");
-        put("MATERIAL", "物料管理");
-        put("STOCK", "库存管理");
-        put("PURCHASE", "采购管理");
-        put("QUALITY", "质量管理");
-        put("PERSONNEL", "人员管理");
-        put("ROOM", "车间环境");
-        put("ENVIRONMENT", "环境管理");
-        put("APPROVAL", "审批管理");
-        put("SUPPLIER", "供应商管理");
-        put("CUSTOMER", "客户管理");
-        put("ORGANIZATION", "机构管理");
-        put("TRAINING", "培训管理");
-        put("DOSAGE_FORM", "剂型信息");
-        put("ENERGY", "能耗管理");
-        put("GENERAL", "通用文件");
-        put("GOODS_ACCEPTANCE", "货物验收");
-        put("AUDIT_RELEASE", "审核放行");
-        put("SAMPLE_RETENTION", "留样管理");
-        put("VERIFICATION", "验证方案");
-    }};
-
-    /**
-     * 子类型 -> 子目录名（全局统一，不含父目录前缀）
-     * 完整目录 = 父目录 + "/" + 子目录
-     */
-    private Map<String, String> subTypeDirMap = new HashMap<>() {{
-        put("MAINTENANCE", "维保");
-        put("PHOTO", "照片");
-        put("DOCUMENT", "文档");
-        put("PLAN", "计划");
-        put("RECORD", "记录");
-        put("PROCESS", "工序");
-        put("REPORT", "报告");
-        put("FORMULA", "配方");
-        put("SPEC", "规格");
-        put("FILE", "文件");
-        put("CERTIFICATE", "证书");
-        put("IN_PURCHASE", "入库单/原料");
-        put("IN_AUXILIARY", "入库单/辅料");
-        put("IN_PACKAGING", "入库单/包材");
-        put("IN_PRODUCT", "入库单/成品");
-        put("OUT_SALES", "出库单/销售");
-        put("OUT_PRODUCTION", "出库单/领料");
-        put("OUT_RETURN", "出库单/退货");
-        put("ORDER", "订单");
-        put("CONTRACT", "合同");
-        put("INVOICE", "发票");
-        put("INSPECTION", "质检");
-        put("ATTACHMENT", "附件");
-        put("CLEAN_INSPECTION", "洁净检测");
-        put("CLEANING_RECORD", "清洁记录");
-        put("TEMPERATURE_HUMIDITY", "温湿度记录");
-        put("PRESSURE_DIFFERENCE", "压差记录");
-        put("DISINFECTION", "消毒记录");
-        put("LICENSE", "许可");
-        put("AUDIT", "审核");
-        put("ENERGY_RECORD", "能耗记录");
-        put("REQUEST", "请检单");
-        put("SAMPLE", "样品");
-        put("SAMPLING", "取样");
-        put("INSPECTION_RECORD", "请检记录");
-        put("WAYBILL", "随货清单");
-        put("INSPECTION_REPORT", "检验报告");
-        put("RELEASE_RECORD", "放行记录");
-        put("RETENTION_RECORD", "留样记录");
-    }};
-
-    // endregion
-
-    // region 目录解析方法
-    // ===================================
-    // 目录解析方法
+    // 目录解析方法（委托给FileTypeInitConfig）
     // ===================================
 
     /**
@@ -201,26 +143,7 @@ public class FileStorageConfig {
         if (businessType == null || businessType.isEmpty()) {
             return documentDir;
         }
-
-        String[] parts = businessType.split("_", 2);
-        String parentType = parts[0];
-        String parentDir = businessTypeDirMap.get(parentType);
-
-        if (parentDir == null) {
-            return businessType;
-        }
-
-        if (parts.length == 1) {
-            return parentDir;
-        }
-
-        String subType = parts[1];
-        String subDir = subTypeDirMap.get(subType);
-        if (subDir != null) {
-            return parentDir + "/" + subDir;
-        }
-
-        return parentDir + "/" + subType;
+        return fileTypeConfig.getBusinessTypeDir(businessType);
     }
 
     /**
@@ -233,8 +156,7 @@ public class FileStorageConfig {
         if (businessType == null || businessType.isEmpty()) {
             return documentDir;
         }
-        String parentType = businessType.split("_")[0];
-        return businessTypeDirMap.getOrDefault(parentType, parentType);
+        return fileTypeConfig.getParentDir(businessType);
     }
 
     /**
@@ -247,11 +169,7 @@ public class FileStorageConfig {
         if (businessType == null || businessType.isEmpty()) {
             return null;
         }
-        String[] parts = businessType.split("_", 2);
-        if (parts.length < 2) {
-            return null;
-        }
-        return subTypeDirMap.get(parts[1]);
+        return fileTypeConfig.getSubTypeDir(businessType);
     }
 
     /**

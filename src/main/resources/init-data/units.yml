@@ -1,0 +1,57 @@
+# ===================================
+# 计量单位初始化配置
+# ===================================
+init-data:
+  units:
+    # 是否启用计量单位初始化
+    enabled: true
+    # 计量单位列表
+    data:
+      - unit-name: 吨
+        symbol: t
+        status: 1
+      - unit-name: 千克
+        symbol: kg
+        status: 1
+      - unit-name: 封
+        symbol: 封
+        status: 1
+      - unit-name: 套
+        symbol: 套
+        status: 1
+      - unit-name: 万
+        symbol: 万
+        status: 1
+      - unit-name: 条
+        symbol: 条
+        status: 1
+      - unit-name: 个
+        symbol: 个
+        status: 1
+      - unit-name: 张
+        symbol: 张
+        status: 1
+      - unit-name: 盒
+        symbol: 盒
+        status: 1
+      - unit-name: 瓶
+        symbol: 瓶
+        status: 1
+      - unit-name: 支
+        symbol: 支
+        status: 1
+      - unit-name: 万粒
+        symbol: 万粒
+        status: 1
+      - unit-name: 米
+        symbol: m
+        status: 1
+      - unit-name: 卷
+        symbol: 卷
+        status: 1
+      - unit-name: 无
+        symbol: 无
+        status: 1
+      - unit-name: 升
+        symbol: L
+        status: 1

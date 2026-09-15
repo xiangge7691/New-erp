@@ -1,0 +1,21 @@
+# ===================================
+# 验证类别配置
+# ===================================
+init-data:
+  verification:
+    # 是否启用验证类别初始化
+    enabled: true
+    # 验证类别列表
+    categories:
+      - key: equipment
+        name: 设备确认
+      - key: building
+        name: 厂房验证
+      - key: process
+        name: 工艺验证
+      - key: cleaning
+        name: 清洁验证
+      - key: facility
+        name: 设施验证
+      - key: method
+        name: 检验方法验证

@@ -1,0 +1,85 @@
+# ===================================
+# 剂型信息初始化配置
+# ===================================
+init-data:
+  dosage-forms:
+    # 是否启用剂型信息初始化
+    enabled: true
+    # 剂型列表
+    data:
+      - dosage-id: 1
+        dosage-category: 片剂
+        dosage-name: ""
+        status: 1
+      - dosage-id: 2
+        dosage-category: 合剂
+        dosage-name: ""
+        status: 1
+      - dosage-id: 4
+        dosage-category: 丸剂
+        dosage-name: ""
+        status: 1
+      - dosage-id: 5
+        dosage-category: 颗粒剂
+        dosage-name: ""
+        status: 1
+      - dosage-id: 6
+        dosage-category: 糖浆剂
+        dosage-name: ""
+        status: 1
+      - dosage-id: 7
+        dosage-category: 膏方
+        dosage-name: ""
+        status: 1
+      - dosage-id: 9
+        dosage-category: 软膏剂　乳膏剂
+        dosage-name: ""
+        status: 1
+      - dosage-id: 10
+        dosage-category: 贴膏剂
+        dosage-name: ""
+        status: 1
+      - dosage-id: 12
+        dosage-category: 酊剂
+        dosage-name: ""
+        status: 1
+      - dosage-id: 13
+        dosage-category: 酒剂
+        dosage-name: ""
+        status: 1
+      - dosage-id: 14
+        dosage-category: 洗剂
+        dosage-name: ""
+        status: 1
+      - dosage-id: 15
+        dosage-category: 散剂
+        dosage-name: ""
+        status: 1
+      - dosage-id: 16
+        dosage-category: 浓煎剂
+        dosage-name: ""
+        status: 1
+      - dosage-id: 17
+        dosage-category: 胶囊剂
+        dosage-name: ""
+        status: 1
+      - dosage-id: 131
+        dosage-category: 煎膏剂
+        dosage-name: ""
+        status: 1
+      - dosage-id: 132
+        dosage-category: 膏药
+        dosage-name: 黑膏药
+        status: 1
+      - dosage-id: 133
+        dosage-category: 膏药
+        dosage-name: 白膏药
+        status: 1
+      - dosage-id: 134
+        dosage-category: 口服溶液剂　口服混悬剂　口服乳剂
+        dosage-name: ""
+        status: 1
+      - dosage-id: 135
+        dosage-category: 软膏剂　乳膏剂
+        dosage-name: 乳膏剂
+        status: 1
