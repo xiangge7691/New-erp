@@ -9,11 +9,9 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.ProductionUnitWithDetailsDto;
 import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Common.utils.SoftDeleteCleanHelper;
-import com.tonghui.erp.Data.Entity.Material;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Data.Entity.ProdUnitInvoice;
 import com.tonghui.erp.Data.Entity.Stock;
-import com.tonghui.erp.Data.mapper.MaterialMapper;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Data.mapper.ProdUnitInvoiceMapper;
 import com.tonghui.erp.Data.mapper.StockMapper;
@@ -51,11 +49,7 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
     @Autowired
     private ProdUnitInvoiceMapper prodUnitInvoiceMapper;
 
-    /** 物料数据访问层，用于查询所有物料 */
-    @Autowired
-    private MaterialMapper materialMapper;
-
-    /** 库存数据访问层，用于创建生产单位时自动生成库存记录 */
+    /** 库存数据访问层，用于删除生产单位时清理关联的库存记录 */
     @Autowired
     private StockMapper stockMapper;
 
@@ -99,8 +93,7 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
 
     /**
      * 新增生产单位
-     * <p>自动设置创建时间、更新时间、创建人和更新人。
-     * 创建成功后自动为每个物料创建库存基础记录。</p>
+     * <p>自动设置创建时间、更新时间、创建人和更新人。</p>
      *
      * @param productionUnit 生产单位实体
      * @return 操作是否成功
@@ -125,14 +118,7 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
             productionUnit.setUpdatedBy(currentUserId);
         }
 
-        boolean result = this.save(productionUnit);
-
-        if (result) {
-            // 为每个物料创建库存基础记录
-            createStockRecordsForAllMaterials(productionUnit);
-        }
-
-        return result;
+        return this.save(productionUnit);
     }
 
     /**
@@ -154,50 +140,6 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
 
         // 再物理删除 production_unit 记录
         return baseMapper.physicalDeleteByProdUnitId(deletedId);
-    }
-
-    /**
-     * 为所有未删除的物料创建该生产单位的库存记录
-     *
-     * @param productionUnit 已插入的生产单位实体
-     */
-    private void createStockRecordsForAllMaterials(ProductionUnit productionUnit) {
-        // 查询所有未删除的物料
-        QueryWrapper<Material> materialWrapper = new QueryWrapper<>();
-        materialWrapper.eq("is_deleted", 0);
-        List<Material> materials = materialMapper.selectList(materialWrapper);
-
-        if (materials.isEmpty()) {
-            return;
-        }
-
-        // 为每个物料创建库存记录
-        java.time.LocalDateTime now = java.time.LocalDateTime.now();
-        java.time.LocalDate today = java.time.LocalDate.now();
-        for (Material material : materials) {
-            Stock stock = new Stock();
-            stock.setProdUnitId(productionUnit.getProdUnitId());
-            stock.setItemType("material");
-            stock.setItemId(material.getMaterialId());
-            stock.setItemCode(material.getMaterialCode());
-            stock.setItemName(material.getMaterialName());
-            stock.setCategoryName(material.getCategoryName());
-            stock.setUnitName(material.getUnitName());
-            stock.setQuantity(java.math.BigDecimal.ZERO);
-            stock.setBatchNumber("");
-            stock.setProductionDate(today);
-            stock.setExpiryDate(today.plusYears(5));
-            stock.setStorageLocation("");
-            stock.setRemark("");
-            stock.setStockStatus(1);
-            stock.setIsDeleted(0);
-            stock.setVersion(1);
-            stock.setCreatedBy(productionUnit.getCreatedBy());
-            stock.setUpdatedBy(productionUnit.getUpdatedBy());
-            stock.setCreatedTime(now);
-            stock.setUpdatedTime(now);
-            stockMapper.insert(stock);
-        }
     }
 
     /**
