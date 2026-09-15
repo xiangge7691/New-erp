@@ -162,7 +162,9 @@ public class ReleaseReviewController extends BaseController {
             QueryWrapper<ReleaseReview> wrapper = buildQueryWrapper(releaseCode, relatedInspectionCode, objectName,
                     batchNo, releaseConclusion, reviewer, startTime, endTime, null, null);
             wrapper.orderByDesc("review_time");
-            return success(releaseReviewService.list(wrapper));
+            List<ReleaseReview> list = releaseReviewService.list(wrapper);
+            fillWorkOrderInfo(list);
+            return success(list);
         } catch (Exception e) {
             return exception(e, "查询审核放行");
         }
@@ -184,6 +186,7 @@ public class ReleaseReviewController extends BaseController {
             if (record == null) {
                 return error("审核放行不存在");
             }
+            fillWorkOrderInfo(List.of(record));
             return success(record);
         } catch (Exception e) {
             return exception(e, "查询审核放行详情");

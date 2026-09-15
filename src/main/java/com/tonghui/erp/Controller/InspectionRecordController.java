@@ -166,7 +166,9 @@ public class InspectionRecordController extends BaseController {
             QueryWrapper<InspectionRecord> wrapper = buildQueryWrapper(inspectionCode, relatedSamplingCode,
                     objectName, batchNo, inspectionBasis, inspector, conclusion, startTime, endTime);
             wrapper.orderByDesc("start_time");
-            return success(inspectionRecordService.list(wrapper));
+            List<InspectionRecord> list = inspectionRecordService.list(wrapper);
+            fillWorkOrderInfo(list);
+            return success(list);
         } catch (Exception e) {
             return exception(e, "查询检验记录");
         }
@@ -188,6 +190,7 @@ public class InspectionRecordController extends BaseController {
             if (record == null) {
                 return error("检验记录不存在");
             }
+            fillWorkOrderInfo(List.of(record));
             return success(record);
         } catch (Exception e) {
             return exception(e, "查询检验记录详情");
