@@ -274,9 +274,12 @@ public class ReleaseReviewController extends BaseController {
             while (true) {
                 try {
                     releaseReviewService.save(record);
-                    // 回填工单审核放行时间（auditReleaseTime），仅放行结论时触发
+                    // 获取保存后的完整记录并触发回填（仅放行结论时）
                     if ("放行".equals(record.getReleaseConclusion())) {
-                        backfillWorkOrderAuditReleaseTime(record);
+                        ReleaseReview saved = releaseReviewService.getById(record.getId());
+                        if (saved != null) {
+                            backfillWorkOrderAuditReleaseTime(saved);
+                        }
                     }
                     break;
                 } catch (DuplicateKeyException e) {
