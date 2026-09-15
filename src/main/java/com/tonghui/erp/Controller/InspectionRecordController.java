@@ -337,7 +337,12 @@ public class InspectionRecordController extends BaseController {
             record.setId(id);
             record.setUpdatedTime(LocalDateTime.now());
             inspectionRecordService.updateById(record);
-            return success(record, "修改成功");
+            // 获取更新后的完整记录并触发回填（结论改为合格时回填工单检验完成时间）
+            InspectionRecord updated = inspectionRecordService.getById(id);
+            if (updated != null) {
+                backfillWorkOrderInspectionEnd(updated);
+            }
+            return success(updated != null ? updated : record, "修改成功");
         } catch (Exception e) {
             return exception(e, "修改检验记录");
         }
@@ -436,22 +441,33 @@ public class InspectionRecordController extends BaseController {
      * @param record 检验记录（需包含 relatedInspectionRequestCode 和 endTime）
      */
     private void backfillWorkOrderInspectionEnd(InspectionRecord record) {
-        if (!StringUtils.hasText(record.getRelatedInspectionRequestCode()) || record.getEndTime() == null) {
+        if (record.getEndTime() == null) {
             return;
         }
 
-        // 通过请检编号查找请检记录，获取工单ID和被检品属性
-        QueryWrapper<InspectionRequest> requestWrapper = new QueryWrapper<>();
-        requestWrapper.eq("inspection_code", record.getRelatedInspectionRequestCode());
-        requestWrapper.select("work_order_id", "item_category");
-        requestWrapper.last("LIMIT 1");
-        InspectionRequest inspectionRequest = inspectionRequestMapper.selectOne(requestWrapper);
+        Long workOrderId = null;
+        String itemCategory = null;
+
+        // 优先使用检验记录直接关联的工单ID
+        if (record.getWorkOrderId() != null) {
+            workOrderId = record.getWorkOrderId();
+            itemCategory = record.getItemCategory();
+        } else if (StringUtils.hasText(record.getRelatedInspectionRequestCode())) {
+            // 通过链路回退查询（兼容旧数据）
+            QueryWrapper<InspectionRequest> requestWrapper = new QueryWrapper<>();
+            requestWrapper.eq("inspection_code", record.getRelatedInspectionRequestCode());
+            requestWrapper.select("work_order_id", "item_category");
+            requestWrapper.last("LIMIT 1");
+            InspectionRequest inspectionRequest = inspectionRequestMapper.selectOne(requestWrapper);
+            if (inspectionRequest != null) {
+                workOrderId = inspectionRequest.getWorkOrderId();
+                itemCategory = inspectionRequest.getItemCategory();
+            }
+        }
 
         // 仅成品类型且结论为合格时回填工单检验结束时间
-        if (inspectionRequest != null && inspectionRequest.getWorkOrderId() != null
-                && "成品".equals(inspectionRequest.getItemCategory())
-                && "合格".equals(record.getConclusion())) {
-            workOrderService.syncWorkOrderTime(inspectionRequest.getWorkOrderId(), "inspectionEnd", record.getEndTime());
+        if (workOrderId != null && "成品".equals(itemCategory) && "合格".equals(record.getConclusion())) {
+            workOrderService.syncWorkOrderTime(workOrderId, "inspectionEnd", record.getEndTime());
         }
     }
 
