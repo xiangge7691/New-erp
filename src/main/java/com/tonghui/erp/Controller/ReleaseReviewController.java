@@ -336,11 +336,12 @@ public class ReleaseReviewController extends BaseController {
             record.setId(id);
             record.setUpdatedTime(LocalDateTime.now());
             releaseReviewService.updateById(record);
-            // 结论改为放行时触发回填（新增路径在create中已处理）
-            if ("放行".equals(record.getReleaseConclusion())) {
-                backfillWorkOrderAuditReleaseTime(record);
+            // 获取更新后的完整记录并触发回填（结论改为放行时回填工单审核放行时间）
+            ReleaseReview updated = releaseReviewService.getById(id);
+            if (updated != null && "放行".equals(updated.getReleaseConclusion())) {
+                backfillWorkOrderAuditReleaseTime(updated);
             }
-            return success(record, "修改成功");
+            return success(updated != null ? updated : record, "修改成功");
         } catch (Exception e) {
             return exception(e, "修改审核放行");
         }
@@ -446,29 +447,41 @@ public class ReleaseReviewController extends BaseController {
         String itemCategory = "成品";
 
         // 未直接关联工单时，通过链路回退查询（兼容旧数据）
-        if (workOrderId == null && StringUtils.hasText(record.getRelatedInspectionRecordCode())) {
-            // 通过检验记录编号查找检验记录，获取关联请检编号
-            QueryWrapper<InspectionRecord> recordWrapper = new QueryWrapper<>();
-            recordWrapper.eq("inspection_code", record.getRelatedInspectionRecordCode());
-            recordWrapper.select("related_inspection_request_code");
-            recordWrapper.last("LIMIT 1");
-            InspectionRecord inspectionRecord = inspectionRecordMapper.selectOne(recordWrapper);
+        if (workOrderId == null) {
+            // 优先用 relatedInspectionRecordCode，其次用 relatedInspectionCode
+            String inspectionCodeToUse = StringUtils.hasText(record.getRelatedInspectionRecordCode())
+                    ? record.getRelatedInspectionRecordCode()
+                    : record.getRelatedInspectionCode();
+            if (StringUtils.hasText(inspectionCodeToUse)) {
+                // 通过检验记录编号查找检验记录，获取关联请检编号
+                QueryWrapper<InspectionRecord> recordWrapper = new QueryWrapper<>();
+                recordWrapper.eq("inspection_code", inspectionCodeToUse);
+                recordWrapper.select("work_order_id", "related_inspection_request_code", "item_category");
+                recordWrapper.last("LIMIT 1");
+                InspectionRecord inspectionRecord = inspectionRecordMapper.selectOne(recordWrapper);
 
-            if (inspectionRecord == null || !StringUtils.hasText(inspectionRecord.getRelatedInspectionRequestCode())) {
-                return;
-            }
+                if (inspectionRecord == null) {
+                    return;
+                }
 
-            // 通过请检编号查找请检记录，获取工单ID和被检品属性
-            QueryWrapper<com.tonghui.erp.Data.Entity.InspectionRequest> requestWrapper = new QueryWrapper<>();
-            requestWrapper.eq("inspection_code", inspectionRecord.getRelatedInspectionRequestCode());
-            requestWrapper.select("work_order_id", "item_category");
-            requestWrapper.last("LIMIT 1");
-            com.tonghui.erp.Data.Entity.InspectionRequest inspectionRequest = inspectionRequestMapper.selectOne(requestWrapper);
-            if (inspectionRequest == null) {
-                return;
+                // 优先从检验记录直接取工单ID
+                if (inspectionRecord.getWorkOrderId() != null) {
+                    workOrderId = inspectionRecord.getWorkOrderId();
+                    itemCategory = inspectionRecord.getItemCategory();
+                } else if (StringUtils.hasText(inspectionRecord.getRelatedInspectionRequestCode())) {
+                    // 通过请检编号查找请检记录，获取工单ID和被检品属性
+                    QueryWrapper<com.tonghui.erp.Data.Entity.InspectionRequest> requestWrapper = new QueryWrapper<>();
+                    requestWrapper.eq("inspection_code", inspectionRecord.getRelatedInspectionRequestCode());
+                    requestWrapper.select("work_order_id", "item_category");
+                    requestWrapper.last("LIMIT 1");
+                    com.tonghui.erp.Data.Entity.InspectionRequest inspectionRequest = inspectionRequestMapper.selectOne(requestWrapper);
+                    if (inspectionRequest == null) {
+                        return;
+                    }
+                    workOrderId = inspectionRequest.getWorkOrderId();
+                    itemCategory = inspectionRequest.getItemCategory();
+                }
             }
-            workOrderId = inspectionRequest.getWorkOrderId();
-            itemCategory = inspectionRequest.getItemCategory();
         }
 
         // 仅成品类型回填工单审核放行时间
