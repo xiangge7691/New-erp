@@ -52,6 +52,12 @@ public class RetainedSample extends AuditEntity {
     private String materialName;
 
     /**
+     * 被检品属性：生产原料/中间产品/成品
+     */
+    @TableField(value = "item_category")
+    private String itemCategory;
+
+    /**
      * 批号
      */
     @TableField(value = "batch_no")

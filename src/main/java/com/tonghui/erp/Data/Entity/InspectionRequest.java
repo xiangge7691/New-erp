@@ -77,6 +77,12 @@ public class InspectionRequest extends AuditEntity {
     private String preparationName;
 
     /**
+     * 被检品属性：生产原料/中间产品/成品
+     */
+    @TableField(value = "item_category")
+    private String itemCategory;
+
+    /**
      * 被检物名称（默认取制剂名称，可按被检物修改）
      */
     @TableField(value = "inspection_item_name")

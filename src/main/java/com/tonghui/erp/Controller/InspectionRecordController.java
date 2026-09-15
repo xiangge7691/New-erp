@@ -431,14 +431,16 @@ public class InspectionRecordController extends BaseController {
             return;
         }
 
-        // 通过请检编号查找请检记录，获取工单ID
+        // 通过请检编号查找请检记录，获取工单ID和被检品属性
         QueryWrapper<InspectionRequest> requestWrapper = new QueryWrapper<>();
         requestWrapper.eq("inspection_code", record.getRelatedInspectionRequestCode());
-        requestWrapper.select("work_order_id");
+        requestWrapper.select("work_order_id", "item_category");
         requestWrapper.last("LIMIT 1");
         InspectionRequest inspectionRequest = inspectionRequestMapper.selectOne(requestWrapper);
 
-        if (inspectionRequest != null && inspectionRequest.getWorkOrderId() != null) {
+        // 仅成品类型回填工单检验结束时间
+        if (inspectionRequest != null && inspectionRequest.getWorkOrderId() != null
+                && "成品".equals(inspectionRequest.getItemCategory())) {
             workOrderService.syncWorkOrderTime(inspectionRequest.getWorkOrderId(), "inspectionEnd", record.getEndTime());
         }
     }

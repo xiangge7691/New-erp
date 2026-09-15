@@ -442,14 +442,16 @@ public class ReleaseReviewController extends BaseController {
             return;
         }
 
-        // 通过请检编号查找请检记录，获取工单ID
+        // 通过请检编号查找请检记录，获取工单ID和被检品属性
         QueryWrapper<com.tonghui.erp.Data.Entity.InspectionRequest> requestWrapper = new QueryWrapper<>();
         requestWrapper.eq("inspection_code", inspectionRecord.getRelatedInspectionRequestCode());
-        requestWrapper.select("work_order_id");
+        requestWrapper.select("work_order_id", "item_category");
         requestWrapper.last("LIMIT 1");
         com.tonghui.erp.Data.Entity.InspectionRequest inspectionRequest = inspectionRequestMapper.selectOne(requestWrapper);
 
-        if (inspectionRequest != null && inspectionRequest.getWorkOrderId() != null) {
+        // 仅成品类型回填工单审核放行时间
+        if (inspectionRequest != null && inspectionRequest.getWorkOrderId() != null
+                && "成品".equals(inspectionRequest.getItemCategory())) {
             workOrderService.syncWorkOrderTime(inspectionRequest.getWorkOrderId(), "auditReleaseTime", record.getReviewTime());
         }
     }

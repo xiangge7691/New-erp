@@ -225,8 +225,9 @@ public class InspectionRequestController extends BaseController {
             while (true) {
                 try {
                     inspectionRequestService.save(request);
-                    // 回填工单检验开始时间（inspectionStart）
-                    if (request.getWorkOrderId() != null && request.getRequestTime() != null) {
+                    // 回填工单检验开始时间（inspectionStart），仅成品类型触发
+                    if (request.getWorkOrderId() != null && request.getRequestTime() != null
+                            && "成品".equals(request.getItemCategory())) {
                         workOrderService.syncWorkOrderTime(request.getWorkOrderId(), "inspectionStart", request.getRequestTime());
                     }
                     return success(request, "请检记录创建成功");
