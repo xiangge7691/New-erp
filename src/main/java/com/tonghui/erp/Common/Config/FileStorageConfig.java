@@ -127,6 +127,7 @@ public class FileStorageConfig {
         put("GOODS_ACCEPTANCE", "货物验收");
         put("AUDIT_RELEASE", "审核放行");
         put("SAMPLE_RETENTION", "留样管理");
+        put("VERIFICATION", "验证方案");
     }};
 
     /**
