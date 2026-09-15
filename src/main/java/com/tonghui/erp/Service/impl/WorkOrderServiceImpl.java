@@ -151,7 +151,8 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         // 根据日期字段自动计算工单状态
         workOrder.setCurrentStatus(resolveStatus(workOrder.getConfigDate(),
                 workOrder.getConfigCompleteTime(), workOrder.getArchiveTime(),
-                workOrder.getInspectionStart(), workOrder.getInspectionEnd()));
+                workOrder.getInspectionStart(), workOrder.getInspectionEnd(),
+                workOrder.getAuditReleaseTime(), workOrder.getInboundTime()));
 
         // 获取当前用户ID
         Long currentUserId = EntityUtils.getCurrentUserId();
@@ -224,8 +225,12 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
                 : (existing != null ? existing.getInspectionStart() : null);
         LocalDateTime inspectionEnd = workOrder.getInspectionEnd() != null ? workOrder.getInspectionEnd()
                 : (existing != null ? existing.getInspectionEnd() : null);
+        LocalDateTime auditReleaseTime = workOrder.getAuditReleaseTime() != null ? workOrder.getAuditReleaseTime()
+                : (existing != null ? existing.getAuditReleaseTime() : null);
+        LocalDateTime inboundTime = workOrder.getInboundTime() != null ? workOrder.getInboundTime()
+                : (existing != null ? existing.getInboundTime() : null);
         workOrder.setCurrentStatus(resolveStatus(configDate, configCompleteTime, archiveTime,
-                inspectionStart, inspectionEnd));
+                inspectionStart, inspectionEnd, auditReleaseTime, inboundTime));
 
         boolean updated = this.updateById(workOrder);
 
@@ -471,23 +476,41 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
      *   <li>待生产 - 配置日期为空</li>
      *   <li>生产中 - 配置日期有值 且 配置完成日期为空</li>
      *   <li>已生产 - 配置完成日期有值</li>
+     *   <li>检验中 - 检验开始时间有值</li>
+     *   <li>已检验 - 检验完成时间有值</li>
+     *   <li>已放行 - 审核放行时间有值</li>
+     *   <li>已入库 - 入库时间有值</li>
      *   <li>已归档 - 归档时间有值</li>
      * </ul>
      * 在工单新增、更新时调用，保证 current_status 列与日期字段实时一致
      * </p>
      *
-     * @param configDate        配置日期
+     * @param configDate         配置日期
      * @param configCompleteTime 配置完成日期
-     * @param archiveTime       归档时间
+     * @param archiveTime        归档时间
+     * @param inspectionStart    检验开始时间
+     * @param inspectionEnd      检验完成时间
+     * @param auditReleaseTime   审核放行时间
+     * @param inboundTime        入库时间
      * @return 计算后的工单状态
      */
     private String resolveStatus(LocalDateTime configDate, LocalDateTime configCompleteTime,
-            LocalDateTime archiveTime, LocalDateTime inspectionStart, LocalDateTime inspectionEnd) {
+            LocalDateTime archiveTime, LocalDateTime inspectionStart, LocalDateTime inspectionEnd,
+            LocalDateTime auditReleaseTime, LocalDateTime inboundTime) {
         if (archiveTime != null) {
             return "已归档";
         }
-        if (inspectionStart != null && inspectionEnd != null) {
+        if (inboundTime != null) {
+            return "已入库";
+        }
+        if (auditReleaseTime != null) {
+            return "已放行";
+        }
+        if (inspectionEnd != null) {
             return "已检验";
+        }
+        if (inspectionStart != null) {
+            return "检验中";
         }
         if (configCompleteTime != null) {
             return "已生产";

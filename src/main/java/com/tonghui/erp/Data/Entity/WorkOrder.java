@@ -229,6 +229,10 @@ public class WorkOrder extends AuditEntity {
      *   <li>待生产 - 配置日期为空</li>
      *   <li>生产中 - 配置日期有值 且 配置完成日期为空</li>
      *   <li>已生产 - 配置完成日期有值</li>
+     *   <li>检验中 - 检验开始时间有值</li>
+     *   <li>已检验 - 检验完成时间有值</li>
+     *   <li>已放行 - 审核放行时间有值</li>
+     *   <li>已入库 - 入库时间有值</li>
      *   <li>已归档 - 归档时间有值</li>
      * </ul>
      * </p>
@@ -265,6 +269,18 @@ public class WorkOrder extends AuditEntity {
      */
     @TableField(value = "archive_time")
     private LocalDateTime archiveTime;
+
+    /**
+     * 审核放行时间
+     */
+    @TableField(value = "audit_release_time")
+    private LocalDateTime auditReleaseTime;
+
+    /**
+     * 入库时间
+     */
+    @TableField(value = "inbound_time")
+    private LocalDateTime inboundTime;
 
     // endregion
 

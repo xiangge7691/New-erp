@@ -372,21 +372,52 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
         wrapper.eq("is_deleted", 0);
         List<WorkOrder> workOrders = workOrderMapper.selectList(wrapper);
 
+        // 查询计划
+        ProductionPlan plan = this.getById(planId);
+        if (plan == null) {
+            return;
+        }
+
         // 根据工单状态计算计划状态
         String status;
         if (workOrders.isEmpty()) {
             // 无关联工单 → 待生产
             status = "待生产";
         } else {
-            // 所有工单均为已生产或已归档 → 已完成，否则 → 生产中
-            boolean allCompleted = workOrders.stream().allMatch(wo ->
-                    "已生产".equals(wo.getCurrentStatus()) || "已归档".equals(wo.getCurrentStatus())
-                            || "已出库".equals(wo.getCurrentStatus()));
-            status = allCompleted ? "已完成" : "生产中";
+            // 计算所有工单的计划数量之和
+            java.math.BigDecimal totalBatchQty = workOrders.stream()
+                    .map(wo -> wo.getBatchQty() != null ? wo.getBatchQty() : java.math.BigDecimal.ZERO)
+                    .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+
+            // 获取计划的批次数量
+            java.math.BigDecimal planQuantity = plan.getPlanQuantity() != null
+                    ? plan.getPlanQuantity() : java.math.BigDecimal.ZERO;
+
+            // 判断所有工单状态是否都为已检验或之后的状态（已检验、已放行、已入库、已归档）
+            boolean allAfterInspection = workOrders.stream().allMatch(wo ->
+                    "已检验".equals(wo.getCurrentStatus())
+                    || "已放行".equals(wo.getCurrentStatus())
+                    || "已入库".equals(wo.getCurrentStatus())
+                    || "已归档".equals(wo.getCurrentStatus()));
+
+            // 判断所有工单状态是否都为已归档
+            boolean allArchived = workOrders.stream().allMatch(wo ->
+                    "已归档".equals(wo.getCurrentStatus()));
+
+            // 已完成：所有工单已检验或之后，且任务计划数量之和 >= 计划批次数量
+            if (allAfterInspection && totalBatchQty.compareTo(planQuantity) >= 0) {
+                status = "已完成";
+            }
+            // 已归档：所有工单已归档，且任务计划数量之和 >= 计划批次数量
+            else if (allArchived && totalBatchQty.compareTo(planQuantity) >= 0) {
+                status = "已归档";
+            }
+            else {
+                status = "生产中";
+            }
         }
 
         // 状态落库
-        ProductionPlan plan = this.getById(planId);
         if (plan != null) {
             plan.setCurrentStatus(status);
             plan.setCurrentStatusDate(LocalDateTime.now());
