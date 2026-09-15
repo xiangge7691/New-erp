@@ -23,27 +23,17 @@ public interface FileOperationLogService {
     void log(Long fileId, String fileName, String filePath, String operationType, String rootType, String detail);
 
     /**
-     * 分页查询操作日志
-     *
-     * @param operationType 操作类型（可选）
-     * @param userId        操作人ID（可选）
-     * @param startTime     操作时间起始（可选，含边界）
-     * @param endTime       操作时间截止（可选，含边界）
-     * @param pageIndex     页码
-     * @param pageSize      每页大小
-     * @return 分页结果
-     */
-    /**
      * 分页查询文件操作日志
      *
      * @param operationType 操作类型（可为空）
      * @param userId        操作人ID（精确匹配，可为空）
      * @param userName      操作人姓名（模糊匹配，可为空）
+     * @param businessType  业务类型（可为空）
      * @param startTime     操作时间起始（含边界，可为空）
      * @param endTime       操作时间截止（含边界，可为空）
      * @param pageIndex     页码（从0开始）
      * @param pageSize      每页大小
      * @return 分页日志结果
      */
-    Page<FileOperationLog> queryLogs(String operationType, Long userId, String userName, LocalDateTime startTime, LocalDateTime endTime, int pageIndex, int pageSize);
+    Page<FileOperationLog> queryLogs(String operationType, Long userId, String userName, String businessType, LocalDateTime startTime, LocalDateTime endTime, int pageIndex, int pageSize);
 }

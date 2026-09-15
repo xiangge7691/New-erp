@@ -124,6 +124,9 @@ public class FileStorageConfig {
         put("DOSAGE_FORM", "剂型信息");
         put("ENERGY", "能耗管理");
         put("GENERAL", "通用文件");
+        put("GOODS_ACCEPTANCE", "货物验收");
+        put("AUDIT_RELEASE", "审核放行");
+        put("SAMPLE_RETENTION", "留样管理");
     }};
 
     /**
@@ -166,6 +169,10 @@ public class FileStorageConfig {
         put("SAMPLE", "样品");
         put("SAMPLING", "取样");
         put("INSPECTION_RECORD", "请检记录");
+        put("WAYBILL", "随货清单");
+        put("INSPECTION_REPORT", "检验报告");
+        put("RELEASE_RECORD", "放行记录");
+        put("RETENTION_RECORD", "留样记录");
     }};
 
     // endregion

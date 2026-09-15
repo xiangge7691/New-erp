@@ -65,6 +65,12 @@ public class FileOperationLog {
     private String rootType;
 
     /**
+     * 业务类型：用于区分不同业务场景的文件，如货物验收、审核放行、留样记录等
+     */
+    @TableField(value = "business_type")
+    private String businessType;
+
+    /**
      * 操作人ID
      */
     @TableField(value = "user_id")
