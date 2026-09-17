@@ -27,6 +27,8 @@ import org.springframework.web.bind.annotation.*;
  * │ 6  │ /api/work-orders/search            │ GET    │ 高级查询工单（支持多条件）   │
  * │ 7  │ /api/work-orders/generate-code     │ GET    │ 自动生成工单编号             │
  * │ 8  │ /api/work-orders/by-out-type       │ GET    │ 按出库类型筛选工单           │
+ * │ 9  │ /api/work-orders/{id}/void         │ PUT    │ 作废工单                     │
+ * │ 10 │ /api/work-orders/{id}/archive      │ PUT    │ 归档工单                     │
  * └────┴────────────────────────────────────┴────────┴──────────────────────────────┘
  */
 @RestController
@@ -279,6 +281,41 @@ public class WorkOrderController extends BaseCrudController<WorkOrder, WorkOrder
             }
         } catch (Exception ex) {
             return exception(ex, "作废工单");
+        }
+    }
+
+    // endregion
+
+    // region 工单归档
+    // ===================================
+    // 工单归档
+    // ===================================
+
+    /**
+     * 归档工单
+     * <p>
+     * 将已入库的工单进行归档，设置归档时间为当前时间，
+     * 工单状态自动流转为"已归档"，归档后不可再进行其他操作。
+     * 仅"已入库"状态的工单可以归档
+     * </p>
+     *
+     * 示例请求：
+     * PUT /api/work-orders/1/archive
+     *
+     * @param id 工单ID
+     * @return ApiResponse&lt;Boolean&gt; 归档结果
+     */
+    @PutMapping("/{id}/archive")
+    public ApiResponse<Boolean> archiveWorkOrder(@PathVariable Long id) {
+        try {
+            boolean result = workOrderService.archiveWorkOrder(id);
+            if (result) {
+                return success(true, "归档成功");
+            } else {
+                return error("归档失败，工单不存在、未入库或已归档/已作废");
+            }
+        } catch (Exception ex) {
+            return exception(ex, "归档工单");
         }
     }
 

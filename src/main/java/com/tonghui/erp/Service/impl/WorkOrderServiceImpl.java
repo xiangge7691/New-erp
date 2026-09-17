@@ -808,6 +808,59 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         updateWrapper.set("current_status", "作废");
         return this.update(updateWrapper);
     }
+
+    /**
+     * 归档工单
+     * <p>
+     * 将已入库的工单进行归档，设置归档时间为当前时间，
+     * 工单状态自动流转为"已归档"，归档后不可再进行其他操作。
+     * 仅"已入库"状态的工单可以归档。
+     * </p>
+     *
+     * @param workOrderId 工单ID
+     * @return 是否归档成功
+     */
+    @Override
+    @Transactional
+    public boolean archiveWorkOrder(Long workOrderId) {
+        WorkOrder workOrder = this.getById(workOrderId);
+        if (workOrder == null) {
+            return false;
+        }
+        // 已归档或已作废的工单不能再次归档
+        if ("已归档".equals(workOrder.getCurrentStatus()) || "作废".equals(workOrder.getCurrentStatus())) {
+            return false;
+        }
+        // 仅"已入库"状态的工单可以归档
+        if (!"已入库".equals(workOrder.getCurrentStatus())) {
+            return false;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        workOrder.setArchiveTime(now);
+        workOrder.setUpdatedTime(now);
+
+        // 重新计算工单状态
+        workOrder.setCurrentStatus(resolveStatus(
+                workOrder.getConfigDate(), workOrder.getConfigCompleteTime(), workOrder.getArchiveTime(),
+                workOrder.getInspectionStart(), workOrder.getInspectionEnd(),
+                workOrder.getAuditReleaseTime(), workOrder.getInboundTime()));
+
+        // 获取当前用户ID
+        Long currentUserId = EntityUtils.getCurrentUserId();
+        if (currentUserId != null) {
+            workOrder.setUpdatedBy(currentUserId);
+        }
+
+        boolean updated = this.updateById(workOrder);
+
+        // 更新成功后，联动刷新关联生产计划的状态
+        if (updated && workOrder.getPlanId() != null) {
+            productionPlanService.refreshPlanStatus(workOrder.getPlanId().intValue());
+        }
+
+        return updated;
+    }
     
     // endregion
 }

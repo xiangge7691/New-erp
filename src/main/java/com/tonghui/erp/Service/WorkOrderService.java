@@ -136,4 +136,17 @@ public interface WorkOrderService extends IService<WorkOrder> {
      * @return 是否作废成功
      */
     boolean voidWorkOrder(Long workOrderId);
+
+    /**
+     * 归档工单
+     * <p>
+     * 将已入库的工单进行归档，设置归档时间为当前时间，
+     * 工单状态自动流转为"已归档"，归档后不可再进行其他操作。
+     * 仅"已入库"状态的工单可以归档。
+     * </p>
+     *
+     * @param workOrderId 工单ID
+     * @return 是否归档成功
+     */
+    boolean archiveWorkOrder(Long workOrderId);
 }
