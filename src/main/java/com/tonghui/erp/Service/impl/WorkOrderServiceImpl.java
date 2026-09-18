@@ -94,6 +94,9 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         Page<WorkOrder> page = new Page<>(pageRequestDto.getPageIndex(), pageRequestDto.getPageSize());
         Page<WorkOrder> workOrderPage = this.page(page);
 
+        // 批量填充关联生产计划编号
+        fillPlanNumbers(workOrderPage.getRecords());
+
         PagedResult<WorkOrder> pagedResult = new PagedResult<>();
         pagedResult.setItems(workOrderPage.getRecords());
         pagedResult.setTotalCount(workOrderPage.getTotal());
@@ -440,7 +443,12 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         // 按创建时间倒序排列，新创建的显示在最前
         wrapper.orderByDesc("created_time");
 
-        return this.page(page, wrapper);
+        Page<WorkOrder> result = this.page(page, wrapper);
+
+        // 批量填充关联生产计划编号（planNumber 为非表字段，需手动填充）
+        fillPlanNumbers(result.getRecords());
+
+        return result;
     }
 
     /**
@@ -459,6 +467,52 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         List<ProductionPlan> plans = productionPlanService.list(
                 new QueryWrapper<ProductionPlan>().like("plan_number", keyword));
         return plans.stream().map(Plan -> Plan.getId().longValue()).collect(Collectors.toList());
+    }
+
+    /**
+     * 批量填充工单列表中关联生产计划的编号
+     * <p>
+     * 收集所有非空的 planId，一次性查询对应的 ProductionPlan，
+     * 再将 planNumber 回填到各工单实体的 planNumber 字段
+     * </p>
+     *
+     * @param workOrders 工单列表
+     */
+    private void fillPlanNumbers(List<WorkOrder> workOrders) {
+        if (workOrders == null || workOrders.isEmpty()) {
+            return;
+        }
+
+        // 收集所有非空的 planId（去重）
+        List<Long> planIds = workOrders.stream()
+                .map(WorkOrder::getPlanId)
+                .filter(id -> id != null)
+                .distinct()
+                .collect(Collectors.toList());
+
+        if (planIds.isEmpty()) {
+            return;
+        }
+
+        // 批量查询关联的生产计划
+        List<ProductionPlan> plans = productionPlanService.listByIds(planIds);
+        if (plans.isEmpty()) {
+            return;
+        }
+
+        // 构建 planId -> planNumber 的映射
+        java.util.Map<Long, String> planNumberMap = plans.stream()
+                .collect(Collectors.toMap(
+                        p -> p.getId().longValue(),
+                        ProductionPlan::getPlanNumber,
+                        (a, b) -> a));
+
+        // 回填 planNumber
+        for (WorkOrder workOrder : workOrders) {
+            if (workOrder.getPlanId() != null) {
+                workOrder.setPlanNumber(planNumberMap.get(workOrder.getPlanId()));
+            }
+        }
     }
 
     // endregion
