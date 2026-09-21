@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.time.LocalDateTime;
-import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Common.utils.JwtHelper;
 
 @Service
@@ -104,18 +103,6 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
             baseMapper.physicalDeleteByPreparationCode(preparation.getPreparationCode());
         }
 
-        // 设置创建时间和更新时间
-        LocalDateTime now = LocalDateTime.now();
-        preparation.setCreatedTime(now);
-        preparation.setUpdatedTime(now);
-
-        // 获取当前用户ID
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            preparation.setCreatedBy(currentUserId);
-            preparation.setUpdatedBy(currentUserId);
-        }
-
         this.baseMapper.insert(preparation);
 
         // 如果状态为1，为每个启用的生产单位创建库存记录
@@ -179,15 +166,6 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
      */
     @Override
     public void updatePreparation(Preparation preparation) {
-        // 设置更新时间
-        preparation.setUpdatedTime(LocalDateTime.now());
-        
-        // 获取当前用户ID
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            preparation.setUpdatedBy(currentUserId);
-        }
-        
         this.baseMapper.updateById(preparation);
     }
 

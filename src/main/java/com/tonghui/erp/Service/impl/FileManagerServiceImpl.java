@@ -595,11 +595,6 @@ public class FileManagerServiceImpl implements FileManagerService {
         fileInfo.setStorageType("LOCAL");
         fileInfo.setCategory("FILE_MANAGER");
 
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        fileInfo.setCreatedBy(currentUserId);
-        fileInfo.setCreatedTime(LocalDateTime.now());
-        fileInfo.setUpdatedTime(LocalDateTime.now());
-
         fileInfoMapper.insert(fileInfo);
         fileInfo.setFileUrl("/api/files/" + fileInfo.getFileId());
         fileInfoMapper.updateById(fileInfo);

@@ -6,7 +6,6 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
-import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.Equipment;
 import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.PreparationProcessTemplate;
@@ -157,13 +156,6 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
                 workOrder.getInspectionStart(), workOrder.getInspectionEnd(),
                 workOrder.getAuditReleaseTime(), workOrder.getInboundTime()));
 
-        // 获取当前用户ID
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            workOrder.setCreatedBy(currentUserId);
-            workOrder.setUpdatedBy(currentUserId);
-        }
-
         // 重试机制：处理工单编号并发冲突
         for (int i = 0; i < MAX_RETRY; i++) {
             // 首次或重试时生成编号
@@ -207,15 +199,6 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
     @Override
     @Transactional
     public boolean updateWorkOrder(WorkOrder workOrder) {
-        // 设置更新时间
-        workOrder.setUpdatedTime(LocalDateTime.now());
-
-        // 获取当前用户ID
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            workOrder.setUpdatedBy(currentUserId);
-        }
-
         // 根据日期字段自动计算工单状态（未提交的日期字段沿用数据库现有值）
         WorkOrder existing = workOrder.getWorkOrderId() != null ? this.getById(workOrder.getWorkOrderId()) : null;
         LocalDateTime configDate = workOrder.getConfigDate() != null ? workOrder.getConfigDate()
@@ -598,9 +581,6 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
             return;
         }
 
-        LocalDateTime now = LocalDateTime.now();
-        Long currentUserId = EntityUtils.getCurrentUserId();
-
         List<WorkOrderProcessExecution> executions = new ArrayList<>();
         for (PreparationProcessTemplate template : templates) {
             WorkOrderProcessExecution exec = new WorkOrderProcessExecution();
@@ -636,10 +616,6 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
             exec.setStatus("待执行");
             exec.setIsDeleted(0);
             exec.setVersion(1);
-            exec.setCreatedBy(currentUserId);
-            exec.setUpdatedBy(currentUserId);
-            exec.setCreatedTime(now);
-            exec.setUpdatedTime(now);
             executions.add(exec);
         }
 
@@ -899,12 +875,6 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
                 workOrder.getConfigDate(), workOrder.getConfigCompleteTime(), workOrder.getArchiveTime(),
                 workOrder.getInspectionStart(), workOrder.getInspectionEnd(),
                 workOrder.getAuditReleaseTime(), workOrder.getInboundTime()));
-
-        // 获取当前用户ID
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            workOrder.setUpdatedBy(currentUserId);
-        }
 
         boolean updated = this.updateById(workOrder);
 

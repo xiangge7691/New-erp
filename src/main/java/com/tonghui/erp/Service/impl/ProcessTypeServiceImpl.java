@@ -66,7 +66,7 @@ public class ProcessTypeServiceImpl extends ServiceImpl<ProcessTypeMapper, Proce
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByProcessCode(String processCode) {
-        return baseMapper.physicalDeleteByProcessCode(processCode);
+        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "process_code", processCode);
     }
 
     /**
@@ -76,7 +76,7 @@ public class ProcessTypeServiceImpl extends ServiceImpl<ProcessTypeMapper, Proce
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByProcessName(String processName) {
-        return baseMapper.physicalDeleteByProcessName(processName);
+        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "process_name", processName);
     }
 
     // endregion
@@ -96,51 +96,20 @@ public class ProcessTypeServiceImpl extends ServiceImpl<ProcessTypeMapper, Proce
      */
     @Override
     public PagedResult<ProcessType> searchByName(String processName, String keyword, PageRequestDto pageRequest) {
-        // 创建 Page 对象，处理全量数据的情况
-        Page<ProcessType> page;
-        if (pageRequest.getPageIndex() == -1 || pageRequest.getPageSize() == -1) {
-            // 获取所有数据
-            page = new Page<>(1, 10000);
-        } else {
-            // 页码从 0 开始，但 MyBatis Plus 的 Page 页码从 1 开始，所以需要 +1
-            page = new Page<>(pageRequest.getPageIndex() + 1, pageRequest.getPageSize());
-        }
+        Page<ProcessType> page = PagedResult.toMybatisPage(pageRequest);
 
-        // 构建查询条件
         var query = this.lambdaQuery();
 
         if (keyword != null && !keyword.isEmpty()) {
-            // 关键字对工序类型编码、工序类型名称进行模糊匹配
             query.and(q -> q.like(ProcessType::getProcessCode, keyword).or().like(ProcessType::getProcessName, keyword));
         }
 
-        // 如果 processName 不为空，则添加模糊查询条件
         if (processName != null && !processName.isEmpty()) {
             query.like(ProcessType::getProcessName, processName);
         }
 
         Page<ProcessType> resultPage = query.page(page);
-
-        PagedResult<ProcessType> pagedResult = new PagedResult<>();
-        pagedResult.setItems(resultPage.getRecords());
-        pagedResult.setTotalCount(resultPage.getTotal());
-
-        // 处理分页信息
-        if (pageRequest.getPageIndex() == -1 || pageRequest.getPageSize() == -1) {
-            // 全量数据情况
-            pagedResult.setPageIndex(0);
-            if (resultPage.getTotal() > 0) {
-                pagedResult.setPageSize((int) resultPage.getTotal());
-            } else {
-                pagedResult.setPageSize(0);
-            }
-        } else {
-            // 分页情况，页码从 0 开始
-            pagedResult.setPageIndex((int) resultPage.getCurrent() - 1);
-            pagedResult.setPageSize((int) resultPage.getSize());
-        }
-
-        return pagedResult;
+        return PagedResult.fromPage(resultPage, pageRequest);
     }
 
     /**

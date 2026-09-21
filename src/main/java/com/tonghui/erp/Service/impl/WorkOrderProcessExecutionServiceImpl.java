@@ -1,7 +1,6 @@
 package com.tonghui.erp.Service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessExecution;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessExecutionMapper;
 import com.tonghui.erp.Service.WorkOrderProcessExecutionService;
@@ -31,18 +30,11 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
 
         // 批量插入新记录
         if (executions != null && !executions.isEmpty()) {
-            LocalDateTime now = LocalDateTime.now();
-            Long currentUserId = EntityUtils.getCurrentUserId();
-
             for (WorkOrderProcessExecution execution : executions) {
                 execution.setId(null);
                 execution.setWorkOrderId(workOrderId);
                 execution.setIsDeleted(0);
                 execution.setVersion(1);
-                execution.setCreatedBy(currentUserId);
-                execution.setUpdatedBy(currentUserId);
-                execution.setCreatedTime(now);
-                execution.setUpdatedTime(now);
             }
             this.saveBatch(executions);
         }

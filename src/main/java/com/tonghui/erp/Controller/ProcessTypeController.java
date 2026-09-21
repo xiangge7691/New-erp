@@ -126,17 +126,6 @@ public class ProcessTypeController extends BaseCrudController<ProcessType, Proce
             processTypeService.cleanSoftDeletedByProcessName(processType.getProcessName());
         }
 
-        // 设置创建人 ID 和创建时间
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            processType.setCreatedBy(currentUserId);
-            processType.setUpdatedBy(currentUserId);
-        }
-        
-        LocalDateTime now = LocalDateTime.now();
-        processType.setCreatedTime(now);
-        processType.setUpdatedTime(now);
-
         processTypeService.save(processType);
         return processType;
     }
@@ -172,13 +161,6 @@ public class ProcessTypeController extends BaseCrudController<ProcessType, Proce
         if (byCode != null && !byCode.getProcessId().equals(id)) {
             throw new RuntimeException("工序类型编码已存在");
         }
-
-        // 设置更新人 ID 和更新时间
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            processType.setUpdatedBy(currentUserId);
-        }
-        processType.setUpdatedTime(LocalDateTime.now());
 
         processType.setProcessId(id);
         processTypeService.updateById(processType);

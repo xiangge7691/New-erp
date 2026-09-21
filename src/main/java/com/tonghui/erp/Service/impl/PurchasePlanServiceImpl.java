@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.Purchase.PurchasePlanWithDetailsDto;
-import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.ProductionPlan;
 import com.tonghui.erp.Data.Entity.PurchaseOrderItems;
@@ -73,18 +72,6 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
         // 设置默认状态
         if (!StringUtils.hasText(purchasePlan.getStatus())) {
             purchasePlan.setStatus("草稿");
-        }
-
-        // 设置创建时间和更新时间
-        LocalDateTime now = LocalDateTime.now();
-        purchasePlan.setCreatedTime(now);
-        purchasePlan.setUpdatedTime(now);
-
-        // 获取当前用户ID
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            purchasePlan.setCreatedBy(currentUserId);
-            purchasePlan.setUpdatedBy(currentUserId);
         }
 
         boolean saved = this.save(purchasePlan);
@@ -177,11 +164,6 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
             plan.setApprovalOpinion(approvalOpinion);
         }
         plan.setUpdatedTime(LocalDateTime.now());
-
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            plan.setUpdatedBy(currentUserId);
-        }
 
         // 审批通过时，处理日期自动取审核时间（生成的采购订单同步复制该日期）
         if ("已审批".equals(targetStatus)) {
@@ -323,16 +305,6 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
         order.setRemark("由" + plan.getPlanCode() + "审批通过自动生成");
         order.setStatus("待采购");
         order.setApprovalOpinion(plan.getApprovalOpinion());
-
-        LocalDateTime now = LocalDateTime.now();
-        order.setCreatedTime(now);
-        order.setUpdatedTime(now);
-
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            order.setCreatedBy(currentUserId);
-            order.setUpdatedBy(currentUserId);
-        }
 
         return order;
     }

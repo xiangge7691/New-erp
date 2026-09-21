@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.PagedResult;
-import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.FileInfo;
 import com.tonghui.erp.Data.mapper.FileInfoMapper;
 import com.tonghui.erp.Service.FileInfoService;
@@ -74,12 +73,6 @@ public class FileInfoServiceImpl extends ServiceImpl<FileInfoMapper, FileInfo>
         fileInfo.setFileMd5(fileMd5);
         fileInfo.setCategory(StringUtils.hasText(category) ? category : "default");
         fileInfo.setDescription(description);
-        
-        // 设置创建信息
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        fileInfo.setCreatedBy(currentUserId);
-        fileInfo.setCreatedTime(LocalDateTime.now());
-        fileInfo.setUpdatedTime(LocalDateTime.now());
         
         // 保存到数据库
         save(fileInfo);
@@ -192,11 +185,6 @@ public class FileInfoServiceImpl extends ServiceImpl<FileInfoMapper, FileInfo>
         FileInfo fileInfo = fileStorageService.uploadFileWithBusinessPath(file, businessType, businessId, entityName, description, customPath);
         fileInfo.setFileMd5(fileMd5);
         fileInfo.setDescription(description);
-
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        fileInfo.setCreatedBy(currentUserId);
-        fileInfo.setCreatedTime(LocalDateTime.now());
-        fileInfo.setUpdatedTime(LocalDateTime.now());
 
         save(fileInfo);
 

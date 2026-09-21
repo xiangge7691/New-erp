@@ -59,7 +59,7 @@ public class DosageFormServiceImpl extends ServiceImpl<DosageFormMapper, DosageF
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByDosageCategory(String dosageCategory) {
-        return baseMapper.physicalDeleteByDosageCategory(dosageCategory);
+        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "dosage_category", dosageCategory);
     }
 
     /**
@@ -89,46 +89,16 @@ public class DosageFormServiceImpl extends ServiceImpl<DosageFormMapper, DosageF
      */
     @Override
     public PagedResult<DosageForm> searchByName(String dosageCategory, PageRequestDto pageRequest) {
-        // 创建Page对象，处理全量数据的情况
-        Page<DosageForm> page;
-        if (pageRequest.getPageIndex() == -1 || pageRequest.getPageSize() == -1) {
-            // 获取所有数据
-            page = new Page<>(1, 10000);
-        } else {
-            // 页码从0开始，但MyBatis Plus的Page页码从1开始，所以需要+1
-            page = new Page<>(pageRequest.getPageIndex() + 1, pageRequest.getPageSize());
-        }
+        Page<DosageForm> page = PagedResult.toMybatisPage(pageRequest);
 
-        // 构建查询条件
         var query = this.lambdaQuery();
 
-        // 如果dosageCategory不为空，则添加模糊查询条件
         if (dosageCategory != null && !dosageCategory.isEmpty()) {
             query.like(DosageForm::getDosageCategory, dosageCategory);
         }
 
         Page<DosageForm> resultPage = query.page(page);
-
-        PagedResult<DosageForm> pagedResult = new PagedResult<>();
-        pagedResult.setItems(resultPage.getRecords());
-        pagedResult.setTotalCount(resultPage.getTotal());
-
-        // 处理分页信息
-        if (pageRequest.getPageIndex() == -1 || pageRequest.getPageSize() == -1) {
-            // 全量数据情况
-            pagedResult.setPageIndex(0);
-            if (resultPage.getTotal() > 0) {
-                pagedResult.setPageSize((int) resultPage.getTotal());
-            } else {
-                pagedResult.setPageSize(0);
-            }
-        } else {
-            // 分页情况，页码从0开始
-            pagedResult.setPageIndex((int) resultPage.getCurrent() - 1);
-            pagedResult.setPageSize((int) resultPage.getSize());
-        }
-
-        return pagedResult;
+        return PagedResult.fromPage(resultPage, pageRequest);
     }
 
     // endregion

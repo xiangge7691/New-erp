@@ -56,46 +56,16 @@ public class UnitServiceImpl extends ServiceImpl<UnitMapper, Unit>
      */
     @Override
     public PagedResult<Unit> searchByName(String unitName, PageRequestDto pageRequest) {
-        // 创建Page对象，处理全量数据的情况
-        Page<Unit> page;
-        if (pageRequest.getPageIndex() == -1 || pageRequest.getPageSize() == -1) {
-            // 获取所有数据
-            page = new Page<>(1, 10000);
-        } else {
-            // 页码从0开始，但MyBatis Plus的Page页码从1开始，所以需要+1
-            page = new Page<>(pageRequest.getPageIndex() + 1, pageRequest.getPageSize());
-        }
+        Page<Unit> page = PagedResult.toMybatisPage(pageRequest);
         
-        // 构建查询条件
         var query = this.lambdaQuery();
         
-        // 如果unitName不为空，则添加模糊查询条件
         if (unitName != null && !unitName.isEmpty()) {
             query.like(Unit::getUnitName, unitName);
         }
         
         Page<Unit> resultPage = query.page(page);
-        
-        PagedResult<Unit> pagedResult = new PagedResult<>();
-        pagedResult.setItems(resultPage.getRecords());
-        pagedResult.setTotalCount(resultPage.getTotal());
-        
-        // 处理分页信息
-        if (pageRequest.getPageIndex() == -1 || pageRequest.getPageSize() == -1) {
-            // 全量数据情况
-            pagedResult.setPageIndex(0);
-            if (resultPage.getTotal() > 0) {
-                pagedResult.setPageSize((int) resultPage.getTotal());
-            } else {
-                pagedResult.setPageSize(0);
-            }
-        } else {
-            // 分页情况，页码从0开始
-            pagedResult.setPageIndex((int) resultPage.getCurrent() - 1);
-            pagedResult.setPageSize((int) resultPage.getSize());
-        }
-        
-        return pagedResult;
+        return PagedResult.fromPage(resultPage, pageRequest);
     }
     
     // endregion

@@ -15,7 +15,6 @@ import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrderItemsMapper;
 import com.tonghui.erp.Data.mapper.StockMapper;
 import com.tonghui.erp.Service.MaterialService;
-import com.tonghui.erp.Common.utils.EntityUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -93,18 +92,6 @@ public class MaterialServiceImpl implements MaterialService {
         // 清理已软删除的相同编码记录（避免唯一键冲突）
         if (material.getMaterialCode() != null && !material.getMaterialCode().isEmpty()) {
             materialMapper.physicalDeleteByMaterialCode(material.getMaterialCode());
-        }
-
-        // 设置创建时间和更新时间
-        LocalDateTime now = LocalDateTime.now();
-        material.setCreatedTime(now);
-        material.setUpdatedTime(now);
-
-        // 获取当前用户ID
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            material.setCreatedBy(currentUserId);
-            material.setUpdatedBy(currentUserId);
         }
 
         materialMapper.insert(material);
@@ -216,15 +203,6 @@ public class MaterialServiceImpl implements MaterialService {
      */
     @Override
     public void updateMaterial(Material material) {
-        // 设置更新时间
-        material.setUpdatedTime(LocalDateTime.now());
-        
-        // 获取当前用户ID
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            material.setUpdatedBy(currentUserId);
-        }
-        
         materialMapper.updateById(material);
     }
 

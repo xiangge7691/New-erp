@@ -1,6 +1,9 @@
 package com.tonghui.erp.Common.Dto;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.Data;
+
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -80,5 +83,71 @@ public class PagedResult<T> {
         return pageIndex > 0;
     }
     
+    // endregion
+
+    // region 分页工厂方法
+    // ===================================
+    // 分页工厂方法
+    // ===================================
+
+    /**
+     * 根据PageRequestDto创建MyBatis-Plus分页对象
+     * <p>
+     * 当pageIndex和pageSize均为-1时，创建全量数据查询的Page对象（pageSize=10000）
+     * </p>
+     *
+     * @param <T>           数据类型
+     * @param pageRequest   分页请求参数
+     * @return MyBatis-Plus Page对象
+     */
+    public static <T> Page<T> toMybatisPage(PageRequestDto pageRequest) {
+        if (pageRequest.getPageIndex() == -1 || pageRequest.getPageSize() == -1) {
+            return new Page<>(1, 10000);
+        }
+        return new Page<>(pageRequest.getPageIndex() + 1, pageRequest.getPageSize());
+    }
+
+    /**
+     * 将MyBatis-Plus的Page结果转换为PagedResult
+     * <p>
+     * 统一处理分页索引转换：MyBatis-Plus页码从1开始，PagedResult页码从0开始
+     * 全量数据查询时pageIndex固定为0
+     * </p>
+     *
+     * @param <T>           数据类型
+     * @param page          MyBatis-Plus分页结果
+     * @param pageRequest   分页请求参数
+     * @return PagedResult分页结果
+     */
+    public static <T> PagedResult<T> fromPage(Page<T> page, PageRequestDto pageRequest) {
+        PagedResult<T> result = new PagedResult<>();
+        result.setItems(page.getRecords());
+        result.setTotalCount(page.getTotal());
+
+        if (pageRequest.getPageIndex() == -1 || pageRequest.getPageSize() == -1) {
+            result.setPageIndex(0);
+            result.setPageSize(page.getTotal() > 0 ? (int) page.getTotal() : 0);
+        } else {
+            result.setPageIndex((int) page.getCurrent() - 1);
+            result.setPageSize((int) page.getSize());
+        }
+        return result;
+    }
+
+    /**
+     * 创建空的分页结果
+     *
+     * @param <T> 数据类型
+     * @return 空的PagedResult
+     */
+    public static <T> PagedResult<T> empty() {
+        PagedResult<T> result = new PagedResult<>();
+        result.setItems(Collections.emptyList());
+        result.setTotalCount(0);
+        result.setPageIndex(0);
+        result.setPageSize(0);
+        return result;
+    }
+
     // endregion
 }

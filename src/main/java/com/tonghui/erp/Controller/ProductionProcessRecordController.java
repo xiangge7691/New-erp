@@ -117,18 +117,6 @@ public class ProductionProcessRecordController extends BaseCrudController<Produc
      */
     @Override
     protected ProductionProcessRecord doCreate(ProductionProcessRecord record) {
-        // 设置创建人 ID 和更新人 ID
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            record.setCreatedBy(currentUserId);
-            record.setUpdatedBy(currentUserId);
-        }
-        
-        // 设置创建时间和更新时间
-        LocalDateTime now = LocalDateTime.now();
-        record.setCreatedTime(now);
-        record.setUpdatedTime(now);
-
         productionProcessRecordService.save(record);
         return record;
     }
@@ -154,13 +142,6 @@ public class ProductionProcessRecordController extends BaseCrudController<Produc
         if (existing == null) {
             throw new RuntimeException("工序记录不存在");
         }
-
-        // 设置更新人 ID 和更新时间
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            record.setUpdatedBy(currentUserId);
-        }
-        record.setUpdatedTime(LocalDateTime.now());
 
         record.setRecordId(id);
         productionProcessRecordService.updateById(record);

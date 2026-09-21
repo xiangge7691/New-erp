@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Data.Entity.SamplingRecord;
 import com.tonghui.erp.Data.mapper.SamplingRecordMapper;
 import com.tonghui.erp.Service.SamplingRecordService;
+import com.tonghui.erp.Common.utils.CodeUniqueChecker;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -58,7 +59,7 @@ public class SamplingRecordServiceImpl extends ServiceImpl<SamplingRecordMapper,
      */
     @Override
     public boolean isCodeUnique(String code, Long excludeId) {
-        return baseMapper.countByCodeIncludeDeleted(code, excludeId) == 0;
+        return CodeUniqueChecker.isCodeUnique(code, excludeId, baseMapper::countByCodeIncludeDeleted);
     }
 
     // endregion

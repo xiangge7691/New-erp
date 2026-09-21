@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Data.Entity.InspectionPlan;
 import com.tonghui.erp.Data.mapper.InspectionPlanMapper;
 import com.tonghui.erp.Service.InspectionPlanService;
-import com.tonghui.erp.Service.impl.SequenceServiceImpl;
+import com.tonghui.erp.Common.utils.CodeUniqueChecker;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -59,7 +59,7 @@ public class InspectionPlanServiceImpl extends ServiceImpl<InspectionPlanMapper,
      */
     @Override
     public boolean isCodeUnique(String code, Long excludeId) {
-        return baseMapper.countByCodeIncludeDeleted(code, excludeId) == 0;
+        return CodeUniqueChecker.isCodeUnique(code, excludeId, baseMapper::countByCodeIncludeDeleted);
     }
 
     // endregion

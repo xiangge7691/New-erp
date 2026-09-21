@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Data.Entity.ReleaseReview;
 import com.tonghui.erp.Data.mapper.ReleaseReviewMapper;
 import com.tonghui.erp.Service.ReleaseReviewService;
+import com.tonghui.erp.Common.utils.CodeUniqueChecker;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -58,7 +59,7 @@ public class ReleaseReviewServiceImpl extends ServiceImpl<ReleaseReviewMapper, R
      */
     @Override
     public boolean isCodeUnique(String code, Long excludeId) {
-        return baseMapper.countByCodeIncludeDeleted(code, excludeId) == 0;
+        return CodeUniqueChecker.isCodeUnique(code, excludeId, baseMapper::countByCodeIncludeDeleted);
     }
 
     // endregion

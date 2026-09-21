@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Data.Entity.InspectionRequest;
 import com.tonghui.erp.Data.mapper.InspectionRequestMapper;
 import com.tonghui.erp.Service.InspectionRequestService;
+import com.tonghui.erp.Common.utils.CodeUniqueChecker;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -56,12 +57,7 @@ public class InspectionRequestServiceImpl extends ServiceImpl<InspectionRequestM
      */
     @Override
     public boolean isCodeUnique(String code, Long excludeId) {
-        QueryWrapper<InspectionRequest> wrapper = new QueryWrapper<>();
-        wrapper.eq("inspection_code", code);
-        if (excludeId != null) {
-            wrapper.ne("id", excludeId);
-        }
-        return this.count(wrapper) == 0;
+        return CodeUniqueChecker.isCodeUnique(code, excludeId, baseMapper::countByCodeIncludeDeleted);
     }
 
     // endregion

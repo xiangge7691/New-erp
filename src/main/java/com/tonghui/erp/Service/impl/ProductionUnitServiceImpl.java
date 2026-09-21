@@ -7,7 +7,6 @@ import com.tonghui.erp.Common.Config.JwtConfig;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.ProductionUnitWithDetailsDto;
-import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Common.utils.SoftDeleteCleanHelper;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Data.Entity.ProdUnitInvoice;
@@ -106,18 +105,6 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
             cleanSoftDeletedByProdUnitCode(productionUnit.getProdUnitCode());
         }
 
-        // 设置创建时间和更新时间
-        java.time.LocalDateTime now = java.time.LocalDateTime.now();
-        productionUnit.setCreatedTime(now);
-        productionUnit.setUpdatedTime(now);
-
-        // 获取当前用户ID
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            productionUnit.setCreatedBy(currentUserId);
-            productionUnit.setUpdatedBy(currentUserId);
-        }
-
         return this.save(productionUnit);
     }
 
@@ -139,7 +126,7 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
         baseMapper.physicalDeleteStockByProdUnitId(deletedId);
 
         // 再物理删除 production_unit 记录
-        return baseMapper.physicalDeleteByProdUnitId(deletedId);
+        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "prod_unit_code", prodUnitCode);
     }
 
     /**
@@ -152,15 +139,6 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
     @Override
     @Transactional
     public boolean updateProductionUnit(ProductionUnit productionUnit) {
-        // 设置更新时间
-        productionUnit.setUpdatedTime(java.time.LocalDateTime.now());
-        
-        // 获取当前用户ID
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            productionUnit.setUpdatedBy(currentUserId);
-        }
-        
         return this.updateById(productionUnit);
     }
 
@@ -414,14 +392,6 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
         invoice.setProdUnitId(prodUnitId);
         invoice.setProdInvoiceInfo(prodInvoiceInfo);
 
-        java.time.LocalDateTime now = java.time.LocalDateTime.now();
-        invoice.setCreatedTime(now);
-
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            invoice.setCreatedBy(currentUserId);
-        }
-
         prodUnitInvoiceMapper.insert(invoice);
         return invoice;
     }
@@ -443,18 +413,11 @@ public class ProductionUnitServiceImpl extends ServiceImpl<ProductionUnitMapper,
         prodUnitInvoiceMapper.delete(deleteWrapper);
 
         // 批量插入新发票
-        java.time.LocalDateTime now = java.time.LocalDateTime.now();
-        Long currentUserId = EntityUtils.getCurrentUserId();
-
         List<ProdUnitInvoice> invoices = new java.util.ArrayList<>();
         for (String prodInvoiceInfo : prodInvoiceInfos) {
             ProdUnitInvoice invoice = new ProdUnitInvoice();
             invoice.setProdUnitId(prodUnitId);
             invoice.setProdInvoiceInfo(prodInvoiceInfo);
-            invoice.setCreatedTime(now);
-            if (currentUserId != null) {
-                invoice.setCreatedBy(currentUserId);
-            }
             prodUnitInvoiceMapper.insert(invoice);
             invoices.add(invoice);
         }

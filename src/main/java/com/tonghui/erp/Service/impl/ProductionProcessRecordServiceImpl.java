@@ -8,7 +8,6 @@ import com.tonghui.erp.Service.ProductionProcessRecordService;
 import com.tonghui.erp.Data.mapper.ProductionProcessRecordMapper;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
-import com.tonghui.erp.Common.utils.EntityUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -58,39 +57,14 @@ public class ProductionProcessRecordServiceImpl extends ServiceImpl<ProductionPr
      */
     @Override
     public PagedResult<ProductionProcessRecord> listByPlanIdPaged(Integer planId, PageRequestDto pageRequest) {
-        // 创建 Page 对象
-        Page<ProductionProcessRecord> page;
-        if (pageRequest.getPageIndex() == -1 || pageRequest.getPageSize() == -1) {
-            page = new Page<>(1, 10000);
-        } else {
-            page = new Page<>(pageRequest.getPageIndex() + 1, pageRequest.getPageSize());
-        }
+        Page<ProductionProcessRecord> page = PagedResult.toMybatisPage(pageRequest);
 
-        // 构建查询条件
         var query = this.lambdaQuery()
                 .eq(ProductionProcessRecord::getPlanId, planId)
                 .orderByAsc(ProductionProcessRecord::getStepOrder);
 
         Page<ProductionProcessRecord> resultPage = query.page(page);
-
-        PagedResult<ProductionProcessRecord> pagedResult = new PagedResult<>();
-        pagedResult.setItems(resultPage.getRecords());
-        pagedResult.setTotalCount(resultPage.getTotal());
-
-        // 处理分页信息
-        if (pageRequest.getPageIndex() == -1 || pageRequest.getPageSize() == -1) {
-            pagedResult.setPageIndex(0);
-            if (resultPage.getTotal() > 0) {
-                pagedResult.setPageSize((int) resultPage.getTotal());
-            } else {
-                pagedResult.setPageSize(0);
-            }
-        } else {
-            pagedResult.setPageIndex((int) resultPage.getCurrent() - 1);
-            pagedResult.setPageSize((int) resultPage.getSize());
-        }
-
-        return pagedResult;
+        return PagedResult.fromPage(resultPage, pageRequest);
     }
 
     /**
@@ -102,15 +76,8 @@ public class ProductionProcessRecordServiceImpl extends ServiceImpl<ProductionPr
      */
     @Override
     public PagedResult<ProductionProcessRecord> listByStatus(Integer recordStatus, PageRequestDto pageRequest) {
-        // 创建 Page 对象
-        Page<ProductionProcessRecord> page;
-        if (pageRequest.getPageIndex() == -1 || pageRequest.getPageSize() == -1) {
-            page = new Page<>(1, 10000);
-        } else {
-            page = new Page<>(pageRequest.getPageIndex() + 1, pageRequest.getPageSize());
-        }
+        Page<ProductionProcessRecord> page = PagedResult.toMybatisPage(pageRequest);
 
-        // 构建查询条件
         var query = this.lambdaQuery();
         if (recordStatus != null) {
             query.eq(ProductionProcessRecord::getRecordStatus, recordStatus);
@@ -118,25 +85,7 @@ public class ProductionProcessRecordServiceImpl extends ServiceImpl<ProductionPr
         query.orderByDesc(ProductionProcessRecord::getCreatedTime);
 
         Page<ProductionProcessRecord> resultPage = query.page(page);
-
-        PagedResult<ProductionProcessRecord> pagedResult = new PagedResult<>();
-        pagedResult.setItems(resultPage.getRecords());
-        pagedResult.setTotalCount(resultPage.getTotal());
-
-        // 处理分页信息
-        if (pageRequest.getPageIndex() == -1 || pageRequest.getPageSize() == -1) {
-            pagedResult.setPageIndex(0);
-            if (resultPage.getTotal() > 0) {
-                pagedResult.setPageSize((int) resultPage.getTotal());
-            } else {
-                pagedResult.setPageSize(0);
-            }
-        } else {
-            pagedResult.setPageIndex((int) resultPage.getCurrent() - 1);
-            pagedResult.setPageSize((int) resultPage.getSize());
-        }
-
-        return pagedResult;
+        return PagedResult.fromPage(resultPage, pageRequest);
     }
 
     /**
@@ -148,15 +97,8 @@ public class ProductionProcessRecordServiceImpl extends ServiceImpl<ProductionPr
      */
     @Override
     public PagedResult<ProductionProcessRecord> searchByProcessName(String processName, PageRequestDto pageRequest) {
-        // 创建 Page 对象
-        Page<ProductionProcessRecord> page;
-        if (pageRequest.getPageIndex() == -1 || pageRequest.getPageSize() == -1) {
-            page = new Page<>(1, 10000);
-        } else {
-            page = new Page<>(pageRequest.getPageIndex() + 1, pageRequest.getPageSize());
-        }
+        Page<ProductionProcessRecord> page = PagedResult.toMybatisPage(pageRequest);
 
-        // 构建查询条件
         var query = this.lambdaQuery();
         
         if (processName != null && !processName.isEmpty()) {
@@ -165,25 +107,7 @@ public class ProductionProcessRecordServiceImpl extends ServiceImpl<ProductionPr
         query.orderByDesc(ProductionProcessRecord::getStartTime);
 
         Page<ProductionProcessRecord> resultPage = query.page(page);
-
-        PagedResult<ProductionProcessRecord> pagedResult = new PagedResult<>();
-        pagedResult.setItems(resultPage.getRecords());
-        pagedResult.setTotalCount(resultPage.getTotal());
-
-        // 处理分页信息
-        if (pageRequest.getPageIndex() == -1 || pageRequest.getPageSize() == -1) {
-            pagedResult.setPageIndex(0);
-            if (resultPage.getTotal() > 0) {
-                pagedResult.setPageSize((int) resultPage.getTotal());
-            } else {
-                pagedResult.setPageSize(0);
-            }
-        } else {
-            pagedResult.setPageIndex((int) resultPage.getCurrent() - 1);
-            pagedResult.setPageSize((int) resultPage.getSize());
-        }
-
-        return pagedResult;
+        return PagedResult.fromPage(resultPage, pageRequest);
     }
 
     /**
@@ -195,15 +119,8 @@ public class ProductionProcessRecordServiceImpl extends ServiceImpl<ProductionPr
      */
     @Override
     public PagedResult<ProductionProcessRecord> searchByOperatorName(String operatorName, PageRequestDto pageRequest) {
-        // 创建 Page 对象
-        Page<ProductionProcessRecord> page;
-        if (pageRequest.getPageIndex() == -1 || pageRequest.getPageSize() == -1) {
-            page = new Page<>(1, 10000);
-        } else {
-            page = new Page<>(pageRequest.getPageIndex() + 1, pageRequest.getPageSize());
-        }
+        Page<ProductionProcessRecord> page = PagedResult.toMybatisPage(pageRequest);
 
-        // 构建查询条件
         var query = this.lambdaQuery();
         
         if (operatorName != null && !operatorName.isEmpty()) {
@@ -212,25 +129,7 @@ public class ProductionProcessRecordServiceImpl extends ServiceImpl<ProductionPr
         query.orderByDesc(ProductionProcessRecord::getStartTime);
 
         Page<ProductionProcessRecord> resultPage = query.page(page);
-
-        PagedResult<ProductionProcessRecord> pagedResult = new PagedResult<>();
-        pagedResult.setItems(resultPage.getRecords());
-        pagedResult.setTotalCount(resultPage.getTotal());
-
-        // 处理分页信息
-        if (pageRequest.getPageIndex() == -1 || pageRequest.getPageSize() == -1) {
-            pagedResult.setPageIndex(0);
-            if (resultPage.getTotal() > 0) {
-                pagedResult.setPageSize((int) resultPage.getTotal());
-            } else {
-                pagedResult.setPageSize(0);
-            }
-        } else {
-            pagedResult.setPageIndex((int) resultPage.getCurrent() - 1);
-            pagedResult.setPageSize((int) resultPage.getSize());
-        }
-
-        return pagedResult;
+        return PagedResult.fromPage(resultPage, pageRequest);
     }
 
     /**
@@ -274,16 +173,8 @@ public class ProductionProcessRecordServiceImpl extends ServiceImpl<ProductionPr
         this.remove(new QueryWrapper<ProductionProcessRecord>().eq("plan_id", planId));
 
         // 设置公共字段
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        LocalDateTime now = LocalDateTime.now();
         for (ProductionProcessRecord record : records) {
             record.setPlanId(planId);
-            if (currentUserId != null) {
-                record.setCreatedBy(currentUserId);
-                record.setUpdatedBy(currentUserId);
-            }
-            record.setCreatedTime(now);
-            record.setUpdatedTime(now);
         }
 
         // 批量插入

@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
  */
 @RestController
 @RequestMapping("/api/cleanInspectionRecord")
-public class CleanInspectionRecordController extends BaseController {
+public class CleanInspectionRecordController extends BaseRoomRecordController<CleanInspectionRecord> {
 
     // region 服务依赖注入
     // ===================================
@@ -47,12 +47,6 @@ public class CleanInspectionRecordController extends BaseController {
      */
     @Autowired
     private CleanInspectionRecordService cleanInspectionRecordService;
-
-    /**
-     * 房间信息服务
-     */
-    @Autowired
-    private RoomInfoService roomInfoService;
 
     // endregion
 
@@ -83,36 +77,28 @@ public class CleanInspectionRecordController extends BaseController {
             @RequestParam(defaultValue = "0") int pageIndex,
             @RequestParam(defaultValue = "10") int pageSize) {
         try {
+            int[] safeParams = safePageParams(pageIndex, pageSize);
+            int safePageIndex = safeParams[0];
+            int safePageSize = safeParams[1];
+
             if (roomName != null || roomCode != null) {
-                QueryWrapper<RoomInfo> roomWrapper = new QueryWrapper<>();
-                roomWrapper.eq("is_deleted", 0);
-                if (roomName != null) roomWrapper.like("room_name", roomName);
-                if (roomCode != null) roomWrapper.eq("room_code", roomCode);
-                List<RoomInfo> rooms = roomInfoService.list(roomWrapper);
-                if (rooms.isEmpty()) return success(new PagedResult<>());
-                List<Integer> roomIds = rooms.stream().map(RoomInfo::getRoomId).collect(Collectors.toList());
-                if (roomId != null) {
-                    if (!roomIds.contains(roomId)) return success(new PagedResult<>());
-                    roomIds = List.of(roomId);
-                }
+                List<Integer> roomIds = findRoomIds(roomId, roomName, roomCode);
+                if (roomIds.isEmpty()) return success(PagedResult.empty());
+
+                Page<CleanInspectionRecord> page = createPage(safePageIndex, safePageSize);
                 QueryWrapper<CleanInspectionRecord> wrapper = new QueryWrapper<>();
                 wrapper.eq("is_deleted", 0);
                 wrapper.in("room_id", roomIds);
                 if (startDate != null) wrapper.ge("inspection_date", startDate);
                 if (endDate != null) wrapper.le("inspection_date", endDate);
                 wrapper.orderByDesc("inspection_date");
-                Page<CleanInspectionRecord> page = new Page<>(pageIndex + 1, pageSize);
                 cleanInspectionRecordService.page(page, wrapper);
-                fillRoomInfo(page.getRecords());
-                PagedResult<CleanInspectionRecord> result = new PagedResult<>();
-                result.setItems(page.getRecords());
-                result.setTotalCount(page.getTotal());
-                result.setPageIndex(pageIndex);
-                result.setPageSize(pageSize);
-                return success(result);
+                fillRoomInfo(page.getRecords(), CleanInspectionRecord::getRoomId,
+                        CleanInspectionRecord::setRoomName, CleanInspectionRecord::setRoomCode);
+                return success(buildPagedResult(page, safePageIndex, safePageSize));
             }
 
-            Page<CleanInspectionRecord> page = new Page<>(pageIndex + 1, pageSize);
+            Page<CleanInspectionRecord> page = createPage(safePageIndex, safePageSize);
             QueryWrapper<CleanInspectionRecord> wrapper = new QueryWrapper<>();
             wrapper.eq("is_deleted", 0);
             if (roomId != null) wrapper.eq("room_id", roomId);
@@ -120,14 +106,10 @@ public class CleanInspectionRecordController extends BaseController {
             if (endDate != null) wrapper.le("inspection_date", endDate);
             wrapper.orderByDesc("inspection_date");
             Page<CleanInspectionRecord> pageResult = cleanInspectionRecordService.page(page, wrapper);
-            fillRoomInfo(pageResult.getRecords());
+            fillRoomInfo(pageResult.getRecords(), CleanInspectionRecord::getRoomId,
+                    CleanInspectionRecord::setRoomName, CleanInspectionRecord::setRoomCode);
 
-            PagedResult<CleanInspectionRecord> result = new PagedResult<>();
-            result.setItems(pageResult.getRecords());
-            result.setTotalCount(pageResult.getTotal());
-            result.setPageIndex(pageIndex);
-            result.setPageSize(pageSize);
-            return success(result);
+            return success(buildPagedResult(pageResult, safePageIndex, safePageSize));
         } catch (Exception e) {
             return exception(e, "查询洁净检测记录");
         }
@@ -245,7 +227,6 @@ public class CleanInspectionRecordController extends BaseController {
             if (existing == null) {
                 return error("记录不存在");
             }
-            // 房间ID优先取请求体，其次取URL参数：兼容两种传参方式，并允许修改房间
             Integer targetRoomId = record.getRoomId() != null ? record.getRoomId() : roomId;
             if (targetRoomId != null) {
                 record.setRoomId(targetRoomId);

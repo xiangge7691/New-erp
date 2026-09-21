@@ -36,7 +36,7 @@ import java.util.stream.Collectors;
  */
 @RestController
 @RequestMapping("/api/disinfectionRecord")
-public class DisinfectionRecordController extends BaseController {
+public class DisinfectionRecordController extends BaseRoomRecordController<DisinfectionRecord> {
 
     // region 服务依赖注入
     // ===================================
@@ -48,12 +48,6 @@ public class DisinfectionRecordController extends BaseController {
      */
     @Autowired
     private DisinfectionRecordService disinfectionRecordService;
-
-    /**
-     * 房间信息服务
-     */
-    @Autowired
-    private RoomInfoService roomInfoService;
 
     // endregion
 
@@ -88,70 +82,39 @@ public class DisinfectionRecordController extends BaseController {
             @RequestParam(defaultValue = "0") int pageIndex,
             @RequestParam(defaultValue = "10") int pageSize) {
         try {
-            // 如果有房间名称或房间编码筛选，先查出符合条件的房间ID
+            int[] safeParams = safePageParams(pageIndex, pageSize);
+            int safePageIndex = safeParams[0];
+            int safePageSize = safeParams[1];
+
             if (roomName != null || roomCode != null) {
-                QueryWrapper<RoomInfo> roomWrapper = new QueryWrapper<>();
-                roomWrapper.eq("is_deleted", 0);
-                if (roomName != null) {
-                    roomWrapper.like("room_name", roomName);
-                }
-                if (roomCode != null) {
-                    roomWrapper.eq("room_code", roomCode);
-                }
-                List<RoomInfo> rooms = roomInfoService.list(roomWrapper);
-                if (rooms.isEmpty()) {
-                    return success(new PagedResult<>());
-                }
-                List<Integer> roomIds = rooms.stream().map(RoomInfo::getRoomId).collect(Collectors.toList());
-                if (roomId != null) {
-                    if (!roomIds.contains(roomId)) {
-                        return success(new PagedResult<>());
-                    }
-                    roomIds = List.of(roomId);
-                }
+                List<Integer> roomIds = findRoomIds(roomId, roomName, roomCode);
+                if (roomIds.isEmpty()) return success(PagedResult.empty());
+
+                Page<DisinfectionRecord> page = createPage(safePageIndex, safePageSize);
                 QueryWrapper<DisinfectionRecord> wrapper = new QueryWrapper<>();
                 wrapper.eq("is_deleted", 0);
                 wrapper.in("room_id", roomIds);
-                if (startDate != null) {
-                    wrapper.ge("disinfection_date", startDate);
-                }
-                if (endDate != null) {
-                    wrapper.le("disinfection_date", endDate);
-                }
+                if (startDate != null) wrapper.ge("disinfection_date", startDate);
+                if (endDate != null) wrapper.le("disinfection_date", endDate);
                 wrapper.orderByDesc("disinfection_date");
-                Page<DisinfectionRecord> page = new Page<>(pageIndex + 1, pageSize);
                 disinfectionRecordService.page(page, wrapper);
-                fillRoomInfo(page.getRecords());
-                PagedResult<DisinfectionRecord> result = new PagedResult<>();
-                result.setItems(page.getRecords());
-                result.setTotalCount(page.getTotal());
-                result.setPageIndex(pageIndex);
-                result.setPageSize(pageSize);
-                return success(result);
+                fillRoomInfo(page.getRecords(), DisinfectionRecord::getRoomId,
+                        DisinfectionRecord::setRoomName, DisinfectionRecord::setRoomCode);
+                return success(buildPagedResult(page, safePageIndex, safePageSize));
             }
 
-            Page<DisinfectionRecord> page = new Page<>(pageIndex + 1, pageSize);
+            Page<DisinfectionRecord> page = createPage(safePageIndex, safePageSize);
             QueryWrapper<DisinfectionRecord> wrapper = new QueryWrapper<>();
             wrapper.eq("is_deleted", 0);
-            if (roomId != null) {
-                wrapper.eq("room_id", roomId);
-            }
-            if (startDate != null) {
-                wrapper.ge("disinfection_date", startDate);
-            }
-            if (endDate != null) {
-                wrapper.le("disinfection_date", endDate);
-            }
+            if (roomId != null) wrapper.eq("room_id", roomId);
+            if (startDate != null) wrapper.ge("disinfection_date", startDate);
+            if (endDate != null) wrapper.le("disinfection_date", endDate);
             wrapper.orderByDesc("disinfection_date");
             Page<DisinfectionRecord> pageResult = disinfectionRecordService.page(page, wrapper);
-            fillRoomInfo(pageResult.getRecords());
+            fillRoomInfo(pageResult.getRecords(), DisinfectionRecord::getRoomId,
+                    DisinfectionRecord::setRoomName, DisinfectionRecord::setRoomCode);
 
-            PagedResult<DisinfectionRecord> result = new PagedResult<>();
-            result.setItems(pageResult.getRecords());
-            result.setTotalCount(pageResult.getTotal());
-            result.setPageIndex(pageIndex);
-            result.setPageSize(pageSize);
-            return success(result);
+            return success(buildPagedResult(pageResult, safePageIndex, safePageSize));
         } catch (Exception e) {
             return exception(e, "查询消毒记录");
         }
@@ -299,7 +262,6 @@ public class DisinfectionRecordController extends BaseController {
             if (existing == null) {
                 return error("记录不存在");
             }
-            // 房间ID优先取请求体，其次取URL参数：兼容两种传参方式，并允许修改房间
             Integer targetRoomId = record.getRoomId() != null ? record.getRoomId() : roomId;
             if (targetRoomId != null) {
                 record.setRoomId(targetRoomId);

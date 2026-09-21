@@ -60,7 +60,7 @@ public class EquipmentServiceImpl extends ServiceImpl<EquipmentMapper, Equipment
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByFixedAssetCode(String fixedAssetCode) {
-        return baseMapper.physicalDeleteByFixedAssetCode(fixedAssetCode);
+        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "fixed_asset_code", fixedAssetCode);
     }
 
     // endregion
@@ -79,44 +79,16 @@ public class EquipmentServiceImpl extends ServiceImpl<EquipmentMapper, Equipment
      */
     @Override
    public PagedResult<Equipment> searchByName(String equipmentName, PageRequestDto pageRequest) {
-        // 创建 Page 对象，处理全量数据的情况
-        Page<Equipment> page;
-        if (pageRequest.getPageIndex() == -1 || pageRequest.getPageSize() == -1) {
-            // 获取所有数据
-            page = new Page<>(1, 10000);
-        } else {
-            // 页码从 0 开始，但 MyBatis Plus 的 Page 页码从 1 开始，所以需要 +1
-            page = new Page<>(pageRequest.getPageIndex() + 1, pageRequest.getPageSize());
-        }
+        Page<Equipment> page = PagedResult.toMybatisPage(pageRequest);
 
-        // 构建查询条件
         var query = this.lambdaQuery();
 
-        // 如果 equipmentName 不为空，则添加模糊查询条件
         if (equipmentName != null && !equipmentName.isEmpty()) {
             query.like(Equipment::getEquipmentName, equipmentName);
         }
 
         Page<Equipment> resultPage = query.page(page);
-
-        PagedResult<Equipment> pagedResult = new PagedResult<>();
-       pagedResult.setItems(resultPage.getRecords());
-        pagedResult.setTotalCount(resultPage.getTotal());
-
-        // 处理分页信息
-        if (pageRequest.getPageIndex() == -1 || pageRequest.getPageSize() == -1) {
-            // 全量数据情况
-           pagedResult.setPageIndex(0);
-            if (resultPage.getTotal() > 0) {
-                pagedResult.setPageSize((int) resultPage.getTotal());
-            } else {
-                pagedResult.setPageSize(0);
-            }
-        } else {
-            // 分页情况，页码从 0 开始
-            pagedResult.setPageIndex((int) resultPage.getCurrent() - 1);
-           pagedResult.setPageSize((int) resultPage.getSize());
-        }
+        PagedResult<Equipment> pagedResult = PagedResult.fromPage(resultPage, pageRequest);
 
         fillRoomNames(pagedResult.getItems());
 
@@ -168,15 +140,8 @@ public class EquipmentServiceImpl extends ServiceImpl<EquipmentMapper, Equipment
      */
     @Override
    public PagedResult<Equipment> searchByManufacturer(String manufacturer, PageRequestDto pageRequest) {
-        // 创建 Page 对象
-        Page<Equipment> page;
-        if (pageRequest.getPageIndex() == -1 || pageRequest.getPageSize() == -1) {
-            page = new Page<>(1, 10000);
-        } else {
-            page = new Page<>(pageRequest.getPageIndex() + 1, pageRequest.getPageSize());
-        }
+        Page<Equipment> page = PagedResult.toMybatisPage(pageRequest);
 
-        // 构建查询条件
         var query = this.lambdaQuery();
         
         if (manufacturer != null && !manufacturer.isEmpty()) {
@@ -184,23 +149,7 @@ public class EquipmentServiceImpl extends ServiceImpl<EquipmentMapper, Equipment
         }
 
         Page<Equipment> resultPage = query.page(page);
-
-        PagedResult<Equipment> pagedResult = new PagedResult<>();
-        pagedResult.setItems(resultPage.getRecords());
-        pagedResult.setTotalCount(resultPage.getTotal());
-
-        // 处理分页信息
-        if (pageRequest.getPageIndex() == -1 || pageRequest.getPageSize() == -1) {
-            pagedResult.setPageIndex(0);
-            if (resultPage.getTotal() > 0) {
-                pagedResult.setPageSize((int) resultPage.getTotal());
-            } else {
-               pagedResult.setPageSize(0);
-            }
-        } else {
-            pagedResult.setPageIndex((int) resultPage.getCurrent() - 1);
-           pagedResult.setPageSize((int) resultPage.getSize());
-        }
+        PagedResult<Equipment> pagedResult = PagedResult.fromPage(resultPage, pageRequest);
 
         fillRoomNames(pagedResult.getItems());
 

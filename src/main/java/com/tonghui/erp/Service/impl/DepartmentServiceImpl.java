@@ -71,7 +71,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
      * @return 清理的记录数
      */
     public int cleanSoftDeletedByDepartmentName(String departmentName) {
-        return baseMapper.physicalDeleteByDepartmentName(departmentName);
+        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "department_name", departmentName);
     }
 
     // endregion

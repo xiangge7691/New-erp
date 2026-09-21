@@ -135,18 +135,6 @@ public class RoomInfoController extends BaseCrudController<RoomInfo, RoomInfo, I
             roomInfoService.cleanSoftDeletedByRoomCode(roomInfo.getRoomCode());
         }
 
-        // 设置创建人 ID 和更新人 ID
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            roomInfo.setCreatedBy(currentUserId);
-            roomInfo.setUpdatedBy(currentUserId);
-        }
-        
-        // 设置创建时间和更新时间
-        LocalDateTime now = LocalDateTime.now();
-        roomInfo.setCreatedTime(now);
-        roomInfo.setUpdatedTime(now);
-
         roomInfoService.save(roomInfo);
         return roomInfo;
     }
@@ -181,13 +169,6 @@ public class RoomInfoController extends BaseCrudController<RoomInfo, RoomInfo, I
         if (byName != null && !byName.getRoomId().equals(id)) {
             throw new RuntimeException("房间名称已存在");
         }
-
-        // 设置更新人 ID 和更新时间
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            roomInfo.setUpdatedBy(currentUserId);
-        }
-        roomInfo.setUpdatedTime(LocalDateTime.now());
 
         roomInfo.setRoomId(id);
         roomInfoService.updateById(roomInfo);

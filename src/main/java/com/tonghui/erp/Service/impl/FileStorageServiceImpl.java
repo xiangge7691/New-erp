@@ -1,7 +1,6 @@
 package com.tonghui.erp.Service.impl;
 
 import com.tonghui.erp.Common.Config.FileStorageConfig;
-import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.FileInfo;
 import com.tonghui.erp.Service.FileStorageService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -136,12 +135,6 @@ public class FileStorageServiceImpl implements FileStorageService {
         if (fileStorageConfig.isEnableMd5Check()) {
             fileInfo.setFileMd5(calculateMD5(file));
         }
-        
-        // 设置创建信息
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        fileInfo.setCreatedBy(currentUserId);
-        fileInfo.setCreatedTime(LocalDateTime.now());
-        fileInfo.setUpdatedTime(LocalDateTime.now());
         
         // 生成访问URL
         fileInfo.setFileUrl("/api/files/" + fileInfo.getFileId());
@@ -324,10 +317,6 @@ public class FileStorageServiceImpl implements FileStorageService {
             fileInfo.setFileMd5(calculateMD5(file));
         }
 
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        fileInfo.setCreatedBy(currentUserId);
-        fileInfo.setCreatedTime(LocalDateTime.now());
-        fileInfo.setUpdatedTime(LocalDateTime.now());
         fileInfo.setFileUrl("/api/files/" + fileInfo.getFileId());
 
         return fileInfo;

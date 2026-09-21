@@ -5,7 +5,6 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.ProductionPlanWithRecordsDto;
-import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.ProductionPlan;
 import com.tonghui.erp.Service.ProductionPlanService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -85,18 +84,9 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
             entity.setPlanNumber(generatePlanNumberInternal());
         }
 
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            entity.setCreatedBy(currentUserId);
-            entity.setUpdatedBy(currentUserId);
-        }
-        LocalDateTime now = LocalDateTime.now();
-        entity.setCreatedTime(now);
-        entity.setUpdatedTime(now);
-
         // 新建计划默认状态为「待生产」（未关联工单），后续由工单状态联动刷新
         entity.setCurrentStatus("待生产");
-        entity.setCurrentStatusDate(now);
+        entity.setCurrentStatusDate(LocalDateTime.now());
 
         productionPlanService.save(entity);
         return entity;
@@ -133,11 +123,6 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
     @Override
     protected ProductionPlan doUpdate(Integer id, ProductionPlan entity) {
         entity.setId(id);
-        Long currentUserId = EntityUtils.getCurrentUserId();
-        if (currentUserId != null) {
-            entity.setUpdatedBy(currentUserId);
-        }
-        entity.setUpdatedTime(LocalDateTime.now());
         productionPlanService.updateById(entity);
         return entity;
     }
