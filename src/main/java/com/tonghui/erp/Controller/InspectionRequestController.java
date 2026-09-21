@@ -189,7 +189,9 @@ public class InspectionRequestController extends BaseController {
             if (!StringUtils.hasText(request.getInspectionItemName())) {
                 return error("被检物名称不能为空");
             }
-            if (!StringUtils.hasText(request.getProcessName())) {
+            // 工序：中间产品和成品时必填，生产原料时可空
+            if (!StringUtils.hasText(request.getProcessName())
+                    && !"生产原料".equals(request.getItemCategory())) {
                 return error("工序不能为空");
             }
             if (!StringUtils.hasText(request.getConfigQuantity())) {
