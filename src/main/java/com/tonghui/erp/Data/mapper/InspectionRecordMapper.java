@@ -5,6 +5,8 @@ import com.tonghui.erp.Data.Entity.InspectionRecord;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
+import java.util.List;
+
 /**
  * 检验记录数据访问Mapper接口
  * <p>
@@ -38,4 +40,17 @@ public interface InspectionRecordMapper extends BaseMapper<InspectionRecord> {
      */
     @Select("SELECT COUNT(*) FROM inspection_record WHERE inspection_code = #{code} AND (#{excludeId} IS NULL OR id <> #{excludeId})")
     long countByCodeIncludeDeleted(@Param("code") String code, @Param("excludeId") Long excludeId);
+
+    /**
+     * 根据工单ID查询成品且合格的检验记录
+     * <p>
+     * 用于审核放行模块，选中工单后自动带出对应的检验编号
+     * 筛选条件：item_category=成品 且 conclusion=合格
+     * </p>
+     *
+     * @param workOrderId 工单ID
+     * @return 成品且合格的检验记录列表，按检验结束时间倒序
+     */
+    @Select("SELECT * FROM inspection_record WHERE work_order_id = #{workOrderId} AND item_category = '成品' AND conclusion = '合格' AND is_deleted = 0 ORDER BY end_time DESC")
+    List<InspectionRecord> selectQualifiedFinishedProducts(@Param("workOrderId") Long workOrderId);
 }

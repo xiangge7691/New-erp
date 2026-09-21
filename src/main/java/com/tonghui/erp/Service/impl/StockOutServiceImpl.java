@@ -208,6 +208,30 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
     }
 
     /**
+     * 创建草稿出库单（不扣库存，等待库管确认）
+     * <p>
+     * 用于成品出库台账联动创建，仅保存出库单主表，状态为"草稿"，
+     * 不创建明细、不扣减库存。库管需在出库管理页面添加明细并确认后才扣减库存
+     * </p>
+     *
+     * @param stockOut 出库单实体（需设置 outType, customerId, relatedOrder, outDate, totalAmount）
+     * @return 创建后的出库单（含自动生成的outCode和ID）
+     */
+    @Override
+    @Transactional
+    public StockOut createDraftOutbound(StockOut stockOut) {
+        // 自动生成出库单号（如果未提供）
+        if (!StringUtils.hasText(stockOut.getOutCode())) {
+            stockOut.setOutCode(sequenceService.generateStockOutCode());
+        }
+        // 设置初始状态为草稿
+        stockOut.setOutStatus("草稿");
+        // 保存出库单主表（无明细，不扣库存）
+        stockOutMapper.insert(stockOut);
+        return stockOut;
+    }
+
+    /**
      * 更新出库单（含明细）
      * <p>更新主表数据，如果提供了明细则先删除原有明细再重新插入</p>
      *

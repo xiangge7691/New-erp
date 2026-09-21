@@ -4,8 +4,12 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.SalesOrderCreateDto;
 import com.tonghui.erp.Data.Entity.SalesOrder;
+import com.tonghui.erp.Data.Entity.StockOut;
+import com.tonghui.erp.Data.Entity.StockOutDetail;
 import com.tonghui.erp.Service.SalesOrderService;
+import com.tonghui.erp.Service.StockOutService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
@@ -50,6 +54,12 @@ public class SalesOrderController extends BaseCrudController<SalesOrder, SalesOr
      */
     @Autowired
     private SalesOrderService salesOrderService;
+
+    /**
+     * 出库单服务（用于联动创建草稿出库单）
+     */
+    @Autowired
+    private StockOutService stockOutService;
 
     // endregion
 
@@ -97,6 +107,79 @@ public class SalesOrderController extends BaseCrudController<SalesOrder, SalesOr
         }
         salesOrderService.save(salesOrder);
         return salesOrder;
+    }
+
+    /**
+     * 新增成品出库台账（联动创建草稿出库单）
+     * <p>
+     * 重写基类创建方法，接收台账信息和出库明细列表，
+     * 创建台账后自动联动创建草稿出库单（状态为"草稿"，不扣库存）
+     * </p>
+     *
+     * 示例请求：
+     * POST /api/sales-order
+     * Content-Type: application/json
+     * {
+     *   "salesOrderDate": "2026-09-21T15:00:00",
+     *   "customerId": 1,
+     *   "preparationName": "益肾壮骨丸",
+     *   "preparationCode": "Z00347",
+     *   "batchNumber": "P20260901",
+     *   "quantity": 250,
+     *   "unitPrice": 21.01,
+     *   "stockOutDetails": [
+     *     { "stockId": 1, "quantity": 250, "unitPrice": 21.01 }
+     *   ]
+     * }
+     *
+     * @param dto 台账创建请求（含出库明细）
+     * @return ApiResponse&lt;SalesOrder&gt; 创建结果（含关联的出库单号）
+     */
+    @PostMapping
+    public ApiResponse<SalesOrder> create(@RequestBody SalesOrderCreateDto dto) {
+        try {
+            if (dto == null) {
+                return error("请求参数不能为空");
+            }
+            // 1. 创建 SalesOrder
+            SalesOrder salesOrder = new SalesOrder();
+            salesOrder.setSalesOrderDate(dto.getSalesOrderDate());
+            salesOrder.setCustomerId(dto.getCustomerId());
+            salesOrder.setPreparationName(dto.getPreparationName());
+            salesOrder.setPreparationCode(dto.getPreparationCode());
+            salesOrder.setBatchNumber(dto.getBatchNumber());
+            salesOrder.setQuantity(dto.getQuantity());
+            salesOrder.setUnitPrice(dto.getUnitPrice());
+            salesOrder.setRemark(dto.getRemark());
+            SalesOrder created = doCreate(salesOrder);
+
+            // 2. 联动创建草稿出库单（如有出库明细）
+            if (dto.getStockOutDetails() != null && !dto.getStockOutDetails().isEmpty()) {
+                StockOut stockOut = new StockOut();
+                stockOut.setOutType("成品出库");
+                stockOut.setCustomerId(created.getCustomerId());
+                stockOut.setRelatedOrder(created.getSalesOrderCode());
+                stockOut.setOutDate(created.getSalesOrderDate());
+                stockOut.setTotalAmount(created.getAmount());
+                stockOut.setRemark("由成品出库台账自动创建");
+
+                StockOut draft = stockOutService.createDraftOutbound(stockOut);
+
+                // 保存出库明细
+                for (StockOutDetail detail : dto.getStockOutDetails()) {
+                    detail.setOutId(draft.getOutId());
+                }
+                stockOutService.addStockOutDetails(dto.getStockOutDetails());
+
+                // 回写出库单号到 SalesOrder
+                created.setRelatedOutCode(draft.getOutCode());
+                salesOrderService.updateById(created);
+            }
+
+            return success(created, "创建成功");
+        } catch (Exception ex) {
+            return exception(ex, "创建成品出库台账");
+        }
     }
 
     @Override
