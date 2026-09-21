@@ -145,6 +145,25 @@ return PagedResult.empty();
 // 场景：GMP车间记录Controller，继承BaseRoomRecordController<T>获得房间查询和填充能力
 ```
 
+### 文件业务类型维护规范（重要）
+
+新增模块涉及文件上传时，必须同步维护以下两处：
+
+1. **`src/main/resources/init-data/file-types.yml`**（数据源）
+   - 如需新的父类型，在 `parent-types` 下添加 `KEY: 中文目录名`
+   - 如需新的子类型，在 `sub-types` 下添加 `KEY: 中文子目录名`
+   - 命名规范：全大写 + 下划线分隔（如 `HEALTH_FILE`）
+   - 命名规则：`{父类型}_{子类型}`，父类型和子类型必须分别在 YAML 的 `parent-types` 和 `sub-types` 中有定义
+
+2. **`FILE_TYPES.md`**（项目根目录，前端传参文档）
+   - 在「父类型」或「子类型」表格中添加新条目
+   - 在对应模块分组的枚举表中添加新行
+   - 如为全新模块，新增模块分组章节
+
+**验证方法**：启动应用后调用 `GET /api/files/upload-business` 上传测试文件，检查服务器上生成的目录路径是否为中文。若为英文，说明 YAML 映射缺失或 `YamlPropertySourceFactory` 未正确加载。
+
+**已有业务类型参考**：[FILE_TYPES.md](FILE_TYPES.md)
+
 ### 软删除与唯一约束冲突（重要）
 
 本项目全局启用了 MyBatis-Plus 软删除（`application.yml`）：

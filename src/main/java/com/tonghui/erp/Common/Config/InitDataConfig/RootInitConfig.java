@@ -5,6 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.annotation.PropertySources;
 import org.springframework.stereotype.Component;
+import com.tonghui.erp.Common.Config.InitDataConfig.YamlPropertySourceFactory;
 
 /**
  * Root用户/角色初始化配置类
@@ -16,7 +17,7 @@ import org.springframework.stereotype.Component;
 @Component
 @ConfigurationProperties(prefix = "init-data.root")
 @PropertySources({
-    @PropertySource(value = "classpath:init-data/root.yml", encoding = "UTF-8")
+    @PropertySource(value = "classpath:init-data/root.yml", encoding = "UTF-8", factory = YamlPropertySourceFactory.class)
 })
 public class RootInitConfig {
 

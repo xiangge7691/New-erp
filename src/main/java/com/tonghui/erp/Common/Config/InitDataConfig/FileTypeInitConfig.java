@@ -5,6 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.annotation.PropertySources;
 import org.springframework.stereotype.Component;
+import com.tonghui.erp.Common.Config.InitDataConfig.YamlPropertySourceFactory;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -19,7 +20,7 @@ import java.util.Map;
 @Component
 @ConfigurationProperties(prefix = "init-data.file-types")
 @PropertySources({
-    @PropertySource(value = "classpath:init-data/file-types.yml", encoding = "UTF-8")
+    @PropertySource(value = "classpath:init-data/file-types.yml", encoding = "UTF-8", factory = YamlPropertySourceFactory.class)
 })
 public class FileTypeInitConfig {
 

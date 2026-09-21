@@ -70,3 +70,5 @@ init-data:
       INSPECTION_REPORT: 检验报告
       RELEASE_RECORD: 放行记录
       RETENTION_RECORD: 留样记录
+      HEALTH_FILE: 健康档案
+      TASK: 任务
