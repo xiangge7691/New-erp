@@ -331,7 +331,7 @@ public class DataInitializer {
                 wrapper.isNull("dosage_name").or().eq("dosage_name", "");
             }
 
-            DosageForm existing = dosageFormService.getOne(wrapper);
+            DosageForm existing = dosageFormService.getOne(wrapper, false);
 
             if (existing == null) {
                 DosageForm dosageForm = new DosageForm();
