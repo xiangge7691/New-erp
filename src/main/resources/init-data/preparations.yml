@@ -4,7 +4,7 @@
 init-data:
   preparations:
     # 是否启用制剂信息初始化
-    enabled: true
+    enabled: false
     # 制剂列表
     data:
       - preparation-code: Z00002
