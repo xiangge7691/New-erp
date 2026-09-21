@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.SalesOrderMapper">
+
+    <resultMap id="BaseResultMap" type="com.tonghui.erp.Data.Entity.SalesOrder">
+        <id property="salesOrderId" column="sales_order_id" />
+        <result property="salesOrderCode" column="sales_order_code" />
+        <result property="salesOrderDate" column="sales_order_date" />
+        <result property="customerId" column="customer_id" />
+        <result property="preparationName" column="preparation_name" />
+        <result property="preparationCode" column="preparation_code" />
+        <result property="batchNumber" column="batch_number" />
+        <result property="quantity" column="quantity" />
+        <result property="unitPrice" column="unit_price" />
+        <result property="amount" column="amount" />
+        <result property="relatedOutCode" column="related_out_code" />
+        <result property="status" column="status" />
+        <result property="remark" column="remark" />
+        <result property="createdBy" column="created_by" />
+        <result property="updatedBy" column="updated_by" />
+        <result property="createdTime" column="created_time" />
+        <result property="updatedTime" column="updated_time" />
+        <result property="isDeleted" column="is_deleted" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        sales_order_id,sales_order_code,sales_order_date,customer_id,
+        preparation_name,preparation_code,batch_number,quantity,unit_price,amount,
+        related_out_code,status,remark,
+        created_by,updated_by,created_time,updated_time,is_deleted
+    </sql>
+</mapper>

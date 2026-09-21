@@ -348,4 +348,77 @@ public class SequenceServiceImpl {
     }
 
     // endregion
+
+    // region 客户编号生成
+    // ===================================
+    // 客户编号生成
+    // ===================================
+
+    /**
+     * 生成客户编号
+     * <p>
+     * 编号格式：4位数字递增（0001、0002...），不带前缀，全局递增
+     * 通过查询客户表中最大编号并递增生成，保证编号唯一
+     * </p>
+     *
+     * @return 生成的唯一客户编号
+     */
+    public String generateCustomerCode() {
+        try {
+            String maxCode = jdbcTemplate.queryForObject(
+                    "SELECT customer_code FROM customer WHERE customer_code IS NOT NULL AND is_deleted = 0 ORDER BY customer_code DESC LIMIT 1",
+                    String.class);
+
+            if (maxCode != null && maxCode.length() == 4) {
+                int seq = Integer.parseInt(maxCode);
+                return String.format("%04d", seq + 1);
+            } else {
+                return "0001";
+            }
+        } catch (Exception e) {
+            return "0001";
+        }
+    }
+
+    // endregion
+
+    // region 成品出库单号生成
+    // ===================================
+    // 成品出库单号生成
+    // ===================================
+
+    /**
+     * 生成成品出库单号
+     * <p>
+     * 编号格式：CPCK + 年月日(8位) + 序号(3位)，例如：CPCK-20260918-001
+     * 通过查询当天成品出库台账表中最大单号并递增生成，保证每天单号唯一
+     * </p>
+     *
+     * @return 生成的唯一成品出库单号
+     */
+    public String generateSalesOrderCode() {
+        // 日期部分，格式为yyyyMMdd
+        String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        // 查询当天最大的成品出库单号并加1
+        try {
+            String maxCode = jdbcTemplate.queryForObject(
+                    "SELECT sales_order_code FROM sales_order WHERE sales_order_code LIKE 'CPCK-" + dateStr + "%' AND is_deleted = 0 ORDER BY sales_order_code DESC LIMIT 1",
+                    String.class);
+
+            if (maxCode != null) {
+                // 编号格式为 CPCK-(5) + 日期(8位) + -(1) = 前14位，从第14位开始是序号
+                String seqStr = maxCode.substring(14);
+                int seq = Integer.parseInt(seqStr);
+                return String.format("CPCK-%s-%03d", dateStr, seq + 1);
+            } else {
+                // 当天无记录，从1开始
+                return String.format("CPCK-%s-%03d", dateStr, 1);
+            }
+        } catch (Exception e) {
+            // 出现异常时返回默认值
+            return String.format("CPCK-%s-%03d", dateStr, 1);
+        }
+    }
+
+    // endregion
 }
