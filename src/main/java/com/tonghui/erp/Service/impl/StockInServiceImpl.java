@@ -132,6 +132,10 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
             if (stockIn.getWorkOrderId() == null || !StringUtils.hasText(stockIn.getWorkOrderCode())) {
                 throw new RuntimeException("成品入库时关联生产任务号为必填项");
             }
+            // 成品入库时，明细分类强制设为"成品"
+            for (StockInDetail detail : details) {
+                detail.setCategoryName("成品");
+            }
         }
 
         // 自动生成入库单号（如果未提供）
@@ -196,6 +200,10 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
                 java.time.LocalDate defaultDate = stockIn.getInDate() != null ? stockIn.getInDate().toLocalDate() : java.time.LocalDate.now();
                 for (StockInDetail detail : details) {
                     detail.setInId(stockIn.getInId());
+                    // 成品入库时，明细分类强制设为"成品"
+                    if ("成品入库".equals(stockIn.getInType())) {
+                        detail.setCategoryName("成品");
+                    }
                     // 确保 production_date 不为空
                     if (detail.getProductionDate() == null) {
                         detail.setProductionDate(defaultDate);
