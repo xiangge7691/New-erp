@@ -51,6 +51,12 @@ public class StockOutDetail {
     private Long stockId;
 
     /**
+     * 来源入库单号（通过 stockId 关联 stock → stock_in 自动填充）
+     */
+    @TableField(value = "related_in_code")
+    private String relatedInCode;
+
+    /**
      * 库存标识（非表字段，格式：物料编码_入库单号）
      * <p>前端传入此字段，后端自动解析为 stockId；与盘点/调拨/退库统一标识格式</p>
      */

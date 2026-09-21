@@ -156,12 +156,22 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         if (!StringUtils.hasText(stockOut.getOutCode())) {
             stockOut.setOutCode(sequenceService.generateStockOutCode());
         }
-        // 明细补充仓库与物品类型：明细可来自不同仓库（prod_unit_id 允许不同）
+        // 明细补充仓库、物品类型与来源入库单号：明细可来自不同仓库（prod_unit_id 允许不同）
         for (StockOutDetail detail : details) {
-            if (detail.getProdUnitId() == null && detail.getStockId() != null) {
+            // 通过 stockId 查库存记录，补充仓库和来源入库单号
+            if (detail.getStockId() != null) {
                 Stock stock = stockMapper.selectById(detail.getStockId());
                 if (stock != null) {
-                    detail.setProdUnitId(stock.getProdUnitId());
+                    if (detail.getProdUnitId() == null) {
+                        detail.setProdUnitId(stock.getProdUnitId());
+                    }
+                    // 自动填充来源入库单号
+                    if (!StringUtils.hasText(detail.getRelatedInCode()) && stock.getStockInId() != null) {
+                        StockIn stockIn = stockInMapper.selectById(stock.getStockInId());
+                        if (stockIn != null) {
+                            detail.setRelatedInCode(stockIn.getInCode());
+                        }
+                    }
                 }
             }
             if (detail.getItemType() == null) {
@@ -891,6 +901,16 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
             detail.setUnitPrice(item.getUnitPrice());
             detail.setAmount(item.getQuantity() != null && item.getUnitPrice() != null
                     ? item.getQuantity().multiply(item.getUnitPrice()) : null);
+            // 自动填充来源入库单号
+            if (item.getStockId() != null) {
+                Stock stock = stockMapper.selectById(item.getStockId());
+                if (stock != null && stock.getStockInId() != null) {
+                    StockIn stockIn = stockInMapper.selectById(stock.getStockInId());
+                    if (stockIn != null) {
+                        detail.setRelatedInCode(stockIn.getInCode());
+                    }
+                }
+            }
             stockOutDetailMapper.insert(detail);
             details.add(detail);
         }
