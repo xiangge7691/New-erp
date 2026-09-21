@@ -81,6 +81,12 @@ public class SalesOrderController extends BaseCrudController<SalesOrder, SalesOr
 
     @Override
     protected SalesOrder doCreate(SalesOrder salesOrder) {
+        // 自动生成成品出库单号
+        salesOrder.setSalesOrderCode(salesOrderService.generateCode());
+        // 校验单号唯一性
+        if (!salesOrderService.isCodeUnique(salesOrder.getSalesOrderCode(), null)) {
+            throw new RuntimeException("成品出库单号已存在");
+        }
         // 自动计算金额
         if (salesOrder.getQuantity() != null && salesOrder.getUnitPrice() != null) {
             salesOrder.setAmount(salesOrder.getUnitPrice().multiply(new BigDecimal(salesOrder.getQuantity())));

@@ -73,6 +73,14 @@ public class CustomerController extends BaseCrudController<Customer, Customer, L
 
     @Override
     protected Customer doCreate(Customer customer) {
+        // 自动生成客户编号（如未手动填写）
+        if (customer.getCustomerCode() == null || customer.getCustomerCode().isEmpty()) {
+            customer.setCustomerCode(customerService.generateCode());
+        }
+        // 校验编号唯一性
+        if (!customerService.isCodeUnique(customer.getCustomerCode(), null)) {
+            throw new RuntimeException("客户编号已存在");
+        }
         customerService.save(customer);
         return customer;
     }
