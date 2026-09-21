@@ -39,6 +39,8 @@
 Erp/
 ├── src/main/java/com/tonghui/erp/
 │   ├── Controller/     # REST控制器
+│   │   ├── BaseController.java          # 通用CRUD基类
+│   │   └── BaseRoomRecordController.java # GMP车间记录基类
 │   ├── Service/        # 业务逻辑层
 │   ├── Data/           # 数据访问层
 │   │   ├── Entity/     # 实体类
@@ -47,6 +49,10 @@ Erp/
 │   │   ├── Config/     # 配置类
 │   │   ├── Dto/        # 数据传输对象
 │   │   └── utils/      # 工具类
+│   │       ├── CodeUniqueChecker.java   # 编号唯一性校验
+│   │       ├── SoftDeleteCleanHelper.java # 软删除记录清理
+│   │       ├── EntityUtils.java         # 实体工具类
+│   │       └── ...
 │   └── ErpApplication.java
 ├── src/main/resources/
 │   ├── Data/mapper/    # MyBatis XML映射文件
@@ -69,6 +75,76 @@ Erp/
 - **响应**: 统一使用 `ApiResponse` 格式
 - **密码**: 使用Argon2算法加密
 
+### 审计字段自动填充规范（重要）
+
+本项目通过 `MybatisPlusMetaObjectHandler` 自动填充以下审计字段：
+
+| 字段 | 填充时机 | 说明 |
+|------|---------|------|
+| `createdBy` | 插入时 | 当前登录用户ID |
+| `updatedBy` | 插入/更新时 | 当前登录用户ID |
+| `createdTime` | 插入时 | 当前时间 |
+| `updatedTime` | 插入/更新时 | 当前时间 |
+
+**核心规则**：
+- **新代码不应手动设置**上述四个字段，`MybatisPlusMetaObjectHandler` 会通过 `strictInsertFill`/`strictUpdateFill` 自动处理
+- **例外情况**：批量操作（如 `batchSave`）在循环外获取一次用户ID并设置，性能更优
+- **例外情况**：DB加载的实体在更新时，`strictUpdateFill` 不会覆盖非null值，此时需手动设置
+
+**实体类要求**：审计字段必须使用 `@TableField(fill = FieldFill.INSERT)` 或 `@TableField(fill = FieldFill.INSERT_UPDATE)` 注解
+
+```java
+// ✅ 正确：实体类使用注解标记，框架自动填充
+@TableField(fill = FieldFill.INSERT)
+private Long createdBy;
+
+// ❌ 错误：新代码不应手动设置审计字段
+Long currentUserId = EntityUtils.getCurrentUserId();
+entity.setCreatedBy(currentUserId);
+entity.setCreatedTime(LocalDateTime.now());
+```
+
+### 工具类使用规范
+
+项目提供以下通用工具类，新代码应优先使用：
+
+#### 1. CodeUniqueChecker — 编号唯一性校验
+```java
+// 场景：校验编号是否唯一（需绕过软删除过滤）
+// 在 ServiceImpl 中使用：
+return CodeUniqueChecker.isCodeUnique(code, excludeId, baseMapper::countByCodeIncludeDeleted);
+
+// 对应 Mapper 方法（必须使用 @Select 绕过软删除）：
+@Select("SELECT COUNT(*) FROM table_name WHERE code = #{code} AND id != #{excludeId}")
+Long countByCodeIncludeDeleted(@Param("code") String code, @Param("excludeId") Long excludeId);
+```
+
+#### 2. SoftDeleteCleanHelper — 软删除记录清理
+```java
+// 场景：新增前物理删除已软删除的同唯一字段记录（避免唯一约束冲突）
+softDeleteCleanHelper.cleanByUniqueField(baseMapper, "unique_field", uniqueValue);
+
+// 场景：删除前物理删除子表外键引用（避免外键约束冲突）
+softDeleteCleanHelper.cleanChildRecords(childMapper, "foreign_key", parentId);
+```
+
+#### 3. PagedResult — 分页查询工厂方法
+```java
+// 场景：Service层分页查询
+Page<T> page = PagedResult.toMybatisPage(pageRequest);
+page = baseMapper.selectPage(wrapper, page);
+return PagedResult.fromPage(page, pageRequest);
+
+// 场景：返回空结果
+return PagedResult.empty();
+```
+
+#### 4. BaseController — 通用CRUD模板
+```java
+// 场景：标准CRUD Controller，继承BaseController并实现doCreate/doUpdate/doDelete方法
+// 场景：GMP车间记录Controller，继承BaseRoomRecordController<T>获得房间查询和填充能力
+```
+
 ### 软删除与唯一约束冲突（重要）
 
 本项目全局启用了 MyBatis-Plus 软删除（`application.yml`）：
@@ -86,18 +162,19 @@ logic-not-delete-value: 0
 3. 业务代码通过 MyBatis-Plus 查询最大值/是否存在，自动过滤了 `is_deleted=1` 的记录
 4. 生成了相同的值 `X` 并插入 → 触发唯一约束冲突 `Duplicate entry`
 
-**正确做法**：对于需要保证唯一性的字段（编号、编码等），查询时**必须绕过软删除过滤**：
-```java
-// ❌ 错误：会被全局软删除过滤，跳过已删除记录
-QueryWrapper<Entity> wrapper = new QueryWrapper<>();
-wrapper.likeRight("code", prefix);
-wrapper.orderByDesc("code");
-wrapper.last("LIMIT 1");
-Entity last = this.getOne(wrapper);
+**正确做法**：对于需要保证唯一性的字段（编号、编码等），查询时**必须绕过软删除过滤**，并使用统一工具类处理：
 
-// ✅ 正确：使用 @Select 原生 SQL，绕过软删除过滤
-@Select("SELECT code FROM table_name WHERE code LIKE CONCAT(#{prefix}, '%') ORDER BY code DESC LIMIT 1")
-String selectMaxCodeByPrefix(@Param("prefix") String prefix);
+```java
+// ✅ 推荐：使用 CodeUniqueChecker 统一校验
+// ServiceImpl 中：
+return CodeUniqueChecker.isCodeUnique(code, excludeId, baseMapper::countByCodeIncludeDeleted);
+
+// Mapper 中（必须使用 @Select 绕过软删除）：
+@Select("SELECT COUNT(*) FROM table_name WHERE code = #{code} AND id != #{excludeId}")
+Long countByCodeIncludeDeleted(@Param("code") String code, @Param("excludeId") Long excludeId);
+
+// ✅ 推荐：使用 SoftDeleteCleanHelper 清理冲突记录
+softDeleteCleanHelper.cleanByUniqueField(baseMapper, "unique_field", uniqueValue);
 ```
 
 **涉及的表**（有唯一索引 + 软删除）：
