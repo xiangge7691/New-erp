@@ -726,6 +726,9 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         // 批量解析明细仓库名称（按生产单位ID关联 production_unit 表）
         fillDetailWarehouseNames(allDetails);
 
+        // 批量解析明细库存标识（物料编码_入库单号）
+        fillDetailInventoryKeys(allDetails);
+
         // 组装带子表数据的DTO
         List<StockOutWithDetailsDto> dtos = parents.stream().map(parent -> {
             StockOutWithDetailsDto dto = new StockOutWithDetailsDto();
@@ -993,6 +996,43 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
                 .collect(Collectors.toMap(ProductionUnit::getProdUnitId,
                         ProductionUnit::getProdUnitName, (a, b) -> a));
         details.forEach(d -> d.setWarehouseName(unitNames.getOrDefault(d.getProdUnitId(), "")));
+    }
+
+    /**
+     * 批量回填出库明细的库存标识（inventoryKey）
+     * <p>格式：物料编码_入库单号（与盘点/调拨/退库统一标识格式）</p>
+     * <p>通过明细中的 stockId → 库存表.stockInId → 入库单表.inCode 三级关联解析</p>
+     *
+     * @param details 出库明细列表（可为空）
+     */
+    private void fillDetailInventoryKeys(List<StockOutDetail> details) {
+        if (details == null || details.isEmpty()) {
+            return;
+        }
+        // 收集所有非空 stockId
+        List<Long> stockIds = details.stream()
+                .map(StockOutDetail::getStockId)
+                .filter(id -> id != null)
+                .distinct()
+                .collect(Collectors.toList());
+        if (stockIds.isEmpty()) {
+            return;
+        }
+        // stockId → stockInId 映射
+        Map<Long, Long> stockToInIdMap = stockMapper.selectBatchIds(stockIds).stream()
+                .filter(s -> s.getStockInId() != null)
+                .collect(Collectors.toMap(Stock::getStockId, Stock::getStockInId, (a, b) -> a));
+        // stockInId → inCode 映射
+        List<Long> inIds = new ArrayList<>(new java.util.HashSet<>(stockToInIdMap.values()));
+        Map<Long, String> inCodeMap = inIds.isEmpty() ? java.util.Map.of()
+                : stockInMapper.selectBatchIds(inIds).stream()
+                        .collect(Collectors.toMap(StockIn::getInId, StockIn::getInCode, (a, b) -> a));
+        // 逐条拼接 inventoryKey = itemCode + "_" + inCode
+        details.forEach(d -> {
+            Long stockInId = d.getStockId() != null ? stockToInIdMap.get(d.getStockId()) : null;
+            String inCode = stockInId != null ? inCodeMap.get(stockInId) : null;
+            d.setInventoryKey(d.getItemCode() + "_" + (inCode != null ? inCode : ""));
+        });
     }
 
     // endregion
