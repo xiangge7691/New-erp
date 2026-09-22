@@ -71,16 +71,39 @@ public class CustomerController extends BaseCrudController<Customer, Customer, L
         return customerService.getById(id);
     }
 
+    /**
+     * 创建客户（含编号冲突重试机制）
+     * <p>
+     * 流程：自动生成编号（如未手动填写）→ 校验唯一性 → 冲突时重试生成 → 保存
+     * 重试机制防御并发场景下编号被占用的情况，最多重试3次
+     * </p>
+     *
+     * @param customer 客户信息
+     * @return 创建后的客户信息
+     */
     @Override
     protected Customer doCreate(Customer customer) {
-        // 自动生成客户编号（如未手动填写）
-        if (customer.getCustomerCode() == null || customer.getCustomerCode().isEmpty()) {
-            customer.setCustomerCode(customerService.generateCode());
+        boolean autoGenerate = customer.getCustomerCode() == null || customer.getCustomerCode().isEmpty();
+        String code = autoGenerate ? customerService.generateCode() : customer.getCustomerCode();
+
+        int maxRetries = 3;
+        for (int i = 0; i < maxRetries; i++) {
+            if (customerService.isCodeUnique(code, null)) {
+                break;
+            }
+            if (autoGenerate) {
+                code = customerService.generateCode();
+                customer.setCustomerCode(code);
+            } else {
+                throw new RuntimeException("客户编号已存在");
+            }
         }
-        // 校验编号唯一性
-        if (!customerService.isCodeUnique(customer.getCustomerCode(), null)) {
-            throw new RuntimeException("客户编号已存在");
+
+        if (!customerService.isCodeUnique(code, null)) {
+            throw new RuntimeException("客户编号冲突，请重试");
         }
+
+        customer.setCustomerCode(code);
         customerService.save(customer);
         return customer;
     }

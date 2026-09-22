@@ -366,7 +366,7 @@ public class SequenceServiceImpl {
     public String generateCustomerCode() {
         try {
             String maxCode = jdbcTemplate.queryForObject(
-                    "SELECT customer_code FROM customer WHERE customer_code IS NOT NULL AND is_deleted = 0 ORDER BY customer_code DESC LIMIT 1",
+                    "SELECT customer_code FROM customer WHERE customer_code IS NOT NULL ORDER BY customer_code DESC LIMIT 1",
                     String.class);
 
             if (maxCode != null && maxCode.length() == 4) {
