@@ -262,9 +262,9 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         }
 
         // 根据制剂编码匹配可用库存批次（FIFO排序，取最早入库的合格批次）
+        // 注意：库存表中同一制剂可能item_type为material或preparation，这里仅按item_code匹配即可唯一定位
         QueryWrapper<Stock> stockWrapper = new QueryWrapper<>();
         stockWrapper.eq("item_code", detail.getItemCode());
-        stockWrapper.eq("item_type", detail.getItemType() != null ? detail.getItemType() : "preparation");
         stockWrapper.eq("is_deleted", 0);
         stockWrapper.orderByAsc("created_time");
         List<Stock> stocks = stockMapper.selectList(stockWrapper);
