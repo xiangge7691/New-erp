@@ -3,7 +3,7 @@
 # ===================================
 init-data:
   preparation-formulas:
-    enabled: true
+    enabled: false
     data:
       - preparation-code: 0
         material-code: B0001

@@ -3,7 +3,7 @@
 # ===================================
 init-data:
   preparations:
-    enabled: true
+    enabled: false
     data:
       - preparation-code: 0
         preparation-name: 常宁委托生产包材
