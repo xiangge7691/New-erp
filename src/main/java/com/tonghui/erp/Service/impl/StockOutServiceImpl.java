@@ -385,8 +385,12 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         }
 
         // 状态同步：出库单更新为"已出库"时，回写关联成品出库台账状态为"已出库"
+        // 注意：前端部分更新可能只传 outStatus，内存对象缺少 relatedOrder，需从数据库加载完整记录
         if ("已出库".equals(stockOut.getOutStatus())) {
-            syncSalesOrderStatus(stockOut, "已出库");
+            StockOut dbStockOut = baseMapper.selectById(stockOut.getOutId());
+            if (dbStockOut != null) {
+                syncSalesOrderStatus(dbStockOut, "已出库");
+            }
         }
     }
 
