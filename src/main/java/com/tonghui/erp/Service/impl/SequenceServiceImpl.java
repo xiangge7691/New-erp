@@ -399,10 +399,10 @@ public class SequenceServiceImpl {
     public String generateSalesOrderCode() {
         // 日期部分，格式为yyyyMMdd
         String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        // 查询当天最大的成品出库单号并加1
+        // 查询当天最大的成品出库单号并加1（不过滤软删除，避免已删记录占用的单号被复用）
         try {
             String maxCode = jdbcTemplate.queryForObject(
-                    "SELECT sales_order_code FROM sales_order WHERE sales_order_code LIKE 'CPCK-" + dateStr + "%' AND is_deleted = 0 ORDER BY sales_order_code DESC LIMIT 1",
+                    "SELECT sales_order_code FROM sales_order WHERE sales_order_code LIKE 'CPCK-" + dateStr + "%' ORDER BY sales_order_code DESC LIMIT 1",
                     String.class);
 
             if (maxCode != null) {

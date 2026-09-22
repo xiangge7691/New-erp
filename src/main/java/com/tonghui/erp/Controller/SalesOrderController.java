@@ -9,6 +9,7 @@ import com.tonghui.erp.Data.Entity.StockOut;
 import com.tonghui.erp.Service.SalesOrderService;
 import com.tonghui.erp.Service.StockOutService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
@@ -89,7 +90,7 @@ public class SalesOrderController extends BaseCrudController<SalesOrder, SalesOr
 
     @Override
     protected SalesOrder doCreate(SalesOrder salesOrder) {
-        // 自动生成成品出库单号
+        // 自动生成成品出库单号（查询含软删除记录，避免复用已删单号）
         salesOrder.setSalesOrderCode(salesOrderService.generateCode());
         // 校验单号唯一性
         if (!salesOrderService.isCodeUnique(salesOrder.getSalesOrderCode(), null)) {
@@ -103,7 +104,19 @@ public class SalesOrderController extends BaseCrudController<SalesOrder, SalesOr
         if (salesOrder.getStatus() == null) {
             salesOrder.setStatus("已开单");
         }
-        salesOrderService.save(salesOrder);
+        // 保存台账，并发唯一索引冲突时重新生成单号重试（最多3次）
+        int attempts = 0;
+        while (true) {
+            try {
+                salesOrderService.save(salesOrder);
+                break;
+            } catch (DuplicateKeyException e) {
+                if (++attempts >= 3) {
+                    throw e;
+                }
+                salesOrder.setSalesOrderCode(salesOrderService.generateCode());
+            }
+        }
 
         // 创建台账后自动联动创建草稿出库单（明细在出库管理中维护）
         StockOut stockOut = new StockOut();
