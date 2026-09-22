@@ -128,11 +128,8 @@ public class SalesOrderController extends BaseCrudController<SalesOrder, SalesOr
         stockOut.setTotalAmount(salesOrder.getAmount());
         stockOut.setRemark("由成品出库台账自动创建");
 
-        StockOut draft = stockOutService.createDraftOutbound(stockOut);
-
         // 联动创建出库明细：将台账的产品信息（制剂名称、批号、数量、单价、金额）带入出库单明细
         StockOutDetail detail = new StockOutDetail();
-        detail.setOutId(draft.getOutId());
         detail.setItemType("preparation");
         detail.setItemCode(salesOrder.getPreparationCode());
         detail.setItemName(salesOrder.getPreparationName());
@@ -140,7 +137,8 @@ public class SalesOrderController extends BaseCrudController<SalesOrder, SalesOr
         detail.setQuantity(salesOrder.getQuantity() != null ? new BigDecimal(salesOrder.getQuantity()) : null);
         detail.setUnitPrice(salesOrder.getUnitPrice());
         detail.setAmount(salesOrder.getAmount());
-        stockOutService.addStockOutDetail(detail);
+
+        StockOut draft = stockOutService.createDraftOutbound(stockOut, detail);
 
         // 回写出库单号到台账
         salesOrder.setRelatedOutCode(draft.getOutCode());

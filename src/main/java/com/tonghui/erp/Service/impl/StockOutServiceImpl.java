@@ -240,6 +240,59 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
     }
 
     /**
+     * 创建草稿出库单并同时创建出库明细（不扣库存，等待库管确认）
+     * <p>
+     * 在保存出库单主表的同时，根据明细携带的制剂编码自动匹配库存批次并填充stockId后写入出库明细，
+     * 保证明细的stock_id不为空（表结构约束）。若匹配不到对应库存批次则抛出异常
+     * </p>
+     *
+     * @param stockOut 出库单实体（需设置 outType, customerId, relatedOrder, outDate, totalAmount）
+     * @param detail   出库明细（需设置 itemType/itemCode/itemName/batchNumber/quantity/unitPrice/amount）
+     * @return 创建后的出库单（含自动生成的outCode和ID）
+     */
+    @Override
+    @Transactional
+    public StockOut createDraftOutbound(StockOut stockOut, StockOutDetail detail) {
+        // 先创建草稿出库单主表
+        StockOut draft = createDraftOutbound(stockOut);
+
+        // 校验明细的制剂编码必填（用于匹配库存批次）
+        if (detail == null || !StringUtils.hasText(detail.getItemCode())) {
+            throw new RuntimeException("出库明细缺少制剂编码(itemCode)，无法匹配库存批次");
+        }
+
+        // 根据制剂编码匹配可用库存批次（FIFO排序，取最早入库的合格批次）
+        QueryWrapper<Stock> stockWrapper = new QueryWrapper<>();
+        stockWrapper.eq("item_code", detail.getItemCode());
+        stockWrapper.eq("item_type", detail.getItemType() != null ? detail.getItemType() : "preparation");
+        stockWrapper.eq("is_deleted", 0);
+        stockWrapper.orderByAsc("created_time");
+        List<Stock> stocks = stockMapper.selectList(stockWrapper);
+        if (stocks.isEmpty()) {
+            throw new RuntimeException("制剂编码[" + detail.getItemCode() + "]无可用库存批次");
+        }
+
+        // 优先匹配批号一致的批次，否则取第一条
+        Stock matched = stocks.stream()
+                .filter(s -> detail.getBatchNumber() != null
+                        && detail.getBatchNumber().equals(s.getBatchNumber()))
+                .findFirst()
+                .orElse(stocks.get(0));
+
+        // 填充库存批次信息到明细
+        detail.setStockId(matched.getStockId());
+        detail.setProdUnitId(matched.getProdUnitId());
+        detail.setOutId(draft.getOutId());
+        // 补全批次号：明细未携带批号时使用库存批次号
+        if (!StringUtils.hasText(detail.getBatchNumber())) {
+            detail.setBatchNumber(matched.getBatchNumber());
+        }
+        stockOutDetailMapper.insert(detail);
+
+        return draft;
+    }
+
+    /**
      * 更新出库单（含明细）
      * <p>更新主表数据，如果提供了明细则先删除原有明细再重新插入</p>
      *

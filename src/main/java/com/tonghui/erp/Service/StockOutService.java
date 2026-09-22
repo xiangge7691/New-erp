@@ -45,6 +45,19 @@ public interface StockOutService extends IService<StockOut> {
     StockOut createDraftOutbound(StockOut stockOut);
 
     /**
+     * 创建草稿出库单并同时创建出库明细（不扣库存，等待库管确认）
+     * <p>
+     * 用于成品出库台账联动创建：在保存出库单主表的同时，根据明细携带的制剂编码自动匹配库存批次
+     * 并填充stockId后写入出库明细，保证明细的stock_id不为空（表结构约束）
+     * </p>
+     *
+     * @param stockOut 出库单实体（需设置 outType, customerId, relatedOrder, outDate, totalAmount）
+     * @param detail   出库明细（需设置 itemType/itemCode/itemName/batchNumber/quantity/unitPrice/amount）
+     * @return 创建后的出库单（含自动生成的outCode和ID）
+     */
+    StockOut createDraftOutbound(StockOut stockOut, StockOutDetail detail);
+
+    /**
      * 更新出库单（包含明细）
      *
      * @param stockOut 出库单实体
