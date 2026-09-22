@@ -133,7 +133,7 @@ public class SalesOrderController extends BaseCrudController<SalesOrder, SalesOr
         // 联动创建出库明细：将台账的产品信息（制剂名称、批号、数量、单价、金额）带入出库单明细
         StockOutDetail detail = new StockOutDetail();
         detail.setOutId(draft.getOutId());
-        detail.setItemType("成品");
+        detail.setItemType("preparation");
         detail.setItemCode(salesOrder.getPreparationCode());
         detail.setItemName(salesOrder.getPreparationName());
         detail.setBatchNumber(salesOrder.getBatchNumber());
