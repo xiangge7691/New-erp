@@ -199,11 +199,11 @@ public class SalesOrderServiceImpl extends ServiceImpl<SalesOrderMapper, SalesOr
         salesOrder.setStatus("已作废");
         updateById(salesOrder);
 
-        // 联动：将关联出库单中仍为"待确认"的置为"已取消"
+        // 联动：将关联出库单中仍为"草稿"的置为"已取消"
         if (salesOrder.getRelatedOutCode() != null && !salesOrder.getRelatedOutCode().isEmpty()) {
             QueryWrapper<StockOut> outWrapper = new QueryWrapper<>();
             outWrapper.eq("out_code", salesOrder.getRelatedOutCode());
-            outWrapper.eq("out_status", "待确认");
+            outWrapper.eq("out_status", "草稿");
             StockOut stockOut = stockOutMapper.selectOne(outWrapper);
             if (stockOut != null) {
                 stockOut.setOutStatus("已取消");

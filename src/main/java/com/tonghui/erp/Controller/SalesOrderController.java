@@ -6,6 +6,7 @@ import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.SalesOrder;
 import com.tonghui.erp.Data.Entity.StockOut;
+import com.tonghui.erp.Data.Entity.StockOutDetail;
 import com.tonghui.erp.Service.SalesOrderService;
 import com.tonghui.erp.Service.StockOutService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -128,6 +129,18 @@ public class SalesOrderController extends BaseCrudController<SalesOrder, SalesOr
         stockOut.setRemark("由成品出库台账自动创建");
 
         StockOut draft = stockOutService.createDraftOutbound(stockOut);
+
+        // 联动创建出库明细：将台账的产品信息（制剂名称、批号、数量、单价、金额）带入出库单明细
+        StockOutDetail detail = new StockOutDetail();
+        detail.setOutId(draft.getOutId());
+        detail.setItemType("成品");
+        detail.setItemCode(salesOrder.getPreparationCode());
+        detail.setItemName(salesOrder.getPreparationName());
+        detail.setBatchNumber(salesOrder.getBatchNumber());
+        detail.setQuantity(salesOrder.getQuantity() != null ? new BigDecimal(salesOrder.getQuantity()) : null);
+        detail.setUnitPrice(salesOrder.getUnitPrice());
+        detail.setAmount(salesOrder.getAmount());
+        stockOutService.addStockOutDetail(detail);
 
         // 回写出库单号到台账
         salesOrder.setRelatedOutCode(draft.getOutCode());

@@ -13,6 +13,7 @@ import com.tonghui.erp.Common.Dto.Stock.StockOutWithDetailsDto;
 import com.tonghui.erp.Data.Entity.ProductionPlan;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Data.Entity.PreparationFormula;
+import com.tonghui.erp.Data.Entity.SalesOrder;
 import com.tonghui.erp.Data.Entity.Stock;
 import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.Entity.StockOut;
@@ -20,6 +21,7 @@ import com.tonghui.erp.Data.Entity.StockOutDetail;
 import com.tonghui.erp.Data.mapper.PreparationFormulaMapper;
 import com.tonghui.erp.Data.mapper.ProductionPlanMapper;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
+import com.tonghui.erp.Data.mapper.SalesOrderMapper;
 import com.tonghui.erp.Data.mapper.StockInMapper;
 import com.tonghui.erp.Data.mapper.StockMapper;
 import com.tonghui.erp.Data.mapper.StockOutMapper;
@@ -83,6 +85,9 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
     /** 库存数据访问层，用于匹配可用库存批次 */
     private final StockMapper stockMapper;
 
+    /** 成品出库台账数据访问层，用于通过 relatedOrder 回填制剂名称 */
+    private final SalesOrderMapper salesOrderMapper;
+
     /** 生产单位数据访问层，用于仓库名称映射 */
     @Autowired
     private ProductionUnitMapper productionUnitMapper;
@@ -106,6 +111,7 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
      * @param preparationFormulaMapper  制剂处方数据访问层
      * @param stockMapper               库存数据访问层
      * @param productionPlanService     生产计划服务
+     * @param salesOrderMapper          成品出库台账数据访问层
      */
     @Autowired
     public StockOutServiceImpl(StockOutMapper stockOutMapper,
@@ -115,7 +121,8 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
                                ProductionPlanMapper productionPlanMapper,
                                PreparationFormulaMapper preparationFormulaMapper,
                                StockMapper stockMapper,
-                               ProductionPlanService productionPlanService) {
+                               ProductionPlanService productionPlanService,
+                               SalesOrderMapper salesOrderMapper) {
         this.stockOutMapper = stockOutMapper;
         this.stockOutDetailMapper = stockOutDetailMapper;
         this.sequenceService = sequenceService;
@@ -124,6 +131,7 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         this.preparationFormulaMapper = preparationFormulaMapper;
         this.stockMapper = stockMapper;
         this.productionPlanService = productionPlanService;
+        this.salesOrderMapper = salesOrderMapper;
     }
 
     // endregion
@@ -359,6 +367,8 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         stockOutMapper.updateById(stockOut);
         // 出库确认后回写关联生产计划的出库时间并刷新状态
         syncPlanOutboundTime(stockOut);
+        // 联动：回写关联成品出库台账状态为"已出库"
+        syncSalesOrderStatus(stockOut, "已出库");
     }
 
     /**
@@ -423,6 +433,29 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         }
         // 刷新生产计划状态（工单均已完成时计划自动变为已完成）
         productionPlanService.refreshPlanStatus(plan.getId());
+    }
+
+    /**
+     * 联动回写成品出库台账状态
+     * <p>
+     * 出库单确认出库时，通过 relatedOrder（台账单号）定位对应的成品出库台账，
+     * 将台账状态更新为目标状态（如"已出库"），实现台账与出库单的状态同步
+     * </p>
+     *
+     * @param stockOut     已确认的出库单（需携带 relatedOrder 字段）
+     * @param targetStatus 目标状态（如"已出库"）
+     */
+    private void syncSalesOrderStatus(StockOut stockOut, String targetStatus) {
+        if (stockOut == null || !StringUtils.hasText(stockOut.getRelatedOrder())) {
+            return;
+        }
+        QueryWrapper<SalesOrder> wrapper = new QueryWrapper<>();
+        wrapper.eq("sales_order_code", stockOut.getRelatedOrder());
+        SalesOrder salesOrder = salesOrderMapper.selectOne(wrapper);
+        if (salesOrder != null && !targetStatus.equals(salesOrder.getStatus())) {
+            salesOrder.setStatus(targetStatus);
+            salesOrderMapper.updateById(salesOrder);
+        }
     }
 
     // endregion
@@ -662,6 +695,20 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
                     r.setPreparationName(preparationNameMap.get(r.getPlanNumber()));
                 }
             });
+
+            // 兜底：成品出库类型的出库单无 planNumber，通过 relatedOrder 关联 sales_order.preparation_name 回填
+            List<StockOut> unmatchedRecords = records.stream()
+                    .filter(r -> !StringUtils.hasText(r.getPreparationName()) && StringUtils.hasText(r.getRelatedOrder()))
+                    .collect(Collectors.toList());
+            if (!unmatchedRecords.isEmpty()) {
+                Map<String, String> salesOrderNameMap = loadPreparationNameMapByRelatedOrder(unmatchedRecords);
+                unmatchedRecords.forEach(r -> {
+                    String name = salesOrderNameMap.get(r.getRelatedOrder());
+                    if (name != null) {
+                        r.setPreparationName(name);
+                    }
+                });
+            }
         }
 
         return result;
@@ -708,6 +755,35 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
                 .collect(Collectors.toMap(
                         ProductionPlan::getPlanNumber,
                         p -> p.getPreparationName() != null ? p.getPreparationName() : "",
+                        (a, b) -> a));
+    }
+
+    /**
+     * 批量加载关联制剂名称映射（通过出库单 related_order 关联成品出库台账）
+     * <p>
+     * 用于成品出库类型：出库单无 plan_number，通过 relatedOrder → sales_order.sales_order_code
+     * 关联回填 preparation_name
+     * </p>
+     *
+     * @param records 出库单列表
+     * @return 台账单号到制剂名称的映射，无数据时返回空映射
+     */
+    private Map<String, String> loadPreparationNameMapByRelatedOrder(List<StockOut> records) {
+        List<String> relatedOrders = records.stream()
+                .map(StockOut::getRelatedOrder)
+                .filter(StringUtils::hasText)
+                .distinct()
+                .collect(Collectors.toList());
+        if (relatedOrders.isEmpty()) {
+            return Map.of();
+        }
+        QueryWrapper<SalesOrder> wrapper = new QueryWrapper<>();
+        wrapper.in("sales_order_code", relatedOrders);
+        wrapper.select("sales_order_code", "preparation_name");
+        return salesOrderMapper.selectList(wrapper).stream()
+                .collect(Collectors.toMap(
+                        SalesOrder::getSalesOrderCode,
+                        s -> s.getPreparationName() != null ? s.getPreparationName() : "",
                         (a, b) -> a));
     }
 
