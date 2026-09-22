@@ -32,6 +32,7 @@ public class DataInitializer {
     private final UnitInitConfig unitConfig;
     private final DosageFormInitConfig dosageFormConfig;
     private final PreparationInitConfig preparationConfig;
+    private final PreparationFormulaInitConfig preparationFormulaConfig;
 
     private final UserService userService;
     private final RoleService roleService;
@@ -41,6 +42,8 @@ public class DataInitializer {
     private final UnitService unitService;
     private final DosageFormService dosageFormService;
     private final PreparationService preparationService;
+    private final PreparationFormulaService preparationFormulaService;
+    private final MaterialService materialService;
 
     // endregion
 
@@ -54,6 +57,7 @@ public class DataInitializer {
                            UnitInitConfig unitConfig,
                            DosageFormInitConfig dosageFormConfig,
                            PreparationInitConfig preparationConfig,
+                           PreparationFormulaInitConfig preparationFormulaConfig,
                            UserService userService,
                            RoleService roleService,
                            PermissionService permissionService,
@@ -61,11 +65,14 @@ public class DataInitializer {
                            RolePermService rolePermService,
                            UnitService unitService,
                            DosageFormService dosageFormService,
-                           PreparationService preparationService) {
+                           PreparationService preparationService,
+                           PreparationFormulaService preparationFormulaService,
+                           MaterialService materialService) {
         this.rootConfig = rootConfig;
         this.unitConfig = unitConfig;
         this.dosageFormConfig = dosageFormConfig;
         this.preparationConfig = preparationConfig;
+        this.preparationFormulaConfig = preparationFormulaConfig;
         this.userService = userService;
         this.roleService = roleService;
         this.permissionService = permissionService;
@@ -74,6 +81,8 @@ public class DataInitializer {
         this.unitService = unitService;
         this.dosageFormService = dosageFormService;
         this.preparationService = preparationService;
+        this.preparationFormulaService = preparationFormulaService;
+        this.materialService = materialService;
     }
 
     // endregion
@@ -121,6 +130,13 @@ public class DataInitializer {
                 initializePreparations();
             } else {
                 System.out.println("[Preparation] 已禁用，跳过初始化");
+            }
+
+            // 初始化制剂处方信息
+            if (preparationFormulaConfig.isEnabled()) {
+                initializePreparationFormulas();
+            } else {
+                System.out.println("[PreparationFormula] 已禁用，跳过初始化");
             }
 
             System.out.println("===== 数据初始化完成 =====");
@@ -383,6 +399,71 @@ public class DataInitializer {
         }
 
         System.out.println("[Preparation] 制剂信息初始化完成，共 " + preparationConfig.getData().size() + " 条配置，新增 " + addedCount + " 条");
+    }
+
+    // endregion
+
+    // region 制剂处方信息初始化
+    // ===================================
+    // 制剂处方信息初始化
+    // ===================================
+
+    /**
+     * 初始化制剂处方信息数据
+     * <p>
+     * 通过制剂编码和物料编号关联到对应的ID，实现跨表引用
+     * </p>
+     */
+    private void initializePreparationFormulas() {
+        System.out.println("[PreparationFormula] 开始初始化制剂处方信息...");
+
+        int addedCount = 0;
+        int skippedCount = 0;
+
+        for (PreparationFormulaInitConfig.FormulaData formulaData : preparationFormulaConfig.getData()) {
+            // 查找制剂
+            Preparation preparation = preparationService.getOne(
+                    new QueryWrapper<Preparation>().eq("preparation_code", formulaData.getPreparationCode())
+            );
+            if (preparation == null) {
+                skippedCount++;
+                continue;
+            }
+
+            // 查找物料
+            Material material = materialService.getMaterialByCode(formulaData.getMaterialCode());
+            if (material == null) {
+                skippedCount++;
+                continue;
+            }
+
+            // 检查是否已存在同制剂同物料的处方
+            long count = preparationFormulaService.count(
+                    new QueryWrapper<PreparationFormula>()
+                            .eq("preparation_id", preparation.getPreparationId())
+                            .eq("material_id", material.getMaterialId())
+            );
+
+            if (count == 0) {
+                PreparationFormula formula = new PreparationFormula();
+                formula.setPreparationId(preparation.getPreparationId());
+                formula.setPreparationCode(formulaData.getPreparationCode());
+                formula.setPreparationName(preparation.getPreparationName());
+                formula.setMaterialId(material.getMaterialId());
+                formula.setMaterialCode(formulaData.getMaterialCode());
+                formula.setMaterialName(formulaData.getMaterialName());
+                formula.setMaterialCategory(formulaData.getMaterialCategory());
+                formula.setDosage(formulaData.getDosage());
+                formula.setUnitName(formulaData.getUnitName());
+                formula.setIsDeleted(0);
+                formula.setCreatedTime(LocalDateTime.now());
+                formula.setUpdatedTime(LocalDateTime.now());
+                preparationFormulaService.save(formula);
+                addedCount++;
+            }
+        }
+
+        System.out.println("[PreparationFormula] 制剂处方信息初始化完成，共 " + preparationFormulaConfig.getData().size() + " 条配置，新增 " + addedCount + " 条，跳过 " + skippedCount + " 条（关联数据不存在）");
     }
 
     // endregion
