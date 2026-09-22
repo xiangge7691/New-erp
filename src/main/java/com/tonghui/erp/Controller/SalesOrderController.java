@@ -6,7 +6,6 @@ import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.SalesOrder;
 import com.tonghui.erp.Data.Entity.StockOut;
-import com.tonghui.erp.Data.Entity.StockOutDetail;
 import com.tonghui.erp.Service.SalesOrderService;
 import com.tonghui.erp.Service.StockOutService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,7 +29,7 @@ import java.util.Map;
  * ├────┼──────────────────────────────────────────┼────────┼──────────────────────────────┤
  * │ 1  │ /api/sales-order                         │ GET    │ 分页查询台账列表             │
  * │ 2  │ /api/sales-order/{id}                    │ GET    │ 获取台账详情                 │
- * │ 3  │ /api/sales-order                         │ POST   │ 新增台账（开单）             │
+ * │ 3  │ /api/sales-order                         │ POST   │ 新增台账（开单，自动联动出库单）│
  * │ 4  │ /api/sales-order/{id}                    │ PUT    │ 修改台账（仅备注可改）       │
  * │ 5  │ /api/sales-order/{id}                    │ DELETE │ 删除台账                     │
  * │ 6  │ /api/sales-order/search                  │ GET    │ 高级查询台账（支持多条件）   │
@@ -106,28 +105,20 @@ public class SalesOrderController extends BaseCrudController<SalesOrder, SalesOr
         }
         salesOrderService.save(salesOrder);
 
-        // 联动创建草稿出库单（如有出库明细）
-        if (salesOrder.getStockOutDetails() != null && !salesOrder.getStockOutDetails().isEmpty()) {
-            StockOut stockOut = new StockOut();
-            stockOut.setOutType("成品出库");
-            stockOut.setCustomerId(salesOrder.getCustomerId());
-            stockOut.setRelatedOrder(salesOrder.getSalesOrderCode());
-            stockOut.setOutDate(salesOrder.getSalesOrderDate());
-            stockOut.setTotalAmount(salesOrder.getAmount());
-            stockOut.setRemark("由成品出库台账自动创建");
+        // 创建台账后自动联动创建草稿出库单（明细在出库管理中维护）
+        StockOut stockOut = new StockOut();
+        stockOut.setOutType("成品出库");
+        stockOut.setCustomerId(salesOrder.getCustomerId());
+        stockOut.setRelatedOrder(salesOrder.getSalesOrderCode());
+        stockOut.setOutDate(salesOrder.getSalesOrderDate());
+        stockOut.setTotalAmount(salesOrder.getAmount());
+        stockOut.setRemark("由成品出库台账自动创建");
 
-            StockOut draft = stockOutService.createDraftOutbound(stockOut);
+        StockOut draft = stockOutService.createDraftOutbound(stockOut);
 
-            // 保存出库明细
-            for (StockOutDetail detail : salesOrder.getStockOutDetails()) {
-                detail.setOutId(draft.getOutId());
-            }
-            stockOutService.addStockOutDetails(salesOrder.getStockOutDetails());
-
-            // 回写出库单号到 SalesOrder
-            salesOrder.setRelatedOutCode(draft.getOutCode());
-            salesOrderService.updateById(salesOrder);
-        }
+        // 回写出库单号到台账
+        salesOrder.setRelatedOutCode(draft.getOutCode());
+        salesOrderService.updateById(salesOrder);
 
         return salesOrder;
     }

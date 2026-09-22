@@ -6,7 +6,6 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.List;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -131,19 +130,6 @@ public class SalesOrder extends AuditEntity {
      */
     @TableField(value = "is_deleted")
     private Integer isDeleted;
-
-    // endregion
-
-    // region 非数据库字段（前端传参用）
-    // ===================================
-    // 非数据库字段（前端传参用）
-    // ===================================
-
-    /**
-     * 出库明细列表（创建台账时传入，联动创建草稿出库单）
-     */
-    @TableField(exist = false)
-    private java.util.List<StockOutDetail> stockOutDetails;
 
     // endregion
 }
