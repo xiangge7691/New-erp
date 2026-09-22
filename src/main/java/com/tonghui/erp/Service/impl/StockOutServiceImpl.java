@@ -213,6 +213,8 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         stockService.applyOutbound(stockOut, details);
         // 出库创建即已出库，回写关联生产计划的出库时间并刷新状态
         syncPlanOutboundTime(stockOut);
+        // 状态同步：回写关联成品出库台账状态为"已出库"
+        syncSalesOrderStatus(stockOut, "已出库");
     }
 
     /**
@@ -380,6 +382,11 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         int rows = baseMapper.update(null, updateWrapper);
         if (rows == 0) {
             throw new RuntimeException("出库单不存在或未被更新");
+        }
+
+        // 状态同步：出库单更新为"已出库"时，回写关联成品出库台账状态为"已出库"
+        if ("已出库".equals(stockOut.getOutStatus())) {
+            syncSalesOrderStatus(stockOut, "已出库");
         }
     }
 
@@ -1084,6 +1091,8 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         stockOutMapper.updateById(stockOut);
         // 出库确认后回写关联生产计划的出库时间并刷新状态
         syncPlanOutboundTime(stockOut);
+        // 状态同步：回写关联成品出库台账状态为"已出库"
+        syncSalesOrderStatus(stockOut, "已出库");
         return stockOut;
     }
 

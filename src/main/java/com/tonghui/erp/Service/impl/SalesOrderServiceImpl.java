@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 成品出库台账服务实现类
@@ -191,7 +192,12 @@ public class SalesOrderServiceImpl extends ServiceImpl<SalesOrderMapper, SalesOr
     @Transactional(rollbackFor = Exception.class)
     public boolean voidOrder(Long salesOrderId) {
         SalesOrder salesOrder = getById(salesOrderId);
+        // 台账不存在或已作废时不允许再次作废
         if (salesOrder == null || "已作废".equals(salesOrder.getStatus())) {
+            return false;
+        }
+        // 只有"已开单"状态的台账允许作废
+        if (!"已开单".equals(salesOrder.getStatus())) {
             return false;
         }
 
@@ -199,16 +205,14 @@ public class SalesOrderServiceImpl extends ServiceImpl<SalesOrderMapper, SalesOr
         salesOrder.setStatus("已作废");
         updateById(salesOrder);
 
-        // 联动：将关联出库单中仍为"草稿"的置为"已取消"
-        if (salesOrder.getRelatedOutCode() != null && !salesOrder.getRelatedOutCode().isEmpty()) {
-            QueryWrapper<StockOut> outWrapper = new QueryWrapper<>();
-            outWrapper.eq("out_code", salesOrder.getRelatedOutCode());
-            outWrapper.eq("out_status", "草稿");
-            StockOut stockOut = stockOutMapper.selectOne(outWrapper);
-            if (stockOut != null) {
-                stockOut.setOutStatus("已取消");
-                stockOutMapper.updateById(stockOut);
-            }
+        // 联动：按台账单号(related_order)定位关联出库单，将仍为"草稿"的置为"已取消"
+        QueryWrapper<StockOut> outWrapper = new QueryWrapper<>();
+        outWrapper.eq("related_order", salesOrder.getSalesOrderCode());
+        outWrapper.eq("out_status", "草稿");
+        List<StockOut> stockOuts = stockOutMapper.selectList(outWrapper);
+        for (StockOut stockOut : stockOuts) {
+            stockOut.setOutStatus("已取消");
+            stockOutMapper.updateById(stockOut);
         }
 
         return true;

@@ -297,8 +297,8 @@ public class SalesOrderController extends BaseCrudController<SalesOrder, SalesOr
     /**
      * 作废成品出库台账
      * <p>
-     * 将台账状态设置为"已作废"，同时把出库管理中对应"待确认"的出库单置为"已取消"
-     * 已作废的台账不能再次作废
+     * 将台账状态设置为"已作废"，同时把出库管理中对应"草稿"状态的出库单置为"已取消"
+     * 仅"已开单"状态的台账允许作废，已作废或已出库的台账不能作废
      * </p>
      *
      * 示例请求：
@@ -314,7 +314,7 @@ public class SalesOrderController extends BaseCrudController<SalesOrder, SalesOr
             if (result) {
                 return success(true, "作废成功");
             } else {
-                return error("作废失败，台账不存在或已作废");
+                return error("作废失败，仅已开单状态的台账可作废");
             }
         } catch (Exception ex) {
             return exception(ex, "作废成品出库台账");
