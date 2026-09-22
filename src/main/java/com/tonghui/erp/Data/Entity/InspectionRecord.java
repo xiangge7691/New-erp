@@ -52,13 +52,13 @@ public class InspectionRecord extends AuditEntity {
     private String relatedInspectionRequestCode;
 
     /**
-     * 关联生产任务ID
+     * 关联生产任务ID（选填，可空，非必填）
      */
     @TableField(value = "work_order_id")
     private Long workOrderId;
 
     /**
-     * 关联生产任务编号
+     * 关联生产任务编号（选填，可空，非必填）
      */
     @TableField(value = "work_order_code")
     private String workOrderCode;
