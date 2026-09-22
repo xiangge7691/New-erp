@@ -133,6 +133,7 @@ public class SalesOrderController extends BaseCrudController<SalesOrder, SalesOr
         detail.setItemType("preparation");
         detail.setItemCode(salesOrder.getPreparationCode());
         detail.setItemName(salesOrder.getPreparationName());
+        detail.setCategoryName("成品");
         detail.setBatchNumber(salesOrder.getBatchNumber());
         detail.setQuantity(salesOrder.getQuantity() != null ? new BigDecimal(salesOrder.getQuantity()) : null);
         detail.setUnitPrice(salesOrder.getUnitPrice());

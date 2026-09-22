@@ -287,6 +287,14 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         if (!StringUtils.hasText(detail.getBatchNumber())) {
             detail.setBatchNumber(matched.getBatchNumber());
         }
+        // 补全分类和单位：明细未携带时使用库存批次信息（category_name列无默认值，必须非null）
+        if (!StringUtils.hasText(detail.getCategoryName())) {
+            detail.setCategoryName(StringUtils.hasText(matched.getCategoryName())
+                    ? matched.getCategoryName() : "成品");
+        }
+        if (!StringUtils.hasText(detail.getUnitName())) {
+            detail.setUnitName(matched.getUnitName());
+        }
         stockOutDetailMapper.insert(detail);
 
         return draft;
