@@ -245,7 +245,6 @@ public class InspectionRecordController extends BaseController {
      *
      * 必填字段：
      *   objectName       被检对象名称（必填）
-     *   batchNo          批号（必填）
      *   inspectionBasis  检验依据（必填）
      *   inspectionItem   检验项目（必填）
      *   inspector        检验人（必填）
@@ -255,7 +254,7 @@ public class InspectionRecordController extends BaseController {
      *   conclusion       总体结论（必填）
      * 其他说明：
      *   inspectionCode 为空时系统自动生成（格式JY-YYYYMMDD-NNN），亦可手动传入，须唯一
-     *   以下字段选填：relatedSamplingCode、spec、remark、workOrderId、workOrderCode、
+     *   以下字段选填：batchNo、relatedSamplingCode、spec、remark、workOrderId、workOrderCode、
      *   relatedInspectionRequestCode、itemCategory、preparationName
      *   其中关联生产任务（workOrderId/workOrderCode）为选填，非必填
      *

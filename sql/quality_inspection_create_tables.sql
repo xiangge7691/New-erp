@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS `inspection_record` (
   `inspection_code` VARCHAR(50) NOT NULL COMMENT '检验编号（唯一，格式JY-YYYYMMDD-NNN）',
   `related_sampling_code` VARCHAR(50) DEFAULT NULL COMMENT '关联取样编号（可空，可选引用）',
   `object_name`   VARCHAR(100) NOT NULL COMMENT '被检对象名称',
-  `batch_no`      VARCHAR(50)  NOT NULL COMMENT '批号',
+  `batch_no`      VARCHAR(50)  DEFAULT NULL COMMENT '批号（选填，可空）',
   `spec`          VARCHAR(100) DEFAULT NULL COMMENT '规格',
   `inspection_basis` VARCHAR(255) NOT NULL COMMENT '检验依据，如中国药典2020版',
   `inspection_item` VARCHAR(1000) NOT NULL COMMENT '检验项目内容描述',

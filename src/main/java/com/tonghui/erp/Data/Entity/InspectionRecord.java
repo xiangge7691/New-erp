@@ -82,7 +82,7 @@ public class InspectionRecord extends AuditEntity {
     private String preparationName;
 
     /**
-     * 批号
+     * 批号（选填，可空）
      */
     @TableField(value = "batch_no")
     private String batchNo;
