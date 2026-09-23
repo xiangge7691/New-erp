@@ -213,8 +213,8 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         stockService.applyOutbound(stockOut, details);
         // 出库创建即已出库，回写关联生产计划的出库时间并刷新状态
         syncPlanOutboundTime(stockOut);
-        // 状态同步：回写关联成品出库台账状态为"已出库"
-        syncSalesOrderStatus(stockOut, "已出库");
+        // 状态同步：回写关联成品出库台账状态为"已出库"，并回填出库批号
+        syncSalesOrderStatus(stockOut, "已出库", details);
     }
 
     /**
@@ -403,8 +403,8 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
             stockService.applyOutbound(dbStockOut, details);
             // 出库确认后回写关联生产计划的出库时间并刷新状态
             syncPlanOutboundTime(dbStockOut);
-            // 联动：回写关联成品出库台账状态为"已出库"
-            syncSalesOrderStatus(dbStockOut, "已出库");
+            // 联动：回写关联成品出库台账状态为"已出库"，并回填出库批号
+            syncSalesOrderStatus(dbStockOut, "已出库", details);
         }
     }
 
@@ -453,8 +453,8 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         stockOutMapper.updateById(stockOut);
         // 出库确认后回写关联生产计划的出库时间并刷新状态
         syncPlanOutboundTime(stockOut);
-        // 联动：回写关联成品出库台账状态为"已出库"
-        syncSalesOrderStatus(stockOut, "已出库");
+        // 联动：回写关联成品出库台账状态为"已出库"，并回填出库批号
+        syncSalesOrderStatus(stockOut, "已出库", details);
     }
 
     /**
@@ -522,7 +522,7 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
     }
 
     /**
-     * 联动回写成品出库台账状态
+     * 联动回写成品出库台账状态（不含明细批号）
      * <p>
      * 出库单确认出库时，通过 relatedOrder（台账单号）定位对应的成品出库台账，
      * 将台账状态更新为目标状态（如"已出库"），实现台账与出库单的状态同步
@@ -532,16 +532,82 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
      * @param targetStatus 目标状态（如"已出库"）
      */
     private void syncSalesOrderStatus(StockOut stockOut, String targetStatus) {
+        syncSalesOrderStatus(stockOut, targetStatus, null);
+    }
+
+    /**
+     * 联动回写成品出库台账状态与出库批号
+     * <p>
+     * 出库单确认出库时，通过 relatedOrder（台账单号）定位对应的成品出库台账，
+     * 更新台账状态；当目标状态为"已出库"且携带出库明细时，将明细批号（含库存批次兜底）
+     * 回写到台账 batch_number 字段
+     * </p>
+     *
+     * @param stockOut     已确认的出库单（需携带 relatedOrder 字段）
+     * @param targetStatus 目标状态（如"已出库"）
+     * @param details      出库明细列表（用于回填批号，可为null）
+     */
+    private void syncSalesOrderStatus(StockOut stockOut, String targetStatus, List<StockOutDetail> details) {
         if (stockOut == null || !StringUtils.hasText(stockOut.getRelatedOrder())) {
             return;
         }
         QueryWrapper<SalesOrder> wrapper = new QueryWrapper<>();
         wrapper.eq("sales_order_code", stockOut.getRelatedOrder());
         SalesOrder salesOrder = salesOrderMapper.selectOne(wrapper);
-        if (salesOrder != null && !targetStatus.equals(salesOrder.getStatus())) {
+        if (salesOrder == null) {
+            return;
+        }
+
+        boolean changed = false;
+        // 状态同步
+        if (!targetStatus.equals(salesOrder.getStatus())) {
             salesOrder.setStatus(targetStatus);
+            changed = true;
+        }
+
+        // 批号回写：确认出库后将出库明细批号回填到台账
+        if ("已出库".equals(targetStatus) && details != null && !details.isEmpty()) {
+            String batchNumber = resolveOutboundBatchNumber(details);
+            if (StringUtils.hasText(batchNumber) && !batchNumber.equals(salesOrder.getBatchNumber())) {
+                salesOrder.setBatchNumber(batchNumber);
+                changed = true;
+            }
+        }
+
+        if (changed) {
             salesOrderMapper.updateById(salesOrder);
         }
+    }
+
+    /**
+     * 汇总出库明细批号（用于回写台账）
+     * <p>
+     * 优先取明细上的 batch_number；为空时按 stockId 从库存批次兜底取批号。
+     * 多个不同批号以英文逗号拼接，重复批号去重
+     * </p>
+     *
+     * @param details 出库明细列表
+     * @return 汇总后的批号字符串，无可用批号时返回null
+     */
+    private String resolveOutboundBatchNumber(List<StockOutDetail> details) {
+        List<String> batches = new java.util.ArrayList<>();
+        for (StockOutDetail detail : details) {
+            String batch = detail.getBatchNumber();
+            // 明细未填批号时，按库存批次兜底
+            if (!StringUtils.hasText(batch) && detail.getStockId() != null) {
+                Stock stock = stockMapper.selectById(detail.getStockId());
+                if (stock != null) {
+                    batch = stock.getBatchNumber();
+                }
+            }
+            if (StringUtils.hasText(batch) && !batches.contains(batch)) {
+                batches.add(batch);
+            }
+        }
+        if (batches.isEmpty()) {
+            return null;
+        }
+        return String.join(",", batches);
     }
 
     // endregion
@@ -1107,10 +1173,10 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         // 更新出库单状态为已出库
         stockOut.setOutStatus("已出库");
         stockOutMapper.updateById(stockOut);
-        // 出库确认后回写关联生产计划的出库时间并刷新状态
+// 出库确认后回写关联生产计划的出库时间并刷新状态
         syncPlanOutboundTime(stockOut);
-        // 状态同步：回写关联成品出库台账状态为"已出库"
-        syncSalesOrderStatus(stockOut, "已出库");
+        // 状态同步：回写关联成品出库台账状态为"已出库"，并回填出库批号
+        syncSalesOrderStatus(stockOut, "已出库", details);
         return stockOut;
     }
 
