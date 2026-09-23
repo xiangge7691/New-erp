@@ -4,8 +4,10 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.utils.CodeUniqueChecker;
+import com.tonghui.erp.Data.Entity.Customer;
 import com.tonghui.erp.Data.Entity.SalesOrder;
 import com.tonghui.erp.Data.Entity.StockOut;
+import com.tonghui.erp.Data.mapper.CustomerMapper;
 import com.tonghui.erp.Data.mapper.SalesOrderMapper;
 import com.tonghui.erp.Data.mapper.StockOutMapper;
 import com.tonghui.erp.Service.SalesOrderService;
@@ -13,9 +15,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 成品出库台账服务实现类
@@ -44,6 +52,12 @@ public class SalesOrderServiceImpl extends ServiceImpl<SalesOrderMapper, SalesOr
      */
     @Autowired
     private StockOutMapper stockOutMapper;
+
+    /**
+     * 客户Mapper（用于回填客户名称）
+     */
+    @Autowired
+    private CustomerMapper customerMapper;
 
     // endregion
 
@@ -127,7 +141,53 @@ public class SalesOrderServiceImpl extends ServiceImpl<SalesOrderMapper, SalesOr
         wrapper.orderByDesc("sales_order_code");
 
         Page<SalesOrder> page = new Page<>(pageIndex + 1, pageSize);
-        return baseMapper.selectPage(page, wrapper);
+        page = baseMapper.selectPage(page, wrapper);
+        // 回填客户名称（customerName 为非表字段，查询后从 customer 表补充）
+        fillCustomerName(page.getRecords());
+        return page;
+    }
+
+    /**
+     * 按ID查询台账详情
+     * <p>查询后回填客户名称，保证详情接口返回 customerName</p>
+     *
+     * @param id 台账ID
+     * @return 台账实体，不存在时返回null
+     */
+    @Override
+    public SalesOrder getById(Serializable id) {
+        SalesOrder salesOrder = super.getById(id);
+        if (salesOrder != null) {
+            fillCustomerName(Collections.singletonList(salesOrder));
+        }
+        return salesOrder;
+    }
+
+    /**
+     * 批量回填客户名称
+     * <p>收集列表中所有 customerId，一次性查询 customer 表后按ID映射回填，避免循环单条查询</p>
+     *
+     * @param records 台账列表（原地回填 customerName）
+     */
+    private void fillCustomerName(List<SalesOrder> records) {
+        if (records == null || records.isEmpty()) {
+            return;
+        }
+        Set<Long> customerIds = records.stream()
+                .map(SalesOrder::getCustomerId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (customerIds.isEmpty()) {
+            return;
+        }
+        List<Customer> customers = customerMapper.selectBatchIds(customerIds);
+        Map<Long, String> nameMap = customers.stream()
+                .collect(Collectors.toMap(Customer::getCustomerId, Customer::getCustomerName, (a, b) -> a));
+        for (SalesOrder record : records) {
+            if (record.getCustomerId() != null) {
+                record.setCustomerName(nameMap.get(record.getCustomerId()));
+            }
+        }
     }
 
     /**
