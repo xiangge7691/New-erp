@@ -342,6 +342,12 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
     @Override
     @Transactional
     public void partialUpdateStockOut(StockOut stockOut) {
+        // 更新前先加载数据库记录，用于判断原状态并获取 relatedOrder 等完整字段
+        StockOut dbStockOut = baseMapper.selectById(stockOut.getOutId());
+        if (dbStockOut == null) {
+            throw new RuntimeException("出库单不存在或未被更新");
+        }
+
         // 构建 UpdateWrapper，只更新非 null 字段
         UpdateWrapper<StockOut> updateWrapper = new UpdateWrapper<>();
         updateWrapper.eq("out_id", stockOut.getOutId());
@@ -384,13 +390,21 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
             throw new RuntimeException("出库单不存在或未被更新");
         }
 
-        // 状态同步：出库单更新为"已出库"时，回写关联成品出库台账状态为"已出库"
-        // 注意：前端部分更新可能只传 outStatus，内存对象缺少 relatedOrder，需从数据库加载完整记录
-        if ("已出库".equals(stockOut.getOutStatus())) {
-            StockOut dbStockOut = baseMapper.selectById(stockOut.getOutId());
-            if (dbStockOut != null) {
-                syncSalesOrderStatus(dbStockOut, "已出库");
+        // 库存与状态联动：状态由非"已出库"变为"已出库"时，扣减库存并回写台账/生产计划
+        boolean statusChangedToOut = "已出库".equals(stockOut.getOutStatus())
+                && !"已出库".equals(dbStockOut.getOutStatus());
+        if (statusChangedToOut) {
+            // 加载出库明细（须携带 stockId 才能扣减对应库存批次）
+            List<StockOutDetail> details = getStockOutDetailsByStockOutId(stockOut.getOutId());
+            if (details.isEmpty()) {
+                throw new RuntimeException("出库单没有明细，无法出库");
             }
+            // 用数据库中的完整主表信息执行库存扣减（applyOutbound 会校验库存充足并写流水，不足时抛异常整体回滚）
+            stockService.applyOutbound(dbStockOut, details);
+            // 出库确认后回写关联生产计划的出库时间并刷新状态
+            syncPlanOutboundTime(dbStockOut);
+            // 联动：回写关联成品出库台账状态为"已出库"
+            syncSalesOrderStatus(dbStockOut, "已出库");
         }
     }
 
