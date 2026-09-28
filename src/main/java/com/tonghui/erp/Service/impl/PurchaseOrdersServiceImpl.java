@@ -310,6 +310,85 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
         return this.removeById(orderId);
     }
 
+    /**
+     * 确认采购（待采购 → 运输中）
+     * <p>
+     * 前置校验每条明细供应商必填，确认后主单状态改为"运输中"，
+     * 并自动生成一条对应验收单（状态"运输中"，等待货物验收页确认到货）
+     * </p>
+     *
+     * @param orderId 采购订单ID
+     */
+    @Override
+    @Transactional
+    public void confirmPurchase(Long orderId) {
+        PurchaseOrders order = this.getById(orderId);
+        if (order == null) {
+            throw new RuntimeException("采购订单不存在");
+        }
+        if (!AcceptanceStatusPolicy.ORDER_PENDING.equals(String.valueOf(order.getStatus()))) {
+            throw new RuntimeException("仅「待采购」状态的订单可确认采购，当前状态: " + order.getStatus());
+        }
+
+        // 前置校验：每条明细必须已填写供应商（文档：确认采购前必填，否则无法点击采购）
+        List<PurchaseOrderItems> items = purchaseOrderItemsMapper.selectList(
+                new QueryWrapper<PurchaseOrderItems>().eq("order_id", orderId));
+        if (items.isEmpty()) {
+            throw new RuntimeException("采购订单没有明细，无法确认采购");
+        }
+        for (PurchaseOrderItems item : items) {
+            if (!StringUtils.hasText(item.getSupplier())) {
+                throw new RuntimeException("存在未填写供应商的物料，无法确认采购: "
+                        + (StringUtils.hasText(item.getRawMaterialName()) ? item.getRawMaterialName() : item.getMaterialCode()));
+            }
+        }
+
+        // 主单状态 → 运输中，并自动生成验收单（幂等）
+        order.setStatus(AcceptanceStatusPolicy.MAIN_TRANSPORTING);
+        this.updateById(order);
+        createAcceptanceFromOrder(order);
+    }
+
+    /**
+     * 作废采购订单（整单 → 已作废，终态）
+     * <p>
+     * 仅待采购/运输中/验收中/已结束状态可作废；已入库（已产生库存）与已作废订单不可作废；
+     * 作废后联动将关联验收单（未入库/未作废）一并置为"已作废"，避免验收单继续流转
+     * </p>
+     *
+     * @param orderId 采购订单ID
+     */
+    @Override
+    @Transactional
+    public void voidPurchase(Long orderId) {
+        PurchaseOrders order = this.getById(orderId);
+        if (order == null) {
+            throw new RuntimeException("采购订单不存在");
+        }
+        String status = String.valueOf(order.getStatus());
+        if (AcceptanceStatusPolicy.MAIN_VOIDED.equals(status)) {
+            throw new RuntimeException("订单已作废，不可重复作废");
+        }
+        if (AcceptanceStatusPolicy.MAIN_INBOUND.equals(status)) {
+            throw new RuntimeException("已入库订单不可作废（已产生库存记录）");
+        }
+
+        order.setStatus(AcceptanceStatusPolicy.MAIN_VOIDED);
+        this.updateById(order);
+
+        // 联动作废关联验收单（已入库/已作废验收单保持不动）
+        List<AcceptanceOrder> acceptances = acceptanceOrderMapper.selectList(
+                new QueryWrapper<AcceptanceOrder>().eq("purchase_number", order.getPurchaseNumber()));
+        for (AcceptanceOrder acceptance : acceptances) {
+            String accStatus = String.valueOf(acceptance.getStatus());
+            if (!AcceptanceStatusPolicy.MAIN_VOIDED.equals(accStatus)
+                    && !AcceptanceStatusPolicy.MAIN_INBOUND.equals(accStatus)) {
+                acceptance.setStatus(AcceptanceStatusPolicy.MAIN_VOIDED);
+                acceptanceOrderMapper.updateById(acceptance);
+            }
+        }
+    }
+
     // endregion
 
     // region 查询操作

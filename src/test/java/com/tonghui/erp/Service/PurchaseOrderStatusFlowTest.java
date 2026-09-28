@@ -818,6 +818,162 @@ public void testQualityCheckWriteBackOrderStatus() {
         }
     }
 
+    /**
+     * 测试确认采购（待采购 → 运输中，自动生成验收单）
+     * <p>
+     * 明细已填供应商时确认成功：订单状态变更为"运输中"、自动生成验收单（状态"运输中"）、
+     * 验收明细从采购订单明细复制并携带供应商
+     * </p>
+     */
+    @Test
+    public void testConfirmPurchaseGeneratesAcceptance() {
+        Long orderId = null;
+        Long acceptanceId = null;
+        try {
+            PurchaseOrders order = createOrder();
+            orderId = order.getId();
+            // 补填供应商（确认采购前置校验：每条明细供应商必填）
+            PurchaseOrderItems item = purchaseOrderItemsMapper.selectOne(
+                    new QueryWrapper<PurchaseOrderItems>().eq("order_id", orderId));
+            item.setSupplier("测试供应商A");
+            purchaseOrderItemsMapper.updateById(item);
+
+            purchaseOrdersService.confirmPurchase(orderId);
+
+            // 断言订单状态 → 运输中
+            PurchaseOrders updated = purchaseOrdersService.getPurchaseOrderById(orderId);
+            if (!"运输中".equals(String.valueOf(updated.getStatus()))) {
+                System.err.println("测试失败: 确认采购后订单状态应为运输中, 实际: " + updated.getStatus());
+            } else {
+                System.out.println("确认采购后订单状态: " + updated.getStatus());
+            }
+            // 断言自动生成验收单
+            AcceptanceOrder acceptance = acceptanceOrderMapper.selectOne(
+                    new QueryWrapper<AcceptanceOrder>().eq("purchase_number", testOrderNo));
+            if (acceptance == null) {
+                System.err.println("测试失败: 确认采购后未生成验收单");
+                return;
+            }
+            acceptanceId = acceptance.getAcceptanceId();
+            if (!"运输中".equals(acceptance.getStatus())) {
+                System.err.println("测试失败: 生成的验收单状态应为运输中, 实际: " + acceptance.getStatus());
+            }
+            // 断言验收明细复制且携带供应商
+            List<AcceptanceDetail> details = acceptanceDetailMapper.selectList(
+                    new QueryWrapper<AcceptanceDetail>().eq("acceptance_id", acceptanceId));
+            if (details.size() != 1) {
+                System.err.println("测试失败: 验收明细应为1条, 实际: " + details.size());
+            } else if (!"测试供应商A".equals(details.get(0).getSupplier())) {
+                System.err.println("测试失败: 验收明细未携带供应商: " + details.get(0).getSupplier());
+            } else {
+                System.out.println("验收明细供应商: " + details.get(0).getSupplier());
+            }
+        } catch (Exception e) {
+            System.err.println("测试失败: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            cleanup(orderId, acceptanceId, null, null, null, null);
+        }
+    }
+
+    /**
+     * 测试确认采购拒绝未填供应商的明细
+     * <p>
+     * 明细供应商为空时，confirmPurchase 应抛出"未填写供应商"异常，订单保持待采购
+     * </p>
+     */
+    @Test
+    public void testConfirmPurchaseRejectsMissingSupplier() {
+        Long orderId = null;
+        try {
+            PurchaseOrders order = createOrder();
+            orderId = order.getId();
+
+            boolean rejected = false;
+            try {
+                purchaseOrdersService.confirmPurchase(orderId);
+            } catch (RuntimeException e) {
+                rejected = String.valueOf(e.getMessage()).contains("供应商");
+            }
+            if (!rejected) {
+                System.err.println("测试失败: 未填写供应商时应拒绝确认采购");
+            } else {
+                System.out.println("确认采购正确拒绝未填供应商的明细");
+            }
+            // 订单应保持待采购
+            PurchaseOrders updated = purchaseOrdersService.getPurchaseOrderById(orderId);
+            if (!"待采购".equals(String.valueOf(updated.getStatus()))) {
+                System.err.println("测试失败: 确认失败后订单应保持待采购, 实际: " + updated.getStatus());
+            }
+        } catch (Exception e) {
+            System.err.println("测试失败: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            cleanup(orderId, null, null, null, null, null);
+        }
+    }
+
+    /**
+     * 测试作废采购订单（整单 → 已作废，联动验收单作废）
+     * <p>
+     * 待采购订单作废：状态变为"已作废"；已生成验收单时（运输中），验收单联动置为"已作废"
+     * </p>
+     */
+    @Test
+    public void testVoidPurchaseMarksVoidedAndLinkedAcceptance() {
+        Long orderId = null;
+        Long acceptanceId = null;
+        try {
+            PurchaseOrders order = createOrder();
+            orderId = order.getId();
+            // 先确认采购生成验收单（供应商必填）
+            PurchaseOrderItems item = purchaseOrderItemsMapper.selectOne(
+                    new QueryWrapper<PurchaseOrderItems>().eq("order_id", orderId));
+            item.setSupplier("测试供应商A");
+            purchaseOrderItemsMapper.updateById(item);
+            purchaseOrdersService.confirmPurchase(orderId);
+            AcceptanceOrder acceptance = acceptanceOrderMapper.selectOne(
+                    new QueryWrapper<AcceptanceOrder>().eq("purchase_number", testOrderNo));
+            if (acceptance == null) {
+                System.err.println("测试失败: 确认采购后未生成验收单");
+                return;
+            }
+            acceptanceId = acceptance.getAcceptanceId();
+
+            purchaseOrdersService.voidPurchase(orderId);
+
+            // 断言订单 → 已作废
+            PurchaseOrders updated = purchaseOrdersService.getPurchaseOrderById(orderId);
+            if (!"已作废".equals(String.valueOf(updated.getStatus()))) {
+                System.err.println("测试失败: 作废后订单状态应为已作废, 实际: " + updated.getStatus());
+            } else {
+                System.out.println("作废后订单状态: " + updated.getStatus());
+            }
+            // 断言关联验收单 → 已作废
+            AcceptanceOrder accUpdated = acceptanceOrderMapper.selectById(acceptanceId);
+            if (!"已作废".equals(accUpdated.getStatus())) {
+                System.err.println("测试失败: 关联验收单应联动置为已作废, 实际: " + accUpdated.getStatus());
+            } else {
+                System.out.println("联动验收单状态: " + accUpdated.getStatus());
+            }
+            // 断言重复作废被拒绝
+            boolean secondRejected = false;
+            try {
+                purchaseOrdersService.voidPurchase(orderId);
+            } catch (RuntimeException e) {
+                secondRejected = true;
+            }
+            if (!secondRejected) {
+                System.err.println("测试失败: 重复作废应被拒绝");
+            }
+        } catch (Exception e) {
+            System.err.println("测试失败: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            cleanup(orderId, acceptanceId, null, null, null, null);
+        }
+    }
+
     // endregion
 
     // region 私有工具方法

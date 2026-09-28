@@ -28,6 +28,8 @@ import java.util.List;
  * │ 7  │ /api/purchase-orders/search-with-details │ GET    │ 高级查询采购订单（含明细子表）   │
  * │ 8  │ /api/purchase-orders/enabled             │ GET    │ 查询所有启用状态的采购订单       │
  * │ 9  │ /api/purchase-orders/{id}/status/{status}│ POST   │ 启用/停用采购订单               │
+ * │ 10 │ /api/purchase-orders/{id}/confirm        │ POST   │ 确认采购：待采购→运输中（校验供应商必填，生成验收单）│
+ * │ 11 │ /api/purchase-orders/{id}/void           │ POST   │ 作废：整单→已作废（联动验收单作废）│
  * └────┴──────────────────────────────────────────┴────────┴─────────────────────────────────┘
  */
 @RestController
@@ -233,6 +235,48 @@ public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders,
         pagedResult.setPageSize(pageResult.getRecords().size());
 
         return pagedResult;
+    }
+
+    /**
+     * 确认采购（待采购 → 运输中，自动生成验收单）
+     * <p>
+     * 前置校验每条物料必须已填写供应商，否则返回错误；确认后订单变为"运输中"，
+     * 并自动生成一条对应验收单（状态"运输中"）
+     * </p>
+     *
+     * 示例请求：
+     * POST /api/purchase-orders/1/confirm
+     *
+     * @param id 采购订单ID
+     * @return ApiResponse&lt;Boolean&gt; 操作结果
+     */
+    @PostMapping("/{id}/confirm")
+    public ApiResponse<Boolean> confirmPurchase(@PathVariable Long id) {
+        try {
+            purchaseOrdersService.confirmPurchase(id);
+            return success(true, "确认采购成功，订单已变更为运输中并生成验收单");
+        } catch (Exception e) {
+            return exception(e, "确认采购");
+        }
+    }
+
+    /**
+     * 作废采购订单（整单 → 已作废，终态，联动验收单作废）
+     *
+     * 示例请求：
+     * POST /api/purchase-orders/1/void
+     *
+     * @param id 采购订单ID
+     * @return ApiResponse&lt;Boolean&gt; 操作结果
+     */
+    @PostMapping("/{id}/void")
+    public ApiResponse<Boolean> voidPurchase(@PathVariable Long id) {
+        try {
+            purchaseOrdersService.voidPurchase(id);
+            return success(true, "作废成功，订单已变更为已作废");
+        } catch (Exception e) {
+            return exception(e, "作废采购订单");
+        }
     }
 
     /**
