@@ -97,7 +97,7 @@ public class Equipment extends AuditEntity {
     private LocalDate lastMaintenanceDate;
 
     /**
-     * 设备类型：生产设备/检验设备/环境设备/其他设备
+     * 设备类型：生产设备/检验设备/环境设备/计量器具/压力容器/其他设备
      */
     @TableField(value = "equipment_type")
     private String equipmentType;

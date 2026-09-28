@@ -96,7 +96,7 @@ public class EquipmentMaintenanceController extends BaseController {
      * 分页查询维保记录列表
      *
      * @param equipmentId 设备ID（可选）
-     * @param equipmentType 设备类型（可选）：设备/仪器/公共设施，通过关联equipment表筛选
+     * @param equipmentType 设备类型（可选）：生产设备/检验设备/环境设备/计量器具/压力容器/其他设备，通过关联equipment表按equipment_type精确匹配
      * @param maintenanceType 维保类型（可选）
      * @param keyword 关键词（可选），模糊匹配维保内容、设备编码（固定资产编号）、设备名称
      * @param maintainer 维保人（可选）
