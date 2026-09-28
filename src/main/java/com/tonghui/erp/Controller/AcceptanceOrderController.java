@@ -38,10 +38,10 @@ import java.util.List;
  * │ 9  │ /api/acceptance/detail                  │ PUT    │ 更新验收明细（批号/单价）      │
  * │ 10 │ /api/acceptance/detail/{id}             │ DELETE │ 删除验收明细                   │
  * │ 11 │ /api/acceptance/generateCode            │ GET    │ 生成验收单号（YS-YYYYMMDD-NNN）│
- * │ 12 │ /api/acceptance/{id}/confirm-arrival    │ POST   │ 确认到货：运输中→到货初验      │
- * │ 13 │ /api/acceptance/{id}/inspect            │ POST   │ 初验：合格→物料检验/不合格→待退货│
+ * │ 12 │ /api/acceptance/{id}/confirm-arrival    │ POST   │ 确认到货：运输中→验收中        │
+ * │ 13 │ /api/acceptance/{id}/inspect            │ POST   │ 初验：合格→明细待检验/不合格→待退货│
  * │ 14 │ /api/acceptance/{id}/quality-check      │ POST   │ 检验：合格→已入库(库存联动)/不合格→待退货│
- * │ 15 │ /api/acceptance/{id}/re-receive         │ POST   │ 重新收货：生成新单，原单已退换 │
+ * │ 15 │ /api/acceptance/{id}/re-receive         │ POST   │ 重新收货：生成新单，原单已结束  │
  * └────┴──────────────────────────────────────────┴────────┴────────────────────────────────┘
  */
 @RestController
@@ -127,7 +127,7 @@ public class AcceptanceOrderController extends BaseController {
      * 高级查询验收单（支持状态、来源类型筛选）
      *
      * 示例请求：
-     * GET /api/acceptance/search?pageIndex=0&pageSize=20&keyword=YS2025&status=物料检验&sourceType=采购入库
+     * GET /api/acceptance/search?pageIndex=0&pageSize=20&keyword=YS2025&status=验收中&sourceType=采购入库
      *
      * @param acceptance 查询条件（自动从query参数映射：status/sourceType/acceptanceCode等）
      * @param keyword    关键字（对验收编号、验收标题进行模糊匹配，可选）
@@ -161,7 +161,7 @@ public class AcceptanceOrderController extends BaseController {
      * 带子表查询验收单（包含明细）
      *
      * 示例请求：
-     * GET /api/acceptance/search-with-details?pageIndex=0&pageSize=20&keyword=YS2025&status=物料检验
+     * GET /api/acceptance/search-with-details?pageIndex=0&pageSize=20&keyword=YS2025&status=验收中
      *
      * @param acceptance 查询条件（自动从query参数映射）
      * @param keyword    关键字（对验收编号、验收标题进行模糊匹配，可选）
@@ -389,7 +389,7 @@ public class AcceptanceOrderController extends BaseController {
     // ===================================
 
     /**
-     * 确认到货：运输中 → 到货初验
+     * 确认到货：运输中 → 验收中
      *
      * 示例请求：
      * POST /api/acceptance/1/confirm-arrival
@@ -408,7 +408,7 @@ public class AcceptanceOrderController extends BaseController {
     }
 
     /**
-     * 初验处理：合格 → 物料检验；不合格 → 待退货
+     * 初验处理：合格 → 明细待检验；不合格 → 明细待退货
      *
      * 示例请求：
      * POST /api/acceptance/1/inspect
@@ -425,7 +425,7 @@ public class AcceptanceOrderController extends BaseController {
             boolean pass = request != null && Boolean.TRUE.equals(request.getPass());
             String remark = request != null ? request.getRemark() : null;
             acceptanceOrderService.inspect(id, pass, remark);
-            return success(true, pass ? "初验合格，进入物料检验环节" : "初验不合格，已标记为待退货");
+            return success(true, pass ? "初验合格，进入检验环节" : "初验不合格，已标记为待退货");
         } catch (Exception ex) {
             return exception(ex, "初验处理");
         }
@@ -462,7 +462,7 @@ public class AcceptanceOrderController extends BaseController {
     }
 
     /**
-     * 重新收货：基于原单生成新验收单（明细沿用原单、批号清空），原单标记为已退换
+     * 重新收货：基于原单生成新验收单（明细沿用原单、批号清空、回到待初验），原单明细已重发、主单已结束
      *
      * 示例请求：
      * POST /api/acceptance/1/re-receive
@@ -474,7 +474,7 @@ public class AcceptanceOrderController extends BaseController {
     public ApiResponse<AcceptanceOrder> reReceive(@PathVariable Long id) {
         try {
             AcceptanceOrder newAcceptance = acceptanceOrderService.reReceive(id);
-            return success(newAcceptance, "已生成新验收单 " + newAcceptance.getAcceptanceCode() + "，原单标记为已退换");
+            return success(newAcceptance, "已生成新验收单 " + newAcceptance.getAcceptanceCode() + "，原单已结束");
         } catch (Exception ex) {
             return exception(ex, "重新收货");
         }

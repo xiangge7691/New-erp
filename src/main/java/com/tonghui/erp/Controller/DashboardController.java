@@ -496,17 +496,15 @@ public class DashboardController extends BaseController {
             }
             typeCounts.put("采购订单", (long) pendingPurchases.size());
 
-            // 8. 验收流程待办（运输中/到货初验/物料检验/待退货）
+            // 8. 验收流程待办（运输中/验收中）
             List<AcceptanceOrder> pendingAcceptances = acceptanceOrderService.list(
                 new QueryWrapper<AcceptanceOrder>()
                     .eq("is_deleted", 0)
-                    .in("status", Arrays.asList("运输中", "到货初验", "物料检验", "待退货"))
+                    .in("status", Arrays.asList("运输中", "验收中"))
                     .orderByDesc("created_time"));
             Map<String, String> acceptanceContentMap = new HashMap<>();
             acceptanceContentMap.put("运输中", "已发货，待确认到货");
-            acceptanceContentMap.put("到货初验", "待到货初验");
-            acceptanceContentMap.put("物料检验", "待检验");
-            acceptanceContentMap.put("待退货", "检验不合格，待退货");
+            acceptanceContentMap.put("验收中", "验收处理中");
             for (AcceptanceOrder a : pendingAcceptances) {
                 TodoItemDto todo = new TodoItemDto();
                 todo.setId(a.getAcceptanceId());

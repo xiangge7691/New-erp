@@ -6,11 +6,13 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Stock.AcceptanceWithDetailsDto;
 import com.tonghui.erp.Common.Dto.Stock.StockInWithNamesDto;
+import com.tonghui.erp.Common.utils.AcceptanceStatusPolicy;
 import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
 import com.tonghui.erp.Data.Entity.Material;
 import com.tonghui.erp.Data.Entity.ProductionPlan;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
+import com.tonghui.erp.Data.Entity.PurchaseOrderItems;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
 import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.Entity.StockInDetail;
@@ -20,6 +22,7 @@ import com.tonghui.erp.Data.mapper.AcceptanceOrderMapper;
 import com.tonghui.erp.Data.mapper.MaterialMapper;
 import com.tonghui.erp.Data.mapper.ProductionPlanMapper;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
+import com.tonghui.erp.Data.mapper.PurchaseOrderItemsMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrdersMapper;
 import com.tonghui.erp.Data.mapper.StockInDetailMapper;
 import com.tonghui.erp.Data.mapper.StockInMapper;
@@ -44,9 +47,10 @@ import java.util.stream.Collectors;
  * 货物验收单业务实现类
  * <p>
  * 实现AcceptanceOrderService接口，提供验收单的增删改查、明细管理、状态流转
- * （运输中→到货初验→物料检验→已入库/待退货→已退换）以及检验合格入库的库存联动能力。
- * 验收单每次状态变更时按同名映射同步关联采购订单状态（到货初验/物料检验/待退货/已入库），
- * 保证货物验收与采购状态实时对应
+ * （运输中→验收中，逐明细初验/检验，合格入库/不合格转待退货）以及检验合格入库的库存联动能力。
+ * 主单状态与明细状态词表及派生规则统一由 AcceptanceStatusPolicy 承载：
+ * 验收单每次状态变更时，按明细状态回写采购订单明细（purchase_order_items.status），
+ * 并将主单状态按同名映射同步关联采购订单主单状态，保证货物验收与采购状态实时对应
  * </p>
  */
 @Service
@@ -79,6 +83,9 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
     /** 采购订单数据访问层，验收合格入库后回写采购订单状态 */
     private final PurchaseOrdersMapper purchaseOrdersMapper;
 
+    /** 采购订单明细数据访问层，验收明细状态变化时回写采购订单明细状态 */
+    private final PurchaseOrderItemsMapper purchaseOrderItemsMapper;
+
     /** 物料主数据访问层，入库明细名称/分类以物料主数据为权威来源 */
     private final MaterialMapper materialMapper;
 
@@ -104,6 +111,7 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
      * @param stockInMapper           入库单数据访问层
      * @param stockInDetailMapper     入库单明细数据访问层
      * @param purchaseOrdersMapper    采购订单数据访问层
+     * @param purchaseOrderItemsMapper 采购订单明细数据访问层
      * @param materialMapper          物料主数据访问层
      * @param userMapper              用户数据访问层
      * @param productionUnitMapper    生产单位数据访问层
@@ -117,6 +125,7 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
                                       StockInMapper stockInMapper,
                                       StockInDetailMapper stockInDetailMapper,
                                       PurchaseOrdersMapper purchaseOrdersMapper,
+                                      PurchaseOrderItemsMapper purchaseOrderItemsMapper,
                                       MaterialMapper materialMapper,
                                       UserMapper userMapper,
                                       ProductionUnitMapper productionUnitMapper,
@@ -128,6 +137,7 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         this.stockInMapper = stockInMapper;
         this.stockInDetailMapper = stockInDetailMapper;
         this.purchaseOrdersMapper = purchaseOrdersMapper;
+        this.purchaseOrderItemsMapper = purchaseOrderItemsMapper;
         this.materialMapper = materialMapper;
         this.userMapper = userMapper;
         this.productionUnitMapper = productionUnitMapper;
@@ -152,7 +162,7 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
 
     /**
      * 新增验收单（含明细）
-     * <p>自动生成验收单号（如果未提供），初始状态为"到货初验"，同时保存主表和明细数据</p>
+     * <p>自动生成验收单号（如果未提供），初始状态为"运输中"，同时保存主表和明细数据</p>
      *
      * @param acceptance 验收单主表实体
      * @param details    验收明细列表，可为null
@@ -164,9 +174,9 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         if (!StringUtils.hasText(acceptance.getAcceptanceCode())) {
             acceptance.setAcceptanceCode(sequenceService.generateAcceptanceCode());
         }
-        // 初始状态：未指定时默认"到货初验"
+        // 初始状态：未指定时默认"运输中"（确认到货后切换为验收中）
         if (!StringUtils.hasText(acceptance.getStatus())) {
-            acceptance.setStatus("到货初验");
+            acceptance.setStatus(AcceptanceStatusPolicy.MAIN_TRANSPORTING);
         }
 
         // 保存验收单主表
@@ -488,8 +498,9 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
     // ===================================
 
     /**
-     * 确认到货：运输中 → 到货初验
-     * <p>确认到货后同步将关联采购订单状态置为"到货初验"，保证验收与采购状态一致</p>
+     * 确认到货：运输中 → 验收中
+     * <p>确认到货后明细进入"待初验"，同步将关联采购订单主单状态置为"验收中"、采购订单明细置为"待初验"，
+     * 保证验收与采购状态一致</p>
      *
      * @param acceptanceId 验收单ID
      */
@@ -497,22 +508,32 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
     @Transactional
     public void confirmArrival(Long acceptanceId) {
         AcceptanceOrder acceptance = getAcceptanceOrThrow(acceptanceId);
-        if (!"运输中".equals(acceptance.getStatus())) {
+        if (!AcceptanceStatusPolicy.MAIN_TRANSPORTING.equals(acceptance.getStatus())) {
             throw new RuntimeException("仅运输中的验收单可确认到货");
         }
-        acceptance.setStatus("到货初验");
+        acceptance.setStatus(AcceptanceStatusPolicy.MAIN_INSPECTING);
         appendRemark(acceptance, "确认到货");
         acceptanceOrderMapper.updateById(acceptance);
 
-        // 同步关联采购订单状态为"到货初验"
+        // 明细进入"待初验"（流转起点，幂等）
+        List<AcceptanceDetail> details = getDetailsByAcceptanceId(acceptanceId);
+        for (AcceptanceDetail detail : details) {
+            if (!StringUtils.hasText(detail.getStatus())) {
+                detail.setStatus(AcceptanceStatusPolicy.DETAIL_PENDING_INITIAL);
+                acceptanceDetailMapper.updateById(detail);
+            }
+        }
+
+        // 同步关联采购订单主单状态为"验收中"、采购订单明细为"待初验"
         syncPurchaseOrderStatus(acceptance);
 
         // 同步关联领料单状态为"验收中"
-        syncMaterialRequisitionSlipStatus(acceptance, "验收中");
+        syncMaterialRequisitionSlipStatus(acceptance, AcceptanceStatusPolicy.MAIN_INSPECTING);
     }
 
     /**
-     * 初验处理：到货初验 → 物料检验（合格）/ 待退货（不合格）
+     * 初验处理：验收中（明细待初验）→ 合格：明细进入待检验 / 不合格：明细进入待退货
+     * <p>整单级初验：所有待初验明细同步流转，主单状态按明细派生（不合格全退时派生为"已结束"）</p>
      *
      * @param acceptanceId 验收单ID
      * @param pass         是否合格
@@ -522,27 +543,43 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
     @Transactional
     public void inspect(Long acceptanceId, boolean pass, String remark) {
         AcceptanceOrder acceptance = getAcceptanceOrThrow(acceptanceId);
-        if (!"到货初验".equals(acceptance.getStatus())) {
-            throw new RuntimeException("仅到货初验状态的验收单可进行初验");
+        if (!AcceptanceStatusPolicy.MAIN_INSPECTING.equals(acceptance.getStatus())) {
+            throw new RuntimeException("仅验收中的验收单可进行初验");
         }
+        List<AcceptanceDetail> details = getDetailsByAcceptanceId(acceptanceId);
+        // 校验：所有明细须处于待初验（或历史空状态）才可初验
+        boolean allPendingInitial = !details.isEmpty() && details.stream().allMatch(d ->
+                !StringUtils.hasText(d.getStatus())
+                        || AcceptanceStatusPolicy.DETAIL_PENDING_INITIAL.equals(d.getStatus()));
+        if (!allPendingInitial) {
+            throw new RuntimeException("仅全部明细处于待初验时可进行初验");
+        }
+
         if (pass) {
-            acceptance.setStatus("物料检验");
+            // 合格：全部明细进入待检验
+            markDetailsStatus(details, AcceptanceStatusPolicy.DETAIL_PENDING_QUALITY, null, null);
             appendRemark(acceptance, "初验合格: " + (StringUtils.hasText(remark) ? remark : "无异常"));
         } else {
-            acceptance.setStatus("待退货");
+            // 不合格：全部明细进入待退货，退货原因只读带出"初验不合格"
+            markDetailsStatus(details, AcceptanceStatusPolicy.DETAIL_PENDING_RETURN,
+                    AcceptanceStatusPolicy.REASON_INITIAL_UNQUALIFIED,
+                    StringUtils.hasText(remark) ? remark : "存在质量问题");
             appendRemark(acceptance, "初验不合格: " + (StringUtils.hasText(remark) ? remark : "存在质量问题"));
         }
+        // 主单状态按明细派生（不合格全退 → 已结束，否则维持验收中）
+        applyDerivedMainStatus(acceptance, details);
         acceptanceOrderMapper.updateById(acceptance);
 
-        // 同步关联采购订单状态为"物料检验"或"待退货"
+        // 同步关联采购订单明细状态与主单状态
         syncPurchaseOrderStatus(acceptance);
     }
 
     /**
-     * 检验处理：物料检验 → 已入库（合格，自动增加库存并写流水）/ 待退货（不合格）
+     * 检验处理：验收中（明细待检验）→ 合格：整单入库（明细待入库→已入库，主单已入库）/ 不合格：明细待退货
      * <p>合格时校验每种物料必须填写批号，并选择入库仓库，随后联动库存表和库存流水，
      * 同时自动生成入库单（主表携带关联生产计划编号/总金额/仓库/操作人）并返回，
-     * 并同步关联采购订单状态为"已入库"；不合格时同步为"待退货"</p>
+     * 并同步关联采购订单主单状态为"已入库"、采购订单明细为"已入库"；不合格时明细进入待退货，
+     * 主单按明细派生（全退则为"已结束"）</p>
      *
      * @param acceptanceId 验收单ID
      * @param pass         是否合格
@@ -554,11 +591,17 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
     @Transactional
     public StockInWithNamesDto qualityCheck(Long acceptanceId, boolean pass, Long prodUnitId, String remark) {
         AcceptanceOrder acceptance = getAcceptanceOrThrow(acceptanceId);
-        if (!"物料检验".equals(acceptance.getStatus())) {
-            throw new RuntimeException("仅物料检验状态的验收单可进行检验");
+        if (!AcceptanceStatusPolicy.MAIN_INSPECTING.equals(acceptance.getStatus())) {
+            throw new RuntimeException("仅验收中的验收单可进行检验");
         }
 
         List<AcceptanceDetail> details = getDetailsByAcceptanceId(acceptanceId);
+        // 校验：所有明细须处于待检验才可检验（初验合格后进入）
+        boolean allPendingQuality = !details.isEmpty() && details.stream().allMatch(d ->
+                AcceptanceStatusPolicy.DETAIL_PENDING_QUALITY.equals(d.getStatus()));
+        if (!allPendingQuality) {
+            throw new RuntimeException("仅全部明细处于待检验时可进行检验");
+        }
 
         if (pass) {
             // 校验：每种物料必须填写批号，否则无法入库
@@ -571,29 +614,40 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
                 throw new RuntimeException("请选择入库仓库");
             }
 
-            // 记录入库仓库并置为已入库
+            // 记录入库仓库
             acceptance.setProdUnitId(prodUnitId);
-            acceptance.setStatus("已入库");
             appendRemark(acceptance, "检验合格入库: " + (StringUtils.hasText(remark) ? remark : "合格"));
-            acceptanceOrderMapper.updateById(acceptance);
+
+            // 明细先流转到"待入库"（合法流转：待检验→待入库），主单按明细派生仍为验收中
+            markDetailsStatus(details, AcceptanceStatusPolicy.DETAIL_PENDING_INBOUND, null, null);
 
             // 库存联动：构造入库单与明细，调用公共库存服务增加库存并写流水，返回自动生成的入库单
             StockIn stockIn = applyAcceptanceInbound(acceptance, details);
 
-            // 同步关联采购订单状态为"已入库"（触发式闭环，与验收单状态一致）
+            // 明细流转到"已入库"，主单派生为"已入库"
+            markDetailsStatus(details, AcceptanceStatusPolicy.DETAIL_INBOUND, null, null);
+            applyDerivedMainStatus(acceptance, details);
+            acceptanceOrderMapper.updateById(acceptance);
+
+            // 同步关联采购订单明细状态与主单状态（触发式闭环，与验收单状态一致）
             syncPurchaseOrderStatus(acceptance);
 
             // 同步关联领料单状态为"已入库"
-            syncMaterialRequisitionSlipStatus(acceptance, "已入库");
+            syncMaterialRequisitionSlipStatus(acceptance, AcceptanceStatusPolicy.MAIN_INBOUND);
 
             // 组装返回DTO：补全操作人姓名与仓库名称
             return buildStockInWithNames(stockIn);
         } else {
-            acceptance.setStatus("待退货");
+            // 不合格：全部明细进入待退货，退货原因只读带出"检验不合格"
+            markDetailsStatus(details, AcceptanceStatusPolicy.DETAIL_PENDING_RETURN,
+                    AcceptanceStatusPolicy.REASON_QUALITY_UNQUALIFIED,
+                    StringUtils.hasText(remark) ? remark : "质量不达标");
             appendRemark(acceptance, "检验不合格: " + (StringUtils.hasText(remark) ? remark : "质量不达标"));
+            // 主单按明细派生（全退则为已结束，部分待入库则仍为验收中）
+            applyDerivedMainStatus(acceptance, details);
             acceptanceOrderMapper.updateById(acceptance);
 
-            // 同步关联采购订单状态为"待退货"
+            // 同步关联采购订单明细状态与主单状态
             syncPurchaseOrderStatus(acceptance);
 
             return null;
@@ -601,8 +655,9 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
     }
 
     /**
-     * 重新收货：待退货 → 生成新验收单（明细沿用原单），原单标记为已退换
-     * <p>同步关联采购订单状态为"到货初验"，跟随新生成的验收单</p>
+     * 重新收货：原单存在待退货明细 → 生成新验收单（明细沿用原单、回到待初验），原单明细标记为"已重发"、主单派生为"已结束"
+     * <p>同步关联采购订单状态跟随新生成的验收单（验收中/待初验）。
+     * 本方法为旧版"已退换"流程的兼容入口，新业务的退货后重新发货由物料退货管理模块承接</p>
      *
      * @param acceptanceId 验收单ID
      * @return 新生成的验收单
@@ -611,38 +666,46 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
     @Transactional
     public AcceptanceOrder reReceive(Long acceptanceId) {
         AcceptanceOrder original = getAcceptanceOrThrow(acceptanceId);
-        if (!"待退货".equals(original.getStatus())) {
-            throw new RuntimeException("仅待退货状态的验收单可重新收货");
+        List<AcceptanceDetail> originalDetails = getDetailsByAcceptanceId(acceptanceId);
+        // 校验：存在待退货明细才可重新收货
+        boolean hasPendingReturn = originalDetails.stream().anyMatch(d ->
+                AcceptanceStatusPolicy.DETAIL_PENDING_RETURN.equals(d.getStatus()));
+        if (!hasPendingReturn) {
+            throw new RuntimeException("仅存在待退货明细的验收单可重新收货");
         }
 
-        // 基于原单生成新验收单（明细沿用原单、批号清空）
+        // 基于原单生成新验收单（明细沿用原单、批号清空、状态回到待初验）
         AcceptanceOrder newAcceptance = new AcceptanceOrder();
         BeanUtils.copyProperties(original, newAcceptance, "acceptanceId", "acceptanceCode", "status",
                 "prodUnitId", "remark", "originalAcceptanceCode", "createdBy", "createdTime");
         newAcceptance.setAcceptanceCode(sequenceService.generateAcceptanceCode());
-        newAcceptance.setStatus("到货初验");
+        newAcceptance.setStatus(AcceptanceStatusPolicy.MAIN_INSPECTING);
         newAcceptance.setProdUnitId(null);
         newAcceptance.setRemark("由 " + original.getAcceptanceCode() + " 退货后重新收货");
         newAcceptance.setOriginalAcceptanceCode(null);
         acceptanceOrderMapper.insert(newAcceptance);
 
-        // 同步关联采购订单状态为"到货初验"（跟随新验收单）
-        syncPurchaseOrderStatus(newAcceptance);
-
-        // 明细沿用原单、批号清空
-        List<AcceptanceDetail> originalDetails = getDetailsByAcceptanceId(acceptanceId);
+        // 明细沿用原单、批号清空、状态回到待初验并清空退货留痕
         List<AcceptanceDetail> newDetails = originalDetails.stream().map(d -> {
             AcceptanceDetail nd = new AcceptanceDetail();
-            BeanUtils.copyProperties(d, nd, "detailId", "acceptanceId", "batchNumber");
+            BeanUtils.copyProperties(d, nd, "detailId", "acceptanceId", "batchNumber",
+                    "status", "returnReason", "returnRemark");
             nd.setBatchNumber("");
+            nd.setStatus(AcceptanceStatusPolicy.DETAIL_PENDING_INITIAL);
+            nd.setReturnReason(null);
+            nd.setReturnRemark(null);
             return nd;
         }).collect(Collectors.toList());
         saveDetails(newAcceptance.getAcceptanceId(), newDetails);
 
-        // 原单标记为已退换，备注记录新验收单号
-        original.setStatus("已退换");
+        // 原单明细标记为"已重发"，主单按明细派生（全部终结且无待入库 → 已结束）
+        markDetailsStatus(originalDetails, AcceptanceStatusPolicy.DETAIL_RESENT, null, null);
+        applyDerivedMainStatus(original, originalDetails);
         appendRemark(original, "重新收货: " + newAcceptance.getAcceptanceCode());
         acceptanceOrderMapper.updateById(original);
+
+        // 采购订单状态跟随新验收单（原单的同步不落单，避免覆盖新单状态）
+        syncPurchaseOrderStatus(newAcceptance);
 
         return newAcceptance;
     }
@@ -681,6 +744,10 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
             for (AcceptanceDetail detail : details) {
                 detail.setAcceptanceId(acceptanceId);
                 detail.setSeq(seq++);
+                // 明细状态默认"待初验"（流转起点）
+                if (!StringUtils.hasText(detail.getStatus())) {
+                    detail.setStatus(AcceptanceStatusPolicy.DETAIL_PENDING_INITIAL);
+                }
                 // 计算金额 = 实际到货数量 × 单价（未填实际到货数量时回退采购数量）
                 if (detail.getAmount() == null) {
                     BigDecimal qtyForAmount = detail.getActualArrivalQty() != null
@@ -952,30 +1019,90 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
     }
 
     /**
-     * 同步关联采购订单状态（按验收单当前状态同名映射）
+     * 批量更新明细状态（流转落库）
+     * <p>同时可写入退货原因与退货备注留痕（传null表示不修改对应留痕）</p>
+     *
+     * @param details      验收明细列表（内存对象同步更新）
+     * @param status       目标明细状态
+     * @param returnReason 退货原因，null表示不修改
+     * @param returnRemark 退货备注，null表示不修改
+     */
+    private void markDetailsStatus(List<AcceptanceDetail> details, String status,
+                                   String returnReason, String returnRemark) {
+        if (details == null) {
+            return;
+        }
+        for (AcceptanceDetail detail : details) {
+            detail.setStatus(status);
+            if (returnReason != null) {
+                detail.setReturnReason(returnReason);
+            }
+            if (returnRemark != null) {
+                detail.setReturnRemark(returnRemark);
+            }
+            acceptanceDetailMapper.updateById(detail);
+        }
+    }
+
+    /**
+     * 按明细状态派生并回填主单状态
+     * <p>派生规则由 AcceptanceStatusPolicy.deriveMainStatus 承载</p>
+     *
+     * @param acceptance 验收单实体（状态就地更新）
+     * @param details    验收明细列表（明细状态须已更新为最终值）
+     */
+    private void applyDerivedMainStatus(AcceptanceOrder acceptance, List<AcceptanceDetail> details) {
+        List<String> statuses = details.stream()
+                .map(AcceptanceDetail::getStatus)
+                .collect(Collectors.toList());
+        acceptance.setStatus(AcceptanceStatusPolicy.deriveMainStatus(acceptance.getStatus(), statuses));
+    }
+
+    /**
+     * 同步关联采购订单状态（明细级 + 主单级）
      * <p>
-     * 状态对应：运输中→运输中、到货初验→到货初验、物料检验→物料检验、
-     * 待退货→待退货、已入库→已入库；已退换为验收单终态不映射（采购订单跟随重新收货生成的新验收单）。
-     * 按验收单关联的采购订单号（优先 purchase_number，其次 related_order）定位采购订单，
-     * 存在且状态与目标不同时更新；无关联采购订单或状态无映射时静默跳过（如非采购来源的验收单）
+     * 同步三步：
+     * <ol>
+     *   <li>已作废的采购订单不覆盖（作废为终态）</li>
+     *   <li>按验收明细的 purchaseItemId 回写采购订单明细状态（purchase_order_items.status），
+     *       实现"明细带动订单明细"</li>
+     *   <li>验收单主单状态按同名映射同步采购订单主单状态（验收单主单已由明细派生，即权威结果）</li>
+     * </ol>
+     * 按验收单关联的采购订单号（优先 purchase_number，其次 related_order）定位采购订单；
+     * 无关联采购订单时静默跳过（如非采购来源的验收单）
      * </p>
      *
-     * @param acceptance 状态已变更的验收单
+     * @param acceptance 状态已变更的验收单（明细状态须已落库）
      */
     private void syncPurchaseOrderStatus(AcceptanceOrder acceptance) {
-        String acceptanceStatus = String.valueOf(acceptance.getStatus());
-        // 已退换为验收单终态，不参与采购订单同步
-        if ("已退换".equals(acceptanceStatus) || !StringUtils.hasText(acceptanceStatus)) {
+        if (acceptance == null || !StringUtils.hasText(acceptance.getStatus())) {
             return;
         }
-        String purchaseNumber = StringUtils.hasText(acceptance.getPurchaseNumber())
-                ? acceptance.getPurchaseNumber() : acceptance.getRelatedOrder();
-        if (!StringUtils.hasText(purchaseNumber)) {
+        PurchaseOrders order = resolvePurchaseOrder(acceptance);
+        if (order == null) {
             return;
         }
-        PurchaseOrders order = purchaseOrdersMapper.selectOne(new QueryWrapper<PurchaseOrders>()
-                .eq("purchase_number", purchaseNumber));
-        if (order != null && !acceptanceStatus.equals(String.valueOf(order.getStatus()))) {
+        // 已作废为终态，不覆盖
+        if (AcceptanceStatusPolicy.MAIN_VOIDED.equals(String.valueOf(order.getStatus()))) {
+            return;
+        }
+
+        // 1) 明细级回写采购订单明细状态
+        List<AcceptanceDetail> details = getDetailsByAcceptanceId(acceptance.getAcceptanceId());
+        for (AcceptanceDetail detail : details) {
+            if (detail.getPurchaseItemId() == null || !StringUtils.hasText(detail.getStatus())) {
+                continue;
+            }
+            PurchaseOrderItems item = purchaseOrderItemsMapper.selectById(detail.getPurchaseItemId());
+            if (item != null && !detail.getStatus().equals(String.valueOf(item.getStatus()))) {
+                item.setStatus(detail.getStatus());
+                purchaseOrderItemsMapper.updateById(item);
+            }
+        }
+
+        // 2) 主单同名映射同步（验收单主单状态即派生权威结果）
+        String acceptanceStatus = acceptance.getStatus();
+        if (!acceptanceStatus.equals(String.valueOf(order.getStatus()))) {
             order.setStatus(acceptanceStatus);
             purchaseOrdersMapper.updateById(order);
         }

@@ -116,7 +116,7 @@ public class AcceptanceOrderServiceTest {
     /**
      * 测试验收单完整状态流转 + 检验合格入库的库存联动
      * <p>
-     * 运输中 → 确认到货 → 到货初验 → 初验合格 → 物料检验 → 检验合格入库，
+     * 运输中 → 确认到货 → 验收中 → 初验合格（明细待检验）→ 检验合格入库（明细已入库），
      * 断言库存批次增加且库存流水写入
      * </p>
      */
@@ -135,19 +135,25 @@ public class AcceptanceOrderServiceTest {
         Long id = acceptance.getAcceptanceId();
         assertEquals("运输中", acceptanceOrderService.getAcceptanceById(id).getStatus());
 
-        // 确认到货
+        // 确认到货：运输中 → 验收中，明细进入待初验
         acceptanceOrderService.confirmArrival(id);
-        assertEquals("到货初验", acceptanceOrderService.getAcceptanceById(id).getStatus());
+        assertEquals("验收中", acceptanceOrderService.getAcceptanceById(id).getStatus());
 
-        // 初验合格
+        // 初验合格：主单维持验收中，明细进入待检验
         acceptanceOrderService.inspect(id, true, "数量外观核对无误");
-        assertEquals("物料检验", acceptanceOrderService.getAcceptanceById(id).getStatus());
+        assertEquals("验收中", acceptanceOrderService.getAcceptanceById(id).getStatus());
+        assertTrue(acceptanceOrderService.getDetailsByAcceptanceId(id).stream()
+                        .allMatch(d -> "待检验".equals(d.getStatus())),
+                "初验合格后明细应全部为待检验");
 
         // 检验合格入库（批号齐全 + 选择仓库）
         acceptanceOrderService.qualityCheck(id, true, prodUnitId, "合格");
         AcceptanceOrder done = acceptanceOrderService.getAcceptanceById(id);
         assertEquals("已入库", done.getStatus());
         assertEquals(prodUnitId, done.getProdUnitId());
+        assertTrue(acceptanceOrderService.getDetailsByAcceptanceId(id).stream()
+                        .allMatch(d -> "已入库".equals(d.getStatus())),
+                "检验合格入库后明细应全部为已入库");
 
         // 断言库存联动：按 物料编码+仓库+批号 能查到库存批次，且流水已写入
         List<AcceptanceDetail> details = acceptanceOrderService.getDetailsByAcceptanceId(id);
@@ -178,8 +184,8 @@ public class AcceptanceOrderServiceTest {
             return;
         }
 
-        // 创建到货初验的验收单（明细批号为空）
-        AcceptanceOrder acceptance = createAcceptance("到货初验", null);
+        // 创建验收中的验收单（明细批号为空，状态待初验）
+        AcceptanceOrder acceptance = createAcceptance("验收中", null);
         Long id = acceptance.getAcceptanceId();
         acceptanceOrderService.inspect(id, true, "初验合格");
 
@@ -190,25 +196,31 @@ public class AcceptanceOrderServiceTest {
     }
 
     /**
-     * 测试重新收货：生成新验收单，原单标记为已退换
+     * 测试重新收货：生成新验收单，原单明细已重发、主单已结束
      */
     @Test
     @Transactional
     public void testReReceiveFlow() {
-        // 创建待退货的验收单
-        AcceptanceOrder acceptance = createAcceptance("待退货", null);
+        // 创建验收中的验收单，初验不合格使明细进入待退货（主单派生为已结束）
+        AcceptanceOrder acceptance = createAcceptance("验收中", null);
         Long id = acceptance.getAcceptanceId();
+        acceptanceOrderService.inspect(id, false, "外观破损");
 
         AcceptanceOrder newAcceptance = acceptanceOrderService.reReceive(id);
 
-        // 原单标记为已退换
-        assertEquals("已退换", acceptanceOrderService.getAcceptanceById(id).getStatus());
-        // 新单状态为到货初验，明细沿用原单且批号清空
-        assertEquals("到货初验", newAcceptance.getStatus());
+        // 原单明细已重发、主单已结束
+        assertEquals("已结束", acceptanceOrderService.getAcceptanceById(id).getStatus());
+        assertTrue(acceptanceOrderService.getDetailsByAcceptanceId(id).stream()
+                        .allMatch(d -> "已重发".equals(d.getStatus())),
+                "原单明细应全部为已重发");
+        // 新单状态为验收中，明细回到待初验且沿用原单、批号清空
+        assertEquals("验收中", newAcceptance.getStatus());
         List<AcceptanceDetail> newDetails = acceptanceOrderService.getDetailsByAcceptanceId(newAcceptance.getAcceptanceId());
         assertEquals(acceptanceOrderService.getDetailsByAcceptanceId(id).size(), newDetails.size(), "新单明细数应与原单一致");
         assertTrue(newDetails.stream().allMatch(d -> d.getBatchNumber() == null || d.getBatchNumber().isEmpty()),
                 "新单明细批号应清空");
+        assertTrue(newDetails.stream().allMatch(d -> "待初验".equals(d.getStatus())),
+                "新单明细状态应回到待初验");
     }
 
     /**

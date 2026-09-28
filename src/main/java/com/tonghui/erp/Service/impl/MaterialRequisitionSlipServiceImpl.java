@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.MaterialRequisitionSlip.MaterialRequisitionSlipWithDetailsDto;
+import com.tonghui.erp.Common.utils.AcceptanceStatusPolicy;
 import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
@@ -353,7 +354,7 @@ public class MaterialRequisitionSlipServiceImpl extends ServiceImpl<MaterialRequ
     // ===================================
 
     /**
-     * 作废领料单（待发放→已作废，联动验收单→已退货）
+     * 作废领料单（待发放→已作废，联动验收单→已作废、验收明细→已取消）
      *
      * @param slipId 领料单ID
      */
@@ -377,12 +378,26 @@ public class MaterialRequisitionSlipServiceImpl extends ServiceImpl<MaterialRequ
         }
         slipMapper.updateById(slip);
 
-        // 联动：关联货物验收单状态→已退货
+        // 联动：关联货物验收单作废（主单→已作废，未入库明细→已取消）
         if (slip.getAcceptanceOrderId() != null) {
             AcceptanceOrder acceptance = acceptanceOrderService.getAcceptanceById(slip.getAcceptanceOrderId());
-            if (acceptance != null && !"已入库".equals(acceptance.getStatus())) {
-                acceptance.setStatus("已退货");
+            if (acceptance != null && !AcceptanceStatusPolicy.MAIN_INBOUND.equals(acceptance.getStatus())) {
+                acceptance.setStatus(AcceptanceStatusPolicy.MAIN_VOIDED);
                 acceptanceOrderService.updateById(acceptance);
+                // 未入库明细一律取消，保持主单（已作废）与明细一致
+                List<AcceptanceDetail> details =
+                        acceptanceOrderService.getDetailsByAcceptanceId(acceptance.getAcceptanceId());
+                List<AcceptanceDetail> toCancel = new ArrayList<>();
+                for (AcceptanceDetail detail : details) {
+                    if (!AcceptanceStatusPolicy.DETAIL_INBOUND.equals(detail.getStatus())
+                            && !AcceptanceStatusPolicy.DETAIL_CANCELLED.equals(detail.getStatus())) {
+                        detail.setStatus(AcceptanceStatusPolicy.DETAIL_CANCELLED);
+                        toCancel.add(detail);
+                    }
+                }
+                if (!toCancel.isEmpty()) {
+                    acceptanceOrderService.updateAcceptanceDetails(toCancel);
+                }
             }
         }
     }

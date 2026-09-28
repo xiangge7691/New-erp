@@ -167,8 +167,8 @@ public class PurchaseOrderStatusFlowTest {
 /**
  * 测试验收合格自动入库后回写采购订单状态为"已入库"
  * <p>
- * 采购订单置"运输中"生成验收单 → 补批号置"物料检验" → 检验合格入库
- * → 断言采购订单状态变为"已入库"（与验收单状态一致）
+ * 采购订单置"运输中"生成验收单 → 补批号，确认到货+初验合格（明细待检验）
+ * → 检验合格入库 → 断言采购订单状态变为"已入库"（与验收单状态一致）
  * </p>
  */
 @Test
@@ -186,7 +186,7 @@ public void testQualityCheckWriteBackOrderStatus() {
             update.setStatus("运输中");
             purchaseOrdersService.updatePurchaseOrder(update);
 
-            // 查询自动生成的验收单，补批号并置为"物料检验"
+            // 查询自动生成的验收单，补批号，确认到货并初验合格（明细进入待检验）
             AcceptanceOrder acceptance = acceptanceOrderMapper.selectOne(
                     new QueryWrapper<AcceptanceOrder>().eq("purchase_number", testOrderNo));
             if (acceptance == null) {
@@ -201,10 +201,8 @@ public void testQualityCheckWriteBackOrderStatus() {
             detail.setExpiryDate(LocalDate.now().plusYears(1));
             acceptanceDetailMapper.updateById(detail);
 
-            AcceptanceOrder toInspect = new AcceptanceOrder();
-            toInspect.setAcceptanceId(acceptanceId);
-            toInspect.setStatus("物料检验");
-            acceptanceOrderMapper.updateById(toInspect);
+            acceptanceOrderService.confirmArrival(acceptanceId);
+            acceptanceOrderService.inspect(acceptanceId, true, "初验合格");
 
             // 检验合格（触发自动入库 + 回写采购订单状态）
             acceptanceOrderService.qualityCheck(acceptanceId, true, INBOUND_UNIT_ID, "测试合格");
@@ -232,10 +230,10 @@ public void testQualityCheckWriteBackOrderStatus() {
     }
 
     /**
-     * 测试验收单确认到货时同步采购订单状态为"到货初验"
+     * 测试验收单确认到货时同步采购订单状态为"验收中"
      * <p>
-     * 采购订单置"运输中"生成验收单 → 确认到货（验收单置"到货初验"）
-     * → 断言关联采购订单状态同步变为"到货初验"
+     * 采购订单置"运输中"生成验收单 → 确认到货（验收单置"验收中"）
+     * → 断言关联采购订单状态同步变为"验收中"、采购订单明细为"待初验"
      * </p>
      */
     @Test
@@ -261,12 +259,20 @@ public void testQualityCheckWriteBackOrderStatus() {
             acceptanceId = acceptance.getAcceptanceId();
             acceptanceOrderService.confirmArrival(acceptanceId);
 
-            // 断言采购订单状态同步为"到货初验"
+            // 断言采购订单状态同步为"验收中"
             PurchaseOrders updatedOrder = purchaseOrdersMapper.selectById(orderId);
-            if (updatedOrder == null || !"到货初验".equals(String.valueOf(updatedOrder.getStatus()))) {
-                System.err.println("测试失败: 采购订单状态应为到货初验, 实际: " + (updatedOrder == null ? "不存在" : updatedOrder.getStatus()));
+            if (updatedOrder == null || !"验收中".equals(String.valueOf(updatedOrder.getStatus()))) {
+                System.err.println("测试失败: 采购订单状态应为验收中, 实际: " + (updatedOrder == null ? "不存在" : updatedOrder.getStatus()));
             } else {
                 System.out.println("采购订单状态已同步为: " + updatedOrder.getStatus());
+            }
+            // 断言采购订单明细同步为"待初验"
+            PurchaseOrderItems updatedItem = purchaseOrderItemsMapper.selectOne(
+                    new QueryWrapper<PurchaseOrderItems>().eq("order_id", orderId));
+            if (updatedItem == null || !"待初验".equals(String.valueOf(updatedItem.getStatus()))) {
+                System.err.println("测试失败: 采购订单明细状态应为待初验, 实际: " + (updatedItem == null ? "不存在" : updatedItem.getStatus()));
+            } else {
+                System.out.println("采购订单明细状态已同步为: " + updatedItem.getStatus());
             }
         } catch (Exception e) {
             System.err.println("测试失败: " + e.getMessage());
@@ -279,7 +285,8 @@ public void testQualityCheckWriteBackOrderStatus() {
     /**
      * 测试验收合格自动入库返回入库单（主表携带关联生产计划编号/总金额/仓库/操作人）
      * <p>
-     * 采购订单置"运输中"生成验收单（断言物料名称取原药材品名而非制剂名称）→ 补批号置"物料检验"
+     * 采购订单置"运输中"生成验收单（断言物料名称取原药材品名而非制剂名称）→ 补批号，
+     * 确认到货+初验合格（明细待检验）
      * → 检验合格入库 → 断言返回的入库单主表字段：planNumber=生产计划编号、totalAmount=15.00、
      * prodUnitId=入库仓库、createdBy=操作人
      * </p>
@@ -315,14 +322,12 @@ public void testQualityCheckWriteBackOrderStatus() {
                 System.out.println("验收明细物料名称正确（取物料主数据）: " + detail.getMaterialName());
             }
 
-            // 补批号并置为"物料检验"
+            // 补批号，确认到货并初验合格（明细进入待检验）
             detail.setBatchNumber(TEST_BATCH);
             detail.setExpiryDate(LocalDate.now().plusYears(1));
             acceptanceDetailMapper.updateById(detail);
-            AcceptanceOrder toInspect = new AcceptanceOrder();
-            toInspect.setAcceptanceId(acceptanceId);
-            toInspect.setStatus("物料检验");
-            acceptanceOrderMapper.updateById(toInspect);
+            acceptanceOrderService.confirmArrival(acceptanceId);
+            acceptanceOrderService.inspect(acceptanceId, true, "初验合格");
 
             // 检验合格（触发自动入库并返回入库单）
             StockInWithNamesDto stockIn = acceptanceOrderService.qualityCheck(acceptanceId, true, INBOUND_UNIT_ID, "测试合格");
@@ -376,10 +381,10 @@ public void testQualityCheckWriteBackOrderStatus() {
     }
 
     /**
-     * 测试初验合格时同步采购订单状态为"物料检验"
+     * 测试初验合格时采购订单保持"验收中"、明细进入"待检验"
      * <p>
      * 采购订单置"运输中"生成验收单 → 确认到货 → 初验合格
-     * → 断言关联采购订单状态同步变为"物料检验"
+     * → 断言关联采购订单状态为"验收中"、采购订单明细为"待检验"
      * </p>
      */
     @Test
@@ -396,16 +401,23 @@ public void testQualityCheckWriteBackOrderStatus() {
             }
             acceptanceId = acceptance.getAcceptanceId();
 
-            // 确认到货（验收单 → 到货初验，采购订单同步到货初验）
+            // 确认到货（验收单 → 验收中，采购订单同步验收中）
             acceptanceOrderService.confirmArrival(acceptanceId);
-            // 初验合格（验收单 → 物料检验，采购订单同步物料检验）
+            // 初验合格（明细 → 待检验，采购订单主单保持验收中）
             acceptanceOrderService.inspect(acceptanceId, true, "外观完好");
 
             PurchaseOrders updatedOrder = purchaseOrdersMapper.selectById(orderId);
-            if (updatedOrder == null || !"物料检验".equals(String.valueOf(updatedOrder.getStatus()))) {
-                System.err.println("测试失败: 初验合格后采购订单应为物料检验, 实际: " + (updatedOrder == null ? "不存在" : updatedOrder.getStatus()));
+            if (updatedOrder == null || !"验收中".equals(String.valueOf(updatedOrder.getStatus()))) {
+                System.err.println("测试失败: 初验合格后采购订单应为验收中, 实际: " + (updatedOrder == null ? "不存在" : updatedOrder.getStatus()));
             } else {
-                System.out.println("初验合格后采购订单状态同步为: " + updatedOrder.getStatus());
+                System.out.println("初验合格后采购订单状态: " + updatedOrder.getStatus());
+            }
+            PurchaseOrderItems updatedItem = purchaseOrderItemsMapper.selectOne(
+                    new QueryWrapper<PurchaseOrderItems>().eq("order_id", orderId));
+            if (updatedItem == null || !"待检验".equals(String.valueOf(updatedItem.getStatus()))) {
+                System.err.println("测试失败: 初验合格后采购订单明细应为待检验, 实际: " + (updatedItem == null ? "不存在" : updatedItem.getStatus()));
+            } else {
+                System.out.println("初验合格后采购订单明细状态: " + updatedItem.getStatus());
             }
         } catch (Exception e) {
             System.err.println("测试失败: " + e.getMessage());
@@ -416,10 +428,10 @@ public void testQualityCheckWriteBackOrderStatus() {
     }
 
     /**
-     * 测试初验不合格时同步采购订单状态为"待退货"
+     * 测试初验不合格时采购订单派生为"已结束"、明细进入"待退货"
      * <p>
-     * 采购订单置"运输中"生成验收单 → 确认到货 → 初验不合格
-     * → 断言关联采购订单状态同步变为"待退货"
+     * 采购订单置"运输中"生成验收单 → 确认到货 → 初验不合格（全部明细待退货）
+     * → 断言关联采购订单状态派生为"已结束"、采购订单明细为"待退货"
      * </p>
      */
     @Test
@@ -440,10 +452,17 @@ public void testQualityCheckWriteBackOrderStatus() {
             acceptanceOrderService.inspect(acceptanceId, false, "包装破损");
 
             PurchaseOrders updatedOrder = purchaseOrdersMapper.selectById(orderId);
-            if (updatedOrder == null || !"待退货".equals(String.valueOf(updatedOrder.getStatus()))) {
-                System.err.println("测试失败: 初验不合格后采购订单应为待退货, 实际: " + (updatedOrder == null ? "不存在" : updatedOrder.getStatus()));
+            if (updatedOrder == null || !"已结束".equals(String.valueOf(updatedOrder.getStatus()))) {
+                System.err.println("测试失败: 初验不合格后采购订单应为已结束, 实际: " + (updatedOrder == null ? "不存在" : updatedOrder.getStatus()));
             } else {
-                System.out.println("初验不合格后采购订单状态同步为: " + updatedOrder.getStatus());
+                System.out.println("初验不合格后采购订单状态派生为: " + updatedOrder.getStatus());
+            }
+            PurchaseOrderItems updatedItem = purchaseOrderItemsMapper.selectOne(
+                    new QueryWrapper<PurchaseOrderItems>().eq("order_id", orderId));
+            if (updatedItem == null || !"待退货".equals(String.valueOf(updatedItem.getStatus()))) {
+                System.err.println("测试失败: 初验不合格后采购订单明细应为待退货, 实际: " + (updatedItem == null ? "不存在" : updatedItem.getStatus()));
+            } else {
+                System.out.println("初验不合格后采购订单明细状态: " + updatedItem.getStatus());
             }
         } catch (Exception e) {
             System.err.println("测试失败: " + e.getMessage());
@@ -454,10 +473,10 @@ public void testQualityCheckWriteBackOrderStatus() {
     }
 
     /**
-     * 测试检验不合格时同步采购订单状态为"待退货"
+     * 测试检验不合格时采购订单派生为"已结束"、明细进入"待退货"
      * <p>
-     * 采购订单置"运输中"生成验收单 → 确认到货 → 初验合格（物料检验）→ 检验不合格
-     * → 断言关联采购订单状态同步变为"待退货"
+     * 采购订单置"运输中"生成验收单 → 确认到货 → 初验合格（待检验）→ 检验不合格
+     * → 断言关联采购订单状态派生为"已结束"、采购订单明细为"待退货"
      * </p>
      */
     @Test
@@ -479,10 +498,17 @@ public void testQualityCheckWriteBackOrderStatus() {
             acceptanceOrderService.qualityCheck(acceptanceId, false, null, "含量不达标");
 
             PurchaseOrders updatedOrder = purchaseOrdersMapper.selectById(orderId);
-            if (updatedOrder == null || !"待退货".equals(String.valueOf(updatedOrder.getStatus()))) {
-                System.err.println("测试失败: 检验不合格后采购订单应为待退货, 实际: " + (updatedOrder == null ? "不存在" : updatedOrder.getStatus()));
+            if (updatedOrder == null || !"已结束".equals(String.valueOf(updatedOrder.getStatus()))) {
+                System.err.println("测试失败: 检验不合格后采购订单应为已结束, 实际: " + (updatedOrder == null ? "不存在" : updatedOrder.getStatus()));
             } else {
-                System.out.println("检验不合格后采购订单状态同步为: " + updatedOrder.getStatus());
+                System.out.println("检验不合格后采购订单状态派生为: " + updatedOrder.getStatus());
+            }
+            PurchaseOrderItems updatedItem = purchaseOrderItemsMapper.selectOne(
+                    new QueryWrapper<PurchaseOrderItems>().eq("order_id", orderId));
+            if (updatedItem == null || !"待退货".equals(String.valueOf(updatedItem.getStatus()))) {
+                System.err.println("测试失败: 检验不合格后采购订单明细应为待退货, 实际: " + (updatedItem == null ? "不存在" : updatedItem.getStatus()));
+            } else {
+                System.out.println("检验不合格后采购订单明细状态: " + updatedItem.getStatus());
             }
         } catch (Exception e) {
             System.err.println("测试失败: " + e.getMessage());
@@ -493,10 +519,11 @@ public void testQualityCheckWriteBackOrderStatus() {
     }
 
     /**
-     * 测试重新收货时同步采购订单状态为"到货初验"（跟随新验收单）
+     * 测试重新收货时采购订单状态跟随新验收单（验收中）
      * <p>
      * 采购订单置"运输中"生成验收单 → 确认到货 → 初验不合格（待退货）→ 重新收货
-     * → 断言生成新验收单（到货初验）、原单标记已退换、采购订单状态同步为"到货初验"
+     * → 断言生成新验收单（验收中、明细待初验）、原单已结束（明细已重发）、
+     * 采购订单状态同步为"验收中"
      * </p>
      */
     @Test
@@ -514,23 +541,23 @@ public void testQualityCheckWriteBackOrderStatus() {
 
             acceptanceOrderService.confirmArrival(originalAcceptanceId);
             acceptanceOrderService.inspect(originalAcceptanceId, false, "包装破损");
-            // 重新收货：生成新验收单（到货初验），原单标记已退换
+            // 重新收货：生成新验收单（验收中、明细待初验），原单明细已重发、主单已结束
             AcceptanceOrder newAcceptance = acceptanceOrderService.reReceive(originalAcceptanceId);
 
             if (newAcceptance == null) {
                 System.err.println("测试失败: 未生成新验收单");
                 return;
             }
-            if (!"到货初验".equals(newAcceptance.getStatus())) {
-                System.err.println("测试失败: 新验收单状态应为到货初验, 实际: " + newAcceptance.getStatus());
+            if (!"验收中".equals(newAcceptance.getStatus())) {
+                System.err.println("测试失败: 新验收单状态应为验收中, 实际: " + newAcceptance.getStatus());
             }
             AcceptanceOrder original = acceptanceOrderMapper.selectById(originalAcceptanceId);
-            if (!"已退换".equals(original.getStatus())) {
-                System.err.println("测试失败: 原验收单状态应为已退换, 实际: " + original.getStatus());
+            if (!"已结束".equals(original.getStatus())) {
+                System.err.println("测试失败: 原验收单状态应为已结束, 实际: " + original.getStatus());
             }
             PurchaseOrders updatedOrder = purchaseOrdersMapper.selectById(orderId);
-            if (updatedOrder == null || !"到货初验".equals(String.valueOf(updatedOrder.getStatus()))) {
-                System.err.println("测试失败: 重新收货后采购订单应为到货初验, 实际: " + (updatedOrder == null ? "不存在" : updatedOrder.getStatus()));
+            if (updatedOrder == null || !"验收中".equals(String.valueOf(updatedOrder.getStatus()))) {
+                System.err.println("测试失败: 重新收货后采购订单应为验收中, 实际: " + (updatedOrder == null ? "不存在" : updatedOrder.getStatus()));
             } else {
                 System.out.println("重新收货后采购订单状态同步为: " + updatedOrder.getStatus());
             }
@@ -571,10 +598,8 @@ public void testQualityCheckWriteBackOrderStatus() {
             detail.setBatchNumber(TEST_BATCH);
             detail.setExpiryDate(LocalDate.now().plusYears(1));
             acceptanceDetailMapper.updateById(detail);
-            AcceptanceOrder toInspect = new AcceptanceOrder();
-            toInspect.setAcceptanceId(acceptanceId);
-            toInspect.setStatus("物料检验");
-            acceptanceOrderMapper.updateById(toInspect);
+            acceptanceOrderService.confirmArrival(acceptanceId);
+            acceptanceOrderService.inspect(acceptanceId, true, "初验合格");
 
             StockIn stockIn = acceptanceOrderService.qualityCheck(acceptanceId, true, INBOUND_UNIT_ID, "测试合格");
             if (stockIn == null) {
@@ -641,10 +666,8 @@ public void testQualityCheckWriteBackOrderStatus() {
             detail.setBatchNumber(TEST_BATCH);
             detail.setExpiryDate(LocalDate.now().plusYears(1));
             acceptanceDetailMapper.updateById(detail);
-            AcceptanceOrder toInspect = new AcceptanceOrder();
-            toInspect.setAcceptanceId(acceptanceId);
-            toInspect.setStatus("物料检验");
-            acceptanceOrderMapper.updateById(toInspect);
+            acceptanceOrderService.confirmArrival(acceptanceId);
+            acceptanceOrderService.inspect(acceptanceId, true, "初验合格");
 
             StockIn stockIn = acceptanceOrderService.qualityCheck(acceptanceId, true, INBOUND_UNIT_ID, "测试合格");
             if (stockIn == null) {
@@ -716,10 +739,8 @@ public void testQualityCheckWriteBackOrderStatus() {
             detail.setBatchNumber(TEST_BATCH);
             detail.setExpiryDate(LocalDate.now().plusYears(1));
             acceptanceDetailMapper.updateById(detail);
-            AcceptanceOrder toInspect = new AcceptanceOrder();
-            toInspect.setAcceptanceId(acceptanceId);
-            toInspect.setStatus("物料检验");
-            acceptanceOrderMapper.updateById(toInspect);
+            acceptanceOrderService.confirmArrival(acceptanceId);
+            acceptanceOrderService.inspect(acceptanceId, true, "初验合格");
 
             StockIn stockIn = acceptanceOrderService.qualityCheck(acceptanceId, true, INBOUND_UNIT_ID, "测试合格");
             if (stockIn == null) {

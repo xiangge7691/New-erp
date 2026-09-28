@@ -134,7 +134,7 @@ public class AcceptanceOrder extends AuditEntity {
     private Long prodUnitId;
 
     /**
-     * 状态：运输中/到货初验/物料检验/已入库/待退货/已退换
+     * 状态：运输中/验收中/已入库/已结束/已作废（派生规则见 AcceptanceStatusPolicy）
      */
     @TableField(value = "status")
     private String status;

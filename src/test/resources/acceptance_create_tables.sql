@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS `acceptance_order` (
   `batch_qty`             DECIMAL(18,3) DEFAULT NULL COMMENT '计划生产批量',
   `prescription_multiple` DECIMAL(18,3) DEFAULT NULL COMMENT '处方生产倍数',
   `prod_unit_id`          BIGINT       DEFAULT NULL COMMENT '入库仓库（生产单位ID，检验合格时选择）',
-  `status`                VARCHAR(20)  NOT NULL DEFAULT '到货初验' COMMENT '状态：运输中/到货初验/物料检验/已入库/待退货/已退换',
+  `status`                VARCHAR(20)  NOT NULL DEFAULT '运输中' COMMENT '状态：运输中/验收中/已入库/已结束/已作废',
   `delivery_date`         DATE         DEFAULT NULL COMMENT '预计交付日期（交期）',
   `remark`                VARCHAR(500) DEFAULT NULL COMMENT '备注（流程节点自动追加）',
   `original_acceptance_code` VARCHAR(50) DEFAULT NULL COMMENT '原验收单号（重新收货时记录）',
@@ -404,3 +404,26 @@ SET poi.`status` = CASE po.`status`
 END
 WHERE poi.`status` IS NULL
   AND po.`status` <> '待采购';
+
+-- 20. 存量回填：主单状态词迁移（旧词 → 新词表；必须在 section 17-19 明细回填之后执行，幂等）
+-- 旧词映射：到货初验/物料检验 → 验收中；待退货/已退换/已退货 → 已结束（与明细派生规则一致）
+-- 验收单主单
+UPDATE `acceptance_order` SET `status` = '验收中'
+WHERE `status` IN ('到货初验', '物料检验');
+UPDATE `acceptance_order` SET `status` = '已结束'
+WHERE `status` IN ('待退货', '已退换', '已退货');
+-- 采购订单主单（待采购/运输中/已入库/已结束/已作废 保持不变）
+UPDATE `purchase_orders` SET `status` = '验收中'
+WHERE `status` IN ('到货初验', '物料检验');
+UPDATE `purchase_orders` SET `status` = '已结束'
+WHERE `status` IN ('待退货', '已退换', '已退货');
+
+-- 21. 存量列修正：acceptance_order.status 默认值与注释切换为新词表（CREATE IF NOT EXISTS 不更新已存在表，幂等）
+SET @def := (SELECT COLUMN_DEFAULT FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'acceptance_order' AND COLUMN_NAME = 'status');
+SET @ddl := IF(@def LIKE '%到货初验%',
+    'ALTER TABLE `acceptance_order` MODIFY COLUMN `status` VARCHAR(20) NOT NULL DEFAULT ''运输中'' COMMENT ''状态：运输中/验收中/已入库/已结束/已作废''',
+    'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;

@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Purchase.PurchaseOrdersWithItemsDto;
+import com.tonghui.erp.Common.utils.AcceptanceStatusPolicy;
 import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
 import com.tonghui.erp.Data.Entity.Material;
@@ -257,7 +258,15 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
             detail.setQuantity(item.getPurchaseQuantity());
             detail.setUnitPrice(item.getUnitPrice());
             detail.setAmount(item.getAmount());
+            // 明细状态初始化为"待初验"，并携带采购订单明细ID与供应商（退货/同步回写依赖）
+            detail.setStatus(AcceptanceStatusPolicy.DETAIL_PENDING_INITIAL);
+            detail.setPurchaseItemId(item.getId());
+            detail.setSupplier(item.getSupplier());
             acceptanceDetailMapper.insert(detail);
+
+            // 采购订单明细状态同步为"待初验"（验收明细带动订单明细）
+            item.setStatus(AcceptanceStatusPolicy.DETAIL_PENDING_INITIAL);
+            purchaseOrderItemsMapper.updateById(item);
             details.add(detail);
         }
         if (details.isEmpty()) {

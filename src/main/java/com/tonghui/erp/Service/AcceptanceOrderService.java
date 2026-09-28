@@ -159,14 +159,14 @@ public interface AcceptanceOrderService extends IService<AcceptanceOrder> {
     // ===================================
 
     /**
-     * 确认到货：运输中 → 到货初验
+     * 确认到货：运输中 → 验收中（明细进入待初验）
      *
      * @param acceptanceId 验收单ID
      */
     void confirmArrival(Long acceptanceId);
 
     /**
-     * 初验处理：到货初验 → 物料检验（合格）/ 待退货（不合格）
+     * 初验处理：验收中（明细待初验）→ 合格：明细待检验 / 不合格：明细待退货
      *
      * @param acceptanceId 验收单ID
      * @param pass         是否合格
@@ -175,7 +175,7 @@ public interface AcceptanceOrderService extends IService<AcceptanceOrder> {
     void inspect(Long acceptanceId, boolean pass, String remark);
 
     /**
-     * 检验处理：物料检验 → 已入库（合格，自动增加库存并写流水）/ 待退货（不合格）
+     * 检验处理：验收中（明细待检验）→ 合格：整单入库（主单已入库）/ 不合格：明细待退货
      * <p>合格时自动生成入库单（主表携带关联生产计划编号/总金额/仓库/操作人，
      * 并回填操作人姓名与仓库名）并返回</p>
      *
@@ -188,7 +188,8 @@ public interface AcceptanceOrderService extends IService<AcceptanceOrder> {
     StockInWithNamesDto qualityCheck(Long acceptanceId, boolean pass, Long prodUnitId, String remark);
 
     /**
-     * 重新收货：待退货 → 生成新验收单（明细沿用原单），原单标记为已退换
+     * 重新收货（兼容入口，步骤4删除）：存在待退货明细 → 生成新验收单（明细沿用原单、回到待初验），
+     * 原单明细标记为已重发、主单派生为已结束
      *
      * @param acceptanceId 验收单ID
      * @return 新生成的验收单
