@@ -138,6 +138,58 @@ public class AcceptanceDetail {
 
     // endregion
 
+    // region 退货与明细状态字段
+    // ===================================
+    // 退货与明细状态字段
+    // ===================================
+
+    /**
+     * 明细状态：待初验/待检验/待入库/待退货/已退货/已重发/已入库/已取消
+     * <p>与采购订单明细（purchase_order_items.status）共享，任一页操作后双向同步</p>
+     */
+    @TableField(value = "status")
+    private String status;
+
+    /**
+     * 退货原因：初验不合格/检验不合格
+     * <p>由货物验收环节不合格时自动带出，物料退货管理页只读不可修改</p>
+     */
+    @TableField(value = "return_reason")
+    private String returnReason;
+
+    /**
+     * 不合格原因说明
+     * <p>来源于货物验收初验/检验不合格时填写的备注说明，物料退货管理页只读展示</p>
+     */
+    @TableField(value = "return_remark")
+    private String returnRemark;
+
+    /**
+     * 供应商（从采购订单明细自动带出，退货时退回该供应商）
+     */
+    @TableField(value = "supplier")
+    private String supplier;
+
+    /**
+     * 部分验收拆行时记录的原明细序号（用于追溯原始行）
+     */
+    @TableField(value = "original_seq")
+    private Integer originalSeq;
+
+    /**
+     * 明细级入库仓库（生产单位ID，每条物料独立选择）
+     */
+    @TableField(value = "prod_unit_id")
+    private Long prodUnitId;
+
+    /**
+     * 关联采购订单明细ID（明细状态同步锚点）
+     */
+    @TableField(value = "purchase_item_id")
+    private Long purchaseItemId;
+
+    // endregion
+
     // region 状态与审计字段
     // ===================================
     // 状态与审计字段

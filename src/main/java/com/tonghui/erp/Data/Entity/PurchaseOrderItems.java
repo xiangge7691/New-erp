@@ -146,6 +146,13 @@ public class PurchaseOrderItems {
     @TableField(value = "difference")
     private BigDecimal difference;
 
+    /**
+     * 明细状态（与验收明细共享）：待初验/待检验/待入库/待退货/已退货/已重发/已入库/已取消
+     * <p>由货物验收与物料退货管理页驱动，采购订单页只读展示</p>
+     */
+    @TableField(value = "status")
+    private String status;
+
     // endregion
 
     // region 状态与审计字段
