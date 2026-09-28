@@ -178,10 +178,10 @@ public interface AcceptanceOrderService extends IService<AcceptanceOrder> {
      *
      * @param acceptanceId 验收单ID
      * @param detailIds    目标明细行ID列表，空/null表示全部待初验行
-     * @param pass         是否合格
+     * @param pass         是否合格（true-合格/false-不合格，不允许为空）
      * @param remark       初验备注说明
      */
-    void inspect(Long acceptanceId, List<Long> detailIds, boolean pass, String remark);
+    void inspect(Long acceptanceId, List<Long> detailIds, Boolean pass, String remark);
 
     /**
      * 检验处理（逐行）：所选明细行 待检验 → 合格：待入库 / 不合格：待退货
@@ -192,10 +192,10 @@ public interface AcceptanceOrderService extends IService<AcceptanceOrder> {
      *
      * @param acceptanceId 验收单ID
      * @param detailIds    目标明细行ID列表，空/null表示全部待检验行
-     * @param pass         是否合格
+     * @param pass         是否合格（true-合格/false-不合格，不允许为空）
      * @param remark       检验备注说明
      */
-    void qualityCheck(Long acceptanceId, List<Long> detailIds, boolean pass, String remark);
+    void qualityCheck(Long acceptanceId, List<Long> detailIds, Boolean pass, String remark);
 
     /**
      * 部分验收（拆行）：将一行物料拆为「验收子行 + 退货子行」

@@ -314,8 +314,9 @@ public class AcceptanceOrderController extends BaseController {
     }
 
     /**
-     * 批量更新验收明细（批号/单价/实际到货数量等，已入库后锁定）
-     * <p>支持一次提交多条明细；携带实际到货数量或单价时自动按 实际到货数量 × 单价 重算金额</p>
+     * 批量更新验收明细（批号/单价/实际到货数量等）
+     * <p>支持一次提交多条明细；携带实际到货数量或单价时自动按 实际到货数量 × 单价 重算金额；
+     * 已入库明细（明细状态=已入库）已锁定，批号/单价/仓库不可修改，整体拒绝并报错</p>
      *
      * 示例请求：
      * PUT /api/acceptance/detail
@@ -427,11 +428,11 @@ public class AcceptanceOrderController extends BaseController {
     @PostMapping("/{id}/inspect")
     public ApiResponse<Boolean> inspect(@PathVariable Long id, @RequestBody(required = false) AcceptanceActionRequest request) {
         try {
-            boolean pass = request != null && Boolean.TRUE.equals(request.getPass());
+            Boolean pass = request != null ? request.getPass() : null;
             String remark = request != null ? request.getRemark() : null;
             List<Long> detailIds = request != null ? request.getDetailIds() : null;
             acceptanceOrderService.inspect(id, detailIds, pass, remark);
-            return success(true, pass ? "初验合格，进入检验环节" : "初验不合格，已标记为待退货");
+            return success(true, Boolean.TRUE.equals(pass) ? "初验合格，进入检验环节" : "初验不合格，已标记为待退货");
         } catch (Exception ex) {
             return exception(ex, "初验处理");
         }
@@ -453,11 +454,11 @@ public class AcceptanceOrderController extends BaseController {
     @PostMapping("/{id}/quality-check")
     public ApiResponse<Boolean> qualityCheck(@PathVariable Long id, @RequestBody(required = false) AcceptanceActionRequest request) {
         try {
-            boolean pass = request != null && Boolean.TRUE.equals(request.getPass());
+            Boolean pass = request != null ? request.getPass() : null;
             String remark = request != null ? request.getRemark() : null;
             List<Long> detailIds = request != null ? request.getDetailIds() : null;
             acceptanceOrderService.qualityCheck(id, detailIds, pass, remark);
-            return success(true, pass ? "检验合格，已标记为待入库" : "检验不合格，已标记为待退货");
+            return success(true, Boolean.TRUE.equals(pass) ? "检验合格，已标记为待入库" : "检验不合格，已标记为待退货");
         } catch (Exception ex) {
             return exception(ex, "检验处理");
         }

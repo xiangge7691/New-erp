@@ -23,9 +23,10 @@ import java.util.List;
  * ├────┼──────────────────────────────────────┼────────┼─────────────────────────────────────┤
  * │ 1  │ /api/purchase-order-items            │ POST  │ 新增采购订单明细                    │
  * │ 2  │ /api/purchase-order-items            │ PUT   │ 更新采购订单明细                    │
- * │ 3  │ /api/purchase-order-items/{itemId}   │ DELETE│ 删除采购订单明细                    │
- * │ 4  │ /api/purchase-order-items/{itemId}   │ GET   │ 根据ID查询采购订单明细              │
- * │ 5  │ /api/purchase-order-items/order/{orderId} │ GET │ 根据采购订单ID查询所有明细      │
+ * │ 3  │ /api/purchase-order-items/batch      │ PUT   │ 批量更新采购订单明细（统一发票号/供应商）│
+ * │ 4  │ /api/purchase-order-items/{itemId}   │ DELETE│ 删除采购订单明细                    │
+ * │ 5  │ /api/purchase-order-items/{itemId}   │ GET   │ 根据ID查询采购订单明细              │
+ * │ 6  │ /api/purchase-order-items/order/{orderId} │ GET │ 根据采购订单ID查询所有明细      │
  * └────┴──────────────────────────────────────┴────────┴─────────────────────────────────────┘
  */
 @RestController
@@ -108,6 +109,30 @@ public class PurchaseOrderItemsController extends BaseController {
             return success(result, "更新采购订单明细成功");
         } catch (Exception e) {
             return exception(e, "更新采购订单明细");
+        }
+    }
+
+    /**
+     * 批量更新采购订单明细（原型"批量写入统一发票号/统一供应商"一次提交）
+     *
+     * 示例请求：
+     * PUT /api/purchase-order-items/batch
+     * Content-Type: application/json
+     * [
+     *   { "id": 101, "invoiceNo": "FP20260702", "supplier": "某某药材公司" },
+     *   { "id": 102, "invoiceNo": "FP20260702", "supplier": "某某药材公司", "unitPrice": 30.00, "amount": null }
+     * ]
+     *
+     * @param items 采购订单明细列表（每条必须包含 id，仅需携带要修改的字段；amount 为 null 时后端按 数量×单价 重算）
+     * @return ApiResponse&lt;Boolean&gt; 操作结果
+     */
+    @PutMapping("/batch")
+    public ApiResponse<Boolean> batchUpdatePurchaseOrderItems(@RequestBody List<PurchaseOrderItems> items) {
+        try {
+            boolean result = purchaseOrderItemsService.batchUpdatePurchaseOrderItems(items);
+            return success(result, "批量更新采购订单明细成功");
+        } catch (Exception e) {
+            return exception(e, "批量更新采购订单明细");
         }
     }
 

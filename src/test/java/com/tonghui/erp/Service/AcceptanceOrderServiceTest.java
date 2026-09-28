@@ -311,6 +311,58 @@ public class AcceptanceOrderServiceTest {
     }
 
     /**
+     * 测试已入库验收明细锁定：已入库明细不可再修改（批号/单价/仓库锁定）
+     */
+    @Test
+    @Transactional
+    public void testUpdateInboundDetailRejected() {
+        // 创建验收单（明细状态待初验，批号为空）
+        AcceptanceOrder acceptance = createAcceptance("验收中", null);
+        Long id = acceptance.getAcceptanceId();
+        List<AcceptanceDetail> details = acceptanceOrderService.getDetailsByAcceptanceId(id);
+        AcceptanceDetail detail = details.get(0);
+        Long detailId = detail.getDetailId();
+
+        // 非已入库行仍可更新（含状态流转：待初验→已入库）
+        AcceptanceDetail promote = new AcceptanceDetail();
+        promote.setDetailId(detailId);
+        promote.setBatchNumber("LOCK-BATCH-001");
+        promote.setStatus("已入库");
+        acceptanceOrderService.updateAcceptanceDetails(List.of(promote));
+        assertEquals("已入库", acceptanceOrderService.getDetailsByAcceptanceId(id).get(0).getStatus(),
+                "非已入库行应允许更新");
+
+        // 已入库行再次更新任意字段应被整体拒绝
+        AcceptanceDetail attempt = new AcceptanceDetail();
+        attempt.setDetailId(detailId);
+        attempt.setUnitPrice(new BigDecimal("99.00"));
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> acceptanceOrderService.updateAcceptanceDetails(List.of(attempt)));
+        assertTrue(ex.getMessage().contains("已入库"), "异常信息应提示已入库锁定");
+        assertTrue(ex.getMessage().contains("锁定"), "异常信息应提示锁定");
+    }
+
+    /**
+     * 测试初验/检验必须明确指定合格结果（pass 不允许为空，空请求防护）
+     */
+    @Test
+    @Transactional
+    public void testInspectRequiresExplicitPass() {
+        AcceptanceOrder acceptance = createAcceptance("验收中", null);
+        Long id = acceptance.getAcceptanceId();
+
+        RuntimeException exInspect = assertThrows(RuntimeException.class,
+                () -> acceptanceOrderService.inspect(id, null, null, "无结果"));
+        assertTrue(exInspect.getMessage().contains("必须明确指定检验结果"),
+                "初验未指定pass应被拒绝，实际: " + exInspect.getMessage());
+
+        RuntimeException exQuality = assertThrows(RuntimeException.class,
+                () -> acceptanceOrderService.qualityCheck(id, null, null, "无结果"));
+        assertTrue(exQuality.getMessage().contains("必须明确指定检验结果"),
+                "检验未指定pass应被拒绝，实际: " + exQuality.getMessage());
+    }
+
+    /**
      * 测试验收单号自动生成格式（YS-YYYYMMDD-NNN）
      */
     @Test

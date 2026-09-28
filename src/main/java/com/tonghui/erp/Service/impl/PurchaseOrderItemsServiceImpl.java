@@ -57,6 +57,33 @@ public class PurchaseOrderItemsServiceImpl extends ServiceImpl<PurchaseOrderItem
     }
 
     /**
+     * 批量更新采购订单明细
+     * <p>逐条校验存在性并复用单条更新逻辑；金额规则与单条更新一致（amount 为 null 时按 实际到货数量 × 单价 计算）</p>
+     *
+     * @param items 采购订单明细列表（每条必须包含 id）
+     * @return 操作是否成功
+     */
+    @Override
+    @Transactional
+    public boolean batchUpdatePurchaseOrderItems(List<PurchaseOrderItems> items) {
+        if (items == null || items.isEmpty()) {
+            throw new RuntimeException("明细列表不能为空");
+        }
+        for (PurchaseOrderItems item : items) {
+            if (item == null || item.getId() == null) {
+                throw new RuntimeException("明细ID不能为空");
+            }
+            PurchaseOrderItems existing = this.getById(item.getId());
+            if (existing == null) {
+                throw new RuntimeException("采购订单明细不存在(ID=" + item.getId() + ")");
+            }
+            calculateAmount(item, existing);
+            this.updateById(item);
+        }
+        return true;
+    }
+
+    /**
      * 删除采购订单明细
      *
      * @param itemId 采购订单明细ID
@@ -121,6 +148,30 @@ public class PurchaseOrderItemsServiceImpl extends ServiceImpl<PurchaseOrderItem
         if (qty != null) {
             BigDecimal price = purchaseOrderItems.getUnitPrice() != null ? purchaseOrderItems.getUnitPrice() : BigDecimal.ZERO;
             purchaseOrderItems.setAmount(qty.multiply(price));
+        }
+    }
+
+    /**
+     * 计算明细金额（批量更新场景：仅携带部分字段时，数量/单价回退原记录）
+     * <p>金额为空时按 (传入的实际到货数量 或 原记录的实际到货数量 或 原记录的采购数量) × (传入单价 或 原记录单价) 计算</p>
+     *
+     * @param purchaseOrderItems 采购订单明细实体（仅携带待修改字段）
+     * @param existing           数据库原记录
+     */
+    private void calculateAmount(PurchaseOrderItems purchaseOrderItems, PurchaseOrderItems existing) {
+        if (purchaseOrderItems == null || purchaseOrderItems.getAmount() != null || existing == null) {
+            return;
+        }
+        BigDecimal qty = purchaseOrderItems.getActualArrivalQty() != null
+                ? purchaseOrderItems.getActualArrivalQty()
+                : existing.getActualArrivalQty() != null
+                ? existing.getActualArrivalQty()
+                : existing.getPurchaseQuantity();
+        BigDecimal price = purchaseOrderItems.getUnitPrice() != null
+                ? purchaseOrderItems.getUnitPrice()
+                : existing.getUnitPrice();
+        if (qty != null) {
+            purchaseOrderItems.setAmount(qty.multiply(price != null ? price : BigDecimal.ZERO));
         }
     }
 

@@ -325,15 +325,22 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
             if (detail == null || detail.getDetailId() == null) {
                 throw new RuntimeException("明细ID不能为空");
             }
+            // 无条件读取原记录：校验存在性与"已入库锁定"，并复用原记录重算金额
+            AcceptanceDetail existing = acceptanceDetailMapper.selectById(detail.getDetailId());
+            if (existing == null) {
+                throw new RuntimeException("验收明细不存在(ID=" + detail.getDetailId() + ")");
+            }
+            if (AcceptanceStatusPolicy.DETAIL_INBOUND.equals(existing.getStatus())) {
+                throw new RuntimeException("明细「" + (existing.getMaterialName() != null ? existing.getMaterialName() : "未知物料") + "」(序号" + existing.getSeq() + ")已入库，批号/单价/仓库已锁定，不可修改");
+            }
             // 携带实际到货数量或单价时，读取原记录补全后重算金额（以实际到货数量 × 单价）
             if (detail.getActualArrivalQty() != null || detail.getUnitPrice() != null) {
-                AcceptanceDetail existing = acceptanceDetailMapper.selectById(detail.getDetailId());
                 BigDecimal qty = detail.getActualArrivalQty() != null
                         ? detail.getActualArrivalQty()
-                        : existing != null ? existing.getActualArrivalQty() : null;
+                        : existing.getActualArrivalQty();
                 BigDecimal price = detail.getUnitPrice() != null
                         ? detail.getUnitPrice()
-                        : existing != null ? existing.getUnitPrice() : null;
+                        : existing.getUnitPrice();
                 if (qty != null && price != null) {
                     detail.setAmount(qty.multiply(price));
                 }
@@ -543,12 +550,15 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
      *
      * @param acceptanceId 验收单ID
      * @param detailIds    目标明细行ID列表，空/null表示全部待初验行
-     * @param pass         是否合格
+     * @param pass         是否合格（true-合格/false-不合格，不允许为空）
      * @param remark       初验备注说明
      */
     @Override
     @Transactional
-    public void inspect(Long acceptanceId, List<Long> detailIds, boolean pass, String remark) {
+    public void inspect(Long acceptanceId, List<Long> detailIds, Boolean pass, String remark) {
+        if (pass == null) {
+            throw new RuntimeException("必须明确指定检验结果（pass=true合格/false不合格）");
+        }
         AcceptanceOrder acceptance = getAcceptanceOrThrow(acceptanceId);
         if (!AcceptanceStatusPolicy.MAIN_INSPECTING.equals(acceptance.getStatus())) {
             throw new RuntimeException("仅验收中的验收单可进行初验");
@@ -628,12 +638,15 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
      *
      * @param acceptanceId 验收单ID
      * @param detailIds    目标明细行ID列表，空/null表示全部待检验行
-     * @param pass         是否合格
+     * @param pass         是否合格（true-合格/false-不合格，不允许为空）
      * @param remark       检验备注说明
      */
     @Override
     @Transactional
-    public void qualityCheck(Long acceptanceId, List<Long> detailIds, boolean pass, String remark) {
+    public void qualityCheck(Long acceptanceId, List<Long> detailIds, Boolean pass, String remark) {
+        if (pass == null) {
+            throw new RuntimeException("必须明确指定检验结果（pass=true合格/false不合格）");
+        }
         AcceptanceOrder acceptance = getAcceptanceOrThrow(acceptanceId);
         if (!AcceptanceStatusPolicy.MAIN_INSPECTING.equals(acceptance.getStatus())) {
             throw new RuntimeException("仅验收中的验收单可进行检验");

@@ -245,6 +245,94 @@ public class PurchaseModuleTest {
     }
 
     /**
+     * 测试采购订单明细批量更新（原型"批量写入统一发票号/统一供应商"）
+     * <p>一次提交多条明细统一修改发票号/供应商；amount 为 null 时按 数量×单价 重算；
+     * 空列表/null ID 应被拒绝</p>
+     */
+    @Test
+    @Transactional
+    public void testBatchUpdatePurchaseOrderItems() {
+        String orderNo = purchaseOrdersService.generateOrderNumber();
+        PurchaseOrders order = new PurchaseOrders();
+        order.setPurchaseNumber(orderNo);
+        order.setSupplierId(1L);
+        order.setTitle("批量更新测试订单");
+        order.setWarehouse("一号仓库");
+        order.setInvoiceInfo("票随货到");
+        order.setReceivingInfo("仓库收货");
+        order.setUnit("kg");
+        order.setStatus("待采购");
+        purchaseOrdersService.addPurchaseOrder(order);
+        Long orderId = order.getId();
+
+        // 新增两条明细
+        com.tonghui.erp.Data.Entity.PurchaseOrderItems item1 = new com.tonghui.erp.Data.Entity.PurchaseOrderItems();
+        item1.setOrderId(orderId);
+        item1.setSequenceNumber(1);
+        item1.setMaterialCode("B1001");
+        item1.setProductName("批量物料一");
+        item1.setRawMaterialName("批量物料一");
+        item1.setDose(new BigDecimal("1.000"));
+        item1.setUnit("kg");
+        item1.setProcessingProperty("原料");
+        item1.setStock(new BigDecimal("10.000"));
+        item1.setPurchaseQuantity(new BigDecimal("10.000"));
+        item1.setUnitPrice(new BigDecimal("5.00"));
+        item1.setAmount(new BigDecimal("50.00"));
+        assertTrue(purchaseOrderItemsService.addPurchaseOrderItem(item1), "新增明细一应成功");
+
+        com.tonghui.erp.Data.Entity.PurchaseOrderItems item2 = new com.tonghui.erp.Data.Entity.PurchaseOrderItems();
+        item2.setOrderId(orderId);
+        item2.setSequenceNumber(2);
+        item2.setMaterialCode("B1002");
+        item2.setProductName("批量物料二");
+        item2.setRawMaterialName("批量物料二");
+        item2.setDose(new BigDecimal("1.000"));
+        item2.setUnit("kg");
+        item2.setProcessingProperty("原料");
+        item2.setStock(new BigDecimal("20.000"));
+        item2.setPurchaseQuantity(new BigDecimal("20.000"));
+        item2.setUnitPrice(new BigDecimal("3.00"));
+        item2.setAmount(new BigDecimal("60.00"));
+        assertTrue(purchaseOrderItemsService.addPurchaseOrderItem(item2), "新增明细二应成功");
+
+        // 批量写入统一发票号/统一供应商，amount 传 null 触发后端重算
+        com.tonghui.erp.Data.Entity.PurchaseOrderItems u1 = new com.tonghui.erp.Data.Entity.PurchaseOrderItems();
+        u1.setId(item1.getId());
+        u1.setInvoiceNo("FP-BATCH-001");
+        u1.setSupplier("统一供应商甲");
+        com.tonghui.erp.Data.Entity.PurchaseOrderItems u2 = new com.tonghui.erp.Data.Entity.PurchaseOrderItems();
+        u2.setId(item2.getId());
+        u2.setInvoiceNo("FP-BATCH-001");
+        u2.setSupplier("统一供应商甲");
+        u2.setUnitPrice(new BigDecimal("4.00"));
+        u2.setAmount(null);
+        assertTrue(purchaseOrderItemsService.batchUpdatePurchaseOrderItems(List.of(u1, u2)), "批量更新应成功");
+
+        com.tonghui.erp.Data.Entity.PurchaseOrderItems after1 =
+                purchaseOrderItemsService.getPurchaseOrderItemById(item1.getId());
+        com.tonghui.erp.Data.Entity.PurchaseOrderItems after2 =
+                purchaseOrderItemsService.getPurchaseOrderItemById(item2.getId());
+        assertEquals("FP-BATCH-001", after1.getInvoiceNo(), "明细一发票号应已批量更新");
+        assertEquals("统一供应商甲", after1.getSupplier(), "明细一供应商应已批量更新");
+        assertEquals("统一供应商甲", after2.getSupplier(), "明细二供应商应已批量更新");
+        assertEquals(0, new BigDecimal("80.00").compareTo(after2.getAmount()),
+                "明细二金额应按新单价重算（20.000×4.00）");
+
+        // 空列表应被拒绝
+        RuntimeException ex1 = assertThrows(RuntimeException.class,
+                () -> purchaseOrderItemsService.batchUpdatePurchaseOrderItems(List.of()));
+        assertTrue(ex1.getMessage().contains("不能为空"), "空列表应提示明细列表不能为空");
+
+        // null ID 应被拒绝
+        com.tonghui.erp.Data.Entity.PurchaseOrderItems bad = new com.tonghui.erp.Data.Entity.PurchaseOrderItems();
+        bad.setInvoiceNo("FP-BAD");
+        RuntimeException ex2 = assertThrows(RuntimeException.class,
+                () -> purchaseOrderItemsService.batchUpdatePurchaseOrderItems(List.of(bad)));
+        assertTrue(ex2.getMessage().contains("明细ID不能为空"), "缺ID应提示明细ID不能为空");
+    }
+
+    /**
      * 测试采购计划新增与状态流转：新增计划→审批通过自动生成采购订单
      */
     @Test

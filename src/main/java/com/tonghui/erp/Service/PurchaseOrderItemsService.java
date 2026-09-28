@@ -23,13 +23,21 @@ public interface PurchaseOrderItemsService extends IService<PurchaseOrderItems> 
      */
     boolean addPurchaseOrderItem(PurchaseOrderItems purchaseOrderItems);
 
-    /**
+/**
      * 更新采购订单明细
      *
-     * @param purchaseOrderItems 采购订单明细实体
+     * @param purchaseOrderItems 采购订单明细实体，包含要更新的字段信息
      * @return 是否成功
      */
     boolean updatePurchaseOrderItem(PurchaseOrderItems purchaseOrderItems);
+
+    /**
+     * 批量更新采购订单明细（用于原型"批量写入统一发票号/统一供应商"）
+     *
+     * @param items 采购订单明细列表（每条必须包含 id，可仅携带需修改字段）
+     * @return 是否成功
+     */
+    boolean batchUpdatePurchaseOrderItems(List<PurchaseOrderItems> items);
 
     /**
      * 删除采购订单明细
