@@ -216,7 +216,7 @@ public class AcceptanceOrderServiceTest {
         Long id = acceptance.getAcceptanceId();
         Long detailId = acceptanceOrderService.getDetailsByAcceptanceId(id).get(0).getDetailId();
 
-        // 数量不守恒应被拒绝
+        // 数量不守恒应被拒绝（无实际到货数量，回退采购数量1.000为基准）
         RuntimeException ex = assertThrows(RuntimeException.class,
                 () -> acceptanceOrderService.partialAcceptance(detailId, "初验",
                         new BigDecimal("0.800"), new BigDecimal("0.100"), "部分破损"));
@@ -234,13 +234,19 @@ public class AcceptanceOrderServiceTest {
         AcceptanceDetail returnChild = rows.stream()
                 .filter(d -> !d.getDetailId().equals(detailId)).findFirst().orElseThrow();
 
-        // 验收子行：数量0.700、状态待检验、金额重算=0.700×10.00
-        assertEquals(0, new BigDecimal("0.700").compareTo(acceptChild.getQuantity()), "验收子行数量应为验收数量");
+        // 验收子行：采购数量不变1.000、实际到货数量0.700、状态待检验、金额重算=0.700×10.00
+        assertEquals(0, new BigDecimal("1.000").compareTo(acceptChild.getQuantity()),
+                "验收子行采购数量应保持原值");
+        assertEquals(0, new BigDecimal("0.700").compareTo(acceptChild.getActualArrivalQty()),
+                "验收子行实际到货数量应为验收数量");
         assertEquals("待检验", acceptChild.getStatus(), "初验环节验收子行应为待检验");
         assertEquals(0, new BigDecimal("7.00").compareTo(acceptChild.getAmount()), "验收子行金额应重算");
 
-        // 退货子行：数量0.300、状态待退货、原因初验不合格、原行序号追溯、金额重算
-        assertEquals(0, new BigDecimal("0.300").compareTo(returnChild.getQuantity()), "退货子行数量应为退货数量");
+        // 退货子行：采购数量不变1.000、实际到货数量0.300、状态待退货、原因初验不合格、原行序号追溯、金额重算
+        assertEquals(0, new BigDecimal("1.000").compareTo(returnChild.getQuantity()),
+                "退货子行采购数量应保持原值");
+        assertEquals(0, new BigDecimal("0.300").compareTo(returnChild.getActualArrivalQty()),
+                "退货子行实际到货数量应为退货数量");
         assertEquals("待退货", returnChild.getStatus(), "退货子行应为待退货");
         assertEquals("初验不合格", returnChild.getReturnReason(), "退货子行原因为初验不合格");
         assertEquals(acceptChild.getSeq(), returnChild.getOriginalSeq(), "退货子行应记录原行序号");
@@ -251,6 +257,51 @@ public class AcceptanceOrderServiceTest {
         AcceptanceOrder afterSplit = acceptanceOrderService.getAcceptanceById(id);
         assertEquals("验收中", afterSplit.getStatus(), "拆分后主单应为验收中");
         assertTrue(afterSplit.getRemark().contains("部分验收"), "备注应记录部分验收");
+    }
+
+    /**
+     * 测试部分验收守恒基准优先取实际到货数量（未填时回退采购数量）
+     * <p>原行采购数量1.000、实际到货数量0.900，验收0.700+退货0.200应通过；
+     * 0.700+0.300超出实际到货应被拒绝并提示实际到货数量</p>
+     */
+    @Test
+    @Transactional
+    public void testPartialAcceptanceUsesActualArrivalBase() {
+        AcceptanceOrder acceptance = createAcceptance("验收中", null);
+        Long id = acceptance.getAcceptanceId();
+        Long detailId = acceptanceOrderService.getDetailsByAcceptanceId(id).get(0).getDetailId();
+
+        // 设置实际到货数量0.900（采购数量仍为1.000）
+        AcceptanceDetail detail = acceptanceOrderService.getDetailsByAcceptanceId(id).get(0);
+        detail.setActualArrivalQty(new BigDecimal("0.900"));
+        acceptanceOrderService.updateAcceptanceDetails(List.of(detail));
+
+        // 超出实际到货数量应被拒绝（0.700+0.300=1.000 > 0.900）
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> acceptanceOrderService.partialAcceptance(detailId, "初验",
+                        new BigDecimal("0.700"), new BigDecimal("0.300"), "部分破损"));
+        assertTrue(ex.getMessage().contains("实际到货数量"), "守恒基准应为实际到货数量");
+
+        // 合法拆分：验收0.700 + 退货0.200 = 实际到货0.900
+        acceptanceOrderService.partialAcceptance(detailId, "初验",
+                new BigDecimal("0.700"), new BigDecimal("0.200"), "部分破损");
+
+        List<AcceptanceDetail> rows = acceptanceOrderService.getDetailsByAcceptanceId(id);
+        assertEquals(2, rows.size(), "拆分后应为两条明细");
+        AcceptanceDetail acceptChild = rows.stream()
+                .filter(d -> d.getDetailId().equals(detailId)).findFirst().orElseThrow();
+        AcceptanceDetail returnChild = rows.stream()
+                .filter(d -> !d.getDetailId().equals(detailId)).findFirst().orElseThrow();
+
+        // 两条子行采购数量均保持原值1.000，实际到货数量按验收/退货拆分
+        assertEquals(0, new BigDecimal("1.000").compareTo(acceptChild.getQuantity()),
+                "验收子行采购数量应保持原值");
+        assertEquals(0, new BigDecimal("0.700").compareTo(acceptChild.getActualArrivalQty()),
+                "验收子行实际到货数量应为验收数量");
+        assertEquals(0, new BigDecimal("1.000").compareTo(returnChild.getQuantity()),
+                "退货子行采购数量应保持原值");
+        assertEquals(0, new BigDecimal("0.200").compareTo(returnChild.getActualArrivalQty()),
+                "退货子行实际到货数量应为退货数量");
     }
 
     /**

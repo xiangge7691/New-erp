@@ -820,12 +820,15 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
             returnReason = AcceptanceStatusPolicy.REASON_QUALITY_UNQUALIFIED;
         }
 
-        // 数量守恒：验收数量 + 退货数量 = 原行采购数量
-        if (detail.getQuantity() == null) {
+        // 数量守恒：验收数量 + 退货数量 = 原行实际到货数量（未填实际到货数量时回退采购数量）
+        boolean baseIsActualArrival = detail.getActualArrivalQty() != null;
+        BigDecimal baseQty = baseIsActualArrival ? detail.getActualArrivalQty() : detail.getQuantity();
+        if (baseQty == null) {
             throw new RuntimeException("明细采购数量缺失，无法拆分");
         }
-        if (acceptQty.add(returnQty).compareTo(detail.getQuantity()) != 0) {
-            throw new RuntimeException("验收数量与退货数量之和必须等于采购数量");
+        if (acceptQty.add(returnQty).compareTo(baseQty) != 0) {
+            throw new RuntimeException("验收数量与退货数量之和必须等于"
+                    + (baseIsActualArrival ? "实际到货数量" : "采购数量"));
         }
 
         // 关联采购订单明细同步拆行：退货子行获得独立订单明细锚点
@@ -863,7 +866,9 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
                 "purchaseItemId", "batchNumber", "prodUnitId", "originalSeq",
                 "createdBy", "createdTime");
         returnChild.setOriginalSeq(detail.getSeq());
-        returnChild.setQuantity(returnQty);
+        // 退货子行：采购数量不变（保持原值），实际到货数量=退货数量
+        returnChild.setQuantity(detail.getQuantity());
+        returnChild.setActualArrivalQty(returnQty);
         returnChild.setStatus(AcceptanceStatusPolicy.DETAIL_PENDING_RETURN);
         returnChild.setReturnReason(returnReason);
         returnChild.setReturnRemark(StringUtils.hasText(remark) ? remark : null);
@@ -883,9 +888,8 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         returnChild.setSeq(maxSeq + 1);
         acceptanceDetailMapper.insert(returnChild);
 
-        // 原行改造为验收子行：数量=验收数量，状态按环节推进，金额与差值重算
-        detail.setQuantity(acceptQty);
-        detail.setActualArrivalQty(null);
+        // 原行改造为验收子行：采购数量不变，实际到货数量=验收数量，状态按环节推进，金额与差值重算
+        detail.setActualArrivalQty(acceptQty);
         detail.setStatus(acceptChildStatus);
         detail.setReturnReason(null);
         detail.setReturnRemark(null);

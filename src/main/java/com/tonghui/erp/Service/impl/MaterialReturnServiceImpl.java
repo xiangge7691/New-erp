@@ -235,7 +235,8 @@ public class MaterialReturnServiceImpl implements MaterialReturnService {
             dto.setMaterialCode(detail.getMaterialCode());
             dto.setMaterialName(detail.getMaterialName());
             dto.setBatchNumber(detail.getBatchNumber());
-            dto.setReturnQty(detail.getQuantity());
+            dto.setReturnQty(detail.getActualArrivalQty() != null
+                    ? detail.getActualArrivalQty() : detail.getQuantity());
             dto.setSupplier(detail.getSupplier());
             dto.setReturnReason(detail.getReturnReason());
             dto.setReturnRemark(detail.getReturnRemark());
