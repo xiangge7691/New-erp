@@ -407,18 +407,20 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
         if (details == null || details.isEmpty()) {
             return;
         }
-        if (stockIn.getProdUnitId() == null) {
-            throw new RuntimeException("请选择入库仓库");
-        }
         for (StockInDetail detail : details) {
             if (detail.getQuantity() == null || detail.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
                 throw new RuntimeException("入库数量必须大于0: " + detail.getItemName());
+            }
+            // 仓库取值：明细级优先（货物验收整单入库每条物料独立选仓库），缺省回退单据级仓库
+            Long prodUnitId = detail.getProdUnitId() != null ? detail.getProdUnitId() : stockIn.getProdUnitId();
+            if (prodUnitId == null) {
+                throw new RuntimeException("请选择入库仓库: " + detail.getItemName());
             }
 
             // 按 物品编码 + 生产单位 + 批号 + 入库单ID + 库存状态 定位库存批次
             QueryWrapper<Stock> wrapper = new QueryWrapper<>();
             wrapper.eq("item_code", detail.getItemCode());
-            wrapper.eq("prod_unit_id", stockIn.getProdUnitId());
+            wrapper.eq("prod_unit_id", prodUnitId);
             wrapper.eq("batch_number", detail.getBatchNumber());
             wrapper.eq("stock_in_id", stockIn.getInId());
             wrapper.eq("stock_status", StringUtils.hasText(detail.getStockStatus()) ? detail.getStockStatus() : "合格");
@@ -443,7 +445,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
             } else {
                 // 新增库存批次（每条入库明细创建独立库存记录）
                 stock = new Stock();
-                stock.setProdUnitId(stockIn.getProdUnitId());
+                stock.setProdUnitId(prodUnitId);
                 // 物品类型字段为Object类型，先转换为String再判断
                 String itemType = detail.getItemType() != null ? String.valueOf(detail.getItemType()) : "";
                 stock.setItemType(StringUtils.hasText(itemType) ? itemType : "material");

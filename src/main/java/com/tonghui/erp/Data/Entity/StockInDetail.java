@@ -119,6 +119,13 @@ public class StockInDetail {
     private String storageLocation;
 
     /**
+     * 明细级入库仓库（生产单位ID）
+     * <p>货物验收整单入库时每条物料独立选择仓库；为空时回退入库单级仓库（stock_in.prod_unit_id）</p>
+     */
+    @TableField(value = "prod_unit_id")
+    private Long prodUnitId;
+
+    /**
      * 库存状态（入库时携带，确认入库后写入stock表）：合格/待检/不合格
      */
     @TableField(value = "stock_status")

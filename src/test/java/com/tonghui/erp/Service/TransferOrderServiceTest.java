@@ -51,14 +51,17 @@ public class TransferOrderServiceTest {
     private static final String TEST_UNIT = "kg";
     /** 测试批次号 */
     private static final String TEST_BATCH = "TBATCH01";
-    /** 调出仓库名称（耒阳制剂室） */
-    private static final String FROM_WAREHOUSE = "耒阳制剂室";
-    /** 调入仓库名称（原料仓） */
-    private static final String TO_WAREHOUSE = "原料仓";
-    /** 调出仓库ID（耒阳制剂室） */
-    private static final Long FROM_UNIT_ID = 7L;
-    /** 调入仓库ID（原料仓） */
-    private static final Long TO_UNIT_ID = 19L;
+
+    /** 调出仓库名称（每个测试前动态解析，避免硬编码环境数据） */
+    private String fromWarehouse;
+    /** 调出仓库ID（每个测试前动态解析） */
+    private Long fromUnitId;
+    /** 调入仓库名称（每个测试前动态解析） */
+    private String toWarehouse;
+    /** 调入仓库ID（每个测试前动态解析） */
+    private Long toUnitId;
+    /** 最近一次 createStock 创建的入库单号（用于拼接 inventoryKey = 物料编码_入库单号） */
+    private String lastTestInCode;
 
     /** 调拨单服务 */
     @Autowired
@@ -78,6 +81,37 @@ public class TransferOrderServiceTest {
     /** JdbcTemplate（用于物理删除测试数据，绕开软删除） */
     @Autowired
     private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+    /** 生产单位Mapper（动态解析测试仓库） */
+    @Autowired
+    private com.tonghui.erp.Data.mapper.ProductionUnitMapper productionUnitMapper;
+    /** 入库单Mapper（创建测试库存时关联入库单） */
+    @Autowired
+    private com.tonghui.erp.Data.mapper.StockInMapper stockInMapper;
+
+    // endregion
+
+    // region 测试准备
+    // ===================================
+    // 测试准备
+    // ===================================
+
+    /**
+     * 动态解析调出/调入仓库（取前两个有效生产单位）
+     * <p>
+     * 环境 production_unit 数据可能变更，硬编码仓库ID/名称会导致外键失败或仓库不存在，
+     * 此处每个测试前查询真实数据；有效生产单位不足2个时跳过测试
+     * </p>
+     */
+    @org.junit.jupiter.api.BeforeEach
+    public void resolveWarehouses() {
+        List<com.tonghui.erp.Data.Entity.ProductionUnit> units = productionUnitMapper.selectList(
+                new QueryWrapper<com.tonghui.erp.Data.Entity.ProductionUnit>().orderByAsc("prod_unit_id"));
+        org.junit.jupiter.api.Assumptions.assumeTrue(units.size() >= 2, "跳过: production_unit 有效数据不足2个");
+        fromUnitId = units.get(0).getProdUnitId();
+        fromWarehouse = units.get(0).getProdUnitName();
+        toUnitId = units.get(1).getProdUnitId();
+        toWarehouse = units.get(1).getProdUnitName();
+    }
 
     // endregion
 
@@ -101,15 +135,15 @@ public class TransferOrderServiceTest {
     }
 
     /**
-     * 测试获取仓库名称列表（应包含耒阳制剂室与原料仓）
+     * 测试获取仓库名称列表（应包含动态解析的调出与调入仓库）
      */
     @Test
     public void testGetWarehouseList() {
         try {
             List<String> warehouses = transferOrderService.getWarehouseList();
             System.out.println("仓库列表: " + warehouses);
-            if (!warehouses.contains(FROM_WAREHOUSE) || !warehouses.contains(TO_WAREHOUSE)) {
-                System.err.println("测试失败: 仓库列表缺少耒阳制剂室或原料仓");
+            if (!warehouses.contains(fromWarehouse) || !warehouses.contains(toWarehouse)) {
+                System.err.println("测试失败: 仓库列表缺少调出或调入仓库");
             }
         } catch (Exception e) {
             System.err.println("测试失败: " + e.getMessage());
@@ -129,17 +163,17 @@ public class TransferOrderServiceTest {
         Long sourceStockId = null;
         Long orderId = null;
         try {
-            // 造测试库存（耒阳制剂室 1.5kg）
-            Stock stock = createStock(FROM_UNIT_ID, new BigDecimal("1.5"));
+            // 造测试库存（调出仓库 1.5kg）
+            Stock stock = createStock(fromUnitId, new BigDecimal("1.5"));
             sourceStockId = stock.getStockId();
 
-            // 调拨0.5到原料仓
+            // 调拨0.5到调入仓库
             TransferOrderCreateDto dto = new TransferOrderCreateDto();
-            dto.setFromWarehouse(FROM_WAREHOUSE);
-            dto.setToWarehouse(TO_WAREHOUSE);
+            dto.setFromWarehouse(fromWarehouse);
+            dto.setToWarehouse(toWarehouse);
             dto.setRemark("接口测试调拨");
             TransferItemRequest item = new TransferItemRequest();
-            item.setInventoryKey(TEST_ITEM_CODE + "_" + FROM_WAREHOUSE + "_" + TEST_BATCH);
+            item.setInventoryKey(TEST_ITEM_CODE + "_" + lastTestInCode);
             item.setTransferQuantity(new BigDecimal("0.5"));
             dto.setItems(List.of(item));
 
@@ -156,7 +190,7 @@ public class TransferOrderServiceTest {
             assertEquals(0, new BigDecimal("1.0").compareTo(source.getQuantity()), "源库存应为1.0");
             // 断言目标仓生成0.5新库存行
             Stock dest = stockMapper.selectOne(new QueryWrapper<Stock>()
-                    .eq("prod_unit_id", TO_UNIT_ID)
+                    .eq("prod_unit_id", toUnitId)
                     .eq("item_code", TEST_ITEM_CODE)
                     .eq("batch_number", TEST_BATCH)
                     .eq("is_deleted", 0));
@@ -186,14 +220,14 @@ public class TransferOrderServiceTest {
     public void testCreateTransferOrderOverStock() {
         Long sourceStockId = null;
         try {
-            Stock stock = createStock(FROM_UNIT_ID, new BigDecimal("1.5"));
+            Stock stock = createStock(fromUnitId, new BigDecimal("1.5"));
             sourceStockId = stock.getStockId();
 
             TransferOrderCreateDto dto = new TransferOrderCreateDto();
-            dto.setFromWarehouse(FROM_WAREHOUSE);
-            dto.setToWarehouse(TO_WAREHOUSE);
+            dto.setFromWarehouse(fromWarehouse);
+            dto.setToWarehouse(toWarehouse);
             TransferItemRequest item = new TransferItemRequest();
-            item.setInventoryKey(TEST_ITEM_CODE + "_" + FROM_WAREHOUSE + "_" + TEST_BATCH);
+            item.setInventoryKey(TEST_ITEM_CODE + "_" + lastTestInCode);
             item.setTransferQuantity(new BigDecimal("2.0"));
             dto.setItems(List.of(item));
 
@@ -218,14 +252,14 @@ public class TransferOrderServiceTest {
     public void testCreateTransferOrderSameWarehouse() {
         Long sourceStockId = null;
         try {
-            Stock stock = createStock(FROM_UNIT_ID, new BigDecimal("1.5"));
+            Stock stock = createStock(fromUnitId, new BigDecimal("1.5"));
             sourceStockId = stock.getStockId();
 
             TransferOrderCreateDto dto = new TransferOrderCreateDto();
-            dto.setFromWarehouse(FROM_WAREHOUSE);
-            dto.setToWarehouse(FROM_WAREHOUSE);
+            dto.setFromWarehouse(fromWarehouse);
+            dto.setToWarehouse(fromWarehouse);
             TransferItemRequest item = new TransferItemRequest();
-            item.setInventoryKey(TEST_ITEM_CODE + "_" + FROM_WAREHOUSE + "_" + TEST_BATCH);
+            item.setInventoryKey(TEST_ITEM_CODE + "_" + lastTestInCode);
             item.setTransferQuantity(new BigDecimal("0.5"));
             dto.setItems(List.of(item));
 
@@ -250,17 +284,17 @@ public class TransferOrderServiceTest {
     public void testGetWarehouseMaterialsAndBatches() {
         Long stockId = null;
         try {
-            Stock stock = createStock(FROM_UNIT_ID, new BigDecimal("1.5"));
+            Stock stock = createStock(fromUnitId, new BigDecimal("1.5"));
             stockId = stock.getStockId();
 
-            List<WarehouseMaterialDto> materials = transferOrderService.getWarehouseMaterials(FROM_WAREHOUSE, null);
+            List<WarehouseMaterialDto> materials = transferOrderService.getWarehouseMaterials(fromWarehouse, null);
             boolean found = materials.stream().anyMatch(m -> TEST_ITEM_CODE.equals(m.getMaterialCode()));
             if (!found) {
                 System.err.println("测试失败: 仓库物料列表未包含测试物料");
             } else {
                 System.out.println("仓库物料列表包含测试物料");
             }
-            List<MaterialBatchDto> batches = transferOrderService.getMaterialBatches(FROM_WAREHOUSE, TEST_ITEM_CODE);
+            List<MaterialBatchDto> batches = transferOrderService.getMaterialBatches(fromWarehouse, TEST_ITEM_CODE);
             if (batches.isEmpty()) {
                 System.err.println("测试失败: 批次详情为空");
             } else {
@@ -287,15 +321,15 @@ public class TransferOrderServiceTest {
         Long sourceStockId = null;
         Long orderId = null;
         try {
-            Stock stock = createStock(FROM_UNIT_ID, new BigDecimal("0.049"));
+            Stock stock = createStock(fromUnitId, new BigDecimal("0.049"));
             sourceStockId = stock.getStockId();
 
             TransferOrderCreateDto dto = new TransferOrderCreateDto();
-            dto.setFromWarehouse(FROM_WAREHOUSE);
-            dto.setToWarehouse(TO_WAREHOUSE);
+            dto.setFromWarehouse(fromWarehouse);
+            dto.setToWarehouse(toWarehouse);
             dto.setRemark("接口测试全额调拨");
             TransferItemRequest item = new TransferItemRequest();
-            item.setInventoryKey(TEST_ITEM_CODE + "_" + FROM_WAREHOUSE + "_" + TEST_BATCH);
+            item.setInventoryKey(TEST_ITEM_CODE + "_" + lastTestInCode);
             item.setTransferQuantity(new BigDecimal("0.049"));
             dto.setItems(List.of(item));
 
@@ -311,7 +345,7 @@ public class TransferOrderServiceTest {
             assertEquals(1, deletedFlag, "调空后源库存 is_deleted 应为1");
             // 断言目标仓生成0.049新库存行
             Stock dest = stockMapper.selectOne(new QueryWrapper<Stock>()
-                    .eq("prod_unit_id", TO_UNIT_ID)
+                    .eq("prod_unit_id", toUnitId)
                     .eq("item_code", TEST_ITEM_CODE)
                     .eq("batch_number", TEST_BATCH)
                     .eq("is_deleted", 0));
@@ -335,19 +369,19 @@ public class TransferOrderServiceTest {
     public void testGetWarehouseMaterialsByKeyword() {
         Long stockId = null;
         try {
-            Stock stock = createStock(FROM_UNIT_ID, new BigDecimal("1.5"));
+            Stock stock = createStock(fromUnitId, new BigDecimal("1.5"));
             stockId = stock.getStockId();
 
             // 按物料编码关键词命中
-            List<WarehouseMaterialDto> byCode = transferOrderService.getWarehouseMaterials(FROM_WAREHOUSE, "TESTT00");
+            List<WarehouseMaterialDto> byCode = transferOrderService.getWarehouseMaterials(fromWarehouse, "TESTT00");
             boolean foundByCode = byCode.stream().anyMatch(m -> TEST_ITEM_CODE.equals(m.getMaterialCode()));
             assertTrue(foundByCode, "按物料编码关键词应命中测试物料");
             // 按物料名称关键词命中
-            List<WarehouseMaterialDto> byName = transferOrderService.getWarehouseMaterials(FROM_WAREHOUSE, "调拨测试");
+            List<WarehouseMaterialDto> byName = transferOrderService.getWarehouseMaterials(fromWarehouse, "调拨测试");
             boolean foundByName = byName.stream().anyMatch(m -> TEST_ITEM_CODE.equals(m.getMaterialCode()));
             assertTrue(foundByName, "按物料名称关键词应命中测试物料");
             // 不命中关键词返回空
-            List<WarehouseMaterialDto> none = transferOrderService.getWarehouseMaterials(FROM_WAREHOUSE, "不存在的关键词XYZ");
+            List<WarehouseMaterialDto> none = transferOrderService.getWarehouseMaterials(fromWarehouse, "不存在的关键词XYZ");
             boolean foundNone = none.stream().anyMatch(m -> TEST_ITEM_CODE.equals(m.getMaterialCode()));
             assertEquals(false, foundNone, "不命中关键词不应返回测试物料");
         } catch (Exception e) {
@@ -370,15 +404,15 @@ public class TransferOrderServiceTest {
         Long sourceStockId = null;
         Long orderId = null;
         try {
-            Stock stock = createStock(FROM_UNIT_ID, new BigDecimal("1.5"));
+            Stock stock = createStock(fromUnitId, new BigDecimal("1.5"));
             sourceStockId = stock.getStockId();
 
             TransferOrderCreateDto dto = new TransferOrderCreateDto();
-            dto.setFromWarehouse(FROM_WAREHOUSE);
-            dto.setToWarehouse(TO_WAREHOUSE);
+            dto.setFromWarehouse(fromWarehouse);
+            dto.setToWarehouse(toWarehouse);
             dto.setRemark("流水单号测试调拨");
             TransferItemRequest item = new TransferItemRequest();
-            item.setInventoryKey(TEST_ITEM_CODE + "_" + FROM_WAREHOUSE + "_" + TEST_BATCH);
+            item.setInventoryKey(TEST_ITEM_CODE + "_" + lastTestInCode);
             item.setTransferQuantity(new BigDecimal("0.5"));
             dto.setItems(List.of(item));
 
@@ -388,7 +422,7 @@ public class TransferOrderServiceTest {
 
             // 查询目标仓库存的流水（调拨入库）
             Stock dest = stockMapper.selectOne(new QueryWrapper<Stock>()
-                    .eq("prod_unit_id", TO_UNIT_ID)
+                    .eq("prod_unit_id", toUnitId)
                     .eq("item_code", TEST_ITEM_CODE)
                     .eq("batch_number", TEST_BATCH)
                     .eq("is_deleted", 0));
@@ -421,13 +455,25 @@ public class TransferOrderServiceTest {
     // ===================================
 
     /**
-     * 创建测试库存记录
+     * 创建测试库存记录（含关联入库单）
+     * <p>
+     * 库存标识格式为"物料编码_入库单号"，故先创建入库单再创建库存，
+     * 并将入库单号记录到 lastTestInCode 供拼接 inventoryKey
+     * </p>
      *
      * @param prodUnitId 仓库ID
      * @param quantity   库存数量
      * @return 创建的库存记录
      */
     private Stock createStock(Long prodUnitId, BigDecimal quantity) {
+        // 创建关联入库单（inventoryKey = 物料编码_入库单号）
+        com.tonghui.erp.Data.Entity.StockIn stockIn = new com.tonghui.erp.Data.Entity.StockIn();
+        lastTestInCode = "TESTIN" + System.currentTimeMillis();
+        stockIn.setInCode(lastTestInCode);
+        stockIn.setProdUnitId(prodUnitId);
+        stockIn.setInDate(java.time.LocalDateTime.now());
+        stockIn.setInStatus("已入库");
+        stockInMapper.insert(stockIn);
         Stock stock = new Stock();
         stock.setProdUnitId(prodUnitId);
         stock.setItemType("material");
@@ -438,12 +484,13 @@ public class TransferOrderServiceTest {
         stock.setBatchNumber(TEST_BATCH);
         stock.setQuantity(quantity);
         stock.setUnitPrice(new BigDecimal("10.00"));
+        stock.setStockInId(stockIn.getInId());
         stockMapper.insert(stock);
         return stock;
     }
 
     /**
-     * 清理测试数据（物理删除：明细→主表→流水→库存）
+     * 清理测试数据（物理删除：明细→主表→流水→库存→入库单）
      *
      * @param sourceStockId 源库存ID（可为null）
      * @param orderId       调拨单ID（可为null）
@@ -459,6 +506,10 @@ public class TransferOrderServiceTest {
             jdbcTemplate.update("DELETE FROM stock_transaction WHERE batch_number = ?", TEST_BATCH);
             if (sourceStockId != null) {
                 jdbcTemplate.update("DELETE FROM stock_transaction WHERE stock_id = ?", sourceStockId);
+            }
+            if (lastTestInCode != null) {
+                jdbcTemplate.update("DELETE FROM stock_in WHERE in_code = ?", lastTestInCode);
+                lastTestInCode = null;
             }
         } catch (Exception e) {
             System.err.println("清理测试数据失败: " + e.getMessage());

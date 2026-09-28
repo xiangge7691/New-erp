@@ -59,10 +59,13 @@ public class ReturnOrderServiceTest {
     private final String testPlanNo = "TESTPLANR" + System.currentTimeMillis();
     /** 测试生产计划名称 */
     private static final String TEST_PLAN_NAME = "退库测试计划单";
-    /** 仓库名称（原料仓） */
-    private static final String WAREHOUSE = "原料仓";
-    /** 仓库ID（原料仓） */
-    private static final Long WAREHOUSE_UNIT_ID = 19L;
+
+    /** 仓库名称（每个测试前动态解析，避免硬编码环境数据） */
+    private String warehouseName;
+    /** 仓库ID（每个测试前动态解析） */
+    private Long warehouseUnitId;
+    /** 最近一次 createStock 创建的入库单号（用于拼接 inventoryKey = 物料编码_入库单号） */
+    private String lastTestInCode;
 
     /** 退库单服务 */
     @Autowired
@@ -94,6 +97,35 @@ public class ReturnOrderServiceTest {
     /** JdbcTemplate（用于物理删除测试数据，绕开软删除） */
     @Autowired
     private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+    /** 生产单位Mapper（动态解析测试仓库） */
+    @Autowired
+    private com.tonghui.erp.Data.mapper.ProductionUnitMapper productionUnitMapper;
+    /** 入库单Mapper（创建测试库存时关联入库单） */
+    @Autowired
+    private com.tonghui.erp.Data.mapper.StockInMapper stockInMapper;
+
+    // endregion
+
+    // region 测试准备
+    // ===================================
+    // 测试准备
+    // ===================================
+
+    /**
+     * 动态解析退库仓库（取第一个有效生产单位）
+     * <p>
+     * 环境 production_unit 数据可能变更，硬编码仓库ID会导致外键失败，
+     * 此处每个测试前查询真实数据；无有效生产单位时跳过测试
+     * </p>
+     */
+    @org.junit.jupiter.api.BeforeEach
+    public void resolveWarehouse() {
+        List<com.tonghui.erp.Data.Entity.ProductionUnit> units = productionUnitMapper.selectList(
+                new QueryWrapper<com.tonghui.erp.Data.Entity.ProductionUnit>().orderByAsc("prod_unit_id"));
+        org.junit.jupiter.api.Assumptions.assumeTrue(!units.isEmpty(), "跳过: production_unit 无有效数据");
+        warehouseUnitId = units.get(0).getProdUnitId();
+        warehouseName = units.get(0).getProdUnitName();
+    }
 
     // endregion
 
@@ -154,7 +186,7 @@ public class ReturnOrderServiceTest {
                 if (m.getAvailableQuantity().compareTo(new BigDecimal("3.0")) != 0) {
                     System.err.println("测试失败: 物料可退数量应为3.0, 实际: " + m.getAvailableQuantity());
                 }
-                String expectedKey = TEST_ITEM_CODE + "_" + WAREHOUSE + "_" + TEST_BATCH;
+                String expectedKey = TEST_ITEM_CODE + "_" + lastTestInCode;
                 if (!expectedKey.equals(m.getInventoryKey())) {
                     System.err.println("测试失败: 库存标识应为: " + expectedKey + ", 实际: " + m.getInventoryKey());
                 }
@@ -188,7 +220,7 @@ public class ReturnOrderServiceTest {
             dto.setOutOrderNo(testOutCode);
             dto.setRemark("接口测试退库");
             ReturnItemRequest item = new ReturnItemRequest();
-            item.setInventoryKey(TEST_ITEM_CODE + "_" + WAREHOUSE + "_" + TEST_BATCH);
+            item.setInventoryKey(TEST_ITEM_CODE + "_" + lastTestInCode);
             item.setReturnQuantity(new BigDecimal("1.0"));
             dto.setItems(List.of(item));
 
@@ -252,7 +284,7 @@ public class ReturnOrderServiceTest {
             ReturnOrderCreateDto dto = new ReturnOrderCreateDto();
             dto.setOutOrderNo(testOutCode);
             ReturnItemRequest item = new ReturnItemRequest();
-            item.setInventoryKey(TEST_ITEM_CODE + "_" + WAREHOUSE + "_" + TEST_BATCH);
+            item.setInventoryKey(TEST_ITEM_CODE + "_" + lastTestInCode);
             item.setReturnQuantity(new BigDecimal("1.0"));
             dto.setItems(List.of(item));
 
@@ -262,7 +294,7 @@ public class ReturnOrderServiceTest {
 
             // 断言库存重建为1.0
             Stock rebuilt = stockMapper.selectOne(new QueryWrapper<Stock>()
-                    .eq("prod_unit_id", WAREHOUSE_UNIT_ID)
+                    .eq("prod_unit_id", warehouseUnitId)
                     .eq("item_code", TEST_ITEM_CODE)
                     .eq("batch_number", TEST_BATCH)
                     .eq("is_deleted", 0));
@@ -296,7 +328,7 @@ public class ReturnOrderServiceTest {
             ReturnOrderCreateDto dto = new ReturnOrderCreateDto();
             dto.setOutOrderNo(testOutCode);
             ReturnItemRequest item = new ReturnItemRequest();
-            item.setInventoryKey(TEST_ITEM_CODE + "_" + WAREHOUSE + "_" + TEST_BATCH);
+            item.setInventoryKey(TEST_ITEM_CODE + "_" + lastTestInCode);
             item.setReturnQuantity(new BigDecimal("4.0"));
             dto.setItems(List.of(item));
 
@@ -343,7 +375,7 @@ public class ReturnOrderServiceTest {
             ReturnOrderCreateDto dto = new ReturnOrderCreateDto();
             dto.setOutOrderNo(testOutCode);
             ReturnItemRequest item = new ReturnItemRequest();
-            item.setInventoryKey(TEST_ITEM_CODE + "_" + WAREHOUSE + "_" + TEST_BATCH);
+            item.setInventoryKey(TEST_ITEM_CODE + "_" + lastTestInCode);
             item.setReturnQuantity(new BigDecimal("1.0"));
             dto.setItems(List.of(item));
             ReturnOrder order = returnOrderService.createReturnOrder(dto);
@@ -404,8 +436,8 @@ public class ReturnOrderServiceTest {
                 System.err.println("测试失败: 出库明细为空");
             } else {
                 String name = dto.getDetails().get(0).getWarehouseName();
-                if (!WAREHOUSE.equals(name)) {
-                    System.err.println("测试失败: 明细仓库名称应为 " + WAREHOUSE + ", 实际: " + name);
+                if (!warehouseName.equals(name)) {
+                    System.err.println("测试失败: 明细仓库名称应为 " + warehouseName + ", 实际: " + name);
                 } else {
                     System.out.println("明细仓库名称: " + name);
                 }
@@ -474,7 +506,7 @@ public class ReturnOrderServiceTest {
             ReturnOrderCreateDto dto = new ReturnOrderCreateDto();
             dto.setOutOrderNo(testOutCode);
             ReturnItemRequest item = new ReturnItemRequest();
-            item.setInventoryKey(TEST_ITEM_CODE + "_" + WAREHOUSE + "_" + TEST_BATCH);
+            item.setInventoryKey(TEST_ITEM_CODE + "_" + lastTestInCode);
             item.setReturnQuantity(new BigDecimal("1.0"));
             dto.setItems(List.of(item));
             ReturnOrder order = returnOrderService.createReturnOrder(dto);
@@ -510,14 +542,26 @@ public class ReturnOrderServiceTest {
     // ===================================
 
     /**
-     * 创建测试库存记录
+     * 创建测试库存记录（含关联入库单）
+     * <p>
+     * 库存标识格式为"物料编码_入库单号"，故先创建入库单再创建库存，
+     * 并将入库单号记录到 lastTestInCode 供拼接 inventoryKey
+     * </p>
      *
      * @param quantity 库存数量
      * @return 创建的库存记录
      */
     private Stock createStock(BigDecimal quantity) {
+        // 创建关联入库单（inventoryKey = 物料编码_入库单号）
+        com.tonghui.erp.Data.Entity.StockIn stockIn = new com.tonghui.erp.Data.Entity.StockIn();
+        lastTestInCode = "TESTINR" + System.currentTimeMillis();
+        stockIn.setInCode(lastTestInCode);
+        stockIn.setProdUnitId(warehouseUnitId);
+        stockIn.setInDate(LocalDateTime.now());
+        stockIn.setInStatus("已入库");
+        stockInMapper.insert(stockIn);
         Stock stock = new Stock();
-        stock.setProdUnitId(WAREHOUSE_UNIT_ID);
+        stock.setProdUnitId(warehouseUnitId);
         stock.setItemType("material");
         stock.setItemCode(TEST_ITEM_CODE);
         stock.setItemName(TEST_ITEM_NAME);
@@ -526,6 +570,7 @@ public class ReturnOrderServiceTest {
         stock.setBatchNumber(TEST_BATCH);
         stock.setQuantity(quantity);
         stock.setUnitPrice(new BigDecimal("10.00"));
+        stock.setStockInId(stockIn.getInId());
         stockMapper.insert(stock);
         return stock;
     }
@@ -541,7 +586,7 @@ public class ReturnOrderServiceTest {
         StockOut out = new StockOut();
         out.setOutCode(testOutCode);
         out.setOutType("生产领料出库");
-        out.setProdUnitId(WAREHOUSE_UNIT_ID);
+        out.setProdUnitId(warehouseUnitId);
         out.setPlanNumber(testPlanNo);
         out.setOutDate(LocalDateTime.now());
         out.setOutStatus("已出库");
@@ -550,7 +595,7 @@ public class ReturnOrderServiceTest {
 
         StockOutDetail detail = new StockOutDetail();
         detail.setOutId(out.getOutId());
-        detail.setProdUnitId(WAREHOUSE_UNIT_ID);
+        detail.setProdUnitId(warehouseUnitId);
         detail.setStockId(stockId);
         detail.setItemType("material");
         detail.setItemCode(TEST_ITEM_CODE);
@@ -587,6 +632,10 @@ public class ReturnOrderServiceTest {
             jdbcTemplate.update("DELETE FROM stock_transaction WHERE batch_number = ?", TEST_BATCH);
             if (stockId != null) {
                 jdbcTemplate.update("DELETE FROM stock_transaction WHERE stock_id = ?", stockId);
+            }
+            if (lastTestInCode != null) {
+                jdbcTemplate.update("DELETE FROM stock_in WHERE in_code = ?", lastTestInCode);
+                lastTestInCode = null;
             }
         } catch (Exception e) {
             System.err.println("清理测试数据失败: " + e.getMessage());

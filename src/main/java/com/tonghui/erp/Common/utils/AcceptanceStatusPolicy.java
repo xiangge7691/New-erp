@@ -89,6 +89,19 @@ public final class AcceptanceStatusPolicy {
 
     // endregion
 
+    // region 操作阶段词表
+    // ===================================
+    // 操作阶段词表
+    // ===================================
+
+    /** 操作阶段：初验（明细行处于待初验时可执行初验/部分验收） */
+    public static final String STAGE_INITIAL = "初验";
+
+    /** 操作阶段：检验（明细行处于待检验时可执行检验/部分验收） */
+    public static final String STAGE_QUALITY = "检验";
+
+    // endregion
+
     // region 集合定义
     // ===================================
     // 集合定义

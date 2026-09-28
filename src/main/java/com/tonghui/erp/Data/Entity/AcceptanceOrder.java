@@ -152,7 +152,7 @@ public class AcceptanceOrder extends AuditEntity {
     private String remark;
 
     /**
-     * 原验收单号（重新收货时记录）
+     * 原验收单号（退货重新发货生成的新验收单，记录来源验收单号）
      */
     @TableField(value = "original_acceptance_code")
     private String originalAcceptanceCode;

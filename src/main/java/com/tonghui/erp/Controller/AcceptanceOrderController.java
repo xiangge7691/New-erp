@@ -5,6 +5,8 @@ import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Stock.AcceptanceActionRequest;
+import com.tonghui.erp.Common.Dto.Stock.AcceptanceInboundRequest;
+import com.tonghui.erp.Common.Dto.Stock.AcceptancePartialRequest;
 import com.tonghui.erp.Common.Dto.Stock.AcceptanceWithDetailsDto;
 import com.tonghui.erp.Common.Dto.Stock.AcceptanceWithDetailsRequest;
 import com.tonghui.erp.Common.Dto.Stock.StockInWithNamesDto;
@@ -19,8 +21,9 @@ import java.util.List;
 /**
  * 货物验收控制器
  * <p>
- * 提供验收单的CRUD操作、高级查询、带子表查询、明细管理、单号生成及状态流转
- * （确认到货/初验/检验/重新收货）等功能
+ * 提供验收单的CRUD操作、高级查询、带子表查询、明细管理、单号生成及行级状态流转
+ * （确认到货/逐行初验/逐行检验/部分验收拆行/整单入库）等功能；
+ * 退货后的重新发货由物料退货管理模块（/api/material-return）承接
  * </p>
  *
  * 接口清单：
@@ -39,9 +42,10 @@ import java.util.List;
  * │ 10 │ /api/acceptance/detail/{id}             │ DELETE │ 删除验收明细                   │
  * │ 11 │ /api/acceptance/generateCode            │ GET    │ 生成验收单号（YS-YYYYMMDD-NNN）│
  * │ 12 │ /api/acceptance/{id}/confirm-arrival    │ POST   │ 确认到货：运输中→验收中        │
- * │ 13 │ /api/acceptance/{id}/inspect            │ POST   │ 初验：合格→明细待检验/不合格→待退货│
- * │ 14 │ /api/acceptance/{id}/quality-check      │ POST   │ 检验：合格→已入库(库存联动)/不合格→待退货│
- * │ 15 │ /api/acceptance/{id}/re-receive         │ POST   │ 重新收货：生成新单，原单已结束  │
+ * │ 13 │ /api/acceptance/{id}/inspect            │ POST   │ 逐行初验：合格→待检验/不合格→待退货│
+ * │ 14 │ /api/acceptance/{id}/quality-check      │ POST   │ 逐行检验：合格→待入库/不合格→待退货│
+ * │ 15 │ /api/acceptance/{id}/partial-acceptance │ POST   │ 部分验收：拆验收子行+退货子行   │
+ * │ 16 │ /api/acceptance/{id}/inbound            │ POST   │ 整单入库：生成入库单+库存联动  │
  * └────┴──────────────────────────────────────────┴────────┴────────────────────────────────┘
  */
 @RestController
@@ -408,15 +412,16 @@ public class AcceptanceOrderController extends BaseController {
     }
 
     /**
-     * 初验处理：合格 → 明细待检验；不合格 → 明细待退货
+     * 初验处理（逐行）：所选行 合格 → 待检验；不合格 → 待退货
+     * <p>detailIds 为空时自动推进全部待初验行（批量推进）</p>
      *
      * 示例请求：
      * POST /api/acceptance/1/inspect
      * Content-Type: application/json
-     * { "pass": true, "remark": "无异常" }
+     * { "pass": true, "detailIds": [11, 12], "remark": "无异常" }
      *
      * @param id      验收单ID
-     * @param request 初验请求（pass-是否合格，remark-备注）
+     * @param request 初验请求（pass-是否合格，detailIds-目标明细行ID列表（空=全部待初验行），remark-备注说明）
      * @return 操作结果
      */
     @PostMapping("/{id}/inspect")
@@ -424,7 +429,8 @@ public class AcceptanceOrderController extends BaseController {
         try {
             boolean pass = request != null && Boolean.TRUE.equals(request.getPass());
             String remark = request != null ? request.getRemark() : null;
-            acceptanceOrderService.inspect(id, pass, remark);
+            List<Long> detailIds = request != null ? request.getDetailIds() : null;
+            acceptanceOrderService.inspect(id, detailIds, pass, remark);
             return success(true, pass ? "初验合格，进入检验环节" : "初验不合格，已标记为待退货");
         } catch (Exception ex) {
             return exception(ex, "初验处理");
@@ -432,51 +438,84 @@ public class AcceptanceOrderController extends BaseController {
     }
 
     /**
-     * 检验处理：合格 → 已入库（自动增加库存并写流水）；不合格 → 待退货
-     * <p>合格时自动生成入库单并返回，主表携带关联生产计划编号/总金额/仓库/操作人，
-     * 并回填操作人姓名（createdByName）与仓库名（warehouseName）</p>
+     * 检验处理（逐行）：所选行 合格 → 待入库（校验批号必填）；不合格 → 待退货
+     * <p>detailIds 为空时自动推进全部待检验行（批量推进）；入库由 /{id}/inbound 整单执行</p>
      *
      * 示例请求：
      * POST /api/acceptance/1/quality-check
      * Content-Type: application/json
-     * { "pass": true, "prodUnitId": 1, "remark": "合格" }
+     * { "pass": true, "detailIds": [11], "remark": "合格" }
      *
      * @param id      验收单ID
-     * @param request 检验请求（pass-是否合格，prodUnitId-入库仓库，remark-备注）
-     * @return 合格时返回自动生成的入库单（含 planNumber/totalAmount/prodUnitId/createdBy/createdByName/warehouseName），不合格时返回true
+     * @param request 检验请求（pass-是否合格，detailIds-目标明细行ID列表（空=全部待检验行），remark-备注说明）
+     * @return 操作结果
      */
     @PostMapping("/{id}/quality-check")
-    public ApiResponse<Object> qualityCheck(@PathVariable Long id, @RequestBody(required = false) AcceptanceActionRequest request) {
+    public ApiResponse<Boolean> qualityCheck(@PathVariable Long id, @RequestBody(required = false) AcceptanceActionRequest request) {
         try {
             boolean pass = request != null && Boolean.TRUE.equals(request.getPass());
-            Long prodUnitId = request != null ? request.getProdUnitId() : null;
             String remark = request != null ? request.getRemark() : null;
-            StockInWithNamesDto stockIn = acceptanceOrderService.qualityCheck(id, pass, prodUnitId, remark);
-            if (pass) {
-                return success(stockIn, "检验合格，已入库，库存已更新");
-            }
-            return success(true, "检验不合格，已标记为待退货");
+            List<Long> detailIds = request != null ? request.getDetailIds() : null;
+            acceptanceOrderService.qualityCheck(id, detailIds, pass, remark);
+            return success(true, pass ? "检验合格，已标记为待入库" : "检验不合格，已标记为待退货");
         } catch (Exception ex) {
             return exception(ex, "检验处理");
         }
     }
 
     /**
-     * 重新收货：基于原单生成新验收单（明细沿用原单、批号清空、回到待初验），原单明细已重发、主单已结束
+     * 整单入库：全部明细终结后一次性生成整单入库单（合格明细入库、写库存与流水）
+     * <p>可点击条件：所有明细均终结（待入库/待退货/已退货/已重发/已入库/已取消）且至少一条「待入库」；
+     * 每条待入库明细可独立指定仓库，未指定回退验收单级仓库</p>
      *
      * 示例请求：
-     * POST /api/acceptance/1/re-receive
+     * POST /api/acceptance/1/inbound
+     * Content-Type: application/json
+     * { "items": [ { "detailId": 11, "prodUnitId": 1 }, { "detailId": 12, "prodUnitId": 2 } ] }
      *
-     * @param id 验收单ID
-     * @return 新生成的验收单
+     * @param id      验收单ID
+     * @param request 入库请求（items-每条待入库明细的仓库指定列表）
+     * @return 自动生成的入库单（含 planNumber/totalAmount/prodUnitId/createdBy/createdByName/warehouseName）
      */
-    @PostMapping("/{id}/re-receive")
-    public ApiResponse<AcceptanceOrder> reReceive(@PathVariable Long id) {
+    @PostMapping("/{id}/inbound")
+    public ApiResponse<StockInWithNamesDto> inbound(@PathVariable Long id,
+                                                    @RequestBody(required = false) AcceptanceInboundRequest request) {
         try {
-            AcceptanceOrder newAcceptance = acceptanceOrderService.reReceive(id);
-            return success(newAcceptance, "已生成新验收单 " + newAcceptance.getAcceptanceCode() + "，原单已结束");
+            List<AcceptanceInboundRequest.Item> items = request != null ? request.getItems() : null;
+            StockInWithNamesDto stockIn = acceptanceOrderService.inbound(id, items);
+            return success(stockIn, "整单入库完成，库存已更新");
         } catch (Exception ex) {
-            return exception(ex, "重新收货");
+            return exception(ex, "整单入库");
+        }
+    }
+
+    /**
+     * 部分验收（拆行）：将一行物料拆为「验收子行 + 退货子行」
+     * <p>验收数量 + 退货数量必须等于原行采购数量且均大于0；
+     * 验收子行按环节推进（初验→待检验，检验→待入库），退货子行→待退货</p>
+     *
+     * 示例请求：
+     * POST /api/acceptance/1/partial-acceptance
+     * Content-Type: application/json
+     * { "detailId": 11, "stage": "初验", "acceptQty": 8.000, "returnQty": 2.000, "remark": "部分包装破损" }
+     *
+     * @param id      验收单ID
+     * @param request 拆行请求（detailId-被拆分明细ID，stage-拆分环节（初验/检验），
+     *                acceptQty-验收数量，returnQty-退货数量，remark-备注说明）
+     * @return 操作结果
+     */
+    @PostMapping("/{id}/partial-acceptance")
+    public ApiResponse<Boolean> partialAcceptance(@PathVariable Long id,
+                                                  @RequestBody AcceptancePartialRequest request) {
+        try {
+            if (request == null || request.getDetailId() == null) {
+                return error("请指定被拆分的明细行");
+            }
+            acceptanceOrderService.partialAcceptance(request.getDetailId(), request.getStage(),
+                    request.getAcceptQty(), request.getReturnQty(), request.getRemark());
+            return success(true, "部分验收完成，已拆分为验收子行与退货子行");
+        } catch (Exception ex) {
+            return exception(ex, "部分验收");
         }
     }
 

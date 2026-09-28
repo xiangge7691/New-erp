@@ -76,6 +76,20 @@ public interface StockMapper extends BaseMapper<Stock> {
             "</script>")
     List<Map<String, Object>> sumQuantityByMaterialCodes(@Param("itemCodes") List<String> itemCodes);
 
+    /**
+     * 按物料编码与入库单ID查询库存记录（绕过逻辑删除过滤）
+     * <p>
+     * 用于退库重建场景：原库存行可能已因出库清零被软删除，
+     * 但出库明细仍通过 stock_id 引用它，需要从被软删除的行反查出库明细
+     * </p>
+     *
+     * @param itemCode   物料编码
+     * @param stockInId  入库单ID
+     * @return 库存记录（含软删除行，可能为null）
+     */
+    @Select("SELECT * FROM stock WHERE item_code = #{itemCode} AND stock_in_id = #{stockInId} LIMIT 1")
+    Stock selectByItemAndStockInIncludeDeleted(@Param("itemCode") String itemCode, @Param("stockInId") Long stockInId);
+
 }
 
 

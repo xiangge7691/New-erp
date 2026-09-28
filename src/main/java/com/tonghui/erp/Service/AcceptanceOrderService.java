@@ -3,11 +3,13 @@ package com.tonghui.erp.Service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Stock.AcceptanceInboundRequest;
 import com.tonghui.erp.Common.Dto.Stock.AcceptanceWithDetailsDto;
 import com.tonghui.erp.Common.Dto.Stock.StockInWithNamesDto;
 import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -15,7 +17,9 @@ import java.util.List;
 /**
  * 货物验收单业务接口
  * <p>
- * 提供验收单的增删改查、明细管理、状态流转（确认到货/初验/检验/重新收货）及库存联动能力
+ * 提供验收单的增删改查、明细管理、行级状态流转
+ * （确认到货/逐行初验/逐行检验/部分验收拆行/整单入库）及库存联动能力；
+ * 退货后的重新发货由物料退货管理模块承接
  * </p>
  */
 public interface AcceptanceOrderService extends IService<AcceptanceOrder> {
@@ -166,35 +170,64 @@ public interface AcceptanceOrderService extends IService<AcceptanceOrder> {
     void confirmArrival(Long acceptanceId);
 
     /**
-     * 初验处理：验收中（明细待初验）→ 合格：明细待检验 / 不合格：明细待退货
+     * 初验处理（逐行）：所选明细行 待初验 → 合格：待检验 / 不合格：待退货
+     * <p>
+     * detailIds 为空时自动推进该单全部「待初验」行（批量推进）；
+     * 主单状态按全部明细汇总派生，备注自动追加
+     * </p>
      *
      * @param acceptanceId 验收单ID
+     * @param detailIds    目标明细行ID列表，空/null表示全部待初验行
      * @param pass         是否合格
-     * @param remark       初验备注
+     * @param remark       初验备注说明
      */
-    void inspect(Long acceptanceId, boolean pass, String remark);
+    void inspect(Long acceptanceId, List<Long> detailIds, boolean pass, String remark);
 
     /**
-     * 检验处理：验收中（明细待检验）→ 合格：整单入库（主单已入库）/ 不合格：明细待退货
-     * <p>合格时自动生成入库单（主表携带关联生产计划编号/总金额/仓库/操作人，
-     * 并回填操作人姓名与仓库名）并返回</p>
+     * 检验处理（逐行）：所选明细行 待检验 → 合格：待入库 / 不合格：待退货
+     * <p>
+     * detailIds 为空时自动推进该单全部「待检验」行（批量推进）；
+     * 合格时校验所选行批号必填；入库由 {@link #inbound} 在全部明细终结后整单执行
+     * </p>
      *
      * @param acceptanceId 验收单ID
+     * @param detailIds    目标明细行ID列表，空/null表示全部待检验行
      * @param pass         是否合格
-     * @param prodUnitId   入库仓库（生产单位ID，合格时必填）
-     * @param remark       检验备注
-     * @return 合格时返回自动生成的入库单（含操作人姓名/仓库名），不合格时返回null
+     * @param remark       检验备注说明
      */
-    StockInWithNamesDto qualityCheck(Long acceptanceId, boolean pass, Long prodUnitId, String remark);
+    void qualityCheck(Long acceptanceId, List<Long> detailIds, boolean pass, String remark);
 
     /**
-     * 重新收货（兼容入口，步骤4删除）：存在待退货明细 → 生成新验收单（明细沿用原单、回到待初验），
-     * 原单明细标记为已重发、主单派生为已结束
+     * 部分验收（拆行）：将一行物料拆为「验收子行 + 退货子行」
+     * <p>
+     * 验收数量 + 退货数量必须等于原行采购数量且均大于 0；
+     * 验收子行状态按环节推进（初验环节→待检验，检验环节→待入库），
+     * 退货子行状态→待退货并记录原行序号（originalSeq）用于追溯；
+     * 关联采购订单明细同步拆行，金额与标准量差值按拆分后数量重算
+     * </p>
+     *
+     * @param detailId   被拆分的验收明细ID
+     * @param stage      拆分环节（初验 / 检验）
+     * @param acceptQty  验收数量（进入验收子行）
+     * @param returnQty  退货数量（进入退货子行）
+     * @param remark     备注说明（追加到验收单备注）
+     */
+    void partialAcceptance(Long detailId, String stage, BigDecimal acceptQty, BigDecimal returnQty, String remark);
+
+    /**
+     * 整单入库：全部明细终结后一次性生成整单入库单
+     * <p>
+     * 可执行条件：所有明细均处于终结状态（待入库/待退货/已退货/已重发/已入库/已取消），
+     * 且至少有一条「待入库」明细；为每条待入库明细指定入库仓库（支持不同仓库），
+     * 校验批号必填后生成入库单、写库存与流水，合格明细→已入库，主单→已入库，
+     * 并同步关联采购订单与领料单状态
+     * </p>
      *
      * @param acceptanceId 验收单ID
-     * @return 新生成的验收单
+     * @param items        待入库明细的仓库指定列表（detailId + prodUnitId），缺省回退验收单级仓库
+     * @return 自动生成的入库单（含操作人姓名/仓库名）
      */
-    AcceptanceOrder reReceive(Long acceptanceId);
+    StockInWithNamesDto inbound(Long acceptanceId, List<AcceptanceInboundRequest.Item> items);
 
     /**
      * 将验收单状态同步至关联采购订单

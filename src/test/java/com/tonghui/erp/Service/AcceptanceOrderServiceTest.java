@@ -4,6 +4,7 @@ import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Data.Entity.Stock;
+import com.tonghui.erp.Common.Dto.Stock.AcceptanceInboundRequest;
 import com.tonghui.erp.Common.Dto.Stock.StockTransactionDto;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Data.mapper.StockMapper;
@@ -27,9 +28,9 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * 货物验收单服务集成测试
  * <p>
- * 覆盖验收单创建、状态流转（确认到货/初验/检验/重新收货）、检验合格入库的库存联动、
- * 已入库禁止删除等核心业务逻辑。测试前通过幂等SQL脚本确保验收表存在，
- * 业务数据在事务结束后自动回滚，不污染数据库
+ * 覆盖验收单创建、行级状态流转（确认到货/逐行初验/逐行检验/部分验收拆行）、
+ * 整单入库的库存联动、已入库禁止删除等核心业务逻辑。
+ * 测试前通过幂等SQL脚本确保验收表存在，业务数据在事务结束后自动回滚，不污染数据库
  * </p>
  */
 @SpringBootTest
@@ -114,10 +115,10 @@ public class AcceptanceOrderServiceTest {
     // ===================================
 
     /**
-     * 测试验收单完整状态流转 + 检验合格入库的库存联动
+     * 测试验收单完整状态流转 + 整单入库的库存联动
      * <p>
-     * 运输中 → 确认到货 → 验收中 → 初验合格（明细待检验）→ 检验合格入库（明细已入库），
-     * 断言库存批次增加且库存流水写入
+     * 运输中 → 确认到货 → 验收中 → 逐行初验合格（明细待检验）→ 逐行检验合格（明细待入库）
+     * → 整单入库（明细已入库），断言库存批次增加且库存流水写入
      * </p>
      */
     @Test
@@ -139,21 +140,36 @@ public class AcceptanceOrderServiceTest {
         acceptanceOrderService.confirmArrival(id);
         assertEquals("验收中", acceptanceOrderService.getAcceptanceById(id).getStatus());
 
-        // 初验合格：主单维持验收中，明细进入待检验
-        acceptanceOrderService.inspect(id, true, "数量外观核对无误");
+        // 逐行初验合格（detailIds为空=全部待初验行）：主单维持验收中，明细进入待检验
+        acceptanceOrderService.inspect(id, null, true, "数量外观核对无误");
         assertEquals("验收中", acceptanceOrderService.getAcceptanceById(id).getStatus());
         assertTrue(acceptanceOrderService.getDetailsByAcceptanceId(id).stream()
                         .allMatch(d -> "待检验".equals(d.getStatus())),
                 "初验合格后明细应全部为待检验");
 
-        // 检验合格入库（批号齐全 + 选择仓库）
-        acceptanceOrderService.qualityCheck(id, true, prodUnitId, "合格");
+        // 逐行检验合格：明细进入待入库，主单按明细派生仍为验收中（等待整单入库）
+        acceptanceOrderService.qualityCheck(id, null, true, "合格");
+        assertEquals("验收中", acceptanceOrderService.getAcceptanceById(id).getStatus());
+        assertTrue(acceptanceOrderService.getDetailsByAcceptanceId(id).stream()
+                        .allMatch(d -> "待入库".equals(d.getStatus())),
+                "检验合格后明细应全部为待入库");
+
+        // 整单入库：为每条待入库明细指定仓库，生成入库单，明细已入库、主单已入库
+        List<Long> detailIds = acceptanceOrderService.getDetailsByAcceptanceId(id).stream()
+                .map(AcceptanceDetail::getDetailId).collect(java.util.stream.Collectors.toList());
+        acceptanceOrderService.inbound(id, detailIds.stream().map(did -> {
+            AcceptanceInboundRequest.Item item = new AcceptanceInboundRequest.Item();
+            item.setDetailId(did);
+            item.setProdUnitId(prodUnitId);
+            return item;
+        }).collect(java.util.stream.Collectors.toList()));
+
         AcceptanceOrder done = acceptanceOrderService.getAcceptanceById(id);
         assertEquals("已入库", done.getStatus());
         assertEquals(prodUnitId, done.getProdUnitId());
         assertTrue(acceptanceOrderService.getDetailsByAcceptanceId(id).stream()
                         .allMatch(d -> "已入库".equals(d.getStatus())),
-                "检验合格入库后明细应全部为已入库");
+                "整单入库后明细应全部为已入库");
 
         // 断言库存联动：按 物料编码+仓库+批号 能查到库存批次，且流水已写入
         List<AcceptanceDetail> details = acceptanceOrderService.getDetailsByAcceptanceId(id);
@@ -162,65 +178,103 @@ public class AcceptanceOrderServiceTest {
                 .eq("item_code", first.getMaterialCode())
                 .eq("prod_unit_id", prodUnitId)
                 .eq("batch_number", first.getBatchNumber()));
-        assertNotNull(stock, "检验合格入库后库存批次应存在");
+        assertNotNull(stock, "整单入库后库存批次应存在");
         assertEquals(0, first.getQuantity().compareTo(stock.getQuantity()), "库存数量应与验收数量一致");
 
         // 断言库存流水写入（入库类型为验收来源类型）
         List<StockTransactionDto> transactions = stockService.getTransactionsByStockId(stock.getStockId());
-        assertFalse(transactions.isEmpty(), "检验合格入库后应写入库存流水");
+        assertFalse(transactions.isEmpty(), "整单入库后应写入库存流水");
         assertTrue(transactions.stream().anyMatch(t -> "采购入库".equals(String.valueOf(t.getTransactionType()))),
                 "流水类型应为采购入库");
     }
 
     /**
-     * 测试检验合格但存在未填写批号的物料时无法入库
+     * 测试逐行检验合格但存在未填写批号的物料时无法推进
      */
     @Test
     @Transactional
     public void testQualityCheckWithoutBatchThrows() {
-        Long prodUnitId = findAnyProdUnitId();
-        if (prodUnitId == null) {
-            System.out.println("无生产单位数据，跳过该测试");
-            return;
-        }
-
         // 创建验收中的验收单（明细批号为空，状态待初验）
         AcceptanceOrder acceptance = createAcceptance("验收中", null);
         Long id = acceptance.getAcceptanceId();
-        acceptanceOrderService.inspect(id, true, "初验合格");
+        acceptanceOrderService.inspect(id, null, true, "初验合格");
 
         // 检验合格但批号缺失，应抛出异常
         RuntimeException ex = assertThrows(RuntimeException.class,
-                () -> acceptanceOrderService.qualityCheck(id, true, prodUnitId, "合格"));
+                () -> acceptanceOrderService.qualityCheck(id, null, true, "合格"));
         assertTrue(ex.getMessage().contains("批号"), "异常信息应提示批号必填");
     }
 
     /**
-     * 测试重新收货：生成新验收单，原单明细已重发、主单已结束
+     * 测试部分验收（拆行）：一行拆为验收子行+退货子行，状态/数量/订单明细同步拆分
+     * <p>初验环节拆分：验收子行→待检验、退货子行→待退货，记录原行序号，数量守恒</p>
      */
     @Test
     @Transactional
-    public void testReReceiveFlow() {
-        // 创建验收中的验收单，初验不合格使明细进入待退货（主单派生为已结束）
+    public void testPartialAcceptance() {
         AcceptanceOrder acceptance = createAcceptance("验收中", null);
         Long id = acceptance.getAcceptanceId();
-        acceptanceOrderService.inspect(id, false, "外观破损");
+        Long detailId = acceptanceOrderService.getDetailsByAcceptanceId(id).get(0).getDetailId();
 
-        AcceptanceOrder newAcceptance = acceptanceOrderService.reReceive(id);
+        // 数量不守恒应被拒绝
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> acceptanceOrderService.partialAcceptance(detailId, "初验",
+                        new BigDecimal("0.800"), new BigDecimal("0.100"), "部分破损"));
+        assertTrue(ex.getMessage().contains("等于采购数量"), "两段数量之和必须等于原行采购数量");
 
-        // 原单明细已重发、主单已结束
-        assertEquals("已结束", acceptanceOrderService.getAcceptanceById(id).getStatus());
-        assertTrue(acceptanceOrderService.getDetailsByAcceptanceId(id).stream()
-                        .allMatch(d -> "已重发".equals(d.getStatus())),
-                "原单明细应全部为已重发");
-        // 新单状态为验收中，明细回到待初验且沿用原单、批号清空
-        assertEquals("验收中", newAcceptance.getStatus());
-        List<AcceptanceDetail> newDetails = acceptanceOrderService.getDetailsByAcceptanceId(newAcceptance.getAcceptanceId());
-        assertEquals(acceptanceOrderService.getDetailsByAcceptanceId(id).size(), newDetails.size(), "新单明细数应与原单一致");
-        assertTrue(newDetails.stream().allMatch(d -> d.getBatchNumber() == null || d.getBatchNumber().isEmpty()),
-                "新单明细批号应清空");
-        assertTrue(newDetails.stream().allMatch(d -> "待初验".equals(d.getStatus())),
-                "新单明细状态应回到待初验");
+        // 合法拆分：验收0.700 + 退货0.300 = 采购1.000
+        acceptanceOrderService.partialAcceptance(detailId, "初验",
+                new BigDecimal("0.700"), new BigDecimal("0.300"), "部分破损");
+
+        List<AcceptanceDetail> rows = acceptanceOrderService.getDetailsByAcceptanceId(id);
+        assertEquals(2, rows.size(), "拆分后应为两条明细");
+
+        AcceptanceDetail acceptChild = rows.stream()
+                .filter(d -> d.getDetailId().equals(detailId)).findFirst().orElseThrow();
+        AcceptanceDetail returnChild = rows.stream()
+                .filter(d -> !d.getDetailId().equals(detailId)).findFirst().orElseThrow();
+
+        // 验收子行：数量0.700、状态待检验、金额重算=0.700×10.00
+        assertEquals(0, new BigDecimal("0.700").compareTo(acceptChild.getQuantity()), "验收子行数量应为验收数量");
+        assertEquals("待检验", acceptChild.getStatus(), "初验环节验收子行应为待检验");
+        assertEquals(0, new BigDecimal("7.00").compareTo(acceptChild.getAmount()), "验收子行金额应重算");
+
+        // 退货子行：数量0.300、状态待退货、原因初验不合格、原行序号追溯、金额重算
+        assertEquals(0, new BigDecimal("0.300").compareTo(returnChild.getQuantity()), "退货子行数量应为退货数量");
+        assertEquals("待退货", returnChild.getStatus(), "退货子行应为待退货");
+        assertEquals("初验不合格", returnChild.getReturnReason(), "退货子行原因为初验不合格");
+        assertEquals(acceptChild.getSeq(), returnChild.getOriginalSeq(), "退货子行应记录原行序号");
+        assertTrue(returnChild.getSeq() > acceptChild.getSeq(), "退货子行序号应大于原行");
+        assertEquals(0, new BigDecimal("3.00").compareTo(returnChild.getAmount()), "退货子行金额应重算");
+
+        // 主单维持验收中（存在待检验行）且备注记录拆分
+        AcceptanceOrder afterSplit = acceptanceOrderService.getAcceptanceById(id);
+        assertEquals("验收中", afterSplit.getStatus(), "拆分后主单应为验收中");
+        assertTrue(afterSplit.getRemark().contains("部分验收"), "备注应记录部分验收");
+    }
+
+    /**
+     * 测试整单入库前置条件：明细未全部终结或无待入库时拒绝入库
+     */
+    @Test
+    @Transactional
+    public void testInboundPreconditions() {
+        // 存在待检验行（未终结）时不可入库
+        AcceptanceOrder acceptance = createAcceptance("验收中", null);
+        Long id = acceptance.getAcceptanceId();
+        acceptanceOrderService.inspect(id, null, true, "初验合格");
+        RuntimeException ex1 = assertThrows(RuntimeException.class,
+                () -> acceptanceOrderService.inbound(id, null));
+        assertTrue(ex1.getMessage().contains("终结"), "未全部终结时应提示先推进明细");
+
+        // 全部为待退货：主单派生为已结束（终态），拒绝入库
+        AcceptanceOrder allFail = createAcceptance("验收中", null);
+        acceptanceOrderService.inspect(allFail.getAcceptanceId(), null, false, "外观破损");
+        assertEquals("已结束", acceptanceOrderService.getAcceptanceById(allFail.getAcceptanceId()).getStatus(),
+                "全部明细待退货时主单应派生为已结束");
+        RuntimeException ex2 = assertThrows(RuntimeException.class,
+                () -> acceptanceOrderService.inbound(allFail.getAcceptanceId(), null));
+        assertTrue(ex2.getMessage().contains("入库"), "已结束的验收单应拒绝入库");
     }
 
     /**
@@ -235,12 +289,20 @@ public class AcceptanceOrderServiceTest {
             return;
         }
 
-        // 创建并流转到已入库（明细带批号）
+        // 创建并流转到已入库（明细带批号）：初验→检验→整单入库
         AcceptanceOrder acceptance = createAcceptance("运输中", "TEST-BATCH-001");
         Long id = acceptance.getAcceptanceId();
         acceptanceOrderService.confirmArrival(id);
-        acceptanceOrderService.inspect(id, true, "初验合格");
-        acceptanceOrderService.qualityCheck(id, true, prodUnitId, "合格");
+        acceptanceOrderService.inspect(id, null, true, "初验合格");
+        acceptanceOrderService.qualityCheck(id, null, true, "合格");
+        List<Long> inboundDetailIds = acceptanceOrderService.getDetailsByAcceptanceId(id).stream()
+                .map(AcceptanceDetail::getDetailId).collect(java.util.stream.Collectors.toList());
+        acceptanceOrderService.inbound(id, inboundDetailIds.stream().map(did -> {
+            AcceptanceInboundRequest.Item item = new AcceptanceInboundRequest.Item();
+            item.setDetailId(did);
+            item.setProdUnitId(prodUnitId);
+            return item;
+        }).collect(java.util.stream.Collectors.toList()));
 
         // 已入库不可删除
         RuntimeException ex = assertThrows(RuntimeException.class,

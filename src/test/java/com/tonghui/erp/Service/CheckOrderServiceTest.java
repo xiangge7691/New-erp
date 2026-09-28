@@ -45,10 +45,13 @@ public class CheckOrderServiceTest {
     private static final String TEST_UNIT = "kg";
     /** 测试批次号 */
     private static final String TEST_BATCH = "PBATCH01";
-    /** 盘点仓库名称（耒阳制剂室） */
-    private static final String WAREHOUSE = "耒阳制剂室";
-    /** 盘点仓库ID（耒阳制剂室） */
-    private static final Long WAREHOUSE_UNIT_ID = 7L;
+
+    /** 盘点仓库名称（每个测试前动态解析，避免硬编码环境数据） */
+    private String warehouseName;
+    /** 盘点仓库ID（每个测试前动态解析） */
+    private Long warehouseUnitId;
+    /** 最近一次 createStock 创建的入库单号（用于拼接 inventoryKey = 物料编码_入库单号） */
+    private String lastTestInCode;
 
     /** 盘点单服务 */
     @Autowired
@@ -68,6 +71,35 @@ public class CheckOrderServiceTest {
     /** JdbcTemplate（用于物理删除测试数据，绕开软删除） */
     @Autowired
     private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+    /** 生产单位Mapper（动态解析测试仓库） */
+    @Autowired
+    private com.tonghui.erp.Data.mapper.ProductionUnitMapper productionUnitMapper;
+    /** 入库单Mapper（创建测试库存时关联入库单） */
+    @Autowired
+    private com.tonghui.erp.Data.mapper.StockInMapper stockInMapper;
+
+    // endregion
+
+    // region 测试准备
+    // ===================================
+    // 测试准备
+    // ===================================
+
+    /**
+     * 动态解析盘点仓库（取第一个有效生产单位）
+     * <p>
+     * 环境 production_unit 数据可能变更，硬编码仓库ID会导致外键失败，
+     * 此处每个测试前查询真实数据；无有效生产单位时跳过测试
+     * </p>
+     */
+    @org.junit.jupiter.api.BeforeEach
+    public void resolveWarehouse() {
+        List<com.tonghui.erp.Data.Entity.ProductionUnit> units = productionUnitMapper.selectList(
+                new QueryWrapper<com.tonghui.erp.Data.Entity.ProductionUnit>().orderByAsc("prod_unit_id"));
+        org.junit.jupiter.api.Assumptions.assumeTrue(!units.isEmpty(), "跳过: production_unit 无有效数据");
+        warehouseUnitId = units.get(0).getProdUnitId();
+        warehouseName = units.get(0).getProdUnitName();
+    }
 
     // endregion
 
@@ -100,7 +132,7 @@ public class CheckOrderServiceTest {
             Stock stock = createStock(new BigDecimal("1.0"));
             stockId = stock.getStockId();
 
-            List<StockDetailItemDto> details = checkOrderService.getStockDetails(WAREHOUSE, true, TEST_ITEM_CODE);
+            List<StockDetailItemDto> details = checkOrderService.getStockDetails(warehouseName, true, TEST_ITEM_CODE);
             boolean found = details.stream().anyMatch(d -> TEST_ITEM_CODE.equals(d.getMaterialCode()));
             if (!found) {
                 System.err.println("测试失败: 库存详情未包含测试物料");
@@ -132,9 +164,9 @@ public class CheckOrderServiceTest {
             stockId = stock.getStockId();
 
             CheckOrderCreateDto dto = new CheckOrderCreateDto();
-            dto.setWarehouse(WAREHOUSE);
+            dto.setWarehouse(warehouseName);
             CheckItemRequest item = new CheckItemRequest();
-            item.setInventoryKey(TEST_ITEM_CODE + "_" + WAREHOUSE + "_" + TEST_BATCH);
+            item.setInventoryKey(TEST_ITEM_CODE + "_" + lastTestInCode);
             item.setActualStock(new BigDecimal("1.5"));
             dto.setItems(List.of(item));
 
@@ -185,9 +217,9 @@ public class CheckOrderServiceTest {
             stockId = stock.getStockId();
 
             CheckOrderCreateDto dto = new CheckOrderCreateDto();
-            dto.setWarehouse(WAREHOUSE);
+            dto.setWarehouse(warehouseName);
             CheckItemRequest item = new CheckItemRequest();
-            item.setInventoryKey(TEST_ITEM_CODE + "_" + WAREHOUSE + "_" + TEST_BATCH);
+            item.setInventoryKey(TEST_ITEM_CODE + "_" + lastTestInCode);
             item.setActualStock(new BigDecimal("0.4"));
             dto.setItems(List.of(item));
 
@@ -232,9 +264,9 @@ public class CheckOrderServiceTest {
             stockId = stock.getStockId();
 
             CheckOrderCreateDto dto = new CheckOrderCreateDto();
-            dto.setWarehouse(WAREHOUSE);
+            dto.setWarehouse(warehouseName);
             CheckItemRequest item = new CheckItemRequest();
-            item.setInventoryKey(TEST_ITEM_CODE + "_" + WAREHOUSE + "_" + TEST_BATCH);
+            item.setInventoryKey(TEST_ITEM_CODE + "_" + lastTestInCode);
             item.setActualStock(new BigDecimal("1.0"));
             dto.setItems(List.of(item));
 
@@ -267,9 +299,9 @@ public class CheckOrderServiceTest {
             stockId = stock.getStockId();
 
             CheckOrderCreateDto dto = new CheckOrderCreateDto();
-            dto.setWarehouse(WAREHOUSE);
+            dto.setWarehouse(warehouseName);
             CheckItemRequest item = new CheckItemRequest();
-            item.setInventoryKey(TEST_ITEM_CODE + "_" + WAREHOUSE + "_" + TEST_BATCH);
+            item.setInventoryKey(TEST_ITEM_CODE + "_" + lastTestInCode);
             item.setActualStock(new BigDecimal("-1.0"));
             dto.setItems(List.of(item));
 
@@ -303,9 +335,9 @@ public class CheckOrderServiceTest {
             stockId = stock.getStockId();
 
             CheckOrderCreateDto dto = new CheckOrderCreateDto();
-            dto.setWarehouse(WAREHOUSE);
+            dto.setWarehouse(warehouseName);
             CheckItemRequest item = new CheckItemRequest();
-            item.setInventoryKey(TEST_ITEM_CODE + "_" + WAREHOUSE + "_" + TEST_BATCH);
+            item.setInventoryKey(TEST_ITEM_CODE + "_" + lastTestInCode);
             item.setActualStock(new BigDecimal("1.5"));
             dto.setItems(List.of(item));
 
@@ -341,14 +373,26 @@ public class CheckOrderServiceTest {
     // ===================================
 
     /**
-     * 创建测试库存记录
+     * 创建测试库存记录（含关联入库单）
+     * <p>
+     * 库存标识格式为"物料编码_入库单号"，故先创建入库单再创建库存，
+     * 并将入库单号记录到 lastTestInCode 供拼接 inventoryKey
+     * </p>
      *
      * @param quantity 库存数量
      * @return 创建的库存记录
      */
     private Stock createStock(BigDecimal quantity) {
+        // 创建关联入库单（inventoryKey = 物料编码_入库单号）
+        com.tonghui.erp.Data.Entity.StockIn stockIn = new com.tonghui.erp.Data.Entity.StockIn();
+        lastTestInCode = "TESTINC" + System.currentTimeMillis();
+        stockIn.setInCode(lastTestInCode);
+        stockIn.setProdUnitId(warehouseUnitId);
+        stockIn.setInDate(java.time.LocalDateTime.now());
+        stockIn.setInStatus("已入库");
+        stockInMapper.insert(stockIn);
         Stock stock = new Stock();
-        stock.setProdUnitId(WAREHOUSE_UNIT_ID);
+        stock.setProdUnitId(warehouseUnitId);
         stock.setItemType("material");
         stock.setItemCode(TEST_ITEM_CODE);
         stock.setItemName(TEST_ITEM_NAME);
@@ -357,12 +401,13 @@ public class CheckOrderServiceTest {
         stock.setBatchNumber(TEST_BATCH);
         stock.setQuantity(quantity);
         stock.setUnitPrice(new BigDecimal("10.00"));
+        stock.setStockInId(stockIn.getInId());
         stockMapper.insert(stock);
         return stock;
     }
 
     /**
-     * 清理测试数据（物理删除：明细→主表→流水→库存）
+     * 清理测试数据（物理删除：明细→主表→流水→库存→入库单）
      *
      * @param stockId 库存ID（可为null）
      * @param orderId 盘点单ID（可为null）
@@ -378,6 +423,10 @@ public class CheckOrderServiceTest {
             jdbcTemplate.update("DELETE FROM stock_transaction WHERE batch_number = ?", TEST_BATCH);
             if (stockId != null) {
                 jdbcTemplate.update("DELETE FROM stock_transaction WHERE stock_id = ?", stockId);
+            }
+            if (lastTestInCode != null) {
+                jdbcTemplate.update("DELETE FROM stock_in WHERE in_code = ?", lastTestInCode);
+                lastTestInCode = null;
             }
         } catch (Exception e) {
             System.err.println("清理测试数据失败: " + e.getMessage());

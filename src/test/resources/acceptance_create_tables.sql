@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS `acceptance_order` (
   `status`                VARCHAR(20)  NOT NULL DEFAULT '运输中' COMMENT '状态：运输中/验收中/已入库/已结束/已作废',
   `delivery_date`         DATE         DEFAULT NULL COMMENT '预计交付日期（交期）',
   `remark`                VARCHAR(500) DEFAULT NULL COMMENT '备注（流程节点自动追加）',
-  `original_acceptance_code` VARCHAR(50) DEFAULT NULL COMMENT '原验收单号（重新收货时记录）',
+  `original_acceptance_code` VARCHAR(50) DEFAULT NULL COMMENT '原验收单号（退货重新发货时记录）',
   `approval_instance_id`  BIGINT       DEFAULT NULL COMMENT '审批实例ID',
   `is_deleted`            TINYINT      NOT NULL DEFAULT 0 COMMENT '是否已删除：0否/1是',
   `version`               INT          NOT NULL DEFAULT 0 COMMENT '乐观锁版本号',
@@ -423,6 +423,16 @@ SET @def := (SELECT COLUMN_DEFAULT FROM information_schema.COLUMNS
     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'acceptance_order' AND COLUMN_NAME = 'status');
 SET @ddl := IF(@def LIKE '%到货初验%',
     'ALTER TABLE `acceptance_order` MODIFY COLUMN `status` VARCHAR(20) NOT NULL DEFAULT ''运输中'' COMMENT ''状态：运输中/验收中/已入库/已结束/已作废''',
+    'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- 22. 步骤4行级化：stock_in_detail 明细级入库仓库（每条物料独立选仓库，幂等）
+SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stock_in_detail' AND COLUMN_NAME = 'prod_unit_id');
+SET @ddl := IF(@col_exists = 0,
+    'ALTER TABLE stock_in_detail ADD COLUMN prod_unit_id BIGINT DEFAULT NULL COMMENT ''明细级入库仓库（生产单位ID，为空回退入库单级仓库）'' AFTER storage_location',
     'SELECT 1');
 PREPARE stmt FROM @ddl;
 EXECUTE stmt;

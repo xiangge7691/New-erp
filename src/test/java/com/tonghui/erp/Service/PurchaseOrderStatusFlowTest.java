@@ -4,12 +4,14 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
 import com.tonghui.erp.Data.Entity.Material;
+import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Data.Entity.PurchaseOrderItems;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
 import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.mapper.AcceptanceDetailMapper;
 import com.tonghui.erp.Data.mapper.AcceptanceOrderMapper;
 import com.tonghui.erp.Data.mapper.MaterialMapper;
+import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrderItemsMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrdersMapper;
 import com.tonghui.erp.Common.Dto.PagedResult;
@@ -18,6 +20,8 @@ import com.tonghui.erp.Common.Dto.Stock.StockInWithDetailsDto;
 import com.tonghui.erp.Common.Dto.Stock.StockInWithNamesDto;
 import com.tonghui.erp.Common.Dto.Stock.StockTransactionDto;
 import com.tonghui.erp.Service.StockInService;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -30,8 +34,8 @@ import java.util.List;
  * 采购订单状态触发式流程测试
  * <p>
  * 覆盖：采购订单状态改为"运输中"时自动生成货物验收单（含明细复制、幂等），
- * 以及验收单全流程状态变更（确认到货/初验/检验/重新收货）时按同名映射同步采购订单状态，
- * 含验收合格自动入库的完整闭环
+ * 以及验收单全流程状态变更（确认到货/逐行初验/逐行检验/整单入库）时按同名映射同步采购订单状态，
+ * 含整单入库的完整闭环
  * </p>
  */
 @SpringBootTest
@@ -52,8 +56,11 @@ public class PurchaseOrderStatusFlowTest {
     private static final String TEST_BATCH = "TFLOW01";
     /** 陈旧的原药材品名（验证物料主数据优先级） */
     private static final String STALE_RAW_NAME = "陈旧物料名";
-    /** 入库仓库ID（耒阳制剂室） */
-    private static final Long INBOUND_UNIT_ID = 7L;
+
+    /** 入库仓库ID（每个测试前动态解析，避免硬编码环境数据导致外键失败） */
+    private Long inboundUnitId;
+    /** 入库仓库名称（每个测试前动态解析） */
+    private String inboundWarehouseName;
 
     /** 采购订单服务 */
     @Autowired
@@ -85,6 +92,32 @@ public class PurchaseOrderStatusFlowTest {
     /** JdbcTemplate（用于物理删除测试数据，绕开软删除） */
     @Autowired
     private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+    /** 生产单位Mapper（动态解析测试仓库） */
+    @Autowired
+    private ProductionUnitMapper productionUnitMapper;
+
+    // endregion
+
+    // region 测试准备
+    // ===================================
+    // 测试准备
+    // ===================================
+
+    /**
+     * 动态解析入库仓库（取第一个有效生产单位）
+     * <p>
+     * 环境 production_unit 数据可能变更，硬编码仓库ID会导致外键失败，
+     * 此处每个测试前查询真实数据；无有效生产单位时跳过测试
+     * </p>
+     */
+    @BeforeEach
+    public void resolveInboundWarehouse() {
+        List<ProductionUnit> units = productionUnitMapper.selectList(
+                new QueryWrapper<ProductionUnit>().orderByAsc("prod_unit_id"));
+        Assumptions.assumeTrue(!units.isEmpty(), "跳过: production_unit 无有效数据");
+        inboundUnitId = units.get(0).getProdUnitId();
+        inboundWarehouseName = units.get(0).getProdUnitName();
+    }
 
     // endregion
 
@@ -202,10 +235,12 @@ public void testQualityCheckWriteBackOrderStatus() {
             acceptanceDetailMapper.updateById(detail);
 
             acceptanceOrderService.confirmArrival(acceptanceId);
-            acceptanceOrderService.inspect(acceptanceId, true, "初验合格");
+            acceptanceOrderService.inspect(acceptanceId, null, true, "初验合格");
 
-            // 检验合格（触发自动入库 + 回写采购订单状态）
-            acceptanceOrderService.qualityCheck(acceptanceId, true, INBOUND_UNIT_ID, "测试合格");
+            // 逐行检验合格（明细待入库，回写订单明细为待入库）
+            acceptanceOrderService.qualityCheck(acceptanceId, null, true, "测试合格");
+            // 整单入库（触发库存联动 + 回写采购订单状态为已入库；仓库回退验收单级仓库）
+            acceptanceOrderService.inbound(acceptanceId, null);
 
             // 断言采购订单状态为"已入库"
             PurchaseOrders updatedOrder = purchaseOrdersMapper.selectById(orderId);
@@ -327,10 +362,11 @@ public void testQualityCheckWriteBackOrderStatus() {
             detail.setExpiryDate(LocalDate.now().plusYears(1));
             acceptanceDetailMapper.updateById(detail);
             acceptanceOrderService.confirmArrival(acceptanceId);
-            acceptanceOrderService.inspect(acceptanceId, true, "初验合格");
+            acceptanceOrderService.inspect(acceptanceId, null, true, "初验合格");
+            acceptanceOrderService.qualityCheck(acceptanceId, null, true, "测试合格");
 
-            // 检验合格（触发自动入库并返回入库单）
-            StockInWithNamesDto stockIn = acceptanceOrderService.qualityCheck(acceptanceId, true, INBOUND_UNIT_ID, "测试合格");
+            // 整单入库并返回入库单（断言主表字段）
+            StockInWithNamesDto stockIn = acceptanceOrderService.inbound(acceptanceId, null);
             if (stockIn == null) {
                 System.err.println("测试失败: 未返回自动生成的入库单");
             } else {
@@ -348,7 +384,7 @@ public void testQualityCheckWriteBackOrderStatus() {
                     System.out.println("入库单总金额: " + stockIn.getTotalAmount());
                 }
                 // 仓库：prodUnitId
-                if (!INBOUND_UNIT_ID.equals(stockIn.getProdUnitId())) {
+                if (!inboundUnitId.equals(stockIn.getProdUnitId())) {
                     System.err.println("测试失败: 入库单仓库错误: " + stockIn.getProdUnitId());
                 } else {
                     System.out.println("入库单仓库(prodUnitId): " + stockIn.getProdUnitId());
@@ -359,9 +395,9 @@ public void testQualityCheckWriteBackOrderStatus() {
                 } else {
                     System.out.println("入库单操作人(createdBy): " + stockIn.getCreatedBy());
                 }
-                // 仓库名称：应解析为生产单位名称（测试环境 prodUnitId=7 → 耒阳制剂室）
-                if (!"耒阳制剂室".equals(stockIn.getWarehouseName())) {
-                    System.err.println("测试失败: 入库单仓库名称应为耒阳制剂室, 实际: " + stockIn.getWarehouseName());
+                // 仓库名称：应解析为生产单位名称（与动态解析的入库仓库一致）
+                if (!inboundWarehouseName.equals(stockIn.getWarehouseName())) {
+                    System.err.println("测试失败: 入库单仓库名称应为" + inboundWarehouseName + ", 实际: " + stockIn.getWarehouseName());
                 } else {
                     System.out.println("入库单仓库名称: " + stockIn.getWarehouseName());
                 }
@@ -404,7 +440,7 @@ public void testQualityCheckWriteBackOrderStatus() {
             // 确认到货（验收单 → 验收中，采购订单同步验收中）
             acceptanceOrderService.confirmArrival(acceptanceId);
             // 初验合格（明细 → 待检验，采购订单主单保持验收中）
-            acceptanceOrderService.inspect(acceptanceId, true, "外观完好");
+            acceptanceOrderService.inspect(acceptanceId, null, true, "外观完好");
 
             PurchaseOrders updatedOrder = purchaseOrdersMapper.selectById(orderId);
             if (updatedOrder == null || !"验收中".equals(String.valueOf(updatedOrder.getStatus()))) {
@@ -449,7 +485,7 @@ public void testQualityCheckWriteBackOrderStatus() {
             acceptanceId = acceptance.getAcceptanceId();
 
             acceptanceOrderService.confirmArrival(acceptanceId);
-            acceptanceOrderService.inspect(acceptanceId, false, "包装破损");
+            acceptanceOrderService.inspect(acceptanceId, null, false, "包装破损");
 
             PurchaseOrders updatedOrder = purchaseOrdersMapper.selectById(orderId);
             if (updatedOrder == null || !"已结束".equals(String.valueOf(updatedOrder.getStatus()))) {
@@ -494,8 +530,8 @@ public void testQualityCheckWriteBackOrderStatus() {
             acceptanceId = acceptance.getAcceptanceId();
 
             acceptanceOrderService.confirmArrival(acceptanceId);
-            acceptanceOrderService.inspect(acceptanceId, true, "外观完好");
-            acceptanceOrderService.qualityCheck(acceptanceId, false, null, "含量不达标");
+            acceptanceOrderService.inspect(acceptanceId, null, true, "外观完好");
+            acceptanceOrderService.qualityCheck(acceptanceId, null, false, "含量不达标");
 
             PurchaseOrders updatedOrder = purchaseOrdersMapper.selectById(orderId);
             if (updatedOrder == null || !"已结束".equals(String.valueOf(updatedOrder.getStatus()))) {
@@ -515,58 +551,6 @@ public void testQualityCheckWriteBackOrderStatus() {
             e.printStackTrace();
         } finally {
             cleanup(orderId, acceptanceId, null, null, null, null);
-        }
-    }
-
-    /**
-     * 测试重新收货时采购订单状态跟随新验收单（验收中）
-     * <p>
-     * 采购订单置"运输中"生成验收单 → 确认到货 → 初验不合格（待退货）→ 重新收货
-     * → 断言生成新验收单（验收中、明细待初验）、原单已结束（明细已重发）、
-     * 采购订单状态同步为"验收中"
-     * </p>
-     */
-    @Test
-    public void testReReceiveSyncsPurchaseOrderStatus() {
-        Long orderId = null;
-        try {
-            PurchaseOrders order = createOrder();
-            orderId = order.getId();
-            AcceptanceOrder acceptance = setupTransitAcceptance(order);
-            if (acceptance == null) {
-                System.err.println("测试失败: 未生成验收单");
-                return;
-            }
-            Long originalAcceptanceId = acceptance.getAcceptanceId();
-
-            acceptanceOrderService.confirmArrival(originalAcceptanceId);
-            acceptanceOrderService.inspect(originalAcceptanceId, false, "包装破损");
-            // 重新收货：生成新验收单（验收中、明细待初验），原单明细已重发、主单已结束
-            AcceptanceOrder newAcceptance = acceptanceOrderService.reReceive(originalAcceptanceId);
-
-            if (newAcceptance == null) {
-                System.err.println("测试失败: 未生成新验收单");
-                return;
-            }
-            if (!"验收中".equals(newAcceptance.getStatus())) {
-                System.err.println("测试失败: 新验收单状态应为验收中, 实际: " + newAcceptance.getStatus());
-            }
-            AcceptanceOrder original = acceptanceOrderMapper.selectById(originalAcceptanceId);
-            if (!"已结束".equals(original.getStatus())) {
-                System.err.println("测试失败: 原验收单状态应为已结束, 实际: " + original.getStatus());
-            }
-            PurchaseOrders updatedOrder = purchaseOrdersMapper.selectById(orderId);
-            if (updatedOrder == null || !"验收中".equals(String.valueOf(updatedOrder.getStatus()))) {
-                System.err.println("测试失败: 重新收货后采购订单应为验收中, 实际: " + (updatedOrder == null ? "不存在" : updatedOrder.getStatus()));
-            } else {
-                System.out.println("重新收货后采购订单状态同步为: " + updatedOrder.getStatus());
-            }
-        } catch (Exception e) {
-            System.err.println("测试失败: " + e.getMessage());
-            e.printStackTrace();
-        } finally {
-            // 重新收货产生两张验收单，按采购订单号整体清理
-            cleanup(orderId, null, null, null, null, null);
         }
     }
 
@@ -599,9 +583,11 @@ public void testQualityCheckWriteBackOrderStatus() {
             detail.setExpiryDate(LocalDate.now().plusYears(1));
             acceptanceDetailMapper.updateById(detail);
             acceptanceOrderService.confirmArrival(acceptanceId);
-            acceptanceOrderService.inspect(acceptanceId, true, "初验合格");
+            acceptanceOrderService.inspect(acceptanceId, null, true, "初验合格");
 
-            StockIn stockIn = acceptanceOrderService.qualityCheck(acceptanceId, true, INBOUND_UNIT_ID, "测试合格");
+            acceptanceOrderService.qualityCheck(acceptanceId, null, true, "测试合格");
+
+            StockIn stockIn = acceptanceOrderService.inbound(acceptanceId, null);
             if (stockIn == null) {
                 System.err.println("测试失败: 未返回自动生成的入库单");
                 return;
@@ -667,9 +653,11 @@ public void testQualityCheckWriteBackOrderStatus() {
             detail.setExpiryDate(LocalDate.now().plusYears(1));
             acceptanceDetailMapper.updateById(detail);
             acceptanceOrderService.confirmArrival(acceptanceId);
-            acceptanceOrderService.inspect(acceptanceId, true, "初验合格");
+            acceptanceOrderService.inspect(acceptanceId, null, true, "初验合格");
 
-            StockIn stockIn = acceptanceOrderService.qualityCheck(acceptanceId, true, INBOUND_UNIT_ID, "测试合格");
+            acceptanceOrderService.qualityCheck(acceptanceId, null, true, "测试合格");
+
+            StockIn stockIn = acceptanceOrderService.inbound(acceptanceId, null);
             if (stockIn == null) {
                 System.err.println("测试失败: 未返回自动生成的入库单");
                 return;
@@ -740,9 +728,11 @@ public void testQualityCheckWriteBackOrderStatus() {
             detail.setExpiryDate(LocalDate.now().plusYears(1));
             acceptanceDetailMapper.updateById(detail);
             acceptanceOrderService.confirmArrival(acceptanceId);
-            acceptanceOrderService.inspect(acceptanceId, true, "初验合格");
+            acceptanceOrderService.inspect(acceptanceId, null, true, "初验合格");
 
-            StockIn stockIn = acceptanceOrderService.qualityCheck(acceptanceId, true, INBOUND_UNIT_ID, "测试合格");
+            acceptanceOrderService.qualityCheck(acceptanceId, null, true, "测试合格");
+
+            StockIn stockIn = acceptanceOrderService.inbound(acceptanceId, null);
             if (stockIn == null) {
                 System.err.println("测试失败: 未返回自动生成的入库单");
                 return;
@@ -767,8 +757,8 @@ public void testQualityCheckWriteBackOrderStatus() {
             } else {
                 System.out.println("查询操作人姓名: " + dto.getCreatedByName());
             }
-            if (!"耒阳制剂室".equals(dto.getWarehouseName())) {
-                System.err.println("测试失败: 仓库名称应为耒阳制剂室, 实际: " + dto.getWarehouseName());
+            if (!inboundWarehouseName.equals(dto.getWarehouseName())) {
+                System.err.println("测试失败: 仓库名称应为" + inboundWarehouseName + ", 实际: " + dto.getWarehouseName());
             } else {
                 System.out.println("查询仓库名称: " + dto.getWarehouseName());
             }
@@ -815,8 +805,8 @@ public void testQualityCheckWriteBackOrderStatus() {
             } else {
                 System.out.println("查询验收单编号: " + dto.getAcceptanceCode());
             }
-            if (!"耒阳制剂室".equals(dto.getWarehouseName())) {
-                System.err.println("测试失败: 仓库名称应为耒阳制剂室, 实际: " + dto.getWarehouseName());
+            if (!inboundWarehouseName.equals(dto.getWarehouseName())) {
+                System.err.println("测试失败: 仓库名称应为" + inboundWarehouseName + ", 实际: " + dto.getWarehouseName());
             } else {
                 System.out.println("验收查询仓库名称: " + dto.getWarehouseName());
             }
@@ -853,7 +843,7 @@ public void testQualityCheckWriteBackOrderStatus() {
         order.setUnit("kg");
         order.setPrescriptionMultiple(new BigDecimal("1.0"));
         order.setStatus("待采购");
-        order.setProdUnitId(INBOUND_UNIT_ID);
+        order.setProdUnitId(inboundUnitId);
         // 采购计划编号与生产计划编号（用于验证入库单关联生产计划编号取值）
         order.setPlanCode("TESTPLAN" + System.currentTimeMillis());
         order.setProductionPlanCode("PRODPLAN" + System.currentTimeMillis());

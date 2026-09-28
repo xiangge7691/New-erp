@@ -564,10 +564,9 @@ public class ReturnOrderServiceImpl extends ServiceImpl<ReturnOrderMapper, Retur
         if (stockIn == null) {
             throw new RuntimeException("入库单不存在: " + inCode);
         }
-        // 通过 stockInId + itemCode 查找 stock 记录，再用 stockId 匹配出库明细
-        Stock stock = stockMapper.selectOne(new QueryWrapper<Stock>()
-                .eq("item_code", itemCode)
-                .eq("stock_in_id", stockIn.getInId()));
+        // 通过 stockInId + itemCode 查找 stock 记录（绕过软删除），再用 stockId 匹配出库明细。
+        // 注意：原库存行可能已因出库清零被软删除，退库需按出库明细重建库存，故此处必须能查到被软删除的行
+        Stock stock = stockMapper.selectByItemAndStockInIncludeDeleted(itemCode, stockIn.getInId());
         if (stock == null) {
             throw new RuntimeException("库存记录不存在: " + inventoryKey);
         }
