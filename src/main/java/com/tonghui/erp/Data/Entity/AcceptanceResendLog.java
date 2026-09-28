@@ -1,5 +1,6 @@
 package com.tonghui.erp.Data.Entity;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -83,15 +84,15 @@ public class AcceptanceResendLog {
     // ===================================
 
     /**
-     * 操作人ID
+     * 操作人ID（插入时由审计字段填充自动写入）
      */
-    @TableField(value = "created_by")
+    @TableField(value = "created_by", fill = FieldFill.INSERT)
     private Long createdBy;
 
     /**
-     * 创建时间
+     * 创建时间（插入时由审计字段填充自动写入）
      */
-    @TableField(value = "created_time")
+    @TableField(value = "created_time", fill = FieldFill.INSERT)
     private LocalDateTime createdTime;
 
     // endregion

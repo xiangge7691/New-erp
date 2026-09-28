@@ -712,6 +712,25 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
 
     // endregion
 
+    // region 对外同步入口
+    // ===================================
+    // 对外同步入口
+    // ===================================
+
+    /**
+     * 将验收单状态同步至关联采购订单（供物料退货管理等模块调用）
+     * <p>委托私有同步方法：明细级回写 + 主单同名映射，已作废订单不覆盖</p>
+     *
+     * @param acceptance 状态已变更且明细已落库的验收单
+     */
+    @Override
+    @Transactional
+    public void syncPurchaseStatus(AcceptanceOrder acceptance) {
+        syncPurchaseOrderStatus(acceptance);
+    }
+
+    // endregion
+
     // region 私有工具方法
     // ===================================
     // 私有工具方法

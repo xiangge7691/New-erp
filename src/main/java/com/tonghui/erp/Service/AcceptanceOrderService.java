@@ -196,5 +196,17 @@ public interface AcceptanceOrderService extends IService<AcceptanceOrder> {
      */
     AcceptanceOrder reReceive(Long acceptanceId);
 
+    /**
+     * 将验收单状态同步至关联采购订单
+     * <p>
+     * 明细级回写采购订单明细状态（purchase_order_items.status），
+     * 并将验收单主单状态按同名映射同步采购订单主单状态（已作废订单不覆盖）；
+     * 供物料退货管理等模块在状态变更后调用
+     * </p>
+     *
+     * @param acceptance 状态已变更且明细已落库的验收单
+     */
+    void syncPurchaseStatus(AcceptanceOrder acceptance);
+
     // endregion
 }
