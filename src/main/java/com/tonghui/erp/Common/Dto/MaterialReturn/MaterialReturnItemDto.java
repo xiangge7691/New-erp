@@ -21,6 +21,11 @@ public class MaterialReturnItemDto {
     // ===================================
 
     /**
+     * 退货来源（采购退货/领料退货，由所属验收单来源类型派生）
+     */
+    private String returnSource;
+
+    /**
      * 验收明细ID（退货操作定位键）
      */
     private Long detailId;

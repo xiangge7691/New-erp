@@ -259,6 +259,90 @@ public class MaterialReturnServiceTest {
         assertTrue(ex2.getMessage().contains("大于0"), "重新发货数量必须大于0");
     }
 
+/**
+     * 测试退货来源区分：采购入库与领料入库来源的退货行均返回，来源值正确
+     */
+    @Test
+    @Transactional
+    public void testSearchDistinguishSources() {
+        createFailAcceptance("TEST-MR-SRC-001", "采购来源退货", "采购入库");
+        createFailAcceptance("TEST-MR-SRC-002", "领料来源退货", "领料入库");
+
+        MaterialReturnQueryDto query = new MaterialReturnQueryDto();
+        PagedResult<MaterialReturnItemDto> result = materialReturnService.searchItems(query);
+
+        MaterialReturnItemDto purchase = findByAcceptanceCode(result, "TEST-MR-SRC-001");
+        MaterialReturnItemDto requisition = findByAcceptanceCode(result, "TEST-MR-SRC-002");
+        assertNotNull(purchase, "采购来源退货应出现在列表");
+        assertNotNull(requisition, "领料来源退货应出现在列表");
+        assertEquals("采购退货", purchase.getReturnSource(), "采购入库来源应为采购退货");
+        assertEquals("领料退货", requisition.getReturnSource(), "领料入库来源应为领料退货");
+    }
+
+    /**
+     * 测试按退货来源筛选：采购退货仅返回采购来源行
+     */
+    @Test
+    @Transactional
+    public void testSearchFilterByPurchaseSource() {
+        createFailAcceptance("TEST-MR-PUR-001", "采购来源退货", "采购入库");
+        createFailAcceptance("TEST-MR-PUR-002", "领料来源退货", "领料入库");
+
+        MaterialReturnQueryDto query = new MaterialReturnQueryDto();
+        query.setReturnSource("采购退货");
+        PagedResult<MaterialReturnItemDto> result = materialReturnService.searchItems(query);
+
+        assertNotNull(findByAcceptanceCode(result, "TEST-MR-PUR-001"), "采购退货筛选应命中采购来源");
+        assertNull(findByAcceptanceCode(result, "TEST-MR-PUR-002"), "采购退货筛选应排除领料来源");
+    }
+
+    /**
+     * 测试按退货来源筛选：领料退货仅返回领料来源行
+     */
+    @Test
+    @Transactional
+    public void testSearchFilterByRequisitionSource() {
+        createFailAcceptance("TEST-MR-REQ-001", "采购来源退货", "采购入库");
+        createFailAcceptance("TEST-MR-REQ-002", "领料来源退货", "领料入库");
+
+        MaterialReturnQueryDto query = new MaterialReturnQueryDto();
+        query.setReturnSource("领料退货");
+        PagedResult<MaterialReturnItemDto> result = materialReturnService.searchItems(query);
+
+        assertNull(findByAcceptanceCode(result, "TEST-MR-REQ-001"), "领料退货筛选应排除采购来源");
+        assertNotNull(findByAcceptanceCode(result, "TEST-MR-REQ-002"), "领料退货筛选应命中领料来源");
+    }
+
+    /**
+     * 测试领料来源退货重新发货：生成退货重发验收单，不抛异常且关联领料单号
+     */
+    @Test
+    @Transactional
+    public void testRequisitionResend() {
+        AcceptanceOrder acceptance = createFailAcceptance("TEST-MR-RESEND-001", "领料来源退货", "领料入库");
+        // 领料来源验收单无采购订单编号，resend 应回退关联领料单号
+        acceptance.setPurchaseNumber(null);
+        acceptanceOrderService.updateById(acceptance);
+        Long detailId = acceptanceOrderService.getDetailsByAcceptanceId(acceptance.getAcceptanceId())
+                .get(0).getDetailId();
+        materialReturnService.returnDetail(detailId);
+
+        MaterialResendRequestDto request = new MaterialResendRequestDto();
+        request.setAcceptanceId(acceptance.getAcceptanceId());
+        MaterialResendRequestDto.ResendItem item = new MaterialResendRequestDto.ResendItem();
+        item.setDetailId(detailId);
+        item.setResendQty(new BigDecimal("1.000"));
+        request.setItems(List.of(item));
+
+        AcceptanceOrder newAcceptance = materialReturnService.resend(request);
+        assertEquals("退货重发", newAcceptance.getSourceType(), "领料退货重新发货来源类型应为退货重发");
+        assertEquals("运输中", newAcceptance.getStatus(), "重新发货新验收单初始状态应为运输中");
+        assertEquals("TEST-MR-ORDER-TEST-MR-RESEND-001", newAcceptance.getRelatedOrder(),
+                "关联单号应沿用领料单号（回退relatedOrder）");
+        assertEquals("已重发", acceptanceOrderService.getDetailsByAcceptanceId(acceptance.getAcceptanceId())
+                .get(0).getStatus(), "原领料明细应已重发");
+    }
+
     // endregion
 
     // region 私有工具方法
@@ -267,16 +351,28 @@ public class MaterialReturnServiceTest {
     // ===================================
 
     /**
-     * 创建"验收中"的验收单（明细待初验），随后初验不合格使明细进入待退货
+     * 创建"验收中"的验收单（明细待退货），随后初验不合格使明细进入待退货
      *
      * @param codePrefix 验收单号前缀（区分测试数据）
      * @param remark     初验备注（作为退货备注带出）
      * @return 明细已处于待退货的验收单
      */
     private AcceptanceOrder createFailAcceptance(String codePrefix, String remark) {
+        return createFailAcceptance(codePrefix, remark, "采购入库");
+    }
+
+    /**
+     * 创建"验收中"的验收单（明细待退货），支持指定来源类型
+     *
+     * @param codePrefix 验收单号前缀（区分测试数据）
+     * @param remark     初验备注（作为退货备注带出）
+     * @param sourceType 验收单来源类型（采购入库/领料入库等）
+     * @return 明细已处于待退货的验收单
+     */
+    private AcceptanceOrder createFailAcceptance(String codePrefix, String remark, String sourceType) {
         AcceptanceOrder acceptance = new AcceptanceOrder();
-        acceptance.setAcceptanceCode(sequenceService.generateAcceptanceCode());
-        acceptance.setSourceType("采购入库");
+        acceptance.setAcceptanceCode(codePrefix);
+        acceptance.setSourceType(sourceType);
         acceptance.setStatus("验收中");
         acceptance.setRelatedOrder("TEST-MR-ORDER-" + codePrefix);
         acceptance.setPurchaseNumber("TEST-MR-ORDER-" + codePrefix);

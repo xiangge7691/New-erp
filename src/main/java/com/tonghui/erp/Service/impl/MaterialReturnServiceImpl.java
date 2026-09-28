@@ -7,6 +7,7 @@ import com.tonghui.erp.Common.Dto.MaterialReturn.MaterialReturnItemDto;
 import com.tonghui.erp.Common.Dto.MaterialReturn.MaterialReturnQueryDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.utils.AcceptanceStatusPolicy;
+import com.tonghui.erp.Common.utils.MaterialReturnPolicy;
 import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
 import com.tonghui.erp.Data.Entity.AcceptanceResendLog;
@@ -120,11 +121,12 @@ public class MaterialReturnServiceImpl implements MaterialReturnService {
     /**
      * 分页查询退货明细行
      * <p>
-     * 以验收明细为行、状态限定在退货相关四个状态；
-     * 批量组装验收单号/采购订单编号/制剂名称/供应商与最近重发时间，避免逐行查询
+     * 以验收明细为行、状态限定在退货相关四个状态；支持按退货来源（采购退货/领料退货）筛选，
+     * 来源由所属验收单的来源类型派生；批量组装验收单号/采购订单编号/制剂名称/供应商与最近重发时间，
+     * 避免逐行查询
      * </p>
      *
-     * @param query 查询条件（状态/退货原因/供应商/关键字/日期）
+     * @param query 查询条件（退货来源/状态/退货原因/供应商/关键字/日期）
      * @return 退货明细分页结果
      */
     @Override
@@ -142,6 +144,11 @@ public class MaterialReturnServiceImpl implements MaterialReturnService {
             wrapper.eq("status", query.getStatus());
         } else {
             wrapper.in("status", RETURN_STATUSES);
+        }
+        // 退货来源筛选：按所属验收单的来源类型派生（采购入库/退货重发→采购退货，领料入库→领料退货）
+        if (StringUtils.hasText(query.getReturnSource())) {
+            List<Long> sourceAcceptanceIds = queryAcceptanceIdsBySource(query.getReturnSource());
+            wrapper.in("acceptance_id", sourceAcceptanceIds);
         }
         if (StringUtils.hasText(query.getReturnReason())) {
             wrapper.eq("return_reason", query.getReturnReason());
@@ -238,6 +245,10 @@ public class MaterialReturnServiceImpl implements MaterialReturnService {
             AcceptanceOrder acceptance = acceptanceMap.get(detail.getAcceptanceId());
             if (acceptance != null) {
                 dto.setAcceptanceCode(acceptance.getAcceptanceCode());
+                // 退货来源：由所属验收单来源类型派生（领料入库→领料退货，其余→采购退货）
+                dto.setReturnSource(MaterialReturnPolicy.isRequisitionSource(acceptance.getSourceType())
+                        ? MaterialReturnPolicy.RETURN_SOURCE_REQUISITION
+                        : MaterialReturnPolicy.RETURN_SOURCE_PURCHASE);
                 String purchaseNumber = StringUtils.hasText(acceptance.getPurchaseNumber())
                         ? acceptance.getPurchaseNumber() : acceptance.getRelatedOrder();
                 dto.setPurchaseNumber(purchaseNumber);
@@ -269,6 +280,29 @@ public class MaterialReturnServiceImpl implements MaterialReturnService {
         } catch (DateTimeParseException e) {
             throw new RuntimeException(field + "格式错误，应为 yyyy-MM-dd");
         }
+    }
+
+    /**
+     * 查询指定退货来源对应的验收单ID集合
+     * <p>
+     * 采购退货 → 来源类型 采购入库/退货重发；领料退货 → 来源类型含"领料"（如 领料入库）
+     * </p>
+     *
+     * @param returnSource 退货来源（采购退货/领料退货）
+     * @return 匹配的验收单ID集合
+     */
+    private List<Long> queryAcceptanceIdsBySource(String returnSource) {
+        if (MaterialReturnPolicy.RETURN_SOURCE_REQUISITION.equals(returnSource)) {
+            return acceptanceOrderMapper.selectList(
+                            new QueryWrapper<AcceptanceOrder>().like("source_type", "领料").select("acceptance_id"))
+                    .stream().map(AcceptanceOrder::getAcceptanceId).collect(Collectors.toList());
+        }
+        // 采购退货（含采购入库与退货重发）
+        return acceptanceOrderMapper.selectList(
+                        new QueryWrapper<AcceptanceOrder>()
+                                .in("source_type", "采购入库", "退货重发")
+                                .select("acceptance_id"))
+                .stream().map(AcceptanceOrder::getAcceptanceId).collect(Collectors.toList());
     }
 
     /**
