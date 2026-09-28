@@ -14,7 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -99,7 +99,7 @@ public class InventoryFlowTest {
         }
         try (Connection connection = dataSource.getConnection()) {
             ScriptUtils.executeSqlScript(connection,
-                    new FileSystemResource("sql/acceptance_create_tables.sql"));
+                    new ClassPathResource("acceptance_create_tables.sql"));
             tablesInitialized = true;
         } catch (Exception e) {
             throw new RuntimeException("初始化表结构失败: " + e.getMessage(), e);

@@ -12,7 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -97,9 +97,9 @@ public class AcceptanceOrderServiceTest {
             return;
         }
         try (Connection connection = dataSource.getConnection()) {
-            // sql脚本位于项目根目录 sql/ 下，测试工作目录为项目根
+            // 建表脚本位于 test resources，随测试打包
             ScriptUtils.executeSqlScript(connection,
-                    new FileSystemResource("sql/acceptance_create_tables.sql"));
+                    new ClassPathResource("acceptance_create_tables.sql"));
             tablesInitialized = true;
         } catch (Exception e) {
             throw new RuntimeException("初始化验收表失败: " + e.getMessage(), e);
