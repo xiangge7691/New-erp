@@ -212,7 +212,7 @@ public class AcceptanceOrderServiceTest {
     @Test
     @Transactional
     public void testPartialAcceptance() {
-        AcceptanceOrder acceptance = createAcceptance("验收中", null);
+        AcceptanceOrder acceptance = createAcceptance("验收中", "HG-TEST-001");
         Long id = acceptance.getAcceptanceId();
         Long detailId = acceptanceOrderService.getDetailsByAcceptanceId(id).get(0).getDetailId();
 
@@ -252,6 +252,11 @@ public class AcceptanceOrderServiceTest {
         assertEquals(acceptChild.getSeq(), returnChild.getOriginalSeq(), "退货子行应记录原行序号");
         assertTrue(returnChild.getSeq() > acceptChild.getSeq(), "退货子行序号应大于原行");
         assertEquals(0, new BigDecimal("3.00").compareTo(returnChild.getAmount()), "退货子行金额应重算");
+
+        // 批号沿用原明细行，仓库清空（退货子行不入库）
+        assertEquals("HG-TEST-001", acceptChild.getBatchNumber(), "验收子行批号应保持原值");
+        assertEquals("HG-TEST-001", returnChild.getBatchNumber(), "退货子行批号应沿用原明细行");
+        assertNull(returnChild.getProdUnitId(), "退货子行仓库应清空");
 
         // 主单维持验收中（存在待检验行）且备注记录拆分
         AcceptanceOrder afterSplit = acceptanceOrderService.getAcceptanceById(id);

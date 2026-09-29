@@ -761,8 +761,10 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
     /**
      * 部分验收（拆行）：将一行物料拆为「验收子行 + 退货子行」
      * <p>
-     * 校验两段数量均大于 0 且之和等于原行采购数量；
-     * 验收子行按环节推进（初验→待检验，检验→待入库），退货子行→待退货并记录原行序号；
+     * 校验两段数量均大于 0 且之和等于原行实际到货数量（未填实际到货数量时回退采购数量）；
+     * 采购数量保持不变，实际到货数量按验收/退货数量拆分；
+     * 验收子行按环节推进（初验→待检验，检验→待入库），退货子行→待退货并记录原行序号，
+     * 退货子行批号沿用原明细行、仓库清空；
      * 关联采购订单明细同步拆行（退货子行获得独立订单明细锚点），金额与标准量差值按拆分后数量重算
      * </p>
      *
@@ -858,12 +860,12 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
             purchaseOrderItemsMapper.updateById(originalItem);
         }
 
-        // 构造退货子行（在原行被改造前基于原始值复制，与原行同属该验收单）
+        // 构造退货子行（在原行被改造前基于原始值复制，与原行同属该验收单，批号随复制沿用原行）
         AcceptanceDetail returnChild = new AcceptanceDetail();
         BeanUtils.copyProperties(detail, returnChild,
                 "detailId", "seq", "quantity", "amount", "diffQuantity",
                 "actualArrivalQty", "inboundQty", "status", "returnReason", "returnRemark",
-                "purchaseItemId", "batchNumber", "prodUnitId", "originalSeq",
+                "purchaseItemId", "prodUnitId", "originalSeq",
                 "createdBy", "createdTime");
         returnChild.setOriginalSeq(detail.getSeq());
         // 退货子行：采购数量不变（保持原值），实际到货数量=退货数量
@@ -873,8 +875,8 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         returnChild.setReturnReason(returnReason);
         returnChild.setReturnRemark(StringUtils.hasText(remark) ? remark : null);
         returnChild.setPurchaseItemId(newPurchaseItemId);
-        // 退货子行不入库：清空批号与仓库
-        returnChild.setBatchNumber("");
+        // 退货子行不入库：清空仓库（批号沿用原明细行便于追溯）；原行批号为空时置空串保持一致
+        returnChild.setBatchNumber(StringUtils.hasText(detail.getBatchNumber()) ? detail.getBatchNumber() : "");
         returnChild.setProdUnitId(null);
         recalculateAmountAndDiff(returnChild, returnQty);
 
