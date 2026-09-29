@@ -7,6 +7,7 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
 import com.tonghui.erp.Data.Entity.AcceptanceResendLog;
+import com.tonghui.erp.Data.Entity.ProductionPlan;
 import com.tonghui.erp.Data.mapper.AcceptanceResendLogMapper;
 import com.tonghui.erp.Service.impl.SequenceServiceImpl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -59,6 +60,18 @@ public class MaterialReturnServiceTest {
      */
     @Autowired
     private AcceptanceResendLogMapper acceptanceResendLogMapper;
+
+    /**
+     * 验收单数据访问层（测试内回填关联字段）
+     */
+    @Autowired
+    private com.tonghui.erp.Data.mapper.AcceptanceOrderMapper acceptanceOrderMapper;
+
+    /**
+     * 生产计划数据访问层（造制剂名称回填测试数据）
+     */
+    @Autowired
+    private com.tonghui.erp.Data.mapper.ProductionPlanMapper productionPlanMapper;
 
     /**
      * 序列号生成服务
@@ -311,6 +324,39 @@ public class MaterialReturnServiceTest {
 
         assertNull(findByAcceptanceCode(result, "TEST-MR-REQ-001"), "领料退货筛选应排除采购来源");
         assertNotNull(findByAcceptanceCode(result, "TEST-MR-REQ-002"), "领料退货筛选应命中领料来源");
+    }
+
+    /**
+     * 测试制剂名称回填：验收单未存制剂名称时按 plan_code 关联 production_plan 推导
+     * <p>模拟领料/未回填场景：验收单仅带 planCode，列表 preparationName 应取生产计划制剂名称</p>
+     */
+    @Test
+    @Transactional
+    public void testSearchFillsPreparationNameFromPlan() {
+        // 造生产计划主数据（先删后插防历史残留，测试事务结束自动回滚）
+        String planNumber = "TEST-MR-PLAN-001";
+        productionPlanMapper.delete(new QueryWrapper<ProductionPlan>().eq("plan_number", planNumber));
+        ProductionPlan plan = new ProductionPlan();
+        plan.setPlanNumber(planNumber);
+        plan.setPlanName("物料退货制剂回填测试计划");
+        plan.setPreparationCode("TESTP1");
+        plan.setPreparationName("回填测试制剂");
+        plan.setPlanQuantity(new BigDecimal("1"));
+        plan.setPlanType("生产计划");
+        productionPlanMapper.insert(plan);
+
+        // 验收单：带 planCode、不存制剂名称
+        AcceptanceOrder acceptance = createFailAcceptance("TEST-MR-PREP-001", "制剂回填测试");
+        acceptance.setPlanCode(planNumber);
+        acceptance.setPreparationName(null);
+        acceptanceOrderMapper.updateById(acceptance);
+
+        MaterialReturnQueryDto query = new MaterialReturnQueryDto();
+        PagedResult<MaterialReturnItemDto> result = materialReturnService.searchItems(query);
+        MaterialReturnItemDto row = findByAcceptanceCode(result, "TEST-MR-PREP-001");
+
+        assertNotNull(row, "退货行应存在");
+        assertEquals("回填测试制剂", row.getPreparationName(), "制剂名称应按 plan_code 关联生产计划回填");
     }
 
     /**

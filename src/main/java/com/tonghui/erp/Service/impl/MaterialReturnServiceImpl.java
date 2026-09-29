@@ -13,9 +13,11 @@ import com.tonghui.erp.Data.Entity.AcceptanceOrder;
 import com.tonghui.erp.Data.Entity.AcceptanceResendLog;
 import com.tonghui.erp.Data.Entity.PurchaseOrderItems;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
+import com.tonghui.erp.Data.Entity.ProductionPlan;
 import com.tonghui.erp.Data.mapper.AcceptanceDetailMapper;
 import com.tonghui.erp.Data.mapper.AcceptanceOrderMapper;
 import com.tonghui.erp.Data.mapper.AcceptanceResendLogMapper;
+import com.tonghui.erp.Data.mapper.ProductionPlanMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrderItemsMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrdersMapper;
 import com.tonghui.erp.Service.AcceptanceOrderService;
@@ -70,6 +72,9 @@ public class MaterialReturnServiceImpl implements MaterialReturnService {
     /** 重新发货留痕数据访问层 */
     private final AcceptanceResendLogMapper acceptanceResendLogMapper;
 
+    /** 生产计划数据访问层（制剂名称按 plan_code 关联推导） */
+    private final ProductionPlanMapper productionPlanMapper;
+
     /** 序列号生成服务（新验收单号） */
     private final SequenceServiceImpl sequenceService;
 
@@ -91,6 +96,7 @@ public class MaterialReturnServiceImpl implements MaterialReturnService {
      * @param purchaseOrdersMapper     采购订单数据访问层
      * @param purchaseOrderItemsMapper 采购订单明细数据访问层
      * @param acceptanceResendLogMapper 重新发货留痕数据访问层
+     * @param productionPlanMapper     生产计划数据访问层（制剂名称推导）
      * @param sequenceService          序列号生成服务
      * @param acceptanceOrderService   验收单服务
      */
@@ -100,6 +106,7 @@ public class MaterialReturnServiceImpl implements MaterialReturnService {
                                      PurchaseOrdersMapper purchaseOrdersMapper,
                                      PurchaseOrderItemsMapper purchaseOrderItemsMapper,
                                      AcceptanceResendLogMapper acceptanceResendLogMapper,
+                                     ProductionPlanMapper productionPlanMapper,
                                      SequenceServiceImpl sequenceService,
                                      AcceptanceOrderService acceptanceOrderService) {
         this.acceptanceDetailMapper = acceptanceDetailMapper;
@@ -107,6 +114,7 @@ public class MaterialReturnServiceImpl implements MaterialReturnService {
         this.purchaseOrdersMapper = purchaseOrdersMapper;
         this.purchaseOrderItemsMapper = purchaseOrderItemsMapper;
         this.acceptanceResendLogMapper = acceptanceResendLogMapper;
+        this.productionPlanMapper = productionPlanMapper;
         this.sequenceService = sequenceService;
         this.acceptanceOrderService = acceptanceOrderService;
     }
@@ -215,6 +223,12 @@ public class MaterialReturnServiceImpl implements MaterialReturnService {
                         .in("purchase_number", purchaseNumbers)).stream()
                         .collect(Collectors.toMap(o -> String.valueOf(o.getPurchaseNumber()), o -> o, (a, b) -> a));
 
+        // 批量加载生产计划制剂名称（按验收单 plan_code 关联，与验收页 searchWithDetails 推导口径一致）
+        List<String> planCodes = acceptanceMap.values().stream()
+                .map(AcceptanceOrder::getPlanCode)
+                .filter(StringUtils::hasText).distinct().collect(Collectors.toList());
+        Map<String, String> preparationNameMap = loadPreparationNameMapByPlanCodes(planCodes);
+
         // 批量加载最近一次重新发货留痕时间
         List<Long> detailIds = details.stream().map(AcceptanceDetail::getDetailId).collect(Collectors.toList());
         Map<Long, LocalDateTime> resendTimeMap = acceptanceResendLogMapper.selectList(
@@ -253,10 +267,13 @@ public class MaterialReturnServiceImpl implements MaterialReturnService {
                 String purchaseNumber = StringUtils.hasText(acceptance.getPurchaseNumber())
                         ? acceptance.getPurchaseNumber() : acceptance.getRelatedOrder();
                 dto.setPurchaseNumber(purchaseNumber);
-                // 关联制剂名称：取验收单制剂，缺失时回退采购订单制剂
+                // 关联制剂名称三级回填：验收单存储值 → 生产计划(plan_code) → 采购订单存储值
                 if (StringUtils.hasText(acceptance.getPreparationName())) {
                     dto.setPreparationName(acceptance.getPreparationName());
-                } else if (StringUtils.hasText(purchaseNumber)) {
+                } else if (StringUtils.hasText(acceptance.getPlanCode())) {
+                    dto.setPreparationName(preparationNameMap.get(acceptance.getPlanCode()));
+                }
+                if (!StringUtils.hasText(dto.getPreparationName()) && StringUtils.hasText(purchaseNumber)) {
                     PurchaseOrders order = orderMap.get(purchaseNumber);
                     if (order != null) {
                         dto.setPreparationName(order.getPreparationName());
@@ -304,6 +321,27 @@ public class MaterialReturnServiceImpl implements MaterialReturnService {
                                 .in("source_type", "采购入库", "退货重发")
                                 .select("acceptance_id"))
                 .stream().map(AcceptanceOrder::getAcceptanceId).collect(Collectors.toList());
+    }
+
+    /**
+     * 按生产计划编号批量加载制剂名称映射
+     * <p>与验收页 searchWithDetails 推导口径一致：验收单/采购订单未存制剂名称时，
+     * 按 plan_code 关联 production_plan.preparation_name 回填</p>
+     *
+     * @param planCodes 生产计划编号列表（可为空）
+     * @return 计划编号到制剂名称的映射，无数据时为空映射
+     */
+    private Map<String, String> loadPreparationNameMapByPlanCodes(List<String> planCodes) {
+        if (planCodes == null || planCodes.isEmpty()) {
+            return Map.of();
+        }
+        QueryWrapper<ProductionPlan> wrapper = new QueryWrapper<>();
+        wrapper.in("plan_number", planCodes);
+        wrapper.select("plan_number", "preparation_name");
+        return productionPlanMapper.selectList(wrapper).stream()
+                .filter(p -> StringUtils.hasText(p.getPlanNumber()) && StringUtils.hasText(p.getPreparationName()))
+                .collect(Collectors.toMap(ProductionPlan::getPlanNumber,
+                        ProductionPlan::getPreparationName, (a, b) -> a));
     }
 
     /**
