@@ -24,9 +24,10 @@ public interface MaterialReturnService {
      * 分页查询退货明细行
      * <p>数据来源：验收明细中状态为 待退货/已退货/已重发/已取消 的行，
      * 关联验收单号、采购订单编号、制剂名称、供应商与最近重发时间；
-     * 支持按退货来源（采购退货/领料退货）筛选，来源由所属验收单来源类型派生</p>
+     * 支持按退货来源（采购退货/领料退货）筛选，来源由所属验收单来源类型派生；
+     * 时间段筛选按重发时间（acceptance_resend_log.operation_time）过滤</p>
      *
-     * @param query 查询条件（退货来源/状态/退货原因/供应商/关键字/日期）
+     * @param query 查询条件（退货来源/状态/退货原因/供应商/关键字/重发时间范围）
      * @return 退货明细分页结果
      */
     PagedResult<MaterialReturnItemDto> searchItems(MaterialReturnQueryDto query);

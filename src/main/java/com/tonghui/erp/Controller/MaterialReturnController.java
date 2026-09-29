@@ -63,7 +63,7 @@ public class MaterialReturnController extends BaseController {
      *
      * @param query 查询条件（returnSource-退货来源（采购退货/领料退货，空=全部），status-明细状态，
      *              returnReason-退货原因，supplier-供应商，
-     *              keyword-物料名称/编码/验收单号关键字，startDate/endDate-日期范围，
+     *              keyword-物料名称/编码/验收单号关键字，startDate/endDate-重发时间范围（yyyy-MM-dd，按重发时间过滤，无重发记录不命中），
      *              pageIndex-页码从0开始，pageSize-每页数量）
      * @return 退货明细分页结果（含验收单号/采购订单编号/制剂名称/批号/退货数量/供应商/原因/备注/状态/重发时间/退货来源）
      */

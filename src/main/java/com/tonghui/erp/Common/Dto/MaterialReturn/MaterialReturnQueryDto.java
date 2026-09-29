@@ -4,7 +4,7 @@ import lombok.Data;
 
 /**
  * 物料退货管理列表查询DTO
- * <p>筛选条件：退货来源、状态、退货原因、日期、供应商、关键字（物料名称/编码/验收单号）</p>
+ * <p>筛选条件：退货来源、状态、退货原因、重发时间范围、供应商、关键字（物料名称/编码/验收单号）</p>
  */
 @Data
 public class MaterialReturnQueryDto {
@@ -40,12 +40,12 @@ public class MaterialReturnQueryDto {
     private String keyword;
 
     /**
-     * 开始日期（按明细最近更新时间过滤，yyyy-MM-dd），空则不限
+     * 开始日期（按重发时间 acceptance_resend_log.operation_time 过滤，yyyy-MM-dd），空则不限
      */
     private String startDate;
 
     /**
-     * 结束日期（按明细最近更新时间过滤，yyyy-MM-dd），空则不限
+     * 结束日期（按重发时间 acceptance_resend_log.operation_time 过滤，yyyy-MM-dd），空则不限
      */
     private String endDate;
 

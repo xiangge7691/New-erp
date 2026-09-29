@@ -131,10 +131,11 @@ public class MaterialReturnServiceImpl implements MaterialReturnService {
      * <p>
      * 以验收明细为行、状态限定在退货相关四个状态；支持按退货来源（采购退货/领料退货）筛选，
      * 来源由所属验收单的来源类型派生；批量组装验收单号/采购订单编号/制剂名称/供应商与最近重发时间，
-     * 避免逐行查询
+     * 避免逐行查询。时间段筛选按重发时间（acceptance_resend_log.operation_time）过滤，
+     * 指定时间范围时仅命中范围内有重发记录的明细
      * </p>
      *
-     * @param query 查询条件（退货来源/状态/退货原因/供应商/关键字/日期）
+     * @param query 查询条件（退货来源/状态/退货原因/供应商/关键字/重发时间范围）
      * @return 退货明细分页结果
      */
     @Override
@@ -177,12 +178,20 @@ public class MaterialReturnServiceImpl implements MaterialReturnService {
                     .or().like("material_code", keyword)
                     .or().in("acceptance_id", scope));
         }
-        // 日期：按明细最近更新时间范围过滤
-        if (StringUtils.hasText(query.getStartDate())) {
-            wrapper.ge("updated_time", parseDateStart(query.getStartDate(), "开始日期"));
-        }
-        if (StringUtils.hasText(query.getEndDate())) {
-            wrapper.le("updated_time", parseDateEnd(query.getEndDate(), "结束日期"));
+        // 日期：按重发时间范围过滤（acceptance_resend_log.operation_time，明细级最近重发记录）
+        // 指定了重发时间范围时，仅命中范围内有重发记录的明细；无重发记录则返回空结果
+        if (StringUtils.hasText(query.getStartDate()) || StringUtils.hasText(query.getEndDate())) {
+            QueryWrapper<AcceptanceResendLog> resendWrapper = new QueryWrapper<>();
+            if (StringUtils.hasText(query.getStartDate())) {
+                resendWrapper.ge("operation_time", parseDateStart(query.getStartDate(), "开始日期"));
+            }
+            if (StringUtils.hasText(query.getEndDate())) {
+                resendWrapper.le("operation_time", parseDateEnd(query.getEndDate(), "结束日期"));
+            }
+            List<Long> matchedDetailIds = acceptanceResendLogMapper.selectList(
+                            resendWrapper.select("detail_id"))
+                    .stream().map(AcceptanceResendLog::getDetailId).collect(Collectors.toList());
+            wrapper.in("detail_id", matchedDetailIds.isEmpty() ? List.of(-1L) : matchedDetailIds);
         }
         wrapper.orderByDesc("updated_time").orderByDesc("detail_id");
 

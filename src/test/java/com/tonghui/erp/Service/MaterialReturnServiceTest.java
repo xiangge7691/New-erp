@@ -23,6 +23,7 @@ import javax.sql.DataSource;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -387,6 +388,46 @@ public class MaterialReturnServiceTest {
                 "关联单号应沿用领料单号（回退relatedOrder）");
         assertEquals("已重发", acceptanceOrderService.getDetailsByAcceptanceId(acceptance.getAcceptanceId())
                 .get(0).getStatus(), "原领料明细应已重发");
+    }
+
+    /**
+     * 测试按重发时间筛选：startDate/endDate 按 acceptance_resend_log.operation_time 过滤
+     * <p>有重发记录且在范围内才命中，未重发行不返回；范围不覆盖则空结果</p>
+     */
+    @Test
+    @Transactional
+    public void testSearchFilterByResendTime() {
+        // 明细A：已退货 + 重发留痕（operationTime 落在 2026-05 内）
+        AcceptanceOrder resendAcc = createFailAcceptance("TEST-MR-RT-001", "重发时间筛选");
+        Long resendDetailId = acceptanceOrderService.getDetailsByAcceptanceId(resendAcc.getAcceptanceId())
+                .get(0).getDetailId();
+        materialReturnService.returnDetail(resendDetailId);
+        AcceptanceResendLog log = new AcceptanceResendLog();
+        log.setAcceptanceId(resendAcc.getAcceptanceId());
+        log.setDetailId(resendDetailId);
+        log.setMaterialName("测试物料");
+        log.setResendQty(new BigDecimal("1.500"));
+        log.setNewAcceptanceCode("TEST-MR-RT-NEW-001");
+        log.setOperationTime(LocalDateTime.of(2026, 5, 10, 10, 0));
+        acceptanceResendLogMapper.insert(log);
+
+        // 明细B：待退货，从未重发
+        createFailAcceptance("TEST-MR-RT-002", "无重发记录");
+
+        // 范围覆盖 2026-05：仅命中明细A，明细B不返回
+        MaterialReturnQueryDto query = new MaterialReturnQueryDto();
+        query.setStartDate("2026-05-01");
+        query.setEndDate("2026-05-31");
+        PagedResult<MaterialReturnItemDto> result = materialReturnService.searchItems(query);
+        assertNotNull(findByAcceptanceCode(result, "TEST-MR-RT-001"), "重发时间范围内应命中明细A");
+        assertNull(findByAcceptanceCode(result, "TEST-MR-RT-002"), "未重发的明细不应返回");
+
+        // 范围不覆盖（2027-01）：空结果
+        MaterialReturnQueryDto emptyQuery = new MaterialReturnQueryDto();
+        emptyQuery.setStartDate("2027-01-01");
+        emptyQuery.setEndDate("2027-01-31");
+        PagedResult<MaterialReturnItemDto> emptyResult = materialReturnService.searchItems(emptyQuery);
+        assertNull(findByAcceptanceCode(emptyResult, "TEST-MR-RT-001"), "范围不覆盖时明细A不应返回");
     }
 
     // endregion
