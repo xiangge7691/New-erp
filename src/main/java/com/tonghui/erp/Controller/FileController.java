@@ -94,6 +94,10 @@ import java.util.List;
  * - PERSONNEL_ATTACHMENT     → 人员管理/附件
  * - PERSONNEL_PHOTO          → 人员管理/照片
  *
+ * 机构管理（ORGANIZATION）：
+ * - ORGANIZATION_LICENSE     → 机构管理/许可
+ * - ORGANIZATION_POSITION    → 机构管理/岗位
+ *
  * 车间环境（ROOM）：
  * - ROOM_CLEAN_INSPECTION    → 车间环境/洁净检测
  * - ROOM_CLEANING_RECORD     → 车间环境/清洁记录

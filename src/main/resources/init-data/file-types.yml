@@ -42,6 +42,7 @@ init-data:
       SPEC: 规格
       FILE: 文件
       CERTIFICATE: 证书
+      POSITION: 岗位
       IN_PURCHASE: 入库单/原料
       IN_AUXILIARY: 入库单/辅料
       IN_PACKAGING: 入库单/包材
