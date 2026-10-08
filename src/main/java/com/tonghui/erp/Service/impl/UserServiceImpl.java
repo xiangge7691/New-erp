@@ -7,6 +7,8 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Data.Entity.User;
 import com.tonghui.erp.Service.UserService;
 import com.tonghui.erp.Data.mapper.UserMapper;
+import com.tonghui.erp.Data.mapper.UserRoleMapper;
+import com.tonghui.erp.Data.mapper.UserDepartmentMapper;
 import com.tonghui.erp.Common.Dto.System.UserDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.utils.SoftDeleteCleanHelper;
@@ -71,6 +73,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     /** 人员档案服务，用于获取用户关联的人员档案信息 */
     @Autowired
     private PersonnelFileService personnelFileService;
+
+    /** 用户角色关联数据访问层，用于物理删除角色关联（绕过逻辑删除） */
+    @Autowired
+    private UserRoleMapper userRoleMapper;
+
+    /** 用户部门关联数据访问层，用于物理删除部门关联（绕过逻辑删除） */
+    @Autowired
+    private UserDepartmentMapper userDepartmentMapper;
 
     /** 软删除统一清理工具 */
     @Autowired
@@ -394,8 +404,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Override
     public boolean assignRolesToUser(Long userId, List<Long> roleIds) {
         try {
-            // 先删除现有的角色关联
-            userRoleService.remove(new QueryWrapper<UserRole>().eq("user_id", userId));
+            // 先物理删除现有的角色关联（绕过逻辑删除，避免软删残留占用唯一键导致插入冲突）
+            userRoleMapper.physicalDeleteByUserId(userId);
 
             // 如果roleIds不为null且不为空，则添加新的角色关联
             if (roleIds != null && !roleIds.isEmpty()) {
@@ -404,6 +414,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                     UserRole userRole = new UserRole();
                     userRole.setUserId(userId);
                     userRole.setRoleId(roleId);
+                    userRole.setIsDeleted(0);
                     userRole.setCreatedTime(LocalDateTime.now());
                     userRoleService.save(userRole);
                 }
@@ -425,8 +436,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Override
     public boolean assignDepartmentsToUser(Long userId, List<Long> departmentIds) {
         try {
-            // 先删除现有的部门关联
-            userDepartmentService.remove(new QueryWrapper<UserDepartment>().eq("user_id", userId));
+            // 先物理删除现有的部门关联（绕过逻辑删除，避免软删残留占用唯一键导致插入冲突）
+            userDepartmentMapper.physicalDeleteByUserId(userId);
 
             if (departmentIds != null && !departmentIds.isEmpty()) {
                 // 添加新的部门关联
@@ -435,6 +446,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                     userDepartment.setUserId(userId);
                     userDepartment.setDepartmentId(departmentIds.get(i));
                     userDepartment.setIsPrimary(i == 0 ? 1 : 0); // 第一个部门设为主部门
+                    userDepartment.setIsDeleted(0);
                     userDepartment.setCreatedTime(LocalDateTime.now());
                     userDepartmentService.save(userDepartment);
                 }
@@ -488,11 +500,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Override
     public boolean deleteUserAssociations(Long userId) {
         try {
-            // 删除用户角色关联
-            userRoleService.remove(new QueryWrapper<UserRole>().eq("user_id", userId));
-
-            // 删除用户部门关联
-            userDepartmentService.remove(new QueryWrapper<UserDepartment>().eq("user_id", userId));
+            // 物理删除用户角色关联与用户部门关联（绕过逻辑删除，避免软删残留累积）
+            userRoleMapper.physicalDeleteByUserId(userId);
+            userDepartmentMapper.physicalDeleteByUserId(userId);
 
             return true;
         } catch (Exception e) {

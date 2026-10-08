@@ -178,13 +178,19 @@ public class UserController extends BaseCrudController<UserCreateDto, UserDto, L
         // 更新用户角色关联
         // 当RoleIds为null时不处理，当为[]空数组时清除所有角色关联
         if (userUpdateDto.getRoleIds() != null) {
-            userService.updateUserRoles(id, userUpdateDto.getRoleIds());
+            boolean rolesOk = userService.updateUserRoles(id, userUpdateDto.getRoleIds());
+            if (!rolesOk) {
+                throw new RuntimeException("角色分配失败");
+            }
         }
 
         // 更新用户部门关联
         // 当DepartmentIds为null时不处理，当为[]空数组时清除所有部门关联
         if (userUpdateDto.getDepartmentIds() != null) {
-            userService.updateUserDepartments(id, userUpdateDto.getDepartmentIds());
+            boolean deptsOk = userService.updateUserDepartments(id, userUpdateDto.getDepartmentIds());
+            if (!deptsOk) {
+                throw new RuntimeException("部门分配失败");
+            }
         }
 
         // 获取完整的用户信息（包括角色和部门）
