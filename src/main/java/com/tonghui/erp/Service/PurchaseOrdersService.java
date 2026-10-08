@@ -7,6 +7,8 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Purchase.PurchaseOrdersWithItemsDto;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.List;
 
 /**
@@ -151,6 +153,29 @@ public interface PurchaseOrdersService extends IService<PurchaseOrders> {
             String desiredDeliveryDateStart, String desiredDeliveryDateEnd,
             String expectedDeliveryDateStart, String expectedDeliveryDateEnd,
             int pageNum, int pageSize);
+
+    // endregion
+
+    // region 统计导出
+    // ===================================
+    // 统计导出
+    // ===================================
+
+    /**
+     * 导出年度采购统计 Excel（原料/辅料/包材）
+     * <p>
+     * 按时间范围聚合采购（purchase_orders.processing_date）与领料（material_requisition_slip.apply_time）
+     * 两侧数据，经 material 主数据关联取分类（原料/辅料/包材），生成 3 个 sheet 的 xlsx 写入输出流：
+     * 每 sheet 按物料汇总一行（采购与领料并列列），末尾小计行
+     * </p>
+     *
+     * @param startDate 开始日期（yyyy-MM-dd，必填）
+     * @param endDate   结束日期（yyyy-MM-dd，必填）
+     * @param out       输出流（HTTP 响应流或字节流）
+     * @throws IllegalArgumentException 日期缺失、格式非法或开始日期晚于结束日期
+     * @throws IOException              写流失败
+     */
+    void exportAnnualStatistics(String startDate, String endDate, OutputStream out) throws IOException;
 
     // endregion
 }

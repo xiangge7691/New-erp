@@ -1,15 +1,21 @@
 package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Purchase.PurchaseOrdersWithItemsDto;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
 import com.tonghui.erp.Service.PurchaseOrdersService;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -30,6 +36,7 @@ import java.util.List;
  * │ 9  │ /api/purchase-orders/{id}/status/{status}│ POST   │ 启用/停用采购订单               │
  * │ 10 │ /api/purchase-orders/{id}/confirm        │ POST   │ 确认采购：待采购→运输中（校验供应商必填，生成验收单）│
  * │ 11 │ /api/purchase-orders/{id}/void           │ POST   │ 作废：整单→已作废（联动验收单作废）│
+ * │ 12 │ /api/purchase-orders/annual-statistics/export │ GET │ 年度采购统计 Excel 导出（原料/辅料/包材，采购+领料）│
  * └────┴──────────────────────────────────────────┴────────┴─────────────────────────────────┘
  */
 @RestController
@@ -46,6 +53,12 @@ public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders,
      */
     @Autowired
     private PurchaseOrdersService purchaseOrdersService;
+
+    /**
+     * Jackson 序列化器，用于参数错误时返回统一 JSON 错误响应
+     */
+    @Autowired
+    private ObjectMapper objectMapper;
 
     // endregion
 
@@ -301,6 +314,73 @@ public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders,
             return error("未找到对应的采购订单");
         } catch (Exception e) {
             return exception(e, "更新采购订单状态");
+        }
+    }
+
+    // endregion
+
+    // region 统计导出
+    // ===================================
+    // 统计导出
+    // ===================================
+
+    /**
+     * 年度采购统计 Excel 导出（原料/辅料/包材）
+     * <p>
+     * 按时间范围聚合采购（processing_date）与领料（apply_time）数据，经物料主数据关联
+     * 取分类，生成 3 个 sheet（原料/辅料/包材）的 xlsx 直接下载；
+     * 每 sheet 按物料汇总一行（采购/领料并列），末尾小计行。
+     * 数据量小，先在内存生成再写响应，参数校验失败时返回统一 JSON 错误（不污染下载头）
+     * </p>
+     *
+     * 示例请求：
+     * GET /api/purchase-orders/annual-statistics/export?startDate=2026-01-01&endDate=2026-12-31
+     *
+     * @param startDate 开始日期（yyyy-MM-dd，必填，采购按 processing_date 过滤）
+     * @param endDate   结束日期（yyyy-MM-dd，必填，领料按 apply_time 过滤）
+     * @param response  HTTP 响应（成功时 Content-Type 为 xlsx，Content-Disposition 附件下载）
+     */
+    @GetMapping("/annual-statistics/export")
+    public void exportAnnualStatistics(
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            HttpServletResponse response) {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        try {
+            // 服务层先校验参数并生成（失败时尚未写响应，可安全回 JSON 错误）
+            purchaseOrdersService.exportAnnualStatistics(startDate, endDate, buffer);
+
+            String filename = "年度采购统计_" + startDate + "_" + endDate + ".xlsx";
+            response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            response.setCharacterEncoding("UTF-8");
+            response.setHeader("Content-Disposition",
+                    "attachment; filename*=UTF-8''" + URLEncoder.encode(filename, StandardCharsets.UTF_8));
+            response.getOutputStream().write(buffer.toByteArray());
+        } catch (IllegalArgumentException e) {
+            writeExportError(response, HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+        } catch (Exception e) {
+            if (!response.isCommitted()) {
+                writeExportError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "导出失败: " + e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * 导出失败时写统一格式 JSON 错误响应
+     *
+     * @param response HTTP 响应
+     * @param status   HTTP 状态码
+     * @param message  错误消息
+     */
+    private void writeExportError(HttpServletResponse response, int status, String message) {
+        try {
+            response.reset();
+            response.setStatus(status);
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write(objectMapper.writeValueAsString(
+                    ApiResponse.errorResponse(status, message)));
+        } catch (IOException ignored) {
+            // 错误响应写入失败时忽略（客户端可能已断开）
         }
     }
 
