@@ -36,7 +36,7 @@ import java.util.List;
  * │ 9  │ /api/purchase-orders/{id}/status/{status}│ POST   │ 启用/停用采购订单               │
  * │ 10 │ /api/purchase-orders/{id}/confirm        │ POST   │ 确认采购：待采购→运输中（校验供应商必填，生成验收单）│
  * │ 11 │ /api/purchase-orders/{id}/void           │ POST   │ 作废：整单→已作废（联动验收单作废）│
- * │ 12 │ /api/purchase-orders/annual-statistics/export │ GET │ 年度采购统计 Excel 导出（原料/辅料/包材，采购+领料）│
+ * │ 12 │ /api/purchase-orders/annual-statistics/export │ GET │ 采购数据 Excel 导出（明细，仅采购不含领料）│
  * └────┴──────────────────────────────────────────┴────────┴─────────────────────────────────┘
  */
 @RestController
@@ -319,38 +319,44 @@ public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders,
 
     // endregion
 
-    // region 统计导出
+    // region 采购数据导出
     // ===================================
-    // 统计导出
+    // 采购数据导出
     // ===================================
 
     /**
-     * 年度采购统计 Excel 导出（原料/辅料/包材）
+     * 采购数据 Excel 导出（仅采购数据，不含领料数据）
      * <p>
-     * 按时间范围聚合采购（processing_date）与领料（apply_time）数据，经物料主数据关联
-     * 取分类，生成 3 个 sheet（原料/辅料/包材）的 xlsx 直接下载；
-     * 每 sheet 按物料汇总一行（采购/领料并列），末尾小计行。
-     * 数据量小，先在内存生成再写响应，参数校验失败时返回统一 JSON 错误（不污染下载头）
+     * 以采购订单明细为行导出：采购订单编号、生产计划编号、工单标题、制剂名称、批量、处方倍数、
+     * 物料编码、物料名称、规格、计量单位、标准处方、采购数量、单价、总价、标准量差值、
+     * 采购订单状态、发票号、供应商、创建时间（采购时间）；支持关键字/状态/处理日期范围筛选。
+     * 先在内存生成，参数校验失败时返回统一 JSON 错误（不污染下载头）
      * </p>
      *
      * 示例请求：
-     * GET /api/purchase-orders/annual-statistics/export?startDate=2026-01-01&endDate=2026-12-31
+     * GET /api/purchase-orders/annual-statistics/export
+     * GET /api/purchase-orders/annual-statistics/export?keyword=CG2026&status=运输中&processingDateStart=2026-01-01&processingDateEnd=2026-12-31
      *
-     * @param startDate 开始日期（yyyy-MM-dd，必填，采购按 processing_date 过滤）
-     * @param endDate   结束日期（yyyy-MM-dd，必填，领料按 apply_time 过滤）
-     * @param response  HTTP 响应（成功时 Content-Type 为 xlsx，Content-Disposition 附件下载）
+     * @param keyword             关键字（对采购订单编号、工单标题模糊匹配，可选）
+     * @param status              采购订单状态（精确匹配，可选）
+     * @param processingDateStart 处理日期起始（yyyy-MM-dd，可选）
+     * @param processingDateEnd   处理日期结束（yyyy-MM-dd，可选）
+     * @param response            HTTP 响应（成功时 Content-Type 为 xlsx，Content-Disposition 附件下载）
      */
     @GetMapping("/annual-statistics/export")
-    public void exportAnnualStatistics(
-            @RequestParam(required = false) String startDate,
-            @RequestParam(required = false) String endDate,
+    public void exportPurchaseData(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String processingDateStart,
+            @RequestParam(required = false) String processingDateEnd,
             HttpServletResponse response) {
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         try {
             // 服务层先校验参数并生成（失败时尚未写响应，可安全回 JSON 错误）
-            purchaseOrdersService.exportAnnualStatistics(startDate, endDate, buffer);
+            purchaseOrdersService.exportPurchaseData(keyword, status, processingDateStart, processingDateEnd, buffer);
 
-            String filename = "年度采购统计_" + startDate + "_" + endDate + ".xlsx";
+            String filename = "采购数据导出_" + java.time.LocalDateTime.now()
+                    .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + ".xlsx";
             response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
             response.setCharacterEncoding("UTF-8");
             response.setHeader("Content-Disposition",

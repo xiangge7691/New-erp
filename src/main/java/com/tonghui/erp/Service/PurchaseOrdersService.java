@@ -156,26 +156,32 @@ public interface PurchaseOrdersService extends IService<PurchaseOrders> {
 
     // endregion
 
-    // region 统计导出
+    // region 采购数据导出
     // ===================================
-    // 统计导出
+    // 采购数据导出
     // ===================================
 
     /**
-     * 导出年度采购统计 Excel（原料/辅料/包材）
+     * 导出采购数据 Excel（仅采购数据，不含领料数据）
      * <p>
-     * 按时间范围聚合采购（purchase_orders.processing_date）与领料（material_requisition_slip.apply_time）
-     * 两侧数据，经 material 主数据关联取分类（原料/辅料/包材），生成 3 个 sheet 的 xlsx 写入输出流：
-     * 每 sheet 按物料汇总一行（采购与领料并列列），末尾小计行
+     * 以采购订单明细为行（purchase_orders + purchase_order_items，关联物料主数据），
+     * 输出采购订单编号、生产计划编号、工单标题、制剂名称、批量、处方倍数、物料编码、
+     * 物料名称、规格、计量单位、标准处方、采购数量、单价、总价、标准量差值、
+     * 采购订单状态、发票号、供应商、创建时间等列；
+     * 支持按关键字、订单状态、处理日期范围筛选
      * </p>
      *
-     * @param startDate 开始日期（yyyy-MM-dd，必填）
-     * @param endDate   结束日期（yyyy-MM-dd，必填）
-     * @param out       输出流（HTTP 响应流或字节流）
-     * @throws IllegalArgumentException 日期缺失、格式非法或开始日期晚于结束日期
+     * @param keyword             关键字（对采购订单编号、工单标题模糊匹配，可选）
+     * @param status              采购订单状态（精确匹配，可选）
+     * @param processingDateStart 处理日期起始（yyyy-MM-dd，可选）
+     * @param processingDateEnd   处理日期结束（yyyy-MM-dd，可选）
+     * @param out                 输出流（HTTP 响应流或字节流）
+     * @throws IllegalArgumentException 日期格式非法或开始日期晚于结束日期
      * @throws IOException              写流失败
      */
-    void exportAnnualStatistics(String startDate, String endDate, OutputStream out) throws IOException;
+    void exportPurchaseData(String keyword, String status,
+                            String processingDateStart, String processingDateEnd,
+                            OutputStream out) throws IOException;
 
     // endregion
 }

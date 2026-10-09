@@ -5,8 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
-import com.tonghui.erp.Common.Dto.Purchase.PurchaseAnnualAggDto;
-import com.tonghui.erp.Common.Dto.Purchase.PurchaseAnnualStatRowDto;
+import com.tonghui.erp.Common.Dto.Purchase.PurchaseExportRowDto;
 import com.tonghui.erp.Common.Dto.Purchase.PurchaseOrdersWithItemsDto;
 import com.tonghui.erp.Common.utils.AcceptanceStatusPolicy;
 import com.tonghui.erp.Data.Entity.AcceptanceDetail;
@@ -14,12 +13,13 @@ import com.tonghui.erp.Data.Entity.AcceptanceOrder;
 import com.tonghui.erp.Data.Entity.Material;
 import com.tonghui.erp.Data.Entity.PurchaseOrderItems;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
+import com.tonghui.erp.Data.Entity.PurchaseSuppliers;
 import com.tonghui.erp.Data.mapper.AcceptanceDetailMapper;
 import com.tonghui.erp.Data.mapper.AcceptanceOrderMapper;
 import com.tonghui.erp.Data.mapper.MaterialMapper;
-import com.tonghui.erp.Data.mapper.MaterialRequisitionSlipDetailMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrderItemsMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrdersMapper;
+import com.tonghui.erp.Data.mapper.PurchaseSuppliersMapper;
 import com.tonghui.erp.Service.PurchaseOrdersService;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -30,7 +30,6 @@ import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,8 +45,6 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -90,9 +87,9 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
     @Autowired
     private MaterialMapper materialMapper;
 
-    /** 领料单明细数据访问层，用于年度采购统计·领料侧聚合 */
+    /** 供应商数据访问层，采购数据导出时回填供应商名称 */
     @Autowired
-    private MaterialRequisitionSlipDetailMapper materialRequisitionSlipDetailMapper;
+    private PurchaseSuppliersMapper purchaseSuppliersMapper;
 
     // endregion
 
@@ -605,65 +602,136 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
 
     // endregion
 
-    // region 统计导出
+    // region 采购数据导出
     // ===================================
-    // 统计导出
+    // 采购数据导出
     // ===================================
 
     /**
-     * 年度采购统计·参与分类（决定归属 sheet，顺序即 sheet 顺序）
-     */
-    private static final List<String> STAT_CATEGORIES = List.of("原料", "辅料", "包材");
-
-    /**
-     * 导出年度采购统计 Excel（原料/辅料/包材）
+     * 导出采购数据 Excel（仅采购数据，不含领料数据）
      * <p>
-     * 流程：参数校验 → 采购侧聚合（processing_date）→ 领料侧聚合（apply_time 左闭右开）→
-     * material 主数据取分类（仅三类）→ 按物料合并 → 过滤无数据行 → POI 生成 3 sheet xlsx 写流
+     * 流程：日期参数校验 → 按筛选条件查询采购订单主表 → 批量查询订单明细 →
+     * 批量加载物料/供应商名称 → 组装为行（每行对应一条订单明细）→ POI 生成单 sheet xlsx 写流
      * </p>
      *
-     * @param startDate 开始日期（yyyy-MM-dd，必填）
-     * @param endDate   结束日期（yyyy-MM-dd，必填）
-     * @param out       输出流
-     * @throws IllegalArgumentException 日期缺失、格式非法或开始日期晚于结束日期
+     * @param keyword             关键字（对采购订单编号、工单标题模糊匹配，可选）
+     * @param status              采购订单状态（精确匹配，可选）
+     * @param processingDateStart 处理日期起始（yyyy-MM-dd，可选）
+     * @param processingDateEnd   处理日期结束（yyyy-MM-dd，可选）
+     * @param out                 输出流
+     * @throws IllegalArgumentException 日期格式非法或开始日期晚于结束日期
      * @throws IOException              写流失败
      */
     @Override
-    public void exportAnnualStatistics(String startDate, String endDate, OutputStream out) throws IOException {
-        // 1. 参数校验与解析
-        LocalDate start = parseStatDate(startDate, "开始日期");
-        LocalDate end = parseStatDate(endDate, "结束日期");
-        if (start.isAfter(end)) {
+    public void exportPurchaseData(String keyword, String status,
+                                   String processingDateStart, String processingDateEnd,
+                                   OutputStream out) throws IOException {
+        // 1. 参数校验：日期可选，若提供需合法且起止有序
+        LocalDate start = parseOptionalDate(processingDateStart, "开始日期");
+        LocalDate end = parseOptionalDate(processingDateEnd, "结束日期");
+        if (start != null && end != null && start.isAfter(end)) {
             throw new IllegalArgumentException("开始日期不能晚于结束日期");
         }
 
-        // 2. 两侧聚合：采购按 processing_date（业务日期），领料按 apply_time（左闭右开至次日零点）
-        List<PurchaseAnnualAggDto> purchaseAgg = baseMapper.selectAnnualAggByDateRange(start, end);
-        List<PurchaseAnnualAggDto> requisitionAgg = materialRequisitionSlipDetailMapper
-                .selectAnnualAggByApplyTimeRange(start.atStartOfDay(), end.plusDays(1).atStartOfDay());
+        // 2. 查询采购订单主表（含筛选条件）
+        QueryWrapper<PurchaseOrders> wrapper = new QueryWrapper<>();
+        if (StringUtils.hasText(keyword)) {
+            String kw = keyword.trim();
+            wrapper.and(w -> w.like("purchase_number", kw).or().like("title", kw));
+        }
+        if (StringUtils.hasText(status)) {
+            wrapper.eq("status", status.trim());
+        }
+        if (start != null) {
+            wrapper.ge("processing_date", start);
+        }
+        if (end != null) {
+            wrapper.le("processing_date", end);
+        }
+        wrapper.orderByAsc("purchase_number");
+        List<PurchaseOrders> orders = this.baseMapper.selectList(wrapper);
 
-        // 3. 物料主数据字典（仅原料/辅料/包材三类，其余如成品不参与统计）
-        List<Material> materials = materialMapper.selectList(new QueryWrapper<Material>()
-                .in("category_name", STAT_CATEGORIES));
+        List<PurchaseExportRowDto> rows = new ArrayList<>();
+        if (!orders.isEmpty()) {
+            // 3. 按订单ID批量查询明细，按订单+序号排序
+            List<Long> orderIds = orders.stream().map(PurchaseOrders::getId).collect(Collectors.toList());
+            List<PurchaseOrderItems> items = purchaseOrderItemsMapper.selectList(
+                    new QueryWrapper<PurchaseOrderItems>()
+                            .in("order_id", orderIds)
+                            .orderByAsc("order_id")
+                            .orderByAsc("sequence_number"));
 
-        // 4. 合并两侧聚合到报表行（优先 material_id 匹配，回退 material_code）
-        List<PurchaseAnnualStatRowDto> rows = mergeStatRows(materials, purchaseAgg, requisitionAgg);
+            // 4. 批量加载物料名称与供应商名称
+            List<Long> materialIds = items.stream().map(PurchaseOrderItems::getMaterialId)
+                    .filter(Objects::nonNull).distinct().collect(Collectors.toList());
+            Map<Long, Material> materialMap = materialIds.isEmpty() ? Map.of()
+                    : materialMapper.selectBatchIds(materialIds).stream()
+                            .collect(Collectors.toMap(Material::getMaterialId, m -> m, (a, b) -> a));
 
-        // 5. POI 生成 xlsx（3 sheet + 标题 + 表头 + 数据 + 小计）
-        writeAnnualStatisticsWorkbook(rows, startDate, endDate, out);
+            List<Long> supplierIds = orders.stream().map(PurchaseOrders::getSupplierId)
+                    .filter(Objects::nonNull).distinct().collect(Collectors.toList());
+            Map<Long, String> supplierNameMap = supplierIds.isEmpty() ? Map.of()
+                    : purchaseSuppliersMapper.selectBatchIds(supplierIds).stream()
+                            .filter(s -> s.getId() != null && StringUtils.hasText(s.getSupplierName()))
+                            .collect(Collectors.toMap(PurchaseSuppliers::getId,
+                                    PurchaseSuppliers::getSupplierName, (a, b) -> a));
+
+            Map<Long, PurchaseOrders> orderMap = orders.stream()
+                    .collect(Collectors.toMap(PurchaseOrders::getId, o -> o, (a, b) -> a));
+
+            // 5. 组装导出行
+            for (PurchaseOrderItems item : items) {
+                PurchaseOrders order = orderMap.get(item.getOrderId());
+                if (order == null) {
+                    continue;
+                }
+                PurchaseExportRowDto row = new PurchaseExportRowDto();
+                row.setPurchaseNumber(order.getPurchaseNumber());
+                row.setProductionPlanCode(order.getProductionPlanCode());
+                row.setTitle(order.getTitle());
+                row.setPreparationName(order.getPreparationName());
+                row.setBatchQty(order.getBatchQty());
+                row.setPrescriptionMultiple(order.getPrescriptionMultiple());
+                row.setSpec(order.getSpec());
+                row.setOrderStatus(Objects.toString(order.getStatus(), ""));
+                row.setCreatedTime(order.getCreatedTime());
+
+                row.setMaterialCode(item.getMaterialCode());
+                // 物料名称：物料主数据优先，回退明细原药材品名
+                Material material = item.getMaterialId() != null ? materialMap.get(item.getMaterialId()) : null;
+                row.setMaterialName(material != null && StringUtils.hasText(material.getMaterialName())
+                        ? material.getMaterialName() : item.getRawMaterialName());
+                row.setUnit(item.getUnit());
+                row.setStandardDosage(item.getStandardDosage());
+                row.setPurchaseQuantity(item.getPurchaseQuantity());
+                row.setUnitPrice(item.getUnitPrice());
+                row.setAmount(item.getAmount());
+                row.setDifference(item.getDifference());
+                row.setInvoiceNo(item.getInvoiceNo());
+                // 供应商：明细优先，回退主表供应商
+                String supplier = StringUtils.hasText(item.getSupplier())
+                        ? item.getSupplier()
+                        : (order.getSupplierId() != null ? supplierNameMap.get(order.getSupplierId()) : null);
+                row.setSupplier(supplier);
+                rows.add(row);
+            }
+        }
+
+        // 6. 生成 xlsx
+        writePurchaseWorkbook(rows, out);
     }
 
     /**
-     * 解析统计日期参数（yyyy-MM-dd，必填）
+     * 解析可选日期参数（为空返回null）
      *
      * @param value 参数值
      * @param label 参数中文名（用于错误消息）
-     * @return 解析后的日期
-     * @throws IllegalArgumentException 缺失或格式非法
+     * @return 解析后的日期，未提供时返回null
+     * @throws IllegalArgumentException 格式非法
      */
-    private LocalDate parseStatDate(String value, String label) {
+    private LocalDate parseOptionalDate(String value, String label) {
         if (!StringUtils.hasText(value)) {
-            throw new IllegalArgumentException(label + "不能为空");
+            return null;
         }
         try {
             return LocalDate.parse(value.trim(), DateTimeFormatter.ISO_LOCAL_DATE);
@@ -673,99 +741,98 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
     }
 
     /**
-     * 合并物料主数据与采购/领料聚合结果为报表行
+     * POI 生成采购数据 workbook 并写入输出流
      * <p>
-     * 以物料主数据为底（保证分类归属与基础信息），叠加两侧聚合值；
-     * 聚合结果中不属于三类分类或主数据缺失的物料跳过；
-     * 四个数值列全为 0 的行（期间无采购也无领料）剔除
+     * 单 sheet「采购数据」：Row0 表头（加粗灰底居中），Row1+ 数据行；
+     * 单价、总价列格式 0.00
      * </p>
      *
-     * @param materials     三类分类物料主数据
-     * @param purchaseAgg   采购侧聚合结果
-     * @param requisitionAgg 领料侧聚合结果
-     * @return 报表行列表
+     * @param rows 导出行列表
+     * @param out  输出流
+     * @throws IOException 写流失败
      */
-    private List<PurchaseAnnualStatRowDto> mergeStatRows(List<Material> materials,
-                                                         List<PurchaseAnnualAggDto> purchaseAgg,
-                                                         List<PurchaseAnnualAggDto> requisitionAgg) {
-        Map<Long, PurchaseAnnualStatRowDto> byId = new LinkedHashMap<>();
-        Map<String, PurchaseAnnualStatRowDto> byCode = new LinkedHashMap<>();
-        for (Material m : materials) {
-            PurchaseAnnualStatRowDto row = new PurchaseAnnualStatRowDto();
-            row.setMaterialId(m.getMaterialId());
-            row.setMaterialCode(m.getMaterialCode());
-            row.setMaterialName(m.getMaterialName());
-            row.setSpec(m.getSpec());
-            row.setUnitName(m.getUnitName());
-            row.setCategoryName(m.getCategoryName());
-            row.setPurchaseQty(BigDecimal.ZERO);
-            row.setPurchaseAmount(BigDecimal.ZERO);
-            row.setRequisitionQty(BigDecimal.ZERO);
-            row.setRequisitionAmount(BigDecimal.ZERO);
-            byId.put(m.getMaterialId(), row);
-            if (StringUtils.hasText(m.getMaterialCode())) {
-                byCode.put(m.getMaterialCode(), row);
-            }
-        }
+    private void writePurchaseWorkbook(List<PurchaseExportRowDto> rows, OutputStream out) throws IOException {
+        String[] headers = {
+                "采购订单编号", "生产计划编号", "工单标题", "制剂名称", "批量", "处方倍数",
+                "物料编码", "物料名称", "规格", "计量单位", "标准处方", "采购数量",
+                "单价", "总价", "标准量差值", "采购订单状态", "发票号", "供应商", "创建时间（采购时间）"
+        };
 
-        applyAggToRows(purchaseAgg, byId, byCode, true);
-        applyAggToRows(requisitionAgg, byId, byCode, false);
+        try (Workbook workbook = new XSSFWorkbook()) {
+            // 样式：表头（加粗灰底居中）、金额（0.00）
+            Font boldFont = workbook.createFont();
+            boldFont.setBold(true);
+            CellStyle headerStyle = workbook.createCellStyle();
+            headerStyle.setFont(boldFont);
+            headerStyle.setAlignment(HorizontalAlignment.CENTER);
+            headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            CellStyle moneyStyle = workbook.createCellStyle();
+            moneyStyle.setDataFormat(workbook.createDataFormat().getFormat("0.00"));
 
-        // 过滤期间无任何采购/领料数据的行，按分类+编码排序
-        return byId.values().stream()
-                .filter(r -> hasAnyData(r))
-                .sorted(Comparator
-                        .comparingInt((PurchaseAnnualStatRowDto r) -> STAT_CATEGORIES.indexOf(r.getCategoryName()))
-                        .thenComparing(r -> Objects.toString(r.getMaterialCode(), "")))
-                .collect(Collectors.toList());
-    }
+            Sheet sheet = workbook.createSheet("采购数据");
+            Row headerRow = sheet.createRow(0);
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
 
-    /**
-     * 将单侧聚合结果累加到报表行
-     *
-     * @param aggList   聚合结果
-     * @param byId      按物料ID索引的报表行
-     * @param byCode    按物料编码索引的报表行（ID缺失时回退）
-     * @param purchaseSide true=采购侧，false=领料侧
-     */
-    private void applyAggToRows(List<PurchaseAnnualAggDto> aggList,
-                                Map<Long, PurchaseAnnualStatRowDto> byId,
-                                Map<String, PurchaseAnnualStatRowDto> byCode,
-                                boolean purchaseSide) {
-        if (aggList == null) {
-            return;
-        }
-        for (PurchaseAnnualAggDto agg : aggList) {
-            if (agg == null) {
-                continue;
+            int rowIndex = 1;
+            for (PurchaseExportRowDto row : rows) {
+                Row dataRow = sheet.createRow(rowIndex++);
+                dataRow.createCell(0).setCellValue(Objects.toString(row.getPurchaseNumber(), ""));
+                dataRow.createCell(1).setCellValue(Objects.toString(row.getProductionPlanCode(), ""));
+                dataRow.createCell(2).setCellValue(Objects.toString(row.getTitle(), ""));
+                dataRow.createCell(3).setCellValue(Objects.toString(row.getPreparationName(), ""));
+                setNumberCell(dataRow.createCell(4), row.getBatchQty());
+                setNumberCell(dataRow.createCell(5), row.getPrescriptionMultiple());
+                dataRow.createCell(6).setCellValue(Objects.toString(row.getMaterialCode(), ""));
+                dataRow.createCell(7).setCellValue(Objects.toString(row.getMaterialName(), ""));
+                dataRow.createCell(8).setCellValue(Objects.toString(row.getSpec(), ""));
+                dataRow.createCell(9).setCellValue(Objects.toString(row.getUnit(), ""));
+                setNumberCell(dataRow.createCell(10), row.getStandardDosage());
+                setNumberCell(dataRow.createCell(11), row.getPurchaseQuantity());
+                setMoneyCell(dataRow.createCell(12), row.getUnitPrice(), moneyStyle);
+                setMoneyCell(dataRow.createCell(13), row.getAmount(), moneyStyle);
+                setNumberCell(dataRow.createCell(14), row.getDifference());
+                dataRow.createCell(15).setCellValue(Objects.toString(row.getOrderStatus(), ""));
+                dataRow.createCell(16).setCellValue(Objects.toString(row.getInvoiceNo(), ""));
+                dataRow.createCell(17).setCellValue(Objects.toString(row.getSupplier(), ""));
+                dataRow.createCell(18).setCellValue(row.getCreatedTime() != null
+                        ? row.getCreatedTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : "");
             }
-            PurchaseAnnualStatRowDto row = agg.getMaterialId() != null
-                    ? byId.get(agg.getMaterialId())
-                    : byCode.get(agg.getMaterialCode());
-            if (row == null) {
-                continue;
+
+            // 列宽
+            int[] widths = {22, 20, 20, 18, 12, 12, 18, 20, 18, 10, 12, 12, 12, 12, 12, 14, 18, 18, 22};
+            for (int i = 0; i < widths.length; i++) {
+                sheet.setColumnWidth(i, widths[i] * 256);
             }
-            if (purchaseSide) {
-                row.setPurchaseQty(nullToZero(row.getPurchaseQty()).add(nullToZero(agg.getQuantity())));
-                row.setPurchaseAmount(nullToZero(row.getPurchaseAmount()).add(nullToZero(agg.getAmount())));
-            } else {
-                row.setRequisitionQty(nullToZero(row.getRequisitionQty()).add(nullToZero(agg.getQuantity())));
-                row.setRequisitionAmount(nullToZero(row.getRequisitionAmount()).add(nullToZero(agg.getAmount())));
-            }
+
+            workbook.write(out);
         }
     }
 
     /**
-     * 判断报表行是否含任意非零数据
+     * 写入数值单元格（空值按0）
      *
-     * @param row 报表行
-     * @return 任一数值列非零返回true
+     * @param cell  单元格
+     * @param value 数值
      */
-    private boolean hasAnyData(PurchaseAnnualStatRowDto row) {
-        return nullToZero(row.getPurchaseQty()).signum() != 0
-                || nullToZero(row.getPurchaseAmount()).signum() != 0
-                || nullToZero(row.getRequisitionQty()).signum() != 0
-                || nullToZero(row.getRequisitionAmount()).signum() != 0;
+    private void setNumberCell(Cell cell, BigDecimal value) {
+        cell.setCellValue(nullToZero(value).doubleValue());
+    }
+
+    /**
+     * 写入金额单元格（空值按0，应用金额格式）
+     *
+     * @param cell       单元格
+     * @param value      金额
+     * @param moneyStyle 金额样式
+     */
+    private void setMoneyCell(Cell cell, BigDecimal value, CellStyle moneyStyle) {
+        cell.setCellValue(nullToZero(value).doubleValue());
+        cell.setCellStyle(moneyStyle);
     }
 
     /**
@@ -776,124 +843,6 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
      */
     private BigDecimal nullToZero(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
-    }
-
-    /**
-     * POI 生成年度采购统计 workbook 并写入输出流
-     * <p>
-     * 每分类一个 sheet：Row0 标题（合并）、Row1 表头、Row2+ 数据行、末行小计；
-     * 金额列格式 0.00，表头加粗灰底居中
-     * </p>
-     *
-     * @param rows       报表行（已排序、已过滤）
-     * @param startDate  开始日期字符串（用于标题与文件名）
-     * @param endDate    结束日期字符串
-     * @param out        输出流
-     * @throws IOException 写流失败
-     */
-    private void writeAnnualStatisticsWorkbook(List<PurchaseAnnualStatRowDto> rows,
-                                               String startDate, String endDate,
-                                               OutputStream out) throws IOException {
-        String[] headers = {"物料编码", "物料名称", "规格", "单位", "采购数量", "采购金额", "领料数量", "领料金额"};
-        String titleText = "年度采购统计（" + startDate + " ~ " + endDate + "）";
-
-        try (Workbook workbook = new XSSFWorkbook()) {
-            // 样式：表头（加粗灰底居中）、标题（加粗居中）、小计（加粗）、金额（0.00）
-            Font boldFont = workbook.createFont();
-            boldFont.setBold(true);
-            CellStyle headerStyle = workbook.createCellStyle();
-            headerStyle.setFont(boldFont);
-            headerStyle.setAlignment(HorizontalAlignment.CENTER);
-            headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
-            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-            CellStyle titleStyle = workbook.createCellStyle();
-            titleStyle.setFont(boldFont);
-            titleStyle.setAlignment(HorizontalAlignment.CENTER);
-            CellStyle subtotalStyle = workbook.createCellStyle();
-            subtotalStyle.setFont(boldFont);
-            CellStyle moneyStyle = workbook.createCellStyle();
-            moneyStyle.setDataFormat(workbook.createDataFormat().getFormat("0.00"));
-
-            Map<String, List<PurchaseAnnualStatRowDto>> grouped = rows.stream()
-                    .collect(Collectors.groupingBy(PurchaseAnnualStatRowDto::getCategoryName,
-                            LinkedHashMap::new, Collectors.toList()));
-
-            for (String category : STAT_CATEGORIES) {
-                Sheet sheet = workbook.createSheet(category);
-                // 标题行（合并整行宽度）
-                Row titleRow = sheet.createRow(0);
-                Cell titleCell = titleRow.createCell(0);
-                titleCell.setCellValue(titleText + " — " + category);
-                titleCell.setCellStyle(titleStyle);
-                sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, headers.length - 1));
-                // 表头行
-                Row headerRow = sheet.createRow(1);
-                for (int i = 0; i < headers.length; i++) {
-                    Cell cell = headerRow.createCell(i);
-                    cell.setCellValue(headers[i]);
-                    cell.setCellStyle(headerStyle);
-                }
-
-                // 数据行
-                List<PurchaseAnnualStatRowDto> categoryRows =
-                        grouped.getOrDefault(category, List.of());
-                BigDecimal sumPurchaseQty = BigDecimal.ZERO;
-                BigDecimal sumPurchaseAmount = BigDecimal.ZERO;
-                BigDecimal sumRequisitionQty = BigDecimal.ZERO;
-                BigDecimal sumRequisitionAmount = BigDecimal.ZERO;
-                int rowIndex = 2;
-                for (PurchaseAnnualStatRowDto row : categoryRows) {
-                    Row dataRow = sheet.createRow(rowIndex++);
-                    dataRow.createCell(0).setCellValue(Objects.toString(row.getMaterialCode(), ""));
-                    dataRow.createCell(1).setCellValue(Objects.toString(row.getMaterialName(), ""));
-                    dataRow.createCell(2).setCellValue(Objects.toString(row.getSpec(), ""));
-                    dataRow.createCell(3).setCellValue(Objects.toString(row.getUnitName(), ""));
-                    dataRow.createCell(4).setCellValue(nullToZero(row.getPurchaseQty()).doubleValue());
-                    Cell pa = dataRow.createCell(5);
-                    pa.setCellValue(nullToZero(row.getPurchaseAmount()).doubleValue());
-                    pa.setCellStyle(moneyStyle);
-                    dataRow.createCell(6).setCellValue(nullToZero(row.getRequisitionQty()).doubleValue());
-                    Cell ra = dataRow.createCell(7);
-                    ra.setCellValue(nullToZero(row.getRequisitionAmount()).doubleValue());
-                    ra.setCellStyle(moneyStyle);
-                    sumPurchaseQty = sumPurchaseQty.add(nullToZero(row.getPurchaseQty()));
-                    sumPurchaseAmount = sumPurchaseAmount.add(nullToZero(row.getPurchaseAmount()));
-                    sumRequisitionQty = sumRequisitionQty.add(nullToZero(row.getRequisitionQty()));
-                    sumRequisitionAmount = sumRequisitionAmount.add(nullToZero(row.getRequisitionAmount()));
-                }
-
-                // 小计行（前4列合并显示"小计"，后4列为合计数值）
-                Row subtotalRow = sheet.createRow(rowIndex);
-                Cell labelCell = subtotalRow.createCell(0);
-                labelCell.setCellValue("小计");
-                labelCell.setCellStyle(subtotalStyle);
-                sheet.addMergedRegion(new CellRangeAddress(rowIndex, rowIndex, 0, 3));
-                Cell sq = subtotalRow.createCell(4);
-                sq.setCellValue(sumPurchaseQty.doubleValue());
-                sq.setCellStyle(subtotalStyle);
-                Cell spa = subtotalRow.createCell(5);
-                spa.setCellValue(sumPurchaseAmount.doubleValue());
-                spa.setCellStyle(moneyStyle);
-                Cell srq = subtotalRow.createCell(6);
-                srq.setCellValue(sumRequisitionQty.doubleValue());
-                srq.setCellStyle(subtotalStyle);
-                Cell sra = subtotalRow.createCell(7);
-                sra.setCellValue(sumRequisitionAmount.doubleValue());
-                sra.setCellStyle(moneyStyle);
-
-                // 列宽
-                sheet.setColumnWidth(0, 22 * 256);
-                sheet.setColumnWidth(1, 24 * 256);
-                sheet.setColumnWidth(2, 18 * 256);
-                sheet.setColumnWidth(3, 10 * 256);
-                sheet.setColumnWidth(4, 14 * 256);
-                sheet.setColumnWidth(5, 16 * 256);
-                sheet.setColumnWidth(6, 14 * 256);
-                sheet.setColumnWidth(7, 16 * 256);
-            }
-
-            workbook.write(out);
-        }
     }
 
     // endregion

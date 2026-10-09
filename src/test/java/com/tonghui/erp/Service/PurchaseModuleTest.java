@@ -374,79 +374,69 @@ public class PurchaseModuleTest {
 
     // endregion
 
-    // region 统计导出测试
+    // region 采购数据导出测试
     // ===================================
-    // 统计导出测试
+    // 采购数据导出测试
     // ===================================
 
     /**
-     * 测试年度采购统计导出：生成合法 xlsx，校验 3 个 sheet、表头、小计行及小计合计一致性
+     * 测试采购数据导出：生成合法 xlsx，校验单 sheet、19 列表头及列数
      */
     @Test
-    public void testAnnualStatisticsExport() throws Exception {
+    public void testPurchaseDataExport() throws Exception {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        // 宽时间范围保证覆盖库存历史数据
-        purchaseOrdersService.exportAnnualStatistics("2020-01-01", "2100-12-31", out);
+        purchaseOrdersService.exportPurchaseData(null, null, null, null, out);
         byte[] bytes = out.toByteArray();
         assertTrue(bytes.length > 0, "导出文件不应为空");
         // xlsx 魔数（PK zip 头）
         assertEquals((byte) 'P', bytes[0], "xlsx 应为 zip 格式");
         assertEquals((byte) 'K', bytes[1], "xlsx 应为 zip 格式");
 
+        String[] expectedHeaders = {
+                "采购订单编号", "生产计划编号", "工单标题", "制剂名称", "批量", "处方倍数",
+                "物料编码", "物料名称", "规格", "计量单位", "标准处方", "采购数量",
+                "单价", "总价", "标准量差值", "采购订单状态", "发票号", "供应商", "创建时间（采购时间）"
+        };
+
         try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
-            assertEquals(3, workbook.getNumberOfSheets(), "应生成3个sheet");
-            assertEquals("原料", workbook.getSheetName(0), "第1个sheet应为原料");
-            assertEquals("辅料", workbook.getSheetName(1), "第2个sheet应为辅料");
-            assertEquals("包材", workbook.getSheetName(2), "第3个sheet应为包材");
+            assertEquals(1, workbook.getNumberOfSheets(), "应生成1个sheet");
+            Sheet sheet = workbook.getSheetAt(0);
+            assertEquals("采购数据", sheet.getSheetName(), "sheet名称应为采购数据");
 
-            for (int i = 0; i < 3; i++) {
-                Sheet sheet = workbook.getSheetAt(i);
-                assertNotNull(sheet, "sheet不应为空");
-                // 至少含标题行+表头行+小计行
-                assertTrue(sheet.getLastRowNum() >= 2, sheet.getSheetName() + " 至少应含3行");
-
-                // 表头校验
-                Row header = sheet.getRow(1);
-                assertNotNull(header, "表头行不应为空");
-                assertEquals("物料编码", header.getCell(0).getStringCellValue(), "表头第1列应为物料编码");
-                assertEquals("采购金额", header.getCell(5).getStringCellValue(), "表头第6列应为采购金额");
-                assertEquals("领料金额", header.getCell(7).getStringCellValue(), "表头第8列应为领料金额");
-
-                // 末行应为小计行，且采购数量合计等于明细行合计
-                Row subtotal = sheet.getRow(sheet.getLastRowNum());
-                assertNotNull(subtotal, "小计行不应为空");
-                assertEquals("小计", subtotal.getCell(0).getStringCellValue(), "末行应为小计行");
-                double detailSum = 0;
-                for (int r = 2; r < sheet.getLastRowNum(); r++) {
-                    Row row = sheet.getRow(r);
-                    if (row != null && row.getCell(4) != null) {
-                        detailSum += row.getCell(4).getNumericCellValue();
-                    }
+            Row header = sheet.getRow(0);
+            assertNotNull(header, "表头行不应为空");
+            for (int i = 0; i < expectedHeaders.length; i++) {
+                assertEquals(expectedHeaders[i], header.getCell(i).getStringCellValue(),
+                        "第" + (i + 1) + "列表头应为" + expectedHeaders[i]);
+            }
+            // 每行数据列数不超过19列
+            for (int r = 1; r <= sheet.getLastRowNum(); r++) {
+                Row row = sheet.getRow(r);
+                if (row != null) {
+                    assertNull(row.getCell(expectedHeaders.length), "数据行不应超过19列");
                 }
-                assertEquals(detailSum, subtotal.getCell(4).getNumericCellValue(), 0.01,
-                        sheet.getSheetName() + " 采购数量小计应等于明细行合计");
             }
         }
     }
 
     /**
-     * 测试年度采购统计导出参数校验：日期缺失、格式非法、开始晚于结束均应抛出 IllegalArgumentException
+     * 测试采购数据导出参数校验：日期格式非法、开始晚于结束应抛出异常；仅日期起或止可正常导出
      */
     @Test
-    public void testAnnualStatisticsExportParamValidation() {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
+    public void testPurchaseDataExportParamValidation() throws Exception {
         assertThrows(IllegalArgumentException.class,
-                () -> purchaseOrdersService.exportAnnualStatistics(null, "2100-12-31", out),
-                "开始日期缺失应抛出参数异常");
-        assertThrows(IllegalArgumentException.class,
-                () -> purchaseOrdersService.exportAnnualStatistics("2020-01-01", "", out),
-                "结束日期为空应抛出参数异常");
-        assertThrows(IllegalArgumentException.class,
-                () -> purchaseOrdersService.exportAnnualStatistics("2020/01/01", "2100-12-31", out),
+                () -> purchaseOrdersService.exportPurchaseData(null, null, "2020/01/01", "2100-12-31",
+                        new ByteArrayOutputStream()),
                 "日期格式非法应抛出参数异常");
         assertThrows(IllegalArgumentException.class,
-                () -> purchaseOrdersService.exportAnnualStatistics("2100-12-31", "2020-01-01", out),
+                () -> purchaseOrdersService.exportPurchaseData(null, null, "2100-12-31", "2020-01-01",
+                        new ByteArrayOutputStream()),
                 "开始日期晚于结束日期应抛出参数异常");
+
+        // 仅提供起始日期应正常生成
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        purchaseOrdersService.exportPurchaseData(null, null, "2020-01-01", null, out);
+        assertTrue(out.size() > 0, "仅起始日期导出应生成文件");
     }
 
     // endregion
