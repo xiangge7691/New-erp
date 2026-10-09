@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -77,6 +78,12 @@ public class Preparation extends AuditEntity {
      */
     @TableField(value = "record_info")
     private String recordInfo;
+
+    /**
+     * 批件过期时间（批件有效期截止日期，为空表示未添加）
+     */
+    @TableField(value = "approval_expiry_date")
+    private LocalDate approvalExpiryDate;
 
     /**
      * 功能主治

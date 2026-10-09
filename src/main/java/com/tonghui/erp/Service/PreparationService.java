@@ -5,6 +5,7 @@ import com.tonghui.erp.Data.Entity.Preparation;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.PreparationOptionDto;
 import com.tonghui.erp.Common.Dto.PreparationWithDetailsDto;
 
 import java.util.List;
@@ -76,6 +77,18 @@ public interface PreparationService extends IService<Preparation> {
      * @return 制剂集合
      */
     List<Preparation> getAllPreparations();
+
+    /**
+     * 查询制剂采购下拉选项
+     * <p>
+     * 返回制剂基础信息及批件过期状态标识（已过期/未过期/未添加），供采购模块下拉选择使用
+     * </p>
+     *
+     * @param keyword      关键字（模糊匹配制剂编码或制剂品名，可选）
+     * @param expiryStatus 过期状态过滤（EXPIRED 已过期 / VALID 未过期 / UNSET 未添加，可选）
+     * @return 制剂下拉选项集合
+     */
+    List<PreparationOptionDto> listPurchaseOptions(String keyword, String expiryStatus);
 
     // endregion
 

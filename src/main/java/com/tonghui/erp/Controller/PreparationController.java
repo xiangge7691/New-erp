@@ -4,11 +4,14 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.PreparationOptionDto;
 import com.tonghui.erp.Common.Dto.PreparationWithDetailsDto;
 import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Service.PreparationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * 制剂控制器
@@ -26,6 +29,7 @@ import org.springframework.web.bind.annotation.*;
  * │ 7  │ /api/preparation/search-with-details    │ GET    │ 高级查询制剂（含子表）           │
  * │ 8  │ /api/preparation/save-with-details      │ POST   │ 一键保存制剂及所有子表          │
  * │ 9  │ /api/preparation/{id}/details           │ GET    │ 获取制剂详情（含所有子表）      │
+ * │ 10 │ /api/preparation/purchase-options       │ GET    │ 采购下拉选项（含批件过期标识）  │
  * └────┴─────────────────────────────────────────┴────────┴─────────────────────────────────┘
  */
 @RestController
@@ -179,6 +183,42 @@ public class PreparationController extends BaseCrudController<Preparation, Prepa
             return success(pagedResult);
         } catch (Exception ex) {
             return exception(ex, "搜索制剂");
+        }
+    }
+
+    // endregion
+
+    // region 采购下拉选项
+    // ===================================
+    // 采购下拉选项
+    // ===================================
+
+    /**
+     * 查询制剂采购下拉选项（含批件过期状态标识）
+     * <p>
+     * 供采购模块选择制剂使用。每条记录附带过期状态标识 expiryStatus：
+     * 已过期（EXPIRED）/ 未过期（VALID）/ 未添加批件过期时间（UNSET），
+     * 同时返回中文描述 expiryStatusText 与剩余天数 remainingDays。
+     * </p>
+     *
+     * 示例请求：
+     * GET /api/preparation/purchase-options
+     * GET /api/preparation/purchase-options?keyword=感冒
+     * GET /api/preparation/purchase-options?expiryStatus=EXPIRED
+     *
+     * @param keyword      关键字（模糊匹配制剂编码或制剂品名，可选）
+     * @param expiryStatus 过期状态过滤（EXPIRED 已过期 / VALID 未过期 / UNSET 未添加，可选）
+     * @return ApiResponse&lt;List&lt;PreparationOptionDto&gt;&gt; 制剂下拉选项列表
+     */
+    @GetMapping("/purchase-options")
+    public ApiResponse<List<PreparationOptionDto>> purchaseOptions(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String expiryStatus) {
+        try {
+            List<PreparationOptionDto> options = preparationService.listPurchaseOptions(keyword, expiryStatus);
+            return success(options);
+        } catch (Exception ex) {
+            return exception(ex, "查询采购制剂下拉选项");
         }
     }
 

@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Config.JwtConfig;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.PreparationOptionDto;
 import com.tonghui.erp.Common.Dto.PreparationWithDetailsDto;
 import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.PreparationDocument;
@@ -36,8 +37,11 @@ import com.tonghui.erp.Common.utils.JwtHelper;
 
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
 import java.util.stream.Collectors;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import com.tonghui.erp.Common.utils.JwtHelper;
 
 @Service
@@ -231,6 +235,75 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
     @Override
     public List<Preparation> getAllPreparations() {
         return this.baseMapper.selectList(null);
+    }
+
+    /**
+     * 查询制剂采购下拉选项
+     * <p>返回制剂基础信息及批件过期状态标识（已过期/未过期/未添加），供采购模块下拉选择使用</p>
+     *
+     * @param keyword      关键字（模糊匹配制剂编码或制剂品名，可选）
+     * @param expiryStatus 过期状态过滤（EXPIRED 已过期 / VALID 未过期 / UNSET 未添加，可选）
+     * @return 制剂下拉选项集合
+     */
+    @Override
+    public List<PreparationOptionDto> listPurchaseOptions(String keyword, String expiryStatus) {
+        QueryWrapper<Preparation> wrapper = new QueryWrapper<>();
+        // 关键字：同时匹配制剂编码与制剂品名
+        if (StringUtils.hasText(keyword)) {
+            String kw = keyword.trim();
+            wrapper.and(w -> w.like("preparation_code", kw).or().like("preparation_name", kw));
+        }
+        wrapper.orderByAsc("preparation_code");
+        List<Preparation> preparations = this.baseMapper.selectList(wrapper);
+
+        LocalDate today = LocalDate.now();
+        List<PreparationOptionDto> options = new ArrayList<>();
+        for (Preparation preparation : preparations) {
+            PreparationOptionDto dto = new PreparationOptionDto();
+            dto.setPreparationId(preparation.getPreparationId());
+            dto.setPreparationCode(preparation.getPreparationCode());
+            dto.setPreparationName(preparation.getPreparationName());
+            dto.setSpec(preparation.getSpec());
+            dto.setUnitName(preparation.getUnitName());
+            dto.setProducer(preparation.getProducer());
+            dto.setStatus(preparation.getStatus());
+            dto.setApprovalExpiryDate(preparation.getApprovalExpiryDate());
+            // 计算过期状态标识
+            applyExpiryStatus(dto, today);
+            // 过期状态过滤（内存中计算后筛选）
+            if (StringUtils.hasText(expiryStatus)
+                    && !expiryStatus.equalsIgnoreCase(dto.getExpiryStatus())) {
+                continue;
+            }
+            options.add(dto);
+        }
+        return options;
+    }
+
+    /**
+     * 根据批件过期时间计算并填充过期状态标识
+     *
+     * @param dto   制剂下拉选项
+     * @param today 当前日期
+     */
+    private void applyExpiryStatus(PreparationOptionDto dto, LocalDate today) {
+        LocalDate expiry = dto.getApprovalExpiryDate();
+        // 未添加批件过期时间
+        if (expiry == null) {
+            dto.setExpiryStatus(PreparationOptionDto.STATUS_UNSET);
+            dto.setExpiryStatusText("未添加");
+            dto.setRemainingDays(null);
+            return;
+        }
+        // 剩余天数（已过期为负数）
+        dto.setRemainingDays((int) ChronoUnit.DAYS.between(today, expiry));
+        if (expiry.isBefore(today)) {
+            dto.setExpiryStatus(PreparationOptionDto.STATUS_EXPIRED);
+            dto.setExpiryStatusText("已过期");
+        } else {
+            dto.setExpiryStatus(PreparationOptionDto.STATUS_VALID);
+            dto.setExpiryStatusText("未过期");
+        }
     }
 
     // endregion
