@@ -29,6 +29,7 @@ init-data:
       AUDIT_RELEASE: 审核放行
       SAMPLE_RETENTION: 留样管理
       VERIFICATION: 验证方案
+      DUTY: 职务信息
     # 子类型 -> 子目录名（全局统一，不含父目录前缀）
     sub-types:
       MAINTENANCE: 维保
