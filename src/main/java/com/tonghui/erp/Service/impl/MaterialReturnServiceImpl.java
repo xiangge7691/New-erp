@@ -157,7 +157,8 @@ public class MaterialReturnServiceImpl implements MaterialReturnService {
         // 退货来源筛选：按所属验收单的来源类型派生（采购入库/退货重发→采购退货，领料入库→领料退货）
         if (StringUtils.hasText(query.getReturnSource())) {
             List<Long> sourceAcceptanceIds = queryAcceptanceIdsBySource(query.getReturnSource());
-            wrapper.in("acceptance_id", sourceAcceptanceIds);
+            // 空集合兜底：无匹配验收单时用 -1 占位，避免生成 IN () 语法错误
+            wrapper.in("acceptance_id", sourceAcceptanceIds.isEmpty() ? List.of(-1L) : sourceAcceptanceIds);
         }
         if (StringUtils.hasText(query.getReturnReason())) {
             wrapper.eq("return_reason", query.getReturnReason());
