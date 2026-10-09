@@ -6,6 +6,7 @@ import com.tonghui.erp.Data.Entity.FileInfo;
 import com.tonghui.erp.Data.Entity.Organization;
 import com.tonghui.erp.Service.FileInfoService;
 import com.tonghui.erp.Service.OrganizationService;
+import com.tonghui.erp.Service.SystemConfigService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -51,6 +52,12 @@ public class OrganizationController extends BaseController {
      */
     @Autowired
     private FileInfoService fileInfoService;
+
+    /**
+     * 系统配置服务，用于读取到期提醒时间范围
+     */
+    @Autowired
+    private SystemConfigService systemConfigService;
 
     // endregion
 
@@ -235,13 +242,16 @@ public class OrganizationController extends BaseController {
      * 示例请求：
      * GET /api/organization/expiring?days=30
      *
-     * @param days 提前天数（默认30天）
+     * @param days 提前天数（未指定时读取系统配置，默认30天）
      * @return ApiResponse&lt;List&lt;Organization&gt;&gt; 到期预警机构列表
      */
     @GetMapping("/expiring")
     public ApiResponse<List<Organization>> expiring(
-            @RequestParam(defaultValue = "30") int days) {
-        List<Organization> list = organizationService.findExpiringOrganizations(days);
+            @RequestParam(required = false) Integer days) {
+        int effectiveDays = days != null ? days
+                : systemConfigService.getInt(SystemConfigService.KEY_ORGANIZATION_DAYS,
+                        SystemConfigService.DEFAULT_EXPIRY_DAYS);
+        List<Organization> list = organizationService.findExpiringOrganizations(effectiveDays);
         return success(list);
     }
 

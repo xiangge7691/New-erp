@@ -5,6 +5,7 @@ import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.SupplierAudit;
 import com.tonghui.erp.Service.SupplierAuditService;
+import com.tonghui.erp.Service.SystemConfigService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
@@ -45,6 +46,12 @@ public class SupplierAuditController extends BaseCrudController<SupplierAudit, S
      */
     @Autowired
     private SupplierAuditService supplierAuditService;
+
+    /**
+     * 系统配置服务，用于读取到期提醒时间范围
+     */
+    @Autowired
+    private SystemConfigService systemConfigService;
 
     // endregion
 
@@ -187,14 +194,17 @@ public class SupplierAuditController extends BaseCrudController<SupplierAudit, S
      * 示例请求：
      * GET /api/supplier-audit/warning?days=30
      *
-     * @param days 提前天数，默认30天
+     * @param days 提前天数（未指定时读取系统配置，默认30天）
      * @return 即将到期的审核记录列表
      */
     @GetMapping("/warning")
     public ApiResponse<List<SupplierAudit>> getExpiringAudits(
-            @RequestParam(value = "days", defaultValue = "30") int days) {
+            @RequestParam(value = "days", required = false) Integer days) {
         try {
-            List<SupplierAudit> expiringList = supplierAuditService.getExpiringAudits(days);
+            int effectiveDays = days != null ? days
+                    : systemConfigService.getInt(SystemConfigService.KEY_SUPPLIER_AUDIT_DAYS,
+                            SystemConfigService.DEFAULT_EXPIRY_DAYS);
+            List<SupplierAudit> expiringList = supplierAuditService.getExpiringAudits(effectiveDays);
             return success(expiringList);
         } catch (Exception ex) {
             return exception(ex, "查询到期审核");

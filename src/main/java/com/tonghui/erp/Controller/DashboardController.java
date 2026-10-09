@@ -5,6 +5,7 @@ import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.ProductionPlanWithRecordsDto;
 import com.tonghui.erp.Common.Dto.Dashboard.*;
+import com.tonghui.erp.Common.Dto.System.DashboardExpiryConfigDto;
 import com.tonghui.erp.Data.Entity.*;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Data.mapper.StockInDetailMapper;
@@ -104,6 +105,14 @@ public class DashboardController extends BaseController {
     /** 生产单位数据访问层，用于库存预警仓库名称映射 */
     @Autowired
     private ProductionUnitMapper productionUnitMapper;
+
+    /** 系统配置服务，用于读取首页到期提醒时间范围等配置 */
+    @Autowired
+    private SystemConfigService systemConfigService;
+
+    /** 留样记录服务，用于留样到期提醒 */
+    @Autowired
+    private RetainedSampleService retainedSampleService;
 
     // endregion
 
@@ -256,8 +265,11 @@ public class DashboardController extends BaseController {
             Map<String, Long> typeCounts = new LinkedHashMap<>();
             LocalDate today = LocalDate.now();
 
+            // 读取各类到期提醒时间范围配置（系统配置决定，默认30天）
+            DashboardExpiryConfigDto expiryCfg = systemConfigService.getDashboardExpiryConfig();
+
             // 1. 设备维保提醒
-            List<EquipmentMaintenance> upcomingMaintenance = equipmentMaintenanceService.findUpcomingMaintenance(30);
+            List<EquipmentMaintenance> upcomingMaintenance = equipmentMaintenanceService.findUpcomingMaintenance(expiryCfg.getEquipmentDays());
             // 批量查询设备名称
             Set<Long> equipmentIds = upcomingMaintenance.stream()
                 .map(EquipmentMaintenance::getEquipmentId)
@@ -294,7 +306,7 @@ public class DashboardController extends BaseController {
                     .eq("is_deleted", 0)
                     .gt("quantity", 0)
                     .isNotNull("expiry_date")
-                    .le("expiry_date", today.plusDays(30))
+                    .le("expiry_date", today.plusDays(expiryCfg.getStockDays()))
                     .orderByAsc("expiry_date"));
 
             // 批量加载仓库名称映射
@@ -371,7 +383,7 @@ public class DashboardController extends BaseController {
             typeCounts.put("待确认", (long) unconfirmedStockIns.size());
 
             // 3. 人员健康证到期
-            List<PersonnelFile> expiringCerts = personnelFileService.findExpiringHealthCerts(30);
+            List<PersonnelFile> expiringCerts = personnelFileService.findExpiringHealthCerts(expiryCfg.getHealthCertDays());
             for (PersonnelFile p : expiringCerts) {
                 TodoItemDto todo = new TodoItemDto();
                 todo.setId(p.getPersonnelFileId());
@@ -392,7 +404,7 @@ public class DashboardController extends BaseController {
             }
 
             // 3.5 人员证书到期（从证书子表查询）
-            List<PersonnelCertificate> expiringCertificates = personnelCertificateService.findExpiringCertificates(30);
+            List<PersonnelCertificate> expiringCertificates = personnelCertificateService.findExpiringCertificates(expiryCfg.getPersonnelCertDays());
             // 批量查询人员名称
             Set<Long> certPersonnelIds = expiringCertificates.stream()
                 .map(PersonnelCertificate::getPersonnelFileId)
@@ -426,7 +438,7 @@ public class DashboardController extends BaseController {
             typeCounts.put("人员管理", (long) expiringCerts.size() + expiringCertificates.size());
 
             // 5. 环境管理（消毒到期提醒）
-            List<DisinfectionRecord> upcomingDisinfection = disinfectionRecordService.findUpcomingDisinfection(30);
+            List<DisinfectionRecord> upcomingDisinfection = disinfectionRecordService.findUpcomingDisinfection(expiryCfg.getDisinfectionDays());
             // 批量查询房间名称
             Set<Integer> roomIds = upcomingDisinfection.stream()
                 .map(DisinfectionRecord::getRoomId)
@@ -541,7 +553,7 @@ public class DashboardController extends BaseController {
                 new QueryWrapper<Organization>()
                     .eq("is_deleted", 0)
                     .isNotNull("expiry_date")
-                    .le("expiry_date", today.plusDays(30))
+                    .le("expiry_date", today.plusDays(expiryCfg.getOrganizationDays()))
                     .orderByAsc("expiry_date"));
             for (Organization org : expiringOrgs) {
                 TodoItemDto todo = new TodoItemDto();
@@ -559,6 +571,59 @@ public class DashboardController extends BaseController {
                 allTodos.add(todo);
             }
             typeCounts.put("机构证照", (long) expiringOrgs.size());
+
+            // 11. 留样到期提醒（留样中且留样期限临近/已到期）
+            List<RetainedSample> expiringSamples = retainedSampleService.list(
+                new QueryWrapper<RetainedSample>()
+                    .eq("is_deleted", 0)
+                    .eq("status", "留样中")
+                    .isNotNull("expiry_date")
+                    .le("expiry_date", today.plusDays(expiryCfg.getRetainedSampleDays()))
+                    .orderByAsc("expiry_date"));
+            for (RetainedSample rs : expiringSamples) {
+                TodoItemDto todo = new TodoItemDto();
+                todo.setId(rs.getId());
+                todo.setTodoType("留样到期");
+                long days = java.time.temporal.ChronoUnit.DAYS.between(today, rs.getExpiryDate());
+                String sampleName = (rs.getMaterialName() != null ? rs.getMaterialName() : "留样")
+                        + (rs.getBatchNo() != null ? "-" + rs.getBatchNo() : "");
+                if (days < 0) {
+                    todo.setContent(sampleName + "留样已超期" + Math.abs(days) + "天");
+                } else {
+                    todo.setContent(sampleName + "留样还有" + days + "天到期");
+                }
+                todo.setDueDate(rs.getExpiryDate().toString());
+                todo.setSourceModule("质量检验");
+                todo.setLink("/retained_sample");
+                allTodos.add(todo);
+            }
+            typeCounts.put("留样到期", (long) expiringSamples.size());
+
+            // 12. 制剂批件过期提醒（启用且批件过期时间临近/已过期）
+            List<Preparation> expiringApprovals = preparationService.list(
+                new QueryWrapper<Preparation>()
+                    .eq("is_deleted", 0)
+                    .eq("status", 1)
+                    .isNotNull("approval_expiry_date")
+                    .le("approval_expiry_date", today.plusDays(expiryCfg.getApprovalDays()))
+                    .orderByAsc("approval_expiry_date"));
+            for (Preparation p : expiringApprovals) {
+                TodoItemDto todo = new TodoItemDto();
+                todo.setId(p.getPreparationId());
+                todo.setTodoType("批件过期");
+                long days = java.time.temporal.ChronoUnit.DAYS.between(today, p.getApprovalExpiryDate());
+                String prepName = p.getPreparationName() != null ? p.getPreparationName() : "制剂" + p.getPreparationId();
+                if (days < 0) {
+                    todo.setContent(prepName + "批件已过期" + Math.abs(days) + "天");
+                } else {
+                    todo.setContent(prepName + "批件还有" + days + "天到期");
+                }
+                todo.setDueDate(p.getApprovalExpiryDate().toString());
+                todo.setSourceModule("产品管理");
+                todo.setLink("/preparation");
+                allTodos.add(todo);
+            }
+            typeCounts.put("批件过期", (long) expiringApprovals.size());
 
             typeCounts.put("全部", (long) allTodos.size());
 

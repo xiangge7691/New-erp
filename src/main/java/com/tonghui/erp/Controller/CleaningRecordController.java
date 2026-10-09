@@ -7,6 +7,7 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.CleaningRecord;
 import com.tonghui.erp.Data.Entity.RoomInfo;
 import com.tonghui.erp.Service.CleaningRecordService;
+import com.tonghui.erp.Service.SystemConfigService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -24,6 +25,10 @@ public class CleaningRecordController extends BaseRoomRecordController<CleaningR
     /** 清洁记录服务 */
     @Autowired
     private CleaningRecordService cleaningRecordService;
+
+    /** 系统配置服务，用于读取到期提醒时间范围 */
+    @Autowired
+    private SystemConfigService systemConfigService;
 
     @GetMapping
     public ApiResponse<PagedResult<CleaningRecord>> getAll(
@@ -86,8 +91,12 @@ public class CleaningRecordController extends BaseRoomRecordController<CleaningR
 
     @GetMapping("/reminder")
     public ApiResponse<List<CleaningRecord>> reminder(
-            @RequestParam(defaultValue = "30") int days) {
-        List<CleaningRecord> list = cleaningRecordService.findUpcomingCleaning(days);
+            @RequestParam(required = false) Integer days) {
+        // 未指定天数时读取系统配置（默认30天）
+        int effectiveDays = days != null ? days
+                : systemConfigService.getInt(SystemConfigService.KEY_CLEANING_DAYS,
+                        SystemConfigService.DEFAULT_EXPIRY_DAYS);
+        List<CleaningRecord> list = cleaningRecordService.findUpcomingCleaning(effectiveDays);
         return success(list);
     }
 
