@@ -130,6 +130,23 @@ public class ProcessTypeServiceImpl extends ServiceImpl<ProcessTypeMapper, Proce
     }
 
     /**
+     * 根据工序类型名称精确查询
+     *
+     * @param processName 工序类型名称
+     * @return 查询到的工序类型，不存在则返回 null
+     */
+    @Override
+    public ProcessType getByName(String processName) {
+        if (processName == null || processName.isEmpty()) {
+            return null;
+        }
+
+        return this.lambdaQuery()
+                .eq(ProcessType::getProcessName, processName)
+                .one();
+    }
+
+    /**
      * 获取所有启用的工序类型
      *
      * @return 启用的工序类型列表，按名称升序排列

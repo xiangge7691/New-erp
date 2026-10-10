@@ -117,11 +117,16 @@ public class PositionController extends BaseController {
 
     /**
      * 新增岗位
+     * <p>
+     * 会校验岗位编码唯一性：活动记录已占用同编码时返回错误；
+     * 同编码的软删除记录会被物理清理（释放唯一键，允许复用编码）
+     * </p>
      *
      * 示例请求：
      * POST /api/position
      * Content-Type: application/json
      * {
+     *   "positionCode": "GW-010",
      *   "positionName": "生产主管",
      *   "status": 1,
      *   "sortOrder": 1,
@@ -133,6 +138,9 @@ public class PositionController extends BaseController {
      */
     @PostMapping
     public ApiResponse<Position> create(@RequestBody Position position) {
+        // 岗位编码唯一性校验（含软删除记录清理）
+        checkPositionCodeUnique(position.getPositionCode(), null);
+
         position.setIsDeleted(0);
         position.setVersion(0);
         positionService.save(position);
@@ -141,6 +149,10 @@ public class PositionController extends BaseController {
 
     /**
      * 修改岗位
+     * <p>
+     * 会校验岗位编码唯一性：其他活动记录已占用同编码时返回错误；
+     * 同编码的软删除记录会被物理清理（释放唯一键，允许复用编码）
+     * </p>
      *
      * 示例请求：
      * PUT /api/position/1
@@ -160,6 +172,10 @@ public class PositionController extends BaseController {
         if (existing == null) {
             return error("岗位不存在");
         }
+
+        // 岗位编码唯一性校验（含软删除记录清理，排除自身）
+        checkPositionCodeUnique(position.getPositionCode(), id);
+
         position.setPositionId(id);
         positionService.updateById(position);
         return success(position, "修改成功");
@@ -198,6 +214,32 @@ public class PositionController extends BaseController {
                .orderByAsc("sort_order");
         List<Position> list = positionService.list(wrapper);
         return success(list);
+    }
+
+    /**
+     * 校验岗位编码唯一性
+     * <p>
+     * 规则：活动记录（is_deleted=0）已占用同编码时报错；
+     * 同编码的软删除记录会被物理清理，以释放数据库唯一索引 uk_position_code（允许复用编码）。
+     * 编码为空时不做限制。
+     * </p>
+     *
+     * @param positionCode 待校验的岗位编码
+     * @param excludeId    排除的岗位ID（新增时传null，修改时传当前岗位ID）
+     */
+    private void checkPositionCodeUnique(String positionCode, Long excludeId) {
+        if (positionCode == null || positionCode.isBlank()) {
+            return;
+        }
+
+        // 查询活动记录中是否已占用该编码
+        Position sameCodePosition = positionService.getByPositionCode(positionCode);
+        if (sameCodePosition != null && !sameCodePosition.getPositionId().equals(excludeId)) {
+            throw new RuntimeException("岗位编码已存在");
+        }
+
+        // 清理同编码的软删除记录（物理删除，释放唯一键）
+        positionService.cleanSoftDeletedByPositionCode(positionCode);
     }
 
     // endregion

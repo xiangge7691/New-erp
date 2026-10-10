@@ -1,5 +1,6 @@
 package com.tonghui.erp.Service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Data.Entity.Unit;
@@ -38,6 +39,31 @@ public class UnitServiceImpl extends ServiceImpl<UnitMapper, Unit>
      */
     public int cleanSoftDeletedByUnitName(String unitName) {
         return baseMapper.physicalDeleteByUnitName(unitName);
+    }
+
+    /**
+     * 根据计量单位符号查询未删除的计量单位
+     * <p>数据库唯一索引建在 symbol 列上，MyBatis-Plus 查询自动过滤软删除记录</p>
+     *
+     * @param symbol 计量单位符号（如 kg、L）
+     * @return 计量单位实体，不存在返回null；同符号存在多条时取第一条
+     */
+    @Override
+    public Unit getBySymbol(String symbol) {
+        LambdaQueryWrapper<Unit> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Unit::getSymbol, symbol);
+        return this.getOne(wrapper, false);
+    }
+
+    /**
+     * 清理指定单位符号下已被软删除的记录（物理删除，释放唯一索引）
+     *
+     * @param symbol 计量单位符号
+     * @return 清理的记录数
+     */
+    @Override
+    public int cleanSoftDeletedBySymbol(String symbol) {
+        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "symbol", symbol);
     }
 
     // endregion

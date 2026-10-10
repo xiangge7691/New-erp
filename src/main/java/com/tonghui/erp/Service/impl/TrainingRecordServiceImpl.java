@@ -120,6 +120,15 @@ public class TrainingRecordServiceImpl extends ServiceImpl<TrainingRecordMapper,
     @Override
     @Transactional
     public boolean updateTrainingRecord(TrainingRecord trainingRecord) {
+        // 培训编号唯一性校验（排除自身，含软删除记录清理，释放唯一索引 uk_training_no）
+        if (StringUtils.hasText(trainingRecord.getTrainingNo())) {
+            TrainingRecord existing = getTrainingRecordByNo(trainingRecord.getTrainingNo());
+            if (existing != null && !existing.getId().equals(trainingRecord.getId())) {
+                throw new RuntimeException("培训编号已存在：" + trainingRecord.getTrainingNo());
+            }
+            cleanSoftDeletedByTrainingNo(trainingRecord.getTrainingNo());
+        }
+
         // 重新计算下次培训日期
         if (trainingRecord.getTrainingDate() != null && trainingRecord.getTrainingCycle() != null) {
             trainingRecord.setNextTrainingDate(

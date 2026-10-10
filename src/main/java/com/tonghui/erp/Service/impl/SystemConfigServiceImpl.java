@@ -5,9 +5,11 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.System.DashboardExpiryConfigDto;
 import com.tonghui.erp.Common.Dto.System.SystemConfigDto;
 import com.tonghui.erp.Common.utils.CodeUniqueChecker;
+import com.tonghui.erp.Common.utils.SoftDeleteCleanHelper;
 import com.tonghui.erp.Data.Entity.SystemConfig;
 import com.tonghui.erp.Data.mapper.SystemConfigMapper;
 import com.tonghui.erp.Service.SystemConfigService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -41,6 +43,12 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
      * 缓存是否已加载
      */
     private volatile boolean loaded = false;
+
+    /**
+     * 软删除统一清理工具，用于物理清理同 config_key 的软删除记录以释放唯一索引 uk_config_key
+     */
+    @Autowired
+    private SoftDeleteCleanHelper softDeleteCleanHelper;
 
     // endregion
 
@@ -164,6 +172,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         SystemConfig existing = this.baseMapper.selectOne(
                 new QueryWrapper<SystemConfig>().eq("config_key", key).last("LIMIT 1"));
         if (existing == null) {
+            // 清理同 config_key 的软删除记录（物理删除，释放唯一索引 uk_config_key，允许复用键名）
+            softDeleteCleanHelper.cleanByUniqueField(baseMapper, "config_key", key);
+
             SystemConfig config = new SystemConfig();
             config.setConfigKey(key);
             config.setConfigValue(value);

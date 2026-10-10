@@ -163,6 +163,9 @@ public class EquipmentController extends BaseCrudController<Equipment, Equipment
             throw new RuntimeException("固定资产编号已存在");
         }
 
+        // 清理已软删除的相同固定资产编号记录（释放唯一键 uk_fixed_asset_code）
+        equipmentService.cleanSoftDeletedByFixedAssetCode(equipment.getFixedAssetCode());
+
         equipment.setEquipmentId(id);
         equipmentService.updateById(equipment);
         return equipment;

@@ -3,6 +3,7 @@ package com.tonghui.erp.Service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.tonghui.erp.Common.utils.SoftDeleteCleanHelper;
 import com.tonghui.erp.Data.Entity.PersonnelFile;
 import com.tonghui.erp.Data.Entity.PersonnelCertificate;
 import com.tonghui.erp.Data.mapper.PersonnelFileMapper;
@@ -39,6 +40,10 @@ public class PersonnelFileServiceImpl extends ServiceImpl<PersonnelFileMapper, P
     /** 人员证书服务，用于查询人员关联的证书信息 */
     @Autowired
     private PersonnelCertificateService personnelCertificateService;
+
+    /** 软删除统一清理工具，用于物理清理同唯一字段的软删除记录以释放唯一索引 */
+    @Autowired
+    private SoftDeleteCleanHelper softDeleteCleanHelper;
 
     // endregion
 
@@ -185,6 +190,49 @@ public class PersonnelFileServiceImpl extends ServiceImpl<PersonnelFileMapper, P
         result.setPageIndex(pageNum);
         result.setPageSize(pageSize);
         return result;
+    }
+
+    // endregion
+
+    // region 唯一性校验与软删除清理
+    // ===================================
+    // 唯一性校验与软删除清理
+    // ===================================
+
+    /**
+     * 根据员工工号查询未删除的人员档案
+     * <p>MyBatis-Plus 全局软删除会自动过滤 is_deleted=1 的记录，因此只返回活动记录</p>
+     *
+     * @param employeeNo 员工工号
+     * @return 人员档案实体，不存在返回null
+     */
+    @Override
+    public PersonnelFile getByEmployeeNo(String employeeNo) {
+        QueryWrapper<PersonnelFile> wrapper = new QueryWrapper<>();
+        wrapper.eq("employee_no", employeeNo);
+        return getOne(wrapper, false);
+    }
+
+    /**
+     * 清理指定员工工号下已被软删除的记录（物理删除，释放唯一索引 uk_employee_no）
+     *
+     * @param employeeNo 员工工号
+     * @return 清理的记录数
+     */
+    @Override
+    public int cleanSoftDeletedByEmployeeNo(String employeeNo) {
+        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "employee_no", employeeNo);
+    }
+
+    /**
+     * 清理指定用户ID下已被软删除的记录（物理删除，释放唯一索引 uk_user_id）
+     *
+     * @param userId 用户ID
+     * @return 清理的记录数
+     */
+    @Override
+    public int cleanSoftDeletedByUserId(Long userId) {
+        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "user_id", userId);
     }
 
     // endregion

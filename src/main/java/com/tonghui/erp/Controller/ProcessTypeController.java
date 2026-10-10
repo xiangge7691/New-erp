@@ -116,6 +116,10 @@ public class ProcessTypeController extends BaseCrudController<ProcessType, Proce
         if (processTypeService.getByCode(processType.getProcessCode()) != null) {
             throw new RuntimeException("工序类型编码已存在");
         }
+        // 检查名称是否已存在（唯一索引 uk_process_name）
+        if (processTypeService.getByName(processType.getProcessName()) != null) {
+            throw new RuntimeException("工序类型名称已存在");
+        }
 
         // 清理已软删除的相同编码记录（避免唯一键冲突）
         if (processType.getProcessCode() != null && !processType.getProcessCode().isEmpty()) {
@@ -160,6 +164,19 @@ public class ProcessTypeController extends BaseCrudController<ProcessType, Proce
         ProcessType byCode = processTypeService.getByCode(processType.getProcessCode());
         if (byCode != null && !byCode.getProcessId().equals(id)) {
             throw new RuntimeException("工序类型编码已存在");
+        }
+        // 检查名称是否被其他记录使用（唯一索引 uk_process_name）
+        ProcessType byName = processTypeService.getByName(processType.getProcessName());
+        if (byName != null && !byName.getProcessId().equals(id)) {
+            throw new RuntimeException("工序类型名称已存在");
+        }
+
+        // 清理已软删除的相同编码/名称记录（释放唯一键 uk_process_code / uk_process_name）
+        if (processType.getProcessCode() != null && !processType.getProcessCode().isEmpty()) {
+            processTypeService.cleanSoftDeletedByProcessCode(processType.getProcessCode());
+        }
+        if (processType.getProcessName() != null && !processType.getProcessName().isEmpty()) {
+            processTypeService.cleanSoftDeletedByProcessName(processType.getProcessName());
         }
 
         processType.setProcessId(id);

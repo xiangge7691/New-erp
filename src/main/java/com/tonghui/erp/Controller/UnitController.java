@@ -78,6 +78,9 @@ public class UnitController extends BaseCrudController<Unit, Unit, Long> {
         // 清理已软删除的相同单位名称记录（避免唯一键冲突）
         unitService.cleanSoftDeletedByUnitName(unit.getUnitName());
 
+        // 校验单位符号唯一性（数据库唯一索引建在 symbol 列上）
+        checkUnitSymbolUnique(unit.getSymbol(), null);
+
         // 添加计量单位到数据库
         boolean result = unitService.save(unit);
         
@@ -98,6 +101,12 @@ public class UnitController extends BaseCrudController<Unit, Unit, Long> {
             throw new RuntimeException("计量单位名称已存在");
         }
 
+        // 清理已软删除的相同单位名称记录（释放唯一键，允许改回已删除的名称）
+        unitService.cleanSoftDeletedByUnitName(unit.getUnitName());
+
+        // 校验单位符号唯一性（数据库唯一索引建在 symbol 列上，排除自身）
+        checkUnitSymbolUnique(unit.getSymbol(), id);
+
         // 更新计量单位信息
         unit.setUnitId(id);
 
@@ -115,6 +124,31 @@ public class UnitController extends BaseCrudController<Unit, Unit, Long> {
     protected boolean doDelete(Long id) {
         // 删除计量单位
         return unitService.removeById(id);
+    }
+
+    /**
+     * 校验计量单位符号唯一性
+     * <p>
+     * 规则：活动记录已占用同符号时报错；同符号的软删除记录会被物理清理（释放唯一索引）。
+     * 符号为空时不做限制（唯一索引允许多个NULL）。
+     * </p>
+     *
+     * @param symbol    待校验的单位符号
+     * @param excludeId 排除的单位ID（新增时传null，修改时传当前单位ID）
+     */
+    private void checkUnitSymbolUnique(String symbol, Long excludeId) {
+        if (symbol == null || symbol.isBlank()) {
+            return;
+        }
+
+        // 查询活动记录中是否已占用该符号
+        Unit sameSymbolUnit = unitService.getBySymbol(symbol);
+        if (sameSymbolUnit != null && !sameSymbolUnit.getUnitId().equals(excludeId)) {
+            throw new RuntimeException("计量单位符号已存在");
+        }
+
+        // 清理同符号的软删除记录（物理删除，释放唯一索引）
+        unitService.cleanSoftDeletedBySymbol(symbol);
     }
     
     // endregion

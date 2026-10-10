@@ -174,6 +174,23 @@ public class RoomInfoServiceImpl extends ServiceImpl<RoomInfoMapper, RoomInfo>
     }
 
     /**
+     * 根据房间编码精确查询
+     *
+     * @param roomCode 房间编码
+     * @return 查询到的房间，不存在则返回 null
+     */
+    @Override
+    public RoomInfo getByCode(String roomCode) {
+        if (roomCode == null || roomCode.isEmpty()) {
+            return null;
+        }
+
+        return this.lambdaQuery()
+                .eq(RoomInfo::getRoomCode, roomCode)
+                .one();
+    }
+
+    /**
      * 搜索房间（带子表）
      */
     @Override

@@ -168,6 +168,9 @@ public class ApprovalWorkflowController extends BaseController {
     @PostMapping
     public ApiResponse<ApprovalWorkflow> createWorkflow(@RequestBody ApprovalWorkflow workflow) {
         try {
+            // 流程类型唯一性校验（含软删除记录清理）
+            approvalWorkflowService.checkWorkflowTypeUnique(workflow.getWorkflowType(), null);
+
             boolean saved = approvalWorkflowService.save(workflow);
             if (saved) {
                 return success(workflow, "审批流程创建成功");
@@ -206,6 +209,9 @@ public class ApprovalWorkflowController extends BaseController {
     @PutMapping("/{id}")
     public ApiResponse<ApprovalWorkflow> updateWorkflow(@PathVariable Long id, @RequestBody ApprovalWorkflow workflow) {
         try {
+            // 流程类型唯一性校验（排除自身，含软删除记录清理）
+            approvalWorkflowService.checkWorkflowTypeUnique(workflow.getWorkflowType(), id);
+
             workflow.setId(id);
             boolean updated = approvalWorkflowService.updateById(workflow);
             if (updated) {

@@ -127,6 +127,7 @@ softDeleteCleanHelper.cleanByUniqueField(baseMapper, "unique_field", uniqueValue
 // 场景：删除前物理删除子表外键引用（避免外键约束冲突）
 softDeleteCleanHelper.cleanChildRecords(childMapper, "foreign_key", parentId);
 ```
+> **实现说明（勿改回 MP 的 `delete(wrapper)`）**：全局软删除开启后，`BaseMapper.delete(wrapper)` 会被 MyBatis-Plus 改写为 `UPDATE 表 SET is_deleted=1 WHERE is_deleted=0 AND (wrapper条件)`。若 wrapper 中再指定 `is_deleted=1` 则条件互斥，**永远命中 0 行（无效操作）**。因此该工具类内部通过 `JdbcTemplate` 执行原生 `DELETE`（表名由 Mapper 泛型反射 + `TableInfoHelper` 解析）绕过逻辑删除拦截器。自定义物理删除优先使用各 Mapper 上已有的 `@Delete` 原生方法。
 
 #### 3. PagedResult — 分页查询工厂方法
 ```java
@@ -183,14 +184,23 @@ return CodeUniqueChecker.isCodeUnique(code, excludeId, baseMapper::countByCodeIn
 @Select("SELECT COUNT(*) FROM table_name WHERE code = #{code} AND id != #{excludeId}")
 Long countByCodeIncludeDeleted(@Param("code") String code, @Param("excludeId") Long excludeId);
 
-// ✅ 推荐：使用 SoftDeleteCleanHelper 清理冲突记录
+// ✅ 推荐：使用 SoftDeleteCleanHelper 清理冲突记录（基础数据允许复用编码）
 softDeleteCleanHelper.cleanByUniqueField(baseMapper, "unique_field", uniqueValue);
 ```
 
-**涉及的表**（有唯一索引 + 软删除）：
-- `work_order`（`uk_work_order_code`）
-- `purchase_plan`（`uk_plan_code`）
-- 其他有 `is_deleted` + UNIQUE KEY 的表同理
+**编码复用语义约定（混合语义，勿混用）**：
+| 类型 | 语义 | 实现方式 | 适用模块举例 |
+|------|------|---------|-------------|
+| 基础数据（部门/角色/用户/岗位/房间/工序类型/设备/单位/人员档案/供应商/审批流程等） | **允许复用**：物理清掉已软删的同值记录后再保存 | `SoftDeleteCleanHelper.cleanByUniqueField` + 活动记录判重（MP 查询） | `position_code`、`role_name`、`room_code`、`symbol`、`employee_no` |
+| 业务编码/单号（客户/单据号/质检单据等） | **拒绝复用**：已软删的编码仍视为占用，返回"已存在" | `CodeUniqueChecker` + `countByCodeIncludeDeleted` | `customer_code`、`duty_code`、`sales_order_code`、`plan_number` |
+
+> ⚠️ **致命坑**：开启逻辑删除后 `mapper.delete(wrapper)` 会被改写成 `UPDATE ... WHERE is_deleted=0 AND (wrapper)`，在 wrapper 中加 `is_deleted=1` 条件即互斥恒 0 行。物理删除**必须**使用原生 `@Delete` SQL 或 `SoftDeleteCleanHelper`。
+
+**涉及的表**（有唯一索引 + 软删除，已按 `information_schema` 核实）：
+- 单号类：`work_order`(`uk_work_order_code`)、`purchase_plan`(`uk_plan_code`)、`sales_order`(`uk_sales_order_code`)、`acceptance_order`(`uk_acceptance_code`)、`check_order`(`uk_check_no`)、`stock_in`(`uk_stock_in_code`)、`stock_out`(`uk_stock_out_code`)、`material_requisition_slip`(`uk_slip_code`)、`transfer_order`(`uk_transfer_no`)、`return_order`(`uk_return_no`)、`training_record`(`uk_training_no`)、`verification_record`(`uk_verification_no`)、`production_plan`(`plan_number`)
+- 质检类：`inspection_plan`(`uk_plan_code`)、`inspection_record`(`uk_inspection_code`)、`inspection_request`(`uk_inspection_code`)、`release_review`(`uk_release_code`)、`retained_sample`(`uk_retained_code`)、`sampling_record`(`uk_sampling_code`)
+- 基础数据：`position`(`uk_position_code`)、`role`(`uk_role_name`)、`user`(`uk_user_account`)、`room_info`(`uk_room_code`/`uk_room_name`)、`process_type`(`uk_process_code`/`uk_process_name`)、`equipment`(`uk_fixed_asset_code`)、`permission`(`uk_perm_key`)、`unit`(**`symbol`**，注意不是 `unit_name`)、`production_unit`(`uk_prod_unit_code`)、`personnel_file`(`uk_employee_no`/`uk_user_id`)、`purchase_suppliers`(`supplier_number`)、`material`(`material_code`)、`preparation`(`uk_preparation_code`)、`customer`(`uk_customer_code`)、`duty`(`uk_duty_code`)、`system_config`(`uk_config_key`)、`approval_workflow`(`uniq_workflow_type`)
+- 关联表：`role_perm`(`uk_role_perm`)、`user_role`(`uk_user_role`)、`user_department`(`uk_user_dept`)、`preparation_formula`(`uk_formula`)
 
 **额外建议**：自动生成编号的方法中，应加入 `DuplicateKeyException` 重试机制，防御并发场景下的竞争问题。
 

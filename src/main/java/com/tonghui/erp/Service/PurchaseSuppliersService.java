@@ -128,4 +128,19 @@ public interface PurchaseSuppliersService extends IService<PurchaseSuppliers> {
     PagedResult<PurchaseSuppliersWithDetailsDto> searchWithDetails(PurchaseSuppliers purchaseSuppliers, String keyword, int pageNum, int pageSize);
 
     // endregion
+
+    // region 唯一性校验与软删除清理
+    // ===================================
+    // 唯一性校验与软删除清理
+    // ===================================
+
+    /**
+     * 清理指定供应商编号下已被软删除的记录（物理删除，释放唯一索引 supplier_number）
+     *
+     * @param supplierNumber 供应商编号
+     * @return 清理的记录数
+     */
+    int cleanSoftDeletedBySupplierNumber(String supplierNumber);
+
+    // endregion
 }

@@ -137,4 +137,32 @@ public interface ProductionPlanService extends IService<ProductionPlan> {
      * @return 是否作废成功
      */
     boolean voidProductionPlan(Integer planId);
+
+    // region 唯一性校验
+    // ===================================
+    // 唯一性校验
+    // ===================================
+
+    /**
+     * 校验计划编号唯一性（业务单号拒绝复用语义）
+     * <p>计数查询绕过全局软删除过滤（含 is_deleted=1 的行），与数据库唯一索引 plan_number 语义一致</p>
+     *
+     * @param planNumber 计划编号
+     * @param excludeId  排除的计划ID（新增时传null，修改时传当前计划ID）
+     * @return 唯一返回true，否则返回false
+     */
+    boolean isPlanNumberUnique(String planNumber, Integer excludeId);
+
+    /**
+     * 自动生成计划编号
+     * <p>
+     * 规则：Plan + 当天日期(yyyyMMdd) + 4位自增序号（如 Plan202610100001）。
+     * 取号查询为原生SQL，包含已软删除的记录，避免复用已删单号导致唯一索引冲突
+     * </p>
+     *
+     * @return 计划编号
+     */
+    String generatePlanNumber();
+
+    // endregion
 }

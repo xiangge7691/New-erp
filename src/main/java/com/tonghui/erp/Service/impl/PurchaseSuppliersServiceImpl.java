@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Purchase.PurchaseSuppliersWithDetailsDto;
+import com.tonghui.erp.Common.utils.SoftDeleteCleanHelper;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
 import com.tonghui.erp.Data.Entity.PurchaseSuppliers;
 import com.tonghui.erp.Data.Entity.StockIn;
@@ -47,6 +48,49 @@ public class PurchaseSuppliersServiceImpl extends ServiceImpl<PurchaseSuppliersM
     /** 入库单数据访问层，用于关联查询供应商关联的入库单 */
     @Autowired
     private StockInMapper stockInMapper;
+
+    /** 软删除统一清理工具 */
+    @Autowired
+    private SoftDeleteCleanHelper softDeleteCleanHelper;
+
+    // endregion
+
+    // region 唯一性校验与软删除清理
+    // ===================================
+    // 唯一性校验与软删除清理
+    // ===================================
+
+    /**
+     * 清理指定供应商编号下已被软删除的记录（物理删除，释放唯一索引 supplier_number）
+     *
+     * @param supplierNumber 供应商编号
+     * @return 清理的记录数
+     */
+    @Override
+    public int cleanSoftDeletedBySupplierNumber(String supplierNumber) {
+        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "supplier_number", supplierNumber);
+    }
+
+    /**
+     * 校验供应商编号唯一性（活动记录重复则报错，同编号的软删除记录被物理清理释放唯一索引）
+     *
+     * @param supplierNumber 供应商编号
+     * @param excludeId      排除的供应商ID（新增时传null，修改时传当前供应商ID）
+     */
+    private void checkSupplierNumberUnique(String supplierNumber, Long excludeId) {
+        if (supplierNumber == null || supplierNumber.isBlank()) {
+            return;
+        }
+
+        // 查询活动记录中是否已占用该编号
+        PurchaseSuppliers sameNumber = getPurchaseSupplierByNumber(supplierNumber);
+        if (sameNumber != null && !sameNumber.getId().equals(excludeId)) {
+            throw new RuntimeException("供应商编号已存在");
+        }
+
+        // 清理同编号的软删除记录（物理删除，释放唯一索引）
+        cleanSoftDeletedBySupplierNumber(supplierNumber);
+    }
 
     // endregion
 
@@ -91,6 +135,8 @@ public class PurchaseSuppliersServiceImpl extends ServiceImpl<PurchaseSuppliersM
     @Override
     @Transactional
     public boolean addPurchaseSupplier(PurchaseSuppliers purchaseSuppliers) {
+        // 供应商编号唯一性校验（含软删除记录清理）
+        checkSupplierNumberUnique(purchaseSuppliers.getSupplierNumber(), null);
         return this.save(purchaseSuppliers);
     }
 
@@ -103,6 +149,8 @@ public class PurchaseSuppliersServiceImpl extends ServiceImpl<PurchaseSuppliersM
     @Override
     @Transactional
     public boolean updatePurchaseSupplier(PurchaseSuppliers purchaseSuppliers) {
+        // 供应商编号唯一性校验（排除自身，含软删除记录清理）
+        checkSupplierNumberUnique(purchaseSuppliers.getSupplierNumber(), purchaseSuppliers.getId());
         return this.updateById(purchaseSuppliers);
     }
 

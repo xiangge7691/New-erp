@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.PositionWithDetailsDto;
+import com.tonghui.erp.Common.utils.SoftDeleteCleanHelper;
 import com.tonghui.erp.Data.Entity.PersonnelFile;
 import com.tonghui.erp.Data.Entity.Position;
 import com.tonghui.erp.Data.mapper.PersonnelFileMapper;
@@ -38,6 +39,10 @@ public class PositionServiceImpl extends ServiceImpl<PositionMapper, Position> i
     /** 人员档案数据访问层，用于关联查询岗位关联的人员档案 */
     @Autowired
     private PersonnelFileMapper personnelFileMapper;
+
+    /** 软删除统一清理工具，用于物理清理同编码的软删除记录以释放唯一键 */
+    @Autowired
+    private SoftDeleteCleanHelper softDeleteCleanHelper;
 
     // endregion
 
@@ -132,6 +137,39 @@ public class PositionServiceImpl extends ServiceImpl<PositionMapper, Position> i
         result.setPageIndex(pageNum);
         result.setPageSize(pageSize);
         return result;
+    }
+
+    // endregion
+
+    // region 唯一性校验与软删除清理
+    // ===================================
+    // 唯一性校验与软删除清理
+    // ===================================
+
+    /**
+     * 按岗位编码查询未删除的岗位
+     * <p>MyBatis-Plus 全局软删除会自动过滤 is_deleted=1 的记录，因此只返回活动记录</p>
+     *
+     * @param positionCode 岗位编码
+     * @return 岗位实体，不存在返回null；同编码存在多条时取第一条
+     */
+    @Override
+    public Position getByPositionCode(String positionCode) {
+        QueryWrapper<Position> wrapper = new QueryWrapper<>();
+        wrapper.eq("position_code", positionCode);
+        return getOne(wrapper, false);
+    }
+
+    /**
+     * 清理指定岗位编码下已被软删除的记录（物理删除，释放唯一键约束）
+     * <p>唯一索引 uk_position_code 对所有行生效（含软删除行），需物理清理后同编码方可复用</p>
+     *
+     * @param positionCode 岗位编码
+     * @return 清理的记录数
+     */
+    @Override
+    public int cleanSoftDeletedByPositionCode(String positionCode) {
+        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "position_code", positionCode);
     }
 
     // endregion

@@ -42,4 +42,27 @@ public interface ApprovalWorkflowService extends IService<ApprovalWorkflow> {
      * @return 包含审批节点的审批流程分页结果
      */
     PagedResult<ApprovalWorkflowWithNodesDto> searchWithDetails(int pageIndex, int pageSize);
+
+    // region 唯一性校验与软删除清理
+    // ===================================
+    // 唯一性校验与软删除清理
+    // ===================================
+
+    /**
+     * 清理指定流程类型下已被软删除的记录（物理删除，释放唯一索引 uniq_workflow_type）
+     *
+     * @param workflowType 流程类型
+     * @return 清理的记录数
+     */
+    int cleanSoftDeletedByWorkflowType(String workflowType);
+
+    /**
+     * 校验流程类型唯一性（活动记录重复则报错，同类型软删除记录被物理清理释放唯一索引）
+     *
+     * @param workflowType 流程类型
+     * @param excludeId    排除的流程ID（新增时传null，修改时传当前流程ID）
+     */
+    void checkWorkflowTypeUnique(String workflowType, Long excludeId);
+
+    // endregion
 }

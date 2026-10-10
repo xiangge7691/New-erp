@@ -93,6 +93,9 @@ public class PermissionController extends BaseCrudController<Permission, Permiss
             throw new RuntimeException("权限键已存在");
         }
 
+        // 清理已软删除的相同权限键记录（释放唯一键 uk_perm_key，允许改回已删除的权限键）
+        permissionService.cleanSoftDeletedByPermKey(permission.getPermKey());
+
         // 获取database中的原始权限信息
         Permission originalPermission = permissionService.getById(id);
         if (originalPermission == null) {

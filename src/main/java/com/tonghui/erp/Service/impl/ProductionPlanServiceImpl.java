@@ -568,4 +568,59 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
     }
 
     // endregion
+
+    // region 唯一性校验
+    // ===================================
+    // 唯一性校验
+    // ===================================
+
+    /**
+     * 校验计划编号唯一性（业务单号拒绝复用语义）
+     * <p>
+     * 计数查询绕过全局软删除过滤（含 is_deleted=1 的行），与数据库唯一索引 plan_number 语义一致：
+     * 已软删除的计划编号仍占用唯一索引，不可复用
+     * </p>
+     *
+     * @param planNumber 计划编号
+     * @param excludeId  排除的计划ID（新增时传null，修改时传当前计划ID）
+     * @return 唯一返回true，否则返回false
+     */
+    @Override
+    public boolean isPlanNumberUnique(String planNumber, Integer excludeId) {
+        Long count = baseMapper.countByPlanNumberIncludeDeleted(planNumber, excludeId);
+        return count == null || count == 0;
+    }
+
+    /**
+     * 自动生成计划编号
+     * <p>
+     * 规则：Plan + 当天日期(yyyyMMdd) + 4位自增序号（如 Plan202610100001）。
+     * 取号查询为原生SQL（selectMaxPlanNumberByPrefix），包含已软删除的记录，
+     * 避免复用已删单号导致唯一索引 plan_number 冲突
+     * </p>
+     *
+     * @return 计划编号
+     */
+    @Override
+    public String generatePlanNumber() {
+        String dateStr = LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String prefix = "Plan" + dateStr;
+
+        // 原生SQL取号（绕过软删除过滤，能看到已软删除的计划编号）
+        String latestNumber = baseMapper.selectMaxPlanNumberByPrefix(prefix);
+
+        int sequence = 1;
+        if (latestNumber != null && !latestNumber.isEmpty()) {
+            try {
+                String sequenceStr = latestNumber.substring(Math.max(0, latestNumber.length() - 4));
+                sequence = Integer.parseInt(sequenceStr) + 1;
+            } catch (Exception e) {
+                sequence = 1;
+            }
+        }
+
+        return prefix + String.format("%04d", sequence);
+    }
+
+    // endregion
 }

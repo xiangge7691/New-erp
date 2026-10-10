@@ -92,6 +92,9 @@ public class DepartmentController extends BaseCrudController<Department, Departm
             throw new RuntimeException("部门名已存在");
         }
 
+        // 清理已软删除的相同部门名记录（释放唯一键，允许改回已删除的部门名）
+        departmentService.cleanSoftDeletedByDepartmentName(department.getDepartmentName());
+
         // 更新部门信息
         department.setDepartmentId(id);
 

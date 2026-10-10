@@ -48,6 +48,15 @@ public interface RoomInfoService extends IService<RoomInfo> {
     RoomInfo getByName(String roomName);
 
     /**
+     * 根据房间编码精确查询
+     * <p>数据库唯一索引 uk_room_code 对所有行生效（含软删除行）</p>
+     *
+     * @param roomCode 房间编码
+     * @return 查询到的房间，不存在则返回 null
+     */
+    RoomInfo getByCode(String roomCode);
+
+    /**
      * 搜索房间（带子表）
      *
      * @param roomName 房间名称（模糊匹配），为空时查询所有

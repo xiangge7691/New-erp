@@ -140,6 +140,9 @@ public class UserController extends BaseCrudController<UserCreateDto, UserDto, L
             throw new RuntimeException("用户名已存在");
         }
 
+        // 清理已软删除的相同用户名记录（释放唯一键 uk_user_account，允许改回已删除的用户名）
+        userService.cleanSoftDeletedByUserAccount(userUpdateDto.getUserName());
+
         // 创建更新包装器，只更新明确提供的字段
         User userToUpdate = new User();
         userToUpdate.setUserId(id);

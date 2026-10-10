@@ -230,6 +230,10 @@ public class PersonnelFileController extends BaseController {
 
     /**
      * 新增人员档案
+     * <p>
+     * 会校验员工工号（uk_employee_no）与用户ID（uk_user_id）唯一性：
+     * 活动记录已占用时返回错误；同值的软删除记录会被物理清理（释放唯一索引，允许复用）
+     * </p>
      *
      * 示例请求：
      * POST /api/personnelFile
@@ -248,6 +252,9 @@ public class PersonnelFileController extends BaseController {
      */
     @PostMapping
     public ApiResponse<PersonnelFile> create(@RequestBody PersonnelFile personnelFile) {
+        // 员工工号/用户ID唯一性校验（含软删除记录清理）
+        checkPersonnelUnique(personnelFile, null);
+
         personnelFile.setIsDeleted(0);
         personnelFile.setVersion(0);
         personnelFileService.save(personnelFile);
@@ -256,6 +263,10 @@ public class PersonnelFileController extends BaseController {
 
     /**
      * 修改人员档案
+     * <p>
+     * 会校验员工工号（uk_employee_no）与用户ID（uk_user_id）唯一性（排除自身）：
+     * 其他活动记录已占用时返回错误；同值的软删除记录会被物理清理（释放唯一索引）
+     * </p>
      *
      * 示例请求：
      * PUT /api/personnelFile/1
@@ -275,6 +286,10 @@ public class PersonnelFileController extends BaseController {
         if (existing == null) {
             return error("人员档案不存在");
         }
+
+        // 员工工号/用户ID唯一性校验（排除自身）
+        checkPersonnelUnique(personnelFile, id);
+
         personnelFile.setPersonnelFileId(id);
         personnelFileService.updateById(personnelFile);
         return success(personnelFile, "修改成功");
@@ -293,6 +308,38 @@ public class PersonnelFileController extends BaseController {
     public ApiResponse<Void> delete(@PathVariable Long id) {
         personnelFileService.removeById(id);
         return success(null, "删除成功");
+    }
+
+    /**
+     * 校验人员档案唯一字段（员工工号、用户ID）
+     * <p>
+     * 规则：活动记录已占用时抛出业务异常；同值的软删除记录会被物理清理（释放唯一索引）。
+     * 值为空时不做限制。
+     * </p>
+     *
+     * @param personnelFile 待保存的人员档案实体
+     * @param excludeId     排除的人员档案ID（新增时传null，修改时传当前档案ID）
+     */
+    private void checkPersonnelUnique(PersonnelFile personnelFile, Long excludeId) {
+        // 员工工号唯一性（唯一索引 uk_employee_no）
+        String employeeNo = personnelFile.getEmployeeNo();
+        if (employeeNo != null && !employeeNo.isBlank()) {
+            PersonnelFile sameNoFile = personnelFileService.getByEmployeeNo(employeeNo);
+            if (sameNoFile != null && !sameNoFile.getPersonnelFileId().equals(excludeId)) {
+                throw new RuntimeException("员工工号已存在");
+            }
+            personnelFileService.cleanSoftDeletedByEmployeeNo(employeeNo);
+        }
+
+        // 用户ID唯一性（唯一索引 uk_user_id，一个用户仅允许关联一份人员档案）
+        Long userId = personnelFile.getUserId();
+        if (userId != null) {
+            PersonnelFile sameUserFile = personnelFileService.findByUserId(userId);
+            if (sameUserFile != null && !sameUserFile.getPersonnelFileId().equals(excludeId)) {
+                throw new RuntimeException("该用户已关联人员档案");
+            }
+            personnelFileService.cleanSoftDeletedByUserId(userId);
+        }
     }
 
     // endregion

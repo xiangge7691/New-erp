@@ -86,6 +86,17 @@ public class VerificationRecordServiceImpl extends ServiceImpl<VerificationRecor
     @Override
     @Transactional
     public boolean updateVerificationRecord(VerificationRecord verificationRecord) {
+        // 验证编号唯一性校验（排除自身，含软删除记录清理，释放唯一索引 uk_verification_no）
+        if (verificationRecord.getVerificationNo() != null && !verificationRecord.getVerificationNo().isEmpty()) {
+            QueryWrapper<VerificationRecord> wrapper = new QueryWrapper<>();
+            wrapper.eq("verification_no", verificationRecord.getVerificationNo());
+            VerificationRecord existing = this.getOne(wrapper, false);
+            if (existing != null && !existing.getId().equals(verificationRecord.getId())) {
+                throw new RuntimeException("验证编号已存在：" + verificationRecord.getVerificationNo());
+            }
+            cleanSoftDeletedByVerificationNo(verificationRecord.getVerificationNo());
+        }
+
         return this.updateById(verificationRecord);
     }
 

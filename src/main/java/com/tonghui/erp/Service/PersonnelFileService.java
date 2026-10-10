@@ -42,4 +42,36 @@ public interface PersonnelFileService extends IService<PersonnelFile> {
     PagedResult<PersonnelFileWithDetailsDto> searchWithDetails(PersonnelFile personnelFile, int pageNum, int pageSize);
 
     // endregion
+
+    // region 唯一性校验与软删除清理
+    // ===================================
+    // 唯一性校验与软删除清理
+    // ===================================
+
+    /**
+     * 根据员工工号查询未删除的人员档案
+     * <p>数据库唯一索引 uk_employee_no 对所有行生效（含软删除行）</p>
+     *
+     * @param employeeNo 员工工号
+     * @return 人员档案实体，不存在返回null
+     */
+    PersonnelFile getByEmployeeNo(String employeeNo);
+
+    /**
+     * 清理指定员工工号下已被软删除的记录（物理删除，释放唯一索引 uk_employee_no）
+     *
+     * @param employeeNo 员工工号
+     * @return 清理的记录数
+     */
+    int cleanSoftDeletedByEmployeeNo(String employeeNo);
+
+    /**
+     * 清理指定用户ID下已被软删除的记录（物理删除，释放唯一索引 uk_user_id）
+     *
+     * @param userId 用户ID
+     * @return 清理的记录数
+     */
+    int cleanSoftDeletedByUserId(Long userId);
+
+    // endregion
 }

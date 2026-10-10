@@ -89,15 +89,41 @@ public class MaterialServiceImpl implements MaterialService {
      */
     @Override
     public void addMaterial(Material material) {
-        // 清理已软删除的相同编码记录（避免唯一键冲突）
-        if (material.getMaterialCode() != null && !material.getMaterialCode().isEmpty()) {
-            materialMapper.physicalDeleteByMaterialCode(material.getMaterialCode());
-        }
+        // 物料编码唯一性校验（活动记录重复则报错，同编码软删除记录被物理清理）
+        checkMaterialCodeUnique(material.getMaterialCode(), null);
 
         materialMapper.insert(material);
 
         // 为每个生产单位创建库存基础记录
         createStockRecordsForAllProdUnits(material);
+    }
+
+    /**
+     * 校验物料编码唯一性
+     * <p>
+     * 规则：活动记录（is_deleted=0）已占用同编码时报错；
+     * 同编码的软删除记录会被物理清理，以释放数据库唯一索引 material_code（允许复用编码）。
+     * 编码为空时不做限制。
+     * </p>
+     *
+     * @param materialCode 待校验的物料编码
+     * @param excludeId    排除的物料ID（新增时传null，修改时传当前物料ID）
+     */
+    private void checkMaterialCodeUnique(String materialCode, Long excludeId) {
+        if (materialCode == null || materialCode.isEmpty()) {
+            return;
+        }
+
+        // 查询活动记录中是否已占用该编码
+        QueryWrapper<Material> wrapper = new QueryWrapper<>();
+        wrapper.eq("material_code", materialCode);
+        Material sameCodeMaterial = materialMapper.selectOne(wrapper);
+        if (sameCodeMaterial != null && !sameCodeMaterial.getMaterialId().equals(excludeId)) {
+            throw new RuntimeException("物料编码已存在");
+        }
+
+        // 清理同编码的软删除记录（物理删除，释放唯一索引）
+        materialMapper.physicalDeleteByMaterialCode(materialCode);
     }
 
     /**
@@ -203,6 +229,9 @@ public class MaterialServiceImpl implements MaterialService {
      */
     @Override
     public void updateMaterial(Material material) {
+        // 物料编码唯一性校验（排除自身，含软删除记录清理）
+        checkMaterialCodeUnique(material.getMaterialCode(), material.getMaterialId());
+
         materialMapper.updateById(material);
     }
 

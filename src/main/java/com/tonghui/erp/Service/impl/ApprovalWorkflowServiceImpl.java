@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.Approval.ApprovalWorkflowWithNodesDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.utils.SoftDeleteCleanHelper;
 import com.tonghui.erp.Data.Entity.ApprovalNode;
 import com.tonghui.erp.Data.Entity.ApprovalWorkflow;
 import com.tonghui.erp.Data.mapper.ApprovalNodeMapper;
@@ -38,6 +39,50 @@ public class ApprovalWorkflowServiceImpl extends ServiceImpl<ApprovalWorkflowMap
      */
     @Autowired
     private ApprovalNodeMapper approvalNodeMapper;
+
+    /** 软删除统一清理工具 */
+    @Autowired
+    private SoftDeleteCleanHelper softDeleteCleanHelper;
+
+    // endregion
+
+    // region 唯一性校验与软删除清理
+    // ===================================
+    // 唯一性校验与软删除清理
+    // ===================================
+
+    /**
+     * 清理指定流程类型下已被软删除的记录（物理删除，释放唯一索引 uniq_workflow_type）
+     *
+     * @param workflowType 流程类型
+     * @return 清理的记录数
+     */
+    @Override
+    public int cleanSoftDeletedByWorkflowType(String workflowType) {
+        return softDeleteCleanHelper.cleanByUniqueField(baseMapper, "workflow_type", workflowType);
+    }
+
+    /**
+     * 校验流程类型唯一性（活动记录重复则报错，同类型软删除记录被物理清理释放唯一索引）
+     *
+     * @param workflowType 流程类型
+     * @param excludeId    排除的流程ID（新增时传null，修改时传当前流程ID）
+     */
+    @Override
+    public void checkWorkflowTypeUnique(String workflowType, Long excludeId) {
+        if (workflowType == null || workflowType.isBlank()) {
+            return;
+        }
+
+        // 查询活动记录中是否已占用该流程类型
+        ApprovalWorkflow sameType = getByWorkflowType(workflowType);
+        if (sameType != null && !sameType.getId().equals(excludeId)) {
+            throw new RuntimeException("审批流程类型已存在");
+        }
+
+        // 清理同类型的软删除记录（物理删除，释放唯一索引）
+        cleanSoftDeletedByWorkflowType(workflowType);
+    }
 
     // endregion
 

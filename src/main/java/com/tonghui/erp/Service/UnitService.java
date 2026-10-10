@@ -35,5 +35,22 @@ public interface UnitService extends IService<Unit> {
      */
     int cleanSoftDeletedByUnitName(String unitName);
 
+    /**
+     * 根据计量单位符号查询未删除的计量单位
+     * <p>注意：数据库唯一索引建在 symbol 列上（不是 unit_name）</p>
+     *
+     * @param symbol 计量单位符号（如 kg、L）
+     * @return 计量单位实体，不存在返回null
+     */
+    Unit getBySymbol(String symbol);
+
+    /**
+     * 清理指定单位符号下已被软删除的记录（物理删除，释放唯一索引 uk symbol）
+     *
+     * @param symbol 计量单位符号
+     * @return 清理的记录数
+     */
+    int cleanSoftDeletedBySymbol(String symbol);
+
     // endregion
 }

@@ -28,6 +28,15 @@ public interface ProcessTypeService extends IService<ProcessType> {
      * @return 查询到的工序类型，不存在则返回 null
      */
     ProcessType getByCode(String processCode);
+
+    /**
+     * 根据工序类型名称精确查询
+     * <p>数据库唯一索引 uk_process_name 对所有行生效（含软删除行）</p>
+     *
+     * @param processName 工序类型名称
+     * @return 查询到的工序类型，不存在则返回 null
+     */
+    ProcessType getByName(String processName);
     
     /**
      * 获取所有启用的工序类型

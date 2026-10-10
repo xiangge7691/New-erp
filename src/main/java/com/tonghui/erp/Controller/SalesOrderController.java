@@ -12,6 +12,7 @@ import com.tonghui.erp.Service.StockOutService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -150,6 +151,15 @@ public class SalesOrderController extends BaseCrudController<SalesOrder, SalesOr
 
     @Override
     protected SalesOrder doUpdate(Long id, SalesOrder salesOrder) {
+        // 若请求体修改了单号，需校验新单号唯一性（业务单号拒绝复用，与创建路径一致）
+        if (StringUtils.hasText(salesOrder.getSalesOrderCode())) {
+            SalesOrder existing = salesOrderService.getById(id);
+            String newCode = salesOrder.getSalesOrderCode();
+            boolean codeChanged = existing == null || !newCode.equals(existing.getSalesOrderCode());
+            if (codeChanged && !salesOrderService.isCodeUnique(newCode, id)) {
+                throw new RuntimeException("成品出库单号已存在");
+            }
+        }
         salesOrder.setSalesOrderId(id);
         salesOrderService.updateById(salesOrder);
         return salesOrder;

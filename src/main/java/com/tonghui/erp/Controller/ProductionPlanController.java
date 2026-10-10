@@ -79,9 +79,13 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
 
     @Override
     protected ProductionPlan doCreate(ProductionPlan entity) {
-        // 自动生成计划编号
+        // 自动生成计划编号（原生取号，含软删除记录，避免复用已删单号）
         if (entity.getPlanNumber() == null || entity.getPlanNumber().isEmpty()) {
-            entity.setPlanNumber(generatePlanNumberInternal());
+            entity.setPlanNumber(productionPlanService.generatePlanNumber());
+        }
+        // 校验计划编号唯一性（业务单号拒绝复用，计数含软删除行）
+        if (!productionPlanService.isPlanNumberUnique(entity.getPlanNumber(), null)) {
+            throw new RuntimeException("生产计划编号已存在");
         }
 
         // 新建计划默认状态为「待生产」（未关联工单），后续由工单状态联动刷新
@@ -92,36 +96,17 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
         return entity;
     }
 
-    /**
-     * 内部生成计划编号方法
-     */
-    private String generatePlanNumberInternal() {
-        String dateStr = LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String prefix = "Plan" + dateStr;
-
-        QueryWrapper<ProductionPlan> queryWrapper = new QueryWrapper<>();
-        queryWrapper.likeRight("plan_number", prefix);
-        queryWrapper.orderByDesc("plan_number");
-        queryWrapper.last("LIMIT 1");
-
-        ProductionPlan latestPlan = productionPlanService.getOne(queryWrapper);
-
-        int sequence = 1;
-        if (latestPlan != null && latestPlan.getPlanNumber() != null) {
-            try {
-                String latestNumber = latestPlan.getPlanNumber();
-                String sequenceStr = latestNumber.substring(Math.max(0, latestNumber.length() - 4));
-                sequence = Integer.parseInt(sequenceStr) + 1;
-            } catch (Exception e) {
-                sequence = 1;
+    @Override
+    protected ProductionPlan doUpdate(Integer id, ProductionPlan entity) {
+        // 若请求体修改了计划编号，需校验新编号唯一性（业务单号拒绝复用）
+        if (entity.getPlanNumber() != null && !entity.getPlanNumber().isEmpty()) {
+            ProductionPlan existing = productionPlanService.getById(id);
+            boolean codeChanged = existing == null || !entity.getPlanNumber().equals(existing.getPlanNumber());
+            if (codeChanged && !productionPlanService.isPlanNumberUnique(entity.getPlanNumber(), id)) {
+                throw new RuntimeException("生产计划编号已存在");
             }
         }
 
-        return prefix + String.format("%04d", sequence);
-    }
-
-    @Override
-    protected ProductionPlan doUpdate(Integer id, ProductionPlan entity) {
         entity.setId(id);
         productionPlanService.updateById(entity);
         return entity;

@@ -127,6 +127,11 @@ public class RoomInfoController extends BaseCrudController<RoomInfo, RoomInfo, I
         if (roomInfoService.getByName(roomInfo.getRoomName()) != null) {
             throw new RuntimeException("房间名称已存在");
         }
+        // 检查房间编码是否已存在（唯一索引 uk_room_code）
+        if (roomInfo.getRoomCode() != null && !roomInfo.getRoomCode().isEmpty()
+                && roomInfoService.getByCode(roomInfo.getRoomCode()) != null) {
+            throw new RuntimeException("房间编码已存在");
+        }
 
         // 清理已软删除的相同名称记录（避免唯一键冲突）
         roomInfoService.cleanSoftDeletedByRoomName(roomInfo.getRoomName());
@@ -168,6 +173,19 @@ public class RoomInfoController extends BaseCrudController<RoomInfo, RoomInfo, I
         RoomInfo byName = roomInfoService.getByName(roomInfo.getRoomName());
         if (byName != null && !byName.getRoomId().equals(id)) {
             throw new RuntimeException("房间名称已存在");
+        }
+        // 检查房间编码是否被其他记录使用（唯一索引 uk_room_code）
+        if (roomInfo.getRoomCode() != null && !roomInfo.getRoomCode().isEmpty()) {
+            RoomInfo byCode = roomInfoService.getByCode(roomInfo.getRoomCode());
+            if (byCode != null && !byCode.getRoomId().equals(id)) {
+                throw new RuntimeException("房间编码已存在");
+            }
+        }
+
+        // 清理已软删除的相同房间名称/编码记录（释放唯一键 uk_room_name / uk_room_code）
+        roomInfoService.cleanSoftDeletedByRoomName(roomInfo.getRoomName());
+        if (roomInfo.getRoomCode() != null && !roomInfo.getRoomCode().isBlank()) {
+            roomInfoService.cleanSoftDeletedByRoomCode(roomInfo.getRoomCode());
         }
 
         roomInfo.setRoomId(id);
