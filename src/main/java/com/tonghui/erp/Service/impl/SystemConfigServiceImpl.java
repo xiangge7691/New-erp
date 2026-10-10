@@ -123,6 +123,29 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
                 new QueryWrapper<SystemConfig>().orderByAsc("config_group").orderByAsc("config_id"));
     }
 
+    /**
+     * 按分组与关键字搜索配置项
+     * <p>
+     * 分组为空则不限分组；关键字为空则不限关键字（两者均为空时等价于查询全部）；
+     * 关键字同时模糊匹配配置名称与配置键
+     * </p>
+     *
+     * @param group   配置分组（可选，精确匹配）
+     * @param keyword 关键字（可选，模糊匹配配置名称或配置键）
+     * @return 配置项列表
+     */
+    @Override
+    public List<SystemConfig> search(String group, String keyword) {
+        QueryWrapper<SystemConfig> wrapper = new QueryWrapper<SystemConfig>()
+                .eq(StringUtils.hasText(group), "config_group", group)
+                .and(StringUtils.hasText(keyword),
+                        w -> w.like("config_name", keyword)
+                                .or().like("config_key", keyword))
+                .orderByAsc("config_group")
+                .orderByAsc("config_id");
+        return this.baseMapper.selectList(wrapper);
+    }
+
     @Override
     public boolean isKeyUnique(String key, Long excludeId) {
         return CodeUniqueChecker.isCodeUnique(key, excludeId, baseMapper::countByConfigKeyIncludeDeleted);

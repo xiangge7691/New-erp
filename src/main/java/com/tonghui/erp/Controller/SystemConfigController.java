@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
  * ┌────┬─────────────────────────────────────────────┬────────┬──────────────────────────────────┐
  * │ #  │ 接口                                        │ 方法   │ 说明                             │
  * ├────┼─────────────────────────────────────────────┼────────┼──────────────────────────────────┤
- * │ 1  │ /api/system/config                          │ GET    │ 查询配置项列表（可按分组过滤）    │
+ * │ 1  │ /api/system/config                          │ GET    │ 查询配置项列表（分组过滤/关键字搜索）│
  * │ 2  │ /api/system/config/{key}                    │ GET    │ 根据配置键查询单个配置项          │
  * │ 3  │ /api/system/config/group/{group}            │ GET    │ 按分组查询配置项                  │
  * │ 4  │ /api/system/config/{key}                    │ PUT    │ 更新单个配置值                    │
@@ -51,20 +51,25 @@ public class SystemConfigController extends BaseController {
     // ===================================
 
     /**
-     * 查询配置项列表（可根据分组过滤）
+     * 查询配置项列表（可根据分组过滤，并按关键字搜索）
      *
      * 示例请求：
      * GET /api/system/config
      * GET /api/system/config?group=dashboard_expiry
+     * GET /api/system/config?keyword=到期
+     * GET /api/system/config?group=dashboard_expiry&keyword=库存
      *
-     * @param group 配置分组（可选）
+     * @param group   配置分组（可选，精确匹配）
+     * @param keyword 关键字（可选，模糊匹配配置名称或配置键）
      * @return ApiResponse&lt;List&lt;SystemConfigDto&gt;&gt; 配置项列表
      */
     @GetMapping
-    public ApiResponse<List<SystemConfigDto>> list(@RequestParam(required = false) String group) {
+    public ApiResponse<List<SystemConfigDto>> list(@RequestParam(required = false) String group,
+                                                   @RequestParam(required = false) String keyword) {
         try {
-            List<SystemConfig> configs = StringUtils.hasText(group)
-                    ? systemConfigService.getByGroup(group)
+            boolean filtered = StringUtils.hasText(group) || StringUtils.hasText(keyword);
+            List<SystemConfig> configs = filtered
+                    ? systemConfigService.search(group, keyword)
                     : systemConfigService.listAll();
             return success(configs.stream().map(this::toDto).collect(Collectors.toList()));
         } catch (Exception ex) {

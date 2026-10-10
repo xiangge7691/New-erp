@@ -97,6 +97,15 @@ public interface SystemConfigService extends IService<SystemConfig> {
     List<SystemConfig> listAll();
 
     /**
+     * 按分组与关键字搜索配置项
+     *
+     * @param group   配置分组（可选，精确匹配）
+     * @param keyword 关键字（可选，模糊匹配配置名称或配置键）
+     * @return 配置项列表
+     */
+    List<SystemConfig> search(String group, String keyword);
+
+    /**
      * 校验配置键是否唯一（绕过软删除）
      *
      * @param key       配置键
