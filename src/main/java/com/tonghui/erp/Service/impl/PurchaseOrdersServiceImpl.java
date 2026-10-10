@@ -690,9 +690,9 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
                 row.setProductionPlanCode(order.getProductionPlanCode());
                 row.setTitle(order.getTitle());
                 row.setPreparationName(order.getPreparationName());
+                row.setEntrustUnit(order.getUnit());
                 row.setBatchQty(order.getBatchQty());
                 row.setPrescriptionMultiple(order.getPrescriptionMultiple());
-                row.setSpec(order.getSpec());
                 row.setOrderStatus(Objects.toString(order.getStatus(), ""));
                 row.setCreatedTime(order.getCreatedTime());
 
@@ -701,6 +701,9 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
                 Material material = item.getMaterialId() != null ? materialMap.get(item.getMaterialId()) : null;
                 row.setMaterialName(material != null && StringUtils.hasText(material.getMaterialName())
                         ? material.getMaterialName() : item.getRawMaterialName());
+                row.setMaterialCategory(material != null ? material.getCategoryName() : null);
+                // 规格：取物料主数据的规格
+                row.setSpec(material != null ? material.getSpec() : null);
                 row.setUnit(item.getUnit());
                 row.setStandardDosage(item.getStandardDosage());
                 row.setPurchaseQuantity(item.getPurchaseQuantity());
@@ -753,8 +756,8 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
      */
     private void writePurchaseWorkbook(List<PurchaseExportRowDto> rows, OutputStream out) throws IOException {
         String[] headers = {
-                "采购订单编号", "生产计划编号", "工单标题", "制剂名称", "批量", "处方倍数",
-                "物料编码", "物料名称", "规格", "计量单位", "标准处方", "采购数量",
+                "采购订单编号", "生产计划编号", "工单标题", "制剂名称", "委托单位", "批量", "处方倍数",
+                "物料编码", "物料名称", "物料分类", "规格", "计量单位", "标准处方", "采购数量",
                 "单价", "总价", "标准量差值", "采购订单状态", "发票号", "供应商", "创建时间（采购时间）"
         };
 
@@ -785,26 +788,28 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
                 dataRow.createCell(1).setCellValue(Objects.toString(row.getProductionPlanCode(), ""));
                 dataRow.createCell(2).setCellValue(Objects.toString(row.getTitle(), ""));
                 dataRow.createCell(3).setCellValue(Objects.toString(row.getPreparationName(), ""));
-                setNumberCell(dataRow.createCell(4), row.getBatchQty());
-                setNumberCell(dataRow.createCell(5), row.getPrescriptionMultiple());
-                dataRow.createCell(6).setCellValue(Objects.toString(row.getMaterialCode(), ""));
-                dataRow.createCell(7).setCellValue(Objects.toString(row.getMaterialName(), ""));
-                dataRow.createCell(8).setCellValue(Objects.toString(row.getSpec(), ""));
-                dataRow.createCell(9).setCellValue(Objects.toString(row.getUnit(), ""));
-                setNumberCell(dataRow.createCell(10), row.getStandardDosage());
-                setNumberCell(dataRow.createCell(11), row.getPurchaseQuantity());
-                setMoneyCell(dataRow.createCell(12), row.getUnitPrice(), moneyStyle);
-                setMoneyCell(dataRow.createCell(13), row.getAmount(), moneyStyle);
-                setNumberCell(dataRow.createCell(14), row.getDifference());
-                dataRow.createCell(15).setCellValue(Objects.toString(row.getOrderStatus(), ""));
-                dataRow.createCell(16).setCellValue(Objects.toString(row.getInvoiceNo(), ""));
-                dataRow.createCell(17).setCellValue(Objects.toString(row.getSupplier(), ""));
-                dataRow.createCell(18).setCellValue(row.getCreatedTime() != null
+                dataRow.createCell(4).setCellValue(Objects.toString(row.getEntrustUnit(), ""));
+                setNumberCell(dataRow.createCell(5), row.getBatchQty());
+                setNumberCell(dataRow.createCell(6), row.getPrescriptionMultiple());
+                dataRow.createCell(7).setCellValue(Objects.toString(row.getMaterialCode(), ""));
+                dataRow.createCell(8).setCellValue(Objects.toString(row.getMaterialName(), ""));
+                dataRow.createCell(9).setCellValue(Objects.toString(row.getMaterialCategory(), ""));
+                dataRow.createCell(10).setCellValue(Objects.toString(row.getSpec(), ""));
+                dataRow.createCell(11).setCellValue(Objects.toString(row.getUnit(), ""));
+                setNumberCell(dataRow.createCell(12), row.getStandardDosage());
+                setNumberCell(dataRow.createCell(13), row.getPurchaseQuantity());
+                setMoneyCell(dataRow.createCell(14), row.getUnitPrice(), moneyStyle);
+                setMoneyCell(dataRow.createCell(15), row.getAmount(), moneyStyle);
+                setNumberCell(dataRow.createCell(16), row.getDifference());
+                dataRow.createCell(17).setCellValue(Objects.toString(row.getOrderStatus(), ""));
+                dataRow.createCell(18).setCellValue(Objects.toString(row.getInvoiceNo(), ""));
+                dataRow.createCell(19).setCellValue(Objects.toString(row.getSupplier(), ""));
+                dataRow.createCell(20).setCellValue(row.getCreatedTime() != null
                         ? row.getCreatedTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : "");
             }
 
             // 列宽
-            int[] widths = {22, 20, 20, 18, 12, 12, 18, 20, 18, 10, 12, 12, 12, 12, 12, 14, 18, 18, 22};
+            int[] widths = {22, 20, 20, 18, 18, 12, 12, 18, 20, 12, 18, 10, 12, 12, 12, 12, 12, 14, 18, 18, 22};
             for (int i = 0; i < widths.length; i++) {
                 sheet.setColumnWidth(i, widths[i] * 256);
             }

@@ -41,6 +41,11 @@ public class PurchaseExportRowDto {
     private String preparationName;
 
     /**
+     * 委托单位（制剂所属单位）
+     */
+    private String entrustUnit;
+
+    /**
      * 批量
      */
     private BigDecimal batchQty;
@@ -81,6 +86,11 @@ public class PurchaseExportRowDto {
      * 物料名称
      */
     private String materialName;
+
+    /**
+     * 物料分类（原料/辅料/包材）
+     */
+    private String materialCategory;
 
     /**
      * 计量单位
