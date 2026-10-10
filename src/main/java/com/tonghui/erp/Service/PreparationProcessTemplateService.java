@@ -28,9 +28,9 @@ public interface PreparationProcessTemplateService extends IService<PreparationP
 
     /**
      * 批量保存工序模版
-     * 先删除原有模版，再批量插入新模版
+     * 已有行按 templateId 原地更新（保留ID，支持按行附件），无 ID 的行新增，移除的行被删除
      * @param preparationId 制剂ID
-     * @param templates 工序模版列表
+     * @param templates 工序模版列表（已有行须携带原 templateId）
      */
     void batchSave(Long preparationId, List<PreparationProcessTemplate> templates);
 

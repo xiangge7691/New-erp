@@ -6,6 +6,8 @@ import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 /**
  * 制剂工序模版Mapper接口
  */
@@ -13,12 +15,12 @@ import org.apache.ibatis.annotations.Param;
 public interface PreparationProcessTemplateMapper extends BaseMapper<PreparationProcessTemplate> {
 
     /**
-     * 物理删除指定制剂下的所有工序模版
-     * <p>绕过全局软删除配置，直接执行物理删除</p>
+     * 按模版ID集合物理删除（批量保存时删除被移除的行）
+     * <p>绕过全局软删除配置，直接执行物理删除，保留未被移除行的ID</p>
      *
-     * @param preparationId 制剂ID
+     * @param ids 模版ID集合
      * @return 删除的行数
      */
-    @Delete("DELETE FROM preparation_process_template WHERE preparation_id = #{preparationId}")
-    int physicalDeleteByPreparationId(@Param("preparationId") Long preparationId);
+    @Delete("<script>DELETE FROM preparation_process_template WHERE template_id IN <foreach collection='ids' item='id' open='(' separator=',' close=')'>#{id}</foreach></script>")
+    int physicalDeleteByIds(@Param("ids") List<Long> ids);
 }

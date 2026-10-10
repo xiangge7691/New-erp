@@ -400,6 +400,14 @@ public class ProductionModuleTest {
                 preparationProcessTemplateService.findByPreparationId(preparationId);
         assertEquals(1, templates.size(), "应查到1条工艺模板");
 
+        // 二次保存（携带原 templateId）：应保留原ID，确保按行附件可定位
+        template.setTemplateId(templates.get(0).getTemplateId());
+        preparationProcessTemplateService.batchSave(preparationId, List.of(template));
+        List<PreparationProcessTemplate> after =
+                preparationProcessTemplateService.findByPreparationId(preparationId);
+        assertEquals(1, after.size(), "二次保存后应仍为1条工艺模板");
+        assertEquals(template.getTemplateId(), after.get(0).getTemplateId(), "二次保存应保留原templateId");
+
         // 创建生产计划（工序记录外键依赖生产计划）
         ProductionPlan plan = new ProductionPlan();
         plan.setPlanNumber("SCJH" + System.currentTimeMillis());

@@ -7,7 +7,12 @@ import com.tonghui.erp.Data.mapper.PreparationProcessTemplateMapper;
 import com.tonghui.erp.Service.PreparationProcessTemplateService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 制剂工序模版服务实现类
@@ -49,23 +54,48 @@ public class PreparationProcessTemplateServiceImpl extends ServiceImpl<Preparati
 
     /**
      * 批量保存工序模版
-     * <p>使用事务保证数据一致性：先删除该制剂原有的工序模版，再批量插入新模版</p>
+     * <p>
+     * 使用事务保证数据一致性。为支持按行附件（file_info.business_id = template_id），
+     * 采用原地更新保留ID的策略：入参中携带 templateId 且属于该制剂的已有行执行更新（ID不变），
+     * 无 templateId 的行新增，数据库中未被入参覆盖的既有行被删除。
+     * </p>
      *
      * @param preparationId 制剂ID
-     * @param templates     工序模版列表，可为null或空列表（将清空所有模版）
+     * @param templates     工序模版列表（已有行须携带原 templateId，可为null或空列表将清空所有模版）
      */
     @Override
     @Transactional
     public void batchSave(Long preparationId, List<PreparationProcessTemplate> templates) {
-        baseMapper.physicalDeleteByPreparationId(preparationId);
-        
-        // 设置制剂ID并批量保存
+        // 查询该制剂现有模版（用于保留ID与计算被移除行）
+        Map<Long, PreparationProcessTemplate> existingMap = findByPreparationId(preparationId).stream()
+                .collect(Collectors.toMap(PreparationProcessTemplate::getTemplateId, t -> t, (a, b) -> a));
+        Set<Long> incomingIds = new HashSet<>();
+        List<PreparationProcessTemplate> toInsert = new ArrayList<>();
+
         if (templates != null && !templates.isEmpty()) {
             for (PreparationProcessTemplate template : templates) {
                 template.setPreparationId(preparationId);
-                template.setTemplateId(null);
+                // 已有行：按 ID 原地更新，保留 template_id（附件可继续按行定位）
+                if (template.getTemplateId() != null && existingMap.containsKey(template.getTemplateId())) {
+                    incomingIds.add(template.getTemplateId());
+                    updateById(template);
+                } else {
+                    // 新增行：清空 ID 交由自增生成
+                    template.setTemplateId(null);
+                    toInsert.add(template);
+                }
             }
-            saveBatch(templates);
+            if (!toInsert.isEmpty()) {
+                saveBatch(toInsert);
+            }
+        }
+
+        // 被移除的既有行物理删除（入参中不存在的行）
+        List<Long> removedIds = existingMap.keySet().stream()
+                .filter(id -> !incomingIds.contains(id))
+                .collect(Collectors.toList());
+        if (!removedIds.isEmpty()) {
+            baseMapper.physicalDeleteByIds(removedIds);
         }
     }
 

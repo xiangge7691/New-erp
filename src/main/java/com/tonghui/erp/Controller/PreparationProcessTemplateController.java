@@ -231,7 +231,8 @@ public class PreparationProcessTemplateController extends BaseController {
     /**
      * 批量保存工序模版
      * <p>
-     * 先删除指定制剂下的原有模版，再批量插入新的模版列表
+     * 已有行按 templateId 原地更新（保留ID，便于附件按行关联），无 templateId 的行新增，
+     * 数据库中未被提交的行将被删除。请确保已有行携带原 templateId，新增行不携带。
      * </p>
      *
      * 示例请求：
@@ -239,6 +240,7 @@ public class PreparationProcessTemplateController extends BaseController {
      * Content-Type: application/json
      * [
      *   {
+     *     "templateId": 10,
      *     "processTypeId": 1,
      *     "stepOrder": 1,
      *     "stepName": "配制",
@@ -255,8 +257,8 @@ public class PreparationProcessTemplateController extends BaseController {
      * ]
      *
      * @param preparationId 制剂ID（请求参数）
-     * @param templates 工序模版列表
-     * @return ApiResponse&lt;List&lt;PreparationProcessTemplate&gt;&gt; 保存后的工序模版列表
+     * @param templates 工序模版列表（已有行带 templateId，新增行不带）
+     * @return ApiResponse&lt;List&lt;PreparationProcessTemplate&gt;&gt; 保存后的工序模版列表（含自增ID）
      */
     @PostMapping("/batch")
     public ApiResponse<List<PreparationProcessTemplate>> batchSave(
