@@ -7,8 +7,9 @@ import java.time.LocalDate;
 /**
  * 制剂采购下拉选项数据传输对象
  * <p>
- * 供采购模块选择制剂使用，除基础展示字段外，附带批件过期状态标识：
- * 已过期（EXPIRED）/ 未过期（VALID）/ 未添加批件过期时间（UNSET）
+ * 供采购/生产计划选择制剂使用，除基础展示字段外，附带注册批件与委托配制批件的
+ * 期限及过期状态标识：已过期（EXPIRED）/ 未过期（VALID）/ 未添加（UNSET），
+ * 超过任意有效期不得配制的规则由前端据此判断
  * </p>
  */
 @Data
@@ -84,24 +85,44 @@ public class PreparationOptionDto {
     // ===================================
 
     /**
-     * 批件过期时间（批件有效期截止日期，可为空）
+     * 注册批件期限（注册批件有效期截止日期，可为空）
      */
     private LocalDate approvalExpiryDate;
 
     /**
-     * 过期状态标识：EXPIRED 已过期 / VALID 未过期 / UNSET 未添加
+     * 注册批件过期状态标识：EXPIRED 已过期 / VALID 未过期 / UNSET 未添加
      */
     private String expiryStatus;
 
     /**
-     * 过期状态中文描述：已过期 / 未过期 / 未添加
+     * 注册批件过期状态中文描述：已过期 / 未过期 / 未添加
      */
     private String expiryStatusText;
 
     /**
-     * 距过期剩余天数（已过期为负数；未添加批件过期时间时为空）
+     * 注册批件距过期剩余天数（已过期为负数；未添加时为空）
      */
     private Integer remainingDays;
+
+    /**
+     * 委托配制批件期限（委托配制批件有效期截止日期，可为空）
+     */
+    private LocalDate commissionedApprovalExpiryDate;
+
+    /**
+     * 委托配制批件过期状态标识：EXPIRED 已过期 / VALID 未过期 / UNSET 未添加
+     */
+    private String commissionedExpiryStatus;
+
+    /**
+     * 委托配制批件过期状态中文描述：已过期 / 未过期 / 未添加
+     */
+    private String commissionedExpiryStatusText;
+
+    /**
+     * 委托配制批件距过期剩余天数（已过期为负数；未添加时为空）
+     */
+    private Integer commissionedRemainingDays;
 
     // endregion
 }

@@ -194,11 +194,14 @@ public class PreparationController extends BaseCrudController<Preparation, Prepa
     // ===================================
 
     /**
-     * 查询制剂采购下拉选项（含批件过期状态标识）
+     * 查询制剂采购下拉选项（含注册批件与委托配制批件过期状态标识）
      * <p>
-     * 供采购模块选择制剂使用。每条记录附带过期状态标识 expiryStatus：
-     * 已过期（EXPIRED）/ 未过期（VALID）/ 未添加批件过期时间（UNSET），
-     * 同时返回中文描述 expiryStatusText 与剩余天数 remainingDays。
+     * 供采购/生产计划选择制剂使用。每条记录附带两套批件期限及过期状态：
+     * 注册批件期限 approvalExpiryDate + 状态 expiryStatus / expiryStatusText / remainingDays，
+     * 委托配制批件期限 commissionedApprovalExpiryDate + 状态 commissionedExpiryStatus /
+     * commissionedExpiryStatusText / commissionedRemainingDays。
+     * 状态取值：已过期（EXPIRED）/ 未过期（VALID）/ 未添加（UNSET）。
+     * 超过任意有效期不得配制的规则由前端据此判断，后端不拦截。
      * </p>
      *
      * 示例请求：
@@ -207,7 +210,7 @@ public class PreparationController extends BaseCrudController<Preparation, Prepa
      * GET /api/preparation/purchase-options?expiryStatus=EXPIRED
      *
      * @param keyword      关键字（模糊匹配制剂编码或制剂品名，可选）
-     * @param expiryStatus 过期状态过滤（EXPIRED 已过期 / VALID 未过期 / UNSET 未添加，可选）
+     * @param expiryStatus 过期状态过滤（按注册批件状态：EXPIRED 已过期 / VALID 未过期 / UNSET 未添加，可选）
      * @return ApiResponse&lt;List&lt;PreparationOptionDto&gt;&gt; 制剂下拉选项列表
      */
     @GetMapping("/purchase-options")

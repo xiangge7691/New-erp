@@ -102,10 +102,8 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
     @Override
     @Transactional
     public void addPreparation(Preparation preparation) {
-        // 清理已软删除的相同编码记录（避免唯一键冲突）
-        if (preparation.getPreparationCode() != null && !preparation.getPreparationCode().isEmpty()) {
-            baseMapper.physicalDeleteByPreparationCode(preparation.getPreparationCode());
-        }
+        // 制剂编码唯一性校验（活动记录重复则报错，同编码软删除记录被物理清理）
+        checkPreparationCodeUnique(preparation.getPreparationCode(), null);
 
         this.baseMapper.insert(preparation);
 
@@ -113,6 +111,34 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
         if (preparation.getStatus() != null && preparation.getStatus() == 1) {
             createStockRecordsForAllProdUnits(preparation);
         }
+    }
+
+    /**
+     * 校验制剂编码唯一性
+     * <p>
+     * 规则：活动记录（is_deleted=0）已占用同编码时报错；
+     * 同编码的软删除记录会被物理清理，以释放数据库唯一索引 uk_preparation_code（允许复用编码）。
+     * 编码为空时不做限制。
+     * </p>
+     *
+     * @param preparationCode 待校验的制剂编码
+     * @param excludeId       排除的制剂ID（新增时传null，修改时传当前制剂ID）
+     */
+    private void checkPreparationCodeUnique(String preparationCode, Long excludeId) {
+        if (preparationCode == null || preparationCode.isEmpty()) {
+            return;
+        }
+
+        // 查询活动记录中是否已占用该编码
+        QueryWrapper<Preparation> wrapper = new QueryWrapper<>();
+        wrapper.eq("preparation_code", preparationCode);
+        Preparation sameCodePreparation = baseMapper.selectOne(wrapper);
+        if (sameCodePreparation != null && !sameCodePreparation.getPreparationId().equals(excludeId)) {
+            throw new RuntimeException("制剂编码已存在");
+        }
+
+        // 清理同编码的软删除记录（物理删除，释放唯一索引）
+        baseMapper.physicalDeleteByPreparationCode(preparationCode);
     }
 
     /**
@@ -170,6 +196,9 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
      */
     @Override
     public void updatePreparation(Preparation preparation) {
+        // 制剂编码唯一性校验（排除自身，含软删除记录清理）
+        checkPreparationCodeUnique(preparation.getPreparationCode(), preparation.getPreparationId());
+
         this.baseMapper.updateById(preparation);
     }
 
@@ -239,10 +268,11 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
 
     /**
      * 查询制剂采购下拉选项
-     * <p>返回制剂基础信息及批件过期状态标识（已过期/未过期/未添加），供采购模块下拉选择使用</p>
+     * <p>返回制剂基础信息及注册批件、委托配制批件的期限与过期状态标识（已过期/未过期/未添加），
+     * 供采购/生产计划模块下拉选择使用</p>
      *
      * @param keyword      关键字（模糊匹配制剂编码或制剂品名，可选）
-     * @param expiryStatus 过期状态过滤（EXPIRED 已过期 / VALID 未过期 / UNSET 未添加，可选）
+     * @param expiryStatus 过期状态过滤（按注册批件状态：EXPIRED 已过期 / VALID 未过期 / UNSET 未添加，可选）
      * @return 制剂下拉选项集合
      */
     @Override
@@ -268,9 +298,11 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
             dto.setProducer(preparation.getProducer());
             dto.setStatus(preparation.getStatus());
             dto.setApprovalExpiryDate(preparation.getApprovalExpiryDate());
-            // 计算过期状态标识
+            dto.setCommissionedApprovalExpiryDate(preparation.getCommissionedApprovalExpiryDate());
+            // 计算注册批件与委托配制批件的过期状态标识
             applyExpiryStatus(dto, today);
-            // 过期状态过滤（内存中计算后筛选）
+            applyCommissionedExpiryStatus(dto, today);
+            // 过期状态过滤（内存中计算后筛选，按注册批件状态）
             if (StringUtils.hasText(expiryStatus)
                     && !expiryStatus.equalsIgnoreCase(dto.getExpiryStatus())) {
                 continue;
@@ -281,30 +313,60 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
     }
 
     /**
-     * 根据批件过期时间计算并填充过期状态标识
+     * 根据注册批件期限计算并填充过期状态标识
      *
      * @param dto   制剂下拉选项
      * @param today 当前日期
      */
     private void applyExpiryStatus(PreparationOptionDto dto, LocalDate today) {
-        LocalDate expiry = dto.getApprovalExpiryDate();
-        // 未添加批件过期时间
-        if (expiry == null) {
-            dto.setExpiryStatus(PreparationOptionDto.STATUS_UNSET);
-            dto.setExpiryStatusText("未添加");
-            dto.setRemainingDays(null);
-            return;
-        }
-        // 剩余天数（已过期为负数）
-        dto.setRemainingDays((int) ChronoUnit.DAYS.between(today, expiry));
-        if (expiry.isBefore(today)) {
-            dto.setExpiryStatus(PreparationOptionDto.STATUS_EXPIRED);
-            dto.setExpiryStatusText("已过期");
-        } else {
-            dto.setExpiryStatus(PreparationOptionDto.STATUS_VALID);
-            dto.setExpiryStatusText("未过期");
-        }
+        ExpiryStatus status = computeExpiryStatus(dto.getApprovalExpiryDate(), today);
+        dto.setExpiryStatus(status.status());
+        dto.setExpiryStatusText(status.statusText());
+        dto.setRemainingDays(status.remainingDays());
     }
+
+    /**
+     * 根据委托配制批件期限计算并填充过期状态标识
+     *
+     * @param dto   制剂下拉选项
+     * @param today 当前日期
+     */
+    private void applyCommissionedExpiryStatus(PreparationOptionDto dto, LocalDate today) {
+        ExpiryStatus status = computeExpiryStatus(dto.getCommissionedApprovalExpiryDate(), today);
+        dto.setCommissionedExpiryStatus(status.status());
+        dto.setCommissionedExpiryStatusText(status.statusText());
+        dto.setCommissionedRemainingDays(status.remainingDays());
+    }
+
+    /**
+     * 计算指定批件期限相对当天的过期状态
+     * <p>
+     * 期限为空视为未添加（UNSET，不视为过期）；已过期时剩余天数为负数
+     * </p>
+     *
+     * @param expiry 批件有效期截止日期（可为空）
+     * @param today  当前日期
+     * @return 过期状态计算结果（状态标识、中文描述、剩余天数）
+     */
+    private ExpiryStatus computeExpiryStatus(LocalDate expiry, LocalDate today) {
+        if (expiry == null) {
+            return new ExpiryStatus(PreparationOptionDto.STATUS_UNSET, "未添加", null);
+        }
+        int remainingDays = (int) ChronoUnit.DAYS.between(today, expiry);
+        if (expiry.isBefore(today)) {
+            return new ExpiryStatus(PreparationOptionDto.STATUS_EXPIRED, "已过期", remainingDays);
+        }
+        return new ExpiryStatus(PreparationOptionDto.STATUS_VALID, "未过期", remainingDays);
+    }
+
+    /**
+     * 批件过期状态计算结果（内部承载）
+     *
+     * @param status        过期状态标识
+     * @param statusText    过期状态中文描述
+     * @param remainingDays 距过期剩余天数（未添加时为空）
+     */
+    private record ExpiryStatus(String status, String statusText, Integer remainingDays) {}
 
     // endregion
 

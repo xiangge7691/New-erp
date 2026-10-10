@@ -80,10 +80,16 @@ public class Preparation extends AuditEntity {
     private String recordInfo;
 
     /**
-     * 批件过期时间（批件有效期截止日期，为空表示未添加）
+     * 注册批件期限（注册批件有效期截止日期，为空表示未添加）
      */
     @TableField(value = "approval_expiry_date")
     private LocalDate approvalExpiryDate;
+
+    /**
+     * 委托配制批件期限（委托配制批件有效期截止日期，为空表示未添加）
+     */
+    @TableField(value = "commissioned_approval_expiry_date")
+    private LocalDate commissionedApprovalExpiryDate;
 
     /**
      * 功能主治
