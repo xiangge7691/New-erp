@@ -16,17 +16,20 @@ import java.util.stream.Collectors;
 /**
  * 系统配置控制器
  *
- * 接口清单：
+* 接口清单：
  * ┌────┬─────────────────────────────────────────────┬────────┬──────────────────────────────────┐
  * │ #  │ 接口                                        │ 方法   │ 说明                             │
  * ├────┼─────────────────────────────────────────────┼────────┼──────────────────────────────────┤
- * │ 1  │ /api/system/config                          │ GET    │ 查询配置项列表（分组过滤/关键字搜索）│
- * │ 2  │ /api/system/config/{key}                    │ GET    │ 根据配置键查询单个配置项          │
- * │ 3  │ /api/system/config/group/{group}            │ GET    │ 按分组查询配置项                  │
- * │ 4  │ /api/system/config/{key}                    │ PUT    │ 更新单个配置值                    │
- * │ 5  │ /api/system/config/batch                    │ PUT    │ 批量更新配置值                    │
- * │ 6  │ /api/system/config/dashboard-expiry         │ GET    │ 查询首页到期提醒天数聚合配置       │
+ * │ 1  │ /api/system/config                          │ GET    │ 查询配置项列表（模块筛选/关键字）│
+ * │ 2  │ /api/system/config/{key}                    │ GET    │ 根据配置键查询单个配置项        │
+ * │ 3  │ /api/system/config/group/{group}            │ GET    │ 按业务模块查询配置项            │
+ * │ 4  │ /api/system/config/groups                   │ GET    │ 查询全部业务模块（筛选下拉）    │
+ * │ 5  │ /api/system/config/{key}                    │ PUT    │ 更新单个配置值                  │
+ * │ 6  │ /api/system/config/batch                    │ PUT    │ 批量更新配置值                  │
+ * │ 7  │ /api/system/config/dashboard-expiry         │ GET    │ 查询首页到期提醒天数聚合配置    │
  * └────┴─────────────────────────────────────────────┴────────┴──────────────────────────────────┘
+ *
+ * 业务模块：config_group 字段存业务模块（如 库存管理），配置页按其分组渲染并提供筛选
  */
 @RestController
 @RequestMapping("/api/system/config")
@@ -51,17 +54,17 @@ public class SystemConfigController extends BaseController {
     // ===================================
 
     /**
-     * 查询配置项列表（可根据分组过滤，并按关键字搜索）
+     * 查询配置项列表（可根据业务模块模糊筛选，并按关键字搜索）
      *
      * 示例请求：
      * GET /api/system/config
-     * GET /api/system/config?group=dashboard_expiry
+     * GET /api/system/config?group=库存
      * GET /api/system/config?keyword=到期
-     * GET /api/system/config?group=dashboard_expiry&keyword=库存
+     * GET /api/system/config?group=人员&keyword=证书
      *
-     * @param group   配置分组（可选，精确匹配）
+     * @param group   业务模块（可选，模糊匹配，如 库存 命中 库存管理）
      * @param keyword 关键字（可选，模糊匹配配置名称或配置键）
-     * @return ApiResponse&lt;List&lt;SystemConfigDto&gt;&gt; 配置项列表
+     * @return ApiResponse&lt;List&lt;SystemConfigDto&gt;&gt; 配置项列表（按模块升序，可直接分组渲染）
      */
     @GetMapping
     public ApiResponse<List<SystemConfigDto>> list(@RequestParam(required = false) String group,
@@ -100,12 +103,12 @@ public class SystemConfigController extends BaseController {
     }
 
     /**
-     * 按分组查询配置项
+     * 按业务模块查询配置项（模糊匹配）
      *
      * 示例请求：
-     * GET /api/system/config/group/dashboard_expiry
+     * GET /api/system/config/group/库存
      *
-     * @param group 配置分组（路径参数）
+     * @param group 业务模块（路径参数，模糊匹配，如 库存 命中 库存管理，需URL编码）
      * @return ApiResponse&lt;List&lt;SystemConfigDto&gt;&gt; 配置项列表
      */
     @GetMapping("/group/{group}")
@@ -115,6 +118,23 @@ public class SystemConfigController extends BaseController {
                     .map(this::toDto).collect(Collectors.toList()));
         } catch (Exception ex) {
             return exception(ex, "查询系统配置");
+        }
+    }
+
+    /**
+     * 查询全部业务模块（配置页分组/筛选下拉）
+     *
+     * 示例请求：
+     * GET /api/system/config/groups
+     *
+     * @return ApiResponse&lt;List&lt;String&gt;&gt; 业务模块列表（去重，按模块名升序）
+     */
+    @GetMapping("/groups")
+    public ApiResponse<List<String>> listGroups() {
+        try {
+            return success(systemConfigService.listGroups());
+        } catch (Exception ex) {
+            return exception(ex, "查询业务模块列表");
         }
     }
 

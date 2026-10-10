@@ -17,6 +17,7 @@ import org.springframework.util.StringUtils;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * 系统配置业务实现类
@@ -117,11 +118,17 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         }
     }
 
+    /**
+     * 按业务模块查询配置项（模糊匹配，传全称时等价于精确查询）
+     *
+     * @param group 业务模块（如 库存 或 库存管理）
+     * @return 配置项列表
+     */
     @Override
     public List<SystemConfig> getByGroup(String group) {
         return this.baseMapper.selectList(
                 new QueryWrapper<SystemConfig>()
-                        .eq("config_group", group)
+                        .like("config_group", group)
                         .orderByAsc("config_id"));
     }
 
@@ -132,20 +139,43 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
     }
 
     /**
-     * 按分组与关键字搜索配置项
+     * 查询全部业务模块（配置页分组/筛选下拉用）
      * <p>
-     * 分组为空则不限分组；关键字为空则不限关键字（两者均为空时等价于查询全部）；
-     * 关键字同时模糊匹配配置名称与配置键
+     * 仅取未删除记录的非空 config_group，去重后按模块名升序返回
      * </p>
      *
-     * @param group   配置分组（可选，精确匹配）
+     * @return 业务模块列表（去重，按模块名升序）
+     */
+    @Override
+    public List<String> listGroups() {
+        List<SystemConfig> rows = this.baseMapper.selectList(
+                new QueryWrapper<SystemConfig>()
+                        .select("config_group")
+                        .isNotNull("config_group")
+                        .ne("config_group", "")
+                        .orderByAsc("config_group"));
+        return rows.stream()
+                .map(SystemConfig::getConfigGroup)
+                .distinct()
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 按业务模块与关键字搜索配置项
+     * <p>
+     * 模块为空则不限模块，否则模糊匹配（传"库存"可命中"库存管理"）；
+     * 关键字为空则不限关键字（两者均为空时等价于查询全部）；
+     * 关键字同时模糊匹配配置名称与配置键；按模块、配置ID升序（便于前端按模块分组渲染）
+     * </p>
+     *
+     * @param group   业务模块（可选，模糊匹配，如 库存 或 库存管理）
      * @param keyword 关键字（可选，模糊匹配配置名称或配置键）
      * @return 配置项列表
      */
     @Override
     public List<SystemConfig> search(String group, String keyword) {
         QueryWrapper<SystemConfig> wrapper = new QueryWrapper<SystemConfig>()
-                .eq(StringUtils.hasText(group), "config_group", group)
+                .like(StringUtils.hasText(group), "config_group", group)
                 .and(StringUtils.hasText(keyword),
                         w -> w.like("config_name", keyword)
                                 .or().like("config_key", keyword))
@@ -179,7 +209,7 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
             config.setConfigKey(key);
             config.setConfigValue(value);
             config.setConfigName(key);
-            config.setConfigGroup(GROUP_DASHBOARD_EXPIRY);
+            config.setConfigGroup(GROUP_DEFAULT);
             config.setValueType("string");
             config.setStatus(1);
             config.setIsDeleted(0);

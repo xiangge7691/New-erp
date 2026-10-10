@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS `system_config` (
   `config_key`   VARCHAR(100)  NOT NULL COMMENT '配置键（唯一约束）',
   `config_value` VARCHAR(500)  DEFAULT NULL COMMENT '配置值',
   `config_name`  VARCHAR(100)  DEFAULT NULL COMMENT '配置名称（用于配置页展示）',
-  `config_group` VARCHAR(50)   DEFAULT NULL COMMENT '配置分组（如 dashboard_expiry）',
+  `config_group` VARCHAR(50)   DEFAULT NULL COMMENT '业务模块（如 库存管理），配置页按此分组/筛选',
   `value_type`   VARCHAR(20)   NOT NULL DEFAULT 'string' COMMENT '值类型：int/string/bool/json',
   `remark`       VARCHAR(500)  DEFAULT NULL COMMENT '配置说明',
   `status`       TINYINT       NOT NULL DEFAULT 1 COMMENT '状态：0停用/1启用',

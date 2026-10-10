@@ -5,7 +5,7 @@ import lombok.Data;
 /**
  * 系统配置项数据传输对象
  * <p>
- * 用于配置页展示与编辑单个配置项，包含键、值、名称、分组、值类型与说明
+ * 用于配置页展示与编辑单个配置项，包含键、值、名称、业务模块、值类型与说明
  * </p>
  */
 @Data
@@ -37,7 +37,7 @@ public class SystemConfigDto {
     private String configName;
 
     /**
-     * 配置分组（如 dashboard_expiry）
+     * 业务模块（如 库存管理），配置页按此分组与筛选
      */
     private String configGroup;
 

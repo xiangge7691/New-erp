@@ -11,7 +11,7 @@ import lombok.EqualsAndHashCode;
  * 系统配置表
  * <p>
  * 以键值对形式保存系统运行时配置（如首页到期提醒时间范围等），
- * 支持按分组管理、值类型标注，供配置页展示与编辑
+ * 支持按业务模块分组/筛选、值类型标注，供配置页展示与编辑
  * </p>
  *
  * @TableName system_config
@@ -51,7 +51,7 @@ public class SystemConfig extends AuditEntity {
     private String configName;
 
     /**
-     * 配置分组（如 dashboard_expiry）
+     * 业务模块（如 库存管理），配置页按此分组与筛选
      */
     @TableField(value = "config_group")
     private String configGroup;

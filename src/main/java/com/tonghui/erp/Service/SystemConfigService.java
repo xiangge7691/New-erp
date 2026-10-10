@@ -17,8 +17,8 @@ public interface SystemConfigService extends IService<SystemConfig> {
     // 配置键常量
     // ===================================
 
-    /** 首页到期提醒分组 */
-    String GROUP_DASHBOARD_EXPIRY = "dashboard_expiry";
+    /** 自动新建配置时的默认业务模块 */
+    String GROUP_DEFAULT = "系统管理";
 
     /** 库存效期提醒天数 */
     String KEY_STOCK_DAYS = "dashboard.expiry.stock.days";
@@ -82,12 +82,19 @@ public interface SystemConfigService extends IService<SystemConfig> {
     int getInt(String key, int defaultValue);
 
     /**
-     * 按分组查询配置项
+     * 按业务模块查询配置项（模糊匹配，传全称时等价于精确查询）
      *
-     * @param group 分组
+     * @param group 业务模块（如 库存 或 库存管理）
      * @return 配置项列表
      */
     List<SystemConfig> getByGroup(String group);
+
+    /**
+     * 查询全部业务模块（配置页分组/筛选下拉用）
+     *
+     * @return 业务模块列表（去重，按模块名升序）
+     */
+    List<String> listGroups();
 
     /**
      * 查询全部配置项
@@ -97,11 +104,11 @@ public interface SystemConfigService extends IService<SystemConfig> {
     List<SystemConfig> listAll();
 
     /**
-     * 按分组与关键字搜索配置项
+     * 按业务模块与关键字搜索配置项
      *
-     * @param group   配置分组（可选，精确匹配）
+     * @param group   业务模块（可选，模糊匹配，如 库存 或 库存管理）
      * @param keyword 关键字（可选，模糊匹配配置名称或配置键）
-     * @return 配置项列表
+     * @return 配置项列表（按模块、配置ID升序）
      */
     List<SystemConfig> search(String group, String keyword);
 
