@@ -478,6 +478,19 @@ public class ProductionModuleTest {
         List<WorkOrderProcessExecution> executions = workOrderProcessExecutionService.getByWorkOrderId(workOrderId);
         assertEquals(1, executions.size(), "应查到1条执行记录");
 
+        // 二次保存（携带原 id）：应保留原ID，确保按行关联可定位
+        WorkOrderProcessExecution execution2 = new WorkOrderProcessExecution();
+        execution2.setId(executions.get(0).getId());
+        execution2.setStepOrder(1);
+        execution2.setProcessTypeId(1L);
+        execution2.setOperatorName("测试操作员");
+        execution2.setStatus("已完成");
+        workOrderProcessExecutionService.batchSave(workOrderId, List.of(execution2));
+        List<WorkOrderProcessExecution> after = workOrderProcessExecutionService.getByWorkOrderId(workOrderId);
+        assertEquals(1, after.size(), "二次保存后应仍为1条执行记录");
+        assertEquals(executions.get(0).getId(), after.get(0).getId(), "二次保存应保留原id");
+        assertEquals("已完成", after.get(0).getStatus(), "二次保存应更新状态");
+
         // 创建生产计划（状态日志外键依赖生产计划）
         ProductionPlan plan = new ProductionPlan();
         plan.setPlanNumber("SCJH" + System.currentTimeMillis());

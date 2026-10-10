@@ -19,10 +19,14 @@ public interface WorkOrderProcessExecutionService extends IService<WorkOrderProc
     List<WorkOrderProcessExecution> getByWorkOrderId(Long workOrderId);
 
     /**
-     * 批量保存工序执行记录（先删后插）
+     * 批量保存工序执行记录
+     * <p>
+     * 已有行按 id 原地更新（保留ID，支持按行关联），无 id 的行新增，
+     * 数据库中未被入参覆盖的既有行被删除
+     * </p>
      *
      * @param workOrderId 工单ID
-     * @param executions 工序执行记录列表
+     * @param executions  工序执行记录列表（已有行须携带原 id）
      */
     void batchSave(Long workOrderId, List<WorkOrderProcessExecution> executions);
 }

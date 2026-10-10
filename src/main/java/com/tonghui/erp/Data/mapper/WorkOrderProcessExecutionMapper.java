@@ -4,7 +4,6 @@ import com.tonghui.erp.Data.Entity.WorkOrderProcessExecution;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
 
@@ -14,13 +13,14 @@ import java.util.List;
 public interface WorkOrderProcessExecutionMapper extends BaseMapper<WorkOrderProcessExecution> {
 
     /**
-     * 根据工单ID物理删除工序执行记录
+     * 按记录ID集合物理删除（批量保存时删除被移除的行）
+     * <p>绕过全局软删除配置，直接执行物理删除，保留未被移除行的ID</p>
      *
-     * @param workOrderId 工单ID
-     * @return 删除的记录数
+     * @param ids 记录ID集合
+     * @return 删除的行数
      */
-    @Delete("DELETE FROM work_order_process_execution WHERE work_order_id = #{workOrderId}")
-    int physicalDeleteByWorkOrderId(@Param("workOrderId") Long workOrderId);
+    @Delete("<script>DELETE FROM work_order_process_execution WHERE id IN <foreach collection='ids' item='id' open='(' separator=',' close=')'>#{id}</foreach></script>")
+    int physicalDeleteByIds(@Param("ids") List<Long> ids);
 
     /**
      * 根据工单ID查询工序执行记录（含关联表详情）

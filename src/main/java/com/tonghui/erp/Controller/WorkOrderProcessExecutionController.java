@@ -42,13 +42,39 @@ public class WorkOrderProcessExecutionController extends BaseController {
 
     /**
      * 批量保存工序执行记录
+     * <p>
+     * 已有行按 id 原地更新（保留ID，便于按行附件关联），无 id 的行新增，
+     * 数据库中未被提交的行将被删除。请确保已有行携带原 id，新增行不携带。
+     * </p>
+     *
+     * 示例请求：
+     * POST /api/work-order-process-execution/batch?workOrderId=1
+     * Content-Type: application/json
+     * [
+     *   {
+     *     "id": 10,
+     *     "processTypeId": 1,
+     *     "stepOrder": 1,
+     *     "operatorName": "张三",
+     *     "status": "已完成"
+     *   },
+     *   {
+     *     "processTypeId": 2,
+     *     "stepOrder": 2,
+     *     "status": "待执行"
+     *   }
+     * ]
+     *
+     * @param workOrderId 工单ID（请求参数）
+     * @param executions  工序执行记录列表（已有行带 id，新增行不带）
+     * @return ApiResponse&lt;List&lt;WorkOrderProcessExecution&gt;&gt; 保存后的工序执行记录列表（含自增ID）
      */
     @PostMapping("/batch")
-    public ApiResponse<Boolean> batchSave(@RequestParam Long workOrderId,
-                                          @RequestBody List<WorkOrderProcessExecution> executions) {
+    public ApiResponse<List<WorkOrderProcessExecution>> batchSave(@RequestParam Long workOrderId,
+                                                                  @RequestBody List<WorkOrderProcessExecution> executions) {
         try {
             workOrderProcessExecutionService.batchSave(workOrderId, executions);
-            return success(true, "保存成功");
+            return success(workOrderProcessExecutionService.getByWorkOrderId(workOrderId), "保存成功");
         } catch (Exception ex) {
             return exception(ex, "保存工序执行记录失败");
         }
