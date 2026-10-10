@@ -30,6 +30,7 @@
             <result property="processCode" column="process_code" />
             <result property="roomName" column="room_name" />
             <result property="equipmentName" column="equipment_name" />
+            <result property="templateId" column="template_id" />
     </resultMap>
 
     <sql id="Select_With_Details">
@@ -40,7 +41,13 @@
         pt.process_name AS process_type_name,
         pt.process_code AS process_code,
         ri.room_name AS room_name,
-        eq.equipment_name AS equipment_name
+        eq.equipment_name AS equipment_name,
+        (SELECT tp.template_id FROM preparation_process_template tp
+         WHERE tp.preparation_id = wo.preparation_id
+           AND tp.process_type_id = e.process_type_id
+           AND tp.step_order = e.step_order
+           AND tp.is_deleted = 0
+         LIMIT 1) AS template_id
     </sql>
 
     <select id="selectByWorkOrderIdWithDetails" resultMap="WithDetailsResultMap">
@@ -50,6 +57,7 @@
         LEFT JOIN process_type pt ON e.process_type_id = pt.process_id AND pt.is_deleted = 0
         LEFT JOIN room_info ri ON e.room_id = ri.room_id AND ri.is_deleted = 0
         LEFT JOIN equipment eq ON e.equipment_id = eq.equipment_id AND eq.is_deleted = 0
+        LEFT JOIN work_order wo ON e.work_order_id = wo.work_order_id AND wo.is_deleted = 0
         WHERE e.work_order_id = #{workOrderId} AND e.is_deleted = 0
         ORDER BY e.step_order ASC
     </select>

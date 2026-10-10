@@ -170,5 +170,11 @@ public class WorkOrderProcessExecution extends AuditEntity {
     @TableField(exist = false)
     private String unitName;
 
+    /**
+     * 制剂工序模版ID（关联preparation_process_template表，按制剂+工序类型+工序顺序匹配）
+     */
+    @TableField(exist = false)
+    private Long templateId;
+
     // endregion
 }

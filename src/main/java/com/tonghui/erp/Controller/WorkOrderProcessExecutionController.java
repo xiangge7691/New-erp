@@ -20,6 +20,15 @@ public class WorkOrderProcessExecutionController extends BaseController {
 
     /**
      * 根据工单ID查询工序执行记录列表
+     *
+     * 示例请求：
+     * GET /api/work-order-process-execution/by-work-order/1
+     *
+     * 每条记录除执行信息外，还返回关联的制剂工序模版ID（templateId），
+     * 按工单制剂+工序类型+工序顺序匹配，无匹配模版时为null。
+     *
+     * @param workOrderId 工单ID
+     * @return 工序执行记录列表（含工序类型名称、房间名称、设备名称、模版ID等关联字段）
      */
     @GetMapping("/by-work-order/{workOrderId}")
     public ApiResponse<List<WorkOrderProcessExecution>> getByWorkOrderId(@PathVariable Long workOrderId) {
