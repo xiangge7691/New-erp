@@ -614,21 +614,21 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
      * 批量加载物料/供应商名称 → 组装为行（每行对应一条订单明细）→ POI 生成单 sheet xlsx 写流
      * </p>
      *
-     * @param keyword             关键字（对采购订单编号、工单标题模糊匹配，可选）
-     * @param status              采购订单状态（精确匹配，可选）
-     * @param processingDateStart 处理日期起始（yyyy-MM-dd，可选）
-     * @param processingDateEnd   处理日期结束（yyyy-MM-dd，可选）
-     * @param out                 输出流
+     * @param keyword   关键字（对采购订单编号、工单标题模糊匹配，可选）
+     * @param status    采购订单状态（精确匹配，可选）
+     * @param startDate 开始日期（yyyy-MM-dd，可选）
+     * @param endDate   结束日期（yyyy-MM-dd，可选）
+     * @param out       输出流
      * @throws IllegalArgumentException 日期格式非法或开始日期晚于结束日期
      * @throws IOException              写流失败
      */
     @Override
     public void exportPurchaseData(String keyword, String status,
-                                   String processingDateStart, String processingDateEnd,
+                                   String startDate, String endDate,
                                    OutputStream out) throws IOException {
         // 1. 参数校验：日期可选，若提供需合法且起止有序
-        LocalDate start = parseOptionalDate(processingDateStart, "开始日期");
-        LocalDate end = parseOptionalDate(processingDateEnd, "结束日期");
+        LocalDate start = parseOptionalDate(startDate, "开始日期");
+        LocalDate end = parseOptionalDate(endDate, "结束日期");
         if (start != null && end != null && start.isAfter(end)) {
             throw new IllegalArgumentException("开始日期不能晚于结束日期");
         }

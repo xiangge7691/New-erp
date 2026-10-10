@@ -171,16 +171,16 @@ public interface PurchaseOrdersService extends IService<PurchaseOrders> {
      * 支持按关键字、订单状态、处理日期范围筛选
      * </p>
      *
-     * @param keyword             关键字（对采购订单编号、工单标题模糊匹配，可选）
-     * @param status              采购订单状态（精确匹配，可选）
-     * @param processingDateStart 处理日期起始（yyyy-MM-dd，可选）
-     * @param processingDateEnd   处理日期结束（yyyy-MM-dd，可选）
-     * @param out                 输出流（HTTP 响应流或字节流）
+     * @param keyword   关键字（对采购订单编号、工单标题模糊匹配，可选）
+     * @param status    采购订单状态（精确匹配，可选）
+     * @param startDate 开始日期（yyyy-MM-dd，可选）
+     * @param endDate   结束日期（yyyy-MM-dd，可选）
+     * @param out       输出流（HTTP 响应流或字节流）
      * @throws IllegalArgumentException 日期格式非法或开始日期晚于结束日期
      * @throws IOException              写流失败
      */
     void exportPurchaseData(String keyword, String status,
-                            String processingDateStart, String processingDateEnd,
+                            String startDate, String endDate,
                             OutputStream out) throws IOException;
 
     // endregion

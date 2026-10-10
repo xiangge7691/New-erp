@@ -335,25 +335,25 @@ public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders,
      *
      * 示例请求：
      * GET /api/purchase-orders/annual-statistics/export
-     * GET /api/purchase-orders/annual-statistics/export?keyword=CG2026&status=运输中&processingDateStart=2026-01-01&processingDateEnd=2026-12-31
+     * GET /api/purchase-orders/annual-statistics/export?keyword=CG2026&status=运输中&startDate=2026-01-01&endDate=2026-12-31
      *
-     * @param keyword             关键字（对采购订单编号、工单标题模糊匹配，可选）
-     * @param status              采购订单状态（精确匹配，可选）
-     * @param processingDateStart 处理日期起始（yyyy-MM-dd，可选）
-     * @param processingDateEnd   处理日期结束（yyyy-MM-dd，可选）
-     * @param response            HTTP 响应（成功时 Content-Type 为 xlsx，Content-Disposition 附件下载）
+     * @param keyword   关键字（对采购订单编号、工单标题模糊匹配，可选）
+     * @param status    采购订单状态（精确匹配，可选）
+     * @param startDate 开始日期（yyyy-MM-dd，可选）
+     * @param endDate   结束日期（yyyy-MM-dd，可选）
+     * @param response  HTTP 响应（成功时 Content-Type 为 xlsx，Content-Disposition 附件下载）
      */
     @GetMapping("/annual-statistics/export")
     public void exportPurchaseData(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) String processingDateStart,
-            @RequestParam(required = false) String processingDateEnd,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
             HttpServletResponse response) {
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         try {
             // 服务层先校验参数并生成（失败时尚未写响应，可安全回 JSON 错误）
-            purchaseOrdersService.exportPurchaseData(keyword, status, processingDateStart, processingDateEnd, buffer);
+            purchaseOrdersService.exportPurchaseData(keyword, status, startDate, endDate, buffer);
 
             String filename = "采购数据导出_" + java.time.LocalDateTime.now()
                     .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + ".xlsx";
