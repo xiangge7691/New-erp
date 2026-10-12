@@ -87,9 +87,10 @@ public interface PreparationService extends IService<Preparation> {
      *
      * @param keyword      关键字（模糊匹配制剂编码或制剂品名，可选）
      * @param expiryStatus 过期状态过滤（按注册批件状态：EXPIRED 已过期 / VALID 未过期 / UNSET 未添加，可选）
+     * @param status       制剂启用状态过滤：1启用/0禁用（可选）
      * @return 制剂下拉选项集合
      */
-    List<PreparationOptionDto> listPurchaseOptions(String keyword, String expiryStatus);
+    List<PreparationOptionDto> listPurchaseOptions(String keyword, String expiryStatus, Integer status);
 
     // endregion
 

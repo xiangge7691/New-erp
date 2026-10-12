@@ -208,17 +208,20 @@ public class PreparationController extends BaseCrudController<Preparation, Prepa
      * GET /api/preparation/purchase-options
      * GET /api/preparation/purchase-options?keyword=感冒
      * GET /api/preparation/purchase-options?expiryStatus=EXPIRED
+     * GET /api/preparation/purchase-options?status=1
      *
      * @param keyword      关键字（模糊匹配制剂编码或制剂品名，可选）
      * @param expiryStatus 过期状态过滤（按注册批件状态：EXPIRED 已过期 / VALID 未过期 / UNSET 未添加，可选）
+     * @param status       制剂启用状态过滤：1启用/0禁用（可选）
      * @return ApiResponse&lt;List&lt;PreparationOptionDto&gt;&gt; 制剂下拉选项列表
      */
     @GetMapping("/purchase-options")
     public ApiResponse<List<PreparationOptionDto>> purchaseOptions(
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) String expiryStatus) {
+            @RequestParam(required = false) String expiryStatus,
+            @RequestParam(required = false) Integer status) {
         try {
-            List<PreparationOptionDto> options = preparationService.listPurchaseOptions(keyword, expiryStatus);
+            List<PreparationOptionDto> options = preparationService.listPurchaseOptions(keyword, expiryStatus, status);
             return success(options);
         } catch (Exception ex) {
             return exception(ex, "查询采购制剂下拉选项");
