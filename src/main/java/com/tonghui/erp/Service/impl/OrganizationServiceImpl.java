@@ -8,6 +8,7 @@ import com.tonghui.erp.Data.Entity.OrganizationCertificate;
 import com.tonghui.erp.Data.mapper.OrganizationMapper;
 import com.tonghui.erp.Service.OrganizationCertificateService;
 import com.tonghui.erp.Service.OrganizationService;
+import com.tonghui.erp.Service.SystemConfigService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +37,12 @@ public class OrganizationServiceImpl extends ServiceImpl<OrganizationMapper, Org
      */
     @Autowired
     private OrganizationCertificateService organizationCertificateService;
+
+    /**
+     * 系统配置服务，用于读取机构证照到期提醒天数
+     */
+    @Autowired
+    private SystemConfigService systemConfigService;
 
     // endregion
 
@@ -203,7 +210,8 @@ public class OrganizationServiceImpl extends ServiceImpl<OrganizationMapper, Org
     /**
      * 实时计算许可证状态
      * <p>
-     * 根据有效期至自动计算：有效（>30天）、即将到期（<=30天）、已过期（<0天）
+     * 根据有效期至自动计算：有效（大于配置的提醒天数）、即将到期（小于等于配置的提醒天数）、已过期（小于0天）。
+     * 提醒天数读取系统配置 dashboard.expiry.organization.days，默认30天
      * 注销/吊销状态保持不变
      * </p>
      *
@@ -222,10 +230,12 @@ public class OrganizationServiceImpl extends ServiceImpl<OrganizationMapper, Org
 
         LocalDate today = LocalDate.now();
         long daysBetween = ChronoUnit.DAYS.between(today, org.getExpiryDate());
+        int warningDays = systemConfigService.getInt(SystemConfigService.KEY_ORGANIZATION_DAYS,
+                SystemConfigService.DEFAULT_EXPIRY_DAYS);
 
         if (daysBetween < 0) {
             org.setLicenseStatus("已过期");
-        } else if (daysBetween <= 30) {
+        } else if (daysBetween <= warningDays) {
             org.setLicenseStatus("即将到期");
         } else {
             org.setLicenseStatus("有效");

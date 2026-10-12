@@ -156,10 +156,12 @@ public class DashboardController extends BaseController {
                     && s.getQuantity().compareTo(s.getMinQuantity()) <= 0)
                 .count();
             LocalDate today = LocalDate.now();
+            int stockWarningDays = systemConfigService.getInt(SystemConfigService.KEY_STOCK_DAYS,
+                SystemConfigService.DEFAULT_EXPIRY_DAYS);
             long expiringSoon = stockService.count(
                 new QueryWrapper<Stock>()
                     .ge("expiry_date", today)
-                    .le("expiry_date", today.plusDays(30)));
+                    .le("expiry_date", today.plusDays(stockWarningDays)));
             long expired = stockService.count(
                 new QueryWrapper<Stock>().lt("expiry_date", today));
             stockWarnings.setLowStock(lowStock);
@@ -548,7 +550,7 @@ public class DashboardController extends BaseController {
             }
             typeCounts.put("出库单", (long) pendingStockOuts.size());
 
-            // 10. 机构许可证到期（30天内到期或已过期）
+            // 10. 机构许可证到期（配置提醒天数内到期或已过期）
             List<Organization> expiringOrgs = organizationService.list(
                 new QueryWrapper<Organization>()
                     .eq("is_deleted", 0)

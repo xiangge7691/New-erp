@@ -1,6 +1,7 @@
 package com.tonghui.erp.Service;
 
 import com.tonghui.erp.Data.Entity.SystemConfig;
+import com.tonghui.erp.Data.mapper.SystemConfigMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -29,6 +30,12 @@ public class SystemConfigModuleTest {
      */
     @Autowired
     private SystemConfigService systemConfigService;
+
+    /**
+     * 系统配置Mapper，用于模拟绕过服务直接改库的场景
+     */
+    @Autowired
+    private SystemConfigMapper systemConfigMapper;
 
     // endregion
 
@@ -85,6 +92,33 @@ public class SystemConfigModuleTest {
         boolean allMatched = list.stream().allMatch(c -> "人员管理".equals(c.getConfigGroup())
                 && (c.getConfigName().contains("证书") || c.getConfigKey().contains("证书")));
         assertTrue(allMatched, "组合筛选结果应同时满足模块与关键字条件");
+    }
+
+    /**
+     * 测试配置读取始终取数据库最新值：绕过服务直接改库后，下一次读取应立即变化
+     * <p>
+     * 用于防止内存缓存导致配置值修改后其他页面长时间不生效
+     * </p>
+     */
+    @Test
+    @Transactional
+    public void testConfigReadAlwaysUsesLatestDatabaseValue() {
+        SystemConfig original = systemConfigService.getByKey(SystemConfigService.KEY_STOCK_DAYS);
+        assertNotNull(original, "库存效期提醒配置应存在");
+
+        SystemConfig firstPatch = new SystemConfig();
+        firstPatch.setConfigId(original.getConfigId());
+        firstPatch.setConfigValue("7");
+        systemConfigMapper.updateById(firstPatch);
+        assertEquals(7, systemConfigService.getInt(SystemConfigService.KEY_STOCK_DAYS, 30),
+                "直接改库后读取应立即生效，不能命中旧缓存");
+
+        SystemConfig secondPatch = new SystemConfig();
+        secondPatch.setConfigId(original.getConfigId());
+        secondPatch.setConfigValue("15");
+        systemConfigMapper.updateById(secondPatch);
+        assertEquals(15, systemConfigService.getInt(SystemConfigService.KEY_STOCK_DAYS, 30),
+                "再次改库后读取应继续取最新值");
     }
 
     // endregion

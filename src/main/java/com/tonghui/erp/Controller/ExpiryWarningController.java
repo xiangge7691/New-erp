@@ -6,6 +6,7 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Stock.ExpiryWarningDTO;
 import com.tonghui.erp.Common.Dto.Stock.ExpiryWarningStatsDTO;
 import com.tonghui.erp.Service.StockService;
+import com.tonghui.erp.Service.SystemConfigService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -39,10 +40,16 @@ public class ExpiryWarningController extends BaseController {
      * 库存服务
      */
     private final StockService stockService;
+
+    /**
+     * 系统配置服务，用于读取库存效期提醒天数
+     */
+    private final SystemConfigService systemConfigService;
     
     @Autowired
-    public ExpiryWarningController(StockService stockService) {
+    public ExpiryWarningController(StockService stockService, SystemConfigService systemConfigService) {
         this.stockService = stockService;
+        this.systemConfigService = systemConfigService;
     }
     
     // endregion
@@ -59,16 +66,17 @@ public class ExpiryWarningController extends BaseController {
      * </p>
      *
      * 示例请求：
-     * GET /api/expiry-warning/list?days=30
+     * GET /api/expiry-warning/list
+     * GET /api/expiry-warning/list?days=15
      *
-     * @param days 预警天数（默认30天），查询未来N天内即将过期的库存
+     * @param days 预警天数（可选，不传时读取系统配置 dashboard.expiry.stock.days，默认30天）
      * @return ApiResponse&lt;List&lt;ExpiryWarningDTO&gt;&gt; 预警库存列表
      */
     @GetMapping("/list")
     public ApiResponse<List<ExpiryWarningDTO>> getExpiringStocks(
-            @RequestParam(defaultValue = "30") int days) {
+            @RequestParam(required = false) Integer days) {
         try {
-            List<ExpiryWarningDTO> warnings = stockService.getExpiringStocks(days);
+            List<ExpiryWarningDTO> warnings = stockService.getExpiringStocks(resolveStockDays(days));
             return success(warnings);
         } catch (Exception e) {
             return exception(e, "获取预警列表");
@@ -103,9 +111,10 @@ public class ExpiryWarningController extends BaseController {
      * </p>
      *
      * 示例请求：
+     * GET /api/expiry-warning/search?itemType=material&prodUnitId=1&warningLevel=urgent&pageIndex=0&pageSize=20
      * GET /api/expiry-warning/search?days=90&itemType=material&prodUnitId=1&warningLevel=urgent&pageIndex=0&pageSize=20
      *
-     * @param days 预警天数（默认90天）
+     * @param days 预警天数（可选，不传时读取系统配置 dashboard.expiry.stock.days，默认30天）
      * @param itemType 物品类型（可选: material-物料，preparation-制剂）
      * @param prodUnitId 生产单位ID（可选）
      * @param warningLevel 预警级别（可选: urgent-紧急，warning-警告，info-提示）
@@ -115,7 +124,7 @@ public class ExpiryWarningController extends BaseController {
      */
     @GetMapping("/search")
     public ApiResponse<PagedResult<ExpiryWarningDTO>> queryExpiringStocks(
-            @RequestParam(defaultValue = "90") int days,
+            @RequestParam(required = false) Integer days,
             @RequestParam(required = false) String itemType,
             @RequestParam(required = false) Long prodUnitId,
             @RequestParam(required = false) String warningLevel,
@@ -123,7 +132,7 @@ public class ExpiryWarningController extends BaseController {
             @RequestParam(defaultValue = "20") int pageSize) {
         try {
             Page<ExpiryWarningDTO> page = stockService.queryExpiringStocks(
-                    days, itemType, prodUnitId, warningLevel, pageIndex, pageSize);
+                    resolveStockDays(days), itemType, prodUnitId, warningLevel, pageIndex, pageSize);
             
             PagedResult<ExpiryWarningDTO> result = new PagedResult<>();
             result.setItems(page.getRecords());
@@ -135,6 +144,25 @@ public class ExpiryWarningController extends BaseController {
         } catch (Exception e) {
             return exception(e, "查询预警库存");
         }
+    }
+
+    // endregion
+
+    // region 内部方法
+    // ===================================
+    // 内部方法
+    // ===================================
+
+    /**
+     * 解析库存效期预警天数：显式传入优先，未传入时读取系统配置
+     *
+     * @param days 请求参数中的预警天数
+     * @return 实际使用的预警天数
+     */
+    private int resolveStockDays(Integer days) {
+        return days != null ? days
+                : systemConfigService.getInt(SystemConfigService.KEY_STOCK_DAYS,
+                        SystemConfigService.DEFAULT_EXPIRY_DAYS);
     }
 
     // endregion

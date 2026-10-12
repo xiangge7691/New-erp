@@ -143,11 +143,6 @@ public interface SystemConfigService extends IService<SystemConfig> {
      */
     void batchSave(List<SystemConfigDto> items);
 
-    /**
-     * 刷新内存缓存
-     */
-    void refreshCache();
-
     // endregion
 
     // region 聚合查询

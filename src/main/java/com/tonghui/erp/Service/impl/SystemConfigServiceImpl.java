@@ -14,16 +14,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
  * 系统配置业务实现类
  * <p>
- * 以键值对方式管理运行时配置，内部维护内存缓存以减少高频读取（如首页待办聚合）时的数据库访问；
- * 更新配置后自动刷新缓存
+ * 以键值对方式管理运行时配置。读取时始终查询数据库最新值，
+ * 保证通过配置页、其他实例或直接改库后，各业务页面立即取到新配置，不会读取到过期缓存
  * </p>
  */
 @Service
@@ -34,16 +34,6 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
     // ===================================
     // 字段定义
     // ===================================
-
-    /**
-     * 配置缓存：configKey -> 配置实体
-     */
-    private final Map<String, SystemConfig> cache = new ConcurrentHashMap<>();
-
-    /**
-     * 缓存是否已加载
-     */
-    private volatile boolean loaded = false;
 
     /**
      * 软删除统一清理工具，用于物理清理同 config_key 的软删除记录以释放唯一索引 uk_config_key
@@ -59,39 +49,19 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
     // ===================================
 
     /**
-     * 确保缓存已加载（懒加载）
+     * 根据配置键查询配置
+     * <p>
+     * 每次均查询数据库，避免内存缓存导致配置修改后其他页面长时间不生效
+     * </p>
+     *
+     * @param key 配置键
+     * @return 配置实体，不存在返回null
      */
-    private void ensureCache() {
-        if (!loaded) {
-            synchronized (this) {
-                if (!loaded) {
-                    refreshCache();
-                }
-            }
-        }
-    }
-
-    @Override
-    public void refreshCache() {
-        cache.clear();
-        List<SystemConfig> all = this.baseMapper.selectList(
-                new QueryWrapper<SystemConfig>().eq("status", 1));
-        for (SystemConfig config : all) {
-            if (StringUtils.hasText(config.getConfigKey())) {
-                cache.put(config.getConfigKey(), config);
-            }
-        }
-        loaded = true;
-    }
-
     @Override
     public SystemConfig getByKey(String key) {
-        ensureCache();
-        SystemConfig config = cache.get(key);
-        if (config != null) {
-            return config;
+        if (!StringUtils.hasText(key)) {
+            return null;
         }
-        // 缓存未命中时回退数据库查询
         return this.baseMapper.selectOne(
                 new QueryWrapper<SystemConfig>().eq("config_key", key).last("LIMIT 1"));
     }
@@ -107,15 +77,42 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
 
     @Override
     public int getInt(String key, int defaultValue) {
-        String value = getString(key, null);
-        if (value == null) {
+        return parseInt(getString(key, null), defaultValue);
+    }
+
+    /**
+     * 将配置值解析为整数，解析失败时返回默认值
+     *
+     * @param value        配置值
+     * @param defaultValue 默认值
+     * @return 解析后的整数
+     */
+    private int parseInt(String value, int defaultValue) {
+        if (!StringUtils.hasText(value)) {
             return defaultValue;
         }
         try {
-            return Integer.parseInt(value);
+            return Integer.parseInt(value.trim());
         } catch (NumberFormatException e) {
             return defaultValue;
         }
+    }
+
+    /**
+     * 一次性加载所有启用配置，供首页到期提醒等聚合查询使用，避免逐项查询数据库
+     *
+     * @return 配置键 -> 配置值
+     */
+    private Map<String, String> loadEnabledValues() {
+        List<SystemConfig> all = this.baseMapper.selectList(
+                new QueryWrapper<SystemConfig>().eq("status", 1));
+        Map<String, String> values = new HashMap<>();
+        for (SystemConfig config : all) {
+            if (StringUtils.hasText(config.getConfigKey())) {
+                values.put(config.getConfigKey(), config.getConfigValue());
+            }
+        }
+        return values;
     }
 
     /**
@@ -219,7 +216,6 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
             existing.setConfigValue(value);
             this.baseMapper.updateById(existing);
         }
-        refreshCache();
     }
 
     @Override
@@ -246,18 +242,19 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
     @Override
     public DashboardExpiryConfigDto getDashboardExpiryConfig() {
         DashboardExpiryConfigDto dto = new DashboardExpiryConfigDto();
-        dto.setStockDays(getInt(KEY_STOCK_DAYS, DEFAULT_EXPIRY_DAYS));
-        dto.setEquipmentDays(getInt(KEY_EQUIPMENT_DAYS, DEFAULT_EXPIRY_DAYS));
-        dto.setHealthCertDays(getInt(KEY_HEALTH_CERT_DAYS, DEFAULT_EXPIRY_DAYS));
-        dto.setPersonnelCertDays(getInt(KEY_PERSONNEL_CERT_DAYS, DEFAULT_EXPIRY_DAYS));
-        dto.setDisinfectionDays(getInt(KEY_DISINFECTION_DAYS, DEFAULT_EXPIRY_DAYS));
-        dto.setOrganizationDays(getInt(KEY_ORGANIZATION_DAYS, DEFAULT_EXPIRY_DAYS));
-        dto.setCleaningDays(getInt(KEY_CLEANING_DAYS, DEFAULT_EXPIRY_DAYS));
-        dto.setSupplierAuditDays(getInt(KEY_SUPPLIER_AUDIT_DAYS, DEFAULT_EXPIRY_DAYS));
-        dto.setTrainingDays(getInt(KEY_TRAINING_DAYS, DEFAULT_EXPIRY_DAYS));
-        dto.setVerificationDays(getInt(KEY_VERIFICATION_DAYS, DEFAULT_EXPIRY_DAYS));
-        dto.setRetainedSampleDays(getInt(KEY_RETAINED_SAMPLE_DAYS, DEFAULT_EXPIRY_DAYS));
-        dto.setApprovalDays(getInt(KEY_APPROVAL_DAYS, DEFAULT_EXPIRY_DAYS));
+        Map<String, String> values = loadEnabledValues();
+        dto.setStockDays(parseInt(values.get(KEY_STOCK_DAYS), DEFAULT_EXPIRY_DAYS));
+        dto.setEquipmentDays(parseInt(values.get(KEY_EQUIPMENT_DAYS), DEFAULT_EXPIRY_DAYS));
+        dto.setHealthCertDays(parseInt(values.get(KEY_HEALTH_CERT_DAYS), DEFAULT_EXPIRY_DAYS));
+        dto.setPersonnelCertDays(parseInt(values.get(KEY_PERSONNEL_CERT_DAYS), DEFAULT_EXPIRY_DAYS));
+        dto.setDisinfectionDays(parseInt(values.get(KEY_DISINFECTION_DAYS), DEFAULT_EXPIRY_DAYS));
+        dto.setOrganizationDays(parseInt(values.get(KEY_ORGANIZATION_DAYS), DEFAULT_EXPIRY_DAYS));
+        dto.setCleaningDays(parseInt(values.get(KEY_CLEANING_DAYS), DEFAULT_EXPIRY_DAYS));
+        dto.setSupplierAuditDays(parseInt(values.get(KEY_SUPPLIER_AUDIT_DAYS), DEFAULT_EXPIRY_DAYS));
+        dto.setTrainingDays(parseInt(values.get(KEY_TRAINING_DAYS), DEFAULT_EXPIRY_DAYS));
+        dto.setVerificationDays(parseInt(values.get(KEY_VERIFICATION_DAYS), DEFAULT_EXPIRY_DAYS));
+        dto.setRetainedSampleDays(parseInt(values.get(KEY_RETAINED_SAMPLE_DAYS), DEFAULT_EXPIRY_DAYS));
+        dto.setApprovalDays(parseInt(values.get(KEY_APPROVAL_DAYS), DEFAULT_EXPIRY_DAYS));
         return dto;
     }
 
