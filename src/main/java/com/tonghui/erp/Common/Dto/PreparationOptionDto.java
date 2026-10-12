@@ -63,6 +63,11 @@ public class PreparationOptionDto {
     private String spec;
 
     /**
+     * 加工性质（如原料/辅料/包材等）
+     */
+    private String processAttr;
+
+    /**
      * 单位名称
      */
     private String unitName;

@@ -294,6 +294,7 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
             dto.setPreparationCode(preparation.getPreparationCode());
             dto.setPreparationName(preparation.getPreparationName());
             dto.setSpec(preparation.getSpec());
+            dto.setProcessAttr(preparation.getProcessAttr());
             dto.setUnitName(preparation.getUnitName());
             dto.setProducer(preparation.getProducer());
             dto.setStatus(preparation.getStatus());
