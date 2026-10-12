@@ -75,3 +75,5 @@ init-data:
       RETENTION_RECORD: 留样记录
       HEALTH_FILE: 健康档案
       TASK: 任务
+      DEVIATION_RECORD: 偏差记录
+      DESTRUCTION_RECORD: 销毁记录
