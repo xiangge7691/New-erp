@@ -31,16 +31,16 @@ public interface DeviationRecordService extends IService<DeviationRecord> {
     String generateCode();
 
     /**
-     * 条件分页查询偏差记录列表
+     * 条件分页查询偏差记录列表（列表项回填创建人姓名createdByName）
      *
      * @param keyword      关键字（可空，模糊匹配偏差编号或偏差标题）
      * @param workOrderCode 生产任务编号（可空，模糊匹配）
      * @param startDate    实际发生时间起始（可空，格式yyyy-MM-dd）
      * @param endDate      实际发生时间结束（可空，格式yyyy-MM-dd）
      * @param pageRequest  分页参数
-     * @return 分页结果
+     * @return 分页结果（列表项含创建人姓名createdByName，附件列表仅详情返回）
      */
-    PagedResult<DeviationRecord> search(String keyword, String workOrderCode,
+    PagedResult<DeviationRecordWithAttachmentsDto> search(String keyword, String workOrderCode,
                                         String startDate, String endDate, PageRequestDto pageRequest);
 
     /**

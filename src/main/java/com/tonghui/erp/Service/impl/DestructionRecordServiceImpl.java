@@ -154,7 +154,7 @@ public class DestructionRecordServiceImpl extends ServiceImpl<DestructionRecordM
     // ===================================
 
     @Override
-    public PagedResult<DestructionRecord> search(String recordType, String keyword, String batchNo,
+    public PagedResult<DestructionRecordWithDetailsDto> search(String recordType, String keyword, String batchNo,
                                                  String status, String startDate, String endDate,
                                                  PageRequestDto pageRequest) {
         pageRequest.validateAndFix();
@@ -194,7 +194,27 @@ public class DestructionRecordServiceImpl extends ServiceImpl<DestructionRecordM
         }
         wrapper.orderByDesc(DestructionRecord::getCreatedTime);
         Page<DestructionRecord> page = baseMapper.selectPage(PagedResult.toMybatisPage(pageRequest), wrapper);
-        return PagedResult.fromPage(page, pageRequest);
+        List<DestructionRecord> records = page.getRecords();
+        if (records.isEmpty()) {
+            return PagedResult.empty();
+        }
+        // 批量查询本页主表的全部明细（按主表ID分组），并回填留样编号与创建人姓名
+        java.util.Map<Long, User> userMap = loadUserMap(records);
+        java.util.Map<Long, List<DestructionRecordDetail>> detailMap = loadDetailMap(records);
+        List<DestructionRecordWithDetailsDto> dtoList = new java.util.ArrayList<>(records.size());
+        for (DestructionRecord record : records) {
+            DestructionRecordWithDetailsDto dto = new DestructionRecordWithDetailsDto();
+            BeanUtils.copyProperties(record, dto);
+            dto.setCreatedByName(resolveUserNameFromMap(record.getCreatedBy(), userMap));
+            List<DestructionRecordDetail> details = detailMap.getOrDefault(record.getId(), new java.util.ArrayList<>());
+            fillRetainedCodes(details);
+            dto.setDetails(details);
+            dtoList.add(dto);
+        }
+        Page<DestructionRecordWithDetailsDto> dtoPage =
+                new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
+        dtoPage.setRecords(dtoList);
+        return PagedResult.fromPage(dtoPage, pageRequest);
     }
 
     @Override
@@ -205,9 +225,12 @@ public class DestructionRecordServiceImpl extends ServiceImpl<DestructionRecordM
         }
         DestructionRecordWithDetailsDto dto = new DestructionRecordWithDetailsDto();
         BeanUtils.copyProperties(record, dto);
-        dto.setDetails(destructionRecordDetailMapper.selectList(
+        List<DestructionRecordDetail> details = destructionRecordDetailMapper.selectList(
                 new LambdaQueryWrapper<DestructionRecordDetail>()
-                        .eq(DestructionRecordDetail::getDestructionId, id)));
+                        .eq(DestructionRecordDetail::getDestructionId, id));
+        // 回填明细行关联的留样编号
+        fillRetainedCodes(details);
+        dto.setDetails(details);
         dto.setAttachments(fileInfoService.getFilesByBusiness(id, BUSINESS_TYPE_DESTRUCTION_RECORD, null));
         dto.setCreatedByName(resolveUserName(record.getCreatedBy()));
         dto.setUpdatedByName(resolveUserName(record.getUpdatedBy()));
@@ -484,6 +507,89 @@ public class DestructionRecordServiceImpl extends ServiceImpl<DestructionRecordM
             return null;
         }
         return StringUtils.hasText(user.getUserName()) ? user.getUserName() : user.getUserAccount();
+    }
+
+    /**
+     * 批量加载创建人用户映射（按用户ID索引），用于列表批量回填创建人姓名
+     *
+     * @param records 销毁记录列表
+     * @return 用户ID到用户实体的映射，无数据时返回空映射
+     */
+    private java.util.Map<Long, User> loadUserMap(List<DestructionRecord> records) {
+        List<Long> userIds = records.stream()
+                .map(DestructionRecord::getCreatedBy)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (userIds.isEmpty()) {
+            return java.util.Map.of();
+        }
+        return userMapper.selectBatchIds(userIds).stream()
+                .collect(Collectors.toMap(User::getUserId, u -> u, (a, b) -> a));
+    }
+
+    /**
+     * 从用户映射中解析用户显示名称（真实姓名，无则回退登录账号）
+     *
+     * @param userId   用户ID
+     * @param userMap  用户ID到用户实体的映射
+     * @return 用户名称
+     */
+    private String resolveUserNameFromMap(Long userId, java.util.Map<Long, User> userMap) {
+        if (userId == null) {
+            return null;
+        }
+        User user = userMap.get(userId);
+        if (user == null) {
+            return null;
+        }
+        return StringUtils.hasText(user.getUserName()) ? user.getUserName() : user.getUserAccount();
+    }
+
+    /**
+     * 批量查询本页主表的全部明细并按主表ID分组
+     *
+     * @param records 销毁记录列表
+     * @return 主表ID到明细列表的映射，无数据时返回空映射
+     */
+    private java.util.Map<Long, List<DestructionRecordDetail>> loadDetailMap(List<DestructionRecord> records) {
+        List<Long> ids = records.stream()
+                .map(DestructionRecord::getId)
+                .collect(Collectors.toList());
+        if (ids.isEmpty()) {
+            return java.util.Map.of();
+        }
+        return destructionRecordDetailMapper.selectList(
+                        new LambdaQueryWrapper<DestructionRecordDetail>()
+                                .in(DestructionRecordDetail::getDestructionId, ids))
+                .stream()
+                .collect(Collectors.groupingBy(DestructionRecordDetail::getDestructionId));
+    }
+
+    /**
+     * 批量回填明细行关联留样编号（按retainedSampleId一次批量查留样，避免N+1）
+     *
+     * @param details 销毁明细列表
+     */
+    private void fillRetainedCodes(List<DestructionRecordDetail> details) {
+        if (details == null || details.isEmpty()) {
+            return;
+        }
+        List<Long> sampleIds = details.stream()
+                .map(DestructionRecordDetail::getRetainedSampleId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (sampleIds.isEmpty()) {
+            return;
+        }
+        java.util.Map<Long, String> codeMap = retainedSampleMapper.selectBatchIds(sampleIds).stream()
+                .collect(Collectors.toMap(RetainedSample::getId, RetainedSample::getRetainedCode, (a, b) -> a));
+        for (DestructionRecordDetail detail : details) {
+            if (detail.getRetainedSampleId() != null) {
+                detail.setRetainedCode(codeMap.get(detail.getRetainedSampleId()));
+            }
+        }
     }
 
     // endregion

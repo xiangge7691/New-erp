@@ -69,7 +69,7 @@ public class DestructionRecordController extends BaseController {
     // ===================================
 
     /**
-     * 分页查询销毁记录列表
+     * 分页查询销毁记录列表（列表项含创建人姓名createdByName及明细列表details，明细含关联留样编号retainedCode）
      *
      * 示例请求：
      * GET /api/destruction?recordType=不合格品销毁&keyword=BX&batchNo=20260701&status=正常&startDate=2026-10-01&endDate=2026-10-12&pageIndex=0&pageSize=10
@@ -82,10 +82,10 @@ public class DestructionRecordController extends BaseController {
      * @param endDate    登记时间结束（可选，格式：yyyy-MM-dd）
      * @param pageIndex  页码索引，从0开始（默认0）
      * @param pageSize   每页数量（默认10）
-     * @return ApiResponse&lt;PagedResult&lt;DestructionRecord&gt;&gt; 分页结果
+     * @return ApiResponse&lt;PagedResult&lt;DestructionRecordWithDetailsDto&gt;&gt; 分页结果（列表项含创建人姓名createdByName及明细列表details，明细含关联留样编号retainedCode，附件列表仅详情返回）
      */
     @GetMapping
-    public ApiResponse<PagedResult<DestructionRecord>> search(
+    public ApiResponse<PagedResult<DestructionRecordWithDetailsDto>> search(
             @RequestParam(required = false) String recordType,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String batchNo,
@@ -106,7 +106,7 @@ public class DestructionRecordController extends BaseController {
     }
 
     /**
-     * 查询销毁记录详情（含明细列表、附件列表与创建人/更新人姓名）
+     * 查询销毁记录详情（含明细列表、附件列表与创建人/更新人姓名；明细行含关联留样编号retainedCode）
      *
      * 示例请求：
      * GET /api/destruction/1

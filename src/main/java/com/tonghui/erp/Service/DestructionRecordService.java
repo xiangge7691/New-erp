@@ -36,7 +36,7 @@ public interface DestructionRecordService extends IService<DestructionRecord> {
     String generateCode(String recordType);
 
     /**
-     * 条件分页查询销毁记录列表
+     * 条件分页查询销毁记录列表（列表项回填创建人姓名createdByName及明细列表details）
      *
      * @param recordType 记录类型（可空，精确匹配）
      * @param keyword    关键字（可空，模糊匹配销毁单号）
@@ -45,9 +45,9 @@ public interface DestructionRecordService extends IService<DestructionRecord> {
      * @param startDate  登记时间起始（可空，格式yyyy-MM-dd）
      * @param endDate    登记时间结束（可空，格式yyyy-MM-dd）
      * @param pageRequest 分页参数
-     * @return 分页结果
+     * @return 分页结果（列表项含创建人姓名createdByName及明细列表details，明细含关联留样编号retainedCode；附件列表仅详情返回）
      */
-    PagedResult<DestructionRecord> search(String recordType, String keyword, String batchNo,
+    PagedResult<DestructionRecordWithDetailsDto> search(String recordType, String keyword, String batchNo,
                                           String status, String startDate, String endDate,
                                           PageRequestDto pageRequest);
 

@@ -66,7 +66,7 @@ public class DeviationRecordController extends BaseController {
     // ===================================
 
     /**
-     * 分页查询偏差记录列表
+     * 分页查询偏差记录列表（列表项含创建人姓名createdByName）
      *
      * 示例请求：
      * GET /api/deviation?keyword=偏差&workOrderCode=SC&startDate=2026-10-01&endDate=2026-10-12&pageIndex=0&pageSize=10
@@ -77,10 +77,10 @@ public class DeviationRecordController extends BaseController {
      * @param endDate       实际发生时间结束（可选，格式：yyyy-MM-dd）
      * @param pageIndex     页码索引，从0开始（默认0）
      * @param pageSize      每页数量（默认10）
-     * @return ApiResponse&lt;PagedResult&lt;DeviationRecord&gt;&gt; 分页结果
+     * @return ApiResponse&lt;PagedResult&lt;DeviationRecordWithAttachmentsDto&gt;&gt; 分页结果（列表项含创建人姓名createdByName，附件列表仅详情返回）
      */
     @GetMapping
-    public ApiResponse<PagedResult<DeviationRecord>> search(
+    public ApiResponse<PagedResult<DeviationRecordWithAttachmentsDto>> search(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String workOrderCode,
             @RequestParam(required = false) String startDate,

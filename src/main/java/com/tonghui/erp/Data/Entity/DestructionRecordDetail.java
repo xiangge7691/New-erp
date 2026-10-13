@@ -69,6 +69,12 @@ public class DestructionRecordDetail extends AuditEntity {
     @TableField(value = "retained_sample_id")
     private Long retainedSampleId;
 
+    /**
+     * 关联留样编号（非表字段，查询时按retainedSampleId关联留样表回填，用于明细展示）
+     */
+    @TableField(exist = false)
+    private String retainedCode;
+
     // endregion
 
     // region 审计与软删除字段

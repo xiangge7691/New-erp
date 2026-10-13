@@ -31,6 +31,8 @@ import static org.junit.jupiter.api.Assertions.*;
  * 4. 作废后禁止修改、禁止重复作废
  * 5. 明细行retained_sample_id不联动留样状态
  * 6. 条件分页查询（批号经明细命中主表）
+ * 7. 详情/列表明细行回填关联留样编号（retainedCode）
+ * 8. 列表返回创建人姓名（createdByName）及明细列表（details）
  * 全部用例使用事务回滚，不污染数据库
  * </p>
  */
@@ -54,6 +56,12 @@ public class DestructionRecordTest {
      */
     @Autowired
     private RetainedSampleService retainedSampleService;
+
+    /**
+     * 用户Mapper（查询root用户ID用于显式回填创建人）
+     */
+    @Autowired
+    private com.tonghui.erp.Data.mapper.UserMapper userMapper;
 
     // endregion
 
@@ -166,6 +174,64 @@ public class DestructionRecordTest {
         // 留样状态应保持"留样中"，不被联动改为已销毁
         RetainedSample after = retainedSampleService.getById(sampleId);
         assertEquals("留样中", after.getStatus(), "保存销毁记录不应联动留样状态");
+
+        // 详情明细行应回填关联留样编号retainedCode
+        DestructionRecordWithDetailsDto detail = destructionRecordService.getDetail(created.getId());
+        DestructionRecordDetail linked = detail.getDetails().stream()
+                .filter(d -> sampleId.equals(d.getRetainedSampleId()))
+                .findFirst()
+                .orElse(null);
+        assertNotNull(linked, "明细应包含引用留样的行");
+        assertNotNull(linked.getRetainedCode(), "明细行应回填留样编号");
+        assertEquals(sample.getRetainedCode(), linked.getRetainedCode(), "留样编号应与留样记录一致");
+
+        // 列表项明细行同样应回填留样编号
+        PageRequestDto pageRequest = new PageRequestDto();
+        pageRequest.setPageIndex(-1);
+        pageRequest.setPageSize(-1);
+        PagedResult<DestructionRecordWithDetailsDto> result = destructionRecordService.search(
+                null, created.getDestructionCode(), null, null, null, null, pageRequest);
+        DestructionRecordWithDetailsDto listItem = result.getItems().stream()
+                .filter(r -> r.getId().equals(created.getId()))
+                .findFirst()
+                .orElse(null);
+        assertNotNull(listItem, "列表应命中新建记录");
+        DestructionRecordDetail listLinked = listItem.getDetails().stream()
+                .filter(d -> sampleId.equals(d.getRetainedSampleId()))
+                .findFirst()
+                .orElse(null);
+        assertNotNull(listLinked, "列表项明细应包含引用留样的行");
+        assertEquals(sample.getRetainedCode(), listLinked.getRetainedCode(),
+                "列表项明细行应一致回填留样编号");
+    }
+
+    /**
+     * 测试列表返回创建人姓名映射：显式设置创建人ID后，列表查询应回填创建人姓名
+     */
+    @Test
+    public void testSearchReturnsCreatedByName() {
+        DestructionRecord created = destructionRecordService.create(buildSaveDto());
+        Long rootUserId = findRootUserId();
+        assertNotNull(rootUserId, "应存在root默认账户");
+        // 显式设置创建人ID（测试环境无登录上下文，MetaObjectHandler不填充）
+        boolean updated = destructionRecordService.update(
+                new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<DestructionRecord>()
+                        .eq("id", created.getId())
+                        .set("created_by", rootUserId));
+        assertTrue(updated, "显式设置创建人ID应成功");
+
+        PageRequestDto pageRequest = new PageRequestDto();
+        pageRequest.setPageIndex(-1);
+        pageRequest.setPageSize(-1);
+        PagedResult<DestructionRecordWithDetailsDto> result = destructionRecordService.search(
+                null, created.getDestructionCode(), null, null, null, null, pageRequest);
+        DestructionRecordWithDetailsDto item = result.getItems().stream()
+                .filter(r -> r.getId().equals(created.getId()))
+                .findFirst()
+                .orElse(null);
+        assertNotNull(item, "列表应命中新建记录");
+        assertNotNull(item.getCreatedByName(), "列表项应回填创建人姓名");
+        assertFalse(item.getCreatedByName().isBlank(), "创建人姓名不应为空");
     }
 
     /**
@@ -181,20 +247,28 @@ public class DestructionRecordTest {
         pageRequest.setPageIndex(0);
         pageRequest.setPageSize(10);
         // 按明细批号查询
-        PagedResult<DestructionRecord> byBatchNo = destructionRecordService.search(
+        PagedResult<DestructionRecordWithDetailsDto> byBatchNo = destructionRecordService.search(
                 null, null, "BATCHSEARCH20261012", null, null, null, pageRequest);
         assertTrue(byBatchNo.getItems().stream().anyMatch(r -> r.getId().equals(created.getId())),
                 "按明细批号应命中主表");
         // 按状态查询（新建记录状态为正常）
-        PagedResult<DestructionRecord> byStatus = destructionRecordService.search(
+        PagedResult<DestructionRecordWithDetailsDto> byStatus = destructionRecordService.search(
                 null, null, null, DestructionRecord.STATUS_NORMAL, null, null, pageRequest);
         assertTrue(byStatus.getItems().stream().anyMatch(r -> r.getId().equals(created.getId())),
                 "按状态正常应命中新建记录");
         // 按单号关键字查询
-        PagedResult<DestructionRecord> byCode = destructionRecordService.search(
+        PagedResult<DestructionRecordWithDetailsDto> byCode = destructionRecordService.search(
                 null, created.getDestructionCode(), null, null, null, null, pageRequest);
         assertTrue(byCode.getItems().stream().anyMatch(r -> r.getId().equals(created.getId())),
                 "按单号关键字应命中新建记录");
+        // 列表项应携带明细列表
+        DestructionRecordWithDetailsDto matched = byCode.getItems().stream()
+                .filter(r -> r.getId().equals(created.getId()))
+                .findFirst()
+                .orElse(null);
+        assertNotNull(matched, "列表应命中新建记录");
+        assertNotNull(matched.getDetails(), "列表项应携带明细列表");
+        assertEquals(2, matched.getDetails().size(), "列表项明细应有2行");
     }
 
     /**
@@ -293,6 +367,18 @@ public class DestructionRecordTest {
         sample.setStatus("留样中");
         assertTrue(retainedSampleService.save(sample), "新增留样应成功");
         return sample;
+    }
+
+    /**
+     * 查询root用户ID（系统初始化默认账户，账号root）
+     *
+     * @return root用户ID，找不到时返回null
+     */
+    private Long findRootUserId() {
+        com.tonghui.erp.Data.Entity.User root = userMapper.selectOne(
+                new LambdaQueryWrapper<com.tonghui.erp.Data.Entity.User>()
+                        .eq(com.tonghui.erp.Data.Entity.User::getUserAccount, "root").last("LIMIT 1"));
+        return root == null ? null : root.getUserId();
     }
 
     // endregion

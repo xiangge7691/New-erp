@@ -135,7 +135,7 @@ public class DeviationRecordServiceImpl extends ServiceImpl<DeviationRecordMappe
     // ===================================
 
     @Override
-    public PagedResult<DeviationRecord> search(String keyword, String workOrderCode,
+    public PagedResult<DeviationRecordWithAttachmentsDto> search(String keyword, String workOrderCode,
                                                String startDate, String endDate, PageRequestDto pageRequest) {
         pageRequest.validateAndFix();
         LambdaQueryWrapper<DeviationRecord> wrapper = new LambdaQueryWrapper<>();
@@ -157,7 +157,19 @@ public class DeviationRecordServiceImpl extends ServiceImpl<DeviationRecordMappe
         }
         wrapper.orderByDesc(DeviationRecord::getCreatedTime);
         Page<DeviationRecord> page = baseMapper.selectPage(PagedResult.toMybatisPage(pageRequest), wrapper);
-        return PagedResult.fromPage(page, pageRequest);
+        // 转DTO并批量回填创建人姓名（按创建人ID一次批量查用户，避免N+1）
+        List<DeviationRecordWithAttachmentsDto> dtoList = new java.util.ArrayList<>(page.getRecords().size());
+        java.util.Map<Long, User> userMap = loadUserMap(page.getRecords());
+        for (DeviationRecord record : page.getRecords()) {
+            DeviationRecordWithAttachmentsDto dto = new DeviationRecordWithAttachmentsDto();
+            BeanUtils.copyProperties(record, dto);
+            dto.setCreatedByName(resolveUserNameFromMap(record.getCreatedBy(), userMap));
+            dtoList.add(dto);
+        }
+        Page<DeviationRecordWithAttachmentsDto> dtoPage =
+                new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
+        dtoPage.setRecords(dtoList);
+        return PagedResult.fromPage(dtoPage, pageRequest);
     }
 
     @Override
@@ -377,6 +389,43 @@ public class DeviationRecordServiceImpl extends ServiceImpl<DeviationRecordMappe
             return null;
         }
         User user = userMapper.selectById(userId);
+        if (user == null) {
+            return null;
+        }
+        return StringUtils.hasText(user.getUserName()) ? user.getUserName() : user.getUserAccount();
+    }
+
+    /**
+     * 批量加载创建人用户映射（按用户ID索引），用于列表批量回填创建人姓名
+     *
+     * @param records 偏差记录列表
+     * @return 用户ID到用户实体的映射，无数据时返回空映射
+     */
+    private java.util.Map<Long, User> loadUserMap(List<DeviationRecord> records) {
+        List<Long> userIds = records.stream()
+                .map(DeviationRecord::getCreatedBy)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (userIds.isEmpty()) {
+            return java.util.Map.of();
+        }
+        return userMapper.selectBatchIds(userIds).stream()
+                .collect(Collectors.toMap(User::getUserId, u -> u, (a, b) -> a));
+    }
+
+    /**
+     * 从用户映射中解析用户显示名称（真实姓名，无则回退登录账号）
+     *
+     * @param userId   用户ID
+     * @param userMap  用户ID到用户实体的映射
+     * @return 用户名称
+     */
+    private String resolveUserNameFromMap(Long userId, java.util.Map<Long, User> userMap) {
+        if (userId == null) {
+            return null;
+        }
+        User user = userMap.get(userId);
         if (user == null) {
             return null;
         }
