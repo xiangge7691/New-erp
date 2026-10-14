@@ -18,6 +18,16 @@ import java.util.Properties;
  */
 public class YamlPropertySourceFactory implements PropertySourceFactory {
 
+    /**
+     * 创建YAML属性源
+     * <p>
+     * 将YAML资源解析为Properties并包装为PropertySource，供Spring环境读取
+     * </p>
+     *
+     * @param name     属性源名称（可为null，为null时使用资源文件名）
+     * @param resource 编码后的YAML资源
+     * @return 解析后的属性源
+     */
     @Override
     public PropertySource<?> createPropertySource(String name, EncodedResource resource) {
         YamlPropertiesFactoryBean factory = new YamlPropertiesFactoryBean();

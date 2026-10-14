@@ -19,10 +19,21 @@ import java.time.LocalDateTime;
 
 /**
  * 文件操作日志服务实现类
+ * <p>
+ * 记录文件的上传/下载/删除等操作日志，并支持按操作类型、用户、业务类型等条件分页查询
+ * </p>
  */
 @Service
 public class FileOperationLogServiceImpl implements FileOperationLogService {
 
+    // region 依赖注入
+    // ===================================
+    // 依赖注入
+    // ===================================
+
+    /**
+     * 文件操作日志Mapper
+     */
     @Autowired
     private FileOperationLogMapper fileOperationLogMapper;
 
@@ -32,6 +43,26 @@ public class FileOperationLogServiceImpl implements FileOperationLogService {
     @Autowired
     private UserMapper userMapper;
 
+    // endregion
+
+    // region 日志记录方法
+    // ===================================
+    // 日志记录方法
+    // ===================================
+
+    /**
+     * 记录一条文件操作日志
+     * <p>
+     * 自动从当前请求上下文获取操作用户ID与用户名
+     * </p>
+     *
+     * @param fileId        文件ID
+     * @param fileName      文件原始名称
+     * @param filePath      文件存储路径
+     * @param operationType 操作类型（UPLOAD/DOWNLOAD/DELETE）
+     * @param rootType      根目录类型（business=系统文件/custom=用户文件）
+     * @param detail        操作明细描述（可为null）
+     */
     @Override
     public void log(Long fileId, String fileName, String filePath, String operationType, String rootType, String detail) {
         FileOperationLog log = new FileOperationLog();
@@ -47,11 +78,20 @@ public class FileOperationLogServiceImpl implements FileOperationLogService {
         fileOperationLogMapper.insert(log);
     }
 
+    // endregion
+
+    // region 用户名解析辅助方法
+    // ===================================
+    // 用户名解析辅助方法
+    // ===================================
+
     /**
      * 从请求上下文中获取当前用户名
      * <p>
      * 优先从 request attribute 获取，如果获取不到则从数据库查询用户信息
      * </p>
+     *
+     * @return 用户名（优先真实姓名，回退登录账号），获取不到时返回null
      */
     private String getCurrentUserName() {
         try {
@@ -78,6 +118,27 @@ public class FileOperationLogServiceImpl implements FileOperationLogService {
         return null;
     }
 
+    // endregion
+
+    // region 日志查询方法
+    // ===================================
+    // 日志查询方法
+    // ===================================
+
+    /**
+     * 分页查询文件操作日志
+     *
+     * @param operationType 操作类型（UPLOAD/DOWNLOAD/DELETE，可为null）
+     * @param userId        操作用户ID（可为null）
+     * @param userName      操作人姓名（模糊匹配，可为null）
+     * @param businessType  业务类型（可为null）
+     * @param rootType      根目录类型（business/custom，可为null）
+     * @param startTime     操作开始时间（可为null）
+     * @param endTime       操作结束时间（可为null）
+     * @param pageIndex     页码，从0开始
+     * @param pageSize      每页数量
+     * @return 分页后的日志记录
+     */
     @Override
     public Page<FileOperationLog> queryLogs(String operationType, Long userId, String userName, String businessType, String rootType, LocalDateTime startTime, LocalDateTime endTime, int pageIndex, int pageSize) {
         Page<FileOperationLog> page = new Page<>(pageIndex + 1, pageSize);
@@ -110,4 +171,6 @@ public class FileOperationLogServiceImpl implements FileOperationLogService {
         wrapper.orderByDesc("created_time");
         return fileOperationLogMapper.selectPage(page, wrapper);
     }
+
+    // endregion
 }

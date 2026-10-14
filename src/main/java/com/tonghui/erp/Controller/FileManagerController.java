@@ -67,9 +67,15 @@ public class FileManagerController extends BaseController {
     // 服务依赖注入
     // ===================================
 
+    /**
+     * 文件管理器服务（目录浏览、文件操作、搜索导出）
+     */
     @Autowired
     private FileManagerService fileManagerService;
 
+    /**
+     * 文件操作日志服务
+     */
     @Autowired
     private FileOperationLogService fileOperationLogService;
 

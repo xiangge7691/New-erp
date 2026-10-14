@@ -39,6 +39,13 @@ import java.util.zip.ZipOutputStream;
 
 /**
  * 文件管理器服务实现
+ * <p>
+ * 基于磁盘目录树的文件管理核心实现，提供：
+ * 目录浏览、新建/重命名/移动/复制、回收站删除与恢复、
+ * 上传下载预览、组合条件搜索、文件夹ZIP导出等能力
+ * 业务文件根目录（root=business）只读保护，仅自定义文件（root=custom）允许增删改
+ * 所有文件操作均记录文件操作日志
+ * </p>
  */
 @Service
 public class FileManagerServiceImpl implements FileManagerService {
@@ -48,12 +55,21 @@ public class FileManagerServiceImpl implements FileManagerService {
     // 服务依赖注入
     // ===================================
 
+    /**
+     * 文件存储配置（基础路径、自定义目录等）
+     */
     @Autowired
     private FileStorageConfig fileStorageConfig;
 
+    /**
+     * 文件信息Mapper（file_info表）
+     */
     @Autowired
     private FileInfoMapper fileInfoMapper;
 
+    /**
+     * 文件操作日志服务（记录上传/下载/删除等操作）
+     */
     @Autowired
     private FileOperationLogService fileOperationLogService;
 
@@ -63,6 +79,9 @@ public class FileManagerServiceImpl implements FileManagerService {
     @Autowired
     private FileOperationLogMapper fileOperationLogMapper;
 
+    /**
+     * 用户Mapper（解析删除人等用户姓名）
+     */
     @Autowired
     private UserMapper userMapper;
 
@@ -82,15 +101,31 @@ public class FileManagerServiceImpl implements FileManagerService {
     /** 回收站目录名（隐藏目录） */
     private static final String RECYCLE_BIN_DIR = ".recycle-bin";
 
-    /** 操作类型常量 */
+    /** 操作类型：上传 */
     private static final String OP_UPLOAD = "UPLOAD";
+
+    /** 操作类型：下载 */
     private static final String OP_DOWNLOAD = "DOWNLOAD";
+
+    /** 操作类型：预览 */
     private static final String OP_PREVIEW = "PREVIEW";
+
+    /** 操作类型：新建文件夹 */
     private static final String OP_CREATE_FOLDER = "CREATE_FOLDER";
+
+    /** 操作类型：删除 */
     private static final String OP_DELETE = "DELETE";
+
+    /** 操作类型：恢复 */
     private static final String OP_RESTORE = "RESTORE";
+
+    /** 操作类型：重命名 */
     private static final String OP_RENAME = "RENAME";
+
+    /** 操作类型：移动 */
     private static final String OP_MOVE = "MOVE";
+
+    /** 操作类型：复制 */
     private static final String OP_COPY = "COPY";
 
     // endregion
@@ -100,6 +135,13 @@ public class FileManagerServiceImpl implements FileManagerService {
     // 目录操作
     // ===================================
 
+    /**
+     * 列出目录内容（文件夹与文件分组返回，按名称排序，排除回收站目录）
+     *
+     * @param relativePath 相对根目录的路径（为空表示根目录）
+     * @param root         根目录类型（business=业务文件/custom=自定义文件）
+     * @return 目录清单（当前路径、父级路径、子文件夹列表、子文件列表）
+     */
     @Override
     public DirectoryListingDto listDirectory(String relativePath, String root) {
         Path basePath = resolveRootPath(root);
@@ -160,6 +202,13 @@ public class FileManagerServiceImpl implements FileManagerService {
         return result;
     }
 
+    /**
+     * 在指定目录下新建文件夹（同时记录新建文件夹日志）
+     *
+     * @param parentPath 父级相对路径（为空表示根目录）
+     * @param folderName 新文件夹名称（不允许包含..和路径分隔符）
+     * @param root       根目录类型
+     */
     @Override
     public void createFolder(String parentPath, String folderName, String root) {
         validatePath(folderName);
@@ -173,6 +222,16 @@ public class FileManagerServiceImpl implements FileManagerService {
         fileOperationLogService.log(null, folderName, path, OP_CREATE_FOLDER, root, null);
     }
 
+    /**
+     * 重命名文件或文件夹（仅自定义文件允许，业务文件抛出安全异常）
+     * <p>
+     * 原子移动落盘后同步更新 file_info 的 filePath/originalPath/originalName
+     * </p>
+     *
+     * @param relativePath 待重命名对象的相对路径
+     * @param newName      新名称（不允许包含..和路径分隔符）
+     * @param root         根目录类型
+     */
     @Override
     public void rename(String relativePath, String newName, String root) {
         checkNotBusiness(root, "重命名");
@@ -196,6 +255,16 @@ public class FileManagerServiceImpl implements FileManagerService {
         fileOperationLogService.log(null, getOriginalName(target, oldName), relativePath, OP_RENAME, root, oldName + " → " + newName);
     }
 
+    /**
+     * 移动文件或文件夹到目标目录（仅自定义文件允许）
+     * <p>
+     * 落盘移动后同步更新 file_info 的 filePath/originalPath
+     * </p>
+     *
+     * @param sourcePath      源对象相对路径
+     * @param targetDirectory 目标目录相对路径
+     * @param root            根目录类型
+     */
     @Override
     public void move(String sourcePath, String targetDirectory, String root) {
         checkNotBusiness(root, "移动");
@@ -214,6 +283,13 @@ public class FileManagerServiceImpl implements FileManagerService {
         fileOperationLogService.log(null, getOriginalName(target, source.getFileName().toString()), sourcePath, OP_MOVE, root, "→ " + targetDirectory);
     }
 
+    /**
+     * 复制文件或文件夹到目标目录（仅自定义文件允许，文件夹递归复制）
+     *
+     * @param sourcePath      源对象相对路径
+     * @param targetDirectory 目标目录相对路径
+     * @param root            根目录类型
+     */
     @Override
     public void copy(String sourcePath, String targetDirectory, String root) {
         checkNotBusiness(root, "复制");
@@ -232,6 +308,16 @@ public class FileManagerServiceImpl implements FileManagerService {
         fileOperationLogService.log(null, getOriginalName(source, source.getFileName().toString()), sourcePath, OP_COPY, root, "→ " + targetDirectory);
     }
 
+    /**
+     * 删除文件或文件夹到回收站（仅自定义文件允许）
+     * <p>
+     * 磁盘对象移动到 .recycle-bin 隐藏目录，file_info 记录软删除
+     * （记录 originalPath 供恢复使用）
+     * </p>
+     *
+     * @param relativePath 待删除对象的相对路径
+     * @param root         根目录类型
+     */
     @Override
     public void delete(String relativePath, String root) {
         checkNotBusiness(root, "删除");
@@ -291,6 +377,16 @@ public class FileManagerServiceImpl implements FileManagerService {
         fileOperationLogService.log(null, getOriginalName(target, fileName), normalizePath(relativePath), OP_DELETE, root, null);
     }
 
+    /**
+     * 从回收站恢复文件或文件夹（仅自定义文件允许）
+     * <p>
+     * 优先按 file_info 记录的 originalPath 还原到删除前位置，
+     * 无记录时回退到原相对父目录；恢复后清除软删除标记
+     * </p>
+     *
+     * @param relativePath 回收站内的相对路径（如 .recycle-bin/xxx.pdf）
+     * @param root         根目录类型
+     */
     @Override
     public void restore(String relativePath, String root) {
         checkNotBusiness(root, "恢复");
@@ -358,6 +454,16 @@ public class FileManagerServiceImpl implements FileManagerService {
         fileOperationLogService.log(null, getOriginalName(target, fileName), normalizePath(relativePath), OP_RESTORE, root, null);
     }
 
+    /**
+     * 从回收站永久删除（仅自定义文件允许）
+     * <p>
+     * 物理删除磁盘对象，并通过原生SQL物理删除 file_info 记录
+     * （逻辑删除配置下 wrapper.delete 会被转为UPDATE，故用原生DELETE）
+     * </p>
+     *
+     * @param relativePath 回收站内的相对路径
+     * @param root         根目录类型
+     */
     @Override
     public void permanentDelete(String relativePath, String root) {
         checkNotBusiness(root, "永久删除");
@@ -394,9 +500,10 @@ public class FileManagerServiceImpl implements FileManagerService {
      * 并支持按删除人、删除时间段筛选
      * </p>
      *
-     * @param deletedBy 删除人ID（可选，为空不过滤）
-     * @param startTime 删除时间起始（可选，含边界）
-     * @param endTime   删除时间截止（可选，含边界）
+     * @param deletedBy     删除人ID（可选，为空不过滤）
+     * @param deletedByName 删除人姓名（可选，模糊匹配，兼容真实姓名与登录账号）
+     * @param startTime     删除时间起始（可选，含边界）
+     * @param endTime       删除时间截止（可选，含边界）
      * @return 已删除的文件列表（含删除人、删除时间）
      */
     @Override
@@ -573,6 +680,15 @@ public class FileManagerServiceImpl implements FileManagerService {
     // 文件操作
     // ===================================
 
+    /**
+     * 上传文件到指定目录（UUID存储名落盘，写入file_info并记录上传日志）
+     *
+     * @param file        上传文件
+     * @param relativeDir 目标目录相对路径（为空表示根目录）
+     * @param root        根目录类型
+     * @return 保存后的文件信息（含fileId、fileUrl）
+     * @throws IOException 文件读写失败
+     */
     @Override
     public FileInfo uploadFile(MultipartFile file, String relativeDir, String root) throws IOException {
         Path dir = resolveSafePath(relativeDir, root);
@@ -605,6 +721,14 @@ public class FileManagerServiceImpl implements FileManagerService {
         return fileInfo;
     }
 
+    /**
+     * 下载文件（返回文件输入流，记录DOWNLOAD操作日志）
+     *
+     * @param relativePath 文件相对路径
+     * @param root         根目录类型
+     * @return 文件输入流
+     * @throws IOException 文件不存在或读取失败
+     */
     @Override
     public InputStream downloadFile(String relativePath, String root) throws IOException {
         Path file = resolveSafePath(relativePath, root);
@@ -617,6 +741,14 @@ public class FileManagerServiceImpl implements FileManagerService {
         return Files.newInputStream(file);
     }
 
+    /**
+     * 预览文件（返回文件输入流，记录PREVIEW操作日志）
+     *
+     * @param relativePath 文件相对路径
+     * @param root         根目录类型
+     * @return 文件输入流
+     * @throws IOException 文件不存在或读取失败
+     */
     @Override
     public InputStream previewFile(String relativePath, String root) throws IOException {
         Path file = resolveSafePath(relativePath, root);
@@ -629,6 +761,16 @@ public class FileManagerServiceImpl implements FileManagerService {
         return Files.newInputStream(file);
     }
 
+    /**
+     * 组合条件搜索文件（递归遍历目录树）
+     * <p>
+     * 支持：文件名关键词、路径模糊匹配、大小区间、修改时间区间，
+     * 全部命中后在内存中分页返回
+     * </p>
+     *
+     * @param request 搜索请求（关键词、路径、根目录、大小/时间区间、分页参数）
+     * @return 分页后的文件列表
+     */
     @Override
     public PagedResult<FileItemDto> searchFiles(FileSearchRequestDto request) {
         String keyword = request.getKeyword();
@@ -720,6 +862,13 @@ public class FileManagerServiceImpl implements FileManagerService {
         return buildPagedResult(allResults, request);
     }
 
+    /**
+     * 将文件或文件夹导出为ZIP（文件夹保留目录层级与原始文件名，排除回收站）
+     *
+     * @param relativePath 待导出对象的相对路径（为空表示根目录）
+     * @param root         根目录类型
+     * @return ZIP文件字节数组
+     */
     @Override
     public byte[] exportFolder(String relativePath, String root) {
         Path target = resolveSafePath(relativePath, root);
@@ -734,6 +883,13 @@ public class FileManagerServiceImpl implements FileManagerService {
         return zipBytes;
     }
 
+    /**
+     * 判断相对路径是否指向目录
+     *
+     * @param relativePath 相对路径
+     * @param root         根目录类型
+     * @return 是目录返回true
+     */
     @Override
     public boolean isDirectory(String relativePath, String root) {
         Path target = resolveSafePath(relativePath, root);
@@ -965,6 +1121,9 @@ public class FileManagerServiceImpl implements FileManagerService {
 
     /**
      * 根据根目录类型获取对应的基础路径
+     *
+     * @param root 根目录类型（custom=自定义文件目录，其他=业务文件基础目录）
+     * @return 规范化后的绝对基础路径
      */
     private Path resolveRootPath(String root) {
         if (ROOT_CUSTOM.equals(root)) {
@@ -975,6 +1134,9 @@ public class FileManagerServiceImpl implements FileManagerService {
 
     /**
      * 检查是否为业务文件，是则抛出异常
+     *
+     * @param root   根目录类型
+     * @param action 操作名称（用于异常提示）
      */
     private void checkNotBusiness(String root, String action) {
         if (ROOT_BUSINESS.equals(root)) {
@@ -984,6 +1146,9 @@ public class FileManagerServiceImpl implements FileManagerService {
 
     /**
      * 根据文件路径查找对应的 FileInfo 记录
+     *
+     * @param filePath 磁盘文件绝对路径
+     * @return 文件信息记录，无匹配时返回null
      */
     private FileInfo findFileInfoByPath(String filePath) {
         QueryWrapper<FileInfo> wrapper = new QueryWrapper<>();
@@ -997,6 +1162,9 @@ public class FileManagerServiceImpl implements FileManagerService {
      * 回收站内的记录 is_deleted 可能为1，MyBatis-Plus 查询会自动过滤，
      * 恢复/永久删除等流程需使用原生SQL查找
      * </p>
+     *
+     * @param filePath 磁盘文件绝对路径
+     * @return 文件信息记录，无匹配时返回null
      */
     private FileInfo findFileInfoByPathIgnoreDeleted(String filePath) {
         return fileInfoMapper.selectByPathIgnoreDeleted(filePath);
@@ -1004,6 +1172,9 @@ public class FileManagerServiceImpl implements FileManagerService {
 
     /**
      * 根据存储文件名（UUID）查找 FileInfo 记录
+     *
+     * @param storedName 磁盘存储文件名（UUID.扩展名）
+     * @return 文件信息记录，无匹配时返回null
      */
     private FileInfo findFileInfoByStoredName(String storedName) {
         QueryWrapper<FileInfo> wrapper = new QueryWrapper<>();
@@ -1035,6 +1206,11 @@ public class FileManagerServiceImpl implements FileManagerService {
         fileInfoMapper.markRestored(fi.getFileId(), fi.getFilePath(), fi.getOriginalPath());
     }
 
+    /**
+     * 解析基础存储路径（优先级：环境变量 ERP_FILE_STORAGE_PATH → 系统属性 erp.file.storage.path → 配置文件 file.base-path）
+     *
+     * @return 基础存储路径
+     */
     private String resolveBasePath() {
         String envPath = System.getenv("ERP_FILE_STORAGE_PATH");
         if (StringUtils.hasText(envPath)) return envPath;
@@ -1043,6 +1219,14 @@ public class FileManagerServiceImpl implements FileManagerService {
         return fileStorageConfig.getBasePath();
     }
 
+    /**
+     * 将相对路径解析为绝对路径，并校验未越出根目录（防目录穿越）
+     *
+     * @param relativePath 相对路径（为空或"/"表示根目录）
+     * @param root         根目录类型
+     * @return 规范化后的绝对路径
+     * @throws SecurityException 路径越出根目录时抛出
+     */
     private Path resolveSafePath(String relativePath, String root) {
         Path basePath = resolveRootPath(root);
         if (!StringUtils.hasText(relativePath) || "/".equals(relativePath.trim())) {
@@ -1055,6 +1239,13 @@ public class FileManagerServiceImpl implements FileManagerService {
         return resolved;
     }
 
+    /**
+     * 校验名称合法性（非空，且不允许包含..、/、\）
+     *
+     * @param name 文件或文件夹名称
+     * @throws IllegalArgumentException 名称为空时抛出
+     * @throws SecurityException        包含非法路径字符时抛出
+     */
     private void validatePath(String name) {
         if (!StringUtils.hasText(name)) {
             throw new IllegalArgumentException("名称不能为空");
@@ -1064,11 +1255,23 @@ public class FileManagerServiceImpl implements FileManagerService {
         }
     }
 
+    /**
+     * 统一路径分隔符为"/"（Windows反斜杠转正斜杠）
+     *
+     * @param path 原始路径（可为null）
+     * @return 统一分隔符后的路径，null返回空串
+     */
     private String normalizePath(String path) {
         if (path == null) return "";
         return path.replace("\\", "/");
     }
 
+    /**
+     * 获取父级相对路径
+     *
+     * @param relativePath 相对路径（为空或"/"表示根目录）
+     * @return 父级相对路径，无父级时返回null
+     */
     private String getParentPath(String relativePath) {
         if (!StringUtils.hasText(relativePath) || "/".equals(relativePath.trim())) {
             return null;
@@ -1077,11 +1280,23 @@ public class FileManagerServiceImpl implements FileManagerService {
         return parent != null ? normalizePath(parent.toString()) : null;
     }
 
+    /**
+     * 获取文件扩展名（不含点号，统一小写；无扩展名时返回空串）
+     *
+     * @param filename 文件名（可为null）
+     * @return 小写扩展名
+     */
     private String getExtension(String filename) {
         if (filename == null || !filename.contains(".")) return "";
         return filename.substring(filename.lastIndexOf('.') + 1).toLowerCase();
     }
 
+    /**
+     * 根据扩展名映射前端图标类型
+     *
+     * @param extension 小写扩展名（可为空）
+     * @return 图标类型：image/document/video/audio/archive/other
+     */
     private String getIconType(String extension) {
         if (!StringUtils.hasText(extension)) return "other";
         Set<String> images = Set.of("jpg", "jpeg", "png", "gif", "bmp", "webp", "svg");
@@ -1098,11 +1313,24 @@ public class FileManagerServiceImpl implements FileManagerService {
         return "other";
     }
 
+    /**
+     * 将文件修改时间格式化为 yyyy-MM-dd HH:mm 字符串
+     *
+     * @param fileTime 文件修改时间
+     * @return 格式化后的时间字符串
+     */
     private String formatTime(java.nio.file.attribute.FileTime fileTime) {
         return LocalDateTime.ofInstant(fileTime.toInstant(), java.time.ZoneId.systemDefault())
             .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
     }
 
+    /**
+     * 递归复制目录（保持目录层级，已存在文件覆盖）
+     *
+     * @param source 源目录
+     * @param target 目标目录
+     * @throws IOException 复制失败时抛出
+     */
     private void copyDirectory(Path source, Path target) throws IOException {
         Files.createDirectories(target);
         try (Stream<Path> stream = Files.list(source)) {
@@ -1121,6 +1349,12 @@ public class FileManagerServiceImpl implements FileManagerService {
         }
     }
 
+    /**
+     * 递归删除目录（自底向上逐个删除）
+     *
+     * @param dir 待删除目录
+     * @throws IOException 删除失败时抛出
+     */
     private void deleteDirectory(Path dir) throws IOException {
         try (Stream<Path> stream = Files.walk(dir)) {
             stream.sorted(Comparator.reverseOrder()).forEach(path -> {

@@ -60,6 +60,7 @@ import java.util.List;
  * - PREPARATION_FORMULA      → 制剂管理/配方
  * - PREPARATION_SPEC         → 制剂管理/规格
  * - PREPARATION_RECORD       → 制剂管理/记录
+ * - PREPARATION_PROCESS_CHART → 制剂管理/工艺规程流程图
  *
  * 物料管理（MATERIAL）：
  * - MATERIAL_FILE            → 物料管理/文件
@@ -128,6 +129,9 @@ import java.util.List;
 @RequestMapping("/api/files")
 public class FileController extends BaseController {
 
+    /**
+     * 文件信息服务（上传、查询、删除文件元数据）
+     */
     @Autowired
     private FileInfoService fileInfoService;
 
@@ -228,6 +232,14 @@ public class FileController extends BaseController {
      * @param businessId   业务ID（选填）
      * @param businessType 业务类型（选填）
      * @return FileInfo 对象
+     *
+     * 请求示例：
+     * POST /api/files/upload
+     * Content-Type: multipart/form-data
+     * body:
+     *   file:         [选择文件]
+     *   category:     document
+     *   description:  通用文档
      */
     @PostMapping("/upload")
     public ApiResponse<FileInfo> uploadFile(
@@ -471,10 +483,14 @@ public class FileController extends BaseController {
      *
      * @param businessId   业务ID（必填），如维保记录ID
      * @param businessType 业务类型（必填），见上方业务类型枚举
+     * @param customPath   自定义路径段（选填，精确匹配custom_path字段）
      * @return FileInfo 列表
      *
      * 请求示例：
      * GET /api/files/business?businessId=1&businessType=EQUIPMENT_MAINTENANCE
+     *
+     * 带自定义路径精确过滤示例：
+     * GET /api/files/business?businessId=1&businessType=PREPARATION_PROCESS_CHART&customPath=固体制剂车间
      *
      * 响应示例：
      * {

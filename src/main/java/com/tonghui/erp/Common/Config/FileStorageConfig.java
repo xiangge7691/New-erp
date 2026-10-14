@@ -39,6 +39,11 @@ public class FileStorageConfig {
     // 构造方法
     // ===================================
 
+    /**
+     * 构造方法：注入文件业务类型目录映射配置
+     *
+     * @param fileTypeConfig 业务类型目录映射配置（来自 init-data/file-types.yml）
+     */
     @Autowired
     public FileStorageConfig(FileTypeInitConfig fileTypeConfig) {
         this.fileTypeConfig = fileTypeConfig;

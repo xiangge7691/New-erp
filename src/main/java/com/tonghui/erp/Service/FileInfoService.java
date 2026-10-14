@@ -57,6 +57,18 @@ public interface FileInfoService extends IService<FileInfo> {
     FileInfo uploadFileWithBusinessPath(MultipartFile file, String businessType,
                                         Long businessId, String entityName, String description) throws IOException;
 
+    /**
+     * 按业务路径上传文件（支持自定义路径段）
+     *
+     * @param file 文件对象
+     * @param businessType 业务类型
+     * @param businessId 业务ID
+     * @param entityName 实体名称（用于目录名）
+     * @param description 文件描述
+     * @param customPath 自定义路径段（插入在业务类型目录之后，可为空）
+     * @return 文件信息实体
+     * @throws IOException IO异常
+     */
     FileInfo uploadFileWithBusinessPath(MultipartFile file, String businessType,
                                         Long businessId, String entityName, String description, String customPath) throws IOException;
 
@@ -106,6 +118,7 @@ public interface FileInfoService extends IService<FileInfo> {
      *
      * @param businessId 业务ID
      * @param businessType 业务类型
+     * @param customPath 自定义路径（选填，精确匹配）
      * @return 文件列表
      */
     List<FileInfo> getFilesByBusiness(Long businessId, String businessType, String customPath);
