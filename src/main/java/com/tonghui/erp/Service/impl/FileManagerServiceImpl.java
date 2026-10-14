@@ -764,8 +764,9 @@ public class FileManagerServiceImpl implements FileManagerService {
     /**
      * 组合条件搜索文件（递归遍历目录树）
      * <p>
-     * 支持：文件名关键词、路径模糊匹配、大小区间、修改时间区间，
+     * 支持：原始文件名关键词、路径模糊匹配、大小区间、修改时间区间，
      * 全部命中后在内存中分页返回
+     * 关键词匹配的是 file_info 中的原始文件名（磁盘存储名为UUID，直接按磁盘名匹配会永远搜不到）
      * </p>
      *
      * @param request 搜索请求（关键词、路径、根目录、大小/时间区间、分页参数）
@@ -789,12 +790,29 @@ public class FileManagerServiceImpl implements FileManagerService {
             return buildPagedResult(allResults, request);
         }
 
+        // 关键词匹配前预加载搜索目录下的原始文件名映射（路径/存储名 -> 原始文件名）
+        Map<String, String> originalNameByPath = new HashMap<>();
+        Map<String, String> originalNameByStored = new HashMap<>();
+        if (StringUtils.hasText(keyword)) {
+            for (FileInfo fi : fileInfoMapper.selectActiveByPathPrefix(searchRoot.toString())) {
+                if (StringUtils.hasText(fi.getOriginalName())) {
+                    originalNameByPath.putIfAbsent(fi.getFilePath(), fi.getOriginalName());
+                    originalNameByStored.putIfAbsent(fi.getStoredName(), fi.getOriginalName());
+                }
+            }
+        }
+
         try (Stream<Path> walk = Files.walk(searchRoot)) {
             walk.filter(path -> {
-                // 文件名关键词匹配（可选）
+                // 文件名关键词匹配（可选）：文件优先按原始文件名匹配，无记录时回退磁盘名；目录按目录名匹配
                 if (StringUtils.hasText(keyword)) {
-                    String name = path.getFileName().toString().toLowerCase();
-                    if (!name.contains(keyword.toLowerCase())) {
+                    String diskName = path.getFileName().toString();
+                    String matchName = diskName;
+                    if (Files.isRegularFile(path)) {
+                        matchName = originalNameByPath.getOrDefault(path.toString(),
+                                originalNameByStored.getOrDefault(diskName, diskName));
+                    }
+                    if (!matchName.toLowerCase().contains(keyword.toLowerCase())) {
                         return false;
                     }
                 }

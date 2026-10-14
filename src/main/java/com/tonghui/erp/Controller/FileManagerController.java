@@ -506,7 +506,8 @@ public class FileManagerController extends BaseController {
     /**
      * 搜索文件
      *
-     * 支持文件名关键词搜索、路径模糊匹配、文件大小筛选、修改日期筛选、分页
+     * 支持原始文件名关键词搜索（文件按file_info原始名匹配，无记录时回退磁盘名）、
+     * 路径模糊匹配、文件大小筛选、修改日期筛选、分页
      *
      * 示例请求：
      * GET /api/file-manager/search?keyword=维修单&path=文档&root=custom&minSize=1024&maxSize=1048576&modifiedAfter=2026-01-01 00:00:00&pageIndex=0&pageSize=20

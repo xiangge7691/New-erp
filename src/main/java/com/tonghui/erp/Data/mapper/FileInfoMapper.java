@@ -114,4 +114,17 @@ public interface FileInfoMapper extends BaseMapper<FileInfo> {
      */
     @Delete("DELETE FROM file_info WHERE file_path LIKE CONCAT('%', #{filePath}, '%')")
     int deleteByPathLike(@Param("filePath") String filePath);
+
+/**
+     * 按路径前缀查询有效文件记录（搜索关键词匹配原始文件名用）
+     * <p>
+     * 一次加载搜索目录下的全部 file_info 记录，避免遍历目录树时逐文件查询数据库。
+     * 使用 INSTR 而非 LIKE：Windows 路径含反斜杠，LIKE 会把反斜杠当转义符导致前缀匹配失效
+     * </p>
+     *
+     * @param prefix 路径前缀（搜索根目录的绝对路径）
+     * @return 路径前缀下的全部有效文件记录（is_deleted=0）
+     */
+    @Select("SELECT * FROM file_info WHERE is_deleted = 0 AND INSTR(file_path, #{prefix}) = 1")
+    List<FileInfo> selectActiveByPathPrefix(@Param("prefix") String prefix);
 }
