@@ -340,6 +340,10 @@ public class MaterialServiceImpl implements MaterialService {
         if (StringUtils.hasText(material.getSpec())) {
             wrapper.like("spec", material.getSpec());
         }
+        if (material.getKeyMaintenance() != null) {
+            // 是否重点养护物料（养护模块按重点物料筛选）
+            wrapper.eq("key_maintenance", material.getKeyMaintenance());
+        }
         if (material.getMaterialStatus() != null) {
             wrapper.eq("material_status", material.getMaterialStatus());
         }
@@ -418,6 +422,10 @@ public class MaterialServiceImpl implements MaterialService {
         }
         if (StringUtils.hasText(material.getSpec())) {
             wrapper.like("spec", material.getSpec());
+        }
+        if (material.getKeyMaintenance() != null) {
+            // 是否重点养护物料（养护模块按重点物料筛选）
+            wrapper.eq("key_maintenance", material.getKeyMaintenance());
         }
         if (material.getMaterialStatus() != null) {
             wrapper.eq("material_status", material.getMaterialStatus());

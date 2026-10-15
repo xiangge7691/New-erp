@@ -78,4 +78,5 @@ init-data:
       DEVIATION_RECORD: 偏差记录
       DESTRUCTION_RECORD: 销毁记录
       PROCESS_CHART: 工艺规程流程图
-      
+      MAINTENANCE_RECORD: 养护记录
+      MAINTENANCE_DETAIL: 养护明细附件

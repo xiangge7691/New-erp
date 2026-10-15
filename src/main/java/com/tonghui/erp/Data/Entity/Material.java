@@ -82,6 +82,24 @@ public class Material extends AuditEntity {
     private String storageRequirement;
 
     /**
+     * 养护注意事项（养护记录登记时只读带出，供检查/养护参考）
+     */
+    @TableField(value = "maintenance_notes")
+    private String maintenanceNotes;
+
+    /**
+     * 养护周期（天，用于计算库存明细的下次养护日期；为空表示不纳入周期提醒）
+     */
+    @TableField(value = "maintenance_cycle_days")
+    private Integer maintenanceCycleDays;
+
+    /**
+     * 是否重点养护物料：1是/0否
+     */
+    @TableField(value = "key_maintenance")
+    private Integer keyMaintenance;
+
+    /**
      * 备注信息
      */
     @TableField(value = "remark")
