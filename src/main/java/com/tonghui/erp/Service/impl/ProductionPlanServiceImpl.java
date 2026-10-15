@@ -6,9 +6,11 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.ProductionPlanWithRecordsDto;
+import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.ProductionPlan;
 import com.tonghui.erp.Data.Entity.ProductionProcessRecord;
 import com.tonghui.erp.Data.Entity.WorkOrder;
+import com.tonghui.erp.Data.mapper.PreparationMapper;
 import com.tonghui.erp.Data.mapper.ProductionProcessRecordMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderMapper;
 import com.tonghui.erp.Service.ProductionPlanService;
@@ -19,9 +21,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -48,6 +52,10 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
     /** 工单数据访问层，用于关联查询计划关联的生产任务及状态计算 */
     @Autowired
     private WorkOrderMapper workOrderMapper;
+
+    /** 制剂数据访问层，用于查询时为单价为空的计划回填制剂销售价 */
+    @Autowired
+    private PreparationMapper preparationMapper;
 
     // endregion
     
@@ -234,7 +242,12 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
         // 按创建时间倒序排列，新创建的显示在最前
         wrapper.orderByDesc("created_time");
 
-        return this.page(page, wrapper);
+        Page<ProductionPlan> result = this.page(page, wrapper);
+
+        // 单价为空的计划按制剂销售价内存回填（不落库，仅影响查询返回）
+        fillMissingUnitPrice(result.getRecords());
+
+        return result;
     }
 
     // endregion
@@ -620,6 +633,52 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
         }
 
         return prefix + String.format("%04d", sequence);
+    }
+
+    // endregion
+
+    // region 单价回填
+    // ===================================
+    // 单价回填
+    // ===================================
+
+    /**
+     * 为单价为空的生产计划回填制剂销售价（仅内存回填，不写回数据库）
+     * <p>
+     * 场景：部分计划创建时前端未传 unit_price，导致列表查询单价缺失。
+     * 回填规则：仅对 unit_price 为 NULL 且关联了制剂（preparation_id 非空）的计划生效，
+     * 按制剂档案的销售价（sales_price）回填；已有单价的计划保持原值不变；
+     * 制剂已被删除或销售价未维护时保持 NULL
+     * </p>
+     *
+     * @param plans 查询结果中的生产计划列表（可能为null或空，直接返回）
+     */
+    private void fillMissingUnitPrice(List<ProductionPlan> plans) {
+        if (plans == null || plans.isEmpty()) {
+            return;
+        }
+
+        // 收集需要回填的制剂ID（单价为空且关联了制剂）
+        Set<Long> preparationIds = plans.stream()
+                .filter(p -> p.getUnitPrice() == null && p.getPreparationId() != null)
+                .map(ProductionPlan::getPreparationId)
+                .collect(Collectors.toSet());
+        if (preparationIds.isEmpty()) {
+            return;
+        }
+
+        // 批量查询制剂销售价（跨页去重后最多一次查询）
+        List<Preparation> preparations = preparationMapper.selectBatchIds(preparationIds);
+        Map<Long, BigDecimal> salesPriceMap = preparations.stream()
+                .filter(prep -> prep.getSalesPrice() != null)
+                .collect(Collectors.toMap(Preparation::getPreparationId, Preparation::getSalesPrice, (a, b) -> a));
+
+        // 仅回填单价仍为空的计划，避免覆盖查询期间被并发修改的值
+        for (ProductionPlan plan : plans) {
+            if (plan.getUnitPrice() == null && plan.getPreparationId() != null) {
+                plan.setUnitPrice(salesPriceMap.get(plan.getPreparationId()));
+            }
+        }
     }
 
     // endregion

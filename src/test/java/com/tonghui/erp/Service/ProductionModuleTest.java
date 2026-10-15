@@ -220,6 +220,54 @@ public class ProductionModuleTest {
     }
 
     /**
+     * 测试生产计划查询单价回填：单价为空的计划按制剂销售价内存回填，不写回数据库
+     */
+    @Test
+    @Transactional
+    public void testQueryFillsMissingUnitPriceFromSalesPrice() {
+        // 找一个维护了销售价的制剂作为回填来源
+        List<Preparation> preparations = preparationMapper.selectList(null);
+        Preparation target = preparations.stream()
+                .filter(prep -> prep.getSalesPrice() != null)
+                .findFirst()
+                .orElse(null);
+        if (target == null) {
+            return; // 库中无维护销售价的制剂，跳过用例
+        }
+
+        // 新建单价为空的计划，关联该制剂（模拟前端创建时未传 unitPrice）
+        ProductionPlan plan = new ProductionPlan();
+        plan.setPlanNumber("SCJH" + System.currentTimeMillis());
+        plan.setPlanName("单价回填测试计划");
+        plan.setPreparationId(target.getPreparationId());
+        plan.setPreparationCode(target.getPreparationCode());
+        plan.setPreparationName(target.getPreparationName());
+        plan.setPlanQuantity(new BigDecimal("10.000"));
+        assertTrue(productionPlanService.save(plan), "新增生产计划应成功");
+        Integer planId = plan.getId().intValue();
+        assertNull(plan.getUnitPrice(), "新建计划未传单价时应为空");
+
+        // 按编号查询，单价应被回填为制剂销售价
+        ProductionPlan query = new ProductionPlan();
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<ProductionPlan> page =
+                productionPlanService.queryProductionPlans(query, plan.getPlanNumber(), null, null, null, null, null, null,
+                        null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                        null, 0, 10);
+        ProductionPlan found = page.getRecords().stream()
+                .filter(p -> planId.equals(p.getId()))
+                .findFirst()
+                .orElse(null);
+        assertNotNull(found, "应查询到新建计划");
+        assertNotNull(found.getUnitPrice(), "单价为空的计划查询时应被回填");
+        assertEquals(0, target.getSalesPrice().compareTo(found.getUnitPrice()), "回填单价应为制剂销售价");
+
+        // 回填仅作用于查询结果，数据库中 unit_price 应保持为空
+        ProductionPlan dbRow = productionPlanService.getById(planId);
+        assertNotNull(dbRow, "应能查到数据库中的计划");
+        assertNull(dbRow.getUnitPrice(), "单价回填不应写回数据库");
+    }
+
+    /**
      * 测试工单管理：新增→按ID查询→更新→删除（依赖制剂数据）
      */
     @Test
