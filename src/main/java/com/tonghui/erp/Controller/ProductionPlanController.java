@@ -126,9 +126,15 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
 
     /**
      * 高级查询生产计划（支持多条件 + 分页）
+     * <p>
+     * 分页说明：pageIndex 或 pageSize 传 -1 表示全量查询（单次上限 10000 条），
+     * 此时返回的 pageIndex 为 0、pageSize 为实际总记录数
+     * </p>
      *
      * 示例请求：
      * GET /api/production-plans/search?pageIndex=1&pageSize=20&planNumber=PP2025&planName=xxx&currentStatus=active&createdTimeStart=2025-01-01T00:00:00&createdTimeEnd=2025-12-31T23:59:59&planProductionTimeStart=2025-01-01T00:00:00&planProductionTimeEnd=2025-12-31T23:59:59
+     * 全量示例：
+     * GET /api/production-plans/search?pageIndex=-1&pageSize=-1
      *
      * @param productionPlan 查询条件（自动从query参数映射）
      * @param createdTimeStart 创建时间起始
@@ -184,8 +190,13 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
         try {
             // 页码从0开始的处理，确保不为负数
             int safePageIndex = Math.max(0, pageIndex);
+            // pageIndex或pageSize为-1时全量查询（与PagedResult.toMybatisPage约定一致，单次上限10000条）
+            boolean fetchAll = pageIndex == -1 || pageSize == -1;
             // 当pageSize<=0时，设置一个合理的默认值
-            int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
+            int safePageSize = fetchAll ? 10000 : (pageSize <= 0 ? 20 : Math.max(1, pageSize));
+            if (fetchAll) {
+                safePageIndex = 0;
+            }
 
             // 获取分页结果
             Page<ProductionPlan> pageResult = productionPlanService.queryProductionPlans(productionPlan,
@@ -202,8 +213,14 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
             PagedResult<ProductionPlan> pagedResult = new PagedResult<>();
             pagedResult.setItems(pageResult.getRecords());
             pagedResult.setTotalCount((int) pageResult.getTotal());
-            pagedResult.setPageIndex(safePageIndex);
-            pagedResult.setPageSize((int) pageResult.getSize());
+            if (fetchAll) {
+                // 全量查询时pageIndex固定为0，pageSize为实际总数
+                pagedResult.setPageIndex(0);
+                pagedResult.setPageSize((int) pageResult.getTotal());
+            } else {
+                pagedResult.setPageIndex(safePageIndex);
+                pagedResult.setPageSize((int) pageResult.getSize());
+            }
 
             return success(pagedResult);
         } catch (Exception ex) {
