@@ -6,7 +6,6 @@ import com.tonghui.erp.Common.Config.FileStorageConfig;
 import com.tonghui.erp.Common.Dto.FileManager.DirectoryListingDto;
 import com.tonghui.erp.Common.Dto.FileManager.FileItemDto;
 import com.tonghui.erp.Common.Dto.FileManager.FileSearchRequestDto;
-import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.utils.DateTimeUtils;
 import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.FileInfo;
@@ -765,15 +764,15 @@ public class FileManagerServiceImpl implements FileManagerService {
      * 组合条件搜索文件（递归遍历目录树）
      * <p>
      * 支持：原始文件名关键词、路径模糊匹配、大小区间、修改时间区间，
-     * 全部命中后在内存中分页返回
+     * 全部命中后按目录列表格式返回（folders/files 分组，文件夹在前，各自按名称排序）
      * 关键词匹配的是 file_info 中的原始文件名（磁盘存储名为UUID，直接按磁盘名匹配会永远搜不到）
      * </p>
      *
-     * @param request 搜索请求（关键词、路径、根目录、大小/时间区间、分页参数）
-     * @return 分页后的文件列表
+     * @param request 搜索请求（关键词、路径、根目录、大小/时间区间）
+     * @return 搜索结果（目录列表格式：当前路径、父级路径、文件夹列表、文件列表）
      */
     @Override
-    public PagedResult<FileItemDto> searchFiles(FileSearchRequestDto request) {
+    public DirectoryListingDto searchFiles(FileSearchRequestDto request) {
         String keyword = request.getKeyword();
         String searchPath = request.getPath();
         String root = request.getRoot();
@@ -784,10 +783,18 @@ public class FileManagerServiceImpl implements FileManagerService {
 
         Path searchRoot = resolveSafePath(searchPath, root);
         Path basePath = resolveRootPath(root);
-        List<FileItemDto> allResults = new ArrayList<>();
+
+        // 构建与目录列表一致的结果结构（当前路径、父级路径、文件夹/文件分组）
+        DirectoryListingDto result = new DirectoryListingDto();
+        result.setCurrentPath(normalizePath(searchPath));
+        result.setParentPath(getParentPath(searchPath));
+        List<FileItemDto> folders = new ArrayList<>();
+        List<FileItemDto> files = new ArrayList<>();
 
         if (!Files.exists(searchRoot)) {
-            return buildPagedResult(allResults, request);
+            result.setFolders(folders);
+            result.setFiles(files);
+            return result;
         }
 
         // 关键词匹配前预加载搜索目录下的原始文件名映射（路径/存储名 -> 原始文件名）
@@ -855,6 +862,13 @@ public class FileManagerServiceImpl implements FileManagerService {
                     item.setDirectory(true);
                     item.setSize(calculateFolderSize(path));
                     item.setIconType("folder");
+                    try {
+                        item.setModifiedTime(formatTime(Files.getLastModifiedTime(path)));
+                    } catch (IOException e) {
+                        item.setModifiedTime("");
+                    }
+                    // 目录与文件分组（与目录列表接口一致）
+                    folders.add(item);
                 } else {
                     item.setDirectory(false);
                     try {
@@ -865,19 +879,24 @@ public class FileManagerServiceImpl implements FileManagerService {
                     String ext = getExtension(displayName);
                     item.setExtension(ext);
                     item.setIconType(getIconType(ext));
+                    try {
+                        item.setModifiedTime(formatTime(Files.getLastModifiedTime(path)));
+                    } catch (IOException e) {
+                        item.setModifiedTime("");
+                    }
+                    files.add(item);
                 }
-                try {
-                    item.setModifiedTime(formatTime(Files.getLastModifiedTime(path)));
-                } catch (IOException e) {
-                    item.setModifiedTime("");
-                }
-                allResults.add(item);
             });
         } catch (IOException e) {
             throw new RuntimeException("搜索失败: " + e.getMessage());
         }
 
-        return buildPagedResult(allResults, request);
+        // 文件夹与文件各自按名称排序（与目录列表接口一致）
+        folders.sort(Comparator.comparing(FileItemDto::getName, Comparator.nullsLast(String::compareTo)));
+        files.sort(Comparator.comparing(FileItemDto::getName, Comparator.nullsLast(String::compareTo)));
+        result.setFolders(folders);
+        result.setFiles(files);
+        return result;
     }
 
     /**
@@ -1031,32 +1050,6 @@ public class FileManagerServiceImpl implements FileManagerService {
      */
     private LocalDateTime parseDateTime(String dateTimeStr) {
         return DateTimeUtils.tryParseDateTime(dateTimeStr);
-    }
-
-    /**
-     * 构建分页结果
-     *
-     * @param allResults 全部结果列表
-     * @param request    搜索请求参数（含分页信息）
-     * @return 分页结果
-     */
-    private PagedResult<FileItemDto> buildPagedResult(List<FileItemDto> allResults, FileSearchRequestDto request) {
-        int pageIndex = request.getPageIndex();
-        int pageSize = request.getPageSize();
-        long totalCount = allResults.size();
-        int fromIndex = pageIndex * pageSize;
-        int toIndex = Math.min(fromIndex + pageSize, allResults.size());
-
-        List<FileItemDto> pageItems = fromIndex < allResults.size()
-            ? allResults.subList(fromIndex, toIndex)
-            : new ArrayList<>();
-
-        PagedResult<FileItemDto> pagedResult = new PagedResult<>();
-        pagedResult.setItems(pageItems);
-        pagedResult.setTotalCount(totalCount);
-        pagedResult.setPageIndex(pageIndex);
-        pagedResult.setPageSize(pageSize);
-        return pagedResult;
     }
 
     /**

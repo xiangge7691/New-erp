@@ -5,7 +5,6 @@ import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.FileManager.DirectoryListingDto;
 import com.tonghui.erp.Common.Dto.FileManager.FileItemDto;
 import com.tonghui.erp.Common.Dto.FileManager.FileSearchRequestDto;
-import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.utils.DateTimeUtils;
 import com.tonghui.erp.Data.Entity.FileInfo;
 import com.tonghui.erp.Data.Entity.FileOperationLog;
@@ -507,21 +506,22 @@ public class FileManagerController extends BaseController {
      * 搜索文件
      *
      * 支持原始文件名关键词搜索（文件按file_info原始名匹配，无记录时回退磁盘名）、
-     * 路径模糊匹配、文件大小筛选、修改日期筛选、分页
+     * 路径模糊匹配、文件大小筛选、修改日期筛选；
+     * 返回格式与目录列表接口一致（folders/files 分组），文件夹在前、文件在后，各自按名称排序
      *
      * 示例请求：
-     * GET /api/file-manager/search?keyword=维修单&path=文档&root=custom&minSize=1024&maxSize=1048576&modifiedAfter=2026-01-01 00:00:00&pageIndex=0&pageSize=20
+     * GET /api/file-manager/search?keyword=维修单&path=文档&root=custom&minSize=1024&maxSize=1048576&modifiedAfter=2026-01-01 00:00:00
      *
-     * @param request 搜索请求参数
-     * @return 分页搜索结果
+     * @param request 搜索请求参数（keyword/path/root/minSize/maxSize/modifiedAfter/modifiedBefore）
+     * @return 搜索结果（目录列表格式：currentPath/parentPath/folders/files）
      */
     @GetMapping("/search")
-    public ApiResponse<PagedResult<FileItemDto>> searchFiles(FileSearchRequestDto request) {
+    public ApiResponse<DirectoryListingDto> searchFiles(FileSearchRequestDto request) {
         try {
             if (request.getRoot() == null) {
                 request.setRoot("custom");
             }
-            PagedResult<FileItemDto> results = fileManagerService.searchFiles(request);
+            DirectoryListingDto results = fileManagerService.searchFiles(request);
             return success(results);
         } catch (Exception e) {
             return exception(e, "搜索文件");

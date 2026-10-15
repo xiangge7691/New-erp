@@ -3,7 +3,6 @@ package com.tonghui.erp.Service;
 import com.tonghui.erp.Common.Dto.FileManager.DirectoryListingDto;
 import com.tonghui.erp.Common.Dto.FileManager.FileItemDto;
 import com.tonghui.erp.Common.Dto.FileManager.FileSearchRequestDto;
-import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.FileInfo;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -149,13 +148,14 @@ public interface FileManagerService {
      * 搜索文件
      * <p>
      * 支持原始文件名关键词搜索（文件按file_info原始名匹配，无记录时回退磁盘名）、
-     * 路径模糊匹配、文件大小筛选、修改日期筛选
+     * 路径模糊匹配、文件大小筛选、修改日期筛选；
+     * 返回格式与目录列表一致（folders/files 分组），文件夹在前、文件在后，各自按名称排序
      * </p>
      *
      * @param request 搜索请求参数
-     * @return 分页搜索结果
+     * @return 搜索结果（目录列表格式：当前路径、父级路径、文件夹列表、文件列表）
      */
-    PagedResult<FileItemDto> searchFiles(FileSearchRequestDto request);
+    DirectoryListingDto searchFiles(FileSearchRequestDto request);
 
     /**
      * 导出文件夹为 ZIP 文件

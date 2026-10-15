@@ -1,8 +1,7 @@
 package com.tonghui.erp.Service;
 
-import com.tonghui.erp.Common.Dto.FileManager.FileItemDto;
+import com.tonghui.erp.Common.Dto.FileManager.DirectoryListingDto;
 import com.tonghui.erp.Common.Dto.FileManager.FileSearchRequestDto;
-import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.FileInfo;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,16 +61,16 @@ public class FileManagerSearchTest {
             FileSearchRequestDto request = new FileSearchRequestDto();
             request.setKeyword("搜索验证关键词");
             request.setRoot("custom");
-            request.setPageIndex(0);
-            request.setPageSize(20);
-            PagedResult<FileItemDto> result = fileManagerService.searchFiles(request);
-            assertTrue(result.getItems().stream().anyMatch(i -> originalName.equals(i.getName())),
+            DirectoryListingDto result = fileManagerService.searchFiles(request);
+            assertNotNull(result.getFiles(), "搜索结果文件列表不应为空");
+            assertTrue(result.getFiles().stream().anyMatch(i -> originalName.equals(i.getName())),
                     "按原始文件名关键字应命中上传的文件");
 
             // 关键字包含UUID存储名的部分字符时不应依赖磁盘名命中（磁盘名匹配已禁用，无原始记录才回退）
             request.setKeyword("不存在的关键词XYZQ");
-            PagedResult<FileItemDto> empty = fileManagerService.searchFiles(request);
-            assertFalse(empty.getItems().stream().anyMatch(i -> originalName.equals(i.getName())),
+            DirectoryListingDto empty = fileManagerService.searchFiles(request);
+            assertNotNull(empty.getFiles(), "搜索结果文件列表不应为null");
+            assertFalse(empty.getFiles().stream().anyMatch(i -> originalName.equals(i.getName())),
                     "不相关关键字不应命中");
         } finally {
             // 事务回滚不回滚磁盘文件，测试后手动清理
