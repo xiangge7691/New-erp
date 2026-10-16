@@ -32,6 +32,7 @@ import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,10 +48,13 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -623,6 +627,9 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
     /** 单据类型：重发 */
     private static final String DOC_TYPE_RESEND = "重发";
 
+    /** 单据类型：合计（明细 sheet 表尾合计行） */
+    private static final String DOC_TYPE_TOTAL = "合计";
+
     /** 采购退货来源验收单来源类型集合（采购入库、退货重发） */
     private static final List<String> PURCHASE_SOURCE_TYPES = List.of("采购入库", "退货重发");
 
@@ -639,7 +646,7 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
      * 流程：日期参数校验 → 按筛选条件查询采购订单主表 → 批量查询订单明细 →
      * 批量加载物料/供应商名称 → 组装采购行（每行对应一条订单明细）→
      * 在命中订单范围内追加采购退货行与重新发货行（单据类型列区分）→
-     * POI 生成单 sheet xlsx 写流
+     * 按采购订单编号分块排序 → POI 生成明细 sheet（含表尾合计）与采购汇总 sheet 并写流
      * </p>
      *
      * @param keyword   关键字（对采购订单编号、工单标题模糊匹配，可选）
@@ -752,8 +759,32 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
             appendPurchaseReturnRows(rows, orders, supplierNameMap);
         }
 
-        // 6. 生成 xlsx
+        // 5.2 按采购订单编号分块，块内 采购 → 退货 → 重发 排序，便于直观阅读
+        rows.sort(Comparator
+                .comparing((PurchaseExportRowDto r) -> Objects.toString(r.getPurchaseNumber(), ""))
+                .thenComparingInt(r -> documentTypeWeight(r.getDocumentType())));
+
+        // 6. 生成 xlsx（明细 sheet + 采购汇总 sheet）
         writePurchaseWorkbook(rows, out);
+    }
+
+    /**
+     * 单据类型排序权重（采购 → 退货 → 重发 → 其他）
+     *
+     * @param documentType 单据类型
+     * @return 排序权重
+     */
+    private static int documentTypeWeight(String documentType) {
+        if (DOC_TYPE_PURCHASE.equals(documentType)) {
+            return 0;
+        }
+        if (DOC_TYPE_RETURN.equals(documentType)) {
+            return 1;
+        }
+        if (DOC_TYPE_RESEND.equals(documentType)) {
+            return 2;
+        }
+        return 3;
     }
 
     /**
@@ -950,8 +981,13 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
     /**
      * POI 生成采购数据 workbook 并写入输出流
      * <p>
-     * 单 sheet「采购数据」：Row0 表头（加粗灰底居中），Row1+ 数据行；
-     * 首列为单据类型（采购/退货/重发）区分三类行；单价、总价、退货数量、重发数量按金额/数值写入
+     * 生成两个 sheet：
+     * <ol>
+     *   <li>「采购数据」明细：Row0 表头（加粗灰底居中），Row1+ 数据行，首列为单据类型（采购/退货/重发），
+     *       关键列（物料编码/名称、采购数量、单价、总价、供应商）前置；采购/退货/重发三类行以底色区分，
+     *       冻结首行并启用自动筛选，表尾输出合计行</li>
+     *   <li>「采购汇总」：按物料汇总采购数量合计、金额合计与涉及订单数（仅统计采购行），按采购数量降序并在表尾给出合计</li>
+     * </ol>
      * </p>
      *
      * @param rows 导出行列表（采购行 + 退货行 + 重发行）
@@ -960,17 +996,17 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
      */
     private void writePurchaseWorkbook(List<PurchaseExportRowDto> rows, OutputStream out) throws IOException {
         String[] headers = {
-                "单据类型", "采购订单编号", "生产计划编号", "工单标题", "制剂名称", "委托单位", "批量", "处方倍数",
-                "物料编码", "物料名称", "物料分类", "规格", "计量单位", "批号", "标准处方", "采购数量",
-                "单价", "总价", "标准量差值", "采购订单状态", "发票号", "供应商",
-                "验收单号", "退货数量", "退货原因", "退货状态", "退货备注",
-                "重发数量", "重发验收单号", "重发时间", "创建时间（采购时间）"
+                "单据类型", "采购订单编号", "物料编码", "物料名称", "采购数量", "单价", "总价", "供应商",
+                "批号", "验收单号", "退货数量", "退货状态", "重发数量", "重发验收单号", "重发时间",
+                "退货原因", "退货备注", "生产计划编号", "工单标题", "制剂名称", "委托单位", "批量",
+                "处方倍数", "物料分类", "规格", "计量单位", "标准处方", "标准量差值", "采购订单状态",
+                "发票号", "创建时间（采购时间）"
         };
 
         DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
         try (Workbook workbook = new XSSFWorkbook()) {
-            // 样式：表头（加粗灰底居中）、金额（0.00）
+            // 表头样式（加粗灰底居中）
             Font boldFont = workbook.createFont();
             boldFont.setBold(true);
             CellStyle headerStyle = workbook.createCellStyle();
@@ -978,8 +1014,30 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
             headerStyle.setAlignment(HorizontalAlignment.CENTER);
             headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
             headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-            CellStyle moneyStyle = workbook.createCellStyle();
-            moneyStyle.setDataFormat(workbook.createDataFormat().getFormat("0.00"));
+
+            // 三类行样式集：采购（无底色）、退货（浅红）、重发（浅黄）；文本/单据类型(加粗)/数量/金额
+            CellStyle textPurchase = buildStyle(workbook, null, null);
+            CellStyle typePurchase = buildStyle(workbook, null, null);
+            typePurchase.setFont(boldFont);
+            CellStyle numPurchase = buildStyle(workbook, null, "0.###");
+            CellStyle moneyPurchase = buildStyle(workbook, null, "0.00");
+            CellStyle textReturn = buildStyle(workbook, IndexedColors.ROSE, null);
+            CellStyle typeReturn = buildStyle(workbook, IndexedColors.ROSE, null);
+            typeReturn.setFont(boldFont);
+            CellStyle numReturn = buildStyle(workbook, IndexedColors.ROSE, "0.###");
+            CellStyle moneyReturn = buildStyle(workbook, IndexedColors.ROSE, "0.00");
+            CellStyle textResend = buildStyle(workbook, IndexedColors.LIGHT_YELLOW, null);
+            CellStyle typeResend = buildStyle(workbook, IndexedColors.LIGHT_YELLOW, null);
+            typeResend.setFont(boldFont);
+            CellStyle numResend = buildStyle(workbook, IndexedColors.LIGHT_YELLOW, "0.###");
+            CellStyle moneyResend = buildStyle(workbook, IndexedColors.LIGHT_YELLOW, "0.00");
+            // 合计行样式
+            CellStyle totalText = buildStyle(workbook, IndexedColors.GREY_25_PERCENT, null);
+            totalText.setFont(boldFont);
+            CellStyle totalNumber = buildStyle(workbook, IndexedColors.GREY_25_PERCENT, "0.###");
+            totalNumber.setFont(boldFont);
+            CellStyle totalMoney = buildStyle(workbook, IndexedColors.GREY_25_PERCENT, "0.00");
+            totalMoney.setFont(boldFont);
 
             Sheet sheet = workbook.createSheet("采购数据");
             Row headerRow = sheet.createRow(0);
@@ -989,64 +1047,287 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
                 cell.setCellStyle(headerStyle);
             }
 
+            // 合计累加：采购数量/总价（采购行）、退货数量（退货行）、重发数量（重发行）
+            BigDecimal sumPurchaseQty = BigDecimal.ZERO;
+            BigDecimal sumAmount = BigDecimal.ZERO;
+            BigDecimal sumReturnQty = BigDecimal.ZERO;
+            BigDecimal sumResendQty = BigDecimal.ZERO;
+
             int rowIndex = 1;
             for (PurchaseExportRowDto row : rows) {
+                String type = Objects.toString(row.getDocumentType(), "");
+                boolean isReturn = DOC_TYPE_RETURN.equals(type);
+                boolean isResend = DOC_TYPE_RESEND.equals(type);
+                CellStyle textStyle = isReturn ? textReturn : (isResend ? textResend : textPurchase);
+                CellStyle typeStyle = isReturn ? typeReturn : (isResend ? typeResend : typePurchase);
+                CellStyle numberStyle = isReturn ? numReturn : (isResend ? numResend : numPurchase);
+                CellStyle moneyStyle = isReturn ? moneyReturn : (isResend ? moneyResend : moneyPurchase);
+
                 Row dataRow = sheet.createRow(rowIndex++);
-                dataRow.createCell(0).setCellValue(Objects.toString(row.getDocumentType(), ""));
-                dataRow.createCell(1).setCellValue(Objects.toString(row.getPurchaseNumber(), ""));
-                dataRow.createCell(2).setCellValue(Objects.toString(row.getProductionPlanCode(), ""));
-                dataRow.createCell(3).setCellValue(Objects.toString(row.getTitle(), ""));
-                dataRow.createCell(4).setCellValue(Objects.toString(row.getPreparationName(), ""));
-                dataRow.createCell(5).setCellValue(Objects.toString(row.getEntrustUnit(), ""));
-                setNumberCell(dataRow.createCell(6), row.getBatchQty());
-                setNumberCell(dataRow.createCell(7), row.getPrescriptionMultiple());
-                dataRow.createCell(8).setCellValue(Objects.toString(row.getMaterialCode(), ""));
-                dataRow.createCell(9).setCellValue(Objects.toString(row.getMaterialName(), ""));
-                dataRow.createCell(10).setCellValue(Objects.toString(row.getMaterialCategory(), ""));
-                dataRow.createCell(11).setCellValue(Objects.toString(row.getSpec(), ""));
-                dataRow.createCell(12).setCellValue(Objects.toString(row.getUnit(), ""));
-                dataRow.createCell(13).setCellValue(Objects.toString(row.getBatchNumber(), ""));
-                setNumberCell(dataRow.createCell(14), row.getStandardDosage());
-                setNumberCell(dataRow.createCell(15), row.getPurchaseQuantity());
-                setMoneyCell(dataRow.createCell(16), row.getUnitPrice(), moneyStyle);
-                setMoneyCell(dataRow.createCell(17), row.getAmount(), moneyStyle);
-                setNumberCell(dataRow.createCell(18), row.getDifference());
-                dataRow.createCell(19).setCellValue(Objects.toString(row.getOrderStatus(), ""));
-                dataRow.createCell(20).setCellValue(Objects.toString(row.getInvoiceNo(), ""));
-                dataRow.createCell(21).setCellValue(Objects.toString(row.getSupplier(), ""));
-                dataRow.createCell(22).setCellValue(Objects.toString(row.getAcceptanceCode(), ""));
-                setNumberCell(dataRow.createCell(23), row.getReturnQty());
-                dataRow.createCell(24).setCellValue(Objects.toString(row.getReturnReason(), ""));
-                dataRow.createCell(25).setCellValue(Objects.toString(row.getReturnStatus(), ""));
-                dataRow.createCell(26).setCellValue(Objects.toString(row.getReturnRemark(), ""));
-                setNumberCell(dataRow.createCell(27), row.getResendQty());
-                dataRow.createCell(28).setCellValue(Objects.toString(row.getNewAcceptanceCode(), ""));
-                dataRow.createCell(29).setCellValue(row.getResendTime() != null
-                        ? row.getResendTime().format(dateTimeFormatter) : "");
-                dataRow.createCell(30).setCellValue(row.getCreatedTime() != null
-                        ? row.getCreatedTime().format(dateTimeFormatter) : "");
+                Cell typeCell = dataRow.createCell(0);
+                typeCell.setCellValue(type);
+                typeCell.setCellStyle(typeStyle);
+                setTextCell(dataRow, 1, row.getPurchaseNumber(), textStyle);
+                setTextCell(dataRow, 2, row.getMaterialCode(), textStyle);
+                setTextCell(dataRow, 3, row.getMaterialName(), textStyle);
+                setNumberCell(dataRow.createCell(4), row.getPurchaseQuantity(), numberStyle);
+                setMoneyCell(dataRow.createCell(5), row.getUnitPrice(), moneyStyle);
+                setMoneyCell(dataRow.createCell(6), row.getAmount(), moneyStyle);
+                setTextCell(dataRow, 7, row.getSupplier(), textStyle);
+                setTextCell(dataRow, 8, row.getBatchNumber(), textStyle);
+                setTextCell(dataRow, 9, row.getAcceptanceCode(), textStyle);
+                setNumberCell(dataRow.createCell(10), row.getReturnQty(), numberStyle);
+                setTextCell(dataRow, 11, row.getReturnStatus(), textStyle);
+                setNumberCell(dataRow.createCell(12), row.getResendQty(), numberStyle);
+                setTextCell(dataRow, 13, row.getNewAcceptanceCode(), textStyle);
+                setDateTimeCell(dataRow, 14, row.getResendTime(), textStyle, dateTimeFormatter);
+                setTextCell(dataRow, 15, row.getReturnReason(), textStyle);
+                setTextCell(dataRow, 16, row.getReturnRemark(), textStyle);
+                setTextCell(dataRow, 17, row.getProductionPlanCode(), textStyle);
+                setTextCell(dataRow, 18, row.getTitle(), textStyle);
+                setTextCell(dataRow, 19, row.getPreparationName(), textStyle);
+                setTextCell(dataRow, 20, row.getEntrustUnit(), textStyle);
+                setNumberCell(dataRow.createCell(21), row.getBatchQty(), numberStyle);
+                setNumberCell(dataRow.createCell(22), row.getPrescriptionMultiple(), numberStyle);
+                setTextCell(dataRow, 23, row.getMaterialCategory(), textStyle);
+                setTextCell(dataRow, 24, row.getSpec(), textStyle);
+                setTextCell(dataRow, 25, row.getUnit(), textStyle);
+                setNumberCell(dataRow.createCell(26), row.getStandardDosage(), numberStyle);
+                setNumberCell(dataRow.createCell(27), row.getDifference(), numberStyle);
+                setTextCell(dataRow, 28, row.getOrderStatus(), textStyle);
+                setTextCell(dataRow, 29, row.getInvoiceNo(), textStyle);
+                setDateTimeCell(dataRow, 30, row.getCreatedTime(), textStyle, dateTimeFormatter);
+
+                if (DOC_TYPE_PURCHASE.equals(type)) {
+                    sumPurchaseQty = sumPurchaseQty.add(nullToZero(row.getPurchaseQuantity()));
+                    sumAmount = sumAmount.add(nullToZero(row.getAmount()));
+                } else if (isReturn) {
+                    sumReturnQty = sumReturnQty.add(nullToZero(row.getReturnQty()));
+                } else if (isResend) {
+                    sumResendQty = sumResendQty.add(nullToZero(row.getResendQty()));
+                }
             }
+
+            int lastDataRow = rowIndex - 1;
+
+            // 表尾合计行（采购数量/总价取采购行合计，退货/重发数量各取合计）
+            Row totalRow = sheet.createRow(rowIndex);
+            for (int i = 0; i < headers.length; i++) {
+                totalRow.createCell(i).setCellStyle(totalText);
+            }
+            totalRow.getCell(0).setCellValue(DOC_TYPE_TOTAL);
+            setNumberCell(totalRow.getCell(4), sumPurchaseQty, totalNumber);
+            setMoneyCell(totalRow.getCell(6), sumAmount, totalMoney);
+            setNumberCell(totalRow.getCell(10), sumReturnQty, totalNumber);
+            setNumberCell(totalRow.getCell(12), sumResendQty, totalNumber);
 
             // 列宽
             int[] widths = {
-                    10, 22, 20, 20, 18, 18, 12, 12, 18, 20, 12, 18, 10, 16, 12, 12,
-                    12, 12, 12, 14, 18, 18, 18, 12, 12, 12, 18, 12, 18, 20, 22};
+                    10, 20, 16, 24, 12, 12, 14, 18, 16, 18, 12, 12, 12, 18, 20,
+                    12, 18, 18, 20, 18, 18, 12, 12, 12, 18, 12, 12, 12, 14, 18, 22};
             for (int i = 0; i < widths.length; i++) {
                 sheet.setColumnWidth(i, widths[i] * 256);
             }
+
+            // 冻结首行 + 自动筛选（筛选范围不含表尾合计行）
+            sheet.createFreezePane(0, 1);
+            sheet.setAutoFilter(new CellRangeAddress(0, Math.max(lastDataRow, 0), 0, headers.length - 1));
+
+            // 采购汇总 sheet（按物料汇总，仅统计采购行）
+            writeSummarySheet(workbook, rows, headerStyle, boldFont);
 
             workbook.write(out);
         }
     }
 
     /**
-     * 写入数值单元格（空值按0）
+     * 生成「采购汇总」sheet
+     * <p>
+     * 仅统计采购行（排除退货/重发行），按物料（物料编码，空则物料名称）聚合
+     * 采购数量合计、金额合计、涉及订单数，按采购数量降序排列并在表尾给出合计
+     * </p>
+     *
+     * @param workbook    工作簿
+     * @param rows        全部导出行
+     * @param headerStyle 表头样式
+     * @param boldFont    加粗字体（合计行用）
+     */
+    private void writeSummarySheet(Workbook workbook, List<PurchaseExportRowDto> rows,
+                                   CellStyle headerStyle, Font boldFont) {
+        String[] headers = {"序号", "物料编码", "物料名称", "物料分类", "规格", "计量单位",
+                "供应商", "采购数量合计", "金额合计", "涉及订单数"};
+
+        Sheet sheet = workbook.createSheet("采购汇总");
+        Row headerRow = sheet.createRow(0);
+        for (int i = 0; i < headers.length; i++) {
+            Cell cell = headerRow.createCell(i);
+            cell.setCellValue(headers[i]);
+            cell.setCellStyle(headerStyle);
+        }
+
+        // 按 物料编码（空则物料名称）聚合采购行
+        Map<String, MaterialSummary> summaryMap = new LinkedHashMap<>();
+        for (PurchaseExportRowDto row : rows) {
+            if (!DOC_TYPE_PURCHASE.equals(row.getDocumentType())) {
+                continue;
+            }
+            String key = StringUtils.hasText(row.getMaterialCode())
+                    ? row.getMaterialCode() : Objects.toString(row.getMaterialName(), "");
+            MaterialSummary summary = summaryMap.computeIfAbsent(key, k -> {
+                MaterialSummary s = new MaterialSummary();
+                s.materialCode = row.getMaterialCode();
+                s.materialName = row.getMaterialName();
+                s.materialCategory = row.getMaterialCategory();
+                s.spec = row.getSpec();
+                s.unit = row.getUnit();
+                s.supplier = row.getSupplier();
+                return s;
+            });
+            summary.quantity = summary.quantity.add(nullToZero(row.getPurchaseQuantity()));
+            summary.amount = summary.amount.add(nullToZero(row.getAmount()));
+            if (StringUtils.hasText(row.getPurchaseNumber())) {
+                summary.orderNumbers.add(row.getPurchaseNumber());
+            }
+        }
+        List<MaterialSummary> summaries = new ArrayList<>(summaryMap.values());
+        // 采购数量降序：买得最多的排在前面
+        summaries.sort(Comparator.comparing((MaterialSummary s) -> s.quantity).reversed());
+
+        CellStyle numberStyle = buildStyle(workbook, null, "0.###");
+        CellStyle moneyStyle = buildStyle(workbook, null, "0.00");
+        CellStyle totalText = buildStyle(workbook, IndexedColors.GREY_25_PERCENT, null);
+        totalText.setFont(boldFont);
+        CellStyle totalNumber = buildStyle(workbook, IndexedColors.GREY_25_PERCENT, "0.###");
+        totalNumber.setFont(boldFont);
+        CellStyle totalMoney = buildStyle(workbook, IndexedColors.GREY_25_PERCENT, "0.00");
+        totalMoney.setFont(boldFont);
+
+        BigDecimal totalQty = BigDecimal.ZERO;
+        BigDecimal totalAmount = BigDecimal.ZERO;
+        int rowIndex = 1;
+        int seq = 1;
+        for (MaterialSummary s : summaries) {
+            Row dataRow = sheet.createRow(rowIndex++);
+            dataRow.createCell(0).setCellValue(seq++);
+            dataRow.createCell(1).setCellValue(Objects.toString(s.materialCode, ""));
+            dataRow.createCell(2).setCellValue(Objects.toString(s.materialName, ""));
+            dataRow.createCell(3).setCellValue(Objects.toString(s.materialCategory, ""));
+            dataRow.createCell(4).setCellValue(Objects.toString(s.spec, ""));
+            dataRow.createCell(5).setCellValue(Objects.toString(s.unit, ""));
+            dataRow.createCell(6).setCellValue(Objects.toString(s.supplier, ""));
+            setNumberCell(dataRow.createCell(7), s.quantity, numberStyle);
+            setMoneyCell(dataRow.createCell(8), s.amount, moneyStyle);
+            dataRow.createCell(9).setCellValue(s.orderNumbers.size());
+            totalQty = totalQty.add(s.quantity);
+            totalAmount = totalAmount.add(s.amount);
+        }
+
+        // 合计行
+        Row totalRow = sheet.createRow(rowIndex);
+        for (int i = 0; i < headers.length; i++) {
+            totalRow.createCell(i).setCellStyle(totalText);
+        }
+        totalRow.getCell(0).setCellValue("合计");
+        setNumberCell(totalRow.getCell(7), totalQty, totalNumber);
+        setMoneyCell(totalRow.getCell(8), totalAmount, totalMoney);
+
+        int[] widths = {8, 18, 24, 12, 18, 10, 18, 14, 14, 12};
+        for (int i = 0; i < widths.length; i++) {
+            sheet.setColumnWidth(i, widths[i] * 256);
+        }
+        sheet.createFreezePane(0, 1);
+    }
+
+    /**
+     * 采购汇总聚合中间对象（按物料累计采购数量与金额）
+     */
+    private static class MaterialSummary {
+        /** 物料编码 */
+        private String materialCode;
+        /** 物料名称 */
+        private String materialName;
+        /** 物料分类 */
+        private String materialCategory;
+        /** 规格 */
+        private String spec;
+        /** 计量单位 */
+        private String unit;
+        /** 供应商 */
+        private String supplier;
+        /** 采购数量合计 */
+        private BigDecimal quantity = BigDecimal.ZERO;
+        /** 金额合计 */
+        private BigDecimal amount = BigDecimal.ZERO;
+        /** 涉及的采购订单编号集合（去重计数） */
+        private final Set<String> orderNumbers = new HashSet<>();
+    }
+
+    /**
+     * 写入数值单元格（空值按0，应用样式）
      *
      * @param cell  单元格
      * @param value 数值
+     * @param style 单元格样式（可为null）
      */
-    private void setNumberCell(Cell cell, BigDecimal value) {
+    private void setNumberCell(Cell cell, BigDecimal value, CellStyle style) {
         cell.setCellValue(nullToZero(value).doubleValue());
+        if (style != null) {
+            cell.setCellStyle(style);
+        }
+    }
+
+    /**
+     * 写入文本单元格（null 转空串，应用样式）
+     *
+     * @param row         数据行
+     * @param columnIndex 列下标
+     * @param value       文本值
+     * @param style       单元格样式（可为null）
+     */
+    private void setTextCell(Row row, int columnIndex, String value, CellStyle style) {
+        Cell cell = row.createCell(columnIndex);
+        cell.setCellValue(Objects.toString(value, ""));
+        if (style != null) {
+            cell.setCellStyle(style);
+        }
+    }
+
+    /**
+     * 写入日期时间单元格（null 转空串，格式 yyyy-MM-dd HH:mm:ss，应用样式）
+     *
+     * @param row         数据行
+     * @param columnIndex 列下标
+     * @param value       日期时间值
+     * @param style       单元格样式（可为null）
+     * @param formatter   日期时间格式
+     */
+    private void setDateTimeCell(Row row, int columnIndex, java.time.LocalDateTime value,
+                                 CellStyle style, DateTimeFormatter formatter) {
+        Cell cell = row.createCell(columnIndex);
+        cell.setCellValue(value != null ? value.format(formatter) : "");
+        if (style != null) {
+            cell.setCellStyle(style);
+        }
+    }
+
+    /**
+     * 构建单元格样式（可选底色填充与数字格式）
+     *
+     * @param workbook   工作簿
+     * @param fillColor  底色（可为null）
+     * @param dataFormat 数字格式（可为null，如 0.00/0.###）
+     * @return 单元格样式
+     */
+    private CellStyle buildStyle(Workbook workbook, IndexedColors fillColor, String dataFormat) {
+        CellStyle style = workbook.createCellStyle();
+        if (fillColor != null) {
+            style.setFillForegroundColor(fillColor.getIndex());
+            style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        }
+        if (dataFormat != null) {
+            style.setDataFormat(workbook.createDataFormat().getFormat(dataFormat));
+        }
+        return style;
     }
 
     /**

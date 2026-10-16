@@ -380,7 +380,7 @@ public class PurchaseModuleTest {
     // ===================================
 
     /**
-     * 测试采购数据导出：生成合法 xlsx，校验单 sheet、31 列表头（首列单据类型）及列数
+     * 测试采购数据导出：生成合法 xlsx，校验明细 sheet（31 列表头，首列单据类型）与汇总 sheet 及列数
      */
     @Test
     public void testPurchaseDataExport() throws Exception {
@@ -393,18 +393,19 @@ public class PurchaseModuleTest {
         assertEquals((byte) 'K', bytes[1], "xlsx 应为 zip 格式");
 
         String[] expectedHeaders = {
-                "单据类型", "采购订单编号", "生产计划编号", "工单标题", "制剂名称", "委托单位", "批量", "处方倍数",
-                "物料编码", "物料名称", "物料分类", "规格", "计量单位", "批号", "标准处方", "采购数量",
-                "单价", "总价", "标准量差值", "采购订单状态", "发票号", "供应商",
-                "验收单号", "退货数量", "退货原因", "退货状态", "退货备注",
-                "重发数量", "重发验收单号", "重发时间", "创建时间（采购时间）"
+                "单据类型", "采购订单编号", "物料编码", "物料名称", "采购数量", "单价", "总价", "供应商",
+                "批号", "验收单号", "退货数量", "退货状态", "重发数量", "重发验收单号", "重发时间",
+                "退货原因", "退货备注", "生产计划编号", "工单标题", "制剂名称", "委托单位", "批量",
+                "处方倍数", "物料分类", "规格", "计量单位", "标准处方", "标准量差值", "采购订单状态",
+                "发票号", "创建时间（采购时间）"
         };
 
         try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
-            assertEquals(1, workbook.getNumberOfSheets(), "应生成1个sheet");
-            Sheet sheet = workbook.getSheetAt(0);
-            assertEquals("采购数据", sheet.getSheetName(), "sheet名称应为采购数据");
+            assertEquals(2, workbook.getNumberOfSheets(), "应生成明细与汇总2个sheet");
 
+            // 明细 sheet
+            Sheet sheet = workbook.getSheetAt(0);
+            assertEquals("采购数据", sheet.getSheetName(), "第1个sheet名称应为采购数据");
             Row header = sheet.getRow(0);
             assertNotNull(header, "表头行不应为空");
             for (int i = 0; i < expectedHeaders.length; i++) {
@@ -417,6 +418,18 @@ public class PurchaseModuleTest {
                 if (row != null) {
                     assertNull(row.getCell(expectedHeaders.length), "数据行不应超过31列");
                 }
+            }
+
+            // 汇总 sheet
+            Sheet summary = workbook.getSheetAt(1);
+            assertEquals("采购汇总", summary.getSheetName(), "第2个sheet名称应为采购汇总");
+            String[] summaryHeaders = {"序号", "物料编码", "物料名称", "物料分类", "规格", "计量单位",
+                    "供应商", "采购数量合计", "金额合计", "涉及订单数"};
+            Row summaryHeader = summary.getRow(0);
+            assertNotNull(summaryHeader, "汇总表头行不应为空");
+            for (int i = 0; i < summaryHeaders.length; i++) {
+                assertEquals(summaryHeaders[i], summaryHeader.getCell(i).getStringCellValue(),
+                        "汇总第" + (i + 1) + "列表头应为" + summaryHeaders[i]);
             }
         }
     }
