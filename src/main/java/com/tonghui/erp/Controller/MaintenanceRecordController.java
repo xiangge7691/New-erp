@@ -328,7 +328,7 @@ public class MaintenanceRecordController extends BaseController {
     }
 
     /**
-     * 修改养护记录（主单+明细一次保存，明细整体重建）
+     * 修改养护记录（主单+明细一次保存，明细按ID原地更新保留ID）
      *
      * 示例请求：
      * PUT /api/maintenance-record/1
@@ -340,13 +340,15 @@ public class MaintenanceRecordController extends BaseController {
      *   "checkerId": 5,
      *   "summary": "补充说明：已安排翻垛",
      *   "details": [
-     *     { "stockId": 101, "shelfLocation": "A区3架", "moistureStatus": 3, "abnormalDescription": "垛位底部轻微受潮" }
+     *     { "id": 88, "stockId": 101, "shelfLocation": "A区3架", "moistureStatus": 3, "abnormalDescription": "垛位底部轻微受潮" }
      *   ],
      *   "attachmentFileIds": [201, 202]
      * }
      *
      * 必填字段说明：同新增接口；养护记录编号不可修改，服务端保留原值
-     * 其他说明：明细列表整体重建（旧行物理删除后按新列表重插），主单附件同步解绑/绑定
+     * 明细说明：details 中已有行须回传原 id（服务端按 id 原地更新，保留明细ID与按行附件）；
+     *           不传 id 的行按新增写入；本单中未被 details 覆盖的既有行将被物理删除
+     * 其他说明：主单附件同步解绑/绑定
      *
      * @param id  养护记录ID（路径参数）
      * @param dto 更新的养护记录信息（主单字段+明细列表）

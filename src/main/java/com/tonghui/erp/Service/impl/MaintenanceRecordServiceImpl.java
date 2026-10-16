@@ -61,6 +61,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,7 +78,7 @@ import java.util.stream.Collectors;
  * 3. 登记养护本身不产生库存增减，仅记录检查过程与结果
  * 4. 检查项目四态（1未检查/2未见异常/3发现异常/4不适用），默认未见异常；实测含水量为空表示未测
  * 5. 下次养护日期=本次实际检查日期+养护周期快照（周期为空则不纳入提醒），按明细独立计算
- * 6. 更新时明细整体重建（物理删除旧行再整单重插），主单附件与明细附件同步
+ * 6. 更新时按明细ID原地更新（保留已有明细ID，仅删除被移除的行），主单附件与明细附件同步
  * </p>
  */
 @Service
@@ -410,7 +411,12 @@ public class MaintenanceRecordServiceImpl extends ServiceImpl<MaintenanceRecordM
     }
 
     /**
-     * 修改养护记录（编号不可改；明细整体重建；附件同步）
+     * 修改养护记录（编号不可改；明细按ID原地更新保留ID，被移除行删除；附件同步）
+     * <p>
+     * 为支持明细附件按行定位（file_info.business_id = 明细ID），采用原地更新保留ID策略：
+     * 入参携带 id 且属于本单的已有明细行执行更新（ID不变），无 id 的行新增，
+     * 数据库中未被入参覆盖的既有明细行被物理删除。
+     * </p>
      *
      * @param id  养护记录ID
      * @param dto 保存请求体
@@ -432,16 +438,25 @@ public class MaintenanceRecordServiceImpl extends ServiceImpl<MaintenanceRecordM
         record.setCreatedBy(existing.getCreatedBy());
         record.setCreatedTime(existing.getCreatedTime());
         baseMapper.updateById(record);
-        // 解绑旧明细附件，再物理删除明细（更新时整体重建）
-        List<MaintenanceRecordDetail> oldDetails = maintenanceRecordDetailMapper.selectList(
-                new LambdaQueryWrapper<MaintenanceRecordDetail>()
-                        .select(MaintenanceRecordDetail::getId)
-                        .eq(MaintenanceRecordDetail::getMaintenanceId, id));
-        for (MaintenanceRecordDetail old : oldDetails) {
-            unbindAttachments(old.getId(), BUSINESS_TYPE_MAINTENANCE_DETAIL);
+        // 现有明细（用于保留ID与计算被移除行）
+        Map<Long, MaintenanceRecordDetail> existingDetails = maintenanceRecordDetailMapper.selectList(
+                        new LambdaQueryWrapper<MaintenanceRecordDetail>()
+                                .eq(MaintenanceRecordDetail::getMaintenanceId, id))
+                .stream()
+                .collect(Collectors.toMap(MaintenanceRecordDetail::getId, d -> d, (a, b) -> a));
+        // 按ID原地更新已有行、插入新增行（保留明细ID，附件可按ID继续定位）
+        Set<Long> incomingIds = new HashSet<>();
+        syncDetails(record, dto.getDetails(), existingDetails, incomingIds);
+        // 被移除的既有行：解绑明细附件后物理删除
+        List<Long> removedIds = existingDetails.keySet().stream()
+                .filter(existingId -> !incomingIds.contains(existingId))
+                .collect(Collectors.toList());
+        if (!removedIds.isEmpty()) {
+            for (Long removedId : removedIds) {
+                unbindAttachments(removedId, BUSINESS_TYPE_MAINTENANCE_DETAIL);
+            }
+            maintenanceRecordDetailMapper.physicalDeleteByIds(removedIds);
         }
-        maintenanceRecordDetailMapper.physicalDeleteByMaintenanceId(id);
-        saveDetails(record, dto.getDetails());
         // 主单附件同步
         syncAttachments(id, BUSINESS_TYPE_MAINTENANCE_RECORD, dto.getAttachmentFileIds());
         return baseMapper.selectById(id);
@@ -537,13 +552,65 @@ public class MaintenanceRecordServiceImpl extends ServiceImpl<MaintenanceRecordM
     }
 
     /**
-     * 保存明细列表（快照物料/批号/入库编号/数量/养护要求，计算下次养护日期）
+     * 保存明细列表（新增记录：逐行插入并绑定明细附件）
      *
      * @param record     主单实体（已落库）
      * @param detailDtos 明细保存请求列表
      */
     private void saveDetails(MaintenanceRecord record, List<MaintenanceRecordDetailSaveDto> detailDtos) {
-        // 预加载库存、物料、入库单信息（防N+1）
+        DetailSnapshot snapshot = loadDetailSnapshot(detailDtos);
+        for (MaintenanceRecordDetailSaveDto d : detailDtos) {
+            MaintenanceRecordDetail detail = new MaintenanceRecordDetail();
+            populateDetail(detail, record, d, snapshot);
+            maintenanceRecordDetailMapper.insert(detail);
+            // 明细附件绑定
+            bindAttachments(detail.getId(), BUSINESS_TYPE_MAINTENANCE_DETAIL, d.getAttachmentFileIds());
+        }
+    }
+
+    /**
+     * 同步明细列表（更新记录：按ID原地更新保留ID、其余新增）
+     * <p>
+     * 入参携带 id 且属于本单的已有行执行原地更新（ID不变，附件可继续按ID定位）；
+     * 无 id 的行新增；主单下未被入参覆盖的既有行由调用方负责物理删除
+     * </p>
+     *
+     * @param record      主单实体
+     * @param detailDtos  明细保存请求列表
+     * @param existingMap 本单现有明细（key=明细ID）
+     * @param incomingIds 出参：入参覆盖的已有明细ID集合（用于计算被移除行）
+     */
+    private void syncDetails(MaintenanceRecord record, List<MaintenanceRecordDetailSaveDto> detailDtos,
+                             Map<Long, MaintenanceRecordDetail> existingMap, Set<Long> incomingIds) {
+        DetailSnapshot snapshot = loadDetailSnapshot(detailDtos);
+        for (MaintenanceRecordDetailSaveDto d : detailDtos) {
+            boolean isExisting = d.getId() != null && existingMap.containsKey(d.getId());
+            MaintenanceRecordDetail detail = new MaintenanceRecordDetail();
+            if (isExisting) {
+                // 已有行：原地更新，保留ID（附件可按ID继续定位）
+                detail.setId(d.getId());
+                incomingIds.add(d.getId());
+            }
+            populateDetail(detail, record, d, snapshot);
+            if (isExisting) {
+                maintenanceRecordDetailMapper.updateById(detail);
+                // 同一明细ID，附件按最新列表同步（解绑移除项、绑定新增项）
+                syncAttachments(detail.getId(), BUSINESS_TYPE_MAINTENANCE_DETAIL, d.getAttachmentFileIds());
+            } else {
+                maintenanceRecordDetailMapper.insert(detail);
+                // 明细附件绑定
+                bindAttachments(detail.getId(), BUSINESS_TYPE_MAINTENANCE_DETAIL, d.getAttachmentFileIds());
+            }
+        }
+    }
+
+    /**
+     * 预加载明细所需的库存、物料、入库单信息（防N+1）
+     *
+     * @param detailDtos 明细保存请求列表
+     * @return 明细预加载快照料
+     */
+    private DetailSnapshot loadDetailSnapshot(List<MaintenanceRecordDetailSaveDto> detailDtos) {
         Set<Long> stockIds = detailDtos.stream()
                 .map(MaintenanceRecordDetailSaveDto::getStockId)
                 .filter(Objects::nonNull).collect(Collectors.toSet());
@@ -552,69 +619,86 @@ public class MaintenanceRecordServiceImpl extends ServiceImpl<MaintenanceRecordM
                         .collect(Collectors.toMap(Stock::getStockId, s -> s, (a, b) -> a));
         Map<Long, Material> materialMap = loadMaterialMapByStock(new ArrayList<>(stockMap.values()));
         Map<Long, String> inCodeMap = loadInCodeMap(stockMap.values());
+        return new DetailSnapshot(stockMap, materialMap, inCodeMap);
+    }
 
-        for (MaintenanceRecordDetailSaveDto d : detailDtos) {
-            Stock stock = stockMap.get(d.getStockId());
-            if (stock == null) {
-                throw new RuntimeException("库存明细不存在或已删除");
-            }
-            MaintenanceRecordDetail detail = new MaintenanceRecordDetail();
-            detail.setMaintenanceId(record.getId());
-            detail.setStockId(stock.getStockId());
-            // 物料信息快照
-            detail.setMaterialCode(stock.getItemCode());
-            detail.setMaterialName(stock.getItemName());
-            Material material = materialMap.get(stock.getStockId());
-            if (material != null) {
-                detail.setSpec(material.getSpec());
-                detail.setMaintenanceNotes(material.getMaintenanceNotes());
-                detail.setMaintenanceCycleDays(material.getMaintenanceCycleDays());
-                detail.setKeyMaintenance(material.getKeyMaintenance());
-            }
-            detail.setCategoryName(stock.getCategoryName());
-            detail.setUnitName(stock.getUnitName());
-            // 批号、入库单、仓库与检查时库存数量快照
-            detail.setBatchNumber(stock.getBatchNumber());
-            detail.setStockInId(stock.getStockInId());
-            detail.setInCode(inCodeMap.get(stock.getStockInId()));
-            detail.setWarehouseName(record.getWarehouseName());
-            detail.setStockQuantity(stock.getQuantity());
-            // 人工登记字段
-            detail.setShelfLocation(d.getShelfLocation());
-            detail.setCheckScope(d.getCheckScope());
-            // 检查项目四态，默认未见异常
-            detail.setPackagingStatus(defaultStatus(d.getPackagingStatus()));
-            detail.setMoistureStatus(defaultStatus(d.getMoistureStatus()));
-            detail.setPestStatus(defaultStatus(d.getPestStatus()));
-            detail.setMoldStatus(defaultStatus(d.getMoldStatus()));
-            detail.setOilStatus(defaultStatus(d.getOilStatus()));
-            detail.setColorStatus(defaultStatus(d.getColorStatus()));
-            detail.setOdorStatus(defaultStatus(d.getOdorStatus()));
-            detail.setBreakageStatus(defaultStatus(d.getBreakageStatus()));
-            detail.setStackingStatus(defaultStatus(d.getStackingStatus()));
-            detail.setOtherStatus(defaultStatus(d.getOtherStatus()));
-            detail.setOtherDescription(d.getOtherDescription());
-            // 实测与异常（含水量NULL=未测）
-            detail.setMoistureContent(d.getMoistureContent());
-            detail.setStackTemperature(d.getStackTemperature());
-            detail.setAbnormalDescription(d.getAbnormalDescription());
-            // 养护措施与处理
-            detail.setMeasures(d.getMeasures());
-            detail.setMeasuresOther(d.getMeasuresOther());
-            detail.setOperatorId(d.getOperatorId());
-            detail.setOperatorName(resolveUserName(d.getOperatorId()));
-            detail.setOperateTime(d.getOperateTime());
-            detail.setHandleResult(d.getHandleResult());
-            detail.setRemark(d.getRemark());
-            // 周期提醒：最近养护日期=本次实际检查日期，下次=最近+周期快照（周期空则NULL）
-            LocalDate lastDate = record.getCheckTime().toLocalDate();
-            detail.setLastMaintenanceDate(lastDate);
-            Integer cycle = detail.getMaintenanceCycleDays();
-            detail.setNextMaintenanceDate(cycle == null ? null : lastDate.plusDays(cycle));
-            maintenanceRecordDetailMapper.insert(detail);
-            // 明细附件绑定
-            bindAttachments(detail.getId(), BUSINESS_TYPE_MAINTENANCE_DETAIL, d.getAttachmentFileIds());
+    /**
+     * 填充明细实体（快照物料/批号/入库编号/数量/养护要求，计算下次养护日期）
+     *
+     * @param detail   待填充的明细实体（主键可为空或已有ID）
+     * @param record   主单实体
+     * @param d        明细保存请求
+     * @param snapshot 预加载快照料
+     */
+    private void populateDetail(MaintenanceRecordDetail detail, MaintenanceRecord record,
+                                MaintenanceRecordDetailSaveDto d, DetailSnapshot snapshot) {
+        Stock stock = snapshot.stockMap().get(d.getStockId());
+        if (stock == null) {
+            throw new RuntimeException("库存明细不存在或已删除");
         }
+        detail.setMaintenanceId(record.getId());
+        detail.setStockId(stock.getStockId());
+        // 物料信息快照
+        detail.setMaterialCode(stock.getItemCode());
+        detail.setMaterialName(stock.getItemName());
+        Material material = snapshot.materialMap().get(stock.getStockId());
+        if (material != null) {
+            detail.setSpec(material.getSpec());
+            detail.setMaintenanceNotes(material.getMaintenanceNotes());
+            detail.setMaintenanceCycleDays(material.getMaintenanceCycleDays());
+            detail.setKeyMaintenance(material.getKeyMaintenance());
+        }
+        detail.setCategoryName(stock.getCategoryName());
+        detail.setUnitName(stock.getUnitName());
+        // 批号、入库单、仓库与检查时库存数量快照
+        detail.setBatchNumber(stock.getBatchNumber());
+        detail.setStockInId(stock.getStockInId());
+        detail.setInCode(snapshot.inCodeMap().get(stock.getStockInId()));
+        detail.setWarehouseName(record.getWarehouseName());
+        detail.setStockQuantity(stock.getQuantity());
+        // 人工登记字段
+        detail.setShelfLocation(d.getShelfLocation());
+        detail.setCheckScope(d.getCheckScope());
+        // 检查项目四态，默认未见异常
+        detail.setPackagingStatus(defaultStatus(d.getPackagingStatus()));
+        detail.setMoistureStatus(defaultStatus(d.getMoistureStatus()));
+        detail.setPestStatus(defaultStatus(d.getPestStatus()));
+        detail.setMoldStatus(defaultStatus(d.getMoldStatus()));
+        detail.setOilStatus(defaultStatus(d.getOilStatus()));
+        detail.setColorStatus(defaultStatus(d.getColorStatus()));
+        detail.setOdorStatus(defaultStatus(d.getOdorStatus()));
+        detail.setBreakageStatus(defaultStatus(d.getBreakageStatus()));
+        detail.setStackingStatus(defaultStatus(d.getStackingStatus()));
+        detail.setOtherStatus(defaultStatus(d.getOtherStatus()));
+        detail.setOtherDescription(d.getOtherDescription());
+        // 实测与异常（含水量NULL=未测）
+        detail.setMoistureContent(d.getMoistureContent());
+        detail.setStackTemperature(d.getStackTemperature());
+        detail.setAbnormalDescription(d.getAbnormalDescription());
+        // 养护措施与处理
+        detail.setMeasures(d.getMeasures());
+        detail.setMeasuresOther(d.getMeasuresOther());
+        detail.setOperatorId(d.getOperatorId());
+        detail.setOperatorName(resolveUserName(d.getOperatorId()));
+        detail.setOperateTime(d.getOperateTime());
+        detail.setHandleResult(d.getHandleResult());
+        detail.setRemark(d.getRemark());
+        // 周期提醒：最近养护日期=本次实际检查日期，下次=最近+周期快照（周期空则NULL）
+        LocalDate lastDate = record.getCheckTime().toLocalDate();
+        detail.setLastMaintenanceDate(lastDate);
+        Integer cycle = detail.getMaintenanceCycleDays();
+        detail.setNextMaintenanceDate(cycle == null ? null : lastDate.plusDays(cycle));
+    }
+
+    /**
+     * 明细预加载快照料（库存/物料/入库编号），避免逐行查询
+     *
+     * @param stockMap    库存明细（key=stockId）
+     * @param materialMap 物料（key=stockId）
+     * @param inCodeMap   入库编号（key=stockInId）
+     */
+    private record DetailSnapshot(Map<Long, Stock> stockMap, Map<Long, Material> materialMap,
+                                  Map<Long, String> inCodeMap) {
     }
 
     // endregion

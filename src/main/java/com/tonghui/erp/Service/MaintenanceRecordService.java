@@ -83,10 +83,10 @@ public interface MaintenanceRecordService extends IService<MaintenanceRecord> {
     MaintenanceRecord create(MaintenanceRecordSaveDto dto);
 
     /**
-     * 修改养护记录（编号不可改；明细整体重建并重算下次养护日期；同步主单附件）
+     * 修改养护记录（编号不可改；明细按ID原地更新保留ID、被移除行删除并重算下次养护日期；同步主单附件）
      *
      * @param id  养护记录ID
-     * @param dto 保存请求体
+     * @param dto 保存请求体（明细已有行须回传原 id）
      * @return 修改后的养护记录
      */
     MaintenanceRecord update(Long id, MaintenanceRecordSaveDto dto);

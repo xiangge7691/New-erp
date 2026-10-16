@@ -44,7 +44,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * 2. 新增保存主单+明细，快照物料/批号/入库编号/数量/养护要求
  * 3. 检查项目四态默认未见异常，异常判定（任一项发现异常或填写异常描述）
  * 4. 下次养护日期=本次实际检查日期+养护周期快照（周期为空则NULL）
- * 5. 更新时明细整体重建（旧行物理删除后重插），编号保留原值
+ * 5. 更新时明细按ID原地更新（保留已有明细ID，被移除行物理删除），编号保留原值
  * 6. 必填校验（检查时间/检查类型/仓库/检查人员/明细）
  * 7. 列表查询（编号关键字、明细物料维度命中）与明细数/异常数统计
  * 8. 软删除后详情返回null、明细物理删除
@@ -184,18 +184,19 @@ public class MaintenanceRecordTest {
     }
 
     /**
-     * 测试更新重建明细：编号保留原值，旧明细物理删除，明细状态按新值更新
+     * 测试更新明细按ID原地更新：编号保留原值，已有明细ID保持不变，明细状态按新值更新
      */
     @Test
-    public void testUpdateRebuildsDetails() {
+    public void testUpdateKeepsDetailId() {
         TestData data = createTestData(new BigDecimal("10.000"), 15);
         MaintenanceRecordSaveDto dto = buildSaveDto(data, "日常检查");
         MaintenanceRecord created = maintenanceRecordService.create(dto);
         Long oldDetailId = maintenanceRecordService.getDetail(created.getId())
                 .getDetails().get(0).getId();
 
-        // 修改：检查类型变化 + 检查项改为发现异常 + 补充异常描述
+        // 修改：检查类型变化 + 检查项改为发现异常 + 补充异常描述（回传原明细ID）
         MaintenanceRecordSaveDto updateDto = buildSaveDto(data, "定期检查");
+        updateDto.getDetails().get(0).setId(oldDetailId);
         updateDto.getDetails().get(0).setMoistureStatus(MaintenanceRecordDetail.CHECK_ABNORMAL);
         updateDto.getDetails().get(0).setAbnormalDescription("垛位底部轻微受潮");
         updateDto.getDetails().get(0).setMoistureContent(new BigDecimal("14.20"));
@@ -205,13 +206,52 @@ public class MaintenanceRecordTest {
         assertEquals("定期检查", updated.getCheckType(), "检查类型应更新");
 
         MaintenanceRecordWithDetailsDto detail = maintenanceRecordService.getDetail(created.getId());
-        assertEquals(1, detail.getDetails().size(), "明细应重建为1行");
-        assertNotEquals(oldDetailId, detail.getDetails().get(0).getId(), "重建后明细ID应为新ID");
+        assertEquals(1, detail.getDetails().size(), "明细应仍为1行");
+        assertEquals(oldDetailId, detail.getDetails().get(0).getId(), "更新后明细ID应保持不变");
         MaintenanceRecordDetail d = detail.getDetails().get(0);
         assertEquals(MaintenanceRecordDetail.CHECK_ABNORMAL, d.getMoistureStatus(), "受潮状态应更新为发现异常");
         assertEquals("垛位底部轻微受潮", d.getAbnormalDescription(), "异常描述应保存");
         assertTrue(detail.getDetails().get(0).isAbnormal(), "异常标记应为true");
         assertEquals(1, detail.getAbnormalCount(), "异常明细数应为1");
+    }
+
+    /**
+     * 测试更新明细增删：保留行ID不变，新增行ID自增生成，被移除行物理删除
+     */
+    @Test
+    public void testUpdateAddsAndRemovesDetails() {
+        TestData data = createTestData(new BigDecimal("6.000"), 30);
+        MaintenanceRecordSaveDto dto = buildSaveDto(data, "日常检查");
+        MaintenanceRecord created = maintenanceRecordService.create(dto);
+        Long keptId = maintenanceRecordService.getDetail(created.getId()).getDetails().get(0).getId();
+
+        // 追加第二行明细（不回传ID => 新增），第一行回传原ID => 保留
+        TestData data2 = createTestData(new BigDecimal("4.000"), null);
+        MaintenanceRecordSaveDto updateDto = buildSaveDto(data, "定期检查");
+        updateDto.getDetails().get(0).setId(keptId);
+        MaintenanceRecordDetailSaveDto added = new MaintenanceRecordDetailSaveDto();
+        added.setStockId(data2.stockId);
+        added.setShelfLocation("B区1架");
+        updateDto.getDetails().add(added);
+        maintenanceRecordService.update(created.getId(), updateDto);
+
+        MaintenanceRecordWithDetailsDto afterAdd = maintenanceRecordService.getDetail(created.getId());
+        assertEquals(2, afterAdd.getDetails().size(), "应新增为2行");
+        assertTrue(afterAdd.getDetails().stream().anyMatch(x -> keptId.equals(x.getId())),
+                "原有行ID应保留");
+        Long addedId = afterAdd.getDetails().stream()
+                .filter(x -> !keptId.equals(x.getId())).findFirst().orElseThrow().getId();
+        assertTrue(addedId > keptId, "新增行ID应大于原有行ID");
+
+        // 移除新增行（details 仅保留原行 => 新增行被物理删除）
+        MaintenanceRecordSaveDto removeDto = buildSaveDto(data, "复查");
+        removeDto.getDetails().get(0).setId(keptId);
+        maintenanceRecordService.update(created.getId(), removeDto);
+
+        MaintenanceRecordWithDetailsDto afterRemove = maintenanceRecordService.getDetail(created.getId());
+        assertEquals(1, afterRemove.getDetails().size(), "被移除行应删除，仅剩1行");
+        assertEquals(keptId, afterRemove.getDetails().get(0).getId(), "剩余行ID应保持不变");
+        assertNull(maintenanceRecordDetailMapper.selectById(addedId), "被移除明细应物理删除");
     }
 
     /**

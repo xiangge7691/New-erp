@@ -24,6 +24,12 @@ public class MaintenanceRecordDetailSaveDto {
     // ===================================
 
     /**
+     * 明细行ID（修改已有明细行时回传，服务端按ID原地更新保留ID；
+     * 新增行不传，由数据库自增生成）
+     */
+    private Long id;
+
+    /**
      * 关联库存明细ID（必填，stock.stock_id）
      */
     private Long stockId;
