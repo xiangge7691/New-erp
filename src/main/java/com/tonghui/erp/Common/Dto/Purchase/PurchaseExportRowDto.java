@@ -8,12 +8,29 @@ import java.time.LocalDateTime;
 /**
  * 采购数据导出行数据传输对象
  * <p>
- * 每行对应一条采购订单明细，包含采购订单主表冗余信息、明细物料信息与金额信息，
- * 供采购数据 Excel 导出使用（仅采购数据，不含领料数据）
+ * 统一承载三类导出行，由单据类型区分：
+ * <ul>
+ *   <li>采购：每行对应一条采购订单明细（采购订单主表信息 + 明细物料/金额信息）</li>
+ *   <li>退货：采购退货来源的验收明细行（退货数量/原因/状态/备注）</li>
+ *   <li>重发：重新发货留痕行（重发数量/新验收单号/重发时间，按留痕逐条）</li>
+ * </ul>
+ * 供采购数据 Excel 导出使用
  * </p>
  */
 @Data
 public class PurchaseExportRowDto {
+
+    // region 单据类型
+    // ===================================
+    // 单据类型
+    // ===================================
+
+    /**
+     * 单据类型：采购/退货/重发
+     */
+    private String documentType;
+
+    // endregion
 
     // region 采购订单主表信息
     // ===================================
@@ -98,6 +115,11 @@ public class PurchaseExportRowDto {
     private String unit;
 
     /**
+     * 批号（退货/重发行取验收明细批号，采购行留空）
+     */
+    private String batchNumber;
+
+    /**
      * 标准处方（标准处方量）
      */
     private BigDecimal standardDosage;
@@ -131,6 +153,53 @@ public class PurchaseExportRowDto {
      * 供应商
      */
     private String supplier;
+
+    // endregion
+
+    // region 退货与重发信息
+    // ===================================
+    // 退货与重发信息
+    // ===================================
+
+    /**
+     * 验收单号（退货/重发行：来源验收单号；采购行留空）
+     */
+    private String acceptanceCode;
+
+    /**
+     * 退货数量（退货行：实际到货数量，缺失时取采购数量）
+     */
+    private BigDecimal returnQty;
+
+    /**
+     * 退货原因（初验不合格/检验不合格）
+     */
+    private String returnReason;
+
+    /**
+     * 退货状态（待退货/已退货/已重发/已取消；重发行固定为已重发）
+     */
+    private String returnStatus;
+
+    /**
+     * 退货备注（不合格原因说明）
+     */
+    private String returnRemark;
+
+    /**
+     * 重发数量（重发行：本次重新发货数量）
+     */
+    private BigDecimal resendQty;
+
+    /**
+     * 重发验收单号（重发行：重新发货生成的新验收单号）
+     */
+    private String newAcceptanceCode;
+
+    /**
+     * 重发时间（重发行：重新发货操作时间）
+     */
+    private LocalDateTime resendTime;
 
     // endregion
 }

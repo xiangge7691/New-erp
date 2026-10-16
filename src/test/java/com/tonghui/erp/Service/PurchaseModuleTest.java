@@ -380,7 +380,7 @@ public class PurchaseModuleTest {
     // ===================================
 
     /**
-     * 测试采购数据导出：生成合法 xlsx，校验单 sheet、19 列表头及列数
+     * 测试采购数据导出：生成合法 xlsx，校验单 sheet、31 列表头（首列单据类型）及列数
      */
     @Test
     public void testPurchaseDataExport() throws Exception {
@@ -393,9 +393,11 @@ public class PurchaseModuleTest {
         assertEquals((byte) 'K', bytes[1], "xlsx 应为 zip 格式");
 
         String[] expectedHeaders = {
-                "采购订单编号", "生产计划编号", "工单标题", "制剂名称", "委托单位", "批量", "处方倍数",
-                "物料编码", "物料名称", "物料分类", "规格", "计量单位", "标准处方", "采购数量",
-                "单价", "总价", "标准量差值", "采购订单状态", "发票号", "供应商", "创建时间（采购时间）"
+                "单据类型", "采购订单编号", "生产计划编号", "工单标题", "制剂名称", "委托单位", "批量", "处方倍数",
+                "物料编码", "物料名称", "物料分类", "规格", "计量单位", "批号", "标准处方", "采购数量",
+                "单价", "总价", "标准量差值", "采购订单状态", "发票号", "供应商",
+                "验收单号", "退货数量", "退货原因", "退货状态", "退货备注",
+                "重发数量", "重发验收单号", "重发时间", "创建时间（采购时间）"
         };
 
         try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
@@ -409,11 +411,11 @@ public class PurchaseModuleTest {
                 assertEquals(expectedHeaders[i], header.getCell(i).getStringCellValue(),
                         "第" + (i + 1) + "列表头应为" + expectedHeaders[i]);
             }
-            // 每行数据列数不超过19列
+            // 每行数据列数不超过31列
             for (int r = 1; r <= sheet.getLastRowNum(); r++) {
                 Row row = sheet.getRow(r);
                 if (row != null) {
-                    assertNull(row.getCell(expectedHeaders.length), "数据行不应超过19列");
+                    assertNull(row.getCell(expectedHeaders.length), "数据行不应超过31列");
                 }
             }
         }

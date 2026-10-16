@@ -10,12 +10,14 @@ import com.tonghui.erp.Common.Dto.Purchase.PurchaseOrdersWithItemsDto;
 import com.tonghui.erp.Common.utils.AcceptanceStatusPolicy;
 import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
+import com.tonghui.erp.Data.Entity.AcceptanceResendLog;
 import com.tonghui.erp.Data.Entity.Material;
 import com.tonghui.erp.Data.Entity.PurchaseOrderItems;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
 import com.tonghui.erp.Data.Entity.PurchaseSuppliers;
 import com.tonghui.erp.Data.mapper.AcceptanceDetailMapper;
 import com.tonghui.erp.Data.mapper.AcceptanceOrderMapper;
+import com.tonghui.erp.Data.mapper.AcceptanceResendLogMapper;
 import com.tonghui.erp.Data.mapper.MaterialMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrderItemsMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrdersMapper;
@@ -45,6 +47,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -90,6 +93,10 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
     /** 供应商数据访问层，采购数据导出时回填供应商名称 */
     @Autowired
     private PurchaseSuppliersMapper purchaseSuppliersMapper;
+
+    /** 重新发货留痕数据访问层，采购数据导出时追加重发行 */
+    @Autowired
+    private AcceptanceResendLogMapper acceptanceResendLogMapper;
 
     // endregion
 
@@ -607,11 +614,32 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
     // 采购数据导出
     // ===================================
 
+    /** 单据类型：采购 */
+    private static final String DOC_TYPE_PURCHASE = "采购";
+
+    /** 单据类型：退货 */
+    private static final String DOC_TYPE_RETURN = "退货";
+
+    /** 单据类型：重发 */
+    private static final String DOC_TYPE_RESEND = "重发";
+
+    /** 采购退货来源验收单来源类型集合（采购入库、退货重发） */
+    private static final List<String> PURCHASE_SOURCE_TYPES = List.of("采购入库", "退货重发");
+
+    /** 退货相关明细状态集合（采购数据导出退货行数据范围） */
+    private static final List<String> RETURN_STATUSES = List.of(
+            AcceptanceStatusPolicy.DETAIL_PENDING_RETURN,
+            AcceptanceStatusPolicy.DETAIL_RETURNED,
+            AcceptanceStatusPolicy.DETAIL_RESENT,
+            AcceptanceStatusPolicy.DETAIL_CANCELLED);
+
     /**
-     * 导出采购数据 Excel（仅采购数据，不含领料数据）
+     * 导出采购数据 Excel（含采购行、采购退货行与重新发货行，不含领料数据）
      * <p>
      * 流程：日期参数校验 → 按筛选条件查询采购订单主表 → 批量查询订单明细 →
-     * 批量加载物料/供应商名称 → 组装为行（每行对应一条订单明细）→ POI 生成单 sheet xlsx 写流
+     * 批量加载物料/供应商名称 → 组装采购行（每行对应一条订单明细）→
+     * 在命中订单范围内追加采购退货行与重新发货行（单据类型列区分）→
+     * POI 生成单 sheet xlsx 写流
      * </p>
      *
      * @param keyword   关键字（对采购订单编号、工单标题模糊匹配，可选）
@@ -686,6 +714,7 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
                     continue;
                 }
                 PurchaseExportRowDto row = new PurchaseExportRowDto();
+                row.setDocumentType(DOC_TYPE_PURCHASE);
                 row.setPurchaseNumber(order.getPurchaseNumber());
                 row.setProductionPlanCode(order.getProductionPlanCode());
                 row.setTitle(order.getTitle());
@@ -718,10 +747,185 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
                 row.setSupplier(supplier);
                 rows.add(row);
             }
+
+            // 5.1 追加采购退货行与重新发货行（单据类型=退货/重发）
+            appendPurchaseReturnRows(rows, orders, supplierNameMap);
         }
 
         // 6. 生成 xlsx
         writePurchaseWorkbook(rows, out);
+    }
+
+    /**
+     * 追加载入采购退货行与重新发货行
+     * <p>
+     * 以本次筛选命中的采购订单为范围：先按验收单来源类型（采购入库/退货重发）与采购订单号
+     * 关联出退货验收单，再取退货相关状态（待退货/已退货/已重发/已取消）的验收明细组装退货行；
+     * 随后按验收明细ID读取重新发货留痕，按操作时间逐条组装重发行。订单范围为空时不做任何追加
+     * </p>
+     *
+     * @param rows            已组装好的导出行（采购行），退货/重发行追加到该列表
+     * @param orders          本次命中的采购订单
+     * @param supplierNameMap 供应商ID到名称的映射（退货行供应商回退用）
+     */
+    private void appendPurchaseReturnRows(List<PurchaseExportRowDto> rows,
+                                          List<PurchaseOrders> orders,
+                                          Map<Long, String> supplierNameMap) {
+        // 采购订单号范围
+        List<String> purchaseNumbers = orders.stream()
+                .map(PurchaseOrders::getPurchaseNumber)
+                .filter(StringUtils::hasText).distinct().collect(Collectors.toList());
+        if (purchaseNumbers.isEmpty()) {
+            return;
+        }
+        // 采购订单号到订单的映射（供应商/制剂名称回退）
+        Map<String, PurchaseOrders> orderByNumber = new LinkedHashMap<>();
+        for (PurchaseOrders order : orders) {
+            if (StringUtils.hasText(order.getPurchaseNumber())) {
+                orderByNumber.putIfAbsent(order.getPurchaseNumber(), order);
+            }
+        }
+
+        // 1. 采购退货来源验收单：source_type IN (采购入库,退货重发)，按采购订单号/关联单号关联
+        List<AcceptanceOrder> acceptanceOrders = acceptanceOrderMapper.selectList(
+                new QueryWrapper<AcceptanceOrder>()
+                        .in("source_type", PURCHASE_SOURCE_TYPES)
+                        .and(w -> w.in("purchase_number", purchaseNumbers)
+                                .or().in("related_order", purchaseNumbers)));
+        if (acceptanceOrders.isEmpty()) {
+            return;
+        }
+        Map<Long, AcceptanceOrder> acceptanceMap = acceptanceOrders.stream()
+                .collect(Collectors.toMap(AcceptanceOrder::getAcceptanceId, a -> a, (a, b) -> a));
+        List<Long> acceptanceIds = new ArrayList<>(acceptanceMap.keySet());
+
+        // 2. 退货相关状态的验收明细
+        List<AcceptanceDetail> details = acceptanceDetailMapper.selectList(
+                new QueryWrapper<AcceptanceDetail>()
+                        .in("acceptance_id", acceptanceIds)
+                        .in("status", RETURN_STATUSES)
+                        .orderByAsc("acceptance_id")
+                        .orderByAsc("seq"));
+        if (details.isEmpty()) {
+            return;
+        }
+
+        // 3. 组装退货行
+        for (AcceptanceDetail detail : details) {
+            AcceptanceOrder acceptance = acceptanceMap.get(detail.getAcceptanceId());
+            String purchaseNumber = resolvePurchaseNumber(acceptance);
+            PurchaseExportRowDto row = new PurchaseExportRowDto();
+            row.setDocumentType(DOC_TYPE_RETURN);
+            row.setPurchaseNumber(purchaseNumber);
+            row.setPreparationName(resolvePreparationName(acceptance, purchaseNumber, orderByNumber));
+            row.setMaterialCode(detail.getMaterialCode());
+            row.setMaterialName(detail.getMaterialName());
+            row.setUnit(detail.getUnitName());
+            row.setBatchNumber(detail.getBatchNumber());
+            row.setSupplier(resolveDetailSupplier(detail, purchaseNumber, orderByNumber, supplierNameMap));
+            row.setAcceptanceCode(acceptance != null ? acceptance.getAcceptanceCode() : null);
+            // 退货数量：实际到货数量优先，缺失时取采购数量
+            row.setReturnQty(detail.getActualArrivalQty() != null
+                    ? detail.getActualArrivalQty() : detail.getQuantity());
+            row.setReturnReason(detail.getReturnReason());
+            row.setReturnStatus(detail.getStatus());
+            row.setReturnRemark(detail.getReturnRemark());
+            rows.add(row);
+        }
+
+        // 4. 重新发货留痕，按操作时间逐条组装重发行
+        List<Long> detailIds = details.stream().map(AcceptanceDetail::getDetailId).collect(Collectors.toList());
+        Map<Long, AcceptanceDetail> detailMap = details.stream()
+                .collect(Collectors.toMap(AcceptanceDetail::getDetailId, d -> d, (a, b) -> a));
+        List<AcceptanceResendLog> resendLogs = acceptanceResendLogMapper.selectList(
+                new QueryWrapper<AcceptanceResendLog>()
+                        .in("detail_id", detailIds)
+                        .orderByAsc("operation_time"));
+        for (AcceptanceResendLog log : resendLogs) {
+            AcceptanceDetail detail = detailMap.get(log.getDetailId());
+            AcceptanceOrder acceptance = detail != null ? acceptanceMap.get(detail.getAcceptanceId()) : null;
+            String purchaseNumber = resolvePurchaseNumber(acceptance);
+            PurchaseExportRowDto row = new PurchaseExportRowDto();
+            row.setDocumentType(DOC_TYPE_RESEND);
+            row.setPurchaseNumber(purchaseNumber);
+            row.setPreparationName(resolvePreparationName(acceptance, purchaseNumber, orderByNumber));
+            if (detail != null) {
+                row.setMaterialCode(detail.getMaterialCode());
+                row.setMaterialName(StringUtils.hasText(detail.getMaterialName())
+                        ? detail.getMaterialName() : log.getMaterialName());
+                row.setUnit(detail.getUnitName());
+                row.setBatchNumber(detail.getBatchNumber());
+                row.setSupplier(resolveDetailSupplier(detail, purchaseNumber, orderByNumber, supplierNameMap));
+                row.setAcceptanceCode(acceptance != null ? acceptance.getAcceptanceCode() : null);
+            } else {
+                row.setMaterialName(log.getMaterialName());
+            }
+            row.setReturnStatus(AcceptanceStatusPolicy.DETAIL_RESENT);
+            row.setResendQty(log.getResendQty());
+            row.setNewAcceptanceCode(log.getNewAcceptanceCode());
+            row.setResendTime(log.getOperationTime());
+            rows.add(row);
+        }
+    }
+
+    /**
+     * 解析验收单关联的采购订单编号（purchase_number 优先，回退 related_order）
+     *
+     * @param acceptance 验收单（可为null）
+     * @return 采购订单编号，无则返回 null
+     */
+    private String resolvePurchaseNumber(AcceptanceOrder acceptance) {
+        if (acceptance == null) {
+            return null;
+        }
+        return StringUtils.hasText(acceptance.getPurchaseNumber())
+                ? acceptance.getPurchaseNumber() : acceptance.getRelatedOrder();
+    }
+
+    /**
+     * 解析退货/重发行的制剂名称（验收单优先，回退命中采购订单）
+     *
+     * @param acceptance      验收单（可为null）
+     * @param purchaseNumber  采购订单编号
+     * @param orderByNumber   采购订单号到订单的映射
+     * @return 制剂名称，无则返回 null
+     */
+    private String resolvePreparationName(AcceptanceOrder acceptance, String purchaseNumber,
+                                          Map<String, PurchaseOrders> orderByNumber) {
+        if (acceptance != null && StringUtils.hasText(acceptance.getPreparationName())) {
+            return acceptance.getPreparationName();
+        }
+        if (StringUtils.hasText(purchaseNumber)) {
+            PurchaseOrders order = orderByNumber.get(purchaseNumber);
+            if (order != null) {
+                return order.getPreparationName();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 解析退货/重发行的供应商（验收明细优先，回退命中采购订单供应商名称）
+     *
+     * @param detail          验收明细
+     * @param purchaseNumber  采购订单编号
+     * @param orderByNumber   采购订单号到订单的映射
+     * @param supplierNameMap 供应商ID到名称的映射
+     * @return 供应商，无则返回 null
+     */
+    private String resolveDetailSupplier(AcceptanceDetail detail, String purchaseNumber,
+                                         Map<String, PurchaseOrders> orderByNumber,
+                                         Map<Long, String> supplierNameMap) {
+        if (StringUtils.hasText(detail.getSupplier())) {
+            return detail.getSupplier();
+        }
+        if (StringUtils.hasText(purchaseNumber)) {
+            PurchaseOrders order = orderByNumber.get(purchaseNumber);
+            if (order != null && order.getSupplierId() != null) {
+                return supplierNameMap.get(order.getSupplierId());
+            }
+        }
+        return null;
     }
 
     /**
@@ -747,19 +951,23 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
      * POI 生成采购数据 workbook 并写入输出流
      * <p>
      * 单 sheet「采购数据」：Row0 表头（加粗灰底居中），Row1+ 数据行；
-     * 单价、总价列格式 0.00
+     * 首列为单据类型（采购/退货/重发）区分三类行；单价、总价、退货数量、重发数量按金额/数值写入
      * </p>
      *
-     * @param rows 导出行列表
+     * @param rows 导出行列表（采购行 + 退货行 + 重发行）
      * @param out  输出流
      * @throws IOException 写流失败
      */
     private void writePurchaseWorkbook(List<PurchaseExportRowDto> rows, OutputStream out) throws IOException {
         String[] headers = {
-                "采购订单编号", "生产计划编号", "工单标题", "制剂名称", "委托单位", "批量", "处方倍数",
-                "物料编码", "物料名称", "物料分类", "规格", "计量单位", "标准处方", "采购数量",
-                "单价", "总价", "标准量差值", "采购订单状态", "发票号", "供应商", "创建时间（采购时间）"
+                "单据类型", "采购订单编号", "生产计划编号", "工单标题", "制剂名称", "委托单位", "批量", "处方倍数",
+                "物料编码", "物料名称", "物料分类", "规格", "计量单位", "批号", "标准处方", "采购数量",
+                "单价", "总价", "标准量差值", "采购订单状态", "发票号", "供应商",
+                "验收单号", "退货数量", "退货原因", "退货状态", "退货备注",
+                "重发数量", "重发验收单号", "重发时间", "创建时间（采购时间）"
         };
+
+        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
         try (Workbook workbook = new XSSFWorkbook()) {
             // 样式：表头（加粗灰底居中）、金额（0.00）
@@ -784,32 +992,45 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
             int rowIndex = 1;
             for (PurchaseExportRowDto row : rows) {
                 Row dataRow = sheet.createRow(rowIndex++);
-                dataRow.createCell(0).setCellValue(Objects.toString(row.getPurchaseNumber(), ""));
-                dataRow.createCell(1).setCellValue(Objects.toString(row.getProductionPlanCode(), ""));
-                dataRow.createCell(2).setCellValue(Objects.toString(row.getTitle(), ""));
-                dataRow.createCell(3).setCellValue(Objects.toString(row.getPreparationName(), ""));
-                dataRow.createCell(4).setCellValue(Objects.toString(row.getEntrustUnit(), ""));
-                setNumberCell(dataRow.createCell(5), row.getBatchQty());
-                setNumberCell(dataRow.createCell(6), row.getPrescriptionMultiple());
-                dataRow.createCell(7).setCellValue(Objects.toString(row.getMaterialCode(), ""));
-                dataRow.createCell(8).setCellValue(Objects.toString(row.getMaterialName(), ""));
-                dataRow.createCell(9).setCellValue(Objects.toString(row.getMaterialCategory(), ""));
-                dataRow.createCell(10).setCellValue(Objects.toString(row.getSpec(), ""));
-                dataRow.createCell(11).setCellValue(Objects.toString(row.getUnit(), ""));
-                setNumberCell(dataRow.createCell(12), row.getStandardDosage());
-                setNumberCell(dataRow.createCell(13), row.getPurchaseQuantity());
-                setMoneyCell(dataRow.createCell(14), row.getUnitPrice(), moneyStyle);
-                setMoneyCell(dataRow.createCell(15), row.getAmount(), moneyStyle);
-                setNumberCell(dataRow.createCell(16), row.getDifference());
-                dataRow.createCell(17).setCellValue(Objects.toString(row.getOrderStatus(), ""));
-                dataRow.createCell(18).setCellValue(Objects.toString(row.getInvoiceNo(), ""));
-                dataRow.createCell(19).setCellValue(Objects.toString(row.getSupplier(), ""));
-                dataRow.createCell(20).setCellValue(row.getCreatedTime() != null
-                        ? row.getCreatedTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : "");
+                dataRow.createCell(0).setCellValue(Objects.toString(row.getDocumentType(), ""));
+                dataRow.createCell(1).setCellValue(Objects.toString(row.getPurchaseNumber(), ""));
+                dataRow.createCell(2).setCellValue(Objects.toString(row.getProductionPlanCode(), ""));
+                dataRow.createCell(3).setCellValue(Objects.toString(row.getTitle(), ""));
+                dataRow.createCell(4).setCellValue(Objects.toString(row.getPreparationName(), ""));
+                dataRow.createCell(5).setCellValue(Objects.toString(row.getEntrustUnit(), ""));
+                setNumberCell(dataRow.createCell(6), row.getBatchQty());
+                setNumberCell(dataRow.createCell(7), row.getPrescriptionMultiple());
+                dataRow.createCell(8).setCellValue(Objects.toString(row.getMaterialCode(), ""));
+                dataRow.createCell(9).setCellValue(Objects.toString(row.getMaterialName(), ""));
+                dataRow.createCell(10).setCellValue(Objects.toString(row.getMaterialCategory(), ""));
+                dataRow.createCell(11).setCellValue(Objects.toString(row.getSpec(), ""));
+                dataRow.createCell(12).setCellValue(Objects.toString(row.getUnit(), ""));
+                dataRow.createCell(13).setCellValue(Objects.toString(row.getBatchNumber(), ""));
+                setNumberCell(dataRow.createCell(14), row.getStandardDosage());
+                setNumberCell(dataRow.createCell(15), row.getPurchaseQuantity());
+                setMoneyCell(dataRow.createCell(16), row.getUnitPrice(), moneyStyle);
+                setMoneyCell(dataRow.createCell(17), row.getAmount(), moneyStyle);
+                setNumberCell(dataRow.createCell(18), row.getDifference());
+                dataRow.createCell(19).setCellValue(Objects.toString(row.getOrderStatus(), ""));
+                dataRow.createCell(20).setCellValue(Objects.toString(row.getInvoiceNo(), ""));
+                dataRow.createCell(21).setCellValue(Objects.toString(row.getSupplier(), ""));
+                dataRow.createCell(22).setCellValue(Objects.toString(row.getAcceptanceCode(), ""));
+                setNumberCell(dataRow.createCell(23), row.getReturnQty());
+                dataRow.createCell(24).setCellValue(Objects.toString(row.getReturnReason(), ""));
+                dataRow.createCell(25).setCellValue(Objects.toString(row.getReturnStatus(), ""));
+                dataRow.createCell(26).setCellValue(Objects.toString(row.getReturnRemark(), ""));
+                setNumberCell(dataRow.createCell(27), row.getResendQty());
+                dataRow.createCell(28).setCellValue(Objects.toString(row.getNewAcceptanceCode(), ""));
+                dataRow.createCell(29).setCellValue(row.getResendTime() != null
+                        ? row.getResendTime().format(dateTimeFormatter) : "");
+                dataRow.createCell(30).setCellValue(row.getCreatedTime() != null
+                        ? row.getCreatedTime().format(dateTimeFormatter) : "");
             }
 
             // 列宽
-            int[] widths = {22, 20, 20, 18, 18, 12, 12, 18, 20, 12, 18, 10, 12, 12, 12, 12, 12, 14, 18, 18, 22};
+            int[] widths = {
+                    10, 22, 20, 20, 18, 18, 12, 12, 18, 20, 12, 18, 10, 16, 12, 12,
+                    12, 12, 12, 14, 18, 18, 18, 12, 12, 12, 18, 12, 18, 20, 22};
             for (int i = 0; i < widths.length; i++) {
                 sheet.setColumnWidth(i, widths[i] * 256);
             }
