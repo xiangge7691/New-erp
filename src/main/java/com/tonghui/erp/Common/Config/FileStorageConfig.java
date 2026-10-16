@@ -71,9 +71,9 @@ public class FileStorageConfig {
 
     /**
      * 最大文件大小（字节）
-     * 默认10MB
+     * 默认100MB
      */
-    private long maxSize = 10 * 1024 * 1024;
+    private long maxSize = 100 * 1024 * 1024;
 
     /**
      * 允许的文件类型列表
