@@ -79,6 +79,7 @@ import java.util.stream.Collectors;
  * 4. 检查项目四态（1未检查/2未见异常/3发现异常/4不适用），默认未见异常；实测含水量为空表示未测
  * 5. 下次养护日期=本次实际检查日期+养护周期快照（周期为空则不纳入提醒），按明细独立计算
  * 6. 更新时按明细ID原地更新（保留已有明细ID，仅删除被移除的行），主单附件与明细附件同步
+ * 7. 可空字段传null即清空历史值（主单/明细可空字段统一 updateStrategy=ALWAYS，绕过MP默认忽略null策略）
  * </p>
  */
 @Service
@@ -416,6 +417,7 @@ public class MaintenanceRecordServiceImpl extends ServiceImpl<MaintenanceRecordM
      * 为支持明细附件按行定位（file_info.business_id = 明细ID），采用原地更新保留ID策略：
      * 入参携带 id 且属于本单的已有明细行执行更新（ID不变），无 id 的行新增，
      * 数据库中未被入参覆盖的既有明细行被物理删除。
+     * 可空字段（环境数据/总体说明/关联复查/明细人工填写项等）传 null 即清空历史值。
      * </p>
      *
      * @param id  养护记录ID

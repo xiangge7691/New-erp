@@ -255,6 +255,61 @@ public class MaintenanceRecordTest {
     }
 
     /**
+     * 测试更新时可空字段传null会清空历史值（可空字段统一 updateStrategy=ALWAYS）
+     * <p>主单环境/说明/关联字段与明细人工填写字段传null后应被清空，且明细ID保持不变</p>
+     */
+    @Test
+    public void testUpdateClearsNullFields() {
+        TestData data = createTestData(new BigDecimal("9.000"), 30);
+        MaintenanceRecordSaveDto dto = buildSaveDto(data, "日常检查");
+        // 初次保存：明细的可空人工字段均填入值
+        MaintenanceRecordDetailSaveDto createDetail = dto.getDetails().get(0);
+        createDetail.setCheckScope("全部");
+        createDetail.setMoistureContent(new BigDecimal("12.30"));
+        createDetail.setAbnormalDescription("初始异常描述");
+        createDetail.setMeasures("通风");
+        createDetail.setRemark("初始备注");
+        MaintenanceRecord record = maintenanceRecordService.create(dto);
+        Long detailId = maintenanceRecordService.getDetail(record.getId())
+                .getDetails().get(0).getId();
+
+        // 更新：主单与明细的可空字段全部传null，期望被清空
+        MaintenanceRecordSaveDto updateDto = buildSaveDto(data, "定期检查");
+        updateDto.setEnvObserveInfo(null);
+        updateDto.setTemperature(null);
+        updateDto.setHumidity(null);
+        updateDto.setSummary(null);
+        updateDto.setRelatedMaintenanceId(null);
+        MaintenanceRecordDetailSaveDto updateDetail = updateDto.getDetails().get(0);
+        updateDetail.setId(detailId);
+        updateDetail.setShelfLocation(null);
+        updateDetail.setCheckScope(null);
+        updateDetail.setMoistureContent(null);
+        updateDetail.setAbnormalDescription(null);
+        updateDetail.setMeasures(null);
+        updateDetail.setRemark(null);
+        maintenanceRecordService.update(record.getId(), updateDto);
+
+        MaintenanceRecordWithDetailsDto after = maintenanceRecordService.getDetail(record.getId());
+        assertNull(after.getEnvObserveInfo(), "环境观测信息应被清空");
+        assertNull(after.getTemperature(), "温度应被清空");
+        assertNull(after.getHumidity(), "湿度应被清空");
+        assertNull(after.getSummary(), "总体说明应被清空");
+        assertNull(after.getRelatedMaintenanceId(), "关联复查记录ID应被清空");
+        assertNull(after.getRelatedMaintenanceCode(), "关联复查记录编号应被清空");
+
+        assertEquals(1, after.getDetails().size(), "明细应仍为1行");
+        MaintenanceRecordDetail afterDetail = after.getDetails().get(0);
+        assertEquals(detailId, afterDetail.getId(), "明细ID应保持不变");
+        assertNull(afterDetail.getShelfLocation(), "货架位置应被清空");
+        assertNull(afterDetail.getCheckScope(), "检查范围应被清空");
+        assertNull(afterDetail.getMoistureContent(), "实测含水量应被清空");
+        assertNull(afterDetail.getAbnormalDescription(), "异常描述应被清空");
+        assertNull(afterDetail.getMeasures(), "养护措施应被清空");
+        assertNull(afterDetail.getRemark(), "备注应被清空");
+    }
+
+    /**
      * 测试列表查询与统计：编号关键字命中、明细物料维度命中、明细数/异常数正确
      */
     @Test

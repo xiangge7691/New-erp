@@ -1,5 +1,6 @@
 package com.tonghui.erp.Data.Entity;
 
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -18,7 +19,8 @@ import lombok.EqualsAndHashCode;
  * 检查时库存数量，并记录该批物料的检查项目结果、异常描述、养护措施、
  * 操作人员与处理结果。
  * 检查项目四态：1未检查/2未见异常/3发现异常/4不适用，默认未见异常；
- * 实测含水量为空表示未测，禁止填0
+ * 实测含水量为空表示未测，禁止填0；
+ * 可空业务字段统一使用 updateStrategy = ALWAYS，使前端传 null 可清空历史值
  * </p>
  *
  * @TableName maintenance_record_detail
@@ -159,13 +161,13 @@ public class MaintenanceRecordDetail extends AuditEntity {
     /**
      * 货架位置（手动填写，记录物料实际存放的货架/库位）
      */
-    @TableField(value = "shelf_location")
+    @TableField(value = "shelf_location", updateStrategy = FieldStrategy.ALWAYS)
     private String shelfLocation;
 
     /**
      * 检查范围或数量（人工选填，说明检查了哪些包装、货垛或数量）
      */
-    @TableField(value = "check_scope")
+    @TableField(value = "check_scope", updateStrategy = FieldStrategy.ALWAYS)
     private String checkScope;
 
     // endregion
@@ -238,7 +240,7 @@ public class MaintenanceRecordDetail extends AuditEntity {
     /**
      * 其他异常具体内容（勾选发现异常时手动填写）
      */
-    @TableField(value = "other_description")
+    @TableField(value = "other_description", updateStrategy = FieldStrategy.ALWAYS)
     private String otherDescription;
 
     // endregion
@@ -251,19 +253,19 @@ public class MaintenanceRecordDetail extends AuditEntity {
     /**
      * 实测含水量（%），NULL表示未测（未测时不得填0）
      */
-    @TableField(value = "moisture_content")
+    @TableField(value = "moisture_content", updateStrategy = FieldStrategy.ALWAYS)
     private BigDecimal moistureContent;
 
     /**
      * 实测垛温（℃）
      */
-    @TableField(value = "stack_temperature")
+    @TableField(value = "stack_temperature", updateStrategy = FieldStrategy.ALWAYS)
     private BigDecimal stackTemperature;
 
     /**
      * 异常描述（说明实际发现的情况）
      */
-    @TableField(value = "abnormal_description")
+    @TableField(value = "abnormal_description", updateStrategy = FieldStrategy.ALWAYS)
     private String abnormalDescription;
 
     // endregion
@@ -276,43 +278,43 @@ public class MaintenanceRecordDetail extends AuditEntity {
     /**
      * 养护措施（多选，逗号分隔：通风/除湿/翻垛/密封/包装整理等）
      */
-    @TableField(value = "measures")
+    @TableField(value = "measures", updateStrategy = FieldStrategy.ALWAYS)
     private String measures;
 
     /**
      * 养护措施其他（补充说明）
      */
-    @TableField(value = "measures_other")
+    @TableField(value = "measures_other", updateStrategy = FieldStrategy.ALWAYS)
     private String measuresOther;
 
     /**
      * 操作人员ID（引用系统用户，可与检查人员不同）
      */
-    @TableField(value = "operator_id")
+    @TableField(value = "operator_id", updateStrategy = FieldStrategy.ALWAYS)
     private Long operatorId;
 
     /**
      * 操作人员姓名（冗余快照）
      */
-    @TableField(value = "operator_name")
+    @TableField(value = "operator_name", updateStrategy = FieldStrategy.ALWAYS)
     private String operatorName;
 
     /**
      * 操作时间（可与检查时间不同）
      */
-    @TableField(value = "operate_time")
+    @TableField(value = "operate_time", updateStrategy = FieldStrategy.ALWAYS)
     private LocalDateTime operateTime;
 
     /**
      * 处理结果（尚未完成时允许后续补充）
      */
-    @TableField(value = "handle_result")
+    @TableField(value = "handle_result", updateStrategy = FieldStrategy.ALWAYS)
     private String handleResult;
 
     /**
      * 备注
      */
-    @TableField(value = "remark")
+    @TableField(value = "remark", updateStrategy = FieldStrategy.ALWAYS)
     private String remark;
 
     // endregion
@@ -325,13 +327,13 @@ public class MaintenanceRecordDetail extends AuditEntity {
     /**
      * 最近养护日期（本次实际检查日期）
      */
-    @TableField(value = "last_maintenance_date")
+    @TableField(value = "last_maintenance_date", updateStrategy = FieldStrategy.ALWAYS)
     private LocalDate lastMaintenanceDate;
 
     /**
      * 下次养护日期（=最近养护日期+养护周期快照；周期为空则为空，不纳入提醒）
      */
-    @TableField(value = "next_maintenance_date")
+    @TableField(value = "next_maintenance_date", updateStrategy = FieldStrategy.ALWAYS)
     private LocalDate nextMaintenanceDate;
 
     // endregion

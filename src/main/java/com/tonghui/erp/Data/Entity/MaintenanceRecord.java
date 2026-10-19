@@ -1,5 +1,6 @@
 package com.tonghui.erp.Data.Entity;
 
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -15,7 +16,8 @@ import lombok.EqualsAndHashCode;
  * 一张养护记录单对应一次库存养护检查（一张记录单包含多条库存检查明细），
  * 记录检查时间、检查类型、仓库、检查人员、环境温湿度等基本信息。
  * 系统只保存、关联、查询、展示检查过程与结果，不做质量结论自动判定，
- * 登记养护本身不产生库存增减
+ * 登记养护本身不产生库存增减；
+ * 可空业务字段统一使用 updateStrategy = ALWAYS，使前端传 null 可清空历史值
  * </p>
  *
  * @TableName maintenance_record
@@ -97,7 +99,7 @@ public class MaintenanceRecord extends AuditEntity {
     /**
      * 仓库名称（冗余快照）
      */
-    @TableField(value = "warehouse_name")
+    @TableField(value = "warehouse_name", updateStrategy = FieldStrategy.ALWAYS)
     private String warehouseName;
 
     /**
@@ -109,7 +111,7 @@ public class MaintenanceRecord extends AuditEntity {
     /**
      * 检查人员姓名（冗余快照）
      */
-    @TableField(value = "checker_name")
+    @TableField(value = "checker_name", updateStrategy = FieldStrategy.ALWAYS)
     private String checkerName;
 
     // endregion
@@ -122,25 +124,25 @@ public class MaintenanceRecord extends AuditEntity {
     /**
      * 环境观测时间及位置（说明温湿度数据在哪里、何时测得）
      */
-    @TableField(value = "env_observe_info")
+    @TableField(value = "env_observe_info", updateStrategy = FieldStrategy.ALWAYS)
     private String envObserveInfo;
 
     /**
      * 温度（℃）
      */
-    @TableField(value = "temperature")
+    @TableField(value = "temperature", updateStrategy = FieldStrategy.ALWAYS)
     private BigDecimal temperature;
 
     /**
      * 相对湿度（%）
      */
-    @TableField(value = "humidity")
+    @TableField(value = "humidity", updateStrategy = FieldStrategy.ALWAYS)
     private BigDecimal humidity;
 
     /**
      * 总体说明（本次检查的补充说明）
      */
-    @TableField(value = "summary")
+    @TableField(value = "summary", updateStrategy = FieldStrategy.ALWAYS)
     private String summary;
 
     // endregion
@@ -153,13 +155,13 @@ public class MaintenanceRecord extends AuditEntity {
     /**
      * 关联复查记录ID（检查类型为复查时关联原始记录，保留原始记录不覆盖）
      */
-    @TableField(value = "related_maintenance_id")
+    @TableField(value = "related_maintenance_id", updateStrategy = FieldStrategy.ALWAYS)
     private Long relatedMaintenanceId;
 
     /**
      * 关联复查记录编号（冗余快照）
      */
-    @TableField(value = "related_maintenance_code")
+    @TableField(value = "related_maintenance_code", updateStrategy = FieldStrategy.ALWAYS)
     private String relatedMaintenanceCode;
 
     // endregion
