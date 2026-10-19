@@ -20,6 +20,7 @@ import com.tonghui.erp.Data.Entity.FileInfo;
 import com.tonghui.erp.Data.Entity.MaintenanceRecord;
 import com.tonghui.erp.Data.Entity.MaintenanceRecordDetail;
 import com.tonghui.erp.Data.Entity.Material;
+import com.tonghui.erp.Data.Entity.PersonnelFile;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Data.Entity.Stock;
 import com.tonghui.erp.Data.Entity.StockIn;
@@ -28,6 +29,7 @@ import com.tonghui.erp.Data.mapper.FileInfoMapper;
 import com.tonghui.erp.Data.mapper.MaintenanceRecordDetailMapper;
 import com.tonghui.erp.Data.mapper.MaintenanceRecordMapper;
 import com.tonghui.erp.Data.mapper.MaterialMapper;
+import com.tonghui.erp.Data.mapper.PersonnelFileMapper;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Data.mapper.StockInMapper;
 import com.tonghui.erp.Data.mapper.StockMapper;
@@ -60,6 +62,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -179,10 +182,16 @@ public class MaintenanceRecordServiceImpl extends ServiceImpl<MaintenanceRecordM
     private MaterialMapper materialMapper;
 
     /**
-     * 用户Mapper（检查人员/操作人员/创建人姓名解析）
+     * 用户Mapper（创建人/更新人姓名解析）
      */
     @Autowired
     private UserMapper userMapper;
+
+    /**
+     * 人员档案Mapper（检查人员/操作人员姓名解析）
+     */
+    @Autowired
+    private PersonnelFileMapper personnelFileMapper;
 
     /**
      * 文件信息Mapper（附件绑定/解绑）
@@ -316,6 +325,8 @@ public class MaintenanceRecordServiceImpl extends ServiceImpl<MaintenanceRecordM
             dto.setAbnormalCount((int) details.stream().filter(this::isDetailAbnormal).count());
             dtoList.add(dto);
         }
+        // 姓名兜底：检查人员姓名快照缺失时按人员档案ID批量解析
+        fillListCheckerNames(records, dtoList);
         Page<MaintenanceRecordListItemDto> dtoPage = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
         dtoPage.setRecords(dtoList);
         return PagedResult.fromPage(dtoPage, pageRequest);
@@ -352,6 +363,8 @@ public class MaintenanceRecordServiceImpl extends ServiceImpl<MaintenanceRecordM
         dto.setDetails(detailVos);
         dto.setDetailCount(details.size());
         dto.setAbnormalCount((int) details.stream().filter(this::isDetailAbnormal).count());
+        // 姓名兜底：历史数据姓名快照缺失时，按人员档案ID实时解析（检查人员/操作人员）
+        fillMissingPersonNames(dto, detailVos);
         dto.setAttachments(fileInfoService.getFilesByBusiness(id, BUSINESS_TYPE_MAINTENANCE_RECORD, null));
         dto.setCreatedByName(resolveUserName(record.getCreatedBy()));
         dto.setUpdatedByName(resolveUserName(record.getUpdatedBy()));
@@ -539,8 +552,8 @@ public class MaintenanceRecordServiceImpl extends ServiceImpl<MaintenanceRecordM
         // 仓库名称快照（按生产单位解析）
         record.setWarehouseName(resolveWarehouseName(dto.getWarehouseId()));
         record.setCheckerId(dto.getCheckerId());
-        // 检查人员姓名快照
-        record.setCheckerName(resolveUserName(dto.getCheckerId()));
+        // 检查人员姓名快照（人员档案）
+        record.setCheckerName(resolvePersonName(dto.getCheckerId()));
         record.setEnvObserveInfo(dto.getEnvObserveInfo());
         record.setTemperature(dto.getTemperature());
         record.setHumidity(dto.getHumidity());
@@ -681,7 +694,7 @@ public class MaintenanceRecordServiceImpl extends ServiceImpl<MaintenanceRecordM
         detail.setMeasures(d.getMeasures());
         detail.setMeasuresOther(d.getMeasuresOther());
         detail.setOperatorId(d.getOperatorId());
-        detail.setOperatorName(resolveUserName(d.getOperatorId()));
+        detail.setOperatorName(resolvePersonName(d.getOperatorId()));
         detail.setOperateTime(d.getOperateTime());
         detail.setHandleResult(d.getHandleResult());
         detail.setRemark(d.getRemark());
@@ -1267,6 +1280,123 @@ public class MaintenanceRecordServiceImpl extends ServiceImpl<MaintenanceRecordM
             return null;
         }
         return StringUtils.hasText(user.getUserName()) ? user.getUserName() : user.getUserAccount();
+    }
+
+    /**
+     * 根据人员ID解析人员显示姓名（人员档案优先，回退系统用户）
+     * <p>
+     * 检查人员/操作人员下拉取自人员档案（personnel_file），主键为 personnel_file_id；
+     * 人员档案未命中时回退系统用户（兼容历史数据）。姓名优先取档案姓名，无则取员工编号。
+     * </p>
+     *
+     * @param personId 人员档案ID
+     * @return 人员姓名
+     */
+    private String resolvePersonName(Long personId) {
+        if (personId == null) {
+            return null;
+        }
+        PersonnelFile personnel = personnelFileMapper.selectById(personId);
+        if (personnel != null) {
+            return StringUtils.hasText(personnel.getName()) ? personnel.getName() : personnel.getEmployeeNo();
+        }
+        return resolveUserName(personId);
+    }
+
+    /**
+     * 批量解析人员姓名（人员档案优先，回退系统用户），防N+1
+     *
+     * @param personIds 人员ID集合
+     * @return 人员ID到姓名的映射
+     */
+    private Map<Long, String> loadPersonNameMap(Collection<Long> personIds) {
+        if (personIds == null || personIds.isEmpty()) {
+            return Map.of();
+        }
+        Set<Long> ids = personIds.stream().filter(Objects::nonNull).collect(Collectors.toSet());
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, String> result = new HashMap<>();
+        // 优先按人员档案解析
+        for (PersonnelFile personnel : personnelFileMapper.selectBatchIds(ids)) {
+            if (personnel.getPersonnelFileId() == null) {
+                continue;
+            }
+            String name = StringUtils.hasText(personnel.getName())
+                    ? personnel.getName() : personnel.getEmployeeNo();
+            if (StringUtils.hasText(name)) {
+                result.put(personnel.getPersonnelFileId(), name);
+            }
+        }
+        // 未命中人员档案的，回退系统用户
+        Set<Long> missing = ids.stream().filter(id -> !result.containsKey(id)).collect(Collectors.toSet());
+        if (!missing.isEmpty()) {
+            Map<Long, User> userMap = userMapper.selectBatchIds(missing).stream()
+                    .collect(Collectors.toMap(User::getUserId, u -> u, (a, b) -> a));
+            for (Long id : missing) {
+                String name = resolveUserNameFromMap(id, userMap);
+                if (StringUtils.hasText(name)) {
+                    result.put(id, name);
+                }
+            }
+        }
+        return result;
+    }
+
+    /**
+     * 详情姓名兜底：主单检查人员与明细操作人员姓名快照缺失时，按人员ID实时解析
+     *
+     * @param dto       详情对象（原地修改检查人员姓名）
+     * @param detailVos 明细视图列表（原地修改操作人员姓名）
+     */
+    private void fillMissingPersonNames(MaintenanceRecordWithDetailsDto dto,
+                                        List<MaintenanceRecordDetailVo> detailVos) {
+        Set<Long> personIds = new HashSet<>();
+        if (!StringUtils.hasText(dto.getCheckerName()) && dto.getCheckerId() != null) {
+            personIds.add(dto.getCheckerId());
+        }
+        for (MaintenanceRecordDetailVo vo : detailVos) {
+            if (!StringUtils.hasText(vo.getOperatorName()) && vo.getOperatorId() != null) {
+                personIds.add(vo.getOperatorId());
+            }
+        }
+        if (personIds.isEmpty()) {
+            return;
+        }
+        Map<Long, String> nameMap = loadPersonNameMap(personIds);
+        if (!StringUtils.hasText(dto.getCheckerName()) && dto.getCheckerId() != null) {
+            dto.setCheckerName(nameMap.get(dto.getCheckerId()));
+        }
+        for (MaintenanceRecordDetailVo vo : detailVos) {
+            if (!StringUtils.hasText(vo.getOperatorName()) && vo.getOperatorId() != null) {
+                vo.setOperatorName(nameMap.get(vo.getOperatorId()));
+            }
+        }
+    }
+
+    /**
+     * 列表姓名兜底：检查人员姓名快照缺失时按人员档案ID批量解析
+     *
+     * @param records 主单实体列表（与dtoList顺序一致）
+     * @param dtoList 列表项DTO（原地修改检查人员姓名）
+     */
+    private void fillListCheckerNames(List<MaintenanceRecord> records,
+                                      List<MaintenanceRecordListItemDto> dtoList) {
+        Set<Long> personIds = records.stream()
+                .filter(r -> !StringUtils.hasText(r.getCheckerName()) && r.getCheckerId() != null)
+                .map(MaintenanceRecord::getCheckerId)
+                .collect(Collectors.toSet());
+        if (personIds.isEmpty()) {
+            return;
+        }
+        Map<Long, String> nameMap = loadPersonNameMap(personIds);
+        for (int i = 0; i < records.size(); i++) {
+            MaintenanceRecord r = records.get(i);
+            if (!StringUtils.hasText(r.getCheckerName()) && r.getCheckerId() != null) {
+                dtoList.get(i).setCheckerName(nameMap.get(r.getCheckerId()));
+            }
+        }
     }
 
     /**
