@@ -62,6 +62,12 @@ public class MaterialRequisitionSlipDetail {
     private String materialName;
 
     /**
+     * 物料分类（原料/辅料/包材）
+     */
+    @TableField(value = "category_name")
+    private String categoryName;
+
+    /**
      * 计量单位（kg/g/L/袋/盒/瓶）
      */
     @TableField(value = "unit_name")

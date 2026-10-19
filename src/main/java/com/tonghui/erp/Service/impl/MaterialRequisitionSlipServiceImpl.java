@@ -8,10 +8,12 @@ import com.tonghui.erp.Common.utils.AcceptanceStatusPolicy;
 import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
+import com.tonghui.erp.Data.Entity.Material;
 import com.tonghui.erp.Data.Entity.MaterialRequisitionSlip;
 import com.tonghui.erp.Data.Entity.MaterialRequisitionSlipDetail;
 import com.tonghui.erp.Data.Entity.PreparationFormula;
 import com.tonghui.erp.Data.Entity.ProductionPlan;
+import com.tonghui.erp.Data.mapper.MaterialMapper;
 import com.tonghui.erp.Data.mapper.MaterialRequisitionSlipDetailMapper;
 import com.tonghui.erp.Data.mapper.MaterialRequisitionSlipMapper;
 import com.tonghui.erp.Data.mapper.PreparationFormulaMapper;
@@ -67,6 +69,9 @@ public class MaterialRequisitionSlipServiceImpl extends ServiceImpl<MaterialRequ
     /** 制剂处方数据访问层（生产计划联动时查询处方明细） */
     private final PreparationFormulaMapper preparationFormulaMapper;
 
+    /** 物料主数据访问层（明细未携带物料分类时回填） */
+    private final MaterialMapper materialMapper;
+
     /**
      * 构造函数注入依赖
      */
@@ -76,13 +81,15 @@ public class MaterialRequisitionSlipServiceImpl extends ServiceImpl<MaterialRequ
                                               SequenceServiceImpl sequenceService,
                                               AcceptanceOrderService acceptanceOrderService,
                                               ProductionPlanMapper productionPlanMapper,
-                                              PreparationFormulaMapper preparationFormulaMapper) {
+                                              PreparationFormulaMapper preparationFormulaMapper,
+                                              MaterialMapper materialMapper) {
         this.slipMapper = slipMapper;
         this.detailMapper = detailMapper;
         this.sequenceService = sequenceService;
         this.acceptanceOrderService = acceptanceOrderService;
         this.productionPlanMapper = productionPlanMapper;
         this.preparationFormulaMapper = preparationFormulaMapper;
+        this.materialMapper = materialMapper;
     }
 
     // endregion
@@ -500,6 +507,7 @@ public class MaterialRequisitionSlipServiceImpl extends ServiceImpl<MaterialRequ
             detail.setMaterialId(formula.getMaterialId());
             detail.setMaterialCode(formula.getMaterialCode());
             detail.setMaterialName(formula.getMaterialName());
+            detail.setCategoryName(formula.getMaterialCategory());
             detail.setUnitName(formula.getUnitName());
             // 请领数量 = 处方量 × 倍数 × 计划数量
             BigDecimal applyQty = formula.getDosage().multiply(multiplier).multiply(plan.getPlanQuantity());
@@ -527,6 +535,8 @@ public class MaterialRequisitionSlipServiceImpl extends ServiceImpl<MaterialRequ
      */
     private void saveDetails(Long slipId, List<MaterialRequisitionSlipDetail> details) {
         if (details != null && !details.isEmpty()) {
+            // 明细未携带物料分类时，按物料编码从物料主数据回填（原料/辅料/包材）
+            fillMissingCategory(details);
             int seq = 1;
             for (MaterialRequisitionSlipDetail detail : details) {
                 detail.setId(null);
@@ -537,6 +547,38 @@ public class MaterialRequisitionSlipServiceImpl extends ServiceImpl<MaterialRequ
                     detail.setVersion(1);
                 }
                 detailMapper.insert(detail);
+            }
+        }
+    }
+
+    /**
+     * 回填明细中缺失的物料分类
+     * <p>
+     * 对未携带物料分类且存在物料编码的明细，按物料编码批量查询物料主数据，取其分类写入明细。
+     * </p>
+     *
+     * @param details 明细列表（原地修改）
+     */
+    private void fillMissingCategory(List<MaterialRequisitionSlipDetail> details) {
+        List<String> missingCodes = details.stream()
+                .filter(d -> !StringUtils.hasText(d.getCategoryName()) && StringUtils.hasText(d.getMaterialCode()))
+                .map(MaterialRequisitionSlipDetail::getMaterialCode)
+                .distinct()
+                .collect(Collectors.toList());
+        if (missingCodes.isEmpty()) {
+            return;
+        }
+
+        QueryWrapper<Material> materialWrapper = new QueryWrapper<>();
+        materialWrapper.in("material_code", missingCodes);
+        materialWrapper.eq("is_deleted", 0);
+        Map<String, String> categoryMap = materialMapper.selectList(materialWrapper).stream()
+                .filter(m -> StringUtils.hasText(m.getCategoryName()))
+                .collect(Collectors.toMap(Material::getMaterialCode, Material::getCategoryName, (a, b) -> a));
+
+        for (MaterialRequisitionSlipDetail detail : details) {
+            if (!StringUtils.hasText(detail.getCategoryName()) && StringUtils.hasText(detail.getMaterialCode())) {
+                detail.setCategoryName(categoryMap.get(detail.getMaterialCode()));
             }
         }
     }
