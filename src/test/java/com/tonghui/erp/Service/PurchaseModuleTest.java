@@ -10,17 +10,11 @@ import com.tonghui.erp.Data.mapper.PurchaseOrdersMapper;
 import com.tonghui.erp.Service.PurchaseOrdersService;
 import com.tonghui.erp.Service.PurchaseOrderItemsService;
 import com.tonghui.erp.Service.PurchasePlanService;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -370,88 +364,6 @@ public class PurchaseModuleTest {
         com.baomidou.mybatisplus.extension.plugins.pagination.Page<PurchasePlan> page =
                 purchasePlanService.queryPurchasePlans(query, planCode, null, null, null, null, null, null, 1, 10);
         assertTrue(page.getTotal() >= 1, "按关键字查询应命中新建计划");
-    }
-
-    // endregion
-
-    // region 采购数据导出测试
-    // ===================================
-    // 采购数据导出测试
-    // ===================================
-
-    /**
-     * 测试采购数据导出：生成合法 xlsx，校验明细 sheet（31 列表头，首列单据类型）与汇总 sheet 及列数
-     */
-    @Test
-    public void testPurchaseDataExport() throws Exception {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        purchaseOrdersService.exportPurchaseData(null, null, null, null, out);
-        byte[] bytes = out.toByteArray();
-        assertTrue(bytes.length > 0, "导出文件不应为空");
-        // xlsx 魔数（PK zip 头）
-        assertEquals((byte) 'P', bytes[0], "xlsx 应为 zip 格式");
-        assertEquals((byte) 'K', bytes[1], "xlsx 应为 zip 格式");
-
-        String[] expectedHeaders = {
-                "单据类型", "采购订单编号", "物料编码", "物料名称", "采购数量", "单价", "总价", "供应商",
-                "批号", "验收单号", "退货数量", "退货状态", "重发数量", "重发验收单号", "重发时间",
-                "退货原因", "退货备注", "生产计划编号", "工单标题", "制剂名称", "委托单位", "批量",
-                "处方倍数", "物料分类", "规格", "计量单位", "标准处方", "标准量差值", "采购订单状态",
-                "发票号", "创建时间（采购时间）"
-        };
-
-        try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
-            assertEquals(2, workbook.getNumberOfSheets(), "应生成明细与汇总2个sheet");
-
-            // 明细 sheet
-            Sheet sheet = workbook.getSheetAt(0);
-            assertEquals("采购数据", sheet.getSheetName(), "第1个sheet名称应为采购数据");
-            Row header = sheet.getRow(0);
-            assertNotNull(header, "表头行不应为空");
-            for (int i = 0; i < expectedHeaders.length; i++) {
-                assertEquals(expectedHeaders[i], header.getCell(i).getStringCellValue(),
-                        "第" + (i + 1) + "列表头应为" + expectedHeaders[i]);
-            }
-            // 每行数据列数不超过31列
-            for (int r = 1; r <= sheet.getLastRowNum(); r++) {
-                Row row = sheet.getRow(r);
-                if (row != null) {
-                    assertNull(row.getCell(expectedHeaders.length), "数据行不应超过31列");
-                }
-            }
-
-            // 汇总 sheet
-            Sheet summary = workbook.getSheetAt(1);
-            assertEquals("采购汇总", summary.getSheetName(), "第2个sheet名称应为采购汇总");
-            String[] summaryHeaders = {"序号", "物料编码", "物料名称", "物料分类", "规格", "计量单位",
-                    "供应商", "采购数量合计", "金额合计", "涉及订单数"};
-            Row summaryHeader = summary.getRow(0);
-            assertNotNull(summaryHeader, "汇总表头行不应为空");
-            for (int i = 0; i < summaryHeaders.length; i++) {
-                assertEquals(summaryHeaders[i], summaryHeader.getCell(i).getStringCellValue(),
-                        "汇总第" + (i + 1) + "列表头应为" + summaryHeaders[i]);
-            }
-        }
-    }
-
-    /**
-     * 测试采购数据导出参数校验：日期格式非法、开始晚于结束应抛出异常；仅日期起或止可正常导出
-     */
-    @Test
-    public void testPurchaseDataExportParamValidation() throws Exception {
-        assertThrows(IllegalArgumentException.class,
-                () -> purchaseOrdersService.exportPurchaseData(null, null, "2020/01/01", "2100-12-31",
-                        new ByteArrayOutputStream()),
-                "日期格式非法应抛出参数异常");
-        assertThrows(IllegalArgumentException.class,
-                () -> purchaseOrdersService.exportPurchaseData(null, null, "2100-12-31", "2020-01-01",
-                        new ByteArrayOutputStream()),
-                "开始日期晚于结束日期应抛出参数异常");
-
-        // 仅提供起始日期应正常生成
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        purchaseOrdersService.exportPurchaseData(null, null, "2020-01-01", null, out);
-        assertTrue(out.size() > 0, "仅起始日期导出应生成文件");
     }
 
     // endregion

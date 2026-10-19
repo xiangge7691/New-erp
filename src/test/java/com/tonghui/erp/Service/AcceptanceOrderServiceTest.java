@@ -9,6 +9,10 @@ import com.tonghui.erp.Common.Dto.Stock.StockTransactionDto;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Data.mapper.StockMapper;
 import com.tonghui.erp.Service.impl.SequenceServiceImpl;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +22,8 @@ import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.sql.DataSource;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.time.LocalDate;
@@ -425,6 +431,71 @@ public class AcceptanceOrderServiceTest {
     public void testGenerateAcceptanceCode() {
         String code = sequenceService.generateAcceptanceCode();
         assertTrue(code.matches("YS-\\d{8}-\\d{3}"), "验收单号格式应为 YS-YYYYMMDD-NNN，实际: " + code);
+    }
+
+    /**
+     * 测试货物验收表导出：生成合法 xlsx，单 sheet「货物验收表」，24 列表头与表尾合计行
+     */
+    @Test
+    @Transactional
+    public void testExportAcceptanceForm() throws Exception {
+        // 造一条验收单（明细带批号），保证导出至少命中数据
+        createAcceptance("运输中", "EXPORT-BATCH-001");
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        acceptanceOrderService.exportAcceptanceForm(null, null, null, null, out);
+        byte[] bytes = out.toByteArray();
+        assertTrue(bytes.length > 0, "导出文件不应为空");
+        assertEquals((byte) 'P', bytes[0], "xlsx 应为 zip 格式（PK）");
+        assertEquals((byte) 'K', bytes[1], "xlsx 应为 zip 格式（PK）");
+
+        // 期望表头（主单8列 + 明细16列，共24列）
+        String[] expectedHeaders = {
+                "验收单号", "来源类型", "关联采购订单号", "关联采购计划编号", "收货单位", "状态", "交期", "备注",
+                "序号", "物料编码", "物料名称", "物料分类", "单位", "采购数量", "到货数量", "入库数量",
+                "单价", "金额", "批号", "有效期至", "明细状态", "退货原因", "不合格说明", "供应商"
+        };
+
+        try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
+            assertEquals(1, workbook.getNumberOfSheets(), "应仅生成 1 个 sheet");
+            Sheet sheet = workbook.getSheetAt(0);
+            assertEquals("货物验收表", sheet.getSheetName(), "sheet 名称应为货物验收表");
+
+            Row header = sheet.getRow(0);
+            assertNotNull(header, "表头行不应为空");
+            for (int i = 0; i < expectedHeaders.length; i++) {
+                assertEquals(expectedHeaders[i], header.getCell(i).getStringCellValue(),
+                        "第" + (i + 1) + "列表头应为" + expectedHeaders[i]);
+            }
+
+            // 数据行不应超过24列
+            for (int r = 1; r < sheet.getLastRowNum(); r++) {
+                Row row = sheet.getRow(r);
+                if (row != null) {
+                    assertNull(row.getCell(expectedHeaders.length), "数据行不应超过24列");
+                }
+            }
+
+            // 表尾合计行：首列为“合计”
+            Row total = sheet.getRow(sheet.getLastRowNum());
+            assertNotNull(total, "表尾合计行不应为空");
+            assertEquals("合计", total.getCell(0).getStringCellValue(), "末行应为表尾合计行");
+        }
+    }
+
+    /**
+     * 测试货物验收表导出参数校验：日期格式非法、开始晚于结束应抛出参数异常
+     */
+    @Test
+    public void testExportAcceptanceFormParamValidation() {
+        assertThrows(IllegalArgumentException.class,
+                () -> acceptanceOrderService.exportAcceptanceForm(null, null, "2020/01/01", "2100-12-31",
+                        new ByteArrayOutputStream()),
+                "日期格式非法应抛出参数异常");
+        assertThrows(IllegalArgumentException.class,
+                () -> acceptanceOrderService.exportAcceptanceForm(null, null, "2100-12-31", "2020-01-01",
+                        new ByteArrayOutputStream()),
+                "开始日期晚于结束日期应抛出参数异常");
     }
 
     // endregion

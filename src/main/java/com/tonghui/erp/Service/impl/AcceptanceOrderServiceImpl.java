@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Stock.AcceptanceExportRowDto;
 import com.tonghui.erp.Common.Dto.Stock.AcceptanceInboundRequest;
 import com.tonghui.erp.Common.Dto.Stock.AcceptanceWithDetailsDto;
 import com.tonghui.erp.Common.Dto.Stock.StockInWithNamesDto;
@@ -31,6 +32,19 @@ import com.tonghui.erp.Data.mapper.UserMapper;
 import com.tonghui.erp.Service.AcceptanceOrderService;
 import com.tonghui.erp.Service.MaterialRequisitionSlipService;
 import com.tonghui.erp.Service.StockService;
+import org.apache.poi.ss.usermodel.BorderStyle;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
+import org.apache.poi.ss.usermodel.IndexedColors;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.VerticalAlignment;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
@@ -38,11 +52,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -1362,6 +1382,304 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         } catch (Exception e) {
             // 领料单状态回写失败不影响验收单主流程
         }
+    }
+
+    // endregion
+
+    // region 导出
+    // ===================================
+    // 导出
+    // ===================================
+
+    /** 货物验收表 sheet 名称 */
+    private static final String ACCEPTANCE_SHEET_NAME = "货物验收表";
+
+    /** 货物验收表表头（24 列：8 主单字段 + 16 明细字段） */
+    private static final String[] ACCEPTANCE_HEADERS = {
+            "验收单号", "来源类型", "关联采购订单号", "关联采购计划编号", "收货单位", "状态", "交期", "备注",
+            "序号", "物料编码", "物料名称", "物料分类", "单位", "采购数量", "到货数量", "入库数量",
+            "单价", "金额", "批号", "有效期至", "明细状态", "退货原因", "不合格说明", "供应商"
+    };
+
+    /**
+     * 导出货物验收表 Excel（单 sheet，明细平铺）
+     * <p>
+     * 流程：日期参数校验 → 按筛选条件查询验收单主表（全来源含已作废）→ 批量查询验收明细 →
+     * 组装导出行（每行对应一条验收明细并冗余主单字段）→ POI 生成「货物验收表」sheet
+     * （表头→数据行→表尾合计行，冻结首行并启用自动筛选）并写流
+     * </p>
+     *
+     * @param keyword   关键字（对验收单号、验收标题模糊匹配，可选）
+     * @param status    验收单状态（精确匹配，可选）
+     * @param startDate 开始日期（yyyy-MM-dd，按验收单创建时间过滤，可选）
+     * @param endDate   结束日期（yyyy-MM-dd，按验收单创建时间过滤，可选）
+     * @param out       输出流
+     * @throws IllegalArgumentException 日期格式非法或开始日期晚于结束日期
+     * @throws IOException              写流失败
+     */
+    @Override
+    public void exportAcceptanceForm(String keyword, String status,
+                                     String startDate, String endDate,
+                                     OutputStream out) throws IOException {
+        // 1. 日期参数校验：可选，若提供需合法且起止有序
+        LocalDate start = parseExportDate(startDate, "开始日期");
+        LocalDate end = parseExportDate(endDate, "结束日期");
+        if (start != null && end != null && start.isAfter(end)) {
+            throw new IllegalArgumentException("开始日期不能晚于结束日期");
+        }
+
+        // 2. 查询验收单主表（全部来源、含已作废）
+        QueryWrapper<AcceptanceOrder> wrapper = new QueryWrapper<>();
+        if (StringUtils.hasText(keyword)) {
+            String kw = keyword.trim();
+            wrapper.and(w -> w.like("acceptance_code", kw).or().like("title", kw));
+        }
+        if (StringUtils.hasText(status)) {
+            wrapper.eq("status", status.trim());
+        }
+        // 日期范围按创建时间过滤（含当日整天）
+        if (start != null) {
+            wrapper.ge("created_time", start.atStartOfDay());
+        }
+        if (end != null) {
+            wrapper.le("created_time", end.atTime(23, 59, 59));
+        }
+        wrapper.orderByAsc("acceptance_code");
+        List<AcceptanceOrder> orders = acceptanceOrderMapper.selectList(wrapper);
+
+        List<AcceptanceExportRowDto> rows = new ArrayList<>();
+        if (!orders.isEmpty()) {
+            // 3. 按验收单ID批量查询明细，按验收单+序号排序
+            List<Long> orderIds = orders.stream().map(AcceptanceOrder::getAcceptanceId)
+                    .filter(Objects::nonNull).collect(Collectors.toList());
+            List<AcceptanceDetail> details = acceptanceDetailMapper.selectList(
+                    new QueryWrapper<AcceptanceDetail>()
+                            .in("acceptance_id", orderIds)
+                            .orderByAsc("acceptance_id")
+                            .orderByAsc("seq"));
+            Map<Long, AcceptanceOrder> orderMap = orders.stream()
+                    .collect(Collectors.toMap(AcceptanceOrder::getAcceptanceId, o -> o, (a, b) -> a));
+
+            // 4. 组装导出行（明细平铺，冗余主单字段）
+            for (AcceptanceDetail d : details) {
+                AcceptanceOrder order = orderMap.get(d.getAcceptanceId());
+                if (order == null) {
+                    continue;
+                }
+                AcceptanceExportRowDto row = new AcceptanceExportRowDto();
+                row.setAcceptanceCode(order.getAcceptanceCode());
+                row.setSourceType(order.getSourceType());
+                row.setRelatedOrder(order.getRelatedOrder());
+                row.setPurchaseNumber(order.getPurchaseNumber());
+                row.setUnitName(order.getUnitName());
+                row.setStatus(order.getStatus());
+                row.setDeliveryDate(order.getDeliveryDate());
+                row.setRemark(order.getRemark());
+
+                row.setSeq(d.getSeq());
+                row.setMaterialCode(d.getMaterialCode());
+                row.setMaterialName(d.getMaterialName());
+                row.setMaterialCategory(d.getMaterialCategory());
+                row.setMaterialUnit(d.getUnitName());
+                row.setQuantity(d.getQuantity());
+                row.setActualArrivalQty(d.getActualArrivalQty());
+                row.setInboundQty(d.getInboundQty());
+                row.setUnitPrice(d.getUnitPrice());
+                row.setAmount(d.getAmount());
+                row.setBatchNumber(d.getBatchNumber());
+                row.setExpiryDate(d.getExpiryDate());
+                row.setDetailStatus(d.getStatus());
+                row.setReturnReason(d.getReturnReason());
+                row.setReturnRemark(d.getReturnRemark());
+                row.setSupplier(d.getSupplier());
+                rows.add(row);
+            }
+        }
+
+        // 5. 生成 xlsx
+        writeAcceptanceWorkbook(rows, out);
+    }
+
+    /**
+     * 生成货物验收表工作簿（表头 + 数据行 + 表尾合计行，冻结首行并启用自动筛选）
+     *
+     * @param rows 导出行列表
+     * @param out  输出流
+     * @throws IOException 写流失败
+     */
+    private void writeAcceptanceWorkbook(List<AcceptanceExportRowDto> rows, OutputStream out) throws IOException {
+        try (Workbook workbook = new XSSFWorkbook()) {
+            CellStyle headerStyle = buildExportStyle(workbook, true, false);
+            CellStyle boldStyle = buildExportStyle(workbook, true, false);
+            CellStyle textStyle = buildExportStyle(workbook, false, false);
+            CellStyle numberStyle = buildExportStyle(workbook, false, false);
+            numberStyle.setDataFormat(workbook.createDataFormat().getFormat("#,##0.####"));
+            CellStyle moneyStyle = buildExportStyle(workbook, false, false);
+            moneyStyle.setDataFormat(workbook.createDataFormat().getFormat("#,##0.00"));
+            CellStyle boldNumberStyle = buildExportStyle(workbook, true, false);
+            boldNumberStyle.setDataFormat(workbook.createDataFormat().getFormat("#,##0.####"));
+            CellStyle boldMoneyStyle = buildExportStyle(workbook, true, false);
+            boldMoneyStyle.setDataFormat(workbook.createDataFormat().getFormat("#,##0.00"));
+
+            Sheet sheet = workbook.createSheet(ACCEPTANCE_SHEET_NAME);
+
+            // 表头
+            Row header = sheet.createRow(0);
+            for (int i = 0; i < ACCEPTANCE_HEADERS.length; i++) {
+                Cell cell = header.createCell(i);
+                cell.setCellValue(ACCEPTANCE_HEADERS[i]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            // 数据行
+            int rowIndex = 1;
+            for (AcceptanceExportRowDto row : rows) {
+                Row r = sheet.createRow(rowIndex++);
+                setExportText(r, 0, row.getAcceptanceCode(), textStyle);
+                setExportText(r, 1, row.getSourceType(), textStyle);
+                setExportText(r, 2, row.getRelatedOrder(), textStyle);
+                setExportText(r, 3, row.getPurchaseNumber(), textStyle);
+                setExportText(r, 4, row.getUnitName(), textStyle);
+                setExportText(r, 5, row.getStatus(), textStyle);
+                setExportText(r, 6, formatExportDate(row.getDeliveryDate()), textStyle);
+                setExportText(r, 7, row.getRemark(), textStyle);
+
+                setExportNumber(r, 8, row.getSeq() == null ? null : BigDecimal.valueOf(row.getSeq()), numberStyle);
+                setExportText(r, 9, row.getMaterialCode(), textStyle);
+                setExportText(r, 10, row.getMaterialName(), textStyle);
+                setExportText(r, 11, row.getMaterialCategory(), textStyle);
+                setExportText(r, 12, row.getMaterialUnit(), textStyle);
+                setExportNumber(r, 13, row.getQuantity(), numberStyle);
+                setExportNumber(r, 14, row.getActualArrivalQty(), numberStyle);
+                setExportNumber(r, 15, row.getInboundQty(), numberStyle);
+                setExportNumber(r, 16, row.getUnitPrice(), moneyStyle);
+                setExportNumber(r, 17, row.getAmount(), moneyStyle);
+                setExportText(r, 18, row.getBatchNumber(), textStyle);
+                setExportText(r, 19, formatExportDate(row.getExpiryDate()), textStyle);
+                setExportText(r, 20, row.getDetailStatus(), textStyle);
+                setExportText(r, 21, row.getReturnReason(), textStyle);
+                setExportText(r, 22, row.getReturnRemark(), textStyle);
+                setExportText(r, 23, row.getSupplier(), textStyle);
+            }
+
+            // 表尾合计行（采购数量/到货数量/入库数量/金额）
+            int lastDataRow = rowIndex - 1;
+            Row total = sheet.createRow(rowIndex);
+            Cell totalLabel = total.createCell(0);
+            totalLabel.setCellValue("合计");
+            totalLabel.setCellStyle(boldStyle);
+            setExportNumber(total, 13, sumColumn(rows, AcceptanceExportRowDto::getQuantity), boldNumberStyle);
+            setExportNumber(total, 14, sumColumn(rows, AcceptanceExportRowDto::getActualArrivalQty), boldNumberStyle);
+            setExportNumber(total, 15, sumColumn(rows, AcceptanceExportRowDto::getInboundQty), boldNumberStyle);
+            setExportNumber(total, 17, sumColumn(rows, AcceptanceExportRowDto::getAmount), boldMoneyStyle);
+
+            // 冻结首行 + 自动筛选（筛选范围不含表尾合计行）
+            sheet.createFreezePane(0, 1);
+            sheet.setAutoFilter(new CellRangeAddress(0, Math.max(lastDataRow, 0), 0, ACCEPTANCE_HEADERS.length - 1));
+
+            workbook.write(out);
+        }
+    }
+
+    /**
+     * 汇总指定数值列的合计值（忽略空值）
+     *
+     * @param rows      导出行列表
+     * @param extractor 取值函数
+     * @return 合计值（无数据时为 0）
+     */
+    private BigDecimal sumColumn(List<AcceptanceExportRowDto> rows,
+                                 java.util.function.Function<AcceptanceExportRowDto, BigDecimal> extractor) {
+        return rows.stream().map(extractor).filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /**
+     * 构建导出单元格样式（四周边框，支持表头加粗）
+     *
+     * @param workbook 工作簿
+     * @param bold     是否加粗
+     * @param wrap     是否自动换行
+     * @return 单元格样式
+     */
+    private CellStyle buildExportStyle(Workbook workbook, boolean bold, boolean wrap) {
+        CellStyle style = workbook.createCellStyle();
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        style.setAlignment(HorizontalAlignment.LEFT);
+        style.setWrapText(wrap);
+        if (bold) {
+            style.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+            style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            Font font = workbook.createFont();
+            font.setBold(true);
+            style.setFont(font);
+        }
+        return style;
+    }
+
+    /**
+     * 写文本单元格（空值写空串保持样式一致）
+     *
+     * @param row    行
+     * @param column 列序号
+     * @param value  值
+     * @param style  样式
+     */
+    private void setExportText(Row row, int column, String value, CellStyle style) {
+        Cell cell = row.createCell(column);
+        cell.setCellValue(value == null ? "" : value);
+        cell.setCellStyle(style);
+    }
+
+    /**
+     * 写数值单元格（空值写空串，避免显示 0）
+     *
+     * @param row    行
+     * @param column 列序号
+     * @param value  数值
+     * @param style  样式
+     */
+    private void setExportNumber(Row row, int column, BigDecimal value, CellStyle style) {
+        Cell cell = row.createCell(column);
+        if (value == null) {
+            cell.setBlank();
+        } else {
+            cell.setCellValue(value.doubleValue());
+        }
+        cell.setCellStyle(style);
+    }
+
+    /**
+     * 解析导出日期参数（yyyy-MM-dd）
+     *
+     * @param value 日期字符串（可空）
+     * @param label 字段名（用于错误提示）
+     * @return 日期；入参为空返回 null
+     * @throws IllegalArgumentException 格式非法
+     */
+    private LocalDate parseExportDate(String value, String label) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(value.trim());
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException(label + "格式错误，应为 yyyy-MM-dd");
+        }
+    }
+
+    /**
+     * 格式化日期为 yyyy-MM-dd 文本
+     *
+     * @param date 日期（可空）
+     * @return 文本；为空返回空串
+     */
+    private String formatExportDate(LocalDate date) {
+        return date == null ? "" : date.toString();
     }
 
     // endregion

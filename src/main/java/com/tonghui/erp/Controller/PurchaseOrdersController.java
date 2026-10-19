@@ -7,6 +7,7 @@ import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Purchase.PurchaseOrdersWithItemsDto;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
+import com.tonghui.erp.Service.AcceptanceOrderService;
 import com.tonghui.erp.Service.PurchaseOrdersService;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,7 +37,7 @@ import java.util.List;
  * │ 9  │ /api/purchase-orders/{id}/status/{status}│ POST   │ 启用/停用采购订单               │
  * │ 10 │ /api/purchase-orders/{id}/confirm        │ POST   │ 确认采购：待采购→运输中（校验供应商必填，生成验收单）│
  * │ 11 │ /api/purchase-orders/{id}/void           │ POST   │ 作废：整单→已作废（联动验收单作废）│
- * │ 12 │ /api/purchase-orders/annual-statistics/export │ GET │ 采购数据 Excel 导出（明细+汇总，含退货/重发行，不含领料）│
+ * │ 12 │ /api/purchase-orders/annual-statistics/export │ GET │ 货物验收表 Excel 导出（单sheet明细平铺，含表尾合计）│
  * └────┴──────────────────────────────────────────┴────────┴─────────────────────────────────┘
  */
 @RestController
@@ -59,6 +60,12 @@ public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders,
      */
     @Autowired
     private ObjectMapper objectMapper;
+
+    /**
+     * 货物验收单服务（导出接口路径保留在采购控制器下，导出逻辑由验收模块实现）
+     */
+    @Autowired
+    private AcceptanceOrderService acceptanceOrderService;
 
     // endregion
 
@@ -319,43 +326,32 @@ public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders,
 
     // endregion
 
-    // region 采购数据导出
+    // region 货物验收表导出
     // ===================================
-    // 采购数据导出
+    // 货物验收表导出
     // ===================================
 
     /**
-     * 采购数据 Excel 导出（明细 + 汇总，含采购退货行与重新发货行，不含领料数据）
+     * 货物验收表 Excel 导出（单 sheet，明细平铺：一行一条验收明细并冗余所属验收单主单字段）
      * <p>
-     * 生成两个 sheet：
-     * <ul>
-     *   <li>「采购数据」明细：首列以「单据类型」区分三类行，关键列（物料编码/名称、采购数量、单价、
-     *       总价、供应商）前置；采购/退货/重发三类行以底色区分，冻结首行并启用自动筛选，表尾输出合计行：
-     *       <ul>
-     *         <li>采购：每行一条采购订单明细</li>
-     *         <li>退货：采购退货来源（验收单来源类型 采购入库/退货重发）的退货明细（验收单号、退货数量、
-     *             退货原因、退货状态、退货备注、批号、供应商等）</li>
-     *         <li>重发：重新发货留痕逐条（重发数量、重发验收单号、重发时间等）</li>
-     *       </ul>
-     *   </li>
-     *   <li>「采购汇总」：按物料汇总采购数量合计、金额合计与涉及订单数（仅统计采购行），按采购数量降序</li>
-     * </ul>
-     * 退货/重发行限定在本次筛选命中的采购订单范围内；支持关键字/状态/处理日期范围筛选。
+     * 数据范围：全部来源类型（采购入库/成品入库/直接入库/退货重发），包含已作废验收单。
+     * 输出「货物验收表」单 sheet：加粗表头 → 明细数据行（24 列）→ 表尾合计行
+     * （采购数量/到货数量/入库数量/金额），冻结首行并启用自动筛选。
      * 先在内存生成，参数校验失败时返回统一 JSON 错误（不污染下载头）
      * </p>
      *
      * 示例请求：
      * GET /api/purchase-orders/annual-statistics/export
-     * GET /api/purchase-orders/annual-statistics/export?keyword=CG2026&status=运输中&startDate=2026-01-01&endDate=2026-12-31
+     * GET /api/purchase-orders/annual-statistics/export?keyword=YS2026&status=已入库&startDate=2026-01-01&endDate=2026-12-31
      *
-     * @param keyword   关键字（对采购订单编号、工单标题模糊匹配，可选）
-     * @param status    采购订单状态（精确匹配，可选）
-     * @param startDate 开始日期（yyyy-MM-dd，可选）
-     * @param endDate   结束日期（yyyy-MM-dd，可选）
+     * @param keyword   关键字（对验收单号、验收标题模糊匹配，可选）
+     * @param status    验收单状态（精确匹配，可选）
+     * @param startDate 开始日期（yyyy-MM-dd，按验收单创建时间过滤，可选）
+     * @param endDate   结束日期（yyyy-MM-dd，按验收单创建时间过滤，可选）
      * @param response  HTTP 响应（成功时 Content-Type 为 xlsx，Content-Disposition 附件下载）
      */
     @GetMapping("/annual-statistics/export")
-    public void exportPurchaseData(
+    public void exportAcceptanceForm(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String startDate,
@@ -364,9 +360,9 @@ public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders,
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         try {
             // 服务层先校验参数并生成（失败时尚未写响应，可安全回 JSON 错误）
-            purchaseOrdersService.exportPurchaseData(keyword, status, startDate, endDate, buffer);
+            acceptanceOrderService.exportAcceptanceForm(keyword, status, startDate, endDate, buffer);
 
-            String filename = "采购数据导出_" + java.time.LocalDateTime.now()
+            String filename = "货物验收表_" + java.time.LocalDateTime.now()
                     .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + ".xlsx";
             response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
             response.setCharacterEncoding("UTF-8");

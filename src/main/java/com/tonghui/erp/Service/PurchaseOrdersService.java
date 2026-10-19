@@ -7,10 +7,6 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Purchase.PurchaseOrdersWithItemsDto;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
 
-import java.io.IOException;
-import java.io.OutputStream;
-import java.util.List;
-
 /**
  * 采购订单主表业务接口
  */
@@ -153,43 +149,6 @@ public interface PurchaseOrdersService extends IService<PurchaseOrders> {
             String desiredDeliveryDateStart, String desiredDeliveryDateEnd,
             String expectedDeliveryDateStart, String expectedDeliveryDateEnd,
             int pageNum, int pageSize);
-
-    // endregion
-
-    // region 采购数据导出
-    // ===================================
-    // 采购数据导出
-    // ===================================
-
-    /**
-     * 导出采购数据 Excel（明细 + 汇总，含采购行、采购退货行与重新发货行，不含领料数据）
-     * <p>
-     * 生成两个 sheet：
-     * <ul>
-     *   <li>「采购数据」明细：首列以「单据类型」（采购/退货/重发）区分，关键列（物料编码/名称、
-     *       采购数量、单价、总价、供应商）前置，三类行以底色区分并冻结首行、启用自动筛选，表尾输出合计行。
-     *       采购行以采购订单明细为行（purchase_orders + purchase_order_items，关联物料主数据），
-     *       输出采购订单编号、物料编码、物料名称、采购数量、单价、总价、供应商、批号、生产计划编号、
-     *       工单标题、制剂名称、委托单位、批量、处方倍数、物料分类、规格、计量单位、标准处方、
-     *       标准量差值、采购订单状态、发票号、创建时间等列；退货行取采购退货来源（验收单来源类型
-     *       采购入库/退货重发）的退货明细，输出验收单号、退货数量、退货状态、退货原因、退货备注等列；
-     *       重发行按重新发货留痕逐条输出重发数量、重发验收单号、重发时间</li>
-     *   <li>「采购汇总」：按物料汇总采购数量合计、金额合计与涉及订单数（仅统计采购行），按采购数量降序</li>
-     * </ul>
-     * 退货/重发行限定在本次筛选命中的采购订单范围内；支持按关键字、订单状态、处理日期范围筛选
-     * </p>
-     *
-     * @param keyword   关键字（对采购订单编号、工单标题模糊匹配，可选）
-     * @param status    采购订单状态（精确匹配，可选）
-     * @param startDate 开始日期（yyyy-MM-dd，可选）
-     * @param endDate   结束日期（yyyy-MM-dd，可选）
-     * @param out       输出流（HTTP 响应流或字节流）
-     * @throws IllegalArgumentException 日期格式非法或开始日期晚于结束日期
-     * @throws IOException              写流失败
-     */
-    void exportPurchaseData(String keyword, String status,
-                            String startDate, String endDate,
-                            OutputStream out) throws IOException;
 
     // endregion
 }

@@ -9,6 +9,8 @@ import com.tonghui.erp.Common.Dto.Stock.StockInWithNamesDto;
 import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -240,6 +242,32 @@ public interface AcceptanceOrderService extends IService<AcceptanceOrder> {
      * @param acceptance 状态已变更且明细已落库的验收单
      */
     void syncPurchaseStatus(AcceptanceOrder acceptance);
+
+    // endregion
+
+    // region 导出
+    // ===================================
+    // 导出
+    // ===================================
+
+    /**
+     * 导出货物验收表 Excel（单 sheet，明细平铺：一行一条验收明细并冗余所属验收单主单字段）
+     * <p>
+     * 数据范围：全部来源类型、包含已作废验收单；按验收明细平铺输出，
+     * 表尾输出合计行（采购数量/到货数量/入库数量/金额），冻结首行并启用自动筛选
+     * </p>
+     *
+     * @param keyword   关键字（对验收单号、验收标题模糊匹配，可选）
+     * @param status    验收单状态（精确匹配，可选）
+     * @param startDate 开始日期（yyyy-MM-dd，按验收单创建时间过滤，可选）
+     * @param endDate   结束日期（yyyy-MM-dd，按验收单创建时间过滤，可选）
+     * @param out       输出流
+     * @throws IllegalArgumentException 日期格式非法或开始日期晚于结束日期
+     * @throws IOException              写流失败
+     */
+    void exportAcceptanceForm(String keyword, String status,
+                              String startDate, String endDate,
+                              OutputStream out) throws IOException;
 
     // endregion
 }
