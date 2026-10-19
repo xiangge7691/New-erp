@@ -390,6 +390,38 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
         }
     }
 
+    /**
+     * 归档采购订单（已入库/已结束 → 已归档，终态）
+     * <p>
+     * 仅"已入库"或"已结束"状态的订单可归档；已归档订单不可重复归档；
+     * 归档后订单进入终态，不再被验收单状态同步回写覆盖
+     * </p>
+     *
+     * @param orderId 采购订单ID
+     */
+    @Override
+    @Transactional
+    public void archivePurchase(Long orderId) {
+        PurchaseOrders order = this.getById(orderId);
+        if (order == null) {
+            throw new RuntimeException("采购订单不存在");
+        }
+        String status = String.valueOf(order.getStatus());
+        // 已归档为终态，不可重复归档
+        if (AcceptanceStatusPolicy.ORDER_ARCHIVED.equals(status)) {
+            throw new RuntimeException("订单已归档，不可重复归档");
+        }
+        // 仅"已入库"/"已结束"可归档
+        if (!AcceptanceStatusPolicy.MAIN_INBOUND.equals(status)
+                && !AcceptanceStatusPolicy.MAIN_FINISHED.equals(status)) {
+            throw new RuntimeException("仅「已入库」或「已结束」状态的订单可归档，当前状态: " + order.getStatus());
+        }
+
+        // 主单状态 → 已归档
+        order.setStatus(AcceptanceStatusPolicy.ORDER_ARCHIVED);
+        this.updateById(order);
+    }
+
     // endregion
 
     // region 查询操作

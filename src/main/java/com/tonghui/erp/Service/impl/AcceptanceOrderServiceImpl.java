@@ -1318,7 +1318,7 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
      * <p>
      * 同步三步：
      * <ol>
-     *   <li>已作废的采购订单不覆盖（作废为终态）</li>
+     *   <li>已作废/已归档的采购订单不覆盖（均为终态）</li>
      *   <li>按验收明细的 purchaseItemId 回写采购订单明细状态（purchase_order_items.status），
      *       实现"明细带动订单明细"</li>
      *   <li>验收单主单状态按同名映射同步采购订单主单状态（验收单主单已由明细派生，即权威结果）</li>
@@ -1337,8 +1337,9 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         if (order == null) {
             return;
         }
-        // 已作废为终态，不覆盖
-        if (AcceptanceStatusPolicy.MAIN_VOIDED.equals(String.valueOf(order.getStatus()))) {
+        // 已作废/已归档为终态，不覆盖
+        if (AcceptanceStatusPolicy.MAIN_VOIDED.equals(String.valueOf(order.getStatus()))
+                || AcceptanceStatusPolicy.ORDER_ARCHIVED.equals(String.valueOf(order.getStatus()))) {
             return;
         }
 

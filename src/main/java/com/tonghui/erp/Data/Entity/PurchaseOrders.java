@@ -188,7 +188,7 @@ public class PurchaseOrders extends AuditEntity {
 
     /**
      * 订单状态
-     * <p>状态流转：待采购 → 运输中 → 验收中 → 已入库/已结束（另可作废），
+     * <p>状态流转：待采购 → 运输中 → 验收中 → 已入库/已结束（另可作废；已入库/已结束可手动归档为"已归档"终态），
      * 由验收明细状态派生同步（见 AcceptanceStatusPolicy）</p>
      */
     @TableField(value = "status")

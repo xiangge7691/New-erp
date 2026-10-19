@@ -974,9 +974,78 @@ public void testQualityCheckWriteBackOrderStatus() {
         }
     }
 
-    // endregion
+    /**
+     * 测试归档采购订单（已入库/已结束 → 已归档，终态）
+     * <p>
+     * 仅"已入库"或"已结束"可归档：待采购状态被拒、重复归档被拒；
+     * 归档后订单状态为"已归档"
+     * </p>
+     */
+    @Test
+    public void testArchivePurchaseOrder() {
+        Long orderId = null;
+        try {
+            PurchaseOrders order = createOrder();
+            orderId = order.getId();
 
-    // region 私有工具方法
+            // 待采购状态不可归档
+            boolean pendingRejected = false;
+            try {
+                purchaseOrdersService.archivePurchase(orderId);
+            } catch (RuntimeException e) {
+                pendingRejected = true;
+            }
+            if (!pendingRejected) {
+                System.err.println("测试失败: 待采购状态不应允许归档");
+            } else {
+                System.out.println("待采购状态归档正确被拒绝");
+            }
+
+            // 置为"已入库"后归档成功
+            PurchaseOrders inbound = new PurchaseOrders();
+            inbound.setId(orderId);
+            inbound.setStatus("已入库");
+            purchaseOrdersService.updatePurchaseOrder(inbound);
+            purchaseOrdersService.archivePurchase(orderId);
+
+            PurchaseOrders archived = purchaseOrdersMapper.selectById(orderId);
+            if (archived == null || !"已归档".equals(String.valueOf(archived.getStatus()))) {
+                System.err.println("测试失败: 已入库归档后订单状态应为已归档, 实际: " + (archived == null ? "不存在" : archived.getStatus()));
+            } else {
+                System.out.println("已入库归档后订单状态: " + archived.getStatus());
+            }
+
+            // 重复归档被拒
+            boolean secondRejected = false;
+            try {
+                purchaseOrdersService.archivePurchase(orderId);
+            } catch (RuntimeException e) {
+                secondRejected = true;
+            }
+            if (!secondRejected) {
+                System.err.println("测试失败: 重复归档应被拒绝");
+            } else {
+                System.out.println("重复归档正确被拒绝");
+            }
+
+            // 置为"已结束"后同样可归档
+            jdbcTemplate.update("UPDATE purchase_orders SET status = ? WHERE id = ?", "已结束", orderId);
+            purchaseOrdersService.archivePurchase(orderId);
+            PurchaseOrders archivedAgain = purchaseOrdersMapper.selectById(orderId);
+            if (archivedAgain == null || !"已归档".equals(String.valueOf(archivedAgain.getStatus()))) {
+                System.err.println("测试失败: 已结束归档后订单状态应为已归档, 实际: " + (archivedAgain == null ? "不存在" : archivedAgain.getStatus()));
+            } else {
+                System.out.println("已结束归档后订单状态: " + archivedAgain.getStatus());
+            }
+        } catch (Exception e) {
+            System.err.println("测试失败: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            cleanup(orderId, null, null, null, null, null);
+        }
+    }
+
+    // endregion
     // ===================================
     // 私有工具方法
     // ===================================

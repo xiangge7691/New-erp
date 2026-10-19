@@ -38,6 +38,7 @@ import java.util.List;
  * │ 10 │ /api/purchase-orders/{id}/confirm        │ POST   │ 确认采购：待采购→运输中（校验供应商必填，生成验收单）│
  * │ 11 │ /api/purchase-orders/{id}/void           │ POST   │ 作废：整单→已作废（联动验收单作废）│
  * │ 12 │ /api/purchase-orders/annual-statistics/export │ GET │ 货物验收表 Excel 导出（单sheet明细平铺，含表尾合计）│
+ * │ 13 │ /api/purchase-orders/{id}/archive        │ POST   │ 归档：已入库/已结束→已归档（终态）│
  * └────┴──────────────────────────────────────────┴────────┴─────────────────────────────────┘
  */
 @RestController
@@ -296,6 +297,29 @@ public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders,
             return success(true, "作废成功，订单已变更为已作废");
         } catch (Exception e) {
             return exception(e, "作废采购订单");
+        }
+    }
+
+    /**
+     * 归档采购订单（已入库/已结束 → 已归档，终态）
+     * <p>
+     * 仅"已入库"或"已结束"状态的订单可归档；已作废/已归档订单不可归档；
+     * 归档后订单进入终态，不再被验收单状态同步回写覆盖
+     * </p>
+     *
+     * 示例请求：
+     * POST /api/purchase-orders/1/archive
+     *
+     * @param id 采购订单ID
+     * @return ApiResponse&lt;Boolean&gt; 操作结果
+     */
+    @PostMapping("/{id}/archive")
+    public ApiResponse<Boolean> archivePurchase(@PathVariable Long id) {
+        try {
+            purchaseOrdersService.archivePurchase(id);
+            return success(true, "归档成功，订单已变更为已归档");
+        } catch (Exception e) {
+            return exception(e, "归档采购订单");
         }
     }
 

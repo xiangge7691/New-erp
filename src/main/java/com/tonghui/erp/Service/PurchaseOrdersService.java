@@ -71,6 +71,17 @@ public interface PurchaseOrdersService extends IService<PurchaseOrders> {
      */
     void voidPurchase(Long orderId);
 
+    /**
+     * 归档采购订单（已入库/已结束 → 已归档，终态）
+     * <p>
+     * 仅"已入库"或"已结束"状态的订单可归档；已作废订单不可归档，已归档订单不可重复归档；
+     * 归档后订单进入终态，不再被验收单状态同步回写覆盖
+     * </p>
+     *
+     * @param orderId 采购订单ID
+     */
+    void archivePurchase(Long orderId);
+
     // endregion
 
     // region 查询操作
