@@ -182,6 +182,9 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
                 }
             }
             plan.setPurchaseOrderId(order.getId());
+            // 采购进度跟踪：初始为生成的采购订单状态（待采购）
+            plan.setCurrentStatus(order.getStatus() == null ? null : String.valueOf(order.getStatus()));
+            plan.setCurrentStatusDate(LocalDateTime.now());
             this.updateById(plan);
             copyPlanDetailsToOrder(plan, order.getId());
             return true;
@@ -247,6 +250,9 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
             }
             if (StringUtils.hasText(purchasePlan.getStatus())) {
                 wrapper.eq("status", purchasePlan.getStatus());
+            }
+            if (StringUtils.hasText(purchasePlan.getCurrentStatus())) {
+                wrapper.eq("current_status", purchasePlan.getCurrentStatus());
             }
             if (StringUtils.hasText(purchasePlan.getRemark())) {
                 wrapper.like("remark", purchasePlan.getRemark());

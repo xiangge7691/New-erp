@@ -170,6 +170,18 @@ public class PurchasePlan extends AuditEntity {
     @TableField(value = "purchase_order_id")
     private Long purchaseOrderId;
 
+    /**
+     * 采购进度（审批通过后派生自关联采购订单状态：待采购/运输中/验收中/已入库/已结束/已作废/已归档）
+     */
+    @TableField(value = "current_status")
+    private String currentStatus;
+
+    /**
+     * 采购进度更新日期
+     */
+    @TableField(value = "current_status_date")
+    private LocalDateTime currentStatusDate;
+
     // endregion
 
     // region 状态与审计字段

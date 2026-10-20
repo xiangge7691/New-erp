@@ -124,6 +124,10 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
     /** 领料单服务，验收单状态变更时回写领料单状态 */
     private MaterialRequisitionSlipService materialRequisitionSlipService;
 
+    /** 采购计划采购进度同步器，采购订单状态变化时回写关联采购计划 */
+    @Autowired
+    private PurchasePlanStatusSyncer purchasePlanStatusSyncer;
+
     /**
      * 构造函数注入依赖
      *
@@ -1362,6 +1366,9 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
             order.setStatus(acceptanceStatus);
             purchaseOrdersMapper.updateById(order);
         }
+
+        // 3) 回写关联采购计划的采购进度（与采购订单状态保持一致）
+        purchasePlanStatusSyncer.syncFromOrder(order.getId());
     }
 
     /**

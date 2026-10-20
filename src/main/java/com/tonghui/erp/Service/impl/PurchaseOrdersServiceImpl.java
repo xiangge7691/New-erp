@@ -71,6 +71,10 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
     @Autowired
     private MaterialMapper materialMapper;
 
+    /** 采购计划采购进度同步器（订单状态变化时回写关联采购计划） */
+    @Autowired
+    private PurchasePlanStatusSyncer purchasePlanStatusSyncer;
+
     // endregion
 
     // region 分页查询方法
@@ -348,6 +352,8 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
         order.setStatus(AcceptanceStatusPolicy.MAIN_TRANSPORTING);
         this.updateById(order);
         createAcceptanceFromOrder(order);
+        // 回写关联采购计划的采购进度
+        purchasePlanStatusSyncer.syncFromOrder(orderId);
     }
 
     /**
@@ -388,6 +394,8 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
                 acceptanceOrderMapper.updateById(acceptance);
             }
         }
+        // 回写关联采购计划的采购进度
+        purchasePlanStatusSyncer.syncFromOrder(orderId);
     }
 
     /**
@@ -420,6 +428,8 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
         // 主单状态 → 已归档
         order.setStatus(AcceptanceStatusPolicy.ORDER_ARCHIVED);
         this.updateById(order);
+        // 回写关联采购计划的采购进度
+        purchasePlanStatusSyncer.syncFromOrder(orderId);
     }
 
     // endregion
