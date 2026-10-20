@@ -217,7 +217,7 @@ public class DashboardController extends BaseController {
                 toPlanMetricDetails(allPlans)));
 
             // 总交付量：生产任务已生产及之后的状态（已生产/检验中/已检验/已放行/已入库/已归档，排除作废），
-            // 即 config_complete_time 有值且未作废，按创建时间筛选，COUNT
+            // 即 config_complete_time 有值且未作废，按配置日期筛选，COUNT
             QueryWrapper<WorkOrder> deliveryWrapper = buildWorkOrderProductionCompleteWrapper(startMonth, endMonth);
             List<WorkOrder> deliveredOrders = workOrderService.list(deliveryWrapper);
             metrics.setTotalDeliveries(new MetricsItem<>((long) deliveredOrders.size(),
@@ -234,8 +234,8 @@ public class DashboardController extends BaseController {
                 BigDecimal.valueOf(Math.round(purchaseAmount * 100.0) / 100.0),
                 toStockInMetricDetails(stockIns)));
 
-            // 待生产数量：生产计划进度=待生产，按创建时间筛选，COUNT
-            QueryWrapper<ProductionPlan> pendingWrapper = buildPlanCreatedTimeWrapper(startMonth, endMonth);
+            // 待生产数量：生产计划进度=待生产，按计划生产时间筛选，COUNT
+            QueryWrapper<ProductionPlan> pendingWrapper = buildPlanProductionTimeWrapper(startMonth, endMonth);
             pendingWrapper.eq("current_status", "待生产");
             List<ProductionPlan> pendingPlans = productionPlanService.list(pendingWrapper);
             metrics.setPendingProduction(new MetricsItem<>((long) pendingPlans.size(),
@@ -1281,30 +1281,11 @@ public class DashboardController extends BaseController {
     }
 
     /**
-     * 构建生产计划创建时间范围查询条件
-     *
-     * @param startMonth 起始月份（格式：2026-01）
-     * @param endMonth   结束月份（格式：2026-06）
-     * @return 查询条件
-     */
-    private QueryWrapper<ProductionPlan> buildPlanCreatedTimeWrapper(String startMonth, String endMonth) {
-        QueryWrapper<ProductionPlan> wrapper = new QueryWrapper<>();
-        wrapper.eq("is_deleted", 0);
-        if (startMonth != null && !startMonth.isEmpty()) {
-            wrapper.ge("created_time", startMonth + "-01 00:00:00");
-        }
-        if (endMonth != null && !endMonth.isEmpty()) {
-            LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
-            wrapper.le("created_time", end.atTime(23, 59, 59));
-        }
-        return wrapper;
-    }
-
-    /**
      * 构建工单生产完成时间范围查询条件
      * <p>
      * 交付口径：凡已生产及之后的状态（已生产/检验中/已检验/已放行/已入库/已归档）均计入交付，
      * 仅排除作废。判定依据为配置完成时间有值且状态不为作废，避免枚举状态时遗漏新增状态。
+     * 时间维度取工单配置日期（配置时间）。
      * </p>
      *
      * @param startMonth 起始月份（格式：2026-01）
@@ -1317,11 +1298,11 @@ public class DashboardController extends BaseController {
                .isNotNull("config_complete_time")
                .ne("current_status", "作废");
         if (startMonth != null && !startMonth.isEmpty()) {
-            wrapper.ge("created_time", startMonth + "-01 00:00:00");
+            wrapper.ge("config_date", startMonth + "-01 00:00:00");
         }
         if (endMonth != null && !endMonth.isEmpty()) {
             LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
-            wrapper.le("created_time", end.atTime(23, 59, 59));
+            wrapper.le("config_date", end.atTime(23, 59, 59));
         }
         return wrapper;
     }
