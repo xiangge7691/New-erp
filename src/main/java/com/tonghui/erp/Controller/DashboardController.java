@@ -210,13 +210,14 @@ public class DashboardController extends BaseController {
                 BigDecimal.valueOf(Math.round(estimatedValue * 100.0) / 100.0),
                 toWorkOrderMetricDetails(workOrders)));
 
-            // 总订单量：生产计划按创建时间筛选，COUNT
-            QueryWrapper<ProductionPlan> planWrapper = buildPlanCreatedTimeWrapper(startMonth, endMonth);
+            // 总订单量：生产计划按计划生产时间筛选，COUNT
+            QueryWrapper<ProductionPlan> planWrapper = buildPlanProductionTimeWrapper(startMonth, endMonth);
             List<ProductionPlan> allPlans = productionPlanService.list(planWrapper);
             metrics.setTotalOrders(new MetricsItem<>((long) allPlans.size(),
                 toPlanMetricDetails(allPlans)));
 
-            // 总交付量：生产任务进度=生产完（productionCompleteTime有值），按创建时间筛选，COUNT
+            // 总交付量：生产任务已生产及之后的状态（已生产/检验中/已检验/已放行/已入库/已归档，排除作废），
+            // 即 config_complete_time 有值且未作废，按创建时间筛选，COUNT
             QueryWrapper<WorkOrder> deliveryWrapper = buildWorkOrderProductionCompleteWrapper(startMonth, endMonth);
             List<WorkOrder> deliveredOrders = workOrderService.list(deliveryWrapper);
             metrics.setTotalDeliveries(new MetricsItem<>((long) deliveredOrders.size(),
@@ -1300,7 +1301,11 @@ public class DashboardController extends BaseController {
     }
 
     /**
-     * 构建工单生产完成时间范围查询条件（进度=已生产/已检验/已归档）
+     * 构建工单生产完成时间范围查询条件
+     * <p>
+     * 交付口径：凡已生产及之后的状态（已生产/检验中/已检验/已放行/已入库/已归档）均计入交付，
+     * 仅排除作废。判定依据为配置完成时间有值且状态不为作废，避免枚举状态时遗漏新增状态。
+     * </p>
      *
      * @param startMonth 起始月份（格式：2026-01）
      * @param endMonth   结束月份（格式：2026-06）
@@ -1309,7 +1314,8 @@ public class DashboardController extends BaseController {
     private QueryWrapper<WorkOrder> buildWorkOrderProductionCompleteWrapper(String startMonth, String endMonth) {
         QueryWrapper<WorkOrder> wrapper = new QueryWrapper<>();
         wrapper.eq("is_deleted", 0)
-               .in("current_status", "已生产", "已检验", "已归档");
+               .isNotNull("config_complete_time")
+               .ne("current_status", "作废");
         if (startMonth != null && !startMonth.isEmpty()) {
             wrapper.ge("created_time", startMonth + "-01 00:00:00");
         }
