@@ -30,6 +30,7 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -569,18 +570,35 @@ public class MaterialRequisitionSlipServiceImpl extends ServiceImpl<MaterialRequ
             return;
         }
 
-        QueryWrapper<Material> materialWrapper = new QueryWrapper<>();
-        materialWrapper.in("material_code", missingCodes);
-        materialWrapper.eq("is_deleted", 0);
-        Map<String, String> categoryMap = materialMapper.selectList(materialWrapper).stream()
-                .filter(m -> StringUtils.hasText(m.getCategoryName()))
-                .collect(Collectors.toMap(Material::getMaterialCode, Material::getCategoryName, (a, b) -> a));
+        Map<String, String> categoryMap = loadMaterialCategoryMap(missingCodes);
 
         for (MaterialRequisitionSlipDetail detail : details) {
             if (!StringUtils.hasText(detail.getCategoryName()) && StringUtils.hasText(detail.getMaterialCode())) {
                 detail.setCategoryName(categoryMap.get(detail.getMaterialCode()));
             }
         }
+    }
+
+    /**
+     * 按物料编码批量加载物料分类
+     * <p>
+     * 以物料主数据（material.category_name）为权威来源，供领料明细与验收明细回填分类使用。
+     * </p>
+     *
+     * @param materialCodes 物料编码集合
+     * @return 物料编码 → 物料分类 的映射（无匹配或无分类的编码不出现在结果中）
+     */
+    private Map<String, String> loadMaterialCategoryMap(Collection<String> materialCodes) {
+        if (materialCodes == null || materialCodes.isEmpty()) {
+            return Map.of();
+        }
+
+        QueryWrapper<Material> materialWrapper = new QueryWrapper<>();
+        materialWrapper.in("material_code", materialCodes);
+        materialWrapper.eq("is_deleted", 0);
+        return materialMapper.selectList(materialWrapper).stream()
+                .filter(m -> StringUtils.hasText(m.getCategoryName()))
+                .collect(Collectors.toMap(Material::getMaterialCode, Material::getCategoryName, (a, b) -> a));
     }
 
     /**
@@ -618,7 +636,8 @@ public class MaterialRequisitionSlipServiceImpl extends ServiceImpl<MaterialRequ
     /**
      * 将领料明细映射为货物验收明细
      * <p>
-     * 请领数量映射为采购数量(quantity)，实发数量/批号/单价暂为空（药剂科后续回填）
+     * 请领数量映射为采购数量(quantity)，实发数量/批号/单价暂为空（药剂科后续回填）；
+     * 物料分类以物料主数据为准，主数据缺失时回退领料明细携带的分类，避免写入笼统的"物料"值。
      * </p>
      *
      * @param slipDetails 领料明细列表
@@ -629,11 +648,21 @@ public class MaterialRequisitionSlipServiceImpl extends ServiceImpl<MaterialRequ
             return List.of();
         }
 
+        // 批量加载物料分类，避免逐条查询物料主数据
+        List<String> materialCodes = slipDetails.stream()
+                .map(MaterialRequisitionSlipDetail::getMaterialCode)
+                .filter(StringUtils::hasText)
+                .distinct()
+                .collect(Collectors.toList());
+        Map<String, String> categoryMap = loadMaterialCategoryMap(materialCodes);
+
         return slipDetails.stream().map(sd -> {
             AcceptanceDetail ad = new AcceptanceDetail();
             ad.setMaterialCode(sd.getMaterialCode());
             ad.setMaterialName(sd.getMaterialName());
-            ad.setMaterialCategory("物料");
+            // 分类优先级：物料主数据 > 领料明细分类
+            String category = categoryMap.get(sd.getMaterialCode());
+            ad.setMaterialCategory(StringUtils.hasText(category) ? category : sd.getCategoryName());
             ad.setUnitName(sd.getUnitName());
             ad.setItemId(sd.getMaterialId());
             ad.setItemType("material");

@@ -2,13 +2,18 @@ package com.tonghui.erp.Service;
 
 import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
+import com.tonghui.erp.Data.Entity.Material;
+import com.tonghui.erp.Data.Entity.MaterialRequisitionSlip;
+import com.tonghui.erp.Data.Entity.MaterialRequisitionSlipDetail;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Data.Entity.Stock;
 import com.tonghui.erp.Common.Dto.Stock.AcceptanceInboundRequest;
 import com.tonghui.erp.Common.Dto.Stock.StockTransactionDto;
+import com.tonghui.erp.Data.mapper.MaterialMapper;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Data.mapper.StockMapper;
 import com.tonghui.erp.Service.impl.SequenceServiceImpl;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -82,6 +87,18 @@ public class AcceptanceOrderServiceTest {
      */
     @Autowired
     private SequenceServiceImpl sequenceService;
+
+    /**
+     * 领料单服务（验证领料自动生成验收单的明细分类）
+     */
+    @Autowired
+    private MaterialRequisitionSlipService materialRequisitionSlipService;
+
+    /**
+     * 物料主数据访问层（取带分类的物料）
+     */
+    @Autowired
+    private MaterialMapper materialMapper;
 
     // endregion
 
@@ -496,6 +513,48 @@ public class AcceptanceOrderServiceTest {
                 () -> acceptanceOrderService.exportAcceptanceForm(null, null, "2100-12-31", "2020-01-01",
                         new ByteArrayOutputStream()),
                 "开始日期晚于结束日期应抛出参数异常");
+    }
+
+    /**
+     * 测试领料单自动生成验收单时，明细分类取自物料主数据
+     * <p>
+     * 历史问题：验收明细分类被硬编码为"物料"。此处断言生成的验收明细分类
+     * 与物料主数据（material.category_name）一致，且不再是笼统的"物料"。
+     * </p>
+     */
+    @Test
+    @Transactional
+    public void testSlipGeneratedAcceptanceCategory() {
+        // 取一条带分类的物料主数据
+        QueryWrapper<Material> wrapper = new QueryWrapper<>();
+        wrapper.isNotNull("category_name");
+        wrapper.ne("category_name", "");
+        wrapper.last("LIMIT 1");
+        Material material = materialMapper.selectOne(wrapper);
+        assertNotNull(material, "缺少带分类的物料主数据，无法验证验收明细分类");
+
+        // 构造一张只含该物料的领料单并保存（自动生成验收单）
+        MaterialRequisitionSlip slip = new MaterialRequisitionSlip();
+        slip.setApplicant("集成测试");
+        slip.setApplyTime(java.time.LocalDateTime.now());
+        MaterialRequisitionSlipDetail detail = new MaterialRequisitionSlipDetail();
+        detail.setMaterialId(material.getMaterialId());
+        detail.setMaterialCode(material.getMaterialCode());
+        detail.setMaterialName(material.getMaterialName());
+        // 故意不传分类，验证服务端按物料主数据回填
+        detail.setUnitName(material.getUnitName());
+        detail.setApplyQty(BigDecimal.ONE);
+
+        MaterialRequisitionSlip saved = materialRequisitionSlipService.addSlip(slip, List.of(detail));
+        assertNotNull(saved.getAcceptanceOrderId(), "领料单应回写自动生成的验收单ID");
+
+        List<AcceptanceDetail> acceptanceDetails =
+                acceptanceOrderService.getDetailsByAcceptanceId(saved.getAcceptanceOrderId());
+        assertEquals(1, acceptanceDetails.size(), "验收明细数量应与领料明细一致");
+        assertEquals(material.getCategoryName(), acceptanceDetails.get(0).getMaterialCategory(),
+                "验收明细分类应取自物料主数据");
+        assertNotEquals("物料", acceptanceDetails.get(0).getMaterialCategory(),
+                "验收明细分类不应再被硬编码为\"物料\"");
     }
 
     // endregion
