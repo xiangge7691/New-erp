@@ -150,7 +150,7 @@ public class DashboardController extends BaseController {
 
             StockWarningStatsDto stockWarnings = new StockWarningStatsDto();
             List<Stock> allStocks = stockService.list(
-                new QueryWrapper<Stock>().isNotNull("min_quantity"));
+                new QueryWrapper<Stock>().isNotNull("min_quantity").gt("quantity", 0));
             long lowStock = allStocks.stream()
                 .filter(s -> s.getQuantity() != null && s.getMinQuantity() != null
                     && s.getQuantity().compareTo(s.getMinQuantity()) <= 0)
@@ -160,10 +160,11 @@ public class DashboardController extends BaseController {
                 SystemConfigService.DEFAULT_EXPIRY_DAYS);
             long expiringSoon = stockService.count(
                 new QueryWrapper<Stock>()
+                    .gt("quantity", 0)
                     .ge("expiry_date", today)
                     .le("expiry_date", today.plusDays(stockWarningDays)));
             long expired = stockService.count(
-                new QueryWrapper<Stock>().lt("expiry_date", today));
+                new QueryWrapper<Stock>().gt("quantity", 0).lt("expiry_date", today));
             stockWarnings.setLowStock(lowStock);
             stockWarnings.setExpiringSoon(expiringSoon);
             stockWarnings.setExpired(expired);
@@ -895,8 +896,8 @@ public class DashboardController extends BaseController {
             revenueData.setDetails(revenueDetails);
             chartData.setRevenueByMonth(revenueData);
 
-            // === 库存资金占用：按原料/辅料/包材分类，计算总价值（数量*单价） ===
-            List<Stock> allStocks = stockService.list();
+            // === 库存资金占用：按原料/辅料/包材分类，计算总价值（数量*单价），零库存批次不计入 ===
+            List<Stock> allStocks = stockService.list(new QueryWrapper<Stock>().gt("quantity", 0));
             Map<String, Double> fundOccupation = allStocks.stream()
                 .filter(s -> s.getIsDeleted() == null || s.getIsDeleted() == 0)
                 .collect(Collectors.groupingBy(

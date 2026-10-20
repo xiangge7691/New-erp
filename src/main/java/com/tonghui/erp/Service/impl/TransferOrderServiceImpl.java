@@ -158,7 +158,9 @@ public class TransferOrderServiceImpl extends ServiceImpl<TransferOrderMapper, T
     public List<WarehouseMaterialDto> getWarehouseMaterials(String warehouse, String keyword) {
         Long prodUnitId = resolveProdUnitId(warehouse);
         QueryWrapper<Stock> wrapper = new QueryWrapper<Stock>()
-                .eq("prod_unit_id", prodUnitId);
+                .eq("prod_unit_id", prodUnitId)
+                // 零库存批次保留用于流水追溯，不参与可调拨库存
+                .gt("quantity", BigDecimal.ZERO);
         // 关键词对物料编码、物料名称进行模糊匹配
         if (StringUtils.hasText(keyword)) {
             wrapper.and(w -> w.like("item_code", keyword).or().like("item_name", keyword));
@@ -201,6 +203,7 @@ public class TransferOrderServiceImpl extends ServiceImpl<TransferOrderMapper, T
         List<Stock> stocks = stockMapper.selectList(new QueryWrapper<Stock>()
                 .eq("prod_unit_id", prodUnitId)
                 .eq("item_code", materialCode)
+                .gt("quantity", BigDecimal.ZERO)
                 .orderByAsc("batch_number"));
 
         // 批量加载入库单号映射
@@ -339,7 +342,7 @@ public class TransferOrderServiceImpl extends ServiceImpl<TransferOrderMapper, T
     /**
      * 执行单条物料批次的调拨库存变更并写流水
      * <p>
-     * 扣减调出库存（调空则软删除库存行），增加调入库存（无同批次则新增库存行），
+     * 扣减调出库存（调空则保留库存行并置零），增加调入库存（无同批次则新增库存行），
      * 生成调拨出库（负变动）与调拨入库（正变动）两条流水
      * </p>
      *
@@ -357,16 +360,14 @@ public class TransferOrderServiceImpl extends ServiceImpl<TransferOrderMapper, T
         if (src == null) {
             throw new RuntimeException("调出库存记录不存在: " + detail.getMaterialName());
         }
-        BigDecimal srcAfter = src.getQuantity().subtract(detail.getTransferQuantity());
-        if (srcAfter.compareTo(BigDecimal.ZERO) == 0) {
-            // 调空后软删除该库存行
-            // 注意：全局软删除配置下 updateById 不会将 is_deleted 放入 SET 子句，
-            // 必须使用 deleteById 才会生成 UPDATE ... SET is_deleted=1
-            stockMapper.deleteById(src.getStockId());
-        } else {
-            src.setQuantity(srcAfter);
-            stockMapper.updateById(src);
+        if (src.getQuantity().compareTo(detail.getTransferQuantity()) < 0) {
+            throw new RuntimeException("调出库存不足: " + detail.getMaterialName()
+                    + "（当前 " + src.getQuantity().toPlainString()
+                    + "，需调拨 " + detail.getTransferQuantity().toPlainString() + "）");
         }
+        // 调空后保留库存行并置零（不删除），便于流水追溯与同批次再次入库复用
+        src.setQuantity(src.getQuantity().subtract(detail.getTransferQuantity()));
+        stockMapper.updateById(src);
 
         // 2. 增加调入库存（同物料+同批号+同入库单累加，无则新增）
         QueryWrapper<Stock> dstWrapper = new QueryWrapper<>();

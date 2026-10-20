@@ -311,9 +311,9 @@ public class TransferOrderServiceTest {
     }
 
     /**
-     * 测试调空后源库存软删除（调拨数量=源库存）
+     * 测试调空后源库存保留并置零（调拨数量=源库存）
      * <p>
-     * 造库存0.049全额调拨：源库存应被软删除（is_deleted=1）、目标仓生成0.049新库存行
+     * 造库存0.049全额调拨：源库存行应保留（is_deleted=0、quantity=0）、目标仓生成0.049新库存行
      * </p>
      */
     @Test
@@ -336,13 +336,13 @@ public class TransferOrderServiceTest {
             TransferOrder order = transferOrderService.createTransferOrder(dto);
             orderId = order.getId();
 
-            // 断言源库存被软删除（软删除后 selectById 查不到）
+            // 断言源库存保留并置零（不再软删除）
             Stock source = stockMapper.selectById(sourceStockId);
-            assertEquals(null, source, "调空后源库存应被软删除");
-            // 绕过软删除直接查库，确认 is_deleted=1
+            assertNotNull(source, "调空后源库存行应保留");
+            assertEquals(0, BigDecimal.ZERO.compareTo(source.getQuantity()), "调空后源库存数量应为0");
             Integer deletedFlag = jdbcTemplate.queryForObject(
                     "SELECT is_deleted FROM stock WHERE stock_id = ?", Integer.class, sourceStockId);
-            assertEquals(1, deletedFlag, "调空后源库存 is_deleted 应为1");
+            assertEquals(0, deletedFlag, "调空后源库存 is_deleted 应为0");
             // 断言目标仓生成0.049新库存行
             Stock dest = stockMapper.selectOne(new QueryWrapper<Stock>()
                     .eq("prod_unit_id", toUnitId)

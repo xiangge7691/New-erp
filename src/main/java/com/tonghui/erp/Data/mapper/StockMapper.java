@@ -90,6 +90,43 @@ public interface StockMapper extends BaseMapper<Stock> {
     @Select("SELECT * FROM stock WHERE item_code = #{itemCode} AND stock_in_id = #{stockInId} LIMIT 1")
     Stock selectByItemAndStockInIncludeDeleted(@Param("itemCode") String itemCode, @Param("stockInId") Long stockInId);
 
+    /**
+     * 按库存ID批量查询库存记录（绕过逻辑删除过滤）
+     * <p>
+     * 用于库存流水查询：原批次可能已清零被逻辑删除，但仍需展示物品编码/名称/分类/单位/仓库等信息。
+     * </p>
+     *
+     * @param ids 库存ID集合（非空）
+     * @return 库存记录列表（含已逻辑删除行）
+     */
+    @Select("<script>" +
+            "SELECT * FROM stock WHERE stock_id IN " +
+            "<foreach collection='ids' item='id' open='(' separator=',' close=')'>#{id}</foreach>" +
+            "</script>")
+    List<Stock> selectBatchIdsIncludeDeleted(@Param("ids") List<Long> ids);
+
+    /**
+     * 按批次号、物料编码查询库存记录（绕过逻辑删除过滤）
+     * <p>
+     * 用于按批次查询库存流水：批次清零后库存行被逻辑删除，若走普通查询会遗漏该批次的出入库流水。
+     * </p>
+     *
+     * @param batchNumber 批次号（可选，模糊匹配）
+     * @param itemCode    物料编码（可选，模糊匹配）
+     * @return 库存记录列表（含已逻辑删除行）
+     */
+    @Select("<script>" +
+            "SELECT * FROM stock WHERE 1 = 1 " +
+            "<if test=\"batchNumber != null and batchNumber != ''\">" +
+            " AND batch_number LIKE CONCAT('%', #{batchNumber}, '%')" +
+            "</if>" +
+            "<if test=\"itemCode != null and itemCode != ''\">" +
+            " AND item_code LIKE CONCAT('%', #{itemCode}, '%')" +
+            "</if>" +
+            "</script>")
+    List<Stock> selectByBatchIncludeDeleted(@Param("batchNumber") String batchNumber,
+                                            @Param("itemCode") String itemCode);
+
 }
 
 

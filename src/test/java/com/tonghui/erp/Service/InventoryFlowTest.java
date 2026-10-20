@@ -1,12 +1,14 @@
 package com.tonghui.erp.Service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Data.Entity.Stock;
 import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.Entity.StockInDetail;
 import com.tonghui.erp.Data.Entity.StockOut;
 import com.tonghui.erp.Data.Entity.StockOutDetail;
+import com.tonghui.erp.Common.Dto.Stock.StockTransactionDetailDto;
 import com.tonghui.erp.Common.Dto.Stock.StockTransactionDto;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Data.mapper.StockMapper;
@@ -15,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -76,6 +79,12 @@ public class InventoryFlowTest {
      */
     @Autowired
     private DataSource dataSource;
+
+    /**
+     * JDBC 模板（用于绕过逻辑删除直接校验数据）
+     */
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     // endregion
 
@@ -152,10 +161,11 @@ public class InventoryFlowTest {
         assertEquals(1, transactions.size(), "添加入库后应有1条流水");
         assertEquals("采购入库", String.valueOf(transactions.get(0).getTransactionType()), "流水类型应为采购入库");
 
-        // 取消入库 → 库存回滚
+        // 取消入库 → 库存回滚：批次保留并置零（不再逻辑删除，便于流水追溯）
         stockInService.cancelStockIn(inId);
         Stock afterCancel = stockMapper.selectById(stock.getStockId());
-        assertNull(afterCancel, "取消入库后库存批次应被删除（数量归零）");
+        assertNotNull(afterCancel, "取消入库后库存批次应保留");
+        assertEquals(0, BigDecimal.ZERO.compareTo(afterCancel.getQuantity()), "取消入库后库存数量应为0");
         List<StockTransactionDto> afterCancelTxs = stockService.getTransactionsByStockId(stock.getStockId());
         assertEquals(2, afterCancelTxs.size(), "取消入库后应有2条流水（入库+调整）");
         assertTrue(afterCancelTxs.stream().anyMatch(t -> "调整".equals(String.valueOf(t.getTransactionType()))),
@@ -257,6 +267,84 @@ public class InventoryFlowTest {
             // 清理测试数据（出库单已回滚无需清理，仅清理直插的库存批次）
             stockMapper.deleteById(stock.getStockId());
         }
+    }
+
+    /**
+     * 测试出库清零后保留库存批次，且按批次仍可查到历史出入库流水：
+     * 入库5 → 全部出库 → 库存行保留（quantity=0、is_deleted=0）、
+     * 默认库存列表不展示、按批次查流水可查到入库+出库两条
+     */
+    @Test
+    @Transactional
+    public void testOutboundToZeroKeepsStockAndHistory() {
+        Long prodUnitId = findAnyProdUnitId();
+        if (prodUnitId == null) {
+            System.out.println("无生产单位数据，跳过该测试");
+            return;
+        }
+
+        String itemCode = "INV-TEST-ZERO";
+        String batchNumber = "INV-BT-ZERO-" + System.currentTimeMillis();
+
+        // 1. 入库5
+        StockIn stockIn = new StockIn();
+        stockIn.setInType("采购入库");
+        stockIn.setProdUnitId(prodUnitId);
+        stockIn.setInDate(LocalDateTime.now());
+        StockInDetail inDetail = new StockInDetail();
+        inDetail.setItemType("material");
+        inDetail.setItemCode(itemCode);
+        inDetail.setItemName("零库存保留测试物料");
+        inDetail.setCategoryName("原料");
+        inDetail.setUnitName("kg");
+        inDetail.setBatchNumber(batchNumber);
+        inDetail.setQuantity(new BigDecimal("5.000"));
+        inDetail.setUnitPrice(new BigDecimal("10.00"));
+        inDetail.setStockStatus("合格");
+        stockInService.addStockIn(stockIn, List.of(inDetail));
+
+        Stock stock = findStock(itemCode, prodUnitId, batchNumber);
+        assertNotNull(stock, "入库后应生成库存批次");
+
+        // 2. 全部出库
+        StockOut stockOut = new StockOut();
+        stockOut.setOutType("销售出库");
+        stockOut.setProdUnitId(prodUnitId);
+        stockOut.setOutDate(LocalDateTime.now());
+        StockOutDetail outDetail = new StockOutDetail();
+        outDetail.setStockId(stock.getStockId());
+        outDetail.setItemCode(itemCode);
+        outDetail.setItemName("零库存保留测试物料");
+        outDetail.setCategoryName("原料");
+        outDetail.setUnitName("kg");
+        outDetail.setBatchNumber(batchNumber);
+        outDetail.setQuantity(new BigDecimal("5.000"));
+        stockOutService.addStockOut(stockOut, List.of(outDetail));
+
+        // 3. 库存行保留并置零
+        Stock after = stockMapper.selectById(stock.getStockId());
+        assertNotNull(after, "出库清零后库存批次应保留");
+        assertEquals(0, BigDecimal.ZERO.compareTo(after.getQuantity()), "出库清零后数量应为0");
+        Integer deletedFlag = jdbcTemplate.queryForObject(
+                "SELECT is_deleted FROM stock WHERE stock_id = ?", Integer.class, stock.getStockId());
+        assertEquals(0, deletedFlag, "出库清零后 is_deleted 应为0");
+
+        // 4. 默认库存列表不展示零库存批次
+        Stock condition = new Stock();
+        condition.setItemCode(itemCode);
+        Page<Stock> page = stockService.queryStocks(condition, null, 0, 20);
+        assertTrue(page.getRecords().stream()
+                        .noneMatch(s -> stock.getStockId().equals(s.getStockId())),
+                "零库存批次不应出现在默认库存列表");
+
+        // 5. 按批次查流水仍能查到历史出入库
+        List<StockTransactionDetailDto> history =
+                stockService.getTransactionDetailsByBatch(batchNumber, null, itemCode);
+        assertEquals(2, history.size(), "应能查到入库+出库两条流水");
+        assertTrue(history.stream().anyMatch(t -> "采购入库".equals(t.getTransactionType())),
+                "应包含入库流水");
+        assertTrue(history.stream().anyMatch(t -> "销售出库".equals(t.getTransactionType())),
+                "应包含出库流水");
     }
 
     // endregion

@@ -268,6 +268,8 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         QueryWrapper<Stock> stockWrapper = new QueryWrapper<>();
         stockWrapper.eq("item_code", detail.getItemCode());
         stockWrapper.eq("is_deleted", 0);
+        // 零库存批次保留用于流水追溯，不参与出库匹配
+        stockWrapper.gt("quantity", 0);
         stockWrapper.orderByAsc("created_time");
         List<Stock> stocks = stockMapper.selectList(stockWrapper);
         if (stocks.isEmpty()) {

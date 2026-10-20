@@ -146,6 +146,10 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
         if (stock.getStockId() != null) {
             wrapper.eq("stock_id", stock.getStockId());
         }
+        // 默认只展示有库存的批次（零库存批次保留用于流水追溯）；按 stockId 精确查看单条记录时不过滤
+        if (stock.getStockId() == null) {
+            wrapper.gt("quantity", BigDecimal.ZERO);
+        }
         if (StringUtils.hasText(stock.getItemCode())) {
             wrapper.like("item_code", stock.getItemCode());
         }
@@ -477,7 +481,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
      * 出库库存联动：按明细逐行扣减库存并写入库存流水
      * <p>
      * 通过明细中的stockId定位库存批次，校验库存充足（不足抛异常整体回滚），
-     * 扣减后数量小于等于0时删除库存记录
+     * 扣减后数量归零时保留库存记录（仅置零，不删除）
      * </p>
      *
      * @param stockOut 出库单信息（outType作为流水类型）
@@ -522,13 +526,9 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
                         + "（当前 " + before.toPlainString() + "，需出库 " + detail.getQuantity().toPlainString() + "）");
             }
             BigDecimal after = before.subtract(detail.getQuantity());
-            if (after.compareTo(BigDecimal.ZERO) <= 0) {
-                // 出库完毕后删除该批次库存记录
-                this.getBaseMapper().deleteById(stock.getStockId());
-            } else {
-                stock.setQuantity(after);
-                this.getBaseMapper().updateById(stock);
-            }
+            // 出库后数量归零时保留批次记录（仅置零，不删除），便于流水追溯与同批次再次入库复用
+            stock.setQuantity(after);
+            this.getBaseMapper().updateById(stock);
 
             // 写入库存流水（出库，数量为负）
             insertTransaction(stock, stockOut.getOutType() != null ? stockOut.getOutType() : "出库",
@@ -563,7 +563,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
      * 入库取消回滚：按明细逐行扣减已入库的库存并写入调整流水
      * <p>
      * 定位键与入库一致（物品编码+生产单位+批号），数量不足抛异常整体回滚，
-     * 扣减后数量小于等于0时删除库存记录
+     * 扣减后数量归零时保留库存记录（仅置零，不删除）
      * </p>
      *
      * @param stockIn 入库单信息
@@ -590,12 +590,9 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
                 throw new RuntimeException("库存不足，无法回滚: " + detail.getItemName());
             }
             BigDecimal after = before.subtract(detail.getQuantity());
-            if (after.compareTo(BigDecimal.ZERO) <= 0) {
-                this.getBaseMapper().deleteById(stock.getStockId());
-            } else {
-                stock.setQuantity(after);
-                this.getBaseMapper().updateById(stock);
-            }
+            // 数量归零时保留批次记录（仅置零，不删除）
+            stock.setQuantity(after);
+            this.getBaseMapper().updateById(stock);
             // 写入调整流水（数量为负）
             insertTransaction(stock, "调整", "stock_in", stockIn.getInId(), stockIn.getInCode(),
                     "入库单取消回滚: " + (stockIn.getInCode() != null ? stockIn.getInCode() : ""),
@@ -1348,11 +1345,8 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
     public List<StockTransactionDetailDto> getTransactionDetailsByBatch(
             String batchNumber, String preparationName, String itemCode) {
 
-        // 1. 先查询匹配的库存记录
-        QueryWrapper<Stock> stockWrapper = new QueryWrapper<>();
-        if (StringUtils.hasText(batchNumber)) stockWrapper.like("batch_number", batchNumber);
-        if (StringUtils.hasText(itemCode)) stockWrapper.like("item_code", itemCode);
-        List<Stock> stocks = this.getBaseMapper().selectList(stockWrapper);
+        // 1. 先查询匹配的库存记录（含已清零被逻辑删除的批次，保证历史出入库流水可查）
+        List<Stock> stocks = this.getBaseMapper().selectByBatchIncludeDeleted(batchNumber, itemCode);
 
         // 2. 过滤 preparationName（需要先填充）
         Map<String, String> preparationNameMap = loadPreparationNameMapByPlanNumber(stocks);
@@ -1483,7 +1477,8 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
 
         if (stockIds.isEmpty()) return new HashMap<>();
 
-        return this.getBaseMapper().selectBatchIds(stockIds).stream()
+        // 含已逻辑删除的批次，保证历史流水仍能展示物品/分类/单位/仓库信息
+        return this.getBaseMapper().selectBatchIdsIncludeDeleted(stockIds).stream()
                 .collect(Collectors.toMap(Stock::getStockId, s -> s, (a, b) -> a));
     }
 
