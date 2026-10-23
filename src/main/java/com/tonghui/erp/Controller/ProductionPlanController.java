@@ -267,7 +267,7 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
      * @param timeEnd 通用时间结束
      * @param pageIndex 页码
      * @param pageSize 每页大小
-     * @return ApiResponse&lt;PagedResult&lt;ProductionPlanWithRecordsDto&gt;&gt; 分页结果（包含工序记录）
+     * @return ApiResponse&lt;PagedResult&lt;ProductionPlanWithRecordsDto&gt;&gt; 分页结果（包含工序记录、生产任务及制剂规格 spec）
      */
     @GetMapping("/search-with-details")
     public ApiResponse<PagedResult<ProductionPlanWithRecordsDto>> searchWithDetails(ProductionPlan productionPlan,

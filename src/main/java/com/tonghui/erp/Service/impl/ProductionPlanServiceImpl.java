@@ -695,7 +695,8 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
      * 为生产计划DTO回填制剂规格（实时派生，不写回数据库）
      * <p>
      * 生产计划表未存储规格字段，规格以制剂主数据（preparation.spec）为权威来源。
-     * 按 preparation_id 批量查询一次后回填，避免逐行查询（N+1）；
+     * 优先按 preparation_id 关联，未命中时回退按 preparation_code 关联
+     * （历史计划可能只存了制剂编码/名称而未存ID），全批次最多两次批量查询，避免 N+1；
      * 制剂已删除或未维护规格时保持为 null。
      * </p>
      *
@@ -708,24 +709,39 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
 
         // 收集需要查询规格的制剂ID
         Set<Long> preparationIds = dtos.stream()
-                .filter(dto -> dto.getPreparationId() != null)
                 .map(ProductionPlan::getPreparationId)
+                .filter(java.util.Objects::nonNull)
                 .collect(Collectors.toSet());
-        if (preparationIds.isEmpty()) {
-            return;
+        // 收集需要查询规格的制剂编码（ID回退匹配用）
+        Set<String> preparationCodes = dtos.stream()
+                .map(ProductionPlan::getPreparationCode)
+                .filter(StringUtils::hasText)
+                .collect(Collectors.toSet());
+
+        // 制剂ID → 规格
+        Map<Long, String> specByIdMap = new java.util.HashMap<>();
+        if (!preparationIds.isEmpty()) {
+            specByIdMap = preparationMapper.selectBatchIds(preparationIds).stream()
+                    .filter(prep -> prep.getSpec() != null)
+                    .collect(Collectors.toMap(Preparation::getPreparationId, Preparation::getSpec, (a, b) -> a));
         }
 
-        // 批量查询制剂规格（跨页去重后最多一次查询）
-        List<Preparation> preparations = preparationMapper.selectBatchIds(preparationIds);
-        Map<Long, String> specMap = preparations.stream()
-                .filter(prep -> prep.getSpec() != null)
-                .collect(Collectors.toMap(Preparation::getPreparationId, Preparation::getSpec, (a, b) -> a));
+        // 制剂编码 → 规格（仅在存在待回填的编码时查询一次）
+        Map<String, String> specByCodeMap = new java.util.HashMap<>();
+        if (!preparationCodes.isEmpty()) {
+            specByCodeMap = preparationMapper.selectList(
+                            new QueryWrapper<Preparation>().in("preparation_code", preparationCodes)).stream()
+                    .filter(prep -> prep.getSpec() != null && StringUtils.hasText(prep.getPreparationCode()))
+                    .collect(Collectors.toMap(Preparation::getPreparationCode, Preparation::getSpec, (a, b) -> a));
+        }
 
-        // 回填规格
+        // 回填规格：优先按ID，未命中再按编码
         for (ProductionPlanWithRecordsDto dto : dtos) {
-            if (dto.getPreparationId() != null) {
-                dto.setSpec(specMap.get(dto.getPreparationId()));
+            String spec = dto.getPreparationId() != null ? specByIdMap.get(dto.getPreparationId()) : null;
+            if (spec == null && StringUtils.hasText(dto.getPreparationCode())) {
+                spec = specByCodeMap.get(dto.getPreparationCode());
             }
+            dto.setSpec(spec);
         }
     }
 
