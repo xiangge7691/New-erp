@@ -193,6 +193,12 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
             }
         }
 
+        // 通用更新入口（含 /{id}/status 启停接口）同样回写关联采购计划的采购进度，
+        // 保证订单状态从任意入口变更时，计划侧采购进度都不会与订单状态脱节
+        if (updated && purchaseOrders.getId() != null) {
+            purchasePlanStatusSyncer.syncFromOrder(purchaseOrders.getId());
+        }
+
         return updated;
     }
 

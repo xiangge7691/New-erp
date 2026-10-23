@@ -29,6 +29,12 @@ public class AvailableOutOrderDto {
     private String productionPlanName;
 
     /**
+     * 可退物料分类（对有可退额度的明细分类去重后按字典序拼接，以","分隔）
+     * <p>示例：原料,包材；无分类时返回空字符串</p>
+     */
+    private String materialCategories;
+
+    /**
      * 可退物料种数（有可退额度的明细条数）
      */
     private Integer materialCount;

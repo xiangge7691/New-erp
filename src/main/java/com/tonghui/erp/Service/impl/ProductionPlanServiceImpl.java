@@ -344,6 +344,9 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
             return dto;
         }).collect(Collectors.toList());
 
+        // 制剂规格实时派生（生产计划表未存规格，按制剂主数据批量回填）
+        fillPreparationSpec(dtos);
+
         result.setItems(dtos);
         result.setTotalCount(parentPage.getTotal());
         result.setPageIndex(pageNum);
@@ -677,6 +680,51 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
         for (ProductionPlan plan : plans) {
             if (plan.getUnitPrice() == null && plan.getPreparationId() != null) {
                 plan.setUnitPrice(salesPriceMap.get(plan.getPreparationId()));
+            }
+        }
+    }
+
+    // endregion
+
+    // region 规格回填
+    // ===================================
+    // 规格回填
+    // ===================================
+
+    /**
+     * 为生产计划DTO回填制剂规格（实时派生，不写回数据库）
+     * <p>
+     * 生产计划表未存储规格字段，规格以制剂主数据（preparation.spec）为权威来源。
+     * 按 preparation_id 批量查询一次后回填，避免逐行查询（N+1）；
+     * 制剂已删除或未维护规格时保持为 null。
+     * </p>
+     *
+     * @param dtos 查询结果中的生产计划DTO列表（可能为null或空，直接返回）
+     */
+    private void fillPreparationSpec(List<ProductionPlanWithRecordsDto> dtos) {
+        if (dtos == null || dtos.isEmpty()) {
+            return;
+        }
+
+        // 收集需要查询规格的制剂ID
+        Set<Long> preparationIds = dtos.stream()
+                .filter(dto -> dto.getPreparationId() != null)
+                .map(ProductionPlan::getPreparationId)
+                .collect(Collectors.toSet());
+        if (preparationIds.isEmpty()) {
+            return;
+        }
+
+        // 批量查询制剂规格（跨页去重后最多一次查询）
+        List<Preparation> preparations = preparationMapper.selectBatchIds(preparationIds);
+        Map<Long, String> specMap = preparations.stream()
+                .filter(prep -> prep.getSpec() != null)
+                .collect(Collectors.toMap(Preparation::getPreparationId, Preparation::getSpec, (a, b) -> a));
+
+        // 回填规格
+        for (ProductionPlanWithRecordsDto dto : dtos) {
+            if (dto.getPreparationId() != null) {
+                dto.setSpec(specMap.get(dto.getPreparationId()));
             }
         }
     }

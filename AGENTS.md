@@ -277,6 +277,10 @@ softDeleteCleanHelper.cleanByUniqueField(baseMapper, "unique_field", uniqueValue
 - 数据库名: `erp_db` (可在application.yml中修改)
 - 启动前需确保数据库连接正常
 
+### 数据测试环境约定（重要）
+- **永远不要在 `8.148.27.237` 的数据库中添加测试数据进行测试**（该库为线上数据，禁止写入）
+- 进行数据测试时统一使用 `8.134.48.54` 的数据库
+
 ## 测试
 - 测试文件位于 `src/test/java`
 - 使用Spring Boot Test

@@ -19,6 +19,11 @@ import java.util.List;
 public class ProductionPlanWithRecordsDto extends ProductionPlan {
 
     /**
+     * 制剂规格（实时派生自制剂主数据 preparation.spec，非计划表字段）
+     */
+    private String spec;
+
+    /**
      * 该计划的生产工序记录列表
      */
     private List<ProductionProcessRecord> records;

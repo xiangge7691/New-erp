@@ -171,7 +171,7 @@ public class PurchasePlanStatusTrackingTest {
         purchasePlanService.addPurchasePlan(plan);
 
         PurchaseOrders order = new PurchaseOrders();
-        order.setPurchaseNumber("TESTCGT" + System.nanoTime());
+        order.setPurchaseNumber("TESTCGT" + (System.nanoTime() % 100000000000L));
         order.setPlanId(plan.getId());
         order.setPlanCode(plan.getPlanCode());
         order.setTitle(plan.getTitle());

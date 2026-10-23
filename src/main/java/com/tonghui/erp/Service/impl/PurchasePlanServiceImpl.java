@@ -280,7 +280,55 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
         }
 
         wrapper.orderByDesc("created_time");
-        return this.page(page, wrapper);
+        Page<PurchasePlan> pageResult = this.page(page, wrapper);
+
+        // 一致性自愈：历史数据（功能上线前已生成的计划、或订单状态由非标准入口改写）可能进度缺失/滞后，
+        // 列表返回前按关联采购订单当前状态校正，避免页面长期展示过期进度
+        reconcileCurrentStatus(pageResult.getRecords());
+
+        return pageResult;
+    }
+
+    /**
+     * 按关联采购订单当前状态校正采购计划的采购进度
+     * <p>
+     * 仅处理已关联采购订单的计划：订单缺失/已删除时跳过，进度为空或与订单状态不一致时回写，
+     * 进度一致时不触发任何写操作（保证列表查询只读路径的开销可控）
+     * </p>
+     *
+     * @param plans 当前页的采购计划列表
+     */
+    private void reconcileCurrentStatus(List<PurchasePlan> plans) {
+        if (plans == null || plans.isEmpty()) {
+            return;
+        }
+
+        // 批量加载关联采购订单，避免逐条查询
+        List<Long> orderIds = plans.stream()
+                .map(PurchasePlan::getPurchaseOrderId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(java.util.stream.Collectors.toList());
+        if (orderIds.isEmpty()) {
+            return;
+        }
+        java.util.Map<Long, PurchaseOrders> orderMap = purchaseOrdersMapper.selectBatchIds(orderIds).stream()
+                .collect(java.util.stream.Collectors.toMap(PurchaseOrders::getId, o -> o, (a, b) -> a));
+
+        for (PurchasePlan plan : plans) {
+            PurchaseOrders order = plan.getPurchaseOrderId() == null ? null : orderMap.get(plan.getPurchaseOrderId());
+            if (order == null || order.getStatus() == null) {
+                continue;
+            }
+            String orderStatus = String.valueOf(order.getStatus());
+            if (!StringUtils.hasText(orderStatus) || orderStatus.equals(plan.getCurrentStatus())) {
+                continue;
+            }
+            // 就地校正返回值并落库，保证列表展示与数据库一致
+            plan.setCurrentStatus(orderStatus);
+            plan.setCurrentStatusDate(LocalDateTime.now());
+            baseMapper.updateById(plan);
+        }
     }
 
     /**

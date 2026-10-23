@@ -42,6 +42,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -97,6 +98,9 @@ public class ReturnOrderServiceImpl extends ServiceImpl<ReturnOrderMapper, Retur
 
     /** 可退库出库类型（兼容新旧枚举值） */
     private static final List<String> RETURNABLE_OUT_TYPES = List.of("生产领料出库", "production");
+
+    /** 物料分类拼接分隔符 */
+    private static final String CATEGORY_SEPARATOR = ",";
 
     // endregion
 
@@ -212,6 +216,8 @@ public class ReturnOrderServiceImpl extends ServiceImpl<ReturnOrderMapper, Retur
         for (StockOut out : outOrders) {
             BigDecimal totalAvailable = BigDecimal.ZERO;
             int materialCount = 0;
+            // 可退明细的物料分类集合（去重，保持首次出现顺序）
+            Set<String> categories = new LinkedHashSet<>();
             for (StockOutDetail detail : allDetails) {
                 if (!detail.getOutId().equals(out.getOutId())) {
                     continue;
@@ -220,6 +226,9 @@ public class ReturnOrderServiceImpl extends ServiceImpl<ReturnOrderMapper, Retur
                 if (available.compareTo(BigDecimal.ZERO) > 0) {
                     totalAvailable = totalAvailable.add(available);
                     materialCount++;
+                    if (StringUtils.hasText(detail.getCategoryName())) {
+                        categories.add(detail.getCategoryName().trim());
+                    }
                 }
             }
             if (materialCount == 0) {
@@ -229,6 +238,7 @@ public class ReturnOrderServiceImpl extends ServiceImpl<ReturnOrderMapper, Retur
             dto.setOutOrderNo(out.getOutCode());
             dto.setProductionPlanNo(out.getPlanNumber());
             dto.setProductionPlanName(planNameMap.get(out.getPlanNumber()));
+            dto.setMaterialCategories(String.join(CATEGORY_SEPARATOR, categories));
             dto.setMaterialCount(materialCount);
             dto.setTotalAvailableQuantity(totalAvailable);
             result.add(dto);

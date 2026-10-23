@@ -101,7 +101,7 @@ public class ReturnOrderController extends BaseController {
      * 示例请求：
      * GET /api/warehouse/return-orders/available-out-orders
      *
-     * @return ApiResponse&lt;List&lt;AvailableOutOrderDto&gt;&gt; 可退库出库单列表（含可退总量）
+     * @return ApiResponse&lt;List&lt;AvailableOutOrderDto&gt;&gt; 可退库出库单列表（含可退总量、可退物料分类拼接串）
      */
     @GetMapping("/available-out-orders")
     public ApiResponse<List<AvailableOutOrderDto>> availableOutOrders() {
