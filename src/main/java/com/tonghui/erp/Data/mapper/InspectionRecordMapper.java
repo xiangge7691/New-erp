@@ -53,4 +53,25 @@ public interface InspectionRecordMapper extends BaseMapper<InspectionRecord> {
      */
     @Select("SELECT * FROM inspection_record WHERE work_order_id = #{workOrderId} AND item_category = '成品' AND conclusion = '合格' AND is_deleted = 0 ORDER BY end_time DESC")
     List<InspectionRecord> selectQualifiedFinishedProducts(@Param("workOrderId") Long workOrderId);
+
+    /**
+     * 按被检品属性查询合格检验记录
+     * <p>
+     * 用于审核放行“关联检验编号”下拉：按被检品属性（生产原料/中间产品/成品）筛选，
+     * 生产原料可不传工单ID；其他属性可同时按工单ID过滤
+     * </p>
+     *
+     * @param itemCategory 被检品属性（生产原料/中间产品/成品）
+     * @param workOrderId  工单ID（可选，为空时不按工单过滤）
+     * @return 合格检验记录列表，按检验结束时间倒序
+     */
+    @Select("<script>"
+            + "SELECT * FROM inspection_record "
+            + "WHERE conclusion = '合格' AND is_deleted = 0 "
+            + "<if test='itemCategory != null and itemCategory != \"\"'> AND item_category = #{itemCategory} </if>"
+            + "<if test='workOrderId != null'> AND work_order_id = #{workOrderId} </if>"
+            + "ORDER BY end_time DESC"
+            + "</script>")
+    List<InspectionRecord> selectQualifiedInspections(@Param("itemCategory") String itemCategory,
+                                                      @Param("workOrderId") Long workOrderId);
 }

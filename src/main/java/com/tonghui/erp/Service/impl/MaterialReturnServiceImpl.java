@@ -475,6 +475,11 @@ public class MaterialReturnServiceImpl implements MaterialReturnService {
         newAcceptance.setStatus(AcceptanceStatusPolicy.MAIN_TRANSPORTING);
         newAcceptance.setProdUnitId(null);
         newAcceptance.setRemark("由 " + original.getAcceptanceCode() + " 退货后重新发货");
+        // 重新发货需重新验收：检查结果重置为合格，验收人/审核人清空待重新填写
+        newAcceptance.setOuterPackageCheck("合格");
+        newAcceptance.setAppearanceCheck("合格");
+        newAcceptance.setAcceptorName(null);
+        newAcceptance.setReviewerName(null);
 
         // 构造新明细：采购数量=输入的重新发货数量，批号/实际到货/金额清空待验收环节重算
         List<AcceptanceDetail> newDetails = new ArrayList<>();
@@ -483,10 +488,14 @@ public class MaterialReturnServiceImpl implements MaterialReturnService {
             AcceptanceDetail nd = new AcceptanceDetail();
             BeanUtils.copyProperties(src, nd, "detailId", "acceptanceId", "seq", "batchNumber",
                     "actualArrivalQty", "inboundQty", "amount", "diffQuantity",
-                    "status", "returnReason", "returnRemark");
+                    "status", "returnReason", "returnRemark",
+                    "outerPackageCheck", "appearanceCheck");
             nd.setQuantity(selectedQtys.get(i));
             nd.setBatchNumber("");
             nd.setStatus(AcceptanceStatusPolicy.DETAIL_PENDING_INITIAL);
+            // 重新发货需重新检查，不复用原明细的不合格结果
+            nd.setOuterPackageCheck("合格");
+            nd.setAppearanceCheck("合格");
             newDetails.add(nd);
             // 备注追加「发货数量 X.XXX」便于追溯
             appendRemark(newAcceptance, "发货数量 " + selectedQtys.get(i).toPlainString());

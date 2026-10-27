@@ -71,6 +71,36 @@ public class ReturnOrderDetailDto {
     private LocalDateTime createdAt;
 
     /**
+     * 外包装检查结果：合格/不合格
+     */
+    private String outerPackageCheck;
+
+    /**
+     * 性状检查结果：合格/不合格
+     */
+    private String appearanceCheck;
+
+    /**
+     * 退库人姓名
+     */
+    private String returnPersonName;
+
+    /**
+     * 验收人姓名
+     */
+    private String acceptorName;
+
+    /**
+     * 审核人姓名
+     */
+    private String reviewerName;
+
+    /**
+     * 退库时间
+     */
+    private LocalDateTime returnTime;
+
+    /**
      * 退库明细列表
      */
     private List<ReturnOrderDetailItemDto> items;

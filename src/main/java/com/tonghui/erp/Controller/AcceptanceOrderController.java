@@ -33,7 +33,7 @@ import java.util.List;
  * │ 1  │ /api/acceptance                         │ GET    │ 分页查询验收单列表             │
  * │ 2  │ /api/acceptance/{id}                    │ GET    │ 获取验收单详情                 │
  * │ 3  │ /api/acceptance/withDetails             │ POST   │ 创建验收单（包含明细）         │
- * │ 4  │ /api/acceptance/{id}/withDetails        │ PUT    │ 更新验收单（包含明细）         │
+ * │ 4  │ /api/acceptance/{id}                    │ PUT    │ 更新主表字段（验收人/审核人等）│
  * │ 5  │ /api/acceptance/{id}                    │ DELETE │ 删除验收单（已入库禁止删除）   │
  * │ 6  │ /api/acceptance/search                  │ GET    │ 高级查询验收单（状态/来源筛选）│
  * │ 7  │ /api/acceptance/search-with-details     │ GET    │ 带子表查询验收单               │
@@ -261,6 +261,48 @@ public class AcceptanceOrderController extends BaseController {
             return success(acceptance, "验收单更新成功");
         } catch (Exception ex) {
             return exception(ex, "更新验收单");
+        }
+    }
+
+    /**
+     * 更新验收单主表字段（不含明细，已入库禁止修改）
+     * <p>
+     * 用于采购订单/领料单/退货重发自动生成的验收单补录验收人、审核人及外包装/性状检查结果；
+     * 仅更新传入的非空字段，未传字段保持原值
+     * </p>
+     *
+     * 示例请求：
+     * PUT /api/acceptance/1
+     * Content-Type: application/json
+     * {
+     *   "acceptorName": "李四",
+     *   "reviewerName": "王五",
+     *   "outerPackageCheck": "合格",
+     *   "appearanceCheck": "合格",
+     *   "remark": "补录验收信息"
+     * }
+     *
+     * @param id         验收单ID
+     * @param acceptance 验收单主表字段（acceptorName-验收人、reviewerName-审核人、
+     *                   outerPackageCheck-外包装检查、appearanceCheck-性状检查、remark-备注）
+     * @return 更新后的验收单信息
+     */
+    @PutMapping("/{id}")
+    public ApiResponse<AcceptanceOrder> updateMain(@PathVariable Long id,
+                                                   @RequestBody AcceptanceOrder acceptance) {
+        try {
+            if (acceptance == null) {
+                return error("请求参数不能为空");
+            }
+            AcceptanceOrder existing = acceptanceOrderService.getAcceptanceById(id);
+            if (existing == null) {
+                return error("验收单不存在");
+            }
+            acceptance.setAcceptanceId(id);
+            acceptanceOrderService.updateAcceptanceMain(acceptance);
+            return success(acceptanceOrderService.getAcceptanceById(id), "验收单更新成功");
+        } catch (Exception ex) {
+            return exception(ex, "更新验收单主表");
         }
     }
 

@@ -70,6 +70,13 @@ public class ReleaseReview extends AuditEntity {
     private String objectName;
 
     /**
+     * 被检品属性：生产原料/中间产品/成品
+     * <p>为“生产原料”时，关联生产任务号不参与放行记录，关联检验编号按该属性筛选</p>
+     */
+    @TableField(value = "item_category")
+    private String itemCategory;
+
+    /**
      * 关联制剂名称
      */
     @TableField(value = "preparation_name")

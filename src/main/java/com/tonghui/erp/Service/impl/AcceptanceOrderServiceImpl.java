@@ -205,6 +205,9 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         if (!StringUtils.hasText(acceptance.getStatus())) {
             acceptance.setStatus(AcceptanceStatusPolicy.MAIN_TRANSPORTING);
         }
+        // 外包装/性状检查结果：为空默认"合格"，非空时校验取值
+        acceptance.setOuterPackageCheck(normalizeCheckResult(acceptance.getOuterPackageCheck(), "外包装检查"));
+        acceptance.setAppearanceCheck(normalizeCheckResult(acceptance.getAppearanceCheck(), "性状检查"));
 
         // 保存验收单主表
         acceptanceOrderMapper.insert(acceptance);
@@ -242,6 +245,45 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
             acceptanceDetailMapper.delete(deleteWrapper);
             saveDetails(acceptance.getAcceptanceId(), details);
         }
+    }
+
+    /**
+     * 更新验收单主表字段（不含明细）
+     * <p>
+     * 用于自动生成的验收单补录验收人、审核人、外包装检查、性状检查等主表信息；
+     * 仅更新传入的非空字段，已入库的验收单仍禁止修改
+     * </p>
+     *
+     * @param acceptance 验收单主表实体（acceptanceId 必填）
+     */
+    @Override
+    @Transactional
+    public void updateAcceptanceMain(AcceptanceOrder acceptance) {
+        if (acceptance == null || acceptance.getAcceptanceId() == null) {
+            throw new RuntimeException("验收单ID不能为空");
+        }
+        AcceptanceOrder existing = acceptanceOrderMapper.selectById(acceptance.getAcceptanceId());
+        if (existing == null) {
+            throw new RuntimeException("验收单不存在");
+        }
+        if ("已入库".equals(existing.getStatus())) {
+            throw new RuntimeException("已入库的验收单不可修改");
+        }
+
+        // 仅允许更新主表补录字段，避免误改来源类型、单号等关键信息；
+        // updateById 默认忽略 null 字段，未传的字段保持原值
+        AcceptanceOrder patch = new AcceptanceOrder();
+        patch.setAcceptanceId(acceptance.getAcceptanceId());
+        patch.setAcceptorName(acceptance.getAcceptorName());
+        patch.setReviewerName(acceptance.getReviewerName());
+        if (StringUtils.hasText(acceptance.getOuterPackageCheck())) {
+            patch.setOuterPackageCheck(normalizeCheckResult(acceptance.getOuterPackageCheck(), "外包装检查"));
+        }
+        if (StringUtils.hasText(acceptance.getAppearanceCheck())) {
+            patch.setAppearanceCheck(normalizeCheckResult(acceptance.getAppearanceCheck(), "性状检查"));
+        }
+        patch.setRemark(acceptance.getRemark());
+        acceptanceOrderMapper.updateById(patch);
     }
 
     /**
@@ -988,6 +1030,25 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
     }
 
     /**
+     * 校验并规范化检查结果
+     * <p>检查结果仅允许“合格/不合格”，为空时默认“合格”</p>
+     *
+     * @param value     检查结果
+     * @param fieldName 字段名称（用于异常提示）
+     * @return 规范化后的检查结果
+     */
+    private String normalizeCheckResult(String value, String fieldName) {
+        if (!StringUtils.hasText(value)) {
+            return "合格";
+        }
+        String trimmed = value.trim();
+        if (!"合格".equals(trimmed) && !"不合格".equals(trimmed)) {
+            throw new RuntimeException(fieldName + "结果只能是合格或不合格");
+        }
+        return trimmed;
+    }
+
+    /**
      * 保存验收明细列表（自动计算序号、金额、标准量差值）
      * <p>金额以实际到货数量 × 单价计算；实际到货数量未填写时回退使用采购数量</p>
      *
@@ -1004,6 +1065,9 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
                 if (!StringUtils.hasText(detail.getStatus())) {
                     detail.setStatus(AcceptanceStatusPolicy.DETAIL_PENDING_INITIAL);
                 }
+                // 外包装/性状检查结果：为空默认"合格"，非空时校验取值
+                detail.setOuterPackageCheck(normalizeCheckResult(detail.getOuterPackageCheck(), "外包装检查"));
+                detail.setAppearanceCheck(normalizeCheckResult(detail.getAppearanceCheck(), "性状检查"));
                 // 计算金额 = 实际到货数量 × 单价（未填实际到货数量时回退采购数量）
                 if (detail.getAmount() == null) {
                     BigDecimal qtyForAmount = detail.getActualArrivalQty() != null

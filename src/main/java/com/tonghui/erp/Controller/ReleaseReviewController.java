@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -36,11 +37,18 @@ import java.util.stream.Collectors;
  * │ 5  │ /api/releaseReview               │ POST   │ 新增审核放行                  │
  * │ 6  │ /api/releaseReview/{id}          │ PUT    │ 修改审核放行                  │
  * │ 7  │ /api/releaseReview/{id}          │ DELETE │ 删除审核放行（软删除）        │
+ * │ 8  │ /api/releaseReview/workOrders    │ GET    │ 查询已检验工单列表            │
+ * │ 9  │ /api/releaseReview/inspection    │ GET    │ 按被检品属性查询合格检验记录  │
  * └────┴──────────────────────────────────┴────────┴──────────────────────────────┘
  */
 @RestController
 @RequestMapping("/api/releaseReview")
 public class ReleaseReviewController extends BaseController {
+
+    /**
+     * 被检品属性可选值：生产原料/中间产品/成品
+     */
+    private static final Set<String> ITEM_CATEGORIES = Set.of("生产原料", "中间产品", "成品");
 
     // region 服务依赖注入
     // ===================================
@@ -88,11 +96,12 @@ public class ReleaseReviewController extends BaseController {
      * 分页查询审核放行列表
      *
      * 示例请求：
-     * GET /api/releaseReview?releaseCode=FX-20260720001&objectName=维生素C片&releaseConclusion=放行&reviewer=审核员甲&startTime=2026-07-01 00:00:00&endTime=2026-07-31 23:59:59&pageIndex=0&pageSize=10
+     * GET /api/releaseReview?releaseCode=FX-20260720001&objectName=维生素C片&itemCategory=成品&releaseConclusion=放行&reviewer=审核员甲&startTime=2026-07-01 00:00:00&endTime=2026-07-31 23:59:59&pageIndex=0&pageSize=10
      *
      * @param releaseCode        放行编号（可选，模糊匹配）
      * @param relatedInspectionCode 关联检验编号（可选，模糊匹配）
      * @param objectName         被检对象名称（可选，模糊匹配）
+     * @param itemCategory       被检品属性（可选，精确匹配：生产原料/中间产品/成品）
      * @param batchNo            批号（可选，模糊匹配）
      * @param releaseConclusion  放行结论（可选，精确匹配）
      * @param reviewer           审核人（可选，模糊匹配）
@@ -109,6 +118,7 @@ public class ReleaseReviewController extends BaseController {
             @RequestParam(required = false) String releaseCode,
             @RequestParam(required = false) String relatedInspectionCode,
             @RequestParam(required = false) String objectName,
+            @RequestParam(required = false) String itemCategory,
             @RequestParam(required = false) String batchNo,
             @RequestParam(required = false) String releaseConclusion,
             @RequestParam(required = false) String reviewer,
@@ -121,7 +131,7 @@ public class ReleaseReviewController extends BaseController {
         try {
             Page<ReleaseReview> page = new Page<>(pageIndex + 1, pageSize);
             QueryWrapper<ReleaseReview> wrapper = buildQueryWrapper(releaseCode, relatedInspectionCode, objectName,
-                    batchNo, releaseConclusion, reviewer, startTime, endTime, createdTimeStart, createdTimeEnd);
+                    itemCategory, batchNo, releaseConclusion, reviewer, startTime, endTime, createdTimeStart, createdTimeEnd);
             Page<ReleaseReview> pageResult = releaseReviewService.page(page, wrapper);
 
             // 填充关联的生产任务编号和制剂信息
@@ -142,11 +152,12 @@ public class ReleaseReviewController extends BaseController {
      * 查询审核放行列表（不分页）
      *
      * 示例请求：
-     * GET /api/releaseReview/list?releaseConclusion=放行
+     * GET /api/releaseReview/list?releaseConclusion=放行&itemCategory=成品
      *
      * @param releaseCode        放行编号（可选，模糊匹配）
      * @param relatedInspectionCode 关联检验编号（可选，模糊匹配）
      * @param objectName         被检对象名称（可选，模糊匹配）
+     * @param itemCategory       被检品属性（可选，精确匹配：生产原料/中间产品/成品）
      * @param batchNo            批号（可选，模糊匹配）
      * @param releaseConclusion  放行结论（可选，精确匹配）
      * @param reviewer           审核人（可选，模糊匹配）
@@ -159,6 +170,7 @@ public class ReleaseReviewController extends BaseController {
             @RequestParam(required = false) String releaseCode,
             @RequestParam(required = false) String relatedInspectionCode,
             @RequestParam(required = false) String objectName,
+            @RequestParam(required = false) String itemCategory,
             @RequestParam(required = false) String batchNo,
             @RequestParam(required = false) String releaseConclusion,
             @RequestParam(required = false) String reviewer,
@@ -166,7 +178,7 @@ public class ReleaseReviewController extends BaseController {
             @RequestParam(required = false) String endTime) {
         try {
             QueryWrapper<ReleaseReview> wrapper = buildQueryWrapper(releaseCode, relatedInspectionCode, objectName,
-                    batchNo, releaseConclusion, reviewer, startTime, endTime, null, null);
+                    itemCategory, batchNo, releaseConclusion, reviewer, startTime, endTime, null, null);
             wrapper.orderByDesc("review_time");
             List<ReleaseReview> list = releaseReviewService.list(wrapper);
             fillWorkOrderInfo(list);
@@ -261,6 +273,37 @@ public class ReleaseReviewController extends BaseController {
         }
     }
 
+    /**
+     * 按被检品属性查询合格检验记录
+     * <p>
+     * 用于审核放行新增/编辑时“关联检验编号”下拉选择：
+     * 按被检品属性筛选，保证关联检验编号与被检品属性一致；
+     * 生产原料可不传工单ID，其他属性可同时按工单ID过滤
+     * </p>
+     *
+     * 示例请求：
+     * GET /api/releaseReview/inspection?itemCategory=生产原料
+     * GET /api/releaseReview/inspection?itemCategory=成品&workOrderId=1
+     *
+     * @param itemCategory 被检品属性（必填：生产原料/中间产品/成品）
+     * @param workOrderId  工单ID（可选，为空时不按工单过滤）
+     * @return ApiResponse&lt;List&lt;InspectionRecord&gt;&gt; 合格检验记录列表
+     */
+    @GetMapping("/inspection")
+    public ApiResponse<List<InspectionRecord>> getInspectionsByCategory(
+            @RequestParam String itemCategory,
+            @RequestParam(required = false) Long workOrderId) {
+        try {
+            if (!ITEM_CATEGORIES.contains(itemCategory)) {
+                return error("被检品属性不正确：" + itemCategory);
+            }
+            List<InspectionRecord> list = inspectionRecordMapper.selectQualifiedInspections(itemCategory, workOrderId);
+            return success(list);
+        } catch (Exception e) {
+            return exception(e, "按被检品属性查询检验记录");
+        }
+    }
+
     // endregion
 
     // region 新增接口
@@ -278,6 +321,7 @@ public class ReleaseReviewController extends BaseController {
      *   "releaseCode": "FX-20260720-001",
      *   "relatedInspectionCode": "JY-20260720-001",
      *   "objectName": "维生素C片",
+     *   "itemCategory": "成品",
      *   "batchNo": "20260701",
      *   "spec": "100mg",
      *   "releaseConclusion": "放行",
@@ -289,6 +333,7 @@ public class ReleaseReviewController extends BaseController {
      *
      * 必填字段：
      *   objectName        被检对象名称（必填）
+     *   itemCategory      被检品属性（必填：生产原料/中间产品/成品）
      *   batchNo           批号（必填）
      *   releaseConclusion 放行结论（必填）
      *   reviewer          审核人（必填）
@@ -297,6 +342,8 @@ public class ReleaseReviewController extends BaseController {
      *   reviewOpinion     审核意见（放行结论=拒绝放行时必填）
      * 其他说明：
      *   releaseCode 为空时系统自动生成（格式FX-YYYYMMDD-NNN），亦可手动传入，须唯一
+     *   itemCategory=生产原料 时，workOrderId/workOrderCode 会被后端清空，且不校验工单状态
+     *   relatedInspectionCode 对应检验记录的 itemCategory 必须与 itemCategory 一致
      *   以下字段选填：relatedInspectionCode、spec、remark
      *
      * @param record 审核放行信息（编号为空时系统自动生成，拒绝放行时审核意见必填）
@@ -308,8 +355,19 @@ public class ReleaseReviewController extends BaseController {
             if ("拒绝放行".equals(record.getReleaseConclusion()) && !StringUtils.hasText(record.getReviewOpinion())) {
                 return error("拒绝放行时审核意见必填");
             }
-            // 校验：关联生产任务必须是已检验状态
-            if (record.getWorkOrderId() != null) {
+            // 被检品属性必填，且只能为生产原料/中间产品/成品
+            if (!StringUtils.hasText(record.getItemCategory())) {
+                return error("被检品属性不能为空");
+            }
+            if (!ITEM_CATEGORIES.contains(record.getItemCategory())) {
+                return error("被检品属性不正确：" + record.getItemCategory());
+            }
+            // 生产原料不关联生产任务号：后端强制清空并跳过工单校验
+            if ("生产原料".equals(record.getItemCategory())) {
+                record.setWorkOrderId(null);
+                record.setWorkOrderCode(null);
+            } else if (record.getWorkOrderId() != null) {
+                // 校验：关联生产任务必须是已检验状态
                 com.tonghui.erp.Data.Entity.WorkOrder workOrder = workOrderService.getById(record.getWorkOrderId());
                 if (workOrder == null) {
                     return error("关联生产任务不存在");
@@ -317,12 +375,21 @@ public class ReleaseReviewController extends BaseController {
                 if (!"已检验".equals(workOrder.getCurrentStatus())) {
                     return error("关联生产任务必须是已检验状态，当前状态：" + workOrder.getCurrentStatus());
                 }
-                // 自动带出成品且合格的检验编号（若未手动传入）
+                // 自动带出与被检品属性一致且合格的检验编号（若未手动传入）
                 if (!StringUtils.hasText(record.getRelatedInspectionCode())) {
-                    List<InspectionRecord> inspRecords = inspectionRecordMapper.selectQualifiedFinishedProducts(record.getWorkOrderId());
+                    List<InspectionRecord> inspRecords = inspectionRecordMapper.selectQualifiedInspections(
+                            record.getItemCategory(), record.getWorkOrderId());
                     if (!inspRecords.isEmpty()) {
                         record.setRelatedInspectionCode(inspRecords.get(0).getInspectionCode());
                     }
+                }
+            }
+            // 校验关联检验编号的被检品属性与提交值一致
+            if (StringUtils.hasText(record.getRelatedInspectionCode())) {
+                InspectionRecord inspection = findInspectionByCode(record.getRelatedInspectionCode());
+                if (inspection != null && StringUtils.hasText(inspection.getItemCategory())
+                        && !record.getItemCategory().equals(inspection.getItemCategory())) {
+                    return error("关联检验编号的被检品属性与所选被检品属性不一致");
                 }
             }
             // 是否由系统自动生成编号（用于唯一索引冲突时的重试决策）
@@ -398,6 +465,35 @@ public class ReleaseReviewController extends BaseController {
             }
             if ("拒绝放行".equals(record.getReleaseConclusion()) && !StringUtils.hasText(record.getReviewOpinion())) {
                 return error("拒绝放行时审核意见必填");
+            }
+            // 被检品属性：本次未传时沿用原值；原值也为空则拒绝
+            String effectiveItemCategory = StringUtils.hasText(record.getItemCategory())
+                    ? record.getItemCategory() : existing.getItemCategory();
+            if (!StringUtils.hasText(effectiveItemCategory)) {
+                return error("被检品属性不能为空");
+            }
+            if (!ITEM_CATEGORIES.contains(effectiveItemCategory)) {
+                return error("被检品属性不正确：" + effectiveItemCategory);
+            }
+            record.setItemCategory(effectiveItemCategory);
+            // 生产原料不关联生产任务号：显式置空（updateById 默认忽略 null 字段）
+            if ("生产原料".equals(effectiveItemCategory)) {
+                releaseReviewService.update(new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<ReleaseReview>()
+                        .eq("id", id)
+                        .set("work_order_id", null)
+                        .set("work_order_code", null));
+                record.setWorkOrderId(null);
+                record.setWorkOrderCode(null);
+            }
+            // 校验关联检验编号的被检品属性与提交值一致（本次未传时沿用原值）
+            String effectiveInspectionCode = StringUtils.hasText(record.getRelatedInspectionCode())
+                    ? record.getRelatedInspectionCode() : existing.getRelatedInspectionCode();
+            if (StringUtils.hasText(effectiveInspectionCode)) {
+                InspectionRecord inspection = findInspectionByCode(effectiveInspectionCode);
+                if (inspection != null && StringUtils.hasText(inspection.getItemCategory())
+                        && !effectiveItemCategory.equals(inspection.getItemCategory())) {
+                    return error("关联检验编号的被检品属性与所选被检品属性不一致");
+                }
             }
             if (StringUtils.hasText(record.getReleaseCode())
                     && !record.getReleaseCode().equals(existing.getReleaseCode())
@@ -481,6 +577,10 @@ public class ReleaseReviewController extends BaseController {
 
         // 回填信息（仅填充数据库中为空的字段，兼容旧行数据）
         for (ReleaseReview record : records) {
+            // 生产原料不关联生产任务号，跳过工单信息回填
+            if ("生产原料".equals(record.getItemCategory())) {
+                continue;
+            }
             if (StringUtils.hasText(record.getRelatedInspectionRecordCode())) {
                 InspectionRecord inspectionRecord = recordMap.get(record.getRelatedInspectionRecordCode());
                 if (inspectionRecord != null) {
@@ -512,6 +612,10 @@ public class ReleaseReviewController extends BaseController {
         if (record.getReviewTime() == null) {
             return;
         }
+        // 生产原料不关联生产任务，无需回填工单审核放行时间
+        if ("生产原料".equals(record.getItemCategory())) {
+            return;
+        }
 
         Long workOrderId = record.getWorkOrderId();
 
@@ -535,6 +639,20 @@ public class ReleaseReviewController extends BaseController {
         if (workOrderId != null) {
             workOrderService.syncWorkOrderTime(workOrderId, "auditReleaseTime", record.getReviewTime());
         }
+    }
+
+    /**
+     * 通过检验编号查询检验记录
+     * <p>用于校验关联检验编号的被检品属性是否与审核放行所选属性一致</p>
+     *
+     * @param inspectionCode 检验编号
+     * @return 检验记录，未找到返回null
+     */
+    private InspectionRecord findInspectionByCode(String inspectionCode) {
+        QueryWrapper<InspectionRecord> wrapper = new QueryWrapper<>();
+        wrapper.eq("inspection_code", inspectionCode);
+        wrapper.last("LIMIT 1");
+        return inspectionRecordMapper.selectOne(wrapper);
     }
 
     /**
@@ -584,6 +702,7 @@ public class ReleaseReviewController extends BaseController {
      * @param releaseCode        放行编号（模糊匹配）
      * @param relatedInspectionCode 关联检验编号（模糊匹配）
      * @param objectName         被检对象名称（模糊匹配）
+     * @param itemCategory       被检品属性（精确匹配）
      * @param batchNo            批号（模糊匹配）
      * @param releaseConclusion  放行结论（精确匹配）
      * @param reviewer           审核人（模糊匹配）
@@ -594,13 +713,14 @@ public class ReleaseReviewController extends BaseController {
      * @return 查询条件Wrapper
      */
     private QueryWrapper<ReleaseReview> buildQueryWrapper(String releaseCode, String relatedInspectionCode,
-            String objectName, String batchNo, String releaseConclusion, String reviewer,
+            String objectName, String itemCategory, String batchNo, String releaseConclusion, String reviewer,
             String startTime, String endTime, String createdTimeStart, String createdTimeEnd) {
         QueryWrapper<ReleaseReview> wrapper = new QueryWrapper<>();
         wrapper.eq("is_deleted", 0);
         if (StringUtils.hasText(releaseCode)) wrapper.like("release_code", releaseCode);
         if (StringUtils.hasText(relatedInspectionCode)) wrapper.like("related_inspection_code", relatedInspectionCode);
         if (StringUtils.hasText(objectName)) wrapper.like("object_name", objectName);
+        if (StringUtils.hasText(itemCategory)) wrapper.eq("item_category", itemCategory);
         if (StringUtils.hasText(batchNo)) wrapper.like("batch_no", batchNo);
         if (StringUtils.hasText(releaseConclusion)) wrapper.eq("release_conclusion", releaseConclusion);
         if (StringUtils.hasText(reviewer)) wrapper.like("reviewer", reviewer);

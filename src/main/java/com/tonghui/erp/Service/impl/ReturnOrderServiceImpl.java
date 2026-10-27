@@ -39,6 +39,7 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -388,6 +389,10 @@ public class ReturnOrderServiceImpl extends ServiceImpl<ReturnOrderMapper, Retur
             details.add(detail);
         }
 
+        // 检查结果校验与默认值：仅允许合格/不合格，为空默认合格
+        String outerPackageCheck = normalizeCheckResult(dto.getOuterPackageCheck(), "外包装检查");
+        String appearanceCheck = normalizeCheckResult(dto.getAppearanceCheck(), "性状检查");
+
         // 保存主表（带编号冲突重试）
         ReturnOrder order = new ReturnOrder();
         order.setOutOrderNo(dto.getOutOrderNo());
@@ -396,6 +401,13 @@ public class ReturnOrderServiceImpl extends ServiceImpl<ReturnOrderMapper, Retur
         order.setTotalQuantity(totalQuantity);
         order.setTotalAmount(totalAmount);
         order.setRemark(dto.getRemark());
+        order.setOuterPackageCheck(outerPackageCheck);
+        order.setAppearanceCheck(appearanceCheck);
+        order.setReturnPersonName(dto.getReturnPersonName());
+        order.setAcceptorName(dto.getAcceptorName());
+        order.setReviewerName(dto.getReviewerName());
+        // 退库时间未选择时默认当前时间
+        order.setReturnTime(dto.getReturnTime() != null ? dto.getReturnTime() : LocalDateTime.now());
         Long currentUserId = EntityUtils.getCurrentUserId();
         order.setOperatorId(currentUserId);
         order.setOperatorName(resolveUserName(currentUserId));
@@ -500,6 +512,12 @@ public class ReturnOrderServiceImpl extends ServiceImpl<ReturnOrderMapper, Retur
         dto.setRemark(order.getRemark());
         dto.setOperatorName(order.getOperatorName());
         dto.setCreatedAt(order.getCreatedTime());
+        dto.setOuterPackageCheck(order.getOuterPackageCheck());
+        dto.setAppearanceCheck(order.getAppearanceCheck());
+        dto.setReturnPersonName(order.getReturnPersonName());
+        dto.setAcceptorName(order.getAcceptorName());
+        dto.setReviewerName(order.getReviewerName());
+        dto.setReturnTime(order.getReturnTime());
 
         dto.setItems(details.stream().map(d -> {
             ReturnOrderDetailItemDto item = new ReturnOrderDetailItemDto();
@@ -524,6 +542,25 @@ public class ReturnOrderServiceImpl extends ServiceImpl<ReturnOrderMapper, Retur
     // ===================================
     // 私有工具方法
     // ===================================
+
+    /**
+     * 校验并规范化检查结果
+     * <p>检查结果仅允许“合格/不合格”，为空时默认“合格”</p>
+     *
+     * @param value     检查结果
+     * @param fieldName 字段名称（用于异常提示）
+     * @return 规范化后的检查结果
+     */
+    private String normalizeCheckResult(String value, String fieldName) {
+        if (!StringUtils.hasText(value)) {
+            return "合格";
+        }
+        String trimmed = value.trim();
+        if (!"合格".equals(trimmed) && !"不合格".equals(trimmed)) {
+            throw new RuntimeException(fieldName + "结果只能是合格或不合格");
+        }
+        return trimmed;
+    }
 
     /**
      * 汇总各出库明细的已退数量

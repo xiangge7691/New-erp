@@ -165,6 +165,37 @@ public class AcceptanceOrder extends AuditEntity {
 
     // endregion
 
+    // region 检查与人员字段
+    // ===================================
+    // 检查与人员字段
+    // ===================================
+
+    /**
+     * 外包装检查结果：合格/不合格（默认合格）
+     */
+    @TableField(value = "outer_package_check")
+    private String outerPackageCheck;
+
+    /**
+     * 性状检查结果：合格/不合格（默认合格）
+     */
+    @TableField(value = "appearance_check")
+    private String appearanceCheck;
+
+    /**
+     * 验收人姓名（前端下拉选择，存姓名文本）
+     */
+    @TableField(value = "acceptor_name")
+    private String acceptorName;
+
+    /**
+     * 审核人姓名（前端下拉选择，存姓名文本）
+     */
+    @TableField(value = "reviewer_name")
+    private String reviewerName;
+
+    // endregion
+
     // region 状态与审计字段
     // ===================================
     // 状态与审计字段

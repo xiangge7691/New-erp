@@ -168,6 +168,12 @@ public class ReturnOrderController extends BaseController {
      * {
      *   "outOrderNo": "CK-20260701-001",
      *   "remark": "生产余料退回",
+     *   "outerPackageCheck": "合格",
+     *   "appearanceCheck": "合格",
+     *   "returnPersonName": "张三",
+     *   "acceptorName": "李四",
+     *   "reviewerName": "王五",
+     *   "returnTime": "2026-10-27 10:30:00",
      *   "items": [
      *     {
      *       "inventoryKey": "Y0084_原料仓_HG20260501",
@@ -180,6 +186,12 @@ public class ReturnOrderController extends BaseController {
      *            <ul>
      *              <li>outOrderNo：关联出库单号（必填）</li>
      *              <li>remark：备注（可选）</li>
+     *              <li>outerPackageCheck：外包装检查（可选，合格/不合格，为空默认合格）</li>
+     *              <li>appearanceCheck：性状检查（可选，合格/不合格，为空默认合格）</li>
+     *              <li>returnPersonName：退库人姓名（可选，前端下拉选择）</li>
+     *              <li>acceptorName：验收人姓名（可选，前端下拉选择）</li>
+     *              <li>reviewerName：审核人姓名（可选，前端下拉选择）</li>
+     *              <li>returnTime：退库时间（可选，格式 yyyy-MM-dd HH:mm:ss，为空默认当前时间）</li>
      *              <li>items：退库物料明细（必填），每项含 inventoryKey（库存标识：编码_仓库_批号）与 returnQuantity（本次退库数量，必须大于0且不超过可退数量）</li>
      *            </ul>
      * @return ApiResponse&lt;ReturnOrder&gt; 创建后的退库单（含单号与汇总数据）

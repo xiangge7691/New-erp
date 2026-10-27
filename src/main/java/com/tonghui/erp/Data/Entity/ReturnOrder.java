@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -85,6 +86,49 @@ public class ReturnOrder extends AuditEntity {
      */
     @TableField(value = "remark")
     private String remark;
+
+    // endregion
+
+    // region 检查与人员字段
+    // ===================================
+    // 检查与人员字段
+    // ===================================
+
+    /**
+     * 外包装检查结果：合格/不合格（默认合格）
+     */
+    @TableField(value = "outer_package_check")
+    private String outerPackageCheck;
+
+    /**
+     * 性状检查结果：合格/不合格（默认合格）
+     */
+    @TableField(value = "appearance_check")
+    private String appearanceCheck;
+
+    /**
+     * 退库人姓名（前端下拉选择，存姓名文本）
+     */
+    @TableField(value = "return_person_name")
+    private String returnPersonName;
+
+    /**
+     * 验收人姓名（前端下拉选择，存姓名文本）
+     */
+    @TableField(value = "acceptor_name")
+    private String acceptorName;
+
+    /**
+     * 审核人姓名（前端下拉选择，存姓名文本）
+     */
+    @TableField(value = "reviewer_name")
+    private String reviewerName;
+
+    /**
+     * 退库时间（默认当前时间）
+     */
+    @TableField(value = "return_time")
+    private LocalDateTime returnTime;
 
     // endregion
 

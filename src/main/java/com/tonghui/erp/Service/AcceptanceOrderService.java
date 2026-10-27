@@ -48,6 +48,17 @@ public interface AcceptanceOrderService extends IService<AcceptanceOrder> {
     void updateAcceptance(AcceptanceOrder acceptance, List<AcceptanceDetail> details);
 
     /**
+     * 更新验收单主表字段（不含明细）
+     * <p>
+     * 用于自动生成的验收单补录验收人、审核人、外包装检查、性状检查等主表信息，
+     * 仅更新传入的非空字段，已入库状态禁止更新
+     * </p>
+     *
+     * @param acceptance 验收单主表实体（acceptanceId 必填）
+     */
+    void updateAcceptanceMain(AcceptanceOrder acceptance);
+
+    /**
      * 删除验收单（同时删除明细，已入库状态禁止删除）
      *
      * @param acceptanceId 验收单ID

@@ -138,6 +138,25 @@ public class AcceptanceDetail {
 
     // endregion
 
+    // region 检查结果字段
+    // ===================================
+    // 检查结果字段
+    // ===================================
+
+    /**
+     * 外包装检查结果：合格/不合格（默认合格）
+     */
+    @TableField(value = "outer_package_check")
+    private String outerPackageCheck;
+
+    /**
+     * 性状检查结果：合格/不合格（默认合格）
+     */
+    @TableField(value = "appearance_check")
+    private String appearanceCheck;
+
+    // endregion
+
     // region 退货与明细状态字段
     // ===================================
     // 退货与明细状态字段
