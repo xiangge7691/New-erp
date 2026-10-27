@@ -140,7 +140,8 @@ public class ReturnOrderServiceTest {
     @Test
     public void testQueryReturnOrders() {
         try {
-            Page<ReturnOrder> page = returnOrderService.queryReturnOrders(null, null, null, 0, 10);
+            Page<ReturnOrder> page = returnOrderService.queryReturnOrders(
+                    null, null, null, null, null, null, null, null, 0, 10);
             System.out.println("退库单总数: " + page.getTotal());
         } catch (Exception e) {
             System.err.println("测试失败: " + e.getMessage());
@@ -382,7 +383,8 @@ public class ReturnOrderServiceTest {
             orderId = order.getId();
 
             // 列表查询，断言生产计划名称被解析回填
-            Page<ReturnOrder> page = returnOrderService.queryReturnOrders(testOutCode, null, null, 0, 10);
+            Page<ReturnOrder> page = returnOrderService.queryReturnOrders(
+                    testOutCode, null, null, null, null, null, null, null, 0, 10);
             ReturnOrder hit = page.getRecords().stream()
                     .filter(r -> testOutCode.equals(r.getOutOrderNo()))
                     .findFirst().orElse(null);
@@ -399,6 +401,74 @@ public class ReturnOrderServiceTest {
         } finally {
             cleanup(stockId, outId, orderId);
             jdbcTemplate.update("DELETE FROM production_plan WHERE plan_number = ?", testPlanNo);
+        }
+    }
+
+    /**
+     * 测试按退库人/验收人/审核人与退库时间搜索退库单
+     * <p>
+     * 创建带姓名与指定退库时间的退库单，验证：
+     * 1) 姓名模糊搜索可命中；
+     * 2) 退库时间范围内可命中；
+     * 3) 退库时间范围外不命中。
+     * </p>
+     */
+    @Test
+    public void testQueryReturnOrdersByPersonAndReturnTime() {
+        Long stockId = null;
+        Long outId = null;
+        Long orderId = null;
+        try {
+            Stock stock = createStock(new BigDecimal("5.0"));
+            stockId = stock.getStockId();
+            outId = createStockOut(stock.getStockId(), new BigDecimal("3.0"));
+
+            ReturnOrderCreateDto dto = new ReturnOrderCreateDto();
+            dto.setOutOrderNo(testOutCode);
+            dto.setReturnPersonName("测试退库人");
+            dto.setAcceptorName("测试验收人");
+            dto.setReviewerName("测试审核人");
+            dto.setReturnTime(LocalDateTime.of(2026, 10, 15, 10, 30));
+            ReturnItemRequest item = new ReturnItemRequest();
+            item.setInventoryKey(TEST_ITEM_CODE + "_" + lastTestInCode);
+            item.setReturnQuantity(new BigDecimal("1.0"));
+            dto.setItems(List.of(item));
+            ReturnOrder order = returnOrderService.createReturnOrder(dto);
+            orderId = order.getId();
+            final Long createdOrderId = orderId;
+
+            // 1) 姓名模糊搜索应命中
+            Page<ReturnOrder> byPerson = returnOrderService.queryReturnOrders(
+                    null, null, null, "退库人", "验收人", "审核人", null, null, 0, 10);
+            boolean personHit = byPerson.getRecords().stream()
+                    .anyMatch(r -> createdOrderId.equals(r.getId()));
+            org.junit.jupiter.api.Assertions.assertTrue(personHit,
+                    "按退库人/验收人/审核人搜索应命中测试退库单");
+
+            // 2) 退库时间范围内应命中
+            Page<ReturnOrder> byTime = returnOrderService.queryReturnOrders(
+                    null, null, null, null, null, null,
+                    "2026-10-15 00:00:00", "2026-10-15 23:59:59", 0, 10);
+            boolean timeHit = byTime.getRecords().stream()
+                    .anyMatch(r -> createdOrderId.equals(r.getId()));
+            org.junit.jupiter.api.Assertions.assertTrue(timeHit,
+                    "按退库时间范围搜索应命中测试退库单");
+
+            // 3) 退库时间范围外不应命中
+            Page<ReturnOrder> outOfRange = returnOrderService.queryReturnOrders(
+                    null, null, null, null, null, null,
+                    "2026-10-16 00:00:00", "2026-10-16 23:59:59", 0, 10);
+            boolean outHit = outOfRange.getRecords().stream()
+                    .anyMatch(r -> createdOrderId.equals(r.getId()));
+            org.junit.jupiter.api.Assertions.assertFalse(outHit,
+                    "退库时间范围外不应命中测试退库单");
+
+            System.out.println("退库人/验收人/审核人/退库时间搜索验证通过");
+        } catch (Exception e) {
+            System.err.println("测试失败: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            cleanup(stockId, outId, orderId);
         }
     }
 

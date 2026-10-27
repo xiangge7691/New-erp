@@ -113,15 +113,23 @@ public class ReturnOrderServiceImpl extends ServiceImpl<ReturnOrderMapper, Retur
     /**
      * 分页查询退库单列表
      *
-     * @param keyword   搜索关键词（退库单号/出库单号/物料名称，可选）
-     * @param startTime 创建时间起始（可选）
-     * @param endTime   创建时间结束（可选）
-     * @param pageIndex 页码（从0开始）
-     * @param pageSize  每页数量
-     * @return 分页结果（主表信息列表）
+     * @param keyword          搜索关键词（退库单号/出库单号/物料名称，可选）
+     * @param startTime        创建时间起始（可选）
+     * @param endTime          创建时间结束（可选）
+     * @param returnPersonName 退库人姓名（可选，模糊匹配）
+     * @param acceptorName     验收人姓名（可选，模糊匹配）
+     * @param reviewerName     审核人姓名（可选，模糊匹配）
+     * @param returnTimeStart  退库时间起始（可选）
+     * @param returnTimeEnd    退库时间结束（可选）
+     * @param pageIndex        页码（从0开始）
+     * @param pageSize         每页数量
+     * @return 分页结果（主表信息列表，含退库人/验收人/审核人/退库时间）
      */
     @Override
-    public Page<ReturnOrder> queryReturnOrders(String keyword, String startTime, String endTime, int pageIndex, int pageSize) {
+    public Page<ReturnOrder> queryReturnOrders(String keyword, String startTime, String endTime,
+                                               String returnPersonName, String acceptorName, String reviewerName,
+                                               String returnTimeStart, String returnTimeEnd,
+                                               int pageIndex, int pageSize) {
         Page<ReturnOrder> page = new Page<>(pageIndex + 1, pageSize);
         QueryWrapper<ReturnOrder> wrapper = new QueryWrapper<>();
         if (StringUtils.hasText(keyword)) {
@@ -136,6 +144,23 @@ public class ReturnOrderServiceImpl extends ServiceImpl<ReturnOrderMapper, Retur
         }
         if (StringUtils.hasText(endTime)) {
             wrapper.le("created_time", endTime);
+        }
+        // 退库人/验收人/审核人模糊搜索
+        if (StringUtils.hasText(returnPersonName)) {
+            wrapper.like("return_person_name", returnPersonName);
+        }
+        if (StringUtils.hasText(acceptorName)) {
+            wrapper.like("acceptor_name", acceptorName);
+        }
+        if (StringUtils.hasText(reviewerName)) {
+            wrapper.like("reviewer_name", reviewerName);
+        }
+        // 退库时间范围查询
+        if (StringUtils.hasText(returnTimeStart)) {
+            wrapper.ge("return_time", returnTimeStart);
+        }
+        if (StringUtils.hasText(returnTimeEnd)) {
+            wrapper.le("return_time", returnTimeEnd);
         }
         wrapper.orderByDesc("created_time");
         Page<ReturnOrder> result = this.page(page, wrapper);

@@ -59,19 +59,30 @@ public class ReturnOrderController extends BaseController {
      *
      * 示例请求：
      * GET /api/warehouse/return-orders?keyword=TK-20260817&pageIndex=0&pageSize=20
+     * GET /api/warehouse/return-orders?returnPersonName=张三&acceptorName=李四&reviewerName=王五&returnTimeStart=2026-10-01 00:00:00&returnTimeEnd=2026-10-31 23:59:59&pageIndex=0&pageSize=20
      *
-     * @param keyword   搜索关键词（退库单号/出库单号/物料名称，可选）
-     * @param startTime 创建时间起始（可选，格式：yyyy-MM-dd HH:mm:ss）
-     * @param endTime   创建时间结束（可选，格式：yyyy-MM-dd HH:mm:ss）
-     * @param pageIndex 页码（从0开始）
-     * @param pageSize  每页数量（默认20）
-     * @return ApiResponse&lt;PagedResult&lt;ReturnOrder&gt;&gt; 分页结果（主表信息列表）
+     * @param keyword          搜索关键词（退库单号/出库单号/物料名称，可选）
+     * @param startTime        创建时间起始（可选，格式：yyyy-MM-dd HH:mm:ss）
+     * @param endTime          创建时间结束（可选，格式：yyyy-MM-dd HH:mm:ss）
+     * @param returnPersonName 退库人姓名（可选，模糊匹配）
+     * @param acceptorName     验收人姓名（可选，模糊匹配）
+     * @param reviewerName     审核人姓名（可选，模糊匹配）
+     * @param returnTimeStart  退库时间起始（可选，格式：yyyy-MM-dd HH:mm:ss）
+     * @param returnTimeEnd    退库时间结束（可选，格式：yyyy-MM-dd HH:mm:ss）
+     * @param pageIndex        页码（从0开始）
+     * @param pageSize         每页数量（默认20）
+     * @return ApiResponse&lt;PagedResult&lt;ReturnOrder&gt;&gt; 分页结果（主表信息列表，含退库人/验收人/审核人/退库时间）
      */
     @GetMapping
     public ApiResponse<PagedResult<ReturnOrder>> list(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String startTime,
             @RequestParam(required = false) String endTime,
+            @RequestParam(required = false) String returnPersonName,
+            @RequestParam(required = false) String acceptorName,
+            @RequestParam(required = false) String reviewerName,
+            @RequestParam(required = false) String returnTimeStart,
+            @RequestParam(required = false) String returnTimeEnd,
             @RequestParam(defaultValue = "0") int pageIndex,
             @RequestParam(defaultValue = "20") int pageSize) {
         try {
@@ -79,7 +90,10 @@ public class ReturnOrderController extends BaseController {
             int safePageSize = pageSize <= 0 ? 20 : Math.max(1, pageSize);
 
             Page<ReturnOrder> page = returnOrderService.queryReturnOrders(
-                    keyword, startTime, endTime, safePageIndex, safePageSize);
+                    keyword, startTime, endTime,
+                    returnPersonName, acceptorName, reviewerName,
+                    returnTimeStart, returnTimeEnd,
+                    safePageIndex, safePageSize);
 
             PagedResult<ReturnOrder> result = new PagedResult<>();
             result.setItems(page.getRecords());

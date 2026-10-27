@@ -22,14 +22,22 @@ public interface ReturnOrderService extends IService<ReturnOrder> {
     /**
      * 分页查询退库单列表
      *
-     * @param keyword   搜索关键词（退库单号/出库单号/物料名称，可选）
-     * @param startTime 创建时间起始（可选）
-     * @param endTime   创建时间结束（可选）
-     * @param pageIndex 页码（从0开始）
-     * @param pageSize  每页数量
-     * @return 分页结果（主表信息列表）
+     * @param keyword          搜索关键词（退库单号/出库单号/物料名称，可选）
+     * @param startTime        创建时间起始（可选）
+     * @param endTime          创建时间结束（可选）
+     * @param returnPersonName 退库人姓名（可选，模糊匹配）
+     * @param acceptorName     验收人姓名（可选，模糊匹配）
+     * @param reviewerName     审核人姓名（可选，模糊匹配）
+     * @param returnTimeStart  退库时间起始（可选，格式：yyyy-MM-dd HH:mm:ss）
+     * @param returnTimeEnd    退库时间结束（可选，格式：yyyy-MM-dd HH:mm:ss）
+     * @param pageIndex        页码（从0开始）
+     * @param pageSize         每页数量
+     * @return 分页结果（主表信息列表，含退库人/验收人/审核人/退库时间）
      */
-    Page<ReturnOrder> queryReturnOrders(String keyword, String startTime, String endTime, int pageIndex, int pageSize);
+    Page<ReturnOrder> queryReturnOrders(String keyword, String startTime, String endTime,
+                                        String returnPersonName, String acceptorName, String reviewerName,
+                                        String returnTimeStart, String returnTimeEnd,
+                                        int pageIndex, int pageSize);
 
     /**
      * 获取可退库的出库单列表
