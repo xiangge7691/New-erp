@@ -169,6 +169,16 @@ public class Preparation extends AuditEntity {
     @TableField(value = "sales_price")
     private BigDecimal salesPrice;
 
+    /**
+     * 预计成本价（元/单位）
+     * <p>
+     * 用于统计图「预估成本」：预估成本 = 预计成本价 × 工单批量。
+     * 新增时必填且不可为负；存量数据为 NULL，统计时按 0 计算。
+     * </p>
+     */
+    @TableField(value = "estimated_cost_price")
+    private BigDecimal estimatedCostPrice;
+
     // endregion
 
     // region 状态与审计字段

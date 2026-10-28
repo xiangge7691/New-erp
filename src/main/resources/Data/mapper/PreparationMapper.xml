@@ -21,6 +21,9 @@
             <result property="invoicePrice" column="invoice_price" />
             <result property="insurancePrice" column="insurance_price" />
             <result property="settlementPrice" column="settlement_price" />
+            <result property="retailPrice" column="retail_price" />
+            <result property="salesPrice" column="sales_price" />
+            <result property="estimatedCostPrice" column="estimated_cost_price" />
             <result property="status" column="status" />
             <result property="createdBy" column="created_by" />
             <result property="updatedBy" column="updated_by" />
@@ -32,6 +35,7 @@
         preparation_id,preparation_code,preparation_name,spec,process_attr,package_spec,
         record_info,function_main,method,unit_name,dosage_form,
         producer,batch_qty,invoice_price,insurance_price,settlement_price,
+        retail_price,sales_price,estimated_cost_price,
         status,created_by,updated_by,created_time,updated_time
     </sql>
 </mapper>
