@@ -13,6 +13,8 @@
         <result property="auditContent" column="audit_content"/>
         <result property="auditResult" column="audit_result"/>
         <result property="auditor" column="auditor"/>
+        <result property="socialCreditCode" column="social_credit_code"/>
+        <result property="reviewer" column="reviewer"/>
         <result property="auditCycle" column="audit_cycle"/>
         <result property="nextAuditDate" column="next_audit_date"/>
         <result property="remark" column="remark"/>
@@ -26,7 +28,7 @@
 
     <sql id="Base_Column_List">
         id,supplier_id,supplier_name,supply_type,audit_date,
-        audit_content,audit_result,auditor,audit_cycle,
+        audit_content,audit_result,auditor,social_credit_code,reviewer,audit_cycle,
         next_audit_date,remark,is_deleted,version,
         created_by,updated_by,created_time,updated_time
     </sql>

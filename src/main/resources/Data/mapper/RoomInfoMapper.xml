@@ -19,6 +19,7 @@
             <result property="disinfectionCycle" column="disinfection_cycle" />
             <result property="cleanInspectionCycle" column="clean_inspection_cycle" />
             <result property="cleaningCycle" column="cleaning_cycle" />
+            <result property="cleaningMethod" column="cleaning_method" />
             <result property="isDeleted" column="is_deleted" />
             <result property="version" column="version" />
             <result property="createdBy" column="created_by" />
@@ -30,6 +31,6 @@
     <sql id="Base_Column_List">
         room_id,room_code,room_name,room_location,area,production_type,dust_room,clean_area,
         clean_grade,remark,room_status,disinfection_cycle,clean_inspection_cycle,cleaning_cycle,
-        is_deleted,version,created_by,created_time,updated_by,updated_time
+        cleaning_method,is_deleted,version,created_by,created_time,updated_by,updated_time
     </sql>
 </mapper>

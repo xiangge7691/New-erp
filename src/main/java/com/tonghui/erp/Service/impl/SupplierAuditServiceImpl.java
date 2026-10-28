@@ -174,6 +174,16 @@ public class SupplierAuditServiceImpl extends ServiceImpl<SupplierAuditMapper, S
             wrapper.eq("audit_result", supplierAudit.getAuditResult());
         }
 
+        // 统一社会信用代码模糊匹配
+        if (StringUtils.hasText(supplierAudit.getSocialCreditCode())) {
+            wrapper.like("social_credit_code", supplierAudit.getSocialCreditCode());
+        }
+
+        // 复核人模糊匹配
+        if (StringUtils.hasText(supplierAudit.getReviewer())) {
+            wrapper.like("reviewer", supplierAudit.getReviewer());
+        }
+
         // 审核日期范围查询
         if (auditDateStart != null) {
             wrapper.ge("audit_date", auditDateStart);

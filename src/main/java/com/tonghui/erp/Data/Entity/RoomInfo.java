@@ -114,6 +114,12 @@ public class RoomInfo extends AuditEntity {
     private Integer cleaningCycle;
 
     /**
+     * 清洁方式：小清场/大清场/公区定期清洁消毒
+     */
+    @TableField(value = "cleaning_method")
+    private String cleaningMethod;
+
+    /**
      * 功能间分类（车间/仓储/检验/工程）
      */
     @TableField(value = "function_type")

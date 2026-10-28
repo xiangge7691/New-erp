@@ -145,10 +145,12 @@ public class SupplierAuditController extends BaseCrudController<SupplierAudit, S
      * - supplierId：供应商ID
      * - supplyType：供应类型
      * - auditResult：审核结果
+     * - socialCreditCode：统一社会信用代码（模糊）
+     * - reviewer：复核人（模糊）
      * - auditDateStart/End：审核日期范围
      *
      * 示例请求：
-     * GET /api/supplier-audit/search?pageIndex=0&pageSize=20&supplierId=1&auditDateStart=2026-01-01T00:00:00&auditDateEnd=2026-12-31T23:59:59
+     * GET /api/supplier-audit/search?pageIndex=0&pageSize=20&supplierId=1&socialCreditCode=91430100&reviewer=张三&auditDateStart=2026-01-01T00:00:00&auditDateEnd=2026-12-31T23:59:59
      *
      * @param supplierAudit  查询条件（自动从query参数映射）
      * @param auditDateStart 审核日期开始（可选）

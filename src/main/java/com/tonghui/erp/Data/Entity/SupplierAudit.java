@@ -86,6 +86,18 @@ public class SupplierAudit extends AuditEntity {
     @TableField(value = "auditor")
     private String auditor;
 
+    /**
+     * 统一社会信用代码
+     */
+    @TableField(value = "social_credit_code")
+    private String socialCreditCode;
+
+    /**
+     * 复核人
+     */
+    @TableField(value = "reviewer")
+    private String reviewer;
+
     // endregion
 
     // region 周期管理字段
