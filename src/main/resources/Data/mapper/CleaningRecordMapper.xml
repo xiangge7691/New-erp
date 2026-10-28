@@ -9,6 +9,7 @@
         <result property="roomId" column="room_id" />
         <result property="cleaningDate" column="cleaning_date" />
         <result property="cleaningArea" column="cleaning_area" />
+        <result property="cleaningType" column="cleaning_type" />
         <result property="cleaningMethod" column="cleaning_method" />
         <result property="cleaningPerson" column="cleaning_person" />
         <result property="cleaningCycle" column="cleaning_cycle" />
@@ -22,7 +23,7 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id,room_id,cleaning_date,cleaning_area,cleaning_method,cleaning_person,
+        id,room_id,cleaning_date,cleaning_area,cleaning_type,cleaning_method,cleaning_person,
         cleaning_cycle,next_cleaning_date,attachment,remark,created_time,updated_time,
         is_deleted,version
     </sql>

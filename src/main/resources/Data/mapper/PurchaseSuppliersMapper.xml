@@ -8,6 +8,7 @@
             <id property="id" column="id" />
             <result property="supplierNumber" column="supplier_number" />
             <result property="supplierName" column="supplier_name" />
+            <result property="socialCreditCode" column="social_credit_code" />
             <result property="category" column="category" />
             <result property="contactPerson" column="contact_person" />
             <result property="phone" column="phone" />
@@ -25,7 +26,7 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id,supplier_number,supplier_name,category,contact_person,phone,
+        id,supplier_number,supplier_name,social_credit_code,category,contact_person,phone,
         email,address,bank_account,bank_name,remark,
         status,material_info,created_by,updated_by,created_time,updated_time
     </sql>

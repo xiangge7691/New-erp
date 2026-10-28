@@ -228,10 +228,10 @@ public class PurchaseSuppliersServiceImpl extends ServiceImpl<PurchaseSuppliersM
 
     /**
      * 高级查询采购供应商（支持多条件组合查询）
-     * <p>支持按供应商编号、名称、分类、联系人、电话、邮箱、地址、银行信息、状态等条件筛选</p>
+     * <p>支持按供应商编号、名称、统一社会信用代码、分类、联系人、电话、邮箱、地址、银行信息、状态等条件筛选</p>
      *
      * @param purchaseSuppliers 查询条件实体，非null字段将作为等值或模糊查询条件
-     * @param keyword           关键字（对供应商编号、供应商名称进行模糊匹配，可选）
+     * @param keyword           关键字（对供应商编号、供应商名称、统一社会信用代码进行模糊匹配，可选）
      * @param pageNum           页码，从0开始
      * @param pageSize          每页数量
      * @return 采购供应商分页结果
@@ -244,8 +244,10 @@ public class PurchaseSuppliersServiceImpl extends ServiceImpl<PurchaseSuppliersM
         QueryWrapper<PurchaseSuppliers> wrapper = new QueryWrapper<>();
 
         if (StringUtils.hasText(keyword)) {
-            // 关键字对供应商编号、供应商名称进行模糊匹配
-            wrapper.and(w -> w.like("supplier_number", keyword).or().like("supplier_name", keyword));
+            // 关键字对供应商编号、供应商名称、统一社会信用代码进行模糊匹配
+            wrapper.and(w -> w.like("supplier_number", keyword)
+                    .or().like("supplier_name", keyword)
+                    .or().like("social_credit_code", keyword));
         }
         if (purchaseSuppliers.getId() != null) {
             wrapper.eq("id", purchaseSuppliers.getId());
@@ -255,6 +257,9 @@ public class PurchaseSuppliersServiceImpl extends ServiceImpl<PurchaseSuppliersM
         }
         if (StringUtils.hasText(purchaseSuppliers.getSupplierName())) {
             wrapper.like("supplier_name", purchaseSuppliers.getSupplierName());
+        }
+        if (StringUtils.hasText(purchaseSuppliers.getSocialCreditCode())) {
+            wrapper.like("social_credit_code", purchaseSuppliers.getSocialCreditCode());
         }
         if (StringUtils.hasText(purchaseSuppliers.getCategory())) {
             wrapper.like("category", purchaseSuppliers.getCategory());

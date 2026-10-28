@@ -39,6 +39,12 @@ public class PurchaseSuppliers extends AuditEntity {
     private String supplierName;
 
     /**
+     * 统一社会信用代码
+     */
+    @TableField(value = "social_credit_code")
+    private String socialCreditCode;
+
+    /**
      * 供应类型（原料/辅料/包材/其他）
      */
     @TableField(value = "category")

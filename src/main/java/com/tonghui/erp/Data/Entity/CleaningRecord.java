@@ -53,6 +53,12 @@ public class CleaningRecord extends AuditEntity {
     private String cleaningArea;
 
     /**
+     * 清洁类型：小清场/大清场/公共区定期清洁消毒
+     */
+    @TableField(value = "cleaning_type")
+    private String cleaningType;
+
+    /**
      * 清洁方法说明（如：擦拭、喷洒、紫外线等）
      */
     @TableField(value = "cleaning_method")

@@ -4,7 +4,6 @@ import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Room.RoomInfoWithDetailsDto;
-import com.tonghui.erp.Common.Constants.CleaningMethod;
 import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.DisinfectionRecord;
 import com.tonghui.erp.Data.Entity.RoomInfo;
@@ -36,7 +35,6 @@ import java.util.List;
  * │ 8  │ /api/room/active                     │ GET   │ 获取所有启用的房间列表              │
  * │ 9  │ /api/room/search-with-details        │ GET   │ 搜索房间（含温湿度、压差等子表）    │
  * │ 10 │ /api/room/disinfection/reminder      │ GET   │ 全局消毒到期提醒                    │
- * │ 11 │ /api/room/cleaning-methods           │ GET   │ 清洁方式下拉选项                    │
  * └────┴──────────────────────────────────────┴────────┴─────────────────────────────────────┘
  */
 @RestController
@@ -117,8 +115,7 @@ public class RoomInfoController extends BaseCrudController<RoomInfo, RoomInfo, I
      *   "location": "A栋1楼",
      *   "cleanClass": "C级",
      *   "area": 100.00,
-     *   "status": 1,
-     *   "cleaningMethod": "小清场"
+     *   "status": 1
      * }
      *
      * @param roomInfo 房间实体对象
@@ -126,8 +123,6 @@ public class RoomInfoController extends BaseCrudController<RoomInfo, RoomInfo, I
      */
     @Override
     protected RoomInfo doCreate(RoomInfo roomInfo) {
-        // 校验清洁方式取值（可空，非空仅允许小清场/大清场/公区定期清洁消毒）
-        validateCleaningMethod(roomInfo);
         // 检查房间名称是否已存在
         if (roomInfoService.getByName(roomInfo.getRoomName()) != null) {
             throw new RuntimeException("房间名称已存在");
@@ -160,8 +155,7 @@ public class RoomInfoController extends BaseCrudController<RoomInfo, RoomInfo, I
      * Content-Type: application/json
      * {
      *   "roomName": "1号洁净车间（更新）",
-     *   "location": "A栋1楼（更新）",
-     *   "cleaningMethod": "大清场"
+     *   "location": "A栋1楼（更新）"
      * }
      *
      * @param id 房间ID
@@ -170,8 +164,6 @@ public class RoomInfoController extends BaseCrudController<RoomInfo, RoomInfo, I
      */
     @Override
     protected RoomInfo doUpdate(Integer id, RoomInfo roomInfo) {
-        // 校验清洁方式取值（可空，非空仅允许小清场/大清场/公区定期清洁消毒）
-        validateCleaningMethod(roomInfo);
         RoomInfo existing = roomInfoService.getById(id);
         if (existing == null) {
             throw new RuntimeException("房间不存在");
@@ -215,49 +207,12 @@ public class RoomInfoController extends BaseCrudController<RoomInfo, RoomInfo, I
         return roomInfoService.removeById(id);
     }
 
-    /**
-     * 校验并规范化清洁方式
-     * <p>
-     * 允许为空；非空时必须是“小清场/大清场/公区定期清洁消毒”之一，前后空格会被去除
-     * </p>
-     *
-     * @param roomInfo 房间实体对象
-     */
-    private void validateCleaningMethod(RoomInfo roomInfo) {
-        String method = roomInfo.getCleaningMethod();
-        if (method == null || method.isBlank()) {
-            roomInfo.setCleaningMethod(null);
-            return;
-        }
-        method = method.trim();
-        if (!CleaningMethod.isValid(method)) {
-            throw new RuntimeException("清洁方式不合法，仅支持：" + String.join("/", CleaningMethod.ALL));
-        }
-        roomInfo.setCleaningMethod(method);
-    }
-
     // endregion
 
     // region 高级查询接口
     // ===================================
     // 高级查询接口
     // ===================================
-
-    /**
-     * 获取房间清洁方式选项
-     * <p>
-     * 供前端下拉选择使用，返回：小清场/大清场/公区定期清洁消毒
-     * </p>
-     *
-     * 示例请求：
-     * GET /api/room/cleaning-methods
-     *
-     * @return ApiResponse&lt;List&lt;String&gt;&gt; 清洁方式选项列表
-     */
-    @GetMapping("/cleaning-methods")
-    public ApiResponse<List<String>> listCleaningMethods() {
-        return success(CleaningMethod.ALL);
-    }
 
     /**
      * 搜索房间

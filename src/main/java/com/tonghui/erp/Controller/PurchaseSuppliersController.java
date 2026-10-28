@@ -147,6 +147,7 @@ public class PurchaseSuppliersController extends BaseCrudController<PurchaseSupp
      * 可选查询条件：
      * - supplierNumber：供应商编号（模糊匹配）
      * - supplierName：供应商名称（模糊匹配）
+     * - socialCreditCode：统一社会信用代码（模糊匹配）
      * - category：供应商分类（模糊匹配）
      * - contactPerson：联系人（模糊匹配）
      * - phone：联系电话（模糊匹配）
@@ -160,7 +161,7 @@ public class PurchaseSuppliersController extends BaseCrudController<PurchaseSupp
      * GET /api/purchase-suppliers/search?pageIndex=1&pageSize=20&keyword=原料&contactPerson=张&status=1
      *
      * @param purchaseSuppliers 查询条件（自动从query参数映射）
-     * @param keyword           关键字（对供应商编号、供应商名称进行模糊匹配，可选）
+     * @param keyword           关键字（对供应商编号、供应商名称、统一社会信用代码进行模糊匹配，可选）
      * @param pageIndex         页码
      * @param pageSize          每页大小
      * @return 分页结果
@@ -208,7 +209,7 @@ public class PurchaseSuppliersController extends BaseCrudController<PurchaseSupp
      * GET /api/purchase-suppliers/search-with-details?pageIndex=1&pageSize=20&keyword=原料
      *
      * @param purchaseSuppliers 查询条件（自动从query参数映射）
-     * @param keyword           关键字（对供应商编号、供应商名称进行模糊匹配，可选）
+     * @param keyword           关键字（对供应商编号、供应商名称、统一社会信用代码进行模糊匹配，可选）
      * @param pageIndex         页码
      * @param pageSize          每页大小
      * @return 分页结果（包含子表信息）

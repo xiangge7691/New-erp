@@ -2,6 +2,7 @@ package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Constants.CleaningType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.CleaningRecord;
@@ -30,16 +31,34 @@ public class CleaningRecordController extends BaseRoomRecordController<CleaningR
     @Autowired
     private SystemConfigService systemConfigService;
 
+    /**
+     * 分页查询清洁记录
+     *
+     * 示例请求：
+     * GET /api/cleaningRecord?pageIndex=1&pageSize=20&roomId=1&cleaningType=小清场&startDate=2026-01-01&endDate=2026-12-31
+     *
+     * @param roomId       房间ID（可选）
+     * @param roomName     房间名称（可选，模糊匹配）
+     * @param roomCode     房间编码（可选，模糊匹配）
+     * @param cleaningType 清洁类型（可选，精确匹配）
+     * @param startDate    清洁日期开始（可选）
+     * @param endDate      清洁日期结束（可选）
+     * @param pageIndex    页码
+     * @param pageSize     每页大小
+     * @return 清洁记录分页结果
+     */
     @GetMapping
     public ApiResponse<PagedResult<CleaningRecord>> getAll(
             @RequestParam(required = false) Long roomId,
             @RequestParam(required = false) String roomName,
             @RequestParam(required = false) String roomCode,
+            @RequestParam(required = false) String cleaningType,
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate,
             @RequestParam(defaultValue = "1") int pageIndex,
             @RequestParam(defaultValue = "20") int pageSize) {
         try {
+            String normalizedCleaningType = CleaningType.normalize(cleaningType);
             if (roomName != null || roomCode != null) {
                 List<Integer> roomIds = findRoomIds(roomName, roomCode);
                 if (roomIds.isEmpty()) {
@@ -56,6 +75,7 @@ public class CleaningRecordController extends BaseRoomRecordController<CleaningR
                 wrapper.in("room_id", roomIds);
                 if (startDate != null) wrapper.ge("cleaning_date", startDate);
                 if (endDate != null) wrapper.le("cleaning_date", endDate);
+                if (normalizedCleaningType != null) wrapper.eq("cleaning_type", normalizedCleaningType);
                 wrapper.orderByDesc("cleaning_date");
                 Page<CleaningRecord> page = new Page<>(pageIndex, pageSize);
                 cleaningRecordService.page(page, wrapper);
@@ -69,6 +89,7 @@ public class CleaningRecordController extends BaseRoomRecordController<CleaningR
             if (roomId != null) wrapper.eq("room_id", roomId);
             if (startDate != null) wrapper.ge("cleaning_date", startDate);
             if (endDate != null) wrapper.le("cleaning_date", endDate);
+            if (normalizedCleaningType != null) wrapper.eq("cleaning_type", normalizedCleaningType);
             wrapper.orderByDesc("cleaning_date");
             Page<CleaningRecord> page = new Page<>(pageIndex, pageSize);
             cleaningRecordService.page(page, wrapper);
@@ -100,8 +121,28 @@ public class CleaningRecordController extends BaseRoomRecordController<CleaningR
         return success(list);
     }
 
+    /**
+     * 新增清洁记录
+     *
+     * 示例请求：
+     * POST /api/cleaningRecord
+     * Content-Type: application/json
+     * {
+     *   "roomId": 1,
+     *   "cleaningDate": "2026-10-28",
+     *   "cleaningArea": "洁净区",
+     *   "cleaningType": "小清场",
+     *   "cleaningMethod": "纯化水擦拭",
+     *   "cleaningPerson": "张三",
+     *   "cleaningCycle": 7
+     * }
+     *
+     * @param record 清洁记录实体
+     * @return 新增后的清洁记录
+     */
     @PostMapping
     public ApiResponse<CleaningRecord> create(@RequestBody CleaningRecord record) {
+        validateCleaningType(record);
         if (record.getCleaningDate() != null && record.getCleaningCycle() != null
                 && record.getNextCleaningDate() == null) {
             record.setNextCleaningDate(record.getCleaningDate().plusDays(record.getCleaningCycle()));
@@ -110,10 +151,26 @@ public class CleaningRecordController extends BaseRoomRecordController<CleaningR
         return success(record, "新增成功");
     }
 
+    /**
+     * 修改清洁记录
+     *
+     * 示例请求：
+     * PUT /api/cleaningRecord/1
+     * Content-Type: application/json
+     * {
+     *   "cleaningType": "大清场",
+     *   "cleaningPerson": "李四"
+     * }
+     *
+     * @param id     清洁记录ID
+     * @param record 清洁记录实体
+     * @return 修改后的清洁记录
+     */
     @PutMapping("/{id}")
     public ApiResponse<CleaningRecord> update(@PathVariable Long id, @RequestBody CleaningRecord record) {
         CleaningRecord existing = cleaningRecordService.getById(id);
         if (existing == null) return error("记录不存在");
+        validateCleaningType(record);
         record.setId(id);
         cleaningRecordService.updateById(record);
         return success(record, "修改成功");
@@ -125,5 +182,39 @@ public class CleaningRecordController extends BaseRoomRecordController<CleaningR
         if (existing == null) return error("记录不存在");
         cleaningRecordService.removeById(id);
         return success(null, "删除成功");
+    }
+
+    /**
+     * 获取清洁类型选项
+     *
+     * 示例请求：
+     * GET /api/cleaningRecord/cleaning-types
+     *
+     * @return 清洁类型选项列表：小清场/大清场/公共区定期清洁消毒
+     */
+    @GetMapping("/cleaning-types")
+    public ApiResponse<List<String>> listCleaningTypes() {
+        return success(CleaningType.ALL);
+    }
+
+    /**
+     * 校验并规范化清洁类型
+     * <p>
+     * 允许为空；非空时必须是“小清场/大清场/公共区定期清洁消毒”之一，
+     * 历史取值“公区定期清洁消毒”会统一转换为“公共区定期清洁消毒”
+     * </p>
+     *
+     * @param record 清洁记录实体
+     */
+    private void validateCleaningType(CleaningRecord record) {
+        String cleaningType = CleaningType.normalize(record.getCleaningType());
+        if (cleaningType == null) {
+            record.setCleaningType(null);
+            return;
+        }
+        if (!CleaningType.isValid(cleaningType)) {
+            throw new RuntimeException("清洁类型不合法，仅支持：" + String.join("/", CleaningType.ALL));
+        }
+        record.setCleaningType(cleaningType);
     }
 }
