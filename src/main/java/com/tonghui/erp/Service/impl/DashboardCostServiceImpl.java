@@ -286,10 +286,10 @@ public class DashboardCostServiceImpl implements DashboardCostService {
      */
     private DashboardMetricsDto.EstimatedCostCardDto buildEstimatedCostCard(CostData data) {
         DashboardMetricsDto.EstimatedCostCardDto card = new DashboardMetricsDto.EstimatedCostCardDto();
-        card.setAmount(DashboardCalcUtils.money(data.estimatedTotal));
+        card.setEstimatedCost(DashboardCalcUtils.money(data.estimatedTotal));
         card.setBatchCount(data.inRangeWorkOrders.size());
         card.setBatchQty(DashboardCalcUtils.money(data.batchQtyTotal));
-        card.setUnitCost(data.batchQtyTotal.signum() == 0 ? null
+        card.setEstimatedCostPrice(data.batchQtyTotal.signum() == 0 ? null
             : DashboardCalcUtils.money(data.estimatedTotal.divide(data.batchQtyTotal, 2, RoundingMode.HALF_UP)));
         card.setRatioOfOutput(DashboardCalcUtils.percent(data.estimatedTotal, data.outputTotal));
         card.setMomRate(calcMomRate(data.estimatedByMonth));
@@ -313,7 +313,7 @@ public class DashboardCostServiceImpl implements DashboardCostService {
         BigDecimal estimated = DashboardCalcUtils.money(data.estimatedTotal);
 
         DashboardMetricsDto.ActualCostCardDto card = new DashboardMetricsDto.ActualCostCardDto();
-        card.setAmount(actual);
+        card.setActualCost(actual);
         card.setMaterialAmount(material);
         card.setWaterAmount(water);
         card.setElectricityAmount(electricity);
@@ -337,9 +337,11 @@ public class DashboardCostServiceImpl implements DashboardCostService {
         BigDecimal actual = DashboardCalcUtils.money(data.actualTotal);
 
         DashboardMetricsDto.OutputValueCardDto card = new DashboardMetricsDto.OutputValueCardDto();
-        card.setAmount(DashboardCalcUtils.money(data.outputTotal));
+        card.setOutputValue(DashboardCalcUtils.money(data.outputTotal));
         card.setBatchCount(data.inRangeWorkOrders.size());
         card.setBatchQty(DashboardCalcUtils.money(data.batchQtyTotal));
+        card.setUnitValue(data.batchQtyTotal.signum() == 0 ? null
+            : DashboardCalcUtils.money(data.outputTotal.divide(data.batchQtyTotal, 2, RoundingMode.HALF_UP)));
         card.setMomRate(calcMomRate(data.outputByMonth));
         card.setEstimatedCostRatio(DashboardCalcUtils.percent(estimated, data.outputTotal));
         card.setActualCostRatio(DashboardCalcUtils.percent(actual, data.outputTotal));

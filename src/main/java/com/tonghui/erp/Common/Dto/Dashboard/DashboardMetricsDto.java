@@ -87,7 +87,7 @@ public class DashboardMetricsDto {
     public static class EstimatedCostCardDto {
 
         /** 预估成本合计（元） */
-        private BigDecimal amount;
+        private BigDecimal estimatedCost;
 
         /** 参与核算的批次数（工单数） */
         private Integer batchCount;
@@ -95,8 +95,8 @@ public class DashboardMetricsDto {
         /** 批量合计（件） */
         private BigDecimal batchQty;
 
-        /** 单位成本（元/件）= 预估成本 ÷ 批量合计 */
-        private BigDecimal unitCost;
+        /** 平均预计成本价（元/件）= 预估成本 ÷ 批量合计 */
+        private BigDecimal estimatedCostPrice;
 
         /** 占预估产值比例（%） */
         private BigDecimal ratioOfOutput;
@@ -118,8 +118,8 @@ public class DashboardMetricsDto {
     @Data
     public static class ActualCostCardDto {
 
-        /** 实际成本合计（元） */
-        private BigDecimal amount;
+        /** 实际成本合计（元）= 物料 + 水 + 电 + 气 */
+        private BigDecimal actualCost;
 
         /** 物料成本（元）= 出库金额 − 退库冲减 */
         private BigDecimal materialAmount;
@@ -154,13 +154,16 @@ public class DashboardMetricsDto {
     public static class OutputValueCardDto {
 
         /** 预估产值合计（元） */
-        private BigDecimal amount;
+        private BigDecimal outputValue;
 
         /** 批次数（工单数） */
         private Integer batchCount;
 
         /** 批量合计（件） */
         private BigDecimal batchQty;
+
+        /** 单位产值（元/件）= 预估产值 ÷ 批量合计 */
+        private BigDecimal unitValue;
 
         /** 环比（%） */
         private BigDecimal momRate;
@@ -207,6 +210,12 @@ public class DashboardMetricsDto {
         /** 计划量合计（件） */
         private BigDecimal planQuantity;
 
+        /** 已交付量合计（件） */
+        private BigDecimal deliveredQuantity;
+
+        /** 待生产量合计（件）= Σ max(计划量 − 已交付量, 0) */
+        private BigDecimal pendingQuantity;
+
         /** 平均单张计划量（件/张） */
         private BigDecimal avgQuantity;
 
@@ -223,8 +232,8 @@ public class DashboardMetricsDto {
         /** 已交付工单数（张） */
         private Integer workOrderCount;
 
-        /** 交付量合计（件） */
-        private BigDecimal deliveryQuantity;
+        /** 批量合计（件） */
+        private BigDecimal batchQty;
 
         /** 计划量交付率（%）= 交付量 ÷ 区间内计划量 */
         private BigDecimal deliveryRate;
@@ -241,6 +250,12 @@ public class DashboardMetricsDto {
 
         /** 待生产计划单数（张） */
         private Integer planCount;
+
+        /** 计划量合计（件），仅统计待生产的计划单 */
+        private BigDecimal planQuantity;
+
+        /** 已交付量合计（件），仅统计待生产的计划单 */
+        private BigDecimal deliveredQuantity;
 
         /** 待生产量合计（件）= Σ max(计划量 − 已交付量, 0) */
         private BigDecimal pendingQuantity;

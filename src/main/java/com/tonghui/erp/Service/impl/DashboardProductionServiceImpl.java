@@ -227,6 +227,8 @@ public class DashboardProductionServiceImpl implements DashboardProductionServic
         DashboardMetricsDto.TotalPlanCardDto card = new DashboardMetricsDto.TotalPlanCardDto();
         card.setPlanCount(data.plans.size());
         card.setPlanQuantity(DashboardCalcUtils.money(data.planQtyTotal));
+        card.setDeliveredQuantity(DashboardCalcUtils.money(data.planDeliveredQtyTotal));
+        card.setPendingQuantity(DashboardCalcUtils.money(data.planPendingQtyTotal));
         card.setAvgQuantity(data.plans.isEmpty() ? null
             : DashboardCalcUtils.money(data.planQtyTotal.divide(
                 BigDecimal.valueOf(data.plans.size()), 2, RoundingMode.HALF_UP)));
@@ -243,7 +245,7 @@ public class DashboardProductionServiceImpl implements DashboardProductionServic
     private DashboardMetricsDto.DeliveryCardDto buildDeliveryCard(ProductionData data) {
         DashboardMetricsDto.DeliveryCardDto card = new DashboardMetricsDto.DeliveryCardDto();
         card.setWorkOrderCount(data.deliveredWorkOrders.size());
-        card.setDeliveryQuantity(DashboardCalcUtils.money(data.deliveryQtyTotal));
+        card.setBatchQty(DashboardCalcUtils.money(data.deliveryQtyTotal));
         card.setDeliveryRate(DashboardCalcUtils.percent(data.deliveryQtyTotal, data.planQtyTotal));
         card.setFullyDeliveredPlanCount(data.fullyDeliveredPlanCount);
         return card;
@@ -258,6 +260,8 @@ public class DashboardProductionServiceImpl implements DashboardProductionServic
     private DashboardMetricsDto.PendingCardDto buildPendingCard(ProductionData data) {
         DashboardMetricsDto.PendingCardDto card = new DashboardMetricsDto.PendingCardDto();
         card.setPlanCount(data.pendingPlans.size());
+        card.setPlanQuantity(DashboardCalcUtils.money(data.pendingPlanQtyTotal));
+        card.setDeliveredQuantity(DashboardCalcUtils.money(data.pendingDeliveredQtyTotal));
         card.setPendingQuantity(DashboardCalcUtils.money(data.pendingQtyTotal));
         card.setRatioOfPlan(DashboardCalcUtils.percent(data.pendingQtyTotal, data.planQtyTotal));
         card.setPreparationCount(data.pendingPreparationCount);
@@ -325,6 +329,8 @@ public class DashboardProductionServiceImpl implements DashboardProductionServic
             }
 
             data.planQtyTotal = data.planQtyTotal.add(planQty);
+            data.planDeliveredQtyTotal = data.planDeliveredQtyTotal.add(deliveredQty);
+            data.planPendingQtyTotal = data.planPendingQtyTotal.add(pendingQty);
             String month = DashboardCalcUtils.monthOf(plan.getPlanProductionTime());
             data.planQtyByMonth.merge(month, planQty, BigDecimal::add);
             if (StringUtils.hasText(plan.getPreparationCode())) {
@@ -360,6 +366,8 @@ public class DashboardProductionServiceImpl implements DashboardProductionServic
                 data.pendingPlans.add(pendingPlan);
 
                 data.pendingQtyTotal = data.pendingQtyTotal.add(pendingQty);
+                data.pendingPlanQtyTotal = data.pendingPlanQtyTotal.add(planQty);
+                data.pendingDeliveredQtyTotal = data.pendingDeliveredQtyTotal.add(deliveredQty);
                 data.pendingQtyByMonth.merge(month, pendingQty, BigDecimal::add);
                 if (data.maxOverdueDays == null || pendingPlan.overdueDays > data.maxOverdueDays) {
                     data.maxOverdueDays = pendingPlan.overdueDays;
@@ -514,6 +522,18 @@ public class DashboardProductionServiceImpl implements DashboardProductionServic
 
         /** 待生产量合计 */
         private BigDecimal pendingQtyTotal = BigDecimal.ZERO;
+
+        /** 区间内计划的已交付量合计（对应总计划量卡片的 deliveredQuantity） */
+        private BigDecimal planDeliveredQtyTotal = BigDecimal.ZERO;
+
+        /** 区间内计划的待生产量合计（对应总计划量卡片的 pendingQuantity） */
+        private BigDecimal planPendingQtyTotal = BigDecimal.ZERO;
+
+        /** 待生产计划的计划量合计 */
+        private BigDecimal pendingPlanQtyTotal = BigDecimal.ZERO;
+
+        /** 待生产计划的已交付量合计 */
+        private BigDecimal pendingDeliveredQtyTotal = BigDecimal.ZERO;
 
         /** 覆盖制剂品种数 */
         private int planPreparationCount;
