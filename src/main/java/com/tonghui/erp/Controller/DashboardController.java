@@ -37,6 +37,7 @@ import java.util.stream.Collectors;
  * │ 5  │ /api/dashboard/order-tracking                │ GET   │ 订单跟踪看板                        │
  * │ 6  │ /api/dashboard/charts                        │ GET   │ 图表数据                            │
  * │ 7  │ /api/dashboard/material-funds/details        │ GET   │ 原辅包物料级明细                    │
+ * │ 8  │ /api/dashboard/details/tree                  │ GET   │ 明细下钻（月份→制剂→批次）           │
  * └────┴──────────────────────────────────────────────┴────────┴─────────────────────────────────────┘
  */
 @RestController
@@ -69,6 +70,10 @@ public class DashboardController extends BaseController {
     /** 原辅包资金统计服务 */
     @Autowired
     private DashboardMaterialFundService dashboardMaterialFundService;
+
+    /** 明细下钻服务（月份 → 制剂 → 批次） */
+    @Autowired
+    private DashboardTreeService dashboardTreeService;
 
     @Autowired
     private ProductionPlanService productionPlanService;
@@ -251,7 +256,7 @@ public class DashboardController extends BaseController {
      * @return 对应卡片的汇总与全量明细
      */
     @GetMapping("/metrics/details")
-    public ApiResponse<Object> getMetricsDetails(
+    public ApiResponse<CardDetailDto<?, DashboardDetailRowDto>> getMetricsDetails(
             @RequestParam String card,
             @RequestParam(required = false) String startMonth,
             @RequestParam(required = false) String endMonth) {
@@ -259,22 +264,48 @@ public class DashboardController extends BaseController {
             if (!StringUtils.hasText(card)) {
                 return error("card 不能为空");
             }
-            switch (card) {
-                case "estimatedCost":
-                    return success(dashboardCostService.getEstimatedCostDetails(startMonth, endMonth));
-                case "actualCost":
-                    return success(dashboardCostService.getActualCostDetails(startMonth, endMonth));
-                case "outputValue":
-                    return success(dashboardCostService.getOutputValueDetails(startMonth, endMonth));
-                case "totalPlan":
-                    return success(dashboardProductionService.getTotalPlanDetails(startMonth, endMonth));
-                case "delivery":
-                    return success(dashboardProductionService.getDeliveryDetails(startMonth, endMonth));
-                case "pending":
-                    return success(dashboardProductionService.getPendingDetails(startMonth, endMonth));
-                default:
-                    return error("不支持的 card 类型：" + card);
+            // 各卡片 totals 类型不同，统一收敛到通配符类型；只调用一次 success，便于接口文档插件解析返回结构
+            CardDetailDto<?, DashboardDetailRowDto> detail;
+            if ("estimatedCost".equals(card)) {
+                detail = dashboardCostService.getEstimatedCostDetails(startMonth, endMonth);
+            } else if ("actualCost".equals(card)) {
+                detail = dashboardCostService.getActualCostDetails(startMonth, endMonth);
+            } else if ("outputValue".equals(card)) {
+                detail = dashboardCostService.getOutputValueDetails(startMonth, endMonth);
+            } else if ("totalPlan".equals(card)) {
+                detail = dashboardProductionService.getTotalPlanDetails(startMonth, endMonth);
+            } else if ("delivery".equals(card)) {
+                detail = dashboardProductionService.getDeliveryDetails(startMonth, endMonth);
+            } else if ("pending".equals(card)) {
+                detail = dashboardProductionService.getPendingDetails(startMonth, endMonth);
+            } else {
+                return error("不支持的 card 类型：" + card);
             }
+            return success(detail);
+        } catch (Exception e) {
+            return exception(e, "操作");
+        }
+    }
+
+    /**
+     * 成本与生产明细树（月份 → 制剂 → 批次，一次返回整棵树）
+     *
+     * 示例请求：
+     * GET /api/dashboard/details/tree?startMonth=2026-08&endMonth=2026-10
+     *
+     * 各层级金额单位均为「元」（前端按万元展示时除以 10000），交付量单位「件」。
+     * 月份级合计与 /api/dashboard/metrics 对应卡片数值一致，可直接作为合计行使用。
+     *
+     * @param startMonth 起始月份（格式：2026-08，可空）
+     * @param endMonth   结束月份（格式：2026-10，可空）
+     * @return 区间合计 + 月份节点 + 制剂节点 + 批次节点
+     */
+    @GetMapping("/details/tree")
+    public ApiResponse<DashboardTreeDto> getDetailTree(
+            @RequestParam(required = false) String startMonth,
+            @RequestParam(required = false) String endMonth) {
+        try {
+            return success(dashboardTreeService.getDetailTree(startMonth, endMonth));
         } catch (Exception e) {
             return exception(e, "操作");
         }
