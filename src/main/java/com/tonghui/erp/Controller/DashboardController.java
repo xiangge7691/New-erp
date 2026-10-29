@@ -6,17 +6,17 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.ProductionPlanWithRecordsDto;
 import com.tonghui.erp.Common.Dto.Dashboard.*;
 import com.tonghui.erp.Common.Dto.System.DashboardExpiryConfigDto;
+import com.tonghui.erp.Common.utils.DashboardCalcUtils;
 import com.tonghui.erp.Data.Entity.*;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
-import com.tonghui.erp.Data.mapper.StockInDetailMapper;
 import com.tonghui.erp.Service.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -27,15 +27,17 @@ import java.util.stream.Collectors;
  * 首页仪表盘控制器
  *
  * 接口清单：
- * ┌────┬──────────────────────────────────────┬────────┬─────────────────────────────────────┐
- * │ #  │ 接口                                 │ 方法   │ 说明                                │
- * ├────┼──────────────────────────────────────┼────────┼─────────────────────────────────────┤
- * │ 1  │ /api/dashboard/summary               │ GET   │ 获取首页汇总数据                    │
- * │ 2  │ /api/dashboard/metrics               │ GET   │ 核心指标卡片数据                    │
- * │ 3  │ /api/dashboard/todos                 │ GET   │ 待办事项列表                        │
- * │ 4  │ /api/dashboard/order-tracking        │ GET   │ 订单跟踪看板                        │
- * │ 5  │ /api/dashboard/charts                │ GET   │ 图表数据                            │
- * └────┴──────────────────────────────────────┴────────┴─────────────────────────────────────┘
+ * ┌────┬──────────────────────────────────────────────┬────────┬─────────────────────────────────────┐
+ * │ #  │ 接口                                         │ 方法   │ 说明                                │
+ * ├────┼──────────────────────────────────────────────┼────────┼─────────────────────────────────────┤
+ * │ 1  │ /api/dashboard/summary                       │ GET   │ 获取首页汇总数据                    │
+ * │ 2  │ /api/dashboard/metrics                       │ GET   │ 核心指标卡片（成本三卡 + 生产三卡）  │
+ * │ 3  │ /api/dashboard/metrics/details               │ GET   │ 卡片明细（全量不分页）               │
+ * │ 4  │ /api/dashboard/todos                         │ GET   │ 待办事项列表                        │
+ * │ 5  │ /api/dashboard/order-tracking                │ GET   │ 订单跟踪看板                        │
+ * │ 6  │ /api/dashboard/charts                        │ GET   │ 图表数据                            │
+ * │ 7  │ /api/dashboard/material-funds/details        │ GET   │ 原辅包物料级明细                    │
+ * └────┴──────────────────────────────────────────────┴────────┴─────────────────────────────────────┘
  */
 @RestController
 @RequestMapping("/api/dashboard")
@@ -46,10 +48,27 @@ public class DashboardController extends BaseController {
      */
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
+    /**
+     * 原辅包资金明细支持的查询类型
+     */
+    private static final List<String> MATERIAL_FUND_TYPES = List.of("inbound", "outbound", "stock");
+
     // region 服务依赖注入
     // ===================================
     // 服务依赖注入
     // ===================================
+
+    /** 成本核算统计服务 */
+    @Autowired
+    private DashboardCostService dashboardCostService;
+
+    /** 生产统计服务 */
+    @Autowired
+    private DashboardProductionService dashboardProductionService;
+
+    /** 原辅包资金统计服务 */
+    @Autowired
+    private DashboardMaterialFundService dashboardMaterialFundService;
 
     @Autowired
     private ProductionPlanService productionPlanService;
@@ -98,9 +117,6 @@ public class DashboardController extends BaseController {
 
     @Autowired
     private OrganizationService organizationService;
-
-    @Autowired
-    private StockInDetailMapper stockInDetailMapper;
 
     /** 生产单位数据访问层，用于库存预警仓库名称映射 */
     @Autowired
@@ -190,7 +206,7 @@ public class DashboardController extends BaseController {
      *
      * @param startMonth 起始月份（格式：2026-01）
      * @param endMonth   结束月份（格式：2026-06）
-     * @return 核心指标数据，包含预估产值、总订单量、总交付量、总采购额、待生产数量
+     * @return 核心指标数据，包含成本核算三卡与生产三卡
      */
     @GetMapping("/metrics")
     public ApiResponse<DashboardMetricsDto> getMetrics(
@@ -199,49 +215,66 @@ public class DashboardController extends BaseController {
         try {
             DashboardMetricsDto metrics = new DashboardMetricsDto();
 
-            // 预估产值：生产任务按配置日期筛选，total_amount 求和
-            QueryWrapper<WorkOrder> woConfigWrapper = buildWorkOrderConfigDateWrapper(startMonth, endMonth);
-            List<WorkOrder> workOrders = workOrderService.list(woConfigWrapper);
-            double estimatedValue = workOrders.stream()
-                .filter(wo -> wo.getTotalAmount() != null)
-                .mapToDouble(wo -> wo.getTotalAmount().doubleValue())
-                .sum();
-            metrics.setEstimatedOutputValue(new MetricsItem<>(
-                BigDecimal.valueOf(Math.round(estimatedValue * 100.0) / 100.0),
-                toWorkOrderMetricDetails(workOrders)));
+            // 查询区间
+            DashboardMetricsDto.RangeDto range = new DashboardMetricsDto.RangeDto();
+            range.setStartMonth(startMonth);
+            range.setEndMonth(endMonth);
+            range.setMonths(DashboardCalcUtils.expandMonths(startMonth, endMonth));
+            metrics.setRange(range);
 
-            // 总订单量：生产计划按计划生产时间筛选，COUNT
-            QueryWrapper<ProductionPlan> planWrapper = buildPlanProductionTimeWrapper(startMonth, endMonth);
-            List<ProductionPlan> allPlans = productionPlanService.list(planWrapper);
-            metrics.setTotalOrders(new MetricsItem<>((long) allPlans.size(),
-                toPlanMetricDetails(allPlans)));
+            // 成本核算三卡
+            metrics.setCost(dashboardCostService.getCostMetrics(startMonth, endMonth));
 
-            // 总交付量：生产任务已生产及之后的状态（已生产/检验中/已检验/已放行/已入库/已归档，排除作废），
-            // 即 config_complete_time 有值且未作废，按配置日期筛选，COUNT
-            QueryWrapper<WorkOrder> deliveryWrapper = buildWorkOrderProductionCompleteWrapper(startMonth, endMonth);
-            List<WorkOrder> deliveredOrders = workOrderService.list(deliveryWrapper);
-            metrics.setTotalDeliveries(new MetricsItem<>((long) deliveredOrders.size(),
-                toWorkOrderMetricDetails(deliveredOrders)));
-
-            // 总采购额：入库管理按入库时间筛选，total_amount 求和
-            QueryWrapper<StockIn> stockInWrapper = buildStockInTimeWrapper(startMonth, endMonth);
-            List<StockIn> stockIns = stockInService.list(stockInWrapper);
-            double purchaseAmount = stockIns.stream()
-                .filter(s -> s.getTotalAmount() != null)
-                .mapToDouble(s -> s.getTotalAmount().doubleValue())
-                .sum();
-            metrics.setTotalPurchaseAmount(new MetricsItem<>(
-                BigDecimal.valueOf(Math.round(purchaseAmount * 100.0) / 100.0),
-                toStockInMetricDetails(stockIns)));
-
-            // 待生产数量：生产计划进度=待生产，按计划生产时间筛选，COUNT
-            QueryWrapper<ProductionPlan> pendingWrapper = buildPlanProductionTimeWrapper(startMonth, endMonth);
-            pendingWrapper.eq("current_status", "待生产");
-            List<ProductionPlan> pendingPlans = productionPlanService.list(pendingWrapper);
-            metrics.setPendingProduction(new MetricsItem<>((long) pendingPlans.size(),
-                toPlanMetricDetails(pendingPlans)));
+            // 生产三卡
+            metrics.setProduction(dashboardProductionService.getProductionMetrics(startMonth, endMonth));
 
             return success(metrics);
+        } catch (Exception e) {
+            return exception(e, "操作");
+        }
+    }
+
+    /**
+     * 卡片明细（全量，不分页）
+     *
+     * 示例请求：
+     * GET /api/dashboard/metrics/details?card=estimatedCost&startMonth=2026-05&endMonth=2026-10
+     * GET /api/dashboard/metrics/details?card=actualCost&startMonth=2026-05&endMonth=2026-10
+     * GET /api/dashboard/metrics/details?card=outputValue&startMonth=2026-05&endMonth=2026-10
+     * GET /api/dashboard/metrics/details?card=totalPlan&startMonth=2026-05&endMonth=2026-10
+     * GET /api/dashboard/metrics/details?card=delivery&startMonth=2026-05&endMonth=2026-10
+     * GET /api/dashboard/metrics/details?card=pending&startMonth=2026-05&endMonth=2026-10
+     *
+     * @param card       卡片标识：estimatedCost / actualCost / outputValue / totalPlan / delivery / pending
+     * @param startMonth 起始月份（格式：2026-05）
+     * @param endMonth   结束月份（格式：2026-10）
+     * @return 对应卡片的汇总与全量明细
+     */
+    @GetMapping("/metrics/details")
+    public ApiResponse<Object> getMetricsDetails(
+            @RequestParam String card,
+            @RequestParam(required = false) String startMonth,
+            @RequestParam(required = false) String endMonth) {
+        try {
+            if (!StringUtils.hasText(card)) {
+                return error("card 不能为空");
+            }
+            switch (card) {
+                case "estimatedCost":
+                    return success(dashboardCostService.getEstimatedCostDetails(startMonth, endMonth));
+                case "actualCost":
+                    return success(dashboardCostService.getActualCostDetails(startMonth, endMonth));
+                case "outputValue":
+                    return success(dashboardCostService.getOutputValueDetails(startMonth, endMonth));
+                case "totalPlan":
+                    return success(dashboardProductionService.getTotalPlanDetails(startMonth, endMonth));
+                case "delivery":
+                    return success(dashboardProductionService.getDeliveryDetails(startMonth, endMonth));
+                case "pending":
+                    return success(dashboardProductionService.getPendingDetails(startMonth, endMonth));
+                default:
+                    return error("不支持的 card 类型：" + card);
+            }
         } catch (Exception e) {
             return exception(e, "操作");
         }
@@ -770,16 +803,15 @@ public class DashboardController extends BaseController {
     // ===================================
     // 图表数据接口
     // ===================================
-
     /**
-     * 图表数据
+     * 首页图表数据
      *
      * 示例请求：
-     * GET /api/dashboard/charts?startMonth=2026-01&endMonth=2026-06
+     * GET /api/dashboard/charts?startMonth=2026-05&endMonth=2026-10
      *
-     * @param startMonth 起始月份（格式：2026-01，可选）
-     * @param endMonth   结束月份（格式：2026-06，可选）
-     * @return 图表数据，包含交付数量、收入趋势、库存资金占用等
+     * @param startMonth 起始月份（格式：2026-05，可选）
+     * @param endMonth   结束月份（格式：2026-10，可选）
+     * @return 图表数据：成本趋势、成本构成、原辅包资金、生产分析
      */
     @GetMapping("/charts")
     public ApiResponse<ChartDataDto> getCharts(
@@ -788,237 +820,82 @@ public class DashboardController extends BaseController {
         try {
             ChartDataDto chartData = new ChartDataDto();
 
-            // === 预加载制剂编码→剂型大类映射 ===
-            Map<String, String> preparationDosageMap = new HashMap<>();
-            preparationService.list().forEach(p ->
-                preparationDosageMap.put(p.getPreparationCode(),
-                    p.getDosageCategory() != null ? p.getDosageCategory() : "其他")
-            );
+            // 成本趋势与月度构成
+            List<ChartDataDto.CostTrendItem> costTrend =
+                dashboardCostService.getCostTrend(startMonth, endMonth);
+            List<ChartDataDto.CostStructureItem> costStructure =
+                dashboardCostService.getCostStructure(startMonth, endMonth);
+            chartData.setCostTrend(costTrend);
+            chartData.setCostStructure(costStructure);
 
-            // === 交付数量（按剂型大类+月份）：生产计划进度=已完成，按计划生产时间筛选 ===
-            QueryWrapper<ProductionPlan> completedPlanWrapper = buildPlanProductionTimeWrapper(startMonth, endMonth);
-            completedPlanWrapper.eq("current_status", "已完成");
-            List<ProductionPlan> completedPlans = productionPlanService.list(completedPlanWrapper);
+            // 原辅包资金三项（入库 / 出库净额 / 当前库存）
+            chartData.setMaterialFunds(dashboardMaterialFundService.getMaterialFunds(startMonth, endMonth));
 
-            // 按月份+剂型大类聚合
-            Map<String, Map<String, Long>> deliveryByMonth = new LinkedHashMap<>();
-            for (ProductionPlan plan : completedPlans) {
-                String month = plan.getPlanProductionTime() != null
-                    ? plan.getPlanProductionTime().format(DateTimeFormatter.ofPattern("M月"))
-                    : "未知";
-                String dosageCategory = preparationDosageMap.getOrDefault(
-                    plan.getPreparationCode(), "其他");
-                deliveryByMonth.computeIfAbsent(month, k -> new LinkedHashMap<>())
-                    .merge(dosageCategory, 1L, Long::sum);
-            }
+            // 生产分析（计划 vs 交付 / 待生产 / 品种排名）
+            ChartDataDto.ProductionCharts productionCharts =
+                dashboardProductionService.getProductionCharts(startMonth, endMonth);
+            chartData.setProduction(productionCharts);
 
-            // 组装交付数量结果（含总计）
-            List<Map<String, Object>> deliverySummary = new ArrayList<>();
-            deliveryByMonth.forEach((month, data) -> {
-                Map<String, Object> item = new LinkedHashMap<>();
-                item.put("月份", month);
-                long total = 0;
-                for (Long v : data.values()) total += v;
-                item.putAll(data);
-                item.put("总计", total);
-                deliverySummary.add(item);
-            });
-
-            // 交付图表明细：按月份+剂型分组
-            List<DeliveryChartDetailDto> deliveryDetails = new ArrayList<>();
-            deliveryByMonth.forEach((month, dosageMap) ->
-                dosageMap.forEach((dosage, count) -> {
-                    DeliveryChartDetailDto detail = new DeliveryChartDetailDto();
-                    detail.setMonth(month);
-                    detail.setDosageCategory(dosage);
-                    detail.setRecords(completedPlans.stream()
-                        .filter(p -> dosage.equals(preparationDosageMap.getOrDefault(p.getPreparationCode(), "其他")))
-                        .filter(p -> p.getPlanProductionTime() != null
-                            && month.equals(p.getPlanProductionTime().format(DateTimeFormatter.ofPattern("M月"))))
-                        .map(this::toDeliveryChartRecord)
-                        .collect(Collectors.toList()));
-                    deliveryDetails.add(detail);
-                })
-            );
-
-            ChartDataDto.DeliveryChartData deliveryData = new ChartDataDto.DeliveryChartData();
-            deliveryData.setSummary(deliverySummary);
-            deliveryData.setDetails(deliveryDetails);
-            chartData.setDeliveryByDosageForm(deliveryData);
-
-            // === 预估产值（按剂型大类+月份）：生产任务有配置完成时间，按配置完成时间筛选，total_amount 求和 ===
-            QueryWrapper<WorkOrder> revenueWrapper = buildWorkOrderConfigCompleteTimeWrapper(startMonth, endMonth);
-            List<WorkOrder> revenueOrders = workOrderService.list(revenueWrapper);
-
-            // 按月份+剂型大类聚合
-            Map<String, Map<String, Double>> revenueByMonth = new LinkedHashMap<>();
-            for (WorkOrder wo : revenueOrders) {
-                String month = wo.getConfigCompleteTime() != null
-                    ? wo.getConfigCompleteTime().format(DateTimeFormatter.ofPattern("M月"))
-                    : "未知";
-                String dosageCategory = preparationDosageMap.getOrDefault(
-                    wo.getPreparationCode(), "其他");
-                double amount = wo.getTotalAmount() != null ? wo.getTotalAmount().doubleValue() : 0.0;
-                revenueByMonth.computeIfAbsent(month, k -> new LinkedHashMap<>())
-                    .merge(dosageCategory, amount, Double::sum);
-            }
-
-            // 组装预估产值结果（含总计）
-            List<Map<String, Object>> revenueSummary = new ArrayList<>();
-            revenueByMonth.forEach((month, data) -> {
-                Map<String, Object> item = new LinkedHashMap<>();
-                item.put("月份", month);
-                double total = 0;
-                for (Double v : data.values()) total += v;
-                data.forEach((k, v) -> item.put(k, Math.round(v * 100.0) / 100.0));
-                item.put("总计", Math.round(total * 100.0) / 100.0);
-                revenueSummary.add(item);
-            });
-
-            // 产值图表明细：按月份+剂型分组
-            List<RevenueChartDetailDto> revenueDetails = new ArrayList<>();
-            revenueByMonth.forEach((month, dosageMap) ->
-                dosageMap.forEach((dosage, amount) -> {
-                    RevenueChartDetailDto detail = new RevenueChartDetailDto();
-                    detail.setMonth(month);
-                    detail.setDosageCategory(dosage);
-                    detail.setRecords(revenueOrders.stream()
-                        .filter(wo -> dosage.equals(preparationDosageMap.getOrDefault(wo.getPreparationCode(), "其他")))
-                        .filter(wo -> wo.getConfigCompleteTime() != null
-                            && month.equals(wo.getConfigCompleteTime().format(DateTimeFormatter.ofPattern("M月"))))
-                        .map(this::toRevenueChartRecord)
-                        .collect(Collectors.toList()));
-                    revenueDetails.add(detail);
-                })
-            );
-
-            ChartDataDto.RevenueChartData revenueData = new ChartDataDto.RevenueChartData();
-            revenueData.setSummary(revenueSummary);
-            revenueData.setDetails(revenueDetails);
-            chartData.setRevenueByMonth(revenueData);
-
-            // === 库存资金占用：按原料/辅料/包材分类，计算总价值（数量*单价），零库存批次不计入 ===
-            List<Stock> allStocks = stockService.list(new QueryWrapper<Stock>().gt("quantity", 0));
-            Map<String, Double> fundOccupation = allStocks.stream()
-                .filter(s -> s.getIsDeleted() == null || s.getIsDeleted() == 0)
-                .collect(Collectors.groupingBy(
-                    s -> s.getCategoryName() != null ? s.getCategoryName() : "其他",
-                    Collectors.summingDouble(s -> {
-                        double qty = s.getQuantity() != null ? s.getQuantity().doubleValue() : 0.0;
-                        double price = s.getUnitPrice() != null ? s.getUnitPrice().doubleValue() : 0.0;
-                        return qty * price;
-                    })
-                ));
-            // 过滤金额为0的类别
-            fundOccupation.entrySet().removeIf(e -> e.getValue() <= 0);
-
-            // 库存图表明细：按类别分组
-            Map<String, List<Stock>> stocksByCategory = allStocks.stream()
-                .filter(s -> s.getIsDeleted() == null || s.getIsDeleted() == 0)
-                .collect(Collectors.groupingBy(
-                    s -> s.getCategoryName() != null ? s.getCategoryName() : "其他"));
-            List<InventoryChartDetailDto> inventoryDetails = new ArrayList<>();
-            stocksByCategory.forEach((category, stocks) -> {
-                List<InventoryChartRecordDto> records = stocks.stream()
-                    .map(this::toInventoryChartRecord)
-                    .filter(r -> r.getTotalValue() != null
-                        && r.getTotalValue().compareTo(java.math.BigDecimal.ZERO) > 0)
-                    .collect(Collectors.toList());
-                if (!records.isEmpty()) {
-                    InventoryChartDetailDto detail = new InventoryChartDetailDto();
-                    detail.setCategory(category);
-                    detail.setRecords(records);
-                    inventoryDetails.add(detail);
+            // 月份列表：查询区间优先，否则合并各图表实际存在的月份
+            List<String> months = DashboardCalcUtils.expandMonths(startMonth, endMonth);
+            if (months.isEmpty()) {
+                List<String> trendMonths = new ArrayList<>();
+                for (ChartDataDto.CostTrendItem item : costTrend) {
+                    trendMonths.add(item.getMonth());
                 }
-            });
-
-            ChartDataDto.InventoryChartData inventoryData = new ChartDataDto.InventoryChartData();
-            inventoryData.setSummary(fundOccupation);
-            inventoryData.setDetails(inventoryDetails);
-            chartData.setInventoryFundOccupation(inventoryData);
-
-            // === 月度入库金额情况：按月份+类别（原料/辅料/包材）聚合，堆叠柱状图 ===
-            // 查询入库明细关联入库主表，按月份和类别汇总金额
-            QueryWrapper<StockIn> stockInChartWrapper = buildStockInTimeWrapper(startMonth, endMonth);
-            stockInChartWrapper.eq("in_status", "已入库");
-            List<StockIn> chartStockIns = stockInService.list(stockInChartWrapper);
-            Set<Long> chartInIds = chartStockIns.stream().map(StockIn::getInId).collect(Collectors.toSet());
-
-            // 按入库单ID→日期映射
-            Map<Long, String> inIdToMonthMap = chartStockIns.stream()
-                .collect(Collectors.toMap(
-                    StockIn::getInId,
-                    si -> si.getInDate() != null
-                        ? si.getInDate().format(DateTimeFormatter.ofPattern("M月"))
-                        : "未知",
-                    (a, b) -> a));
-
-            // 按入库单ID→入库单映射（用于获取 inCode 和 inDate）
-            Map<Long, StockIn> inIdToStockInMap = chartStockIns.stream()
-                .collect(Collectors.toMap(StockIn::getInId, si -> si, (a, b) -> a));
-
-            // 查询入库明细（仅已入库的单据）
-            List<StockInDetail> chartDetails = chartInIds.isEmpty()
-                ? List.of()
-                : stockInDetailMapper.selectList(
-                    new QueryWrapper<StockInDetail>()
-                        .in("in_id", chartInIds)
-                        .eq("is_deleted", 0));
-
-            // 按月份+类别聚合金额
-            Map<String, Map<String, BigDecimal>> stockInByMonth = new LinkedHashMap<>();
-            for (StockInDetail detail : chartDetails) {
-                String month = inIdToMonthMap.getOrDefault(detail.getInId(), "未知");
-                String category = detail.getCategoryName() != null ? detail.getCategoryName() : "其他";
-                BigDecimal amount = detail.getAmount() != null ? detail.getAmount() : BigDecimal.ZERO;
-                stockInByMonth.computeIfAbsent(month, k -> new LinkedHashMap<>())
-                    .merge(category, amount, BigDecimal::add);
+                List<String> planMonths = new ArrayList<>();
+                if (productionCharts.getPlanVsDelivery() != null) {
+                    for (ChartDataDto.PlanVsDeliveryItem item : productionCharts.getPlanVsDelivery()) {
+                        planMonths.add(item.getMonth());
+                    }
+                }
+                List<String> fundMonths = new ArrayList<>();
+                ChartDataDto.MaterialFunds funds = chartData.getMaterialFunds();
+                if (funds != null) {
+                    if (funds.getInbound() != null && funds.getInbound().getMonths() != null) {
+                        for (ChartDataDto.MaterialFundMonth item : funds.getInbound().getMonths()) {
+                            fundMonths.add(item.getMonth());
+                        }
+                    }
+                    if (funds.getOutbound() != null && funds.getOutbound().getMonths() != null) {
+                        for (ChartDataDto.MaterialFundMonth item : funds.getOutbound().getMonths()) {
+                            fundMonths.add(item.getMonth());
+                        }
+                    }
+                }
+                months = DashboardCalcUtils.mergeMonths(trendMonths, planMonths, fundMonths);
             }
-
-            // 组装 summary（堆叠柱状图数据，含金额总计）
-            List<Map<String, Object>> stockInSummary = new ArrayList<>();
-            stockInByMonth.forEach((month, categoryMap) -> {
-                Map<String, Object> item = new LinkedHashMap<>();
-                item.put("月份", month);
-                BigDecimal total = BigDecimal.ZERO;
-                for (BigDecimal v : categoryMap.values()) total = total.add(v);
-                categoryMap.forEach((k, v) -> item.put(k, v));
-                item.put("金额总计", total);
-                stockInSummary.add(item);
-            });
-
-            // 组装 details（按月份+类别分组的入库明细）
-            List<StockInChartDetailDto> stockInDetails = new ArrayList<>();
-            stockInByMonth.forEach((month, categoryMap) ->
-                categoryMap.forEach((category, amount) -> {
-                    StockInChartDetailDto detail = new StockInChartDetailDto();
-                    detail.setMonth(month);
-                    detail.setCategory(category);
-                    detail.setRecords(chartDetails.stream()
-                        .filter(d -> inIdToMonthMap.containsKey(d.getInId()))
-                        .filter(d -> month.equals(inIdToMonthMap.get(d.getInId())))
-                        .filter(d -> category.equals(d.getCategoryName() != null ? d.getCategoryName() : "其他"))
-                        .map(d -> {
-                            StockInChartRecordDto r = toStockInChartRecord(d);
-                            StockIn si = inIdToStockInMap.get(d.getInId());
-                            if (si != null) {
-                                r.setInCode(si.getInCode());
-                                r.setInDate(si.getInDate() != null
-                                    ? si.getInDate().format(DATE_TIME_FORMATTER) : null);
-                            }
-                            return r;
-                        })
-                        .collect(Collectors.toList()));
-                    stockInDetails.add(detail);
-                })
-            );
-
-            ChartDataDto.StockInChartData stockInData = new ChartDataDto.StockInChartData();
-            stockInData.setSummary(stockInSummary);
-            stockInData.setDetails(stockInDetails);
-            chartData.setMonthlyStockInAmount(stockInData);
+            chartData.setMonths(months);
 
             return success(chartData);
+        } catch (Exception e) {
+            return exception(e, "操作");
+        }
+    }
+
+    /**
+     * 原辅包物料级明细（点击色块下钻，全量不分页）
+     *
+     * 示例请求：
+     * GET /api/dashboard/material-funds/details?type=inbound&category=原料&month=2026-08
+     * GET /api/dashboard/material-funds/details?type=outbound&category=包材
+     * GET /api/dashboard/material-funds/details?type=stock&category=原料
+     *
+     * @param type     类型：inbound 入库 / outbound 出库净额 / stock 当前库存
+     * @param category 分类：原料 / 辅料 / 包材（可空表示全部）
+     * @param month    月份（格式：2026-08，仅 inbound/outbound 生效）
+     * @return 物料级明细
+     */
+    @GetMapping("/material-funds/details")
+    public ApiResponse<DashboardMaterialFundDetailDto> getMaterialFundDetails(
+            @RequestParam(required = false, defaultValue = "inbound") String type,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String month) {
+        try {
+            if (!MATERIAL_FUND_TYPES.contains(type)) {
+                return error("不支持的 type：" + type);
+            }
+            return success(dashboardMaterialFundService.getMaterialFundDetails(type, category, month));
         } catch (Exception e) {
             return exception(e, "操作");
         }
@@ -1032,147 +909,6 @@ public class DashboardController extends BaseController {
     // ===================================
 
     /**
-     * 将工单列表转换为指标明细DTO列表
-     *
-     * @param workOrders 工单列表
-     * @return 工单指标明细DTO列表
-     */
-    private List<WorkOrderMetricDetailDto> toWorkOrderMetricDetails(List<WorkOrder> workOrders) {
-        return workOrders.stream().map(wo -> {
-            WorkOrderMetricDetailDto dto = new WorkOrderMetricDetailDto();
-            dto.setWorkOrderId(wo.getWorkOrderId());
-            dto.setWorkOrderCode(wo.getWorkOrderCode());
-            dto.setPreparationCode(wo.getPreparationCode());
-            dto.setPreparationName(wo.getPreparationName());
-            dto.setBatchQty(wo.getBatchQty());
-            dto.setTotalAmount(wo.getTotalAmount());
-            dto.setCurrentStatus(wo.getCurrentStatus());
-            dto.setConfigDate(formatDateTime(wo.getConfigDate()));
-            dto.setConfigCompleteTime(formatDateTime(wo.getConfigCompleteTime()));
-            dto.setProductionCompleteTime(formatDateTime(wo.getProductionCompleteTime()));
-            return dto;
-        }).collect(Collectors.toList());
-    }
-
-    /**
-     * 将生产计划列表转换为指标明细DTO列表
-     *
-     * @param plans 生产计划列表
-     * @return 生产计划指标明细DTO列表
-     */
-    private List<ProductionPlanMetricDetailDto> toPlanMetricDetails(List<ProductionPlan> plans) {
-        return plans.stream().map(p -> {
-            ProductionPlanMetricDetailDto dto = new ProductionPlanMetricDetailDto();
-            dto.setPlanId(p.getId());
-            dto.setPlanNumber(p.getPlanNumber());
-            dto.setPreparationCode(p.getPreparationCode());
-            dto.setPreparationName(p.getPreparationName());
-            dto.setPlanQuantity(p.getPlanQuantity());
-            dto.setCurrentStatus(p.getCurrentStatus());
-            dto.setPlanProductionTime(formatDateTime(p.getPlanProductionTime()));
-            dto.setCreatedTime(formatDateTime(p.getCreatedTime()));
-            return dto;
-        }).collect(Collectors.toList());
-    }
-
-    /**
-     * 将入库单列表转换为指标明细DTO列表
-     *
-     * @param stockIns 入库单列表
-     * @return 入库单指标明细DTO列表
-     */
-    private List<StockInMetricDetailDto> toStockInMetricDetails(List<StockIn> stockIns) {
-        return stockIns.stream().map(si -> {
-            StockInMetricDetailDto dto = new StockInMetricDetailDto();
-            dto.setInId(si.getInId());
-            dto.setInCode(si.getInCode());
-            dto.setInType(si.getInType());
-            dto.setTotalAmount(si.getTotalAmount());
-            dto.setInStatus(si.getInStatus());
-            dto.setInDate(formatDateTime(si.getInDate()));
-            return dto;
-        }).collect(Collectors.toList());
-    }
-
-    /**
-     * 将生产计划转换为交付图表记录DTO
-     *
-     * @param plan 生产计划
-     * @return 交付图表记录DTO
-     */
-    private DeliveryChartRecordDto toDeliveryChartRecord(ProductionPlan plan) {
-        DeliveryChartRecordDto dto = new DeliveryChartRecordDto();
-        dto.setPlanId(plan.getId());
-        dto.setPlanNumber(plan.getPlanNumber());
-        dto.setPreparationCode(plan.getPreparationCode());
-        dto.setPreparationName(plan.getPreparationName());
-        dto.setPlanQuantity(plan.getPlanQuantity());
-        dto.setPlanProductionTime(formatDateTime(plan.getPlanProductionTime()));
-        dto.setCurrentStatus(plan.getCurrentStatus());
-        return dto;
-    }
-
-    /**
-     * 将工单转换为产值图表记录DTO
-     *
-     * @param wo 工单
-     * @return 产值图表记录DTO
-     */
-    private RevenueChartRecordDto toRevenueChartRecord(WorkOrder wo) {
-        RevenueChartRecordDto dto = new RevenueChartRecordDto();
-        dto.setWorkOrderId(wo.getWorkOrderId());
-        dto.setWorkOrderCode(wo.getWorkOrderCode());
-        dto.setPreparationCode(wo.getPreparationCode());
-        dto.setPreparationName(wo.getPreparationName());
-        dto.setBatchQty(wo.getBatchQty());
-        dto.setTotalAmount(wo.getTotalAmount());
-        dto.setCurrentStatus(wo.getCurrentStatus());
-        dto.setConfigCompleteTime(formatDateTime(wo.getConfigCompleteTime()));
-        return dto;
-    }
-
-    /**
-     * 将库存记录转换为库存图表记录DTO
-     *
-     * @param stock 库存记录
-     * @return 库存图表记录DTO
-     */
-    private InventoryChartRecordDto toInventoryChartRecord(Stock stock) {
-        InventoryChartRecordDto dto = new InventoryChartRecordDto();
-        dto.setStockId(stock.getStockId());
-        dto.setItemCode(stock.getItemCode());
-        dto.setItemName(stock.getItemName());
-        dto.setCategoryName(stock.getCategoryName());
-        dto.setUnitName(stock.getUnitName());
-        dto.setQuantity(stock.getQuantity());
-        dto.setUnitPrice(stock.getUnitPrice());
-        // 计算总价值
-        double qty = stock.getQuantity() != null ? stock.getQuantity().doubleValue() : 0.0;
-        double price = stock.getUnitPrice() != null ? stock.getUnitPrice().doubleValue() : 0.0;
-        dto.setTotalValue(BigDecimal.valueOf(Math.round(qty * price * 100.0) / 100.0));
-        dto.setBatchNumber(stock.getBatchNumber());
-        return dto;
-    }
-
-    /**
-     * 将入库明细转换为入库金额图表记录DTO
-     *
-     * @param detail 入库明细
-     * @return 入库金额图表记录DTO
-     */
-    private StockInChartRecordDto toStockInChartRecord(StockInDetail detail) {
-        StockInChartRecordDto dto = new StockInChartRecordDto();
-        dto.setInDetailId(detail.getInDetailId());
-        dto.setItemCode(detail.getItemCode());
-        dto.setItemName(detail.getItemName());
-        dto.setCategoryName(detail.getCategoryName());
-        dto.setQuantity(detail.getQuantity());
-        dto.setUnitPrice(detail.getUnitPrice());
-        dto.setAmount(detail.getAmount());
-        return dto;
-    }
-
-    /**
      * 格式化日期时间为字符串（null安全）
      *
      * @param dateTime 日期时间
@@ -1181,172 +917,5 @@ public class DashboardController extends BaseController {
     private String formatDateTime(LocalDateTime dateTime) {
         return dateTime != null ? dateTime.format(DATE_TIME_FORMATTER) : null;
     }
-
-    /**
-     * 构建生产计划时间范围查询条件
-     *
-     * @param startMonth 起始月份（格式：2026-01）
-     * @param endMonth   结束月份（格式：2026-06）
-     * @return 查询条件
-     */
-    private QueryWrapper<ProductionPlan> buildTimeWrapper(String startMonth, String endMonth) {
-        QueryWrapper<ProductionPlan> wrapper = new QueryWrapper<>();
-        if (startMonth != null && !startMonth.isEmpty()) {
-            wrapper.ge("created_time", startMonth + "-01 00:00:00");
-        }
-        if (endMonth != null && !endMonth.isEmpty()) {
-            LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
-            wrapper.le("created_time", end.atTime(23, 59, 59));
-        }
-        return wrapper;
-    }
-
-    /**
-     * 构建入库单时间范围查询条件
-     *
-     * @param startMonth 起始月份（格式：2026-01）
-     * @param endMonth   结束月份（格式：2026-06）
-     * @return 查询条件
-     */
-    private QueryWrapper<StockIn> buildStockInTimeWrapper(String startMonth, String endMonth) {
-        QueryWrapper<StockIn> wrapper = new QueryWrapper<>();
-        if (startMonth != null && !startMonth.isEmpty()) {
-            wrapper.ge("in_date", LocalDate.parse(startMonth + "-01").atStartOfDay());
-        }
-        if (endMonth != null && !endMonth.isEmpty()) {
-            LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
-            wrapper.le("in_date", end.atTime(23, 59, 59));
-        }
-        return wrapper;
-    }
-
-    /**
-     * 构建工单时间范围查询条件
-     *
-     * @param startMonth 起始月份（格式：2026-01）
-     * @param endMonth   结束月份（格式：2026-06）
-     * @return 查询条件
-     */
-    private QueryWrapper<WorkOrder> buildWorkOrderTimeWrapper(String startMonth, String endMonth) {
-        QueryWrapper<WorkOrder> wrapper = new QueryWrapper<>();
-        wrapper.eq("is_deleted", 0);
-        if (startMonth != null && !startMonth.isEmpty()) {
-            wrapper.ge("created_time", startMonth + "-01 00:00:00");
-        }
-        if (endMonth != null && !endMonth.isEmpty()) {
-            LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
-            wrapper.le("created_time", end.atTime(23, 59, 59));
-        }
-        return wrapper;
-    }
-
-    /**
-     * 构建工单交付时间范围查询条件
-     *
-     * @param startMonth 起始月份（格式：2026-01）
-     * @param endMonth   结束月份（格式：2026-06）
-     * @return 查询条件
-     */
-    private QueryWrapper<WorkOrder> buildWorkOrderDeliveryTimeWrapper(String startMonth, String endMonth) {
-        QueryWrapper<WorkOrder> wrapper = new QueryWrapper<>();
-        wrapper.eq("is_deleted", 0);
-        if (startMonth != null && !startMonth.isEmpty()) {
-            wrapper.ge("delivery_time", startMonth + "-01 00:00:00");
-        }
-        if (endMonth != null && !endMonth.isEmpty()) {
-            LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
-            wrapper.le("delivery_time", end.atTime(23, 59, 59));
-        }
-        return wrapper;
-    }
-
-    /**
-     * 构建工单配置日期时间范围查询条件
-     *
-     * @param startMonth 起始月份（格式：2026-01）
-     * @param endMonth   结束月份（格式：2026-06）
-     * @return 查询条件
-     */
-    private QueryWrapper<WorkOrder> buildWorkOrderConfigDateWrapper(String startMonth, String endMonth) {
-        QueryWrapper<WorkOrder> wrapper = new QueryWrapper<>();
-        wrapper.eq("is_deleted", 0);
-        if (startMonth != null && !startMonth.isEmpty()) {
-            wrapper.ge("config_date", startMonth + "-01 00:00:00");
-        }
-        if (endMonth != null && !endMonth.isEmpty()) {
-            LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
-            wrapper.le("config_date", end.atTime(23, 59, 59));
-        }
-        return wrapper;
-    }
-
-    /**
-     * 构建工单生产完成时间范围查询条件
-     * <p>
-     * 交付口径：凡已生产及之后的状态（已生产/检验中/已检验/已放行/已入库/已归档）均计入交付，
-     * 仅排除作废。判定依据为配置完成时间有值且状态不为作废，避免枚举状态时遗漏新增状态。
-     * 时间维度取工单配置日期（配置时间）。
-     * </p>
-     *
-     * @param startMonth 起始月份（格式：2026-01）
-     * @param endMonth   结束月份（格式：2026-06）
-     * @return 查询条件
-     */
-    private QueryWrapper<WorkOrder> buildWorkOrderProductionCompleteWrapper(String startMonth, String endMonth) {
-        QueryWrapper<WorkOrder> wrapper = new QueryWrapper<>();
-        wrapper.eq("is_deleted", 0)
-               .isNotNull("config_complete_time")
-               .ne("current_status", "作废");
-        if (startMonth != null && !startMonth.isEmpty()) {
-            wrapper.ge("config_date", startMonth + "-01 00:00:00");
-        }
-        if (endMonth != null && !endMonth.isEmpty()) {
-            LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
-            wrapper.le("config_date", end.atTime(23, 59, 59));
-        }
-        return wrapper;
-    }
-
-    /**
-     * 构建生产计划计划生产时间范围查询条件
-     *
-     * @param startMonth 起始月份（格式：2026-01）
-     * @param endMonth   结束月份（格式：2026-06）
-     * @return 查询条件
-     */
-    private QueryWrapper<ProductionPlan> buildPlanProductionTimeWrapper(String startMonth, String endMonth) {
-        QueryWrapper<ProductionPlan> wrapper = new QueryWrapper<>();
-        wrapper.eq("is_deleted", 0);
-        if (startMonth != null && !startMonth.isEmpty()) {
-            wrapper.ge("plan_production_time", startMonth + "-01 00:00:00");
-        }
-        if (endMonth != null && !endMonth.isEmpty()) {
-            LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
-            wrapper.le("plan_production_time", end.atTime(23, 59, 59));
-        }
-        return wrapper;
-    }
-
-    /**
-     * 构建工单配置完成时间范围查询条件
-     *
-     * @param startMonth 起始月份（格式：2026-01）
-     * @param endMonth   结束月份（格式：2026-06）
-     * @return 查询条件
-     */
-    private QueryWrapper<WorkOrder> buildWorkOrderConfigCompleteTimeWrapper(String startMonth, String endMonth) {
-        QueryWrapper<WorkOrder> wrapper = new QueryWrapper<>();
-        wrapper.eq("is_deleted", 0)
-               .isNotNull("config_complete_time");
-        if (startMonth != null && !startMonth.isEmpty()) {
-            wrapper.ge("config_complete_time", startMonth + "-01 00:00:00");
-        }
-        if (endMonth != null && !endMonth.isEmpty()) {
-            LocalDate end = LocalDate.parse(endMonth + "-01").plusMonths(1).minusDays(1);
-            wrapper.le("config_complete_time", end.atTime(23, 59, 59));
-        }
-        return wrapper;
-    }
-
     // endregion
 }

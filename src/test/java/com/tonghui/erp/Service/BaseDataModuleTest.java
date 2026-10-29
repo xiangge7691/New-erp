@@ -243,6 +243,7 @@ public class BaseDataModuleTest {
         preparation.setPreparationName("测试制剂");
         preparation.setUnitName("kg");
         preparation.setStatus(1);
+        preparation.setEstimatedCostPrice(new java.math.BigDecimal("12.50"));
         preparationService.addPreparation(preparation);
         assertNotNull(preparation.getPreparationId(), "新增制剂应回填ID");
 

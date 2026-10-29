@@ -253,6 +253,7 @@ public class DeviationRecordTest {
         preparation.setPreparationName("偏差测试制剂");
         preparation.setUnitName("kg");
         preparation.setStatus(1);
+        preparation.setEstimatedCostPrice(new java.math.BigDecimal("12.50"));
         preparationService.addPreparation(preparation);
 
         WorkOrder workOrder = new WorkOrder();

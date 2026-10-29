@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -102,6 +103,8 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
     @Override
     @Transactional
     public void addPreparation(Preparation preparation) {
+        // 预计成本价必填且不可为负
+        checkEstimatedCostPrice(preparation.getEstimatedCostPrice());
         // 制剂编码唯一性校验（活动记录重复则报错，同编码软删除记录被物理清理）
         checkPreparationCodeUnique(preparation.getPreparationCode(), null);
 
@@ -196,10 +199,27 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
      */
     @Override
     public void updatePreparation(Preparation preparation) {
+        // 预计成本价必填且不可为负
+        checkEstimatedCostPrice(preparation.getEstimatedCostPrice());
         // 制剂编码唯一性校验（排除自身，含软删除记录清理）
         checkPreparationCodeUnique(preparation.getPreparationCode(), preparation.getPreparationId());
 
         this.baseMapper.updateById(preparation);
+    }
+
+    /**
+     * 校验预计成本价
+     * <p>预计成本价必填且不可为负数（存量 NULL 数据不在此处校验，仅在新增/修改时拦截）。</p>
+     *
+     * @param estimatedCostPrice 预计成本价
+     */
+    private void checkEstimatedCostPrice(BigDecimal estimatedCostPrice) {
+        if (estimatedCostPrice == null) {
+            throw new RuntimeException("预计成本价不能为空");
+        }
+        if (estimatedCostPrice.signum() < 0) {
+            throw new RuntimeException("预计成本价不能为负数");
+        }
     }
 
     /**
