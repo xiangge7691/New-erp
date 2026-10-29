@@ -32,4 +32,24 @@
         maintainer,maintenance_company,contact_phone,remark,recorder_id,
         created_by,updated_by,created_time,updated_time,is_deleted,version
     </sql>
+
+    <!-- 设备维保日期冲突查询：维保表只有日期，按维保当天整日占用处理 -->
+    <select id="selectMaintenanceConflicts"
+            resultType="com.tonghui.erp.Common.Dto.Equipment.EquipmentMaintenanceConflictDto">
+        SELECT m.maintenance_id    AS maintenance_id,
+               m.equipment_id      AS equipment_id,
+               eq.equipment_name   AS equipment_name,
+               eq.fixed_asset_code AS fixed_asset_code,
+               m.maintenance_type  AS maintenance_type,
+               m.maintenance_date  AS maintenance_date,
+               m.maintenance_content AS maintenance_content
+        FROM equipment_maintenance m
+        LEFT JOIN equipment eq ON eq.equipment_id = m.equipment_id AND eq.is_deleted = 0
+        WHERE m.is_deleted = 0
+          AND m.equipment_id IN
+          <foreach collection="equipmentIds" item="eqId" open="(" separator="," close=")">#{eqId}</foreach>
+          AND m.maintenance_date &gt;= #{minDate}
+          AND m.maintenance_date &lt;= #{maxDate}
+        ORDER BY m.equipment_id ASC, m.maintenance_date ASC
+    </select>
 </mapper>

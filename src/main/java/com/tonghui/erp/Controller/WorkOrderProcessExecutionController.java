@@ -46,6 +46,10 @@ public class WorkOrderProcessExecutionController extends BaseController {
      * 已有行按 id 原地更新（保留ID，便于按行附件关联），无 id 的行新增，
      * 数据库中未被提交的行将被删除。请确保已有行携带原 id，新增行不携带。
      * </p>
+     * <p>
+     * 保存前会校验设备使用合法性：设备必须为"正常"状态、同一设备的开始/结束时间不得重叠、
+     * 使用日期不得与设备维保日期重叠。校验不通过返回 400，message 为具体冲突明细。
+     * </p>
      *
      * 示例请求：
      * POST /api/work-order-process-execution/batch?workOrderId=1

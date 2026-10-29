@@ -101,6 +101,11 @@ public abstract class BaseController {
      * @return 错误响应
      */
     protected <T> ApiResponse<T> exception(Exception ex, String operation) {
+        // 参数/业务校验类异常统一返回 400，便于前端区分"用户输入不合法"与系统内部错误
+        if (ex instanceof IllegalArgumentException) {
+            log.warn("接口参数校验未通过: {} - {}", operation, ex.getMessage());
+            return ApiResponse.errorResponse(ApiResponse.BAD_REQUEST, ex.getMessage());
+        }
         log.error("接口异常: {} - {}", operation, ex.getMessage(), ex);
         return ApiResponse.errorResponse(operation + "失败: " + ex.getMessage());
     }

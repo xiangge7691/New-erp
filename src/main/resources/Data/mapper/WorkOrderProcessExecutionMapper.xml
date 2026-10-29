@@ -62,4 +62,44 @@
         ORDER BY e.step_order ASC
     </select>
 
+    <!-- 查询指定工单当前未删除的工序执行记录ID（用于冲突校验时排除本工单既有行） -->
+    <select id="selectIdsByWorkOrderId" resultType="java.lang.Long">
+        SELECT e.id
+        FROM work_order_process_execution e
+        WHERE e.work_order_id = #{workOrderId}
+          AND e.is_deleted = 0
+    </select>
+
+    <!-- 设备使用时间冲突粗筛：按设备集合与全局时间窗过滤，调用方再做精确区间判断 -->
+    <select id="selectConflictRecords"
+            resultType="com.tonghui.erp.Common.Dto.Equipment.EquipmentUsageConflictDto">
+        SELECT e.id            AS record_id,
+               e.equipment_id  AS equipment_id,
+               eq.equipment_name AS equipment_name,
+               eq.fixed_asset_code AS fixed_asset_code,
+               e.work_order_id AS work_order_id,
+               wo.work_order_code AS work_order_code,
+               wo.preparation_name AS preparation_name,
+               wo.batch_number AS batch_number,
+               pt.process_name AS process_name,
+               e.start_time    AS start_time,
+               e.end_time      AS end_time
+        FROM work_order_process_execution e
+        LEFT JOIN equipment eq ON e.equipment_id = eq.equipment_id AND eq.is_deleted = 0
+        LEFT JOIN work_order wo ON e.work_order_id = wo.work_order_id AND wo.is_deleted = 0
+        LEFT JOIN process_type pt ON e.process_type_id = pt.process_id AND pt.is_deleted = 0
+        WHERE e.is_deleted = 0
+          AND e.equipment_id IN
+          <foreach collection="equipmentIds" item="eqId" open="(" separator="," close=")">#{eqId}</foreach>
+          AND e.start_time IS NOT NULL
+          AND e.end_time IS NOT NULL
+          AND e.start_time &lt; #{maxEnd}
+          AND e.end_time &gt; #{minStart}
+          <if test="excludeIds != null and excludeIds.size() > 0">
+              AND e.id NOT IN
+              <foreach collection="excludeIds" item="excludeId" open="(" separator="," close=")">#{excludeId}</foreach>
+          </if>
+        <!-- 仅锁定工序执行记录行（不锁关联表），确保在 RR 隔离级别下也能读到最新已提交数据 -->
+        FOR UPDATE OF e
+    </select>
 </mapper>

@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tonghui.erp.Data.mapper.EquipmentUsageMapper">
+
+    <!-- 设备使用记录查询列（工单工序执行记录 + 设备/工单/工序/房间关联） -->
+    <sql id="Usage_Column_List">
+        e.equipment_id                AS equipment_id,
+        eq.equipment_name             AS equipment_name,
+        eq.fixed_asset_code           AS fixed_asset_code,
+        eq.equipment_model            AS equipment_model,
+        eq.equipment_type             AS equipment_type,
+        ri.room_name                  AS room_name,
+        e.id                          AS record_id,
+        e.work_order_id               AS work_order_id,
+        wo.work_order_code            AS work_order_code,
+        wo.plan_name                  AS plan_name,
+        wo.preparation_name           AS preparation_name,
+        wo.batch_number               AS batch_number,
+        e.process_type_id             AS process_type_id,
+        pt.process_name               AS process_name,
+        pt.process_code               AS process_code,
+        e.step_order                  AS step_order,
+        e.operator_name               AS operator_name,
+        e.start_time                  AS start_time,
+        e.end_time                    AS end_time,
+        TIMESTAMPDIFF(MINUTE, e.start_time, e.end_time) AS duration_minutes,
+        e.status                      AS status,
+        e.remark                      AS remark
+    </sql>
+
+    <!-- 设备使用记录查询条件 -->
+    <sql id="Usage_Where_Clause">
+        <where>
+            e.is_deleted = 0
+            AND e.equipment_id IS NOT NULL
+            AND e.equipment_id &gt; 0
+            <if test="q.equipmentId != null">
+                AND e.equipment_id = #{q.equipmentId}
+            </if>
+            <if test="q.equipmentType != null and q.equipmentType != ''">
+                AND eq.equipment_type = #{q.equipmentType}
+            </if>
+            <if test="q.status != null and q.status != ''">
+                AND e.status = #{q.status}
+            </if>
+            <if test="q.keyword != null and q.keyword != ''">
+                AND (
+                    wo.work_order_code LIKE CONCAT('%', #{q.keyword}, '%')
+                    OR wo.batch_number LIKE CONCAT('%', #{q.keyword}, '%')
+                    OR wo.preparation_name LIKE CONCAT('%', #{q.keyword}, '%')
+                    OR pt.process_name LIKE CONCAT('%', #{q.keyword}, '%')
+                    OR eq.equipment_name LIKE CONCAT('%', #{q.keyword}, '%')
+                    OR eq.fixed_asset_code LIKE CONCAT('%', #{q.keyword}, '%')
+                )
+            </if>
+            <!-- 时间范围按"与使用区间有交集"过滤 -->
+            <if test="q.startTime != null">
+                AND e.start_time IS NOT NULL
+                AND e.end_time IS NOT NULL
+                AND e.end_time &gt; #{q.startTime}
+            </if>
+            <if test="q.endTime != null">
+                AND e.start_time IS NOT NULL
+                AND e.end_time IS NOT NULL
+                AND e.start_time &lt; #{q.endTime}
+            </if>
+        </where>
+    </sql>
+
+    <sql id="Usage_From_Join">
+        FROM work_order_process_execution e
+        LEFT JOIN equipment eq ON eq.equipment_id = e.equipment_id AND eq.is_deleted = 0
+        LEFT JOIN work_order wo ON wo.work_order_id = e.work_order_id AND wo.is_deleted = 0
+        LEFT JOIN process_type pt ON pt.process_id = e.process_type_id AND pt.is_deleted = 0
+        LEFT JOIN room_info ri ON ri.room_id = e.room_id AND ri.is_deleted = 0
+    </sql>
+
+    <!-- 分页查询设备使用记录 -->
+    <select id="selectUsagePage" resultType="com.tonghui.erp.Common.Dto.Equipment.EquipmentUsageRecordDto">
+        SELECT
+        <include refid="Usage_Column_List" />
+        <include refid="Usage_From_Join" />
+        <include refid="Usage_Where_Clause" />
+        ORDER BY eq.equipment_name ASC, e.start_time ASC, e.id ASC
+    </select>
+
+    <!-- 查询设备使用记录列表（导出用） -->
+    <select id="selectUsageList" resultType="com.tonghui.erp.Common.Dto.Equipment.EquipmentUsageRecordDto">
+        SELECT
+        <include refid="Usage_Column_List" />
+        <include refid="Usage_From_Join" />
+        <include refid="Usage_Where_Clause" />
+        ORDER BY eq.equipment_name ASC, e.start_time ASC, e.id ASC
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+</mapper>
