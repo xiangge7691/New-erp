@@ -32,12 +32,18 @@ import java.util.stream.Collectors;
  * ├────┼──────────────────────────────────────────────┼────────┼─────────────────────────────────────┤
  * │ 1  │ /api/dashboard/summary                       │ GET   │ 获取首页汇总数据                    │
  * │ 2  │ /api/dashboard/metrics                       │ GET   │ 核心指标卡片（成本三卡 + 生产三卡）  │
- * │ 3  │ /api/dashboard/metrics/details               │ GET   │ 卡片明细（全量不分页）               │
- * │ 4  │ /api/dashboard/todos                         │ GET   │ 待办事项列表                        │
- * │ 5  │ /api/dashboard/order-tracking                │ GET   │ 订单跟踪看板                        │
- * │ 6  │ /api/dashboard/charts                        │ GET   │ 图表数据                            │
- * │ 7  │ /api/dashboard/material-funds/details        │ GET   │ 原辅包物料级明细                    │
- * │ 8  │ /api/dashboard/details/tree                  │ GET   │ 明细下钻（月份→制剂→批次）           │
+ * │ 3  │ /api/dashboard/metrics/details               │ GET   │ 卡片明细（全量不分页，兼容入口）     │
+ * │ 4  │ /api/dashboard/metrics/details/estimated-cost│ GET   │ 预估成本明细（totals 强类型）        │
+ * │ 5  │ /api/dashboard/metrics/details/actual-cost   │ GET   │ 实际成本明细（totals 强类型）        │
+ * │ 6  │ /api/dashboard/metrics/details/output-value  │ GET   │ 预估产值明细（totals 强类型）        │
+ * │ 7  │ /api/dashboard/metrics/details/total-plan    │ GET   │ 总计划量明细（totals 强类型）        │
+ * │ 8  │ /api/dashboard/metrics/details/delivery      │ GET   │ 总交付量明细（totals 强类型）        │
+ * │ 9  │ /api/dashboard/metrics/details/pending       │ GET   │ 待生产明细（totals 强类型）          │
+ * │ 10 │ /api/dashboard/todos                         │ GET   │ 待办事项列表                        │
+ * │ 11 │ /api/dashboard/order-tracking                │ GET   │ 订单跟踪看板                        │
+ * │ 12 │ /api/dashboard/charts                        │ GET   │ 图表数据                            │
+ * │ 13 │ /api/dashboard/material-funds/details        │ GET   │ 原辅包物料级明细                    │
+ * │ 14 │ /api/dashboard/details/tree                  │ GET   │ 明细下钻（月份→制剂→批次）           │
  * └────┴──────────────────────────────────────────────┴────────┴─────────────────────────────────────┘
  */
 @RestController
@@ -240,7 +246,11 @@ public class DashboardController extends BaseController {
     }
 
     /**
-     * 卡片明细（全量，不分页）
+     * 卡片明细（全量，不分页）——兼容入口
+     *
+     * 注意：本接口为一张接口服务六张卡片，totals 只能声明为通配符类型，
+     * 接口文档工具无法展开其字段（会显示为 null）；如需完整结构，
+     * 请使用下方六个 /metrics/details/xxx 具体接口。
      *
      * 示例请求：
      * GET /api/dashboard/metrics/details?card=estimatedCost&startMonth=2026-05&endMonth=2026-10
@@ -282,6 +292,144 @@ public class DashboardController extends BaseController {
                 return error("不支持的 card 类型：" + card);
             }
             return success(detail);
+        } catch (Exception e) {
+            return exception(e, "操作");
+        }
+    }
+
+    /**
+     * 预估成本明细（工单粒度）
+     *
+     * 示例请求：
+     * GET /api/dashboard/metrics/details/estimated-cost?startMonth=2026-08&endMonth=2026-10
+     *
+     * totals 结构与 /api/dashboard/metrics 的 cost.estimatedCost 完全一致。
+     *
+     * @param startMonth 起始月份（格式：2026-08，可空）
+     * @param endMonth   结束月份（格式：2026-10，可空）
+     * @return 汇总（totals）+ 全量明细（details，不分页）
+     */
+    @GetMapping("/metrics/details/estimated-cost")
+    public ApiResponse<CardDetailDto<DashboardMetricsDto.EstimatedCostCardDto, DashboardDetailRowDto>>
+    getEstimatedCostDetails(@RequestParam(required = false) String startMonth,
+                            @RequestParam(required = false) String endMonth) {
+        try {
+            return success(dashboardCostService.getEstimatedCostDetails(startMonth, endMonth));
+        } catch (Exception e) {
+            return exception(e, "操作");
+        }
+    }
+
+    /**
+     * 实际成本明细（月份 + 工单，含未关联制剂 / 未分摊水电气特殊行）
+     *
+     * 示例请求：
+     * GET /api/dashboard/metrics/details/actual-cost?startMonth=2026-08&endMonth=2026-10
+     *
+     * totals 结构与 /api/dashboard/metrics 的 cost.actualCost 完全一致。
+     *
+     * @param startMonth 起始月份（格式：2026-08，可空）
+     * @param endMonth   结束月份（格式：2026-10，可空）
+     * @return 汇总（totals）+ 全量明细（details，不分页）
+     */
+    @GetMapping("/metrics/details/actual-cost")
+    public ApiResponse<CardDetailDto<DashboardMetricsDto.ActualCostCardDto, DashboardDetailRowDto>>
+    getActualCostDetails(@RequestParam(required = false) String startMonth,
+                         @RequestParam(required = false) String endMonth) {
+        try {
+            return success(dashboardCostService.getActualCostDetails(startMonth, endMonth));
+        } catch (Exception e) {
+            return exception(e, "操作");
+        }
+    }
+
+    /**
+     * 预估产值明细（工单粒度）
+     *
+     * 示例请求：
+     * GET /api/dashboard/metrics/details/output-value?startMonth=2026-08&endMonth=2026-10
+     *
+     * totals 结构与 /api/dashboard/metrics 的 cost.outputValue 完全一致。
+     *
+     * @param startMonth 起始月份（格式：2026-08，可空）
+     * @param endMonth   结束月份（格式：2026-10，可空）
+     * @return 汇总（totals）+ 全量明细（details，不分页）
+     */
+    @GetMapping("/metrics/details/output-value")
+    public ApiResponse<CardDetailDto<DashboardMetricsDto.OutputValueCardDto, DashboardDetailRowDto>>
+    getOutputValueDetails(@RequestParam(required = false) String startMonth,
+                          @RequestParam(required = false) String endMonth) {
+        try {
+            return success(dashboardCostService.getOutputValueDetails(startMonth, endMonth));
+        } catch (Exception e) {
+            return exception(e, "操作");
+        }
+    }
+
+    /**
+     * 总计划量明细（生产计划单粒度）
+     *
+     * 示例请求：
+     * GET /api/dashboard/metrics/details/total-plan?startMonth=2026-08&endMonth=2026-10
+     *
+     * totals 结构与 /api/dashboard/metrics 的 production.totalPlan 完全一致。
+     *
+     * @param startMonth 起始月份（格式：2026-08，可空）
+     * @param endMonth   结束月份（格式：2026-10，可空）
+     * @return 汇总（totals）+ 全量明细（details，不分页）
+     */
+    @GetMapping("/metrics/details/total-plan")
+    public ApiResponse<CardDetailDto<DashboardMetricsDto.TotalPlanCardDto, DashboardDetailRowDto>>
+    getTotalPlanDetails(@RequestParam(required = false) String startMonth,
+                        @RequestParam(required = false) String endMonth) {
+        try {
+            return success(dashboardProductionService.getTotalPlanDetails(startMonth, endMonth));
+        } catch (Exception e) {
+            return exception(e, "操作");
+        }
+    }
+
+    /**
+     * 总交付量明细（工单粒度）
+     *
+     * 示例请求：
+     * GET /api/dashboard/metrics/details/delivery?startMonth=2026-08&endMonth=2026-10
+     *
+     * totals 结构与 /api/dashboard/metrics 的 production.delivery 完全一致。
+     *
+     * @param startMonth 起始月份（格式：2026-08，可空）
+     * @param endMonth   结束月份（格式：2026-10，可空）
+     * @return 汇总（totals）+ 全量明细（details，不分页）
+     */
+    @GetMapping("/metrics/details/delivery")
+    public ApiResponse<CardDetailDto<DashboardMetricsDto.DeliveryCardDto, DashboardDetailRowDto>>
+    getDeliveryDetails(@RequestParam(required = false) String startMonth,
+                       @RequestParam(required = false) String endMonth) {
+        try {
+            return success(dashboardProductionService.getDeliveryDetails(startMonth, endMonth));
+        } catch (Exception e) {
+            return exception(e, "操作");
+        }
+    }
+
+    /**
+     * 待生产明细（待生产计划单粒度）
+     *
+     * 示例请求：
+     * GET /api/dashboard/metrics/details/pending?startMonth=2026-08&endMonth=2026-10
+     *
+     * totals 结构与 /api/dashboard/metrics 的 production.pending 完全一致。
+     *
+     * @param startMonth 起始月份（格式：2026-08，可空）
+     * @param endMonth   结束月份（格式：2026-10，可空）
+     * @return 汇总（totals）+ 全量明细（details，不分页）
+     */
+    @GetMapping("/metrics/details/pending")
+    public ApiResponse<CardDetailDto<DashboardMetricsDto.PendingCardDto, DashboardDetailRowDto>>
+    getPendingDetails(@RequestParam(required = false) String startMonth,
+                      @RequestParam(required = false) String endMonth) {
+        try {
+            return success(dashboardProductionService.getPendingDetails(startMonth, endMonth));
         } catch (Exception e) {
             return exception(e, "操作");
         }
