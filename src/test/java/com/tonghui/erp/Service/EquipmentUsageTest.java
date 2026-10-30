@@ -270,7 +270,7 @@ public class EquipmentUsageTest {
     // ===================================
 
     /**
-     * 仅选设备未填时间（工艺模板初始化场景）→ 允许，且不校验设备状态
+     * 仅选设备未填时间（工艺模板初始化场景）→ 允许，且不校验设备状态；导出状态为待执行
      */
     @Test
     public void testEquipmentWithoutTimeAllowed() {
@@ -280,6 +280,14 @@ public class EquipmentUsageTest {
         // 不抛异常即通过
         workOrderProcessExecutionService.batchSave(workOrderId,
                 List.of(buildExecution(workOrderId, equipment.getEquipmentId(), null, null)));
+
+        PageRequestDto pageRequest = new PageRequestDto();
+        pageRequest.setPageIndex(0);
+        pageRequest.setPageSize(10);
+        PagedResult<EquipmentUsageRecordDto> page = equipmentUsageService.search(
+                equipment.getEquipmentId(), null, null, null, null, null, pageRequest);
+        assertTrue(page.getItems().stream().allMatch(item -> "待执行".equals(item.getStatus())),
+                "未填写使用时间的记录状态应为待执行");
     }
 
     /**

@@ -77,7 +77,7 @@ public class EquipmentUsageController extends BaseController {
      * @param equipmentId   设备ID（可选）
      * @param equipmentType 设备类型（可选，精确匹配：生产设备/检验设备/环境设备/计量器具/压力容器/其他设备）
      * @param keyword       关键字（可选，模糊匹配工单编号/批号/制剂名称/工序名称/设备名称/固定资产编号）
-     * @param status        执行状态（可选，精确匹配：待执行/执行中/已完成）
+     * @param status        执行状态（可选，精确匹配：待执行/已完成；按是否填写使用时间判定）
      * @param startDate     使用开始日期（可选，格式 yyyy-MM-dd）
      * @param endDate       使用结束日期（可选，格式 yyyy-MM-dd）
      * @param pageRequest   分页参数（pageIndex 从 0 开始，-1 表示全量）

@@ -34,8 +34,10 @@ public class EquipmentUsageQueryDto {
     private String keyword;
 
     /**
-     * 执行状态（可选，精确匹配；与列表展示口径一致：
-     * 库中明确状态优先，否则按使用时间推导 待执行/执行中/已完成）
+     * 执行状态（可选，精确匹配：待执行/已完成）
+     * <p>
+     * 与列表展示口径一致：未填写使用时间=待执行，已填写使用时间=已完成。
+     * </p>
      */
     private String status;
 

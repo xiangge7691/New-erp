@@ -5,16 +5,13 @@
 <mapper namespace="com.tonghui.erp.Data.mapper.EquipmentUsageMapper">
 
     <!--
-        使用状态推导：
-        1) 前端/业务若写入了明确状态（非"待执行"），以库中值为准；
-        2) 否则按使用时间推导：无开始时间=待执行、有开始无结束=执行中、均有=已完成。
-        （历史上工单按模板初始化时统一写入"待执行"，前端未回写执行状态，直接取库值会导致导出全是待执行）
+        使用状态推导：未填写使用时间=待执行，已填写使用时间=已完成。
+        （历史上工单按模板初始化时统一写入"待执行"，前端从不回写执行状态，
+        直接取库值会导致导出全是待执行）
     -->
     <sql id="Status_Expr">
         CASE
-            WHEN e.status IS NOT NULL AND e.status NOT IN ('', '待执行') THEN e.status
-            WHEN e.start_time IS NULL THEN '待执行'
-            WHEN e.end_time IS NULL THEN '执行中'
+            WHEN e.start_time IS NULL AND e.end_time IS NULL THEN '待执行'
             ELSE '已完成'
         END
     </sql>
