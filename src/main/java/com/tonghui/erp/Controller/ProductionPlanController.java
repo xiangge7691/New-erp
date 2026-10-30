@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.PagedResultWithSummary;
 import com.tonghui.erp.Common.Dto.ProductionPlanWithRecordsDto;
 import com.tonghui.erp.Data.Entity.ProductionPlan;
 import com.tonghui.erp.Service.ProductionPlanService;
@@ -135,6 +136,8 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
      * GET /api/production-plans/search?pageIndex=1&pageSize=20&planNumber=PP2025&planName=xxx&currentStatus=active&createdTimeStart=2025-01-01T00:00:00&createdTimeEnd=2025-12-31T23:59:59&planProductionTimeStart=2025-01-01T00:00:00&planProductionTimeEnd=2025-12-31T23:59:59
      * 全量示例：
      * GET /api/production-plans/search?pageIndex=-1&pageSize=-1
+     * 汇总示例（同时返回表格下方的平均生产时间）：
+     * GET /api/production-plans/search?pageIndex=0&pageSize=20&withSummary=true
      *
      * @param productionPlan 查询条件（自动从query参数映射）
      * @param createdTimeStart 创建时间起始
@@ -158,12 +161,13 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
      * @param timeFieldType 时间字段类型
      * @param timeStart 通用时间起始
      * @param timeEnd 通用时间结束
+     * @param withSummary 是否随列表返回平均生产时间汇总（默认false）
      * @param pageIndex 页码
      * @param pageSize 每页大小
-     * @return ApiResponse&lt;PagedResult&lt;ProductionPlan&gt;&gt; 分页查询结果（含生产用时）
+     * @return ApiResponse&lt;PagedResultWithSummary&lt;ProductionPlan&gt;&gt; 分页查询结果（含生产用时与平均生产时间汇总）
      */
     @GetMapping("/search")
-    public ApiResponse<PagedResult<ProductionPlan>> queryProductionPlans(ProductionPlan productionPlan,
+    public ApiResponse<PagedResultWithSummary<ProductionPlan>> queryProductionPlans(ProductionPlan productionPlan,
                                                                                      @RequestParam(required = false) LocalDateTime createdTimeStart,
                                                                                      @RequestParam(required = false) LocalDateTime createdTimeEnd,
                                                                                      @RequestParam(required = false) LocalDateTime updatedTimeStart,
@@ -185,6 +189,7 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
                                                                                      @RequestParam(required = false) String timeFieldType,
                                                                                      @RequestParam(required = false) LocalDateTime timeStart,
                                                                                      @RequestParam(required = false) LocalDateTime timeEnd,
+                                                                                     @RequestParam(defaultValue = "false") boolean withSummary,
                                                                                      @RequestParam int pageIndex,
                                                                                      @RequestParam int pageSize) {
         try {
@@ -210,7 +215,7 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
                     safePageIndex, safePageSize);
 
             // 转换为统一的PagedResult格式
-            PagedResult<ProductionPlan> pagedResult = new PagedResult<>();
+            PagedResultWithSummary<ProductionPlan> pagedResult = new PagedResultWithSummary<>();
             pagedResult.setItems(pageResult.getRecords());
             pagedResult.setTotalCount((int) pageResult.getTotal());
             if (fetchAll) {
@@ -220,6 +225,18 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
             } else {
                 pagedResult.setPageIndex(safePageIndex);
                 pagedResult.setPageSize((int) pageResult.getSize());
+            }
+
+            // 按当前筛选条件统计平均生产时间（不受分页影响）
+            if (withSummary) {
+                pagedResult.setSummary(productionPlanService.getProductionDurationSummary(productionPlan,
+                        null,
+                        createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd,
+                        productionStartTimeStart, productionStartTimeEnd, productionEndTimeStart, productionEndTimeEnd,
+                        planProductionTimeStart, planProductionTimeEnd,
+                        inspectionStartTimeStart, inspectionStartTimeEnd, inspectionEndTimeStart, inspectionEndTimeEnd,
+                        outboundTimeStart, outboundTimeEnd, archiveTimeStart, archiveTimeEnd,
+                        timeFieldType, timeStart, timeEnd));
             }
 
             return success(pagedResult);
@@ -241,6 +258,8 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
      *
      * 示例请求：
      * GET /api/production-plans/search-with-details?pageIndex=1&pageSize=20&keyword=PP2025
+     * 汇总示例（同时返回表格下方的平均生产时间）：
+     * GET /api/production-plans/search-with-details?pageIndex=0&pageSize=20&withSummary=true
      *
      * @param productionPlan 查询条件（自动从query参数映射）
      * @param keyword 关键字（对计划编号、计划名称进行模糊匹配，可选）
@@ -265,12 +284,13 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
      * @param timeFieldType 时间字段类型
      * @param timeStart 通用时间起始
      * @param timeEnd 通用时间结束
+     * @param withSummary 是否随列表返回平均生产时间汇总（默认false）
      * @param pageIndex 页码
      * @param pageSize 每页大小
-     * @return ApiResponse&lt;PagedResult&lt;ProductionPlanWithRecordsDto&gt;&gt; 分页结果（包含工序记录、生产任务、制剂规格及生产用时）
+     * @return ApiResponse&lt;PagedResultWithSummary&lt;ProductionPlanWithRecordsDto&gt;&gt; 分页结果（包含工序记录、生产任务、制剂规格及平均生产时间）
      */
     @GetMapping("/search-with-details")
-    public ApiResponse<PagedResult<ProductionPlanWithRecordsDto>> searchWithDetails(ProductionPlan productionPlan,
+    public ApiResponse<PagedResultWithSummary<ProductionPlanWithRecordsDto>> searchWithDetails(ProductionPlan productionPlan,
                                                                                                @RequestParam(required = false) String keyword,
                                                                                                @RequestParam(required = false) LocalDateTime createdTimeStart,
                                                                                                @RequestParam(required = false) LocalDateTime createdTimeEnd,
@@ -293,6 +313,7 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
                                                                                                @RequestParam(required = false) String timeFieldType,
                                                                                                @RequestParam(required = false) LocalDateTime timeStart,
                                                                                                @RequestParam(required = false) LocalDateTime timeEnd,
+                                                                                               @RequestParam(defaultValue = "false") boolean withSummary,
                                                                                                @RequestParam int pageIndex,
                                                                                                @RequestParam int pageSize) {
         try {
@@ -308,7 +329,26 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
                     timeFieldType, timeStart, timeEnd,
                     safePageIndex, safePageSize);
 
-            return success(result);
+            // 转换为带汇总的分页结果，保持原有字段结构不变
+            PagedResultWithSummary<ProductionPlanWithRecordsDto> pagedResult = new PagedResultWithSummary<>();
+            pagedResult.setItems(result.getItems());
+            pagedResult.setTotalCount(result.getTotalCount());
+            pagedResult.setPageIndex(result.getPageIndex());
+            pagedResult.setPageSize(result.getPageSize());
+
+            // 按当前筛选条件统计平均生产时间（不受分页影响）
+            if (withSummary) {
+                pagedResult.setSummary(productionPlanService.getProductionDurationSummary(productionPlan,
+                        keyword,
+                        createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd,
+                        productionStartTimeStart, productionStartTimeEnd, productionEndTimeStart, productionEndTimeEnd,
+                        planProductionTimeStart, planProductionTimeEnd,
+                        inspectionStartTimeStart, inspectionStartTimeEnd, inspectionEndTimeStart, inspectionEndTimeEnd,
+                        outboundTimeStart, outboundTimeEnd, archiveTimeStart, archiveTimeEnd,
+                        timeFieldType, timeStart, timeEnd));
+            }
+
+            return success(pagedResult);
         } catch (Exception ex) {
             return exception(ex, "查询失败");
         }

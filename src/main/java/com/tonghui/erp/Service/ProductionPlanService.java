@@ -3,6 +3,7 @@ package com.tonghui.erp.Service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Production.ProductionDurationSummaryDto;
 import com.tonghui.erp.Common.Dto.ProductionPlanWithRecordsDto;
 import com.tonghui.erp.Data.Entity.ProductionPlan;
 
@@ -57,6 +58,51 @@ public interface ProductionPlanService extends IService<ProductionPlan> {
                                              LocalDateTime archiveTimeStart, LocalDateTime archiveTimeEnd,
                                              String timeFieldType, LocalDateTime timeStart, LocalDateTime timeEnd,
                                              int pageNum, int pageSize);
+
+    /**
+     * 汇总当前筛选条件下的平均生产时间
+     * <p>
+     * 生产计划口径：采购计划下达时间 → 计划级入库时间（关联工单入库时间最大值），
+     * 仅统计有效生产用时，并按制剂维度拆分
+     * </p>
+     *
+     * @param productionPlan           查询条件实体
+     * @param keyword                  关键字（对计划编号、计划名称进行模糊匹配）
+     * @param createdTimeStart         创建时间起始值（含）
+     * @param createdTimeEnd           创建时间结束值（含）
+     * @param updatedTimeStart         更新时间起始值（含）
+     * @param updatedTimeEnd           更新时间结束值（含）
+     * @param productionStartTimeStart 生产开始时间起始值（含）
+     * @param productionStartTimeEnd   生产开始时间结束值（含）
+     * @param productionEndTimeStart   生产结束时间起始值（含）
+     * @param productionEndTimeEnd     生产结束时间结束值（含）
+     * @param planProductionTimeStart  计划生产时间起始值（含）
+     * @param planProductionTimeEnd    计划生产时间结束值（含）
+     * @param inspectionStartTimeStart 检验开始时间起始值（含）
+     * @param inspectionStartTimeEnd   检验开始时间结束值（含）
+     * @param inspectionEndTimeStart   检验结束时间起始值（含）
+     * @param inspectionEndTimeEnd     检验结束时间结束值（含）
+     * @param outboundTimeStart        出库时间起始值（含）
+     * @param outboundTimeEnd          出库时间结束值（含）
+     * @param archiveTimeStart         归档时间起始值（含）
+     * @param archiveTimeEnd           归档时间结束值（含）
+     * @param timeFieldType            动态时间字段类型
+     * @param timeStart                动态时间字段起始值（含）
+     * @param timeEnd                  动态时间字段结束值（含）
+     * @return 平均生产时间汇总
+     */
+    ProductionDurationSummaryDto getProductionDurationSummary(ProductionPlan productionPlan,
+                                                              String keyword,
+                                                              LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
+                                                              LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
+                                                              LocalDateTime productionStartTimeStart, LocalDateTime productionStartTimeEnd,
+                                                              LocalDateTime productionEndTimeStart, LocalDateTime productionEndTimeEnd,
+                                                              LocalDateTime planProductionTimeStart, LocalDateTime planProductionTimeEnd,
+                                                              LocalDateTime inspectionStartTimeStart, LocalDateTime inspectionStartTimeEnd,
+                                                              LocalDateTime inspectionEndTimeStart, LocalDateTime inspectionEndTimeEnd,
+                                                              LocalDateTime outboundTimeStart, LocalDateTime outboundTimeEnd,
+                                                              LocalDateTime archiveTimeStart, LocalDateTime archiveTimeEnd,
+                                                              String timeFieldType, LocalDateTime timeStart, LocalDateTime timeEnd);
 
     /**
      * 刷新生产计划状态
