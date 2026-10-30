@@ -5,13 +5,14 @@
 <mapper namespace="com.tonghui.erp.Data.mapper.EquipmentUsageMapper">
 
     <!--
-        使用状态推导：未填写使用时间=待执行，已填写使用时间=已完成。
+        使用状态推导：未填写时间=待执行，仅有开始时间=执行中，开始与结束时间齐全=已完成。
         （历史上工单按模板初始化时统一写入"待执行"，前端从不回写执行状态，
         直接取库值会导致导出全是待执行）
     -->
     <sql id="Status_Expr">
         CASE
             WHEN e.start_time IS NULL AND e.end_time IS NULL THEN '待执行'
+            WHEN e.end_time IS NULL THEN '执行中'
             ELSE '已完成'
         END
     </sql>

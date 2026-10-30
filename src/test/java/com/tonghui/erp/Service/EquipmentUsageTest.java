@@ -291,6 +291,26 @@ public class EquipmentUsageTest {
     }
 
     /**
+     * 仅有开始时间 → 状态为执行中
+     */
+    @Test
+    public void testInProgressStatusWhenOnlyStartTime() {
+        Equipment equipment = createEquipment("正常");
+        long workOrderId = nextWorkOrderId();
+        // 直接落库（batchSave 会拦截"只填开始时间"，此处仅验证状态推导规则）
+        workOrderProcessExecutionService.save(buildExecution(workOrderId, equipment.getEquipmentId(),
+                LocalDateTime.of(2026, 10, 15, 8, 0), null));
+
+        PageRequestDto pageRequest = new PageRequestDto();
+        pageRequest.setPageIndex(0);
+        pageRequest.setPageSize(10);
+        PagedResult<EquipmentUsageRecordDto> page = equipmentUsageService.search(
+                equipment.getEquipmentId(), null, null, null, null, null, pageRequest);
+        assertTrue(page.getItems().stream().anyMatch(item -> "执行中".equals(item.getStatus())),
+                "仅有开始时间的记录状态应为执行中");
+    }
+
+    /**
      * 按设备导出：状态按使用时间推导，且设备有维保记录时导出维保 sheet
      */
     @Test
