@@ -14,7 +14,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.ByteArrayOutputStream;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -50,6 +49,12 @@ public class EquipmentUsageTest {
      */
     @Autowired
     private EquipmentUsageService equipmentUsageService;
+
+    /**
+     * 设备维保记录服务
+     */
+    @Autowired
+    private EquipmentMaintenanceService equipmentMaintenanceService;
 
     /**
      * 设备Mapper（测试数据准备）
@@ -194,7 +199,8 @@ public class EquipmentUsageTest {
         EquipmentMaintenance maintenance = new EquipmentMaintenance();
         maintenance.setEquipmentId(equipment.getEquipmentId().longValue());
         maintenance.setMaintenanceType("定期检修");
-        maintenance.setMaintenanceDate(LocalDate.of(2026, 10, 16));
+        maintenance.setMaintenanceStartTime(LocalDateTime.of(2026, 10, 16, 0, 0));
+        maintenance.setMaintenanceEndTime(LocalDateTime.of(2026, 10, 16, 23, 59, 59));
         maintenance.setMaintenanceContent("测试维保");
         equipmentMaintenanceMapper.insert(maintenance);
 
@@ -203,7 +209,52 @@ public class EquipmentUsageTest {
                         List.of(buildExecution(workOrderId, equipment.getEquipmentId(),
                                 LocalDateTime.of(2026, 10, 15, 23, 0),
                                 LocalDateTime.of(2026, 10, 16, 1, 0)))));
-        assertTrue(exception.getMessage().contains("维保"), "应提示设备维保日期冲突");
+        assertTrue(exception.getMessage().contains("维保"), "应提示设备维保时间冲突");
+    }
+
+    /**
+     * 登记维保时与既有设备使用时间重叠 → 拦截
+     */
+    @Test
+    public void testMaintenanceOverlapWithUsageRejected() {
+        Equipment equipment = createEquipment("正常");
+        long workOrderId = nextWorkOrderId();
+        workOrderProcessExecutionService.batchSave(workOrderId,
+                List.of(buildExecution(workOrderId, equipment.getEquipmentId(),
+                        LocalDateTime.of(2026, 10, 15, 8, 0),
+                        LocalDateTime.of(2026, 10, 15, 12, 0))));
+
+        EquipmentMaintenance maintenance = new EquipmentMaintenance();
+        maintenance.setEquipmentId(equipment.getEquipmentId().longValue());
+        maintenance.setMaintenanceType("故障维修");
+        maintenance.setMaintenanceStartTime(LocalDateTime.of(2026, 10, 15, 10, 0));
+        maintenance.setMaintenanceEndTime(LocalDateTime.of(2026, 10, 15, 11, 0));
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> equipmentMaintenanceService.saveWithAutoCalc(maintenance));
+        assertTrue(exception.getMessage().contains("占用"), "应提示维保时间与设备使用时间冲突");
+    }
+
+    /**
+     * 维保时间与使用时间首尾相接（使用 12:00 结束、维保 12:00 开始）→ 允许
+     */
+    @Test
+    public void testAdjacentMaintenanceAllowed() {
+        Equipment equipment = createEquipment("正常");
+        long workOrderId = nextWorkOrderId();
+        workOrderProcessExecutionService.batchSave(workOrderId,
+                List.of(buildExecution(workOrderId, equipment.getEquipmentId(),
+                        LocalDateTime.of(2026, 10, 15, 8, 0),
+                        LocalDateTime.of(2026, 10, 15, 12, 0))));
+
+        EquipmentMaintenance maintenance = new EquipmentMaintenance();
+        maintenance.setEquipmentId(equipment.getEquipmentId().longValue());
+        maintenance.setMaintenanceType("日常保养");
+        maintenance.setMaintenanceStartTime(LocalDateTime.of(2026, 10, 15, 12, 0));
+        maintenance.setMaintenanceEndTime(LocalDateTime.of(2026, 10, 15, 14, 0));
+
+        // 不抛异常即通过
+        equipmentMaintenanceService.saveWithAutoCalc(maintenance);
     }
 
     // endregion

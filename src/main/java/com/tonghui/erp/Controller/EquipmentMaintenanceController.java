@@ -101,8 +101,8 @@ public class EquipmentMaintenanceController extends BaseController {
      * @param keyword 关键词（可选），模糊匹配维保内容、设备编码（固定资产编号）、设备名称
      * @param maintainer 维保人（可选）
      * @param maintenanceCompany 维保公司（可选）
-     * @param maintenanceDateStart 维保日期起始（可选）
-     * @param maintenanceDateEnd 维保日期结束（可选）
+     * @param maintenanceDateStart 维保开始日期起始（可选，按维保开始时间所在日期过滤）
+     * @param maintenanceDateEnd 维保开始日期结束（可选，含当天）
      * @param pageIndex 页码（默认0）
      * @param pageSize 每页大小（默认10）
      * @return ApiResponse&lt;PagedResult&lt;EquipmentMaintenance&gt;&gt; 分页结果
@@ -165,12 +165,12 @@ public class EquipmentMaintenanceController extends BaseController {
             wrapper.like("maintenance_company", maintenanceCompany);
         }
         if (maintenanceDateStart != null) {
-            wrapper.ge("maintenance_date", maintenanceDateStart);
+            wrapper.ge("maintenance_start_time", maintenanceDateStart.atStartOfDay());
         }
         if (maintenanceDateEnd != null) {
-            wrapper.le("maintenance_date", maintenanceDateEnd);
+            wrapper.lt("maintenance_start_time", maintenanceDateEnd.plusDays(1).atStartOfDay());
         }
-        wrapper.orderByDesc("maintenance_date");
+        wrapper.orderByDesc("maintenance_start_time");
         
         Page<EquipmentMaintenance> page = new Page<>(pageIndex + 1, pageSize);
         Page<EquipmentMaintenance> pageResult = equipmentMaintenanceService.page(page, wrapper);
@@ -206,7 +206,8 @@ public class EquipmentMaintenanceController extends BaseController {
     /**
      * 新增维保记录
      * <p>
-     * 保养类型：自动按维保周期计算下次维保时间；维修类型：不自动计算，需手工填写
+     * 保养类型：自动按维保周期计算下次维保时间；维修类型：不自动计算，需手工填写。
+     * 保存前校验维保时间是否与设备使用时间冲突。
      * </p>
      *
      * 示例请求：
@@ -216,7 +217,8 @@ public class EquipmentMaintenanceController extends BaseController {
      *   "equipmentId": 1,
      *   "maintenanceType": "保养",
      *   "maintenanceContent": "定期检查设备运行状态",
-     *   "maintenanceDate": "2026-06-30",
+     *   "maintenanceStartTime": "2026-06-30 08:00:00",
+     *   "maintenanceEndTime": "2026-06-30 12:00:00",
      *   "nextMaintenanceDate": "2026-07-30",
      *   "maintainer": "张三",
      *   "maintenanceCompany": "设备维修公司"
@@ -235,13 +237,17 @@ public class EquipmentMaintenanceController extends BaseController {
 
     /**
      * 修改维保记录
+     * <p>
+     * 涉及设备或维保时间的修改会校验维保时间是否与设备使用时间冲突。
+     * </p>
      *
      * 示例请求：
      * PUT /api/equipmentMaintenance/1
      * Content-Type: application/json
      * {
      *   "maintenanceContent": "设备检修完成",
-     *   "maintenanceCost": 500.00
+     *   "maintenanceStartTime": "2026-06-30 08:00:00",
+     *   "maintenanceEndTime": "2026-06-30 12:00:00"
      * }
      *
      * @param id 维保记录ID（路径参数）
@@ -250,12 +256,8 @@ public class EquipmentMaintenanceController extends BaseController {
      */
     @PutMapping("/{id}")
     public ApiResponse<EquipmentMaintenance> update(@PathVariable Long id, @RequestBody EquipmentMaintenance maintenance) {
-        EquipmentMaintenance existing = equipmentMaintenanceService.getById(id);
-        if (existing == null) {
-            return error("维保记录不存在");
-        }
         maintenance.setMaintenanceId(id);
-        equipmentMaintenanceService.updateById(maintenance);
+        equipmentMaintenanceService.updateWithConflictCheck(maintenance);
         return success(maintenance, "修改成功");
     }
 
@@ -313,8 +315,8 @@ public class EquipmentMaintenanceController extends BaseController {
      *
      * @param equipmentId 设备ID（路径参数）
      * @param maintenanceType 维保类型（可选）
-     * @param maintenanceDateStart 维保日期起始（可选）
-     * @param maintenanceDateEnd 维保日期结束（可选）
+     * @param maintenanceDateStart 维保开始日期起始（可选，按维保开始时间所在日期过滤）
+     * @param maintenanceDateEnd 维保开始日期结束（可选，含当天）
      * @return ApiResponse&lt;List&lt;EquipmentMaintenance&gt;&gt; 维保记录列表
      */
     @GetMapping("/byEquipment/{equipmentId}")
@@ -329,12 +331,12 @@ public class EquipmentMaintenanceController extends BaseController {
             wrapper.eq("maintenance_type", maintenanceType);
         }
         if (maintenanceDateStart != null) {
-            wrapper.ge("maintenance_date", maintenanceDateStart);
+            wrapper.ge("maintenance_start_time", maintenanceDateStart.atStartOfDay());
         }
         if (maintenanceDateEnd != null) {
-            wrapper.le("maintenance_date", maintenanceDateEnd);
+            wrapper.lt("maintenance_start_time", maintenanceDateEnd.plusDays(1).atStartOfDay());
         }
-        wrapper.orderByDesc("maintenance_date");
+        wrapper.orderByDesc("maintenance_start_time");
         List<EquipmentMaintenance> list = equipmentMaintenanceService.list(wrapper);
         fillEquipmentInfo(list);
         return success(list);

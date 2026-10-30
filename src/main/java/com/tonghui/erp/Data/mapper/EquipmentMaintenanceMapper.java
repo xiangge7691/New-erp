@@ -6,7 +6,7 @@ import com.tonghui.erp.Data.Entity.EquipmentMaintenance;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
@@ -17,19 +17,19 @@ import java.util.List;
 public interface EquipmentMaintenanceMapper extends BaseMapper<EquipmentMaintenance> {
 
     /**
-     * 查询指定设备在日期范围内的维保记录（用于工序排产时的维保时间冲突校验）
+     * 查询指定设备在时间窗内的维保记录（用于工序排产时的维保时间冲突校验）
      * <p>
-     * 维保表仅有 maintenance_date（DATE），按"维保当天整日占用"处理，
+     * 按维保时间区间 [maintenance_start_time, maintenance_end_time) 与目标时间窗做重叠粗筛，
      * 仅返回未删除记录，并带出设备名称/固定资产编号用于错误提示。
      * </p>
      *
      * @param equipmentIds 设备ID集合
-     * @param minDate      日期范围下界（含）
-     * @param maxDate      日期范围上界（含）
+     * @param minStart     时间窗起点（不含）
+     * @param maxEnd       时间窗终点（不含）
      * @return 维保冲突明细列表
      */
     List<EquipmentMaintenanceConflictDto> selectMaintenanceConflicts(
             @Param("equipmentIds") Collection<Integer> equipmentIds,
-            @Param("minDate") LocalDate minDate,
-            @Param("maxDate") LocalDate maxDate);
+            @Param("minStart") LocalDateTime minStart,
+            @Param("maxEnd") LocalDateTime maxEnd);
 }

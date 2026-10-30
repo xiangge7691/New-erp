@@ -6,11 +6,15 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 /**
  * 设备维保记录表
+ * <p>
+ * 维保时间以开始/结束时间区间记录，用于与工单工序执行记录的设备使用时间做冲突校验。
+ * </p>
  * @TableName equipment_maintenance
  */
 @TableName(value = "equipment_maintenance")
@@ -49,10 +53,16 @@ public class EquipmentMaintenance extends AuditEntity {
     private String maintenanceType;
 
     /**
-     * 维保日期
+     * 维保开始时间
      */
-    @TableField(value = "maintenance_date")
-    private LocalDate maintenanceDate;
+    @TableField(value = "maintenance_start_time")
+    private LocalDateTime maintenanceStartTime;
+
+    /**
+     * 维保结束时间
+     */
+    @TableField(value = "maintenance_end_time")
+    private LocalDateTime maintenanceEndTime;
 
     /**
      * 下次维保日期

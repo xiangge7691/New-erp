@@ -8,7 +8,8 @@
         <id property="maintenanceId" column="maintenance_id" />
         <result property="equipmentId" column="equipment_id" />
         <result property="maintenanceType" column="maintenance_type" />
-        <result property="maintenanceDate" column="maintenance_date" />
+        <result property="maintenanceStartTime" column="maintenance_start_time" />
+        <result property="maintenanceEndTime" column="maintenance_end_time" />
         <result property="nextMaintenanceDate" column="next_maintenance_date" />
         <result property="maintenanceContent" column="maintenance_content" />
         <result property="maintenanceResult" column="maintenance_result" />
@@ -27,13 +28,13 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        maintenance_id,equipment_id,maintenance_type,maintenance_date,
-        next_maintenance_date,maintenance_content,maintenance_result,cost,
+        maintenance_id,equipment_id,maintenance_type,maintenance_start_time,
+        maintenance_end_time,next_maintenance_date,maintenance_content,maintenance_result,cost,
         maintainer,maintenance_company,contact_phone,remark,recorder_id,
         created_by,updated_by,created_time,updated_time,is_deleted,version
     </sql>
 
-    <!-- 设备维保日期冲突查询：维保表只有日期，按维保当天整日占用处理 -->
+    <!-- 设备维保时间冲突查询：按维保时间区间与目标时间窗做半开区间重叠粗筛 -->
     <select id="selectMaintenanceConflicts"
             resultType="com.tonghui.erp.Common.Dto.Equipment.EquipmentMaintenanceConflictDto">
         SELECT m.maintenance_id    AS maintenance_id,
@@ -41,15 +42,18 @@
                eq.equipment_name   AS equipment_name,
                eq.fixed_asset_code AS fixed_asset_code,
                m.maintenance_type  AS maintenance_type,
-               m.maintenance_date  AS maintenance_date,
+               m.maintenance_start_time AS maintenance_start_time,
+               m.maintenance_end_time   AS maintenance_end_time,
                m.maintenance_content AS maintenance_content
         FROM equipment_maintenance m
         LEFT JOIN equipment eq ON eq.equipment_id = m.equipment_id AND eq.is_deleted = 0
         WHERE m.is_deleted = 0
           AND m.equipment_id IN
           <foreach collection="equipmentIds" item="eqId" open="(" separator="," close=")">#{eqId}</foreach>
-          AND m.maintenance_date &gt;= #{minDate}
-          AND m.maintenance_date &lt;= #{maxDate}
-        ORDER BY m.equipment_id ASC, m.maintenance_date ASC
+          AND m.maintenance_start_time IS NOT NULL
+          AND m.maintenance_end_time IS NOT NULL
+          AND m.maintenance_start_time &lt; #{maxEnd}
+          AND m.maintenance_end_time &gt; #{minStart}
+        ORDER BY m.equipment_id ASC, m.maintenance_start_time ASC
     </select>
 </mapper>

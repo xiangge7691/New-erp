@@ -2,13 +2,13 @@ package com.tonghui.erp.Common.Dto.Equipment;
 
 import lombok.Data;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * 设备维保时间冲突明细
  * <p>
- * 保存工序执行记录时，用于描述设备使用日期与设备维保日期（equipment_maintenance.maintenance_date）
- * 重叠的记录。由于维保表仅记录日期，按"维保当天整日不可用"处理。
+ * 保存工序执行记录时，用于描述设备使用时间与设备维保时间区间
+ * （equipment_maintenance.maintenance_start_time ~ maintenance_end_time）重叠的记录。
  * </p>
  */
 @Data
@@ -45,9 +45,14 @@ public class EquipmentMaintenanceConflictDto {
     private String maintenanceType;
 
     /**
-     * 维保日期
+     * 维保开始时间
      */
-    private LocalDate maintenanceDate;
+    private LocalDateTime maintenanceStartTime;
+
+    /**
+     * 维保结束时间
+     */
+    private LocalDateTime maintenanceEndTime;
 
     /**
      * 维保内容

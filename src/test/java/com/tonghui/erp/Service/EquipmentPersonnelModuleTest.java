@@ -248,7 +248,8 @@ public class EquipmentPersonnelModuleTest {
         EquipmentMaintenance maintenance = new EquipmentMaintenance();
         maintenance.setEquipmentId(equipmentId);
         maintenance.setMaintenanceType("定期维护");
-        maintenance.setMaintenanceDate(LocalDate.now());
+        maintenance.setMaintenanceStartTime(LocalDateTime.now());
+        maintenance.setMaintenanceEndTime(LocalDateTime.now().plusHours(1));
         maintenance.setMaintenanceContent("更换易损件");
         maintenance.setMaintenanceResult("正常");
         EquipmentMaintenance saved = equipmentMaintenanceService.saveWithAutoCalc(maintenance);

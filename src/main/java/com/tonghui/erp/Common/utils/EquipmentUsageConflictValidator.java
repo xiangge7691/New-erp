@@ -13,9 +13,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -35,7 +33,7 @@ import java.util.stream.Collectors;
  *   <li>时间合法性：结束时间必须晚于开始时间；填写时间时设备必选</li>
  *   <li>设备状态：仅"正常"设备可安排生产使用（停用/报废/已删除均拦截）</li>
  *   <li>使用冲突：同一设备的时间区间不得重叠（跨工单、跨计划、同批内）</li>
- *   <li>维保冲突：使用区间覆盖的自然日不得命中该设备的维保日期</li>
+ *   <li>维保冲突：使用时间区间不得与设备的维保时间区间重叠</li>
  * </ol>
  * 校验只针对"已填写开始/结束时间"的行；仅选设备未排时间（工单按模板初始化）的行放行。
  * </p>
@@ -316,10 +314,10 @@ public class EquipmentUsageConflictValidator {
     // ===================================
 
     /**
-     * 校验使用日期是否与设备维保日期重叠
+     * 校验使用时间是否与设备维保时间区间重叠
      * <p>
-     * 维保表只记录日期（DATE），按"维保当天整日不可用"处理；
-     * 跨日使用区间（如 10-15 23:00 ~ 10-16 01:00）会同时命中两个自然日。
+     * 维保时间与使用时间均按半开区间 [开始时间, 结束时间) 处理：
+     * 使用结束时间恰好等于维保开始时间（或反之）视为不冲突。
      * </p>
      *
      * @param timedRows    已填写时间的记录
@@ -331,43 +329,41 @@ public class EquipmentUsageConflictValidator {
                                            List<Integer> equipmentIds,
                                            Map<Integer, Equipment> equipmentMap,
                                            Set<String> errors) {
-        LocalDate minDate = timedRows.stream()
-                .map(row -> row.getStartTime().toLocalDate())
-                .min(LocalDate::compareTo)
+        LocalDateTime minStart = timedRows.stream()
+                .map(WorkOrderProcessExecution::getStartTime)
+                .min(LocalDateTime::compareTo)
                 .orElse(null);
-        LocalDate maxDate = timedRows.stream()
-                .map(row -> row.getEndTime().toLocalDate())
-                .max(LocalDate::compareTo)
+        LocalDateTime maxEnd = timedRows.stream()
+                .map(WorkOrderProcessExecution::getEndTime)
+                .max(LocalDateTime::compareTo)
                 .orElse(null);
-        if (minDate == null || maxDate == null) {
+        if (minStart == null || maxEnd == null) {
             return;
         }
 
         List<EquipmentMaintenanceConflictDto> maintenances =
-                maintenanceMapper.selectMaintenanceConflicts(equipmentIds, minDate, maxDate);
+                maintenanceMapper.selectMaintenanceConflicts(equipmentIds, minStart, maxEnd);
         if (CollectionUtils.isEmpty(maintenances)) {
             return;
         }
 
         for (WorkOrderProcessExecution row : timedRows) {
-            LocalDate usageStartDate = row.getStartTime().toLocalDate();
-            // 结束时间恰好为 00:00 时表示当日未使用，不把当天计入使用区间
-            LocalDate usageEndDate = LocalTime.MIDNIGHT.equals(row.getEndTime().toLocalTime())
-                    ? row.getEndTime().toLocalDate().minusDays(1)
-                    : row.getEndTime().toLocalDate();
             for (EquipmentMaintenanceConflictDto maintenance : maintenances) {
                 if (!Objects.equals(row.getEquipmentId(), maintenance.getEquipmentId())) {
                     continue;
                 }
-                LocalDate maintenanceDate = maintenance.getMaintenanceDate();
-                if (maintenanceDate == null
-                        || maintenanceDate.isBefore(usageStartDate)
-                        || maintenanceDate.isAfter(usageEndDate)) {
+                // 半开区间重叠：[start, end)
+                boolean overlap = maintenance.getMaintenanceStartTime() != null
+                        && maintenance.getMaintenanceEndTime() != null
+                        && row.getStartTime().isBefore(maintenance.getMaintenanceEndTime())
+                        && row.getEndTime().isAfter(maintenance.getMaintenanceStartTime());
+                if (!overlap) {
                     continue;
                 }
                 errors.add("设备【" + describeMaintenanceEquipment(maintenance, equipmentMap)
-                        + "】" + maintenanceDate + " 有维保记录（" + safeText(maintenance.getMaintenanceType())
-                        + "），当天不可安排生产使用（使用时间："
+                        + "】在 " + formatRange(maintenance.getMaintenanceStartTime(), maintenance.getMaintenanceEndTime())
+                        + " 有维保记录（" + safeText(maintenance.getMaintenanceType())
+                        + "），该时段不可安排生产使用（使用时间："
                         + formatRange(row.getStartTime(), row.getEndTime()) + "）");
             }
         }
