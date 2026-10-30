@@ -113,7 +113,8 @@ public class EquipmentUsageController extends BaseController {
      * 导出设备使用记录 Excel
      * <p>
      * 传入 equipmentId 时为单设备导出（单 sheet）；不传时按设备分 sheet 导出全部设备，
-     * 并附加"汇总"sheet（使用次数、累计使用时长、首次/最近使用时间）。
+     * 并附加"汇总"sheet（使用次数、累计使用时长、首次/最近使用时间、维保次数等）。
+     * 设备在导出范围内有维保记录时，会额外追加"设备名-维保"sheet，导出维保时间段与维保内容。
      * 先在内存生成，参数校验失败时返回统一 JSON 错误，不污染下载头。
      * </p>
      *

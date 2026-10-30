@@ -8,11 +8,16 @@ import com.tonghui.erp.Data.Entity.EquipmentMaintenance;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessExecution;
 import com.tonghui.erp.Data.mapper.EquipmentMaintenanceMapper;
 import com.tonghui.erp.Data.mapper.EquipmentMapper;
+import org.apache.poi.ss.usermodel.DataFormatter;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -278,7 +283,7 @@ public class EquipmentUsageTest {
     }
 
     /**
-     * 按设备导出：生成非空 xlsx，且分页查询能查到使用记录
+     * 按设备导出：状态按使用时间推导，且设备有维保记录时导出维保 sheet
      */
     @Test
     public void testExportAndSearchByEquipment() throws Exception {
@@ -288,6 +293,15 @@ public class EquipmentUsageTest {
                 List.of(buildExecution(workOrderId, equipment.getEquipmentId(),
                         LocalDateTime.of(2026, 10, 15, 8, 0),
                         LocalDateTime.of(2026, 10, 15, 12, 0))));
+
+        // 同一天 12:00 之后维保（与使用时间首尾相接，允许登记）
+        EquipmentMaintenance maintenance = new EquipmentMaintenance();
+        maintenance.setEquipmentId(equipment.getEquipmentId().longValue());
+        maintenance.setMaintenanceType("日常保养");
+        maintenance.setMaintenanceStartTime(LocalDateTime.of(2026, 10, 15, 12, 0));
+        maintenance.setMaintenanceEndTime(LocalDateTime.of(2026, 10, 15, 14, 0));
+        maintenance.setMaintenanceContent("导出测试维保");
+        equipmentMaintenanceService.saveWithAutoCalc(maintenance);
 
         PageRequestDto pageRequest = new PageRequestDto();
         pageRequest.setPageIndex(0);
@@ -299,11 +313,84 @@ public class EquipmentUsageTest {
                         .anyMatch(item -> equipment.getEquipmentId().equals(item.getEquipmentId())
                                 && Long.valueOf(240L).equals(item.getDurationMinutes())),
                 "使用时长应为 240 分钟");
+        // 库中 status 恒为"待执行"，导出应按使用时间推导为"已完成"
+        assertTrue(page.getItems().stream()
+                        .allMatch(item -> "已完成".equals(item.getStatus())), "已填写完整使用时间的记录状态应为已完成");
+
+        // 按状态过滤也应命中（过滤条件与展示口径一致）
+        PagedResult<EquipmentUsageRecordDto> donePage = equipmentUsageService.search(
+                equipment.getEquipmentId(), null, null, "已完成", "2026-10-15", "2026-10-15", pageRequest);
+        assertTrue(donePage.getTotalCount() >= 1, "按“已完成”过滤应能查到记录");
 
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         equipmentUsageService.exportToExcel(equipment.getEquipmentId(), null, null, null,
                 "2026-10-15", "2026-10-15", buffer);
         assertTrue(buffer.size() > 0, "导出文件不应为空");
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(buffer.toByteArray()))) {
+            DataFormatter formatter = new DataFormatter();
+            boolean hasMaintenanceSheet = false;
+            boolean hasCompletedStatus = false;
+            for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
+                Sheet sheet = workbook.getSheetAt(i);
+                if (sheet.getSheetName().contains("维保")) {
+                    hasMaintenanceSheet = true;
+                    assertTrue(sheet.getRow(1) != null, "维保 sheet 应有数据行");
+                } else {
+                    // 明细 sheet 的“执行状态”列应为推导后的已完成
+                    for (int r = 1; r <= sheet.getLastRowNum(); r++) {
+                        Row row = sheet.getRow(r);
+                        for (int c = 0; c < row.getLastCellNum(); c++) {
+                            if ("已完成".equals(formatter.formatCellValue(row.getCell(c)))) {
+                                hasCompletedStatus = true;
+                            }
+                        }
+                    }
+                }
+            }
+            assertTrue(hasMaintenanceSheet, "设备有维保记录时应导出维保 sheet");
+            assertTrue(hasCompletedStatus, "导出的明细应体现推导后的已完成状态");
+        }
+    }
+
+    /**
+     * 导出全部设备：应包含汇总 sheet、按设备的明细 sheet，以及有维保设备的维保 sheet
+     */
+    @Test
+    public void testExportAllEquipmentsWithSummary() throws Exception {
+        Equipment equipment = createEquipment("正常");
+        long workOrderId = nextWorkOrderId();
+        workOrderProcessExecutionService.batchSave(workOrderId,
+                List.of(buildExecution(workOrderId, equipment.getEquipmentId(),
+                        LocalDateTime.of(2026, 10, 15, 20, 0),
+                        LocalDateTime.of(2026, 10, 15, 21, 0))));
+
+        EquipmentMaintenance maintenance = new EquipmentMaintenance();
+        maintenance.setEquipmentId(equipment.getEquipmentId().longValue());
+        maintenance.setMaintenanceType("定期检修");
+        maintenance.setMaintenanceStartTime(LocalDateTime.of(2026, 10, 15, 21, 0));
+        maintenance.setMaintenanceEndTime(LocalDateTime.of(2026, 10, 15, 23, 0));
+        equipmentMaintenanceService.saveWithAutoCalc(maintenance);
+
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        equipmentUsageService.exportToExcel(null, null, null, null, "2026-10-15", "2026-10-15", buffer);
+        assertTrue(buffer.size() > 0, "导出文件不应为空");
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(buffer.toByteArray()))) {
+            boolean hasSummary = false;
+            boolean hasMaintenanceSheet = false;
+            for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
+                String name = workbook.getSheetName(i);
+                if ("汇总".equals(name)) {
+                    hasSummary = true;
+                }
+                if (name.contains("维保")) {
+                    hasMaintenanceSheet = true;
+                }
+            }
+            assertTrue(hasSummary, "导出全部设备时应包含汇总 sheet");
+            assertTrue(hasMaintenanceSheet, "有维保记录的设备应导出维保 sheet");
+        }
     }
 
     // endregion

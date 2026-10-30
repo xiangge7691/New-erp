@@ -1,10 +1,12 @@
 package com.tonghui.erp.Service.impl;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Dto.Equipment.EquipmentMaintenanceRecordDto;
 import com.tonghui.erp.Common.Dto.Equipment.EquipmentUsageQueryDto;
 import com.tonghui.erp.Common.Dto.Equipment.EquipmentUsageRecordDto;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Data.mapper.EquipmentMaintenanceMapper;
 import com.tonghui.erp.Data.mapper.EquipmentUsageMapper;
 import com.tonghui.erp.Service.EquipmentUsageService;
 import org.apache.poi.ss.usermodel.Cell;
@@ -35,6 +37,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 设备使用记录服务实现类
@@ -76,11 +79,25 @@ public class EquipmentUsageServiceImpl implements EquipmentUsageService {
     };
 
     /**
+     * 维保记录 sheet 表头
+     */
+    private static final String[] MAINTENANCE_HEADERS = {
+            "序号", "设备名称", "固定资产编号", "维保类型", "维保开始时间", "维保结束时间",
+            "维保时长(分钟)", "维保内容", "维保结果", "维保人员", "维保公司", "下次维保日期"
+    };
+
+    /**
+     * 汇总 sheet 名称
+     */
+    private static final String SUMMARY_SHEET_NAME = "汇总";
+
+    /**
      * 汇总 sheet 表头
      */
     private static final String[] SUMMARY_HEADERS = {
             "设备名称", "固定资产编号", "设备型号", "设备类型", "所在房间",
-            "使用次数", "累计使用时长(分钟)", "首次使用时间", "最近使用时间"
+            "使用次数", "累计使用时长(分钟)", "首次使用时间", "最近使用时间",
+            "维保次数", "累计维保时长(分钟)"
     };
 
     /**
@@ -100,6 +117,12 @@ public class EquipmentUsageServiceImpl implements EquipmentUsageService {
      */
     @Autowired
     private EquipmentUsageMapper equipmentUsageMapper;
+
+    /**
+     * 设备维保记录数据访问Mapper（导出时附带维保时间段）
+     */
+    @Autowired
+    private EquipmentMaintenanceMapper equipmentMaintenanceMapper;
 
     // endregion
 
@@ -140,7 +163,9 @@ public class EquipmentUsageServiceImpl implements EquipmentUsageService {
     /**
      * 导出设备使用记录 Excel
      * <p>
-     * 指定设备ID时导出单个设备（单 sheet）；未指定时按设备分 sheet 导出，并在首个 sheet 输出汇总。
+     * 指定设备ID时导出单个设备的单 sheet；未指定时按设备分 sheet 导出全部设备，并附加汇总 sheet。
+     * 设备在导出范围内存在维保记录时，会在该设备使用记录 sheet 之后追加一个"维保"sheet
+     * （维保类型、维保开始/结束时间、时长、内容、人员等）。
      * </p>
      *
      * @param equipmentId   设备ID（可选）
@@ -167,21 +192,25 @@ public class EquipmentUsageServiceImpl implements EquipmentUsageService {
 
         try (Workbook workbook = new XSSFWorkbook()) {
             CellStyle headerStyle = buildHeaderStyle(workbook);
+            Map<Integer, List<EquipmentMaintenanceRecordDto>> maintenanceMap =
+                    loadMaintenanceRecords(rows, query);
+            Set<String> usedNames = new HashSet<>();
+            usedNames.add(SUMMARY_SHEET_NAME);
 
             if (query.getEquipmentId() != null) {
-                // 按设备导出：单个 sheet
-                String sheetName = buildSheetName(rows.isEmpty() ? null : rows.get(0),
-                        query.getEquipmentId(), new HashSet<>());
+                // 按设备导出：使用记录 sheet +（有维保时）维保记录 sheet
+                Integer eqId = query.getEquipmentId();
+                String sheetName = buildSheetName(rows.isEmpty() ? null : rows.get(0), eqId, usedNames);
                 writeDetailSheet(workbook, sheetName, rows, headerStyle);
+                writeMaintenanceSheetIfAny(workbook, sheetName, eqId, maintenanceMap, headerStyle, usedNames);
             } else {
-                // 导出全部设备：汇总 sheet + 每台设备一个 sheet
+                // 导出全部设备：汇总 sheet + 每台设备的使用记录/维保记录 sheet
                 Map<Integer, List<EquipmentUsageRecordDto>> grouped = groupByEquipment(rows);
-                writeSummarySheet(workbook, grouped, headerStyle);
-                Set<String> usedNames = new HashSet<>();
-                usedNames.add("汇总");
+                writeSummarySheet(workbook, grouped, maintenanceMap, headerStyle);
                 for (Map.Entry<Integer, List<EquipmentUsageRecordDto>> entry : grouped.entrySet()) {
                     String sheetName = buildSheetName(entry.getValue().get(0), entry.getKey(), usedNames);
                     writeDetailSheet(workbook, sheetName, entry.getValue(), headerStyle);
+                    writeMaintenanceSheetIfAny(workbook, sheetName, entry.getKey(), maintenanceMap, headerStyle, usedNames);
                 }
             }
 
@@ -240,18 +269,21 @@ public class EquipmentUsageServiceImpl implements EquipmentUsageService {
     /**
      * 写入设备使用汇总 sheet
      *
-     * @param workbook    工作簿
-     * @param grouped     按设备分组的使用记录
-     * @param headerStyle 表头样式
+     * @param workbook       工作簿
+     * @param grouped        按设备分组的使用记录
+     * @param maintenanceMap 设备ID -> 维保记录列表
+     * @param headerStyle    表头样式
      */
     private void writeSummarySheet(Workbook workbook,
                                    Map<Integer, List<EquipmentUsageRecordDto>> grouped,
+                                   Map<Integer, List<EquipmentMaintenanceRecordDto>> maintenanceMap,
                                    CellStyle headerStyle) {
-        Sheet sheet = workbook.createSheet("汇总");
+        Sheet sheet = workbook.createSheet(SUMMARY_SHEET_NAME);
         writeHeader(sheet, SUMMARY_HEADERS, headerStyle);
 
         int rowNum = 1;
-        for (List<EquipmentUsageRecordDto> records : grouped.values()) {
+        for (Map.Entry<Integer, List<EquipmentUsageRecordDto>> entry : grouped.entrySet()) {
+            List<EquipmentUsageRecordDto> records = entry.getValue();
             EquipmentUsageRecordDto sample = records.get(0);
             long totalMinutes = records.stream()
                     .map(EquipmentUsageRecordDto::getDurationMinutes)
@@ -273,6 +305,13 @@ public class EquipmentUsageServiceImpl implements EquipmentUsageService {
                     .filter(StringUtils::hasText)
                     .findFirst()
                     .orElse("");
+            List<EquipmentMaintenanceRecordDto> maintenances =
+                    maintenanceMap.getOrDefault(entry.getKey(), List.of());
+            long totalMaintenanceMinutes = maintenances.stream()
+                    .map(EquipmentMaintenanceRecordDto::getDurationMinutes)
+                    .filter(java.util.Objects::nonNull)
+                    .mapToLong(Long::longValue)
+                    .sum();
 
             Row row = sheet.createRow(rowNum++);
             int col = 0;
@@ -285,9 +324,72 @@ public class EquipmentUsageServiceImpl implements EquipmentUsageService {
             row.createCell(col++).setCellValue(totalMinutes);
             row.createCell(col++).setCellValue(formatTime(firstStart));
             row.createCell(col++).setCellValue(formatTime(lastEnd));
+            row.createCell(col++).setCellValue(maintenances.size());
+            row.createCell(col++).setCellValue(totalMaintenanceMinutes);
         }
 
         finishSheet(sheet, SUMMARY_HEADERS.length, grouped.size());
+    }
+
+    /**
+     * 如果该设备在查询范围内存在维保记录，则追加一个维保记录 sheet
+     *
+     * @param workbook       工作簿
+     * @param baseSheetName  该设备使用记录 sheet 名称（维保 sheet 在其后加"-维保"）
+     * @param equipmentId    设备ID
+     * @param maintenanceMap 设备ID -> 维保记录列表
+     * @param headerStyle    表头样式
+     * @param usedNames      已使用的 sheet 名称
+     */
+    private void writeMaintenanceSheetIfAny(Workbook workbook, String baseSheetName, Integer equipmentId,
+                                            Map<Integer, List<EquipmentMaintenanceRecordDto>> maintenanceMap,
+                                            CellStyle headerStyle, Set<String> usedNames) {
+        List<EquipmentMaintenanceRecordDto> maintenances = maintenanceMap.get(equipmentId);
+        if (maintenances == null || maintenances.isEmpty()) {
+            return;
+        }
+        String suffix = "-维保";
+        int keep = MAX_SHEET_NAME_LENGTH - suffix.length();
+        String base = baseSheetName.length() > keep ? baseSheetName.substring(0, keep) : baseSheetName;
+        String sheetName = uniqueSheetName(base + suffix, usedNames);
+        writeMaintenanceSheet(workbook, sheetName, maintenances, headerStyle);
+    }
+
+    /**
+     * 写入单台设备的维保记录 sheet
+     *
+     * @param workbook    工作簿
+     * @param sheetName   sheet名称
+     * @param maintenances 维保记录
+     * @param headerStyle 表头样式
+     */
+    private void writeMaintenanceSheet(Workbook workbook, String sheetName,
+                                       List<EquipmentMaintenanceRecordDto> maintenances,
+                                       CellStyle headerStyle) {
+        Sheet sheet = workbook.createSheet(sheetName);
+        writeHeader(sheet, MAINTENANCE_HEADERS, headerStyle);
+
+        int rowNum = 1;
+        int index = 1;
+        for (EquipmentMaintenanceRecordDto record : maintenances) {
+            Row row = sheet.createRow(rowNum++);
+            int col = 0;
+            row.createCell(col++).setCellValue(index++);
+            row.createCell(col++).setCellValue(nvl(record.getEquipmentName()));
+            row.createCell(col++).setCellValue(nvl(record.getFixedAssetCode()));
+            row.createCell(col++).setCellValue(nvl(record.getMaintenanceType()));
+            row.createCell(col++).setCellValue(formatTime(record.getMaintenanceStartTime()));
+            row.createCell(col++).setCellValue(formatTime(record.getMaintenanceEndTime()));
+            setNumberCell(row.createCell(col++), record.getDurationMinutes());
+            row.createCell(col++).setCellValue(nvl(record.getMaintenanceContent()));
+            row.createCell(col++).setCellValue(nvl(record.getMaintenanceResult()));
+            row.createCell(col++).setCellValue(nvl(record.getMaintainer()));
+            row.createCell(col++).setCellValue(nvl(record.getMaintenanceCompany()));
+            row.createCell(col++).setCellValue(
+                    record.getNextMaintenanceDate() == null ? "" : record.getNextMaintenanceDate().toString());
+        }
+
+        finishSheet(sheet, MAINTENANCE_HEADERS.length, maintenances.size());
     }
 
     /**
@@ -395,6 +497,39 @@ public class EquipmentUsageServiceImpl implements EquipmentUsageService {
     }
 
     /**
+     * 查询导出涉及的设备维保记录（按设备分组）
+     * <p>
+     * 时间窗与使用记录查询保持一致：传了日期范围时只取与范围重叠的维保记录，
+     * 未传时取这些设备的全部维保记录，保证导出的使用与维保数据口径一致。
+     * </p>
+     *
+     * @param rows  使用记录（用于提取设备ID）
+     * @param query 查询条件（提供时间窗）
+     * @return 设备ID -> 维保记录列表
+     */
+    private Map<Integer, List<EquipmentMaintenanceRecordDto>> loadMaintenanceRecords(
+            List<EquipmentUsageRecordDto> rows, EquipmentUsageQueryDto query) {
+        if (rows.isEmpty()) {
+            return Map.of();
+        }
+        List<Integer> equipmentIds = rows.stream()
+                .map(EquipmentUsageRecordDto::getEquipmentId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (equipmentIds.isEmpty()) {
+            return Map.of();
+        }
+        List<EquipmentMaintenanceRecordDto> maintenances = equipmentMaintenanceMapper
+                .selectMaintenanceRecords(equipmentIds, query.getStartTime(), query.getEndTime());
+        if (maintenances == null || maintenances.isEmpty()) {
+            return Map.of();
+        }
+        return maintenances.stream().collect(Collectors.groupingBy(
+                EquipmentMaintenanceRecordDto::getEquipmentId, LinkedHashMap::new, Collectors.toList()));
+    }
+
+    /**
      * 构建合法且不重复的 sheet 名称
      *
      * @param sample      设备使用记录（用于取设备名称/编号，可为空）
@@ -412,10 +547,21 @@ public class EquipmentUsageServiceImpl implements EquipmentUsageService {
         if (sample != null && StringUtils.hasText(sample.getFixedAssetCode())) {
             base.append("-").append(sample.getFixedAssetCode().trim());
         }
+        return uniqueSheetName(base.toString(), usedNames);
+    }
+
+    /**
+     * 生成合法（去非法字符、限长）且不与已有 sheet 重名的名称
+     *
+     * @param rawName   原始名称
+     * @param usedNames 已使用的 sheet 名称（小写比较）
+     * @return sheet 名称
+     */
+    private String uniqueSheetName(String rawName, Set<String> usedNames) {
         // 去除 Excel sheet 名称非法字符
-        String cleaned = base.toString().replaceAll("[\\\\/*?:\\[\\]]", "").trim();
+        String cleaned = rawName == null ? "" : rawName.replaceAll("[\\\\/*?:\\[\\]]", "").trim();
         if (cleaned.isEmpty()) {
-            cleaned = "设备" + equipmentId;
+            cleaned = "Sheet";
         }
         if (cleaned.length() > MAX_SHEET_NAME_LENGTH) {
             cleaned = cleaned.substring(0, MAX_SHEET_NAME_LENGTH);

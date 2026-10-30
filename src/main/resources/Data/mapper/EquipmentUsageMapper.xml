@@ -4,6 +4,21 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.tonghui.erp.Data.mapper.EquipmentUsageMapper">
 
+    <!--
+        使用状态推导：
+        1) 前端/业务若写入了明确状态（非"待执行"），以库中值为准；
+        2) 否则按使用时间推导：无开始时间=待执行、有开始无结束=执行中、均有=已完成。
+        （历史上工单按模板初始化时统一写入"待执行"，前端未回写执行状态，直接取库值会导致导出全是待执行）
+    -->
+    <sql id="Status_Expr">
+        CASE
+            WHEN e.status IS NOT NULL AND e.status NOT IN ('', '待执行') THEN e.status
+            WHEN e.start_time IS NULL THEN '待执行'
+            WHEN e.end_time IS NULL THEN '执行中'
+            ELSE '已完成'
+        END
+    </sql>
+
     <!-- 设备使用记录查询列（工单工序执行记录 + 设备/工单/工序/房间关联） -->
     <sql id="Usage_Column_List">
         e.equipment_id                AS equipment_id,
@@ -26,7 +41,7 @@
         e.start_time                  AS start_time,
         e.end_time                    AS end_time,
         TIMESTAMPDIFF(MINUTE, e.start_time, e.end_time) AS duration_minutes,
-        e.status                      AS status,
+        <include refid="Status_Expr" /> AS status,
         e.remark                      AS remark
     </sql>
 
@@ -43,7 +58,7 @@
                 AND eq.equipment_type = #{q.equipmentType}
             </if>
             <if test="q.status != null and q.status != ''">
-                AND e.status = #{q.status}
+                AND <include refid="Status_Expr" /> = #{q.status}
             </if>
             <if test="q.keyword != null and q.keyword != ''">
                 AND (

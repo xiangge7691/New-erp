@@ -56,4 +56,37 @@
           AND m.maintenance_end_time &gt; #{minStart}
         ORDER BY m.equipment_id ASC, m.maintenance_start_time ASC
     </select>
+
+    <!-- 设备维保记录查询（设备使用记录导出用）：可按时间窗做半开区间重叠过滤 -->
+    <select id="selectMaintenanceRecords"
+            resultType="com.tonghui.erp.Common.Dto.Equipment.EquipmentMaintenanceRecordDto">
+        SELECT m.maintenance_id    AS maintenance_id,
+               m.equipment_id      AS equipment_id,
+               eq.equipment_name   AS equipment_name,
+               eq.fixed_asset_code AS fixed_asset_code,
+               m.maintenance_type  AS maintenance_type,
+               m.maintenance_start_time AS maintenance_start_time,
+               m.maintenance_end_time   AS maintenance_end_time,
+               TIMESTAMPDIFF(MINUTE, m.maintenance_start_time, m.maintenance_end_time) AS duration_minutes,
+               m.maintenance_content  AS maintenance_content,
+               m.maintenance_result   AS maintenance_result,
+               m.maintainer           AS maintainer,
+               m.maintenance_company  AS maintenance_company,
+               m.next_maintenance_date AS next_maintenance_date
+        FROM equipment_maintenance m
+        LEFT JOIN equipment eq ON eq.equipment_id = m.equipment_id AND eq.is_deleted = 0
+        WHERE m.is_deleted = 0
+          AND m.equipment_id IN
+          <foreach collection="equipmentIds" item="eqId" open="(" separator="," close=")">#{eqId}</foreach>
+          <if test="minStart != null">
+              AND m.maintenance_start_time IS NOT NULL
+              AND m.maintenance_end_time IS NOT NULL
+              AND m.maintenance_end_time &gt; #{minStart}
+          </if>
+          <if test="maxEnd != null">
+              AND m.maintenance_start_time IS NOT NULL
+              AND m.maintenance_start_time &lt; #{maxEnd}
+          </if>
+        ORDER BY m.equipment_id ASC, m.maintenance_start_time ASC
+    </select>
 </mapper>

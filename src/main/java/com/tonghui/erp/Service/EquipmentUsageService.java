@@ -35,6 +35,8 @@ public interface EquipmentUsageService {
      * 导出设备使用记录 Excel
      * <p>
      * 指定设备ID时导出单个设备的单 sheet；未指定时按设备分 sheet 导出全部设备，并附加汇总 sheet。
+     * 设备在导出范围内存在维保记录时，会在该设备使用记录 sheet 之后追加一个"维保"sheet
+     * （维保类型、维保开始/结束时间、时长、内容、人员等）。
      * </p>
      *
      * @param equipmentId   设备ID（可选）

@@ -128,6 +128,10 @@ public class EquipmentUsageRecordDto {
 
     /**
      * 执行状态（待执行/执行中/已完成）
+     * <p>
+     * 优先取库中已写入的明确状态；库中为"待执行"（历史默认值）时按使用时间推导：
+     * 无开始时间=待执行、有开始无结束=执行中、开始与结束齐全=已完成。
+     * </p>
      */
     private String status;
 
