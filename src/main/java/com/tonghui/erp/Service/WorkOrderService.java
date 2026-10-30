@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
-import com.tonghui.erp.Common.Dto.Production.ProductionDurationSummaryDto;
 import com.tonghui.erp.Data.Entity.WorkOrder;
 
 import java.time.LocalDateTime;
@@ -73,29 +72,6 @@ public interface WorkOrderService extends IService<WorkOrder> {
                                     LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
                                     LocalDateTime configDateStart, LocalDateTime configDateEnd,
                                     int pageNum, int pageSize);
-
-    /**
-     * 汇总当前筛选条件下的平均生产时间
-     * <p>
-     * 生产任务口径：配置日期 → 成品入库时间，仅统计有效生产用时，
-     * 并按制剂维度拆分平均生产时间，统计范围不受分页影响
-     * </p>
-     *
-     * @param workOrder        查询条件实体
-     * @param keyword          关键字（对工单编号、工单名称、制剂编码、制剂名称、关联计划名称、关联计划编号模糊匹配）
-     * @param createdTimeStart 创建时间起始值（含）
-     * @param createdTimeEnd   创建时间结束值（含）
-     * @param updatedTimeStart 更新时间起始值（含）
-     * @param updatedTimeEnd   更新时间结束值（含）
-     * @param configDateStart  配置日期起始值（含）
-     * @param configDateEnd    配置日期结束值（含）
-     * @return 平均生产时间汇总
-     */
-    ProductionDurationSummaryDto getProductionDurationSummary(WorkOrder workOrder,
-                                                              String keyword,
-                                                              LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
-                                                              LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
-                                                              LocalDateTime configDateStart, LocalDateTime configDateEnd);
     
     /**
      * 生成工单编号

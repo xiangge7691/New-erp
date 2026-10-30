@@ -6,7 +6,6 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
-import com.tonghui.erp.Common.Dto.Production.ProductionDurationSummaryDto;
 import com.tonghui.erp.Common.utils.ProductionDurationUtils;
 import com.tonghui.erp.Data.Entity.Equipment;
 import com.tonghui.erp.Data.Entity.Preparation;
@@ -29,7 +28,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -316,60 +314,6 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         fillProductionDuration(result.getRecords());
 
         return result;
-    }
-
-    /**
-     * 汇总当前筛选条件下的平均生产时间
-     * <p>
-     * 统计口径与列表查询完全一致（复用同一 QueryWrapper），不受分页影响；
-     * 生产任务口径：配置日期 → 成品入库时间，仅统计有效生产用时，
-     * 按制剂维度拆分平均生产时间
-     * </p>
-     *
-     * @param workOrder        查询条件实体
-     * @param keyword          关键字（对工单编号、工单名称、制剂编码、制剂名称、关联计划名称、关联计划编号模糊匹配）
-     * @param createdTimeStart 创建时间起始值（含）
-     * @param createdTimeEnd   创建时间结束值（含）
-     * @param updatedTimeStart 更新时间起始值（含）
-     * @param updatedTimeEnd   更新时间结束值（含）
-     * @param configDateStart  配置日期起始值（含）
-     * @param configDateEnd    配置日期结束值（含）
-     * @return 平均生产时间汇总
-     */
-    @Override
-    public ProductionDurationSummaryDto getProductionDurationSummary(WorkOrder workOrder,
-                                                                     String keyword,
-                                                                     LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
-                                                                     LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
-                                                                     LocalDateTime configDateStart, LocalDateTime configDateEnd) {
-        // 复用列表查询的筛选条件，仅查询统计所需字段
-        QueryWrapper<WorkOrder> wrapper = buildQueryWrapper(workOrder, keyword,
-                createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd,
-                configDateStart, configDateEnd);
-        wrapper.select("preparation_id", "preparation_code", "preparation_name",
-                "config_date", "inbound_time", "current_status");
-
-        List<WorkOrder> workOrders = this.list(wrapper);
-        if (workOrders.isEmpty()) {
-            return new ProductionDurationSummaryDto();
-        }
-
-        // 组装有效生产用时样本（排除作废任务）
-        List<ProductionDurationUtils.DurationSample> samples = new ArrayList<>();
-        for (WorkOrder item : workOrders) {
-            if ("作废".equals(item.getCurrentStatus())) {
-                continue;
-            }
-            BigDecimal durationDays = ProductionDurationUtils.calcDays(item.getConfigDate(), item.getInboundTime());
-            if (durationDays != null) {
-                samples.add(new ProductionDurationUtils.DurationSample(
-                        item.getPreparationId(),
-                        item.getPreparationCode(),
-                        item.getPreparationName(),
-                        durationDays));
-            }
-        }
-        return ProductionDurationUtils.summarize(samples);
     }
 
     /**

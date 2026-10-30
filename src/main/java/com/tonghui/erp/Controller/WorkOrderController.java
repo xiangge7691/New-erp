@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
-import com.tonghui.erp.Common.Dto.PagedResultWithSummary;
 import com.tonghui.erp.Data.Entity.WorkOrder;
 import com.tonghui.erp.Service.WorkOrderService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -132,8 +131,6 @@ public class WorkOrderController extends BaseCrudController<WorkOrder, WorkOrder
      * GET /api/work-orders/search?pageIndex=1&pageSize=20&planName=益智健脑
      * GET /api/work-orders/search?pageIndex=1&pageSize=20&planNumber=Plan20260730
      * GET /api/work-orders/search?pageIndex=1&pageSize=20&keyword=PP2026
-     * 汇总示例（同时返回表格下方的平均生产时间）：
-     * GET /api/work-orders/search?pageIndex=0&pageSize=20&withSummary=true
      *
      * @param workOrder 查询条件（自动从query参数映射）
      * @param keyword 关键字（对工单编号、工单名称、制剂编码、制剂名称、关联计划名称、关联计划编号模糊匹配，可选）
@@ -143,23 +140,21 @@ public class WorkOrderController extends BaseCrudController<WorkOrder, WorkOrder
      * @param updatedTimeEnd 更新时间结束（可选）
      * @param configDateStart 配置日期起始（可选）
      * @param configDateEnd 配置日期结束（可选）
-     * @param withSummary 是否随列表返回平均生产时间汇总（默认false）
      * @param pageIndex 页码
      * @param pageSize  每页大小
-     * @return ApiResponse&lt;PagedResultWithSummary&lt;WorkOrder&gt;&gt; 分页结果（含生产用时与平均生产时间汇总）
+     * @return ApiResponse&lt;PagedResult&lt;WorkOrder&gt;&gt; 分页结果（含生产用时）
      */
     @GetMapping("/search")
-    public ApiResponse<PagedResultWithSummary<WorkOrder>> queryWorkOrders(WorkOrder workOrder,
-                                                                          @RequestParam(required = false) String keyword,
-                                                                          @RequestParam(required = false) java.time.LocalDateTime createdTimeStart,
-                                                                          @RequestParam(required = false) java.time.LocalDateTime createdTimeEnd,
-                                                                          @RequestParam(required = false) java.time.LocalDateTime updatedTimeStart,
-                                                                          @RequestParam(required = false) java.time.LocalDateTime updatedTimeEnd,
-                                                                          @RequestParam(required = false) java.time.LocalDateTime configDateStart,
-                                                                          @RequestParam(required = false) java.time.LocalDateTime configDateEnd,
-                                                                          @RequestParam(defaultValue = "false") boolean withSummary,
-                                                                          @RequestParam int pageIndex,
-                                                                          @RequestParam int pageSize) {
+    public ApiResponse<PagedResult<WorkOrder>> queryWorkOrders(WorkOrder workOrder,
+                                                               @RequestParam(required = false) String keyword,
+                                                               @RequestParam(required = false) java.time.LocalDateTime createdTimeStart,
+                                                               @RequestParam(required = false) java.time.LocalDateTime createdTimeEnd,
+                                                               @RequestParam(required = false) java.time.LocalDateTime updatedTimeStart,
+                                                               @RequestParam(required = false) java.time.LocalDateTime updatedTimeEnd,
+                                                               @RequestParam(required = false) java.time.LocalDateTime configDateStart,
+                                                               @RequestParam(required = false) java.time.LocalDateTime configDateEnd,
+                                                               @RequestParam int pageIndex,
+                                                               @RequestParam int pageSize) {
         // 页码从0开始的处理，确保不为负数
         int safePageIndex = Math.max(0, pageIndex);
         // 当pageSize<=0时，设置一个合理的默认值
@@ -172,18 +167,11 @@ public class WorkOrderController extends BaseCrudController<WorkOrder, WorkOrder
                 safePageIndex, safePageSize);
 
         // 转换为统一的PagedResult格式
-        PagedResultWithSummary<WorkOrder> pagedResult = new PagedResultWithSummary<>();
+        PagedResult<WorkOrder> pagedResult = new PagedResult<>();
         pagedResult.setItems(pageResult.getRecords());
         pagedResult.setTotalCount(pageResult.getTotal());
         pagedResult.setPageIndex(safePageIndex);
         pagedResult.setPageSize((int) pageResult.getSize());
-
-        // 按当前筛选条件统计平均生产时间（不受分页影响）
-        if (withSummary) {
-            pagedResult.setSummary(workOrderService.getProductionDurationSummary(workOrder,
-                    keyword, createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd,
-                    configDateStart, configDateEnd));
-        }
 
         return success(pagedResult);
     }

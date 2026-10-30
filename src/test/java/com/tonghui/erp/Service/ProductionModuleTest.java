@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
-import com.tonghui.erp.Common.Dto.PagedResultWithSummary;
 import com.tonghui.erp.Controller.ProductionPlanController;
 import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.ProcessType;
@@ -283,11 +282,11 @@ public class ProductionModuleTest {
     @Transactional
     public void testSearchPageSizeMinusOneReturnsAll() {
         // pageIndex与pageSize均为-1：应全量返回，pageIndex为0且items数量等于totalCount
-        ApiResponse<PagedResultWithSummary<ProductionPlan>> allResp = productionPlanController.queryProductionPlans(
+        ApiResponse<PagedResult<ProductionPlan>> allResp = productionPlanController.queryProductionPlans(
                 new ProductionPlan(),
                 null, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null, null,
-                false, -1, -1);
+                -1, -1);
         assertEquals(ApiResponse.SUCCESS, allResp.getCode(), "全量查询应成功");
         PagedResult<ProductionPlan> allData = allResp.getData();
         assertNotNull(allData, "全量查询应返回结果");
@@ -297,11 +296,11 @@ public class ProductionModuleTest {
                 "全量查询pageSize应为实际总数而非截断后的20");
 
         // 常规分页对照：pageSize=1时应只返回1条
-        ApiResponse<PagedResultWithSummary<ProductionPlan>> pagedResp = productionPlanController.queryProductionPlans(
+        ApiResponse<PagedResult<ProductionPlan>> pagedResp = productionPlanController.queryProductionPlans(
                 new ProductionPlan(),
                 null, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null, null,
-                false, 0, 1);
+                0, 1);
         assertEquals(ApiResponse.SUCCESS, pagedResp.getCode(), "分页查询应成功");
         assertEquals(1, pagedResp.getData().getItems().size(), "pageSize=1时应只返回1条");
     }
