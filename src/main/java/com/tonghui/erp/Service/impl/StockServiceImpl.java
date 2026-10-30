@@ -562,8 +562,9 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
     /**
      * 入库取消回滚：按明细逐行扣减已入库的库存并写入调整流水
      * <p>
-     * 定位键与入库一致（物品编码+生产单位+批号），数量不足抛异常整体回滚，
-     * 扣减后数量归零时保留库存记录（仅置零，不删除）
+     * 定位键与入库一致（物品编码+明细仓库+批号+入库单ID+库存状态），保证同一物料同一批号
+     * 来自多张入库单时不会扣错批次；兼容早期未写入 stock_in_id 的库存行（回退按唯一批次定位）。
+     * 数量不足抛异常整体回滚，扣减后数量归零时保留库存记录（仅置零，不删除）
      * </p>
      *
      * @param stockIn 入库单信息
@@ -576,12 +577,11 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
             return;
         }
         for (StockInDetail detail : details) {
-            // 按 物品编码 + 生产单位 + 批号 定位库存批次
-            QueryWrapper<Stock> wrapper = new QueryWrapper<>();
-            wrapper.eq("item_code", detail.getItemCode());
-            wrapper.eq("prod_unit_id", stockIn.getProdUnitId());
-            wrapper.eq("batch_number", detail.getBatchNumber());
-            Stock stock = this.getBaseMapper().selectOne(wrapper);
+            // 仓库取值与入库一致：明细级优先，缺省回退单据级仓库
+            Long prodUnitId = detail.getProdUnitId() != null ? detail.getProdUnitId() : stockIn.getProdUnitId();
+            String stockStatus = StringUtils.hasText(detail.getStockStatus())
+                    ? detail.getStockStatus() : "合格";
+            Stock stock = findInboundStock(stockIn, detail, prodUnitId, stockStatus);
             if (stock == null) {
                 throw new RuntimeException("库存批次不存在，无法回滚: " + detail.getItemName());
             }
@@ -598,6 +598,57 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, Stock>
                     "入库单取消回滚: " + (stockIn.getInCode() != null ? stockIn.getInCode() : ""),
                     before, detail.getQuantity().negate());
         }
+    }
+
+    /**
+     * 定位入库明细对应的库存批次
+     * <p>
+     * 优先按完整键（物品编码+仓库+批号+入库单ID+库存状态）精确定位；
+     * 未命中时兼容历史库存行（早期未回填 stock_in_id），回退按物品编码+仓库+批号+库存状态查找，
+     * 回退结果必须唯一，否则抛异常避免扣错批次
+     * </p>
+     *
+     * @param stockIn     入库单信息
+     * @param detail      入库明细
+     * @param prodUnitId  仓库ID（明细级优先）
+     * @param stockStatus 库存状态
+     * @return 库存批次，未找到返回null
+     */
+    private Stock findInboundStock(StockIn stockIn, StockInDetail detail, Long prodUnitId, String stockStatus) {
+        QueryWrapper<Stock> wrapper = buildInboundStockWrapper(detail, prodUnitId, stockStatus);
+        wrapper.eq("stock_in_id", stockIn.getInId());
+        Stock stock = this.getBaseMapper().selectOne(wrapper);
+        if (stock != null) {
+            return stock;
+        }
+        // 兼容历史数据：回退时不带入库单ID，要求结果唯一
+        List<Stock> candidates = this.getBaseMapper().selectList(
+                buildInboundStockWrapper(detail, prodUnitId, stockStatus));
+        if (candidates.size() > 1) {
+            throw new RuntimeException("存在多个同物料同批号库存批次，无法确定回滚目标: " + detail.getItemName());
+        }
+        return candidates.isEmpty() ? null : candidates.get(0);
+    }
+
+    /**
+     * 构建入库库存批次定位条件（不含入库单ID）
+     *
+     * @param detail      入库明细
+     * @param prodUnitId  仓库ID
+     * @param stockStatus 库存状态
+     * @return 查询条件
+     */
+    private QueryWrapper<Stock> buildInboundStockWrapper(StockInDetail detail, Long prodUnitId, String stockStatus) {
+        QueryWrapper<Stock> wrapper = new QueryWrapper<>();
+        wrapper.eq("item_code", detail.getItemCode());
+        wrapper.eq("prod_unit_id", prodUnitId);
+        if (StringUtils.hasText(detail.getBatchNumber())) {
+            wrapper.eq("batch_number", detail.getBatchNumber());
+        } else {
+            wrapper.isNull("batch_number");
+        }
+        wrapper.eq("stock_status", stockStatus);
+        return wrapper;
     }
 
     /**

@@ -347,6 +347,114 @@ public class InventoryFlowTest {
                 "应包含出库流水");
     }
 
+    /**
+     * 测试新增入库单时同物料同批号的重复明细被合并：
+     * 两条明细（数量3×10、数量2×12）→ 入库明细只剩一条（数量5、金额54、单价取首行10），
+     * 库存数量5，且只写入一条入库流水
+     */
+    @Test
+    @Transactional
+    public void testAddStockInMergesSameMaterialBatchDetails() {
+        Long prodUnitId = findAnyProdUnitId();
+        if (prodUnitId == null) {
+            System.out.println("无生产单位数据，跳过该测试");
+            return;
+        }
+
+        String itemCode = "INV-MERGE-001";
+        String batchNumber = "INV-MERGE-BT-" + System.currentTimeMillis();
+        StockIn stockIn = buildStockIn(prodUnitId);
+        StockInDetail first = buildInDetail(itemCode, batchNumber, prodUnitId, "3", "10");
+        StockInDetail second = buildInDetail(itemCode, batchNumber, prodUnitId, "2", "12");
+
+        stockInService.addStockIn(stockIn, List.of(first, second));
+
+        // 明细合并为一条：数量累加、金额累加、单价保留首行
+        List<StockInDetail> details = stockInService.getStockInDetailsByStockInId(stockIn.getInId());
+        assertEquals(1, details.size(), "同物料同批号明细应合并为一条");
+        assertEquals(0, new BigDecimal("5").compareTo(details.get(0).getQuantity()), "合并后数量应为5");
+        assertEquals(0, new BigDecimal("54").compareTo(details.get(0).getAmount()), "合并后金额应为54");
+        assertEquals(0, new BigDecimal("10").compareTo(details.get(0).getUnitPrice()), "单价应保留首行");
+
+        // 库存与流水口径一致：库存5，仅一条入库流水
+        Stock stock = findStock(itemCode, prodUnitId, batchNumber);
+        assertNotNull(stock, "合并后应生成库存批次");
+        assertEquals(0, new BigDecimal("5").compareTo(stock.getQuantity()), "库存数量应为5");
+        assertEquals(1, stockService.getTransactionsByStockId(stock.getStockId()).size(),
+                "合并后应只写入一条入库流水");
+    }
+
+    /**
+     * 测试取消入库按入库单ID精确定位库存批次：
+     * 同一物料同一批号来自两张入库单（5、7）→ 取消第二张只回滚第二张，第一张库存保持5
+     */
+    @Test
+    @Transactional
+    public void testCancelStockInTargetsOwnInboundBatch() {
+        Long prodUnitId = findAnyProdUnitId();
+        if (prodUnitId == null) {
+            System.out.println("无生产单位数据，跳过该测试");
+            return;
+        }
+
+        String itemCode = "INV-MERGE-002";
+        String batchNumber = "INV-MERGE-BT2-" + System.currentTimeMillis();
+        StockIn first = buildStockIn(prodUnitId);
+        stockInService.addStockIn(first, List.of(buildInDetail(itemCode, batchNumber, prodUnitId, "5", "10")));
+        StockIn second = buildStockIn(prodUnitId);
+        stockInService.addStockIn(second, List.of(buildInDetail(itemCode, batchNumber, prodUnitId, "7", "10")));
+
+        // 两张入库单同物料同批号应各自保留一条库存批次
+        List<Stock> stocks = stockMapper.selectList(new QueryWrapper<Stock>()
+                .eq("item_code", itemCode)
+                .eq("prod_unit_id", prodUnitId)
+                .eq("batch_number", batchNumber));
+        assertEquals(2, stocks.size(), "不同入库单的同物料同批号应各自保留库存批次");
+
+        // 取消第二张入库单：只回滚第二张（必须重新查询，避免使用取消前的内存快照）
+        stockInService.cancelStockIn(second.getInId());
+        Stock secondStock = stocks.stream()
+                .filter(s -> second.getInId().equals(s.getStockInId()))
+                .map(s -> stockMapper.selectById(s.getStockId()))
+                .findFirst().orElse(null);
+        Stock firstStock = stocks.stream()
+                .filter(s -> first.getInId().equals(s.getStockInId()))
+                .map(s -> stockMapper.selectById(s.getStockId()))
+                .findFirst().orElse(null);
+        assertNotNull(secondStock, "应能找到第二张入库单对应的库存批次");
+        assertNotNull(firstStock, "应能找到第一张入库单对应的库存批次");
+        assertEquals(0, BigDecimal.ZERO.compareTo(secondStock.getQuantity()), "取消后第二张入库单库存应为0");
+        assertEquals(0, new BigDecimal("5").compareTo(firstStock.getQuantity()), "第一张入库单库存应保持为5");
+    }
+
+    /**
+     * 测试单条追加明细与库中已有明细合并：
+     * 已入库3后追加同物料同批号2 → 明细仍为一条、数量5
+     */
+    @Test
+    @Transactional
+    public void testAddStockInDetailMergesExistingDetail() {
+        Long prodUnitId = findAnyProdUnitId();
+        if (prodUnitId == null) {
+            System.out.println("无生产单位数据，跳过该测试");
+            return;
+        }
+
+        String itemCode = "INV-MERGE-003";
+        String batchNumber = "INV-MERGE-BT3-" + System.currentTimeMillis();
+        StockIn stockIn = buildStockIn(prodUnitId);
+        stockInService.addStockIn(stockIn, List.of(buildInDetail(itemCode, batchNumber, prodUnitId, "3", "10")));
+
+        // 追加同物料同批号明细，应累加到已有明细而非新增重复行
+        StockInDetail extra = buildInDetail(itemCode, batchNumber, prodUnitId, "2", "10");
+        extra.setInId(stockIn.getInId());
+        stockInService.addStockInDetail(extra);
+
+        List<StockInDetail> details = stockInService.getStockInDetailsByStockInId(stockIn.getInId());
+        assertEquals(1, details.size(), "追加同物料同批号明细应合并到已有明细");
+        assertEquals(0, new BigDecimal("5").compareTo(details.get(0).getQuantity()), "合并后明细数量应为5");
+    }
+
     // endregion
 
     // region 私有工具方法
@@ -395,6 +503,48 @@ public class InventoryFlowTest {
         stock.setStockStatus("合格");
         stockMapper.insert(stock);
         return stock;
+    }
+
+    /**
+     * 构建待入库的入库单主表
+     *
+     * @param prodUnitId 仓库ID
+     * @return 入库单
+     */
+    private StockIn buildStockIn(Long prodUnitId) {
+        StockIn stockIn = new StockIn();
+        stockIn.setInType("采购入库");
+        stockIn.setProdUnitId(prodUnitId);
+        stockIn.setInDate(LocalDateTime.now());
+        return stockIn;
+    }
+
+    /**
+     * 构建入库明细
+     *
+     * @param itemCode    物料编码
+     * @param batchNumber 批号
+     * @param prodUnitId  仓库ID
+     * @param quantity    数量
+     * @param unitPrice   单价
+     * @return 入库明细
+     */
+    private StockInDetail buildInDetail(String itemCode, String batchNumber, Long prodUnitId,
+                                        String quantity, String unitPrice) {
+        StockInDetail detail = new StockInDetail();
+        detail.setItemType("material");
+        detail.setItemCode(itemCode);
+        detail.setItemName("合并测试物料");
+        detail.setCategoryName("原料");
+        detail.setUnitName("kg");
+        detail.setBatchNumber(batchNumber);
+        detail.setProdUnitId(prodUnitId);
+        detail.setQuantity(new BigDecimal(quantity));
+        detail.setUnitPrice(new BigDecimal(unitPrice));
+        // 与前端提交口径一致：金额 = 数量 × 单价
+        detail.setAmount(detail.getQuantity().multiply(detail.getUnitPrice()));
+        detail.setStockStatus("合格");
+        return detail;
     }
 
     // endregion

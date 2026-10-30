@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Stock.StockInWithDetailsDto;
+import com.tonghui.erp.Common.utils.StockInDetailMergeUtils;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Data.Entity.StockIn;
@@ -27,6 +28,8 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -113,7 +116,8 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
      * 新增入库单（含明细）并直接生效入库
      * <p>
      * 自动生成入库单号（如果未提供），保存主表和明细数据后立即联动库存表（按物品+仓库+批号 upsert）并写入库存流水。
-     * 任一步失败抛出异常，整个事务回滚，保证原子性
+     * 保存明细前会先按“同物料+同批号+同仓库+同库存状态+同生产日期+同有效期+同货位”合并重复行，
+     * 保证入库明细、库存流水与库存批次行数一致。任一步失败抛出异常，整个事务回滚，保证原子性
      * </p>
      *
      * @param stockIn 入库单主表实体
@@ -152,17 +156,19 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
         stockInMapper.insert(stockIn);
 
         // 保存明细表（生产日期取入库日期当天）
+        // 先统一补齐生产日期/有效期，再合并重复行，避免同物料同批号的明细因默认值不一致而漏合并
         java.time.LocalDate defaultDate = stockIn.getInDate().toLocalDate();
         for (StockInDetail detail : details) {
             detail.setInId(stockIn.getInId());
-            // 确保 production_date 不为空
-            if (detail.getProductionDate() == null) {
-                detail.setProductionDate(defaultDate);
+            // 明细未指定仓库时回填单据级仓库，保证合并键与实际入库仓库一致
+            if (detail.getProdUnitId() == null) {
+                detail.setProdUnitId(stockIn.getProdUnitId());
             }
-            // 确保 expiry_date 不为空，如果未设置则默认1年有效期
-            if (detail.getExpiryDate() == null && detail.getProductionDate() != null) {
-                detail.setExpiryDate(detail.getProductionDate().plusYears(1));
-            }
+            fillDefaultDates(detail, defaultDate);
+        }
+        // 同入库单内同物料同批号（仓库/状态/日期/货位一致）合并为一条明细
+        details = StockInDetailMergeUtils.merge(details);
+        for (StockInDetail detail : details) {
             stockInDetailMapper.insert(detail);
         }
 
@@ -177,7 +183,7 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
 
     /**
      * 更新入库单（含明细）
-     * <p>更新主表数据，如果提供了明细则先删除原有明细再重新插入</p>
+     * <p>更新主表数据，如果提供了明细则先删除原有明细再重新插入；重新插入前会合并同物料同批号的重复行</p>
      *
      * @param stockIn 入库单主表实体
      * @param details 入库单明细列表，null表示不更新明细，空列表表示清空明细
@@ -200,18 +206,19 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
                 java.time.LocalDate defaultDate = stockIn.getInDate() != null ? stockIn.getInDate().toLocalDate() : java.time.LocalDate.now();
                 for (StockInDetail detail : details) {
                     detail.setInId(stockIn.getInId());
+                    // 明细未指定仓库时回填单据级仓库，保证合并键与实际入库仓库一致
+                    if (detail.getProdUnitId() == null) {
+                        detail.setProdUnitId(stockIn.getProdUnitId());
+                    }
                     // 成品入库时，明细分类强制设为"成品"
                     if ("成品入库".equals(stockIn.getInType())) {
                         detail.setCategoryName("成品");
                     }
-                    // 确保 production_date 不为空
-                    if (detail.getProductionDate() == null) {
-                        detail.setProductionDate(defaultDate);
-                    }
-                    // 确保 expiry_date 不为空，如果未设置则默认1年有效期
-                    if (detail.getExpiryDate() == null && detail.getProductionDate() != null) {
-                        detail.setExpiryDate(detail.getProductionDate().plusYears(1));
-                    }
+                    fillDefaultDates(detail, defaultDate);
+                }
+                // 合并同物料同批号的重复明细，保证明细与库存联动口径一致
+                List<StockInDetail> mergedDetails = StockInDetailMergeUtils.merge(details);
+                for (StockInDetail detail : mergedDetails) {
                     stockInDetailMapper.insert(detail);
                 }
             }
@@ -399,37 +406,42 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
 
     /**
      * 新增单条入库明细
-     * <p>自动设置生产日期为当前日期（如果未提供）</p>
+     * <p>
+     * 自动设置生产日期为当前日期（如果未提供）；若库中已存在同物料同批号（且仓库/状态/日期/货位一致）的明细，
+     * 则数量与金额累加到已有明细，不再新增重复行
+     * </p>
      *
      * @param detail 入库明细实体
      */
     @Override
     @Transactional
     public void addStockInDetail(StockInDetail detail) {
-        // 确保 production_date 不为空
-        if (detail.getProductionDate() == null) {
-            detail.setProductionDate(java.time.LocalDate.now());
-        }
-        stockInDetailMapper.insert(detail);
+        // 生产日期/有效期默认值与入库单保持一致，便于同物料同批号明细正确合并
+        fillDefaultDates(detail, java.time.LocalDate.now());
+        saveDetailsMergingExisting(List.of(detail));
     }
 
     /**
      * 批量新增入库明细
-     * <p>自动为每条明细设置生产日期为当前日期（如果未提供）</p>
+     * <p>
+     * 自动为每条明细设置生产日期为当前日期（如果未提供）；同一批提交内部及与库中已有明细之间
+     * 均按同物料同批号合并，避免产生重复明细行
+     * </p>
      *
      * @param details 入库明细列表
      */
     @Override
     @Transactional
     public void addStockInDetails(List<StockInDetail> details) {
+        if (details == null || details.isEmpty()) {
+            return;
+        }
         java.time.LocalDate defaultDate = java.time.LocalDate.now();
         for (StockInDetail detail : details) {
-            // 确保 production_date 不为空
-            if (detail.getProductionDate() == null) {
-                detail.setProductionDate(defaultDate);
-            }
-            stockInDetailMapper.insert(detail);
+            // 生产日期/有效期默认值与入库单保持一致，便于同物料同批号明细正确合并
+            fillDefaultDates(detail, defaultDate);
         }
+        saveDetailsMergingExisting(details);
     }
 
     /**
@@ -578,6 +590,80 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
         }
 
         return result;
+    }
+
+    // endregion
+
+    // region 明细默认值与合并
+    // ===================================
+    // 明细默认值与合并
+    // ===================================
+
+    /**
+     * 补齐入库明细的生产日期与有效期默认值
+     * <p>生产日期为空时取入库日期当天；有效期为空时默认生产日期后一年</p>
+     *
+     * @param detail      入库明细
+     * @param defaultDate 默认生产日期
+     */
+    private void fillDefaultDates(StockInDetail detail, LocalDate defaultDate) {
+        if (detail.getProductionDate() == null) {
+            detail.setProductionDate(defaultDate);
+        }
+        if (detail.getExpiryDate() == null && detail.getProductionDate() != null) {
+            detail.setExpiryDate(detail.getProductionDate().plusYears(1));
+        }
+    }
+
+    /**
+     * 保存入库明细并与库中已有明细合并
+     * <p>
+     * 处理顺序：先合并本次提交内部的重复行，再按入库单ID分组与库中已有明细比对；
+     * 命中同物料同批号（且仓库/状态/日期/货位一致）的已有明细时数量金额累加并更新，
+     * 未命中则新增。未指定入库单ID的明细仅做批内合并后直接新增
+     * </p>
+     *
+     * @param details 待保存的入库明细列表
+     */
+    private void saveDetailsMergingExisting(List<StockInDetail> details) {
+        if (details == null || details.isEmpty()) {
+            return;
+        }
+        // 1. 合并本次提交内部的重复行（同一批提交可能包含同物料同批号的多行）
+        List<StockInDetail> mergedDetails = StockInDetailMergeUtils.merge(details);
+
+        // 2. 按入库单ID分组，未指定入库单的明细单独收集
+        List<StockInDetail> withoutInId = new ArrayList<>();
+        Map<Long, List<StockInDetail>> groupedByInId = new LinkedHashMap<>();
+        for (StockInDetail detail : mergedDetails) {
+            if (detail.getInId() == null) {
+                withoutInId.add(detail);
+            } else {
+                groupedByInId.computeIfAbsent(detail.getInId(), key -> new ArrayList<>()).add(detail);
+            }
+        }
+        for (StockInDetail detail : withoutInId) {
+            stockInDetailMapper.insert(detail);
+        }
+
+        // 3. 与库中已有明细比对：命中合并键则累加更新，否则新增
+        for (Map.Entry<Long, List<StockInDetail>> entry : groupedByInId.entrySet()) {
+            List<StockInDetail> existingDetails = stockInDetailMapper.selectList(
+                    new QueryWrapper<StockInDetail>().eq("in_id", entry.getKey()));
+            for (StockInDetail incoming : entry.getValue()) {
+                StockInDetail target = existingDetails.stream()
+                        .filter(existing -> StockInDetailMergeUtils.isSameMergeKey(existing, incoming))
+                        .findFirst()
+                        .orElse(null);
+                if (target != null) {
+                    StockInDetailMergeUtils.accumulate(target, incoming);
+                    stockInDetailMapper.updateById(target);
+                } else {
+                    stockInDetailMapper.insert(incoming);
+                    existingDetails.add(incoming);
+                }
+            }
+        }
     }
 
     // endregion

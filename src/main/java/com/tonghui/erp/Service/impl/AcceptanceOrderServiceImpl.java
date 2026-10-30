@@ -9,6 +9,7 @@ import com.tonghui.erp.Common.Dto.Stock.AcceptanceInboundRequest;
 import com.tonghui.erp.Common.Dto.Stock.AcceptanceWithDetailsDto;
 import com.tonghui.erp.Common.Dto.Stock.StockInWithNamesDto;
 import com.tonghui.erp.Common.utils.AcceptanceStatusPolicy;
+import com.tonghui.erp.Common.utils.StockInDetailMergeUtils;
 import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
 import com.tonghui.erp.Data.Entity.Material;
@@ -1110,7 +1111,8 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
      * 验收合格入库的库存联动
      * <p>
      * 将验收明细转换为入库明细（状态=合格），先创建真实的入库单（已入库状态）及明细，
-     * 再调用公共库存服务增加库存并写流水，保证流水可追溯、数据完整
+     * 再调用公共库存服务增加库存并写流水，保证流水可追溯、数据完整。
+     * 转换为入库明细后按同物料+同批号+同仓库+同状态+同有效期合并重复行，再落库
      * </p>
      *
      * @param acceptance 验收单主表
@@ -1168,9 +1170,15 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
                     : d.getAmount());
             sid.setExpiryDate(d.getExpiryDate());
             sid.setStockStatus("合格");
-            stockInDetailMapper.insert(sid);
             return sid;
         }).collect(Collectors.toList());
+
+        // 同物料+同批号+同仓库+同状态+同有效期的验收明细合并为一条入库明细，
+        // 保证入库明细、库存流水与库存批次行数一致
+        stockInDetails = StockInDetailMergeUtils.merge(stockInDetails);
+        for (StockInDetail sid : stockInDetails) {
+            stockInDetailMapper.insert(sid);
+        }
 
         // 主表总金额：汇总入库明细金额（未携带金额的明细按0计入）
         BigDecimal totalAmount = stockInDetails.stream()

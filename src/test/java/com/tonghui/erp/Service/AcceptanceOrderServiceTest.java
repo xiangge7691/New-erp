@@ -7,10 +7,14 @@ import com.tonghui.erp.Data.Entity.MaterialRequisitionSlip;
 import com.tonghui.erp.Data.Entity.MaterialRequisitionSlipDetail;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Data.Entity.Stock;
+import com.tonghui.erp.Data.Entity.StockIn;
+import com.tonghui.erp.Data.Entity.StockInDetail;
 import com.tonghui.erp.Common.Dto.Stock.AcceptanceInboundRequest;
 import com.tonghui.erp.Common.Dto.Stock.StockTransactionDto;
 import com.tonghui.erp.Data.mapper.MaterialMapper;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
+import com.tonghui.erp.Data.mapper.StockInDetailMapper;
+import com.tonghui.erp.Data.mapper.StockInMapper;
 import com.tonghui.erp.Data.mapper.StockMapper;
 import com.tonghui.erp.Service.impl.SequenceServiceImpl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -69,6 +73,18 @@ public class AcceptanceOrderServiceTest {
      */
     @Autowired
     private StockMapper stockMapper;
+
+    /**
+     * 入库单数据访问层（查询自动生成的入库单）
+     */
+    @Autowired
+    private StockInMapper stockInMapper;
+
+    /**
+     * 入库明细数据访问层（校验同物料同批号明细合并）
+     */
+    @Autowired
+    private StockInDetailMapper stockInDetailMapper;
 
     /**
      * 生产单位数据访问层（查询仓库ID）
@@ -557,6 +573,68 @@ public class AcceptanceOrderServiceTest {
                 "验收明细分类不应再被硬编码为\"物料\"");
     }
 
+    /**
+     * 测试验收整单入库时同物料同批号的重复明细合并：
+     * 两张验收明细（同物料+同批号+同仓库+同有效期，各1）→ 入库明细只剩一条（数量2），
+     * 库存数量2，且只写入一条入库流水
+     */
+    @Test
+    @Transactional
+    public void testAcceptanceInboundMergesSameMaterialBatchDetails() {
+        Long prodUnitId = findAnyProdUnitId();
+        if (prodUnitId == null) {
+            System.out.println("无生产单位数据，跳过该测试");
+            return;
+        }
+
+        String batchNumber = "ACC-MERGE-BT-" + System.currentTimeMillis();
+        AcceptanceOrder acceptance = new AcceptanceOrder();
+        acceptance.setAcceptanceCode(sequenceService.generateAcceptanceCode());
+        acceptance.setSourceType("采购入库");
+        acceptance.setStatus("运输中");
+        acceptance.setRelatedOrder("TEST-ORDER-MERGE");
+        acceptance.setDeliveryDate(LocalDate.now().plusDays(7));
+        acceptanceOrderService.addAcceptance(acceptance, List.of(
+                buildAcceptanceDetail(batchNumber, "1.000"),
+                buildAcceptanceDetail(batchNumber, "1.000")));
+        Long id = acceptance.getAcceptanceId();
+
+        // 流转至待入库
+        acceptanceOrderService.confirmArrival(id);
+        acceptanceOrderService.inspect(id, null, true, "初验合格");
+        acceptanceOrderService.qualityCheck(id, null, true, "检验合格");
+
+        // 整单入库（两条明细指定同一仓库）
+        List<Long> detailIds = acceptanceOrderService.getDetailsByAcceptanceId(id).stream()
+                .map(AcceptanceDetail::getDetailId).collect(java.util.stream.Collectors.toList());
+        acceptanceOrderService.inbound(id, detailIds.stream().map(did -> {
+            AcceptanceInboundRequest.Item item = new AcceptanceInboundRequest.Item();
+            item.setDetailId(did);
+            item.setProdUnitId(prodUnitId);
+            return item;
+        }).collect(java.util.stream.Collectors.toList()));
+
+        // 自动生成的入库单明细应合并为一条，数量2
+        StockIn stockIn = stockInMapper.selectOne(new QueryWrapper<StockIn>()
+                .eq("related_order", acceptance.getAcceptanceCode()));
+        assertNotNull(stockIn, "验收合格后应自动生成入库单");
+        List<StockInDetail> stockInDetails = stockInDetailMapper.selectList(
+                new QueryWrapper<StockInDetail>().eq("in_id", stockIn.getInId()));
+        assertEquals(1, stockInDetails.size(), "同物料同批号的验收入库明细应合并为一条");
+        assertEquals(0, new BigDecimal("2.000").compareTo(stockInDetails.get(0).getQuantity()),
+                "合并后入库数量应为2");
+
+        // 库存与流水口径一致：库存2，仅一条入库流水
+        Stock stock = stockMapper.selectOne(new QueryWrapper<Stock>()
+                .eq("item_code", "TEST001")
+                .eq("prod_unit_id", prodUnitId)
+                .eq("batch_number", batchNumber));
+        assertNotNull(stock, "入库后应生成库存批次");
+        assertEquals(0, new BigDecimal("2.000").compareTo(stock.getQuantity()), "库存数量应为2");
+        assertEquals(1, stockService.getTransactionsByStockId(stock.getStockId()).size(),
+                "合并后应只写入一条入库流水");
+    }
+
     // endregion
 
     // region 私有工具方法
@@ -593,6 +671,28 @@ public class AcceptanceOrderServiceTest {
 
         acceptanceOrderService.addAcceptance(acceptance, List.of(detail));
         return acceptance;
+    }
+
+    /**
+     * 构建验收明细（用于同物料同批号合并测试）
+     *
+     * @param batchNo  批号
+     * @param quantity 采购数量
+     * @return 验收明细
+     */
+    private AcceptanceDetail buildAcceptanceDetail(String batchNo, String quantity) {
+        AcceptanceDetail detail = new AcceptanceDetail();
+        detail.setItemType("material");
+        detail.setMaterialCode("TEST001");
+        detail.setMaterialName("测试物料");
+        detail.setMaterialCategory("原料");
+        detail.setUnitName("kg");
+        detail.setStandardDosage(new BigDecimal("0.1000"));
+        detail.setQuantity(new BigDecimal(quantity));
+        detail.setUnitPrice(new BigDecimal("10.00"));
+        detail.setBatchNumber(batchNo);
+        detail.setExpiryDate(LocalDate.now().plusYears(1));
+        return detail;
     }
 
     /**
