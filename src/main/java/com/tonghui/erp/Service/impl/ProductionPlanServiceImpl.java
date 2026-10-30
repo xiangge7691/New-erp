@@ -214,7 +214,7 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
                 continue;
             }
             LocalDateTime inboundTime = inboundTimeMap.get(plan.getId());
-            BigDecimal durationDays = ProductionDurationUtils.calcDays(plan.getPurchaseOrderTime(), inboundTime);
+            BigDecimal durationDays = ProductionDurationUtils.calcDays(resolveDurationStartTime(plan), inboundTime);
             if (durationDays != null) {
                 samples.add(new ProductionDurationUtils.DurationSample(
                         plan.getPreparationId(),
@@ -412,13 +412,10 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
             if (planWorkOrders == null || planWorkOrders.isEmpty()) {
                 continue;
             }
-            // 仅当该计划下所有有效工单均已入库时，计划才视为已入库
-            boolean allInbound = planWorkOrders.stream().allMatch(wo -> wo.getInboundTime() != null);
-            if (!allInbound) {
-                continue;
-            }
+            // 取已入库工单中的最新入库时间，允许计划部分工单已入库
             LocalDateTime maxInboundTime = planWorkOrders.stream()
                     .map(WorkOrder::getInboundTime)
+                    .filter(java.util.Objects::nonNull)
                     .max(LocalDateTime::compareTo)
                     .orElse(null);
             if (maxInboundTime != null) {
@@ -447,8 +444,25 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
             LocalDateTime inboundTime = inboundTimeMap.get(plan.getId());
             plan.setInboundTime(inboundTime);
             plan.setProductionDurationDays(
-                    ProductionDurationUtils.calcDays(plan.getPurchaseOrderTime(), inboundTime));
+                    ProductionDurationUtils.calcDays(resolveDurationStartTime(plan), inboundTime));
         }
+    }
+
+    /**
+     * 解析生产用时开始时间
+     * <p>
+     * 优先取采购计划下达时间；没有采购计划时回退使用生产计划创建时间，
+     * 保证未关联采购计划的计划也能计算生产用时
+     * </p>
+     *
+     * @param plan 生产计划
+     * @return 生产用时开始时间
+     */
+    private LocalDateTime resolveDurationStartTime(ProductionPlan plan) {
+        if (plan.getPurchaseOrderTime() != null) {
+            return plan.getPurchaseOrderTime();
+        }
+        return plan.getCreatedTime();
     }
 
     // endregion
