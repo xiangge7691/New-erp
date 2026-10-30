@@ -19,6 +19,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -95,8 +96,11 @@ public class EquipmentMaintenanceController extends BaseController {
     /**
      * 分页查询维保记录列表
      *
+     * 示例请求：
+     * GET /api/equipmentMaintenance?equipmentType=生产设备,检验设备&keyword=烘箱&pageIndex=0&pageSize=10
+     *
      * @param equipmentId 设备ID（可选）
-     * @param equipmentType 设备类型（可选）：生产设备/检验设备/环境设备/计量器具/压力容器/其他设备，通过关联equipment表按equipment_type精确匹配
+     * @param equipmentType 设备类型（可选）：生产设备/检验设备/环境设备/计量器具/压力容器/其他设备，通过关联equipment表按equipment_type精确匹配；支持逗号分隔多个类型（如：生产设备,检验设备）
      * @param maintenanceType 维保类型（可选）
      * @param keyword 关键词（可选），模糊匹配维保内容、设备编码（固定资产编号）、设备名称
      * @param maintainer 维保人（可选）
@@ -121,11 +125,22 @@ public class EquipmentMaintenanceController extends BaseController {
             @RequestParam(defaultValue = "10") int pageSize) {
         QueryWrapper<EquipmentMaintenance> wrapper = new QueryWrapper<>();
         
-        // 如果按设备类型筛选，先查询符合条件的设备ID
+        // 如果按设备类型筛选，先查询符合条件的设备ID（支持逗号分隔多个类型）
         if (StringUtils.hasText(equipmentType)) {
+            List<String> equipmentTypes = Arrays.stream(equipmentType.split(","))
+                    .map(String::trim)
+                    .filter(StringUtils::hasText)
+                    .collect(Collectors.toList());
+            if (equipmentTypes.isEmpty()) {
+                return success(new PagedResult<>());
+            }
             QueryWrapper<Equipment> eqWrapper = new QueryWrapper<>();
             eqWrapper.eq("is_deleted", 0);
-            eqWrapper.eq("equipment_type", equipmentType);
+            if (equipmentTypes.size() == 1) {
+                eqWrapper.eq("equipment_type", equipmentTypes.get(0));
+            } else {
+                eqWrapper.in("equipment_type", equipmentTypes);
+            }
             List<Equipment> equipments = equipmentService.list(eqWrapper);
             if (equipments.isEmpty()) {
                 return success(new PagedResult<>());

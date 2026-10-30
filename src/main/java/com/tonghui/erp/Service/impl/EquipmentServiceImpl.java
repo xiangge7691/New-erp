@@ -22,6 +22,7 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -272,7 +273,16 @@ public class EquipmentServiceImpl extends ServiceImpl<EquipmentMapper, Equipment
             wrapper.like("manufacturer", equipment.getManufacturer());
         }
         if (StringUtils.hasText(equipment.getEquipmentType())) {
-            wrapper.eq("equipment_type", equipment.getEquipmentType());
+            // 支持逗号分隔的多个设备类型（如：生产设备,检验设备），去空格并过滤空值
+            List<String> equipmentTypes = Arrays.stream(equipment.getEquipmentType().split(","))
+                    .map(String::trim)
+                    .filter(StringUtils::hasText)
+                    .collect(Collectors.toList());
+            if (equipmentTypes.size() == 1) {
+                wrapper.eq("equipment_type", equipmentTypes.get(0));
+            } else if (equipmentTypes.size() > 1) {
+                wrapper.in("equipment_type", equipmentTypes);
+            }
         }
         if (equipment.getPurchaseDate() != null) {
             wrapper.eq("purchase_date", equipment.getPurchaseDate());

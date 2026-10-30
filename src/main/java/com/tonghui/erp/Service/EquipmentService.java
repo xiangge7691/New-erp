@@ -24,7 +24,7 @@ public interface EquipmentService extends IService<Equipment> {
     /**
      * 高级查询设备（支持多条件 + 分页）
      * 
-     * @param equipment 查询条件实体（自动从 query 参数映射）
+     * @param equipment 查询条件实体（自动从 query 参数映射；其中 equipmentType 支持逗号分隔多个设备类型）
      * @param keyword 关键字（对固定资产编号、设备名称进行模糊匹配，可选）
      * @param createdTimeStart 创建时间起始
      * @param createdTimeEnd 创建时间结束

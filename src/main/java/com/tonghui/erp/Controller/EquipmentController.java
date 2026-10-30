@@ -197,11 +197,14 @@ public class EquipmentController extends BaseCrudController<Equipment, Equipment
      * <p>
      * 支持按设备名称、型号、厂家、创建时间、更新时间等条件进行组合查询，当页码和页面大小都为-1时返回全部结果
      * </p>
+     * <p>
+     * equipmentType 支持逗号分隔传入多个设备类型（如：生产设备,检验设备），任一匹配即返回
+     * </p>
      *
      * 示例请求：
-     * GET /api/equipment/search?keyword=烘箱&model=HX&manufacturer=某厂&createdTimeStart=2026-01-01T00:00:00&createdTimeEnd=2026-12-31T23:59:59&pageIndex=0&pageSize=10
+     * GET /api/equipment/search?keyword=烘箱&equipmentType=生产设备,检验设备&model=HX&manufacturer=某厂&createdTimeStart=2026-01-01T00:00:00&createdTimeEnd=2026-12-31T23:59:59&pageIndex=0&pageSize=10
      *
-     * @param equipment 设备查询条件对象（可包含设备名称、型号等）
+     * @param equipment 设备查询条件对象（可包含设备名称、型号、设备类型等，其中 equipmentType 支持逗号分隔多个值）
      * @param keyword 关键字（对固定资产编号、设备名称进行模糊匹配，可选）
      * @param createdTimeStart 创建时间起始（可选）
      * @param createdTimeEnd 创建时间结束（可选）
