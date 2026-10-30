@@ -5,7 +5,9 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Production.ProductionDurationSummaryDto;
 import com.tonghui.erp.Common.Dto.ProductionPlanWithRecordsDto;
+import com.tonghui.erp.Common.utils.ProductionDurationUtils;
 import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.ProductionPlan;
 import com.tonghui.erp.Data.Entity.ProductionProcessRecord;
@@ -23,6 +25,9 @@ import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -114,6 +119,133 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
         int actualPageNum = pageNum + 1;
 
         Page<ProductionPlan> page = new Page<>(actualPageNum, pageSize);
+        QueryWrapper<ProductionPlan> wrapper = buildQueryWrapper(productionPlan, keyword,
+                createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd,
+                productionStartTimeStart, productionStartTimeEnd, productionEndTimeStart, productionEndTimeEnd,
+                planProductionTimeStart, planProductionTimeEnd,
+                inspectionStartTimeStart, inspectionStartTimeEnd, inspectionEndTimeStart, inspectionEndTimeEnd,
+                outboundTimeStart, outboundTimeEnd, archiveTimeStart, archiveTimeEnd,
+                timeFieldType, timeStart, timeEnd);
+
+        Page<ProductionPlan> result = this.page(page, wrapper);
+
+        // 单价为空的计划按制剂销售价内存回填（不落库，仅影响查询返回）
+        fillMissingUnitPrice(result.getRecords());
+        // 回填计划级入库时间与生产用时（派生字段，不落库）
+        fillPlanInboundAndDuration(result.getRecords());
+
+        return result;
+    }
+
+    /**
+     * 汇总当前筛选条件下的平均生产时间
+     * <p>
+     * 统计口径与列表查询完全一致（复用同一 QueryWrapper），不受分页影响；
+     * 仅统计采购计划下达时间与计划级入库时间均有效、且生产用时非负的计划，
+     * 按制剂维度拆分平均生产时间
+     * </p>
+     *
+     * @param productionPlan           查询条件实体
+     * @param keyword                  关键字（对计划编号、计划名称进行模糊匹配）
+     * @param createdTimeStart         创建时间起始值（含）
+     * @param createdTimeEnd           创建时间结束值（含）
+     * @param updatedTimeStart         更新时间起始值（含）
+     * @param updatedTimeEnd           更新时间结束值（含）
+     * @param productionStartTimeStart 生产开始时间起始值（含）
+     * @param productionStartTimeEnd   生产开始时间结束值（含）
+     * @param productionEndTimeStart   生产结束时间起始值（含）
+     * @param productionEndTimeEnd     生产结束时间结束值（含）
+     * @param planProductionTimeStart  计划生产时间起始值（含）
+     * @param planProductionTimeEnd    计划生产时间结束值（含）
+     * @param inspectionStartTimeStart 检验开始时间起始值（含）
+     * @param inspectionStartTimeEnd   检验开始时间结束值（含）
+     * @param inspectionEndTimeStart   检验结束时间起始值（含）
+     * @param inspectionEndTimeEnd     检验结束时间结束值（含）
+     * @param outboundTimeStart        出库时间起始值（含）
+     * @param outboundTimeEnd          出库时间结束值（含）
+     * @param archiveTimeStart         归档时间起始值（含）
+     * @param archiveTimeEnd           归档时间结束值（含）
+     * @param timeFieldType            动态时间字段类型
+     * @param timeStart                动态时间字段起始值（含）
+     * @param timeEnd                  动态时间字段结束值（含）
+     * @return 平均生产时间汇总
+     */
+    @Override
+    public ProductionDurationSummaryDto getProductionDurationSummary(ProductionPlan productionPlan,
+                                                                     String keyword,
+                                                                     LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
+                                                                     LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
+                                                                     LocalDateTime productionStartTimeStart, LocalDateTime productionStartTimeEnd,
+                                                                     LocalDateTime productionEndTimeStart, LocalDateTime productionEndTimeEnd,
+                                                                     LocalDateTime planProductionTimeStart, LocalDateTime planProductionTimeEnd,
+                                                                     LocalDateTime inspectionStartTimeStart, LocalDateTime inspectionStartTimeEnd,
+                                                                     LocalDateTime inspectionEndTimeStart, LocalDateTime inspectionEndTimeEnd,
+                                                                     LocalDateTime outboundTimeStart, LocalDateTime outboundTimeEnd,
+                                                                     LocalDateTime archiveTimeStart, LocalDateTime archiveTimeEnd,
+                                                                     String timeFieldType, LocalDateTime timeStart, LocalDateTime timeEnd) {
+        // 复用列表查询的筛选条件，仅查询统计所需字段
+        QueryWrapper<ProductionPlan> wrapper = buildQueryWrapper(productionPlan, keyword,
+                createdTimeStart, createdTimeEnd, updatedTimeStart, updatedTimeEnd,
+                productionStartTimeStart, productionStartTimeEnd, productionEndTimeStart, productionEndTimeEnd,
+                planProductionTimeStart, planProductionTimeEnd,
+                inspectionStartTimeStart, inspectionStartTimeEnd, inspectionEndTimeStart, inspectionEndTimeEnd,
+                outboundTimeStart, outboundTimeEnd, archiveTimeStart, archiveTimeEnd,
+                timeFieldType, timeStart, timeEnd);
+        wrapper.select("id", "preparation_id", "preparation_code", "preparation_name",
+                "purchase_order_time", "current_status");
+
+        List<ProductionPlan> plans = this.list(wrapper);
+        if (plans.isEmpty()) {
+            return new ProductionDurationSummaryDto();
+        }
+
+        // 批量加载计划级入库时间（仅所有有效工单均已入库的计划才有值）
+        List<Integer> planIds = plans.stream()
+                .map(ProductionPlan::getId)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toList());
+        Map<Integer, LocalDateTime> inboundTimeMap = loadPlanInboundTimeMap(planIds);
+
+        // 组装有效生产用时样本
+        List<ProductionDurationUtils.DurationSample> samples = new ArrayList<>();
+        for (ProductionPlan plan : plans) {
+            // 排除已作废计划
+            if ("作废".equals(plan.getCurrentStatus())) {
+                continue;
+            }
+            LocalDateTime inboundTime = inboundTimeMap.get(plan.getId());
+            BigDecimal durationDays = ProductionDurationUtils.calcDays(plan.getPurchaseOrderTime(), inboundTime);
+            if (durationDays != null) {
+                samples.add(new ProductionDurationUtils.DurationSample(
+                        plan.getPreparationId(),
+                        plan.getPreparationCode(),
+                        plan.getPreparationName(),
+                        durationDays));
+            }
+        }
+        return ProductionDurationUtils.summarize(samples);
+    }
+
+    /**
+     * 构建生产计划查询条件
+     * <p>
+     * 列表查询与平均生产时间统计共用，避免两处筛选条件不一致
+     * </p>
+     *
+     * @return 查询条件
+     */
+    private QueryWrapper<ProductionPlan> buildQueryWrapper(ProductionPlan productionPlan,
+                                                           String keyword,
+                                                           LocalDateTime createdTimeStart, LocalDateTime createdTimeEnd,
+                                                           LocalDateTime updatedTimeStart, LocalDateTime updatedTimeEnd,
+                                                           LocalDateTime productionStartTimeStart, LocalDateTime productionStartTimeEnd,
+                                                           LocalDateTime productionEndTimeStart, LocalDateTime productionEndTimeEnd,
+                                                           LocalDateTime planProductionTimeStart, LocalDateTime planProductionTimeEnd,
+                                                           LocalDateTime inspectionStartTimeStart, LocalDateTime inspectionStartTimeEnd,
+                                                           LocalDateTime inspectionEndTimeStart, LocalDateTime inspectionEndTimeEnd,
+                                                           LocalDateTime outboundTimeStart, LocalDateTime outboundTimeEnd,
+                                                           LocalDateTime archiveTimeStart, LocalDateTime archiveTimeEnd,
+                                                           String timeFieldType, LocalDateTime timeStart, LocalDateTime timeEnd) {
         QueryWrapper<ProductionPlan> wrapper = new QueryWrapper<>();
 
         if (StringUtils.hasText(keyword)) {
@@ -146,7 +278,7 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
         if (productionPlan.getIsArchived() != null) {
             wrapper.eq("is_archived", productionPlan.getIsArchived());
         }
-        
+
         // 创建时间范围查询
         if (createdTimeStart != null) {
             wrapper.ge("created_time", createdTimeStart);
@@ -154,7 +286,7 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
         if (createdTimeEnd != null) {
             wrapper.le("created_time", createdTimeEnd);
         }
-        
+
         // 更新时间范围查询
         if (updatedTimeStart != null) {
             wrapper.ge("updated_time", updatedTimeStart);
@@ -218,7 +350,7 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
         if (archiveTimeEnd != null) {
             wrapper.le("archive_time", archiveTimeEnd);
         }
-        
+
         // 动态时间筛选（根据传入的时间字段类型动态选择筛选列）
         if (StringUtils.hasText(timeFieldType) && (timeStart != null || timeEnd != null)) {
             String column = switch (timeFieldType) {
@@ -238,16 +370,85 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
                 if (timeEnd != null) wrapper.le(column, timeEnd);
             }
         }
-        
+
         // 按创建时间倒序排列，新创建的显示在最前
         wrapper.orderByDesc("created_time");
+        return wrapper;
+    }
 
-        Page<ProductionPlan> result = this.page(page, wrapper);
+    /**
+     * 批量加载计划级入库时间
+     * <p>
+     * 取每个计划下所有未删除、非作废工单的入库时间最大值；
+     * 只要存在未入库的有效工单，则该计划不返回入库时间
+     * </p>
+     *
+     * @param planIds 计划ID列表
+     * @return 计划ID → 入库时间
+     */
+    private Map<Integer, LocalDateTime> loadPlanInboundTimeMap(Collection<Integer> planIds) {
+        Map<Integer, LocalDateTime> result = new HashMap<>();
+        if (planIds == null || planIds.isEmpty()) {
+            return result;
+        }
 
-        // 单价为空的计划按制剂销售价内存回填（不落库，仅影响查询返回）
-        fillMissingUnitPrice(result.getRecords());
+        QueryWrapper<WorkOrder> wrapper = new QueryWrapper<>();
+        wrapper.select("plan_id", "inbound_time", "current_status");
+        wrapper.in("plan_id", planIds);
+        wrapper.eq("is_deleted", 0);
+        // 排除已作废工单，同时保留历史数据中状态为空的工单
+        wrapper.and(w -> w.isNull("current_status").or().ne("current_status", "作废"));
+        List<WorkOrder> workOrders = workOrderMapper.selectList(wrapper);
+        if (workOrders.isEmpty()) {
+            return result;
+        }
 
+        Map<Long, List<WorkOrder>> workOrdersByPlan = workOrders.stream()
+                .filter(wo -> wo.getPlanId() != null)
+                .collect(Collectors.groupingBy(WorkOrder::getPlanId));
+
+        for (Integer planId : planIds) {
+            List<WorkOrder> planWorkOrders = workOrdersByPlan.get(planId.longValue());
+            if (planWorkOrders == null || planWorkOrders.isEmpty()) {
+                continue;
+            }
+            // 仅当该计划下所有有效工单均已入库时，计划才视为已入库
+            boolean allInbound = planWorkOrders.stream().allMatch(wo -> wo.getInboundTime() != null);
+            if (!allInbound) {
+                continue;
+            }
+            LocalDateTime maxInboundTime = planWorkOrders.stream()
+                    .map(WorkOrder::getInboundTime)
+                    .max(LocalDateTime::compareTo)
+                    .orElse(null);
+            if (maxInboundTime != null) {
+                result.put(planId, maxInboundTime);
+            }
+        }
         return result;
+    }
+
+    /**
+     * 回填计划级入库时间与生产用时
+     *
+     * @param plans 生产计划列表
+     */
+    private void fillPlanInboundAndDuration(List<ProductionPlan> plans) {
+        if (plans == null || plans.isEmpty()) {
+            return;
+        }
+        List<Integer> planIds = plans.stream()
+                .map(ProductionPlan::getId)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toList());
+        Map<Integer, LocalDateTime> inboundTimeMap = loadPlanInboundTimeMap(planIds);
+
+        for (ProductionPlan plan : plans) {
+            LocalDateTime inboundTime = inboundTimeMap.get(plan.getId());
+            plan.setInboundTime(inboundTime);
+            plan.setProductionDurationDays(
+                    ProductionDurationUtils.calcDays(plan.getPurchaseOrderTime(), inboundTime));
+        }
     }
 
     // endregion

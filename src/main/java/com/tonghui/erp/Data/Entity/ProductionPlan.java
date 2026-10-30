@@ -203,6 +203,20 @@ public class ProductionPlan extends AuditEntity {
     @TableField(value = "plan_file")
     private String planFile;
 
+    /**
+     * 计划级入库时间（派生字段，不落库）
+     * <p>取该计划关联的所有有效工单入库时间的最大值；仅当所有有效工单均已入库时才有值</p>
+     */
+    @TableField(exist = false)
+    private LocalDateTime inboundTime;
+
+    /**
+     * 生产用时（天，派生字段，不落库）
+     * <p>采购计划下达时间 → 计划级入库时间</p>
+     */
+    @TableField(exist = false)
+    private BigDecimal productionDurationDays;
+
     // endregion
 
     // region 状态与审计字段

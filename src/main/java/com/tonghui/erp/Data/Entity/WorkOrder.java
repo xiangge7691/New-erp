@@ -282,6 +282,13 @@ public class WorkOrder extends AuditEntity {
     @TableField(value = "inbound_time")
     private LocalDateTime inboundTime;
 
+    /**
+     * 生产用时（天，派生字段，不落库）
+     * <p>配置日期 → 成品入库时间</p>
+     */
+    @TableField(exist = false)
+    private BigDecimal productionDurationDays;
+
     // endregion
 
     // region 状态与审计字段
