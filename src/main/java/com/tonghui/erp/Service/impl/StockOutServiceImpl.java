@@ -39,6 +39,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -310,6 +311,185 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         stockOutDetailMapper.insert(detail);
 
         return draft;
+    }
+
+    /**
+     * 创建草稿出库单并批量创建出库明细（不扣库存）
+     * <p>
+     * 用于生产领料发料联动：保存出库单主表与多条明细，状态固定为“草稿”。
+     * 明细未携带 stockId 时按物料编码 + 批号（可选）+ 合格状态 + FIFO 自动匹配库存批次，
+     * 并校验所选批次库存充足；本方法仅落单，不调用库存扣减，仓库确认后再扣库存。
+     * </p>
+     *
+     * @param stockOut 出库单主表
+     * @param details  出库明细列表
+     * @return 创建后的草稿出库单
+     */
+    @Override
+    @Transactional
+    public StockOut createDraftOutboundWithDetails(StockOut stockOut, List<StockOutDetail> details) {
+        if (stockOut == null) {
+            throw new IllegalArgumentException("出库单不能为空");
+        }
+        if (details == null || details.isEmpty()) {
+            throw new IllegalArgumentException("出库明细不能为空");
+        }
+        if (!StringUtils.hasText(stockOut.getOutCode())) {
+            stockOut.setOutCode(sequenceService.generateStockOutCode());
+        }
+
+        BigDecimal totalAmount = BigDecimal.ZERO;
+        for (StockOutDetail detail : details) {
+            if (detail == null) {
+                throw new IllegalArgumentException("出库明细不能为空");
+            }
+            if (detail.getQuantity() == null || detail.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("出库数量必须大于0: " + detail.getItemName());
+            }
+
+            // 定位库存批次：优先使用指定 stockId，否则按物料编码 + 批号 FIFO 匹配
+            Stock stock;
+            if (detail.getStockId() != null) {
+                stock = stockMapper.selectById(detail.getStockId());
+                if (stock == null) {
+                    throw new IllegalArgumentException("库存批次不存在: " + detail.getItemName());
+                }
+                if (stock.getQuantity() == null || stock.getQuantity().compareTo(detail.getQuantity()) < 0) {
+                    throw new IllegalArgumentException("库存不足: " + detail.getItemName()
+                            + "（当前 " + (stock.getQuantity() == null ? "0" : stock.getQuantity().toPlainString())
+                            + "，需出库 " + detail.getQuantity().toPlainString() + "）");
+                }
+                if (stock.getStockStatus() != null
+                        && !"合格".equals(String.valueOf(stock.getStockStatus()))) {
+                    throw new IllegalArgumentException("库存批次状态不是合格，不能出库: " + detail.getItemName()
+                            + "（批次 " + stock.getBatchNumber() + "）");
+                }
+                if (stock.getExpiryDate() != null && stock.getExpiryDate().isBefore(LocalDate.now())) {
+                    throw new IllegalArgumentException("库存批次已过期，不能出库: " + detail.getItemName()
+                            + "（批次 " + stock.getBatchNumber() + "）");
+                }
+            } else {
+                stock = resolveStockForDraft(detail);
+                if (stock == null) {
+                    throw new IllegalArgumentException("物料[" + detail.getItemName()
+                            + "]无可用库存批次或批次库存不足，无法生成出库明细");
+                }
+                detail.setStockId(stock.getStockId());
+            }
+
+            // 明细基础信息补全：以库存批次为准，避免 category_name / unit_name 为空导致写入失败
+            detail.setProdUnitId(stock.getProdUnitId());
+            if (!StringUtils.hasText(detail.getItemCode())) {
+                detail.setItemCode(stock.getItemCode());
+            }
+            if (!StringUtils.hasText(detail.getItemName())) {
+                detail.setItemName(stock.getItemName());
+            }
+            if (!StringUtils.hasText(detail.getCategoryName())) {
+                detail.setCategoryName(StringUtils.hasText(stock.getCategoryName()) ? stock.getCategoryName() : "物料");
+            }
+            if (!StringUtils.hasText(detail.getUnitName())) {
+                detail.setUnitName(stock.getUnitName());
+            }
+            if (!StringUtils.hasText(detail.getBatchNumber())) {
+                detail.setBatchNumber(stock.getBatchNumber());
+            }
+            if (detail.getUnitPrice() == null) {
+                detail.setUnitPrice(stock.getUnitPrice());
+            }
+            if (detail.getAmount() == null && detail.getUnitPrice() != null) {
+                detail.setAmount(detail.getQuantity().multiply(detail.getUnitPrice()).setScale(2, RoundingMode.HALF_UP));
+            }
+            if (detail.getItemType() == null) {
+                detail.setItemType("material");
+            }
+            if (detail.getIsDeleted() == null) {
+                detail.setIsDeleted(0);
+            }
+            if (detail.getVersion() == null) {
+                detail.setVersion(1);
+            }
+            // 来源入库单号（便于出库列表展示）
+            if (!StringUtils.hasText(detail.getRelatedInCode()) && stock.getStockInId() != null) {
+                StockIn stockIn = stockInMapper.selectById(stock.getStockInId());
+                if (stockIn != null) {
+                    detail.setRelatedInCode(stockIn.getInCode());
+                }
+            }
+            totalAmount = totalAmount.add(detail.getAmount() != null ? detail.getAmount() : BigDecimal.ZERO);
+        }
+
+        // 主表默认值
+        stockOut.setOutStatus("草稿");
+        if (stockOut.getOutDate() == null) {
+            stockOut.setOutDate(LocalDateTime.now());
+        }
+        if (stockOut.getProdUnitId() == null) {
+            stockOut.setProdUnitId(details.stream()
+                    .map(StockOutDetail::getProdUnitId)
+                    .filter(Objects::nonNull)
+                    .findFirst()
+                    .orElse(null));
+        }
+        if (stockOut.getProdUnitId() == null) {
+            throw new IllegalArgumentException("无法确定出库仓库，请携带 prodUnitId");
+        }
+        if (stockOut.getTotalAmount() == null) {
+            stockOut.setTotalAmount(totalAmount);
+        }
+
+        // 仅保存主表与明细，不扣减库存
+        stockOutMapper.insert(stockOut);
+        for (StockOutDetail detail : details) {
+            detail.setOutId(stockOut.getOutId());
+            stockOutDetailMapper.insert(detail);
+        }
+        return stockOut;
+    }
+
+    /**
+     * 按物料编码查询合格可用库存批次（FIFO 排序）
+     *
+     * @param materialCode 物料编码
+     * @param requiredQty  应发数量（用于计算批次金额，可为空）
+     * @return 可用库存批次列表
+     */
+    @Override
+    public List<AvailableBatchDto> getAvailableBatchesByMaterialCode(String materialCode, BigDecimal requiredQty) {
+        if (!StringUtils.hasText(materialCode)) {
+            return List.of();
+        }
+        return findAvailableBatches(materialCode, requiredQty);
+    }
+
+    /**
+     * 为草稿出库明细匹配可用库存批次
+     * <p>
+     * 按物料编码 + 批号（可选）+ 合格状态 + 未过期 + 库存充足筛选，按入库时间 FIFO 取第一条满足数量的批次
+     * </p>
+     *
+     * @param detail 出库明细
+     * @return 匹配到的库存批次，未匹配到返回 null
+     */
+    private Stock resolveStockForDraft(StockOutDetail detail) {
+        if (!StringUtils.hasText(detail.getItemCode())) {
+            return null;
+        }
+        QueryWrapper<Stock> wrapper = new QueryWrapper<>();
+        wrapper.eq("item_code", detail.getItemCode());
+        wrapper.eq("stock_status", "合格");
+        wrapper.gt("quantity", 0);
+        wrapper.and(w -> w.isNull("expiry_date").or().ge("expiry_date", LocalDate.now()));
+        if (StringUtils.hasText(detail.getBatchNumber())) {
+            wrapper.eq("batch_number", detail.getBatchNumber());
+        }
+        wrapper.orderByAsc("created_time");
+        wrapper.orderByAsc("stock_id");
+        List<Stock> stocks = stockMapper.selectList(wrapper);
+        return stocks.stream()
+                .filter(s -> s.getQuantity() != null && s.getQuantity().compareTo(detail.getQuantity()) >= 0)
+                .findFirst()
+                .orElse(null);
     }
 
     /**

@@ -2,6 +2,7 @@ package com.tonghui.erp.Service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.Dto.Stock.AvailableBatchDto;
 import com.tonghui.erp.Common.Dto.Stock.BatchOutboundRequest;
 import com.tonghui.erp.Common.Dto.Stock.PlanDetailItemDto;
 import com.tonghui.erp.Common.Dto.Stock.StockOutWithDetailsDto;
@@ -56,6 +57,29 @@ public interface StockOutService extends IService<StockOut> {
      * @return 创建后的出库单（含自动生成的outCode和ID）
      */
     StockOut createDraftOutbound(StockOut stockOut, StockOutDetail detail);
+
+    /**
+     * 创建草稿出库单并批量创建出库明细（不扣库存，等待库管确认）
+     * <p>
+     * 用于生产领料单发料联动：一次事务内保存出库单主表与多条明细，
+     * 明细未携带 stockId 时按物料编码 + 批号 + 合格状态 + FIFO 自动匹配库存批次，
+     * 并校验所选批次可用库存充足；仅落单不扣库存，仓库确认后才扣减
+     * </p>
+     *
+     * @param stockOut 出库单实体（需设置 outType/relatedOrder/planId/planNumber 等）
+     * @param details  出库明细列表（须携带 itemCode/quantity，stockId 可选）
+     * @return 创建后的出库单（含自动生成的 outCode 和 outId）
+     */
+    StockOut createDraftOutboundWithDetails(StockOut stockOut, List<StockOutDetail> details);
+
+    /**
+     * 按物料编码查询合格可用库存批次（FIFO 排序）
+     *
+     * @param materialCode 物料编码
+     * @param requiredQty  应发数量（用于计算批次金额，可为空）
+     * @return 可用库存批次列表
+     */
+    List<AvailableBatchDto> getAvailableBatchesByMaterialCode(String materialCode, BigDecimal requiredQty);
 
     /**
      * 更新出库单（包含明细）

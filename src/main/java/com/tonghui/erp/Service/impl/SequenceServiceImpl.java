@@ -199,6 +199,45 @@ public class SequenceServiceImpl {
 
     // endregion
 
+    // region 生产领料单号生成
+    // ===================================
+    // 生产领料单号生成
+    // ===================================
+
+    /**
+     * 生成生产领料单号
+     * <p>
+     * 编号格式：SCLL + 日期(8位) + 序号(3位)，例如：SCLL-20261031-001
+     * 通过查询当天生产领料单表中最大编号并递增生成，保证每天编号唯一
+     * </p>
+     *
+     * @return 生成的唯一生产领料单号
+     */
+    public String generateProductionPickCode() {
+        // 日期部分，格式为yyyyMMdd
+        String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        try {
+            String maxCode = jdbcTemplate.queryForObject(
+                    "SELECT MAX(pick_code) FROM production_pick WHERE pick_code LIKE 'SCLL-" + dateStr + "%'",
+                    String.class);
+
+            if (maxCode != null) {
+                // 提取序号部分并加1，格式为SCLL-(5) + 日期(8位) = 前13位，从第13位开始是序号
+                String seqStr = maxCode.substring(13);
+                int seq = Integer.parseInt(seqStr);
+                return String.format("SCLL-%s-%03d", dateStr, seq + 1);
+            } else {
+                // 当天无记录，从1开始
+                return String.format("SCLL-%s-%03d", dateStr, 1);
+            }
+        } catch (Exception e) {
+            // 出现异常时返回默认值
+            return String.format("SCLL-%s-%03d", dateStr, 1);
+        }
+    }
+
+    // endregion
+
     // region 质量检验模块编号生成
     // ===================================
     // 质量检验模块编号生成
