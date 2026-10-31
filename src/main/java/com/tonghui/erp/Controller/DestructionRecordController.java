@@ -225,7 +225,8 @@ public class DestructionRecordController extends BaseController {
      * 其他说明：
      *   destructionCode 由服务端自动生成（不合格品销毁BPXH-前缀/留样销毁LYXH-前缀），不可传入
      *   totalQuantity 由服务端按明细quantity求和计算，不可传入
-     *   明细行retainedSampleId仅作追溯引用，保存不联动留样状态
+     *   明细行retainedSampleId：留样销毁类型会反写关联留样为已销毁（销毁日期取destroyDate，为空取当天），
+     *   不合格品销毁类型仅作追溯引用不联动留样状态
      *   以下字段选填：destroyReason、destroyMethod、destroyLocation、remark、四方签字姓名与日期、attachmentFileIds
      *
      * @param dto 保存请求体（主表字段+明细列表）
@@ -269,7 +270,9 @@ public class DestructionRecordController extends BaseController {
      * }
      *
      * 必填字段说明：同新增接口；销毁单号与状态不可修改，服务端保留原值
-     * 其他说明：已作废的销毁记录不能修改；明细列表整体重建（旧行删除后按新列表重插）
+     * 其他说明：已作废的销毁记录不能修改；明细列表整体重建（旧行删除后按新列表重插）；
+     *   留样销毁类型按新旧引用差异反写：新增引用置留样为已销毁，移除的引用回滚为留样中，
+     *   类型改为不合格品销毁时回滚全部原引用（仍被其他正常销毁单引用时不回滚）
      *
      * @param id  销毁记录ID（路径参数）
      * @param dto 更新的销毁记录信息（主表字段+明细列表）

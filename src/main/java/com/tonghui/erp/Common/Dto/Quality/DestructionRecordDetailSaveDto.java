@@ -39,7 +39,11 @@ public class DestructionRecordDetailSaveDto {
     private BigDecimal quantity;
 
     /**
-     * 关联留样记录ID（可空，仅作选人回填与追溯引用，保存销毁记录不联动留样状态）
+     * 关联留样记录ID（可空）
+     * <p>
+     * 留样及稳定性考察产品销毁类型：会反写留样状态为已销毁并写入销毁日期；
+     * 不合格品销毁类型：仅作追溯引用，不联动留样状态
+     * </p>
      */
     private Long retainedSampleId;
 

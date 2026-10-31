@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * 2. 合计数量由服务端按明细求和计算
  * 3. 更新时明细整体重建
  * 4. 作废后禁止修改、禁止重复作废
- * 5. 明细行retained_sample_id不联动留样状态
+ * 5. 留样销毁类型反写联动：登记置留样已销毁，移除引用/类型变更/作废回滚留样中
  * 6. 条件分页查询（批号经明细命中主表）
  * 7. 详情/列表明细行回填关联留样编号（retainedCode）
  * 8. 列表返回创建人姓名（createdByName）及明细列表（details）
@@ -62,6 +62,12 @@ public class DestructionRecordTest {
      */
     @Autowired
     private com.tonghui.erp.Data.mapper.UserMapper userMapper;
+
+    /**
+     * 销毁记录明细Mapper（构造"其他正常销毁单引用同一留样"的测试场景）
+     */
+    @Autowired
+    private com.tonghui.erp.Data.mapper.DestructionRecordDetailMapper destructionRecordDetailMapper;
 
     // endregion
 
@@ -157,23 +163,32 @@ public class DestructionRecordTest {
     }
 
     /**
-     * 测试留样不联动：明细行引用留样ID后，留样状态保持留样中
+     * 测试留样反写联动：留样销毁类型登记后，留样置为已销毁并写入销毁日期
      */
     @Test
-    public void testRetainedSampleNotLinked() {
+    public void testRetainedSampleLinkedOnCreate() {
         // 创建测试留样（状态留样中）
         RetainedSample sample = createTestRetainedSample();
         Long sampleId = sample.getId();
 
         DestructionRecordSaveDto dto = buildSaveDto();
         dto.setRecordType(DestructionRecord.TYPE_RETAINED);
+        LocalDate destroyDate = LocalDate.of(2026, 10, 11);
+        dto.setDestroyDate(destroyDate);
         dto.getDetails().get(0).setRetainedSampleId(sampleId);
         DestructionRecord created = destructionRecordService.create(dto);
         assertTrue(created.getDestructionCode().startsWith("LYXH-"), "留样销毁单号应以LYXH-开头");
 
-        // 留样状态应保持"留样中"，不被联动改为已销毁
+        // 留样应被反写为已销毁，销毁日期取销毁单上的销毁日期
         RetainedSample after = retainedSampleService.getById(sampleId);
-        assertEquals("留样中", after.getStatus(), "保存销毁记录不应联动留样状态");
+        assertEquals(RetainedSample.STATUS_DESTROYED, after.getStatus(),
+                "留样销毁类型登记后应反写留样为已销毁");
+        assertEquals(destroyDate, after.getDestroyDate(), "留样销毁日期应取销毁单销毁日期");
+
+        // 已销毁留样不应再出现在下拉中
+        assertFalse(destructionRecordService.searchRetainedSamples(sample.getRetainedCode()).stream()
+                        .anyMatch(o -> o.getId().equals(sampleId)),
+                "已销毁留样不应出现在下拉中");
 
         // 详情明细行应回填关联留样编号retainedCode
         DestructionRecordWithDetailsDto detail = destructionRecordService.getDetail(created.getId());
@@ -203,6 +218,149 @@ public class DestructionRecordTest {
         assertNotNull(listLinked, "列表项明细应包含引用留样的行");
         assertEquals(sample.getRetainedCode(), listLinked.getRetainedCode(),
                 "列表项明细行应一致回填留样编号");
+    }
+
+    /**
+     * 测试不合格品销毁类型不反写留样：即使明细传了留样ID，留样仍保持留样中
+     */
+    @Test
+    public void testUnqualifiedTypeDoesNotLinkRetainedSample() {
+        RetainedSample sample = createTestRetainedSample();
+        DestructionRecordSaveDto dto = buildSaveDto();
+        dto.getDetails().get(0).setRetainedSampleId(sample.getId());
+        destructionRecordService.create(dto);
+
+        RetainedSample after = retainedSampleService.getById(sample.getId());
+        assertEquals(RetainedSample.STATUS_RETAINING, after.getStatus(),
+                "不合格品销毁类型不应反写留样状态");
+        assertNull(after.getDestroyDate(), "不合格品销毁类型不应写入留样销毁日期");
+    }
+
+    /**
+     * 测试销毁日期兜底：销毁单未填销毁日期时，留样销毁日期取登记当天
+     */
+    @Test
+    public void testLinkageDestroyDateFallbackToToday() {
+        RetainedSample sample = createTestRetainedSample();
+        DestructionRecordSaveDto dto = buildSaveDto();
+        dto.setRecordType(DestructionRecord.TYPE_RETAINED);
+        dto.setDestroyDate(null);
+        dto.getDetails().get(0).setRetainedSampleId(sample.getId());
+        destructionRecordService.create(dto);
+
+        assertEquals(LocalDate.now(), retainedSampleService.getById(sample.getId()).getDestroyDate(),
+                "销毁单未填销毁日期时应取登记当天");
+    }
+
+    /**
+     * 测试修改时移除留样引用：留样回滚为留样中并清空销毁日期
+     */
+    @Test
+    public void testRollbackWhenReferenceRemovedOnUpdate() {
+        RetainedSample sample = createTestRetainedSample();
+        DestructionRecordSaveDto createDto = buildSaveDto();
+        createDto.setRecordType(DestructionRecord.TYPE_RETAINED);
+        createDto.setDestroyDate(LocalDate.now());
+        createDto.getDetails().get(0).setRetainedSampleId(sample.getId());
+        DestructionRecord created = destructionRecordService.create(createDto);
+        assertEquals(RetainedSample.STATUS_DESTROYED,
+                retainedSampleService.getById(sample.getId()).getStatus(), "登记后留样应为已销毁");
+
+        // 修改时不再引用该留样
+        DestructionRecordSaveDto updateDto = buildSaveDto();
+        updateDto.setRecordType(DestructionRecord.TYPE_RETAINED);
+        updateDto.getDetails().remove(1);
+        destructionRecordService.update(created.getId(), updateDto);
+
+        RetainedSample after = retainedSampleService.getById(sample.getId());
+        assertEquals(RetainedSample.STATUS_RETAINING, after.getStatus(), "移除留样引用后应回滚为留样中");
+        assertNull(after.getDestroyDate(), "回滚后应清空留样销毁日期");
+    }
+
+    /**
+     * 测试修改记录类型为不合格品销毁：原有留样引用全部回滚
+     */
+    @Test
+    public void testRollbackWhenRecordTypeChangedToUnqualified() {
+        RetainedSample sample = createTestRetainedSample();
+        DestructionRecordSaveDto createDto = buildSaveDto();
+        createDto.setRecordType(DestructionRecord.TYPE_RETAINED);
+        createDto.getDetails().get(0).setRetainedSampleId(sample.getId());
+        DestructionRecord created = destructionRecordService.create(createDto);
+
+        // 类型改为不合格品销毁，明细仍保留留样ID引用但不联动
+        DestructionRecordSaveDto updateDto = buildSaveDto();
+        updateDto.getDetails().get(0).setRetainedSampleId(sample.getId());
+        destructionRecordService.update(created.getId(), updateDto);
+
+        RetainedSample after = retainedSampleService.getById(sample.getId());
+        assertEquals(RetainedSample.STATUS_RETAINING, after.getStatus(),
+                "类型改为不合格品销毁后应回滚留样状态");
+        assertNull(after.getDestroyDate(), "类型改为不合格品销毁后应清空销毁日期");
+    }
+
+    /**
+     * 测试销毁单作废：关联留样回滚为留样中并清空销毁日期
+     */
+    @Test
+    public void testRollbackWhenVoided() {
+        RetainedSample sample = createTestRetainedSample();
+        DestructionRecordSaveDto dto = buildSaveDto();
+        dto.setRecordType(DestructionRecord.TYPE_RETAINED);
+        dto.getDetails().get(0).setRetainedSampleId(sample.getId());
+        DestructionRecord created = destructionRecordService.create(dto);
+
+        destructionRecordService.voidRecord(created.getId(), "登记错误");
+
+        RetainedSample after = retainedSampleService.getById(sample.getId());
+        assertEquals(RetainedSample.STATUS_RETAINING, after.getStatus(), "作废后应回滚留样为留样中");
+        assertNull(after.getDestroyDate(), "作废后应清空留样销毁日期");
+    }
+
+    /**
+     * 测试重复销毁校验：同一留样被第二张正常销毁单引用时应拒绝
+     */
+    @Test
+    public void testDuplicateActiveReferenceRejected() {
+        RetainedSample sample = createTestRetainedSample();
+        DestructionRecordSaveDto first = buildSaveDto();
+        first.setRecordType(DestructionRecord.TYPE_RETAINED);
+        first.getDetails().get(0).setRetainedSampleId(sample.getId());
+        destructionRecordService.create(first);
+
+        DestructionRecordSaveDto second = buildSaveDto();
+        second.setRecordType(DestructionRecord.TYPE_RETAINED);
+        second.getDetails().get(0).setRetainedSampleId(sample.getId());
+        assertThrows(RuntimeException.class, () -> destructionRecordService.create(second),
+                "同一留样被多张正常销毁单引用应被拒绝");
+    }
+
+    /**
+     * 测试仍被其他正常销毁单引用时不回滚：作废A后，留样因B仍正常引用而保持已销毁
+     */
+    @Test
+    public void testNoRollbackWhenOtherActiveRecordReferences() {
+        RetainedSample sample = createTestRetainedSample();
+        DestructionRecordSaveDto dtoA = buildSaveDto();
+        dtoA.setRecordType(DestructionRecord.TYPE_RETAINED);
+        dtoA.getDetails().get(0).setRetainedSampleId(sample.getId());
+        DestructionRecord recordA = destructionRecordService.create(dtoA);
+
+        // 另建一张正常销毁单B，直接写入同留样引用（模拟历史数据/并发场景）
+        DestructionRecordSaveDto dtoB = buildSaveDto();
+        dtoB.setRecordType(DestructionRecord.TYPE_RETAINED);
+        DestructionRecord recordB = destructionRecordService.create(dtoB);
+        DestructionRecordDetail extraDetail = new DestructionRecordDetail();
+        extraDetail.setDestructionId(recordB.getId());
+        extraDetail.setMaterialName("测试留样品");
+        extraDetail.setRetainedSampleId(sample.getId());
+        destructionRecordDetailMapper.insert(extraDetail);
+
+        // 作废A时B仍正常引用该留样，不应回滚
+        destructionRecordService.voidRecord(recordA.getId(), "重复登记");
+        assertEquals(RetainedSample.STATUS_DESTROYED,
+                retainedSampleService.getById(sample.getId()).getStatus(),
+                "仍被其他正常销毁单引用时不应回滚留样状态");
     }
 
     /**
@@ -282,7 +440,7 @@ public class DestructionRecordTest {
         assertTrue(options.stream().anyMatch(o -> o.getId().equals(sample.getId())),
                 "按留样编号应命中下拉选项");
         // 已销毁的留样不应出现在下拉中
-        sample.setStatus("已销毁");
+        sample.setStatus(RetainedSample.STATUS_DESTROYED);
         assertTrue(retainedSampleService.updateById(sample), "更新留样状态应成功");
         List<RetainedSampleOptionDto> afterDestroy =
                 destructionRecordService.searchRetainedSamples(sample.getRetainedCode());
@@ -364,7 +522,7 @@ public class DestructionRecordTest {
         sample.setRetainedDate(LocalDate.now());
         sample.setExpiryDate(LocalDate.now().plusYears(1));
         sample.setStorageLocation("留样室A架1");
-        sample.setStatus("留样中");
+        sample.setStatus(RetainedSample.STATUS_RETAINING);
         assertTrue(retainedSampleService.save(sample), "新增留样应成功");
         return sample;
     }

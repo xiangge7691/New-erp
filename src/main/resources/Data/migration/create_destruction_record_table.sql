@@ -5,6 +5,7 @@
 -- 说明：全部幂等，可重复执行
 -- 作废语义：主表无物理/逻辑删除接口，仅 status=作废（status+void_time+void_remark），作废后禁改
 -- 明细重建语义：更新时按 destruction_id 物理删除旧明细再整单重插
+-- 留样反写语义：仅「留样及稳定性考察产品销毁」类型生效，登记置留样已销毁、移除引用/作废回滚留样中
 -- ===================================
 
 CREATE TABLE IF NOT EXISTS `destruction_record` (
@@ -46,7 +47,7 @@ CREATE TABLE IF NOT EXISTS `destruction_record_detail` (
   `spec`              VARCHAR(100) DEFAULT NULL COMMENT '规格',
   `batch_no`          VARCHAR(50)  DEFAULT NULL COMMENT '批号',
   `quantity`          DECIMAL(18,3) DEFAULT 0 COMMENT '数量',
-  `retained_sample_id` BIGINT      DEFAULT NULL COMMENT '关联留样记录ID（可空，仅作选人回填与追溯引用，不联动留样状态）',
+  `retained_sample_id` BIGINT      DEFAULT NULL COMMENT '关联留样记录ID（可空；留样销毁类型会反写留样状态，不合格品销毁类型仅作追溯引用）',
   `created_by`        BIGINT       DEFAULT NULL COMMENT '创建人ID',
   `updated_by`        BIGINT       DEFAULT NULL COMMENT '更新人ID',
   `created_time`      DATETIME     DEFAULT NULL COMMENT '创建时间',

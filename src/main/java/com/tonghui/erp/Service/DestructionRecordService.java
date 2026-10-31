@@ -20,6 +20,10 @@ import java.util.List;
  * <p>
  * 作废语义：不提供删除接口，作废后禁止修改；更新时明细整体重建
  * </p>
+ * <p>
+ * 留样反写联动：仅「留样及稳定性考察产品销毁」类型生效，登记时置关联留样为已销毁，
+ * 移除引用/类型变更/作废时回滚为留样中（仍被其他正常销毁单引用则不回滚）
+ * </p>
  */
 public interface DestructionRecordService extends IService<DestructionRecord> {
 
@@ -60,7 +64,8 @@ public interface DestructionRecordService extends IService<DestructionRecord> {
     DestructionRecordWithDetailsDto getDetail(Long id);
 
     /**
-     * 新增销毁记录（自动生成单号、按明细求和计算合计数量、明细落库、绑定附件）
+     * 新增销毁记录（自动生成单号、按明细求和计算合计数量、明细落库、绑定附件；
+     * 留样销毁类型反写关联留样为已销毁）
      *
      * @param dto 保存请求体
      * @return 新增的销毁记录
@@ -68,7 +73,8 @@ public interface DestructionRecordService extends IService<DestructionRecord> {
     DestructionRecord create(DestructionRecordSaveDto dto);
 
     /**
-     * 修改销毁记录（单号与状态不可改，作废后禁改；明细整体重建、合计重算、同步附件）
+     * 修改销毁记录（单号与状态不可改，作废后禁改；明细整体重建、合计重算、同步附件；
+     * 留样销毁类型按新旧引用差异反写/回滚留样状态）
      *
      * @param id  销毁记录ID
      * @param dto 保存请求体
@@ -77,7 +83,8 @@ public interface DestructionRecordService extends IService<DestructionRecord> {
     DestructionRecord update(Long id, DestructionRecordSaveDto dto);
 
     /**
-     * 作废销毁记录（status置为作废，记录作废时间与原因；已作废记录禁止重复作废）
+     * 作废销毁记录（status置为作废，记录作废时间与原因；已作废记录禁止重复作废；
+     * 留样销毁类型同时回滚关联留样为留样中）
      *
      * @param id         销毁记录ID
      * @param voidRemark 作废原因（可选，最长500字符）

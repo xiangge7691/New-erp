@@ -10,6 +10,7 @@ import com.tonghui.erp.Common.Dto.Quality.DestructionRecordDetailSaveDto;
 import com.tonghui.erp.Common.Dto.Quality.DestructionRecordSaveDto;
 import com.tonghui.erp.Common.Dto.Quality.DestructionRecordWithDetailsDto;
 import com.tonghui.erp.Common.Dto.Quality.RetainedSampleOptionDto;
+import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.DestructionRecord;
 import com.tonghui.erp.Data.Entity.DestructionRecordDetail;
 import com.tonghui.erp.Data.Entity.FileInfo;
@@ -46,7 +47,10 @@ import java.util.stream.Collectors;
  * 2. 合计数量由服务端按明细数量求和计算，前端不传
  * 3. 更新时明细整体重建（按destruction_id物理删除旧行再整单重插）
  * 4. 作废语义：不提供删除接口，作废后禁止修改；作废记录status=作废并记录作废时间与原因
- * 5. 明细行retained_sample_id仅作追溯引用，保存销毁记录不联动留样状态
+ * 5. 留样反写联动：仅「留样及稳定性考察产品销毁」类型生效，明细retained_sample_id命中留样时
+ *    置留样为已销毁并写入销毁日期；移除引用、类型变更或销毁单作废时回滚为留样中
+ *    （仍被其他正常销毁单引用则不回滚，且保存时禁止同一留样被多张正常销毁单引用）
+ * 6. 不合格品销毁类型仅保存retained_sample_id作追溯引用，不联动留样状态
  * </p>
  */
 @Service
@@ -240,8 +244,8 @@ public class DestructionRecordServiceImpl extends ServiceImpl<DestructionRecordM
     @Override
     public List<RetainedSampleOptionDto> searchRetainedSamples(String keyword) {
         LambdaQueryWrapper<RetainedSample> wrapper = new LambdaQueryWrapper<>();
-        // 仅返回状态为留样中的记录
-        wrapper.eq(RetainedSample::getStatus, "留样中");
+        // 仅返回状态为留样中的记录（已销毁的留样由销毁单反写后自动排除）
+        wrapper.eq(RetainedSample::getStatus, RetainedSample.STATUS_RETAINING);
         if (StringUtils.hasText(keyword)) {
             wrapper.and(w -> w.like(RetainedSample::getRetainedCode, keyword)
                     .or().like(RetainedSample::getMaterialName, keyword)
@@ -294,6 +298,9 @@ public class DestructionRecordServiceImpl extends ServiceImpl<DestructionRecordM
         }
         // 保存明细
         saveDetails(record.getId(), dto.getDetails());
+        // 留样销毁类型反写留样状态（不合格品销毁类型不联动）
+        applyRetainedLinkage(record.getRecordType(), record.getId(),
+                collectSampleIds(dto.getDetails()), record.getDestroyDate());
         // 绑定附件
         bindAttachments(record.getId(), dto.getAttachmentFileIds());
         return record;
@@ -310,6 +317,8 @@ public class DestructionRecordServiceImpl extends ServiceImpl<DestructionRecordM
             throw new RuntimeException("已作废的销毁记录不能修改");
         }
         validateRequired(dto);
+        // 明细重建前先收集旧引用留样，用于后续回滚判断
+        Set<Long> oldSampleIds = collectReferencedSampleIds(id);
         DestructionRecord record = new DestructionRecord();
         BeanUtils.copyProperties(dto, record);
         // 单号与状态不可修改，保留原值
@@ -322,6 +331,13 @@ public class DestructionRecordServiceImpl extends ServiceImpl<DestructionRecordM
         // 明细整体重建：物理删除旧行再整单重插
         destructionRecordDetailMapper.physicalDeleteByDestructionId(id);
         saveDetails(id, dto.getDetails());
+        // 留样反写联动：新引用置已销毁；被移除的旧引用回滚为留样中（类型改为不合格品销毁时全部回滚）
+        Set<Long> newSampleIds = DestructionRecord.TYPE_RETAINED.equals(record.getRecordType())
+                ? collectSampleIds(dto.getDetails()) : Set.of();
+        applyRetainedLinkage(record.getRecordType(), id, newSampleIds, record.getDestroyDate());
+        Set<Long> rollbackIds = new java.util.HashSet<>(oldSampleIds);
+        rollbackIds.removeAll(newSampleIds);
+        rollbackRetainedLinkage(id, rollbackIds);
         // 同步附件（解绑移除项、绑定新增项）
         syncAttachments(id, dto.getAttachmentFileIds());
         return baseMapper.selectById(id);
@@ -340,12 +356,17 @@ public class DestructionRecordServiceImpl extends ServiceImpl<DestructionRecordM
         if (StringUtils.hasText(voidRemark) && voidRemark.length() > 500) {
             throw new RuntimeException("作废原因不能超过500字符");
         }
+        // 作废前收集本单引用的留样，作废后回滚其状态
+        Set<Long> sampleIds = DestructionRecord.TYPE_RETAINED.equals(existing.getRecordType())
+                ? collectReferencedSampleIds(id) : Set.of();
         DestructionRecord record = new DestructionRecord();
         record.setId(id);
         record.setStatus(DestructionRecord.STATUS_VOID);
         record.setVoidTime(LocalDateTime.now());
         record.setVoidRemark(voidRemark);
         baseMapper.updateById(record);
+        // 留样销毁类型：作废即视为销毁未生效，回滚留样为留样中（仍被其他正常销毁单引用则不回滚）
+        rollbackRetainedLinkage(id, sampleIds);
     }
 
     // endregion
@@ -590,6 +611,135 @@ public class DestructionRecordServiceImpl extends ServiceImpl<DestructionRecordM
                 detail.setRetainedCode(codeMap.get(detail.getRetainedSampleId()));
             }
         }
+    }
+
+    // endregion
+
+    // region 留样反写联动
+    // ===================================
+    // 留样反写联动
+    // ===================================
+
+    /**
+     * 从保存请求的明细列表中收集关联留样ID（去重，忽略空值）
+     *
+     * @param details 明细保存请求列表
+     * @return 留样ID集合，空明细返回空集合
+     */
+    private Set<Long> collectSampleIds(List<DestructionRecordDetailSaveDto> details) {
+        if (details == null || details.isEmpty()) {
+            return new java.util.LinkedHashSet<>();
+        }
+        return details.stream()
+                .map(DestructionRecordDetailSaveDto::getRetainedSampleId)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
+    }
+
+    /**
+     * 查询指定销毁单已落库明细所引用的留样ID集合
+     *
+     * @param destructionId 销毁记录主表ID
+     * @return 留样ID集合，无引用时返回空集合
+     */
+    private Set<Long> collectReferencedSampleIds(Long destructionId) {
+        return destructionRecordDetailMapper.selectList(
+                        new LambdaQueryWrapper<DestructionRecordDetail>()
+                                .eq(DestructionRecordDetail::getDestructionId, destructionId))
+                .stream()
+                .map(DestructionRecordDetail::getRetainedSampleId)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
+    }
+
+    /**
+     * 反写留样为已销毁（仅「留样及稳定性考察产品销毁」类型生效）
+     * <p>
+     * 销毁日期取销毁单的销毁日期，未填写时取登记当天（满足留样模块「已销毁必填销毁日期」的校验）。
+     * 保存前校验留样存在且未被其他正常销毁单引用，避免同一留样被重复销毁。
+     * </p>
+     *
+     * @param recordType 记录类型（不合格品销毁/留样及稳定性考察产品销毁）
+     * @param recordId   当前销毁记录ID（用于排除自身引用）
+     * @param sampleIds  本次需要反写的留样ID集合
+     * @param destroyDate 销毁单上的销毁日期（可空）
+     */
+    private void applyRetainedLinkage(String recordType, Long recordId,
+                                      Set<Long> sampleIds, LocalDate destroyDate) {
+        if (!DestructionRecord.TYPE_RETAINED.equals(recordType) || sampleIds == null || sampleIds.isEmpty()) {
+            return;
+        }
+        LocalDate linkageDate = destroyDate != null ? destroyDate : LocalDate.now();
+        for (Long sampleId : sampleIds) {
+            RetainedSample sample = retainedSampleMapper.selectById(sampleId);
+            if (sample == null) {
+                throw new RuntimeException("关联留样记录不存在：" + sampleId);
+            }
+            if (hasOtherActiveReference(sampleId, recordId)) {
+                throw new RuntimeException("留样 " + sample.getRetainedCode()
+                        + " 已被其他有效销毁单引用，不能重复销毁");
+            }
+            // 必须使用UpdateWrapper：updateById会忽略null值，无法清空/写入销毁日期
+            UpdateWrapper<RetainedSample> wrapper = new UpdateWrapper<>();
+            wrapper.eq("id", sampleId)
+                    .set("status", RetainedSample.STATUS_DESTROYED)
+                    .set("destroy_date", linkageDate)
+                    .set("updated_by", EntityUtils.getCurrentUserId())
+                    .set("updated_time", LocalDateTime.now());
+            retainedSampleMapper.update(null, wrapper);
+        }
+    }
+
+    /**
+     * 回滚留样为留样中并清空销毁日期
+     * <p>
+     * 仅当该留样不再被其他正常销毁单引用时回滚；作废销毁单的明细仍保留，
+     * 因此引用判断必须结合销毁单主表状态，不能只看明细表。
+     * </p>
+     *
+     * @param excludeRecordId 需要排除的销毁记录ID（当前正在修改/作废的单据）
+     * @param sampleIds       待回滚的留样ID集合
+     */
+    private void rollbackRetainedLinkage(Long excludeRecordId, Set<Long> sampleIds) {
+        if (sampleIds == null || sampleIds.isEmpty()) {
+            return;
+        }
+        for (Long sampleId : sampleIds) {
+            if (hasOtherActiveReference(sampleId, excludeRecordId)) {
+                continue;
+            }
+            UpdateWrapper<RetainedSample> wrapper = new UpdateWrapper<>();
+            wrapper.eq("id", sampleId)
+                    .set("status", RetainedSample.STATUS_RETAINING)
+                    .set("destroy_date", null)
+                    .set("updated_by", EntityUtils.getCurrentUserId())
+                    .set("updated_time", LocalDateTime.now());
+            retainedSampleMapper.update(null, wrapper);
+        }
+    }
+
+    /**
+     * 判断指定留样是否被其他正常状态的销毁单引用
+     *
+     * @param sampleId        留样记录ID
+     * @param excludeRecordId 需要排除的销毁记录ID（可空）
+     * @return 存在其他正常销毁单引用返回true
+     */
+    private boolean hasOtherActiveReference(Long sampleId, Long excludeRecordId) {
+        List<Long> otherRecordIds = destructionRecordDetailMapper.selectList(
+                        new LambdaQueryWrapper<DestructionRecordDetail>()
+                                .eq(DestructionRecordDetail::getRetainedSampleId, sampleId)
+                                .ne(excludeRecordId != null,
+                                        DestructionRecordDetail::getDestructionId, excludeRecordId))
+                .stream()
+                .map(DestructionRecordDetail::getDestructionId)
+                .distinct()
+                .collect(Collectors.toList());
+        if (otherRecordIds.isEmpty()) {
+            return false;
+        }
+        return baseMapper.selectBatchIds(otherRecordIds).stream()
+                .anyMatch(record -> DestructionRecord.STATUS_NORMAL.equals(record.getStatus()));
     }
 
     // endregion

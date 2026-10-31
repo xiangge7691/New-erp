@@ -22,6 +22,23 @@ import lombok.EqualsAndHashCode;
 @EqualsAndHashCode(callSuper = true)
 public class RetainedSample extends AuditEntity {
 
+    // region 常量定义
+    // ===================================
+    // 常量定义
+    // ===================================
+
+    /**
+     * 状态：留样中（可被留样销毁单引用）
+     */
+    public static final String STATUS_RETAINING = "留样中";
+
+    /**
+     * 状态：已销毁（由留样及稳定性考察产品销毁单反写维护）
+     */
+    public static final String STATUS_DESTROYED = "已销毁";
+
+    // endregion
+
     // region 基本信息字段
     // ===================================
     // 基本信息字段
@@ -108,12 +125,16 @@ public class RetainedSample extends AuditEntity {
 
     /**
      * 状态：留样中/已销毁
+     * <p>
+     * 由「留样及稳定性考察产品销毁」类型的销毁记录反写：登记销毁单时置为已销毁，
+     * 销毁单移除引用或作废时回滚为留样中（仍被其他正常销毁单引用时保持已销毁）
+     * </p>
      */
     @TableField(value = "status")
     private String status;
 
     /**
-     * 销毁日期（状态=已销毁时填写）
+     * 销毁日期（状态=已销毁时填写，由销毁单反写：取销毁单销毁日期，未填则取登记当天）
      */
     @TableField(value = "destroy_date")
     private LocalDate destroyDate;
