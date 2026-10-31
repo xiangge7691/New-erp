@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -181,6 +182,9 @@ public class DashboardTreeServiceImpl implements DashboardTreeService {
             monthNode.setOutputValue(DashboardCalcUtils.money(output));
             monthNode.setEstimatedCost(DashboardCalcUtils.money(estimated));
             monthNode.setActualCost(DashboardCalcUtils.money(actual));
+            BigDecimal variance = DashboardCalcUtils.money(estimated.subtract(actual));
+            monthNode.setCostVariance(variance);
+            monthNode.setCostVarianceRate(DashboardCalcUtils.percent(variance, estimated));
             months.add(monthNode);
         }
         return months;
@@ -247,6 +251,9 @@ public class DashboardTreeServiceImpl implements DashboardTreeService {
             preparation.setOutputValue(DashboardCalcUtils.money(output));
             preparation.setEstimatedCost(DashboardCalcUtils.money(estimated));
             preparation.setActualCost(DashboardCalcUtils.money(actual));
+            BigDecimal variance = DashboardCalcUtils.money(estimated.subtract(actual));
+            preparation.setCostVariance(variance);
+            preparation.setCostVarianceRate(DashboardCalcUtils.percent(variance, estimated));
             preparation.setDeliveryQuantity(DashboardCalcUtils.money(
                 deliveryByPreparation.getOrDefault(
                     month + "|" + preparationKey(preparation.getPreparationCode(),
@@ -301,6 +308,9 @@ public class DashboardTreeServiceImpl implements DashboardTreeService {
         summary.setOutputValue(DashboardCalcUtils.money(output));
         summary.setEstimatedCost(DashboardCalcUtils.money(estimated));
         summary.setActualCost(DashboardCalcUtils.money(actual));
+        BigDecimal variance = DashboardCalcUtils.money(estimated.subtract(actual));
+        summary.setCostVariance(variance);
+        summary.setCostVarianceRate(DashboardCalcUtils.percent(variance, estimated));
         summary.setDeliveryQuantity(DashboardCalcUtils.money(delivery));
         return summary;
     }
@@ -412,6 +422,18 @@ public class DashboardTreeServiceImpl implements DashboardTreeService {
         if (batch.getRowType() == null) {
             batch.setRowType(row.getRowType());
         }
+        if (batch.getUnitEstimatedCost() == null) {
+            batch.setUnitEstimatedCost(row.getUnitEstimatedCost());
+        }
+        if (batch.getPurchaseDate() == null) {
+            batch.setPurchaseDate(row.getPurchaseDate());
+        }
+        if (batch.getInboundDate() == null) {
+            batch.setInboundDate(row.getInboundDate());
+        }
+        if (batch.getProductionDays() == null) {
+            batch.setProductionDays(row.getProductionDays());
+        }
     }
 
     /**
@@ -430,8 +452,34 @@ public class DashboardTreeServiceImpl implements DashboardTreeService {
             DashboardCalcUtils.nz(batch.getMaterialAmount()).add(material)));
         batch.setUtilityAmount(DashboardCalcUtils.money(
             DashboardCalcUtils.nz(batch.getUtilityAmount()).add(utility)));
-        batch.setActualCost(DashboardCalcUtils.money(
-            DashboardCalcUtils.nz(batch.getActualCost()).add(DashboardCalcUtils.nz(row.getActualCost()))));
+        batch.setRawMaterialAmount(DashboardCalcUtils.money(
+            DashboardCalcUtils.nz(batch.getRawMaterialAmount())
+                .add(DashboardCalcUtils.nz(row.getRawMaterialAmount()))));
+        batch.setAuxiliaryMaterialAmount(DashboardCalcUtils.money(
+            DashboardCalcUtils.nz(batch.getAuxiliaryMaterialAmount())
+                .add(DashboardCalcUtils.nz(row.getAuxiliaryMaterialAmount()))));
+        batch.setPackagingAmount(DashboardCalcUtils.money(
+            DashboardCalcUtils.nz(batch.getPackagingAmount())
+                .add(DashboardCalcUtils.nz(row.getPackagingAmount()))));
+        batch.setOtherAmount(DashboardCalcUtils.money(
+            DashboardCalcUtils.nz(batch.getOtherAmount()).add(DashboardCalcUtils.nz(row.getOtherAmount()))));
+        BigDecimal actual = DashboardCalcUtils.money(
+            DashboardCalcUtils.nz(batch.getActualCost()).add(DashboardCalcUtils.nz(row.getActualCost())));
+        batch.setActualCost(actual);
+
+        // 单位实际成本与单位偏差（分母为批量）
+        BigDecimal batchQty = DashboardCalcUtils.nz(batch.getBatchQty());
+        if (batchQty.signum() > 0) {
+            BigDecimal unitActual = DashboardCalcUtils.money(
+                actual.divide(batchQty, 2, RoundingMode.HALF_UP));
+            batch.setUnitActualCost(unitActual);
+            BigDecimal unitEstimated = batch.getUnitEstimatedCost();
+            if (unitEstimated != null) {
+                BigDecimal unitVariance = DashboardCalcUtils.money(unitEstimated.subtract(unitActual));
+                batch.setUnitCostVariance(unitVariance);
+                batch.setUnitCostVarianceRate(DashboardCalcUtils.percent(unitVariance, unitEstimated));
+            }
+        }
     }
 
     /**

@@ -29,7 +29,8 @@ public interface EnergyRecordMapper extends BaseMapper<EnergyRecord> {
             "COALESCE(SUM(total_amount), 0) AS totalAmount, " +
             "COALESCE(SUM(CASE WHEN energy_type = '自来水' THEN total_amount ELSE 0 END), 0) AS waterAmount, " +
             "COALESCE(SUM(CASE WHEN energy_type = '电' THEN total_amount ELSE 0 END), 0) AS electricityAmount, " +
-            "COALESCE(SUM(CASE WHEN energy_type = '燃气' THEN total_amount ELSE 0 END), 0) AS gasAmount " +
+            "COALESCE(SUM(CASE WHEN energy_type = '燃气' THEN total_amount ELSE 0 END), 0) AS gasAmount, " +
+            "COALESCE(SUM(CASE WHEN energy_type = '其他' THEN total_amount ELSE 0 END), 0) AS otherAmount " +
             "FROM energy_record " +
             "WHERE is_deleted = 0 " +
             "AND (#{month} IS NULL OR #{month} = '' OR month = #{month}) " +
@@ -61,6 +62,11 @@ public interface EnergyRecordMapper extends BaseMapper<EnergyRecord> {
          */
         private BigDecimal gasAmount;
 
+        /**
+         * 其他成本金额
+         */
+        private BigDecimal otherAmount;
+
         public BigDecimal getTotalAmount() {
             return totalAmount;
         }
@@ -91,6 +97,14 @@ public interface EnergyRecordMapper extends BaseMapper<EnergyRecord> {
 
         public void setGasAmount(BigDecimal gasAmount) {
             this.gasAmount = gasAmount;
+        }
+
+        public BigDecimal getOtherAmount() {
+            return otherAmount;
+        }
+
+        public void setOtherAmount(BigDecimal otherAmount) {
+            this.otherAmount = otherAmount;
         }
     }
 }

@@ -102,13 +102,33 @@ public interface DashboardCostService {
     List<ChartDataDto.CostTrendItem> getCostTrend(String startMonth, String endMonth);
 
     /**
-     * 月度实际成本构成（物料 / 水 / 电 / 气）
+     * 月度实际成本构成（物料 / 原料 / 辅料 / 包材 / 水 / 电 / 气 / 其他）
      *
      * @param startMonth 起始月份
      * @param endMonth   结束月份
      * @return 月度构成列表（升序）
      */
     List<ChartDataDto.CostStructureItem> getCostStructure(String startMonth, String endMonth);
+
+    /**
+     * 批次成本偏差排行（按偏差率降序）
+     * <p>偏差 = 预估成本 − 实际成本；预计成本为 0 的批次不参与排名。</p>
+     *
+     * @param startMonth 起始月份
+     * @param endMonth   结束月份
+     * @return 排行列表（最多 10 条）
+     */
+    List<ChartDataDto.BatchCostVarianceRankItem> getBatchCostVarianceRank(String startMonth, String endMonth);
+
+    /**
+     * 按品种拆分的实际成本构成（原料 / 辅料 / 包材 / 水电气 / 其他）
+     *
+     * @param startMonth 起始月份
+     * @param endMonth   结束月份
+     * @return 品种构成列表（按实际成本降序）
+     */
+    List<ChartDataDto.CostStructureByPreparationItem> getCostStructureByPreparation(
+        String startMonth, String endMonth);
 
     // endregion
 }

@@ -148,6 +148,19 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
             throw new RuntimeException("创建失败: preparation_code不能为空，请提供制剂信息");
         }
 
+        // 冻结价格快照：预计成本价、销售单价在工单创建时固定，避免制剂改价后历史核算漂移
+        if (workOrder.getEstimatedCostPriceSnapshot() == null || workOrder.getSalesPrice() == null) {
+            Preparation snapshotPreparation = resolvePreparation(workOrder);
+            if (snapshotPreparation != null) {
+                if (workOrder.getEstimatedCostPriceSnapshot() == null) {
+                    workOrder.setEstimatedCostPriceSnapshot(snapshotPreparation.getEstimatedCostPrice());
+                }
+                if (workOrder.getSalesPrice() == null) {
+                    workOrder.setSalesPrice(snapshotPreparation.getSalesPrice());
+                }
+            }
+        }
+
         // 设置创建时间和更新时间
         LocalDateTime now = LocalDateTime.now();
         workOrder.setCreatedTime(now);
@@ -190,6 +203,25 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         }
 
         return false;
+    }
+
+    /**
+     * 解析工单对应制剂（优先制剂编码，兜底制剂ID）
+     *
+     * @param workOrder 工单
+     * @return 制剂；均未匹配返回 null
+     */
+    private Preparation resolvePreparation(WorkOrder workOrder) {
+        if (StringUtils.hasText(workOrder.getPreparationCode())) {
+            Preparation preparation = preparationService.getPreparationByCode(workOrder.getPreparationCode());
+            if (preparation != null) {
+                return preparation;
+            }
+        }
+        if (workOrder.getPreparationId() != null) {
+            return preparationService.getPreparationById(workOrder.getPreparationId());
+        }
+        return null;
     }
 
     /**

@@ -198,6 +198,13 @@ public class WorkOrder extends AuditEntity {
     private BigDecimal salesPrice;
 
     /**
+     * 预计成本价快照（元/件）
+     * <p>工单创建时从制剂信息冻结，用于历史成本核算，避免制剂改价后历史数据漂移。</p>
+     */
+    @TableField(value = "estimated_cost_price_snapshot")
+    private BigDecimal estimatedCostPriceSnapshot;
+
+    /**
      * 成品数量
      */
     @TableField(value = "finished_qty")

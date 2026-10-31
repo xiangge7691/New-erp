@@ -113,12 +113,12 @@ public class DashboardMetricsDto {
 
     /**
      * 实际成本卡片
-     * <p>实际成本 = 物料（出库净额）+ 平摊水电气。</p>
+     * <p>实际成本 = 原辅包（出库净额）+ 平摊水电气 + 其他成本。</p>
      */
     @Data
     public static class ActualCostCardDto {
 
-        /** 实际成本合计（元）= 物料 + 水 + 电 + 气 */
+        /** 实际成本合计（元）= 原辅包 + 水 + 电 + 气 + 其他 */
         private BigDecimal actualCost;
 
         /** 物料成本（元）= 出库金额 − 退库冲减 */
@@ -132,6 +132,9 @@ public class DashboardMetricsDto {
 
         /** 平摊燃气费（元） */
         private BigDecimal gasAmount;
+
+        /** 其他成本（元），来源：能耗记录中「其他」类型 */
+        private BigDecimal otherAmount;
 
         /** 批次数（工单数） */
         private Integer batchCount;

@@ -1007,6 +1007,12 @@ public class DashboardController extends BaseController {
             chartData.setCostTrend(costTrend);
             chartData.setCostStructure(costStructure);
 
+            // 新增图表：批次成本偏差排行、按品种拆分的成本构成
+            chartData.setBatchCostVarianceRank(
+                dashboardCostService.getBatchCostVarianceRank(startMonth, endMonth));
+            chartData.setCostStructureByPreparation(
+                dashboardCostService.getCostStructureByPreparation(startMonth, endMonth));
+
             // 原辅包资金三项（入库 / 出库净额 / 当前库存）
             chartData.setMaterialFunds(dashboardMaterialFundService.getMaterialFunds(startMonth, endMonth));
 

@@ -57,7 +57,7 @@ public class EnergyRecordServiceImpl implements EnergyRecordService {
     /**
      * 合法能耗类型列表
      */
-    private static final Set<String> ENERGY_TYPES = Set.of("自来水", "电", "燃气");
+    private static final Set<String> ENERGY_TYPES = Set.of("自来水", "电", "燃气", "其他");
 
     // endregion
 
@@ -288,14 +288,18 @@ public class EnergyRecordServiceImpl implements EnergyRecordService {
             throw new RuntimeException("能耗类型不能为空");
         }
         if (!ENERGY_TYPES.contains(record.getEnergyType())) {
-            throw new RuntimeException("能耗类型不合法，仅支持：自来水/电/燃气");
+            throw new RuntimeException("能耗类型不合法，仅支持：自来水/电/燃气/其他");
         }
 
         // 计量单位自动映射
         record.setUnit(getUnitByType(record.getEnergyType()));
 
-        // 实用量：未提供且表底读数齐全时自动计算
-        if (record.getActualUsage() == null
+        // 「其他」成本无表底读数与单价概念，直接按金额录入
+        boolean otherType = "其他".equals(record.getEnergyType());
+
+        // 实用量：未提供且表底读数齐全时自动计算（「其他」类型不参与表底计算）
+        if (!otherType
+                && record.getActualUsage() == null
                 && record.getLastMeterReading() != null
                 && record.getCurrentMeterReading() != null) {
             record.setActualUsage(record.getCurrentMeterReading().subtract(record.getLastMeterReading()));
@@ -305,11 +309,15 @@ public class EnergyRecordServiceImpl implements EnergyRecordService {
         }
 
         // 总价：未提供且实用量与单价齐全时自动计算，保留2位小数
-        if (record.getTotalAmount() == null
+        if (!otherType
+                && record.getTotalAmount() == null
                 && record.getActualUsage() != null
                 && record.getUnitPrice() != null) {
             record.setTotalAmount(record.getActualUsage().multiply(record.getUnitPrice())
                     .setScale(2, RoundingMode.HALF_UP));
+        }
+        if (otherType && record.getTotalAmount() == null) {
+            throw new RuntimeException("其他成本必须填写总价");
         }
         if (record.getTotalAmount() != null && record.getTotalAmount().compareTo(BigDecimal.ZERO) < 0) {
             throw new RuntimeException("总价不能为负数");
@@ -335,6 +343,10 @@ public class EnergyRecordServiceImpl implements EnergyRecordService {
         }
         if ("自来水".equals(energyType) || "燃气".equals(energyType)) {
             return "立方米";
+        }
+        if ("其他".equals(energyType)) {
+            // 「其他」成本直接按金额录入，单位为元
+            return "元";
         }
         throw new RuntimeException("未知能耗类型: " + energyType);
     }

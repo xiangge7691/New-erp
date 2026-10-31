@@ -72,6 +72,12 @@ public class DashboardTreeDto {
         /** 实际成本合计（元） */
         private BigDecimal actualCost;
 
+        /** 成本偏差（元）= 预估成本 − 实际成本 */
+        private BigDecimal costVariance;
+
+        /** 成本偏差率（%）= 偏差 ÷ 预估成本 */
+        private BigDecimal costVarianceRate;
+
         /** 交付量合计（件） */
         private BigDecimal deliveryQuantity;
     }
@@ -100,6 +106,12 @@ public class DashboardTreeDto {
 
         /** 实际成本合计（元；前端展示为万元） */
         private BigDecimal actualCost;
+
+        /** 成本偏差（元）= 预估成本 − 实际成本 */
+        private BigDecimal costVariance;
+
+        /** 成本偏差率（%）= 偏差 ÷ 预估成本 */
+        private BigDecimal costVarianceRate;
 
         /** 交付量合计（件） */
         private BigDecimal deliveryQuantity;
@@ -138,6 +150,12 @@ public class DashboardTreeDto {
 
         /** 实际成本合计（元） */
         private BigDecimal actualCost;
+
+        /** 成本偏差（元）= 预估成本 − 实际成本 */
+        private BigDecimal costVariance;
+
+        /** 成本偏差率（%）= 偏差 ÷ 预估成本 */
+        private BigDecimal costVarianceRate;
 
         /** 交付量合计（件） */
         private BigDecimal deliveryQuantity;
@@ -189,11 +207,44 @@ public class DashboardTreeDto {
         /** 物料成本（元） */
         private BigDecimal materialAmount;
 
+        /** 原料成本（元） */
+        private BigDecimal rawMaterialAmount;
+
+        /** 辅料成本（元） */
+        private BigDecimal auxiliaryMaterialAmount;
+
+        /** 包装材料成本（元） */
+        private BigDecimal packagingAmount;
+
         /** 水电气合计（元）= 水 + 电 + 气 */
         private BigDecimal utilityAmount;
 
-        /** 实际成本（元）= 物料 + 水电气 */
+        /** 其他成本（元） */
+        private BigDecimal otherAmount;
+
+        /** 实际成本（元）= 原辅包 + 水电气 + 其他 */
         private BigDecimal actualCost;
+
+        /** 单位预计成本（元/件，快照价） */
+        private BigDecimal unitEstimatedCost;
+
+        /** 单位实际成本（元/件）= 实际成本 ÷ 批量 */
+        private BigDecimal unitActualCost;
+
+        /** 单位成本偏差（元/件）= 单位预计成本 − 单位实际成本 */
+        private BigDecimal unitCostVariance;
+
+        /** 单位成本偏差率（%）= 单位成本偏差 ÷ 单位预计成本 */
+        private BigDecimal unitCostVarianceRate;
+
+        /** 采购需求下达时间 */
+        private String purchaseDate;
+
+        /** 成品入库时间 */
+        private String inboundDate;
+
+        /** 批次生产天数（采购下达 → 成品入库） */
+        private Long productionDays;
     }
 
     // endregion

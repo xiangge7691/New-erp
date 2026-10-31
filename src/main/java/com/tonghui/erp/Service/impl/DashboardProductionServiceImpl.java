@@ -207,6 +207,24 @@ public class DashboardProductionServiceImpl implements DashboardProductionServic
         charts.setTopPreparations(ranks.size() > TOP_PREPARATION_LIMIT
             ? new ArrayList<>(ranks.subList(0, TOP_PREPARATION_LIMIT)) : ranks);
 
+        // 生产平衡（按批统计：已全部交付计划 + 待生产计划 = 计划总数）
+        ChartDataDto.ProductionBalance balance = new ChartDataDto.ProductionBalance();
+        int planCount = data.plans.size();
+        int pendingPlanCount = data.pendingPlans.size();
+        balance.setPlanCount(planCount);
+        balance.setPlanQuantity(DashboardCalcUtils.money(data.planQtyTotal));
+        balance.setFullyDeliveredPlanCount(data.fullyDeliveredPlanCount);
+        balance.setFullyDeliveredPlanQuantity(
+            DashboardCalcUtils.money(data.fullyDeliveredPlanQuantity));
+        balance.setPendingPlanCount(pendingPlanCount);
+        balance.setPendingPlanQuantity(DashboardCalcUtils.money(data.pendingPlanQtyTotal));
+        balance.setDeliveredQuantity(DashboardCalcUtils.money(data.deliveryQtyTotal));
+        balance.setFullyDeliveredRate(DashboardCalcUtils.percent(
+            BigDecimal.valueOf(data.fullyDeliveredPlanCount), BigDecimal.valueOf(planCount)));
+        balance.setPendingRate(DashboardCalcUtils.percent(
+            BigDecimal.valueOf(pendingPlanCount), BigDecimal.valueOf(planCount)));
+        charts.setBalance(balance);
+
         return charts;
     }
 
@@ -340,6 +358,7 @@ public class DashboardProductionServiceImpl implements DashboardProductionServic
             // 已全部交付的计划单
             if (planQty.signum() > 0 && pendingQty.signum() == 0) {
                 data.fullyDeliveredPlanCount++;
+                data.fullyDeliveredPlanQuantity = data.fullyDeliveredPlanQuantity.add(planQty);
             }
 
             // 计划明细行
@@ -543,6 +562,9 @@ public class DashboardProductionServiceImpl implements DashboardProductionServic
 
         /** 已全部交付计划单数 */
         private int fullyDeliveredPlanCount;
+
+        /** 已全部交付计划量合计 */
+        private BigDecimal fullyDeliveredPlanQuantity = BigDecimal.ZERO;
 
         /** 最长滞留天数 */
         private Long maxOverdueDays;

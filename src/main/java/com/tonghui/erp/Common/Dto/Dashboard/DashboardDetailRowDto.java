@@ -71,6 +71,15 @@ public class DashboardDetailRowDto {
     /** 物料成本（元） */
     private BigDecimal materialAmount;
 
+    /** 原料成本（元） */
+    private BigDecimal rawMaterialAmount;
+
+    /** 辅料成本（元） */
+    private BigDecimal auxiliaryMaterialAmount;
+
+    /** 包装材料成本（元） */
+    private BigDecimal packagingAmount;
+
     /** 水费（元） */
     private BigDecimal waterAmount;
 
@@ -80,10 +89,39 @@ public class DashboardDetailRowDto {
     /** 燃气费（元） */
     private BigDecimal gasAmount;
 
-    /** 实际成本（元）= 物料 + 水 + 电 + 气 */
+    /** 其他成本（元） */
+    private BigDecimal otherAmount;
+
+    /** 实际成本（元）= 原辅包 + 水 + 电 + 气 + 其他 */
     private BigDecimal actualCost;
 
+    /** 单位预计成本（元/件，快照价） */
+    private BigDecimal unitEstimatedCost;
+
+    /** 单位实际成本（元/件）= 实际成本 ÷ 批量 */
+    private BigDecimal unitActualCost;
+
+    /** 单位成本偏差（元/件）= 单位预计成本 − 单位实际成本 */
+    private BigDecimal unitCostVariance;
+
+    /** 单位成本偏差率（%）= 单位成本偏差 ÷ 单位预计成本 */
+    private BigDecimal unitCostVarianceRate;
+
     // endregion
+
+    // region 批次周期字段
+    // ===================================
+    // 批次周期字段
+    // ===================================
+
+    /** 采购需求下达时间（同一计划多张采购单取最早创建时间） */
+    private String purchaseDate;
+
+    /** 成品入库时间（工单入库时间，缺失时取成品入库单日期） */
+    private String inboundDate;
+
+    /** 批次生产天数（采购下达 → 成品入库），任一端缺失为 null */
+    private Long productionDays;
 
     // region 生产字段
     // ===================================

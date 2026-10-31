@@ -27,8 +27,14 @@ public class ChartDataDto {
     /** 月度趋势：预估产值 / 预估成本 / 实际成本 */
     private List<CostTrendItem> costTrend;
 
-    /** 实际成本构成：物料 / 水 / 电 / 气 */
+    /** 实际成本构成：物料 / 原料 / 辅料 / 包材 / 水 / 电 / 气 / 其他 */
     private List<CostStructureItem> costStructure;
+
+    /** 批次成本偏差排行（按偏差率降序，预计成本为 0 的批次不参与） */
+    private List<BatchCostVarianceRankItem> batchCostVarianceRank;
+
+    /** 按品种拆分的实际成本构成（原料 / 辅料 / 包材 / 水电气 / 其他） */
+    private List<CostStructureByPreparationItem> costStructureByPreparation;
 
     /** 原辅包资金三项：入库 / 出库净额 / 当前库存 */
     private MaterialFunds materialFunds;
@@ -60,6 +66,12 @@ public class ChartDataDto {
 
         /** 实际成本（元） */
         private BigDecimal actualCost;
+
+        /** 成本偏差（元）= 预估成本 − 实际成本，正数表示预估偏高 */
+        private BigDecimal costVariance;
+
+        /** 成本偏差率（%）= 成本偏差 ÷ 预估成本，预估成本为 0 时为空 */
+        private BigDecimal costVarianceRate;
     }
 
     /**
@@ -71,8 +83,17 @@ public class ChartDataDto {
         /** 月份（yyyy-MM） */
         private String month;
 
-        /** 物料成本（元） */
+        /** 物料成本（元），等于原料 + 辅料 + 包材 */
         private BigDecimal material;
+
+        /** 原料成本（元） */
+        private BigDecimal rawMaterial;
+
+        /** 辅料成本（元） */
+        private BigDecimal auxiliary;
+
+        /** 包装材料成本（元） */
+        private BigDecimal packaging;
 
         /** 水费（元） */
         private BigDecimal water;
@@ -82,6 +103,87 @@ public class ChartDataDto {
 
         /** 燃气费（元） */
         private BigDecimal gas;
+
+        /** 其他成本（元） */
+        private BigDecimal other;
+    }
+
+    /**
+     * 批次成本偏差排行项
+     * <p>偏差 = 预估成本 − 实际成本；偏差率为正表示成本低于预估（盈利）。</p>
+     */
+    @Data
+    public static class BatchCostVarianceRankItem {
+
+        /** 工单号 */
+        private String workOrderCode;
+
+        /** 批号 */
+        private String batchNumber;
+
+        /** 制剂编码 */
+        private String preparationCode;
+
+        /** 制剂名称 */
+        private String preparationName;
+
+        /** 计划单号 */
+        private String planNumber;
+
+        /** 批量（件） */
+        private BigDecimal batchQty;
+
+        /** 预估成本（元） */
+        private BigDecimal estimatedCost;
+
+        /** 实际成本（元） */
+        private BigDecimal actualCost;
+
+        /** 成本偏差（元）= 预估成本 − 实际成本 */
+        private BigDecimal costVariance;
+
+        /** 成本偏差率（%）= 偏差 ÷ 预估成本 */
+        private BigDecimal costVarianceRate;
+
+        /** 批次生产天数（采购下达 → 成品入库） */
+        private Long productionDays;
+    }
+
+    /**
+     * 按品种拆分的实际成本构成项
+     */
+    @Data
+    public static class CostStructureByPreparationItem {
+
+        /** 制剂编码；「未关联制剂」「未分摊水电气」伪品种为空 */
+        private String preparationCode;
+
+        /** 制剂名称；伪品种取行类型文案 */
+        private String preparationName;
+
+        /** 行类型：正常 / 未关联制剂 / 未分摊水电气 */
+        private String rowType;
+
+        /** 原料成本（元） */
+        private BigDecimal rawMaterialAmount;
+
+        /** 辅料成本（元） */
+        private BigDecimal auxiliaryMaterialAmount;
+
+        /** 包装材料成本（元） */
+        private BigDecimal packagingAmount;
+
+        /** 水电气合计（元） */
+        private BigDecimal utilityAmount;
+
+        /** 其他成本（元） */
+        private BigDecimal otherAmount;
+
+        /** 实际成本合计（元） */
+        private BigDecimal totalAmount;
+
+        /** 占区间实际成本合计比例（%） */
+        private BigDecimal ratio;
     }
 
     // endregion
@@ -188,6 +290,47 @@ public class ChartDataDto {
 
         /** 品种交付量 Top 5（单位：件） */
         private List<PreparationRank> topPreparations;
+
+        /** 生产平衡（按批次口径：已全部交付计划 + 待生产计划 = 计划总数） */
+        private ProductionBalance balance;
+    }
+
+    /**
+     * 生产平衡（按批统计）
+     * <p>
+     * 计划批数 = 已全部交付计划批数 + 待生产计划批数；部分交付的计划归入待生产侧。
+     * 比率按批数计算，数量口径为计划量。
+     * </p>
+     */
+    @Data
+    public static class ProductionBalance {
+
+        /** 计划批数（区间内计划单数） */
+        private Integer planCount;
+
+        /** 计划量合计（件） */
+        private BigDecimal planQuantity;
+
+        /** 已全部交付计划批数 */
+        private Integer fullyDeliveredPlanCount;
+
+        /** 已全部交付计划量合计（件） */
+        private BigDecimal fullyDeliveredPlanQuantity;
+
+        /** 待生产计划批数（含部分交付） */
+        private Integer pendingPlanCount;
+
+        /** 待生产计划量合计（件） */
+        private BigDecimal pendingPlanQuantity;
+
+        /** 区间内已交付量合计（件） */
+        private BigDecimal deliveredQuantity;
+
+        /** 已全部交付批数占比（%） */
+        private BigDecimal fullyDeliveredRate;
+
+        /** 待生产批数占比（%） */
+        private BigDecimal pendingRate;
     }
 
     /**
