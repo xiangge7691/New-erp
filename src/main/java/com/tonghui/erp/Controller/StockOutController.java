@@ -420,8 +420,8 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
     /**
      * 按制剂ID查询处方信息明细（含物料库存批次明细）
      * <p>
-     * 根据制剂ID查询其处方明细（物料编码、品名、分类、单位、标准处方、应出数量），
-     * 并带出每个物料可出库的合格库存批次明细（出库批次、可用库存、单价、金额、库存状态，FIFO排序）
+     * 根据制剂ID查询其处方明细（物料编码、品名、分类、单位、标准处方、应出数量，含制剂名称），
+     * 并带出每个物料可出库的合格库存批次明细（出库批次、有效期至、可用库存、单价、金额、库存状态，FIFO排序）
      * </p>
      *
      * 示例请求：
@@ -429,7 +429,7 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
      *
      * @param preparationId 制剂ID（必填）
      * @param multiplier    生产倍数（选填，默认1倍，应出数量=标准处方×倍数）
-     * @return ApiResponse&lt;List&lt;PlanDetailItemDto&gt;&gt; 处方明细列表（含序号、可用库存批次、单价、金额、库存状态）
+     * @return ApiResponse&lt;List&lt;PlanDetailItemDto&gt;&gt; 处方明细列表（含序号、制剂名称、可用库存批次〔含有效期至〕、单价、金额、库存状态）
      */
     @GetMapping("/preparation-detail")
     public ApiResponse<List<PlanDetailItemDto>> getPreparationDetail(

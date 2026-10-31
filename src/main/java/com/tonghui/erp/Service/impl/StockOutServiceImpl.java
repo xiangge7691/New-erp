@@ -12,6 +12,7 @@ import com.tonghui.erp.Common.Dto.Stock.PlanDetailItemDto;
 import com.tonghui.erp.Common.Dto.Stock.StockOutWithDetailsDto;
 import com.tonghui.erp.Data.Entity.ProductionPlan;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
+import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.PreparationFormula;
 import com.tonghui.erp.Data.Entity.SalesOrder;
 import com.tonghui.erp.Data.Entity.Stock;
@@ -19,6 +20,7 @@ import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.Entity.StockOut;
 import com.tonghui.erp.Data.Entity.StockOutDetail;
 import com.tonghui.erp.Data.mapper.PreparationFormulaMapper;
+import com.tonghui.erp.Data.mapper.PreparationMapper;
 import com.tonghui.erp.Data.mapper.ProductionPlanMapper;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Data.mapper.SalesOrderMapper;
@@ -82,6 +84,9 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
     /** 制剂处方数据访问层，用于批量出库按处方查询 */
     private final PreparationFormulaMapper preparationFormulaMapper;
 
+    /** 制剂数据访问层，用于查询制剂名称 */
+    private final PreparationMapper preparationMapper;
+
     /** 库存数据访问层，用于匹配可用库存批次 */
     private final StockMapper stockMapper;
 
@@ -109,6 +114,7 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
      * @param stockService              库存服务
      * @param productionPlanMapper      生产计划数据访问层
      * @param preparationFormulaMapper  制剂处方数据访问层
+     * @param preparationMapper         制剂数据访问层
      * @param stockMapper               库存数据访问层
      * @param productionPlanService     生产计划服务
      * @param salesOrderMapper          成品出库台账数据访问层
@@ -120,6 +126,7 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
                                StockService stockService,
                                ProductionPlanMapper productionPlanMapper,
                                PreparationFormulaMapper preparationFormulaMapper,
+                               PreparationMapper preparationMapper,
                                StockMapper stockMapper,
                                ProductionPlanService productionPlanService,
                                SalesOrderMapper salesOrderMapper) {
@@ -129,6 +136,7 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         this.stockService = stockService;
         this.productionPlanMapper = productionPlanMapper;
         this.preparationFormulaMapper = preparationFormulaMapper;
+        this.preparationMapper = preparationMapper;
         this.stockMapper = stockMapper;
         this.productionPlanService = productionPlanService;
         this.salesOrderMapper = salesOrderMapper;
@@ -1068,7 +1076,7 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
      * <p>
      * 查询制剂处方明细，计算每个物料应出数量（处方量×生产倍数），
      * 并匹配合格的可用库存批次（FIFO排序），批次携带单价与金额（应出数量×单价），
-     * 同时为每个物料填充序号（从1开始）
+     * 同时为每个物料填充序号（从1开始）与制剂名称
      * </p>
      *
      * @param preparationId 制剂ID
@@ -1077,6 +1085,10 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
      */
     private List<PlanDetailItemDto> buildPreparationDetailItems(Long preparationId, BigDecimal multiplier) {
         BigDecimal times = multiplier != null ? multiplier : BigDecimal.ONE;
+
+        // 查询制剂信息（取制剂名称，查不到时置空，不阻断处方明细返回）
+        Preparation preparation = preparationMapper.selectById(preparationId);
+        String preparationName = preparation != null ? preparation.getPreparationName() : null;
 
         // 查询制剂处方明细
         QueryWrapper<PreparationFormula> formulaWrapper = new QueryWrapper<>();
@@ -1092,6 +1104,7 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         for (PreparationFormula formula : formulas) {
             PlanDetailItemDto item = new PlanDetailItemDto();
             item.setIndex(index++);
+            item.setPreparationName(preparationName);
             item.setMaterialCode(formula.getMaterialCode());
             item.setMaterialName(formula.getMaterialName());
             item.setMaterialCategory(formula.getMaterialCategory());
@@ -1235,6 +1248,7 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
             batch.setCategoryName(s.getCategoryName());
             batch.setUnitName(s.getUnitName());
             batch.setBatchNumber(s.getBatchNumber());
+            batch.setExpiryDate(s.getExpiryDate());
             batch.setProdUnitId(s.getProdUnitId());
             batch.setWarehouseName(unitNames.getOrDefault(s.getProdUnitId(), ""));
             batch.setQuantity(s.getQuantity());

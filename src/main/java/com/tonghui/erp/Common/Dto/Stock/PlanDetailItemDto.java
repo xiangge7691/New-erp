@@ -20,6 +20,11 @@ public class PlanDetailItemDto {
     private Integer index;
 
     /**
+     * 制剂名称（同一制剂下所有处方明细行相同）
+     */
+    private String preparationName;
+
+    /**
      * 物料编码
      */
     private String materialCode;

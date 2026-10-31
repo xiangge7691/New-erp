@@ -3,6 +3,7 @@ package com.tonghui.erp.Common.Dto.Stock;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 /**
  * 可用库存批次数据传输对象
@@ -42,6 +43,11 @@ public class AvailableBatchDto {
      * 批次号
      */
     private String batchNumber;
+
+    /**
+     * 有效期至（该库存批次的有效期截止日期）
+     */
+    private LocalDate expiryDate;
 
     /**
      * 仓库（生产单位ID）
