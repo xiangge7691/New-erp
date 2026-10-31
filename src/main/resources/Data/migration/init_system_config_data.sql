@@ -20,3 +20,11 @@ VALUES
   ('dashboard.expiry.verification.days',   '30', '验证提醒天数',         '质量管理', 'int', '验证到期提醒范围（天）', 1, 0, 0),
   ('dashboard.expiry.retainedSample.days', '30', '留样到期提醒天数',     '质量管理', 'int', '首页留样期限临近/已到期的提醒范围（天）', 1, 0, 0),
   ('dashboard.expiry.approval.days',       '30', '批件过期提醒天数',     '制剂管理', 'int', '首页制剂批件过期临近/已过期的提醒范围（天）', 1, 0, 0);
+
+-- 成品库存预警相关配置
+INSERT IGNORE INTO `system_config`
+  (`config_key`, `config_value`, `config_name`, `config_group`, `value_type`, `remark`, `status`, `is_deleted`, `version`)
+VALUES
+  ('dashboard.finishedStock.avgMonths',      '3',  '成品月均出库统计月数', '库存管理', 'int', '成品库存预警：自动计算月平均出库量的回溯完整自然月数（默认3）', 1, 0, 0),
+  ('dashboard.finishedStock.warningMonths',  '3',  '成品库存预警月数',     '库存管理', 'int', '成品库存预警：可用库存可支撑月数低于该值时提醒生产（默认3）', 1, 0, 0),
+  ('dashboard.finishedStock.nearExpiryDays', '90', '成品近效期天数',       '库存管理', 'int', '成品库存预警：有效期在该天数内的批次视为近效期，可选择剔除（默认90）', 1, 0, 0);

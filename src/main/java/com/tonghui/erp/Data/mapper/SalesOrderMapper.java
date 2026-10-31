@@ -1,9 +1,13 @@
 package com.tonghui.erp.Data.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.tonghui.erp.Common.Dto.FinishedStock.FinishedOutboundMonthlyDto;
 import com.tonghui.erp.Data.Entity.SalesOrder;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+
+import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 成品出库台账数据访问Mapper接口
@@ -38,4 +42,32 @@ public interface SalesOrderMapper extends BaseMapper<SalesOrder> {
      */
     @Select("SELECT COUNT(*) FROM sales_order WHERE sales_order_code = #{code} AND (#{excludeId} IS NULL OR sales_order_id <> #{excludeId})")
     long countByCodeIncludeDeleted(@Param("code") String code, @Param("excludeId") Long excludeId);
+
+    /**
+     * 按品种编码 + 自然月汇总成品已出库数量
+     * <p>
+     * 仅统计状态为“已出库”且未删除的台账记录，
+     * 用于成品库存预警计算前 N 个完整自然月的月平均出库量
+     * </p>
+     *
+     * @param startTime 统计开始时间（含）
+     * @param endTime   统计结束时间（不含，通常为当月 1 日 00:00:00）
+     * @return 按品种编码 + 月份汇总的已出库数量列表
+     */
+    @Select("""
+            SELECT
+                preparation_code AS preparationCode,
+                MAX(preparation_name) AS preparationName,
+                DATE_FORMAT(sales_order_date, '%Y-%m') AS month,
+                COALESCE(SUM(quantity), 0) AS quantity
+            FROM sales_order
+            WHERE is_deleted = 0
+              AND status = '已出库'
+              AND sales_order_date >= #{startTime}
+              AND sales_order_date < #{endTime}
+            GROUP BY preparation_code, DATE_FORMAT(sales_order_date, '%Y-%m')
+            """)
+    List<FinishedOutboundMonthlyDto> selectFinishedOutboundMonthly(
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime);
 }

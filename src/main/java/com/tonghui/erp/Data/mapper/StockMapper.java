@@ -1,5 +1,6 @@
 package com.tonghui.erp.Data.mapper;
 
+import com.tonghui.erp.Common.Dto.FinishedStock.FinishedStockAggDto;
 import com.tonghui.erp.Common.Dto.Stock.ExpiryWarningDTO;
 import com.tonghui.erp.Data.Entity.Stock;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
@@ -126,6 +127,41 @@ public interface StockMapper extends BaseMapper<Stock> {
             "</script>")
     List<Stock> selectByBatchIncludeDeleted(@Param("batchNumber") String batchNumber,
                                             @Param("itemCode") String itemCode);
+
+    /**
+     * 按品种编码汇总成品库存（数量大于 0 的成品批次）
+     * <p>
+     * 成品库存识别规则：category_name='成品' 或 item_type='preparation'，
+     * 兼容历史数据中成品库存 item_type 仍为 material 的情况。
+     * totalStock 统计全部状态库存；qualifiedStock 仅统计合格库存；
+     * 近效期库存与已过期库存只在合格库存范围内统计，
+     * 供成品库存预警计算可用库存时按需剔除。
+     * </p>
+     *
+     * @param nearExpiryDate 近效期截止日期（今天 + 近效期天数）
+     * @return 按品种编码汇总的成品库存列表
+     */
+    @Select("""
+            SELECT
+                item_code AS preparationCode,
+                MAX(item_name) AS preparationName,
+                MAX(unit_name) AS unitName,
+                COALESCE(SUM(quantity), 0) AS totalStock,
+                COALESCE(SUM(CASE WHEN stock_status IS NULL OR stock_status = '合格'
+                                  THEN quantity ELSE 0 END), 0) AS qualifiedStock,
+                COALESCE(SUM(CASE WHEN (stock_status IS NULL OR stock_status = '合格')
+                                       AND expiry_date IS NOT NULL AND expiry_date <= #{nearExpiryDate}
+                                  THEN quantity ELSE 0 END), 0) AS nearExpiryStock,
+                COALESCE(SUM(CASE WHEN (stock_status IS NULL OR stock_status = '合格')
+                                       AND expiry_date IS NOT NULL AND expiry_date < CURDATE()
+                                  THEN quantity ELSE 0 END), 0) AS expiredStock
+            FROM stock
+            WHERE is_deleted = 0
+              AND quantity > 0
+              AND (category_name = '成品' OR item_type = 'preparation')
+            GROUP BY item_code
+            """)
+    List<FinishedStockAggDto> selectFinishedStockAgg(@Param("nearExpiryDate") LocalDate nearExpiryDate);
 
 }
 

@@ -5,11 +5,14 @@ import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.ProductionPlanWithRecordsDto;
 import com.tonghui.erp.Common.Dto.Dashboard.*;
+import com.tonghui.erp.Common.Dto.FinishedStock.FinishedStockWarningDto;
 import com.tonghui.erp.Common.Dto.System.DashboardExpiryConfigDto;
 import com.tonghui.erp.Common.utils.DashboardCalcUtils;
 import com.tonghui.erp.Data.Entity.*;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Service.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -49,6 +52,11 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/dashboard")
 public class DashboardController extends BaseController {
+
+    /**
+     * 日志记录器
+     */
+    private static final Logger log = LoggerFactory.getLogger(DashboardController.class);
 
     /**
      * 日期时间格式化器（yyyy-MM-dd HH:mm:ss）
@@ -140,6 +148,10 @@ public class DashboardController extends BaseController {
     /** 留样记录服务，用于留样到期提醒 */
     @Autowired
     private RetainedSampleService retainedSampleService;
+
+    /** 成品库存预警服务，用于按出库量测算可支撑时间并提醒生产 */
+    @Autowired
+    private FinishedStockWarningService finishedStockWarningService;
 
     // endregion
 
@@ -706,6 +718,31 @@ public class DashboardController extends BaseController {
             }
             typeCounts.put("低库存", (long) lowStocks.size());
 
+            // 6.5 成品库存预警（按前N个月出库量测算可支撑时间，低于预警月数时提醒生产）
+            try {
+                List<FinishedStockWarningDto> finishedStockWarnings =
+                    finishedStockWarningService.getWarnings(true);
+                for (FinishedStockWarningDto warning : finishedStockWarnings) {
+                    TodoItemDto todo = new TodoItemDto();
+                    todo.setId(warning.getPreparationId());
+                    todo.setTodoType("成品库存预警");
+                    todo.setContent(warning.getPreparationName() + "(" + warning.getPreparationCode() + ") 月均出库"
+                        + plainDecimal(warning.getAutoMonthlyAvg()) + "，可用库存"
+                        + plainDecimal(warning.getAvailableStock()) + "，仅可支撑"
+                        + plainDecimal(warning.getSupportMonths()) + "个月（阈值"
+                        + warning.getWarningMonths() + "个月），请安排生产");
+                    todo.setDueDate("");
+                    todo.setSourceModule("库存管理");
+                    todo.setLink("/warehouse_management/finished-stock-warning");
+                    allTodos.add(todo);
+                }
+                typeCounts.put("成品库存预警", (long) finishedStockWarnings.size());
+            } catch (Exception e) {
+                // 单个预警模块异常不影响其他首页待办
+                log.warn("加载成品库存预警待办失败: {}", e.getMessage());
+                typeCounts.put("成品库存预警", 0L);
+            }
+
             // 7. 采购订单待采购（审批通过生成但未执行的采购订单）
             List<PurchaseOrders> pendingPurchases = purchaseOrdersService.list(
                 new QueryWrapper<PurchaseOrders>()
@@ -1101,6 +1138,16 @@ public class DashboardController extends BaseController {
      */
     private String formatDateTime(LocalDateTime dateTime) {
         return dateTime != null ? dateTime.format(DATE_TIME_FORMATTER) : null;
+    }
+
+    /**
+     * 格式化数量（null安全，去掉多余的尾随零）
+     *
+     * @param value 数量
+     * @return 格式化后的字符串，null输入返回 "-"
+     */
+    private String plainDecimal(java.math.BigDecimal value) {
+        return value != null ? value.stripTrailingZeros().toPlainString() : "-";
     }
     // endregion
 }

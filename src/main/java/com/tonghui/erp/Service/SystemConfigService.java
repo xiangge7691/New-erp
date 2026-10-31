@@ -45,8 +45,21 @@ public interface SystemConfigService extends IService<SystemConfig> {
     /** 制剂批件过期提醒天数 */
     String KEY_APPROVAL_DAYS = "dashboard.expiry.approval.days";
 
+    /** 成品月均出库统计月数（前 N 个完整自然月） */
+    String KEY_FINISHED_STOCK_AVG_MONTHS = "dashboard.finishedStock.avgMonths";
+    /** 成品库存预警月数（可支撑时间低于该值时提醒生产） */
+    String KEY_FINISHED_STOCK_WARNING_MONTHS = "dashboard.finishedStock.warningMonths";
+    /** 成品近效期天数（有效期在该天数内的批次视为近效期） */
+    String KEY_FINISHED_STOCK_NEAR_EXPIRY_DAYS = "dashboard.finishedStock.nearExpiryDays";
+
     /** 默认提醒天数 */
     int DEFAULT_EXPIRY_DAYS = 30;
+    /** 成品月均出库统计默认月数 */
+    int DEFAULT_FINISHED_STOCK_AVG_MONTHS = 3;
+    /** 成品库存预警默认月数 */
+    int DEFAULT_FINISHED_STOCK_WARNING_MONTHS = 3;
+    /** 成品近效期默认天数 */
+    int DEFAULT_FINISHED_STOCK_NEAR_EXPIRY_DAYS = 90;
 
     // endregion
 

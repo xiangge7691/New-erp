@@ -492,6 +492,8 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         // 更新出库单状态为已取消
         stockOut.setOutStatus("已取消");
         stockOutMapper.updateById(stockOut);
+        // 联动：成品出库取消后将台账状态回退为"已开单"，避免已取消数量仍计入成品月均出库量
+        syncSalesOrderStatus(stockOut, "已开单", null);
     }
 
     /**
