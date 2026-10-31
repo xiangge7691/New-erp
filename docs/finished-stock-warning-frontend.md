@@ -18,6 +18,8 @@
 | 字段 | 说明 |
 |---|---|
 | 品种编码 / 品种名称 | 制剂主数据，兼容台账/库存中存在的历史品种 |
+| 计量单位 | 取库存表 `stock.unit_name`（盒/瓶/千克等）；为空时前端显示 `—` |
+| 委托单位 | 取制剂主数据 `preparation.unit_name`（医院/生产单位），仅作展示，不参与计算 |
 | 月平均出库量 | 自动计算：统计窗口内已出库数量合计 ÷ 统计月数 |
 | 可用库存数 | 成品合格库存；可选择剔除近效期批次 |
 | 可支撑时间 | 可用库存 ÷ 月平均出库量（月，保留 2 位小数） |
@@ -149,6 +151,7 @@ GET /api/finished-stock-warning/list?pageIndex=0&pageSize=20&keyword=&onlyWarnin
         "preparationName": "壮骨关节丸",
         "spec": "每丸重9g",
         "unitName": "盒",
+        "commissionedUnitName": "新邵县中医医院",
         "totalStock": 500.00,
         "qualifiedStock": 500.00,
         "availableStock": 300.00,
@@ -327,6 +330,7 @@ GET /api/dashboard/todos
 1. 统计只取台账状态为“已出库”的记录，已开单未出库不计入。
 2. 当前按毛出库量统计，不扣减退库；如需净出库量需后续扩展。
 3. 成品库存以 `category_name='成品'` 为主，同时兼容 `item_type='preparation'`。
-4. `totalStock` 包含待检、不合格等全部状态；`availableStock` 只按合格库存计算，因此总库存可能大于可用库存。
-5. 统计月数为正整数，配置为 0 或负数时回退默认值 3。
-6. 近效期天数允许为 0（只剔除已过期批次），负数回退默认值 90。
+4. `unitName` 是计量单位，取库存表 `stock.unit_name`；`commissionedUnitName` 才是委托单位/医院名称，取 `preparation.unit_name`，两者不要混用。
+5. `totalStock` 包含待检、不合格等全部状态；`availableStock` 只按合格库存计算，因此总库存可能大于可用库存。
+6. 统计月数为正整数，配置为 0 或负数时回退默认值 3。
+7. 近效期天数允许为 0（只剔除已过期批次），负数回退默认值 90。

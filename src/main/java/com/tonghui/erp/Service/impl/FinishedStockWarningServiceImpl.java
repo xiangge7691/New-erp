@@ -241,8 +241,10 @@ public class FinishedStockWarningServiceImpl implements FinishedStockWarningServ
                 row.preparationName = preparation.getPreparationName();
             }
             row.spec = preparation.getSpec();
+            // preparation.unit_name 在本系统中存的是委托单位/生产单位（医院名称），
+            // 不能作为计量单位；计量单位统一取库存表 stock.unit_name
             if (StringUtils.hasText(preparation.getUnitName())) {
-                row.unitName = preparation.getUnitName();
+                row.commissionedUnitName = preparation.getUnitName();
             }
         }
         for (FinishedStockAggDto stockAgg : stockAggs) {
@@ -351,6 +353,7 @@ public class FinishedStockWarningServiceImpl implements FinishedStockWarningServ
                 ? row.preparationName : row.preparationCode);
         dto.setSpec(row.spec);
         dto.setUnitName(row.unitName);
+        dto.setCommissionedUnitName(row.commissionedUnitName);
         dto.setTotalStock(totalStock);
         dto.setQualifiedStock(qualifiedStock);
         dto.setAvailableStock(availableStock);
@@ -558,8 +561,11 @@ public class FinishedStockWarningServiceImpl implements FinishedStockWarningServ
         /** 规格 */
         private String spec;
 
-        /** 计量单位 */
+        /** 计量单位（库存表） */
         private String unitName;
+
+        /** 委托单位/生产单位（制剂主数据） */
+        private String commissionedUnitName;
 
         /** 成品总库存（含全部状态） */
         private BigDecimal totalStock = ZERO;

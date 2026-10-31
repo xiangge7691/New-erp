@@ -41,9 +41,14 @@ public class FinishedStockWarningDto {
     private String spec;
 
     /**
-     * 计量单位
+     * 计量单位（取库存表 stock.unit_name，如 盒、瓶、千克）
      */
     private String unitName;
+
+    /**
+     * 委托单位/生产单位（取制剂主数据 preparation.unit_name，如 新邵县中医医院）
+     */
+    private String commissionedUnitName;
 
     // endregion
 

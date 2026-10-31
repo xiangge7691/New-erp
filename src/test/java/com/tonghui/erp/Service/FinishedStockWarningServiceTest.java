@@ -14,6 +14,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -115,6 +116,11 @@ public class FinishedStockWarningServiceTest {
                 "合格库存不应大于总库存");
         assertTrue(row.getAvailableStock().compareTo(row.getQualifiedStock()) <= 0,
                 "可用库存不应大于合格库存");
+        // 计量单位取库存表，委托单位取制剂主数据，两者不能混用
+        if (row.getCommissionedUnitName() != null) {
+            assertNotEquals(row.getCommissionedUnitName(), row.getUnitName(),
+                    "计量单位不应取到委托单位");
+        }
     }
 
     /**
