@@ -179,7 +179,10 @@ public class ProductionPickServiceImpl extends ServiceImpl<ProductionPickMapper,
         List<ProductionPickWithDetailsDto> items = records.stream()
                 .map(record -> toDto(record,
                         detailsMap.getOrDefault(record.getId(), List.of()),
-                        stockOutStatusMap.get(record.getStockOutId())))
+                        // 出库单ID为空时必须跳过查表：loadStockOutStatusMap 空结果返回不可变 Map.of()，
+                        // 对不可变 Map 调用 get(null) 会抛 NullPointerException，导致列表接口 500
+                        record.getStockOutId() == null
+                                ? null : stockOutStatusMap.get(record.getStockOutId())))
                 .collect(Collectors.toList());
 
         PagedResult<ProductionPickWithDetailsDto> pagedResult = new PagedResult<>();
