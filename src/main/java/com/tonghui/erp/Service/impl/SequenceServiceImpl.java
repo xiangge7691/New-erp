@@ -216,20 +216,17 @@ public class SequenceServiceImpl {
     public String generateProductionPickCode() {
         // 日期部分，格式为yyyyMMdd
         String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        // 单号前缀：SCLL-(5位) + 日期(8位) + "-"(1位) = 14位，序号从第15位（MySQL SUBSTRING 下标从1开始）开始
+        String codePrefix = "SCLL-" + dateStr + "-";
         try {
-            String maxCode = jdbcTemplate.queryForObject(
-                    "SELECT MAX(pick_code) FROM production_pick WHERE pick_code LIKE 'SCLL-" + dateStr + "%'",
-                    String.class);
-
-            if (maxCode != null) {
-                // 提取序号部分并加1，格式为SCLL-(5) + 日期(8位) = 前13位，从第13位开始是序号
-                String seqStr = maxCode.substring(13);
-                int seq = Integer.parseInt(seqStr);
-                return String.format("SCLL-%s-%03d", dateStr, seq + 1);
-            } else {
-                // 当天无记录，从1开始
-                return String.format("SCLL-%s-%03d", dateStr, 1);
-            }
+            // 直接按数字取当天的最大序号，避免字符串 MAX 在序号位数不同或存在历史脏数据时取错
+            // 原生SQL不走 MyBatis-Plus 软删除过滤，保证已软删除记录占用的序号不会被复用
+            Integer maxSeq = jdbcTemplate.queryForObject(
+                    "SELECT COALESCE(MAX(CAST(SUBSTRING(pick_code, " + (codePrefix.length() + 1)
+                            + ") AS UNSIGNED)), 0) FROM production_pick WHERE pick_code LIKE '" + codePrefix + "%'",
+                    Integer.class);
+            int nextSeq = (maxSeq == null ? 0 : maxSeq) + 1;
+            return String.format("SCLL-%s-%03d", dateStr, nextSeq);
         } catch (Exception e) {
             // 出现异常时返回默认值
             return String.format("SCLL-%s-%03d", dateStr, 1);
