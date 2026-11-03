@@ -70,6 +70,41 @@ public class ProductionPlanProgressServiceTest {
     }
 
     /**
+     * 计划表生产开始时间为空时，回退使用关联工单最早配置日期
+     */
+    @Test
+    public void testPlanStartFallbackToEarliestWorkOrderDate() {
+        LocalDate today = LocalDate.now();
+        ProductionPlan plan = new ProductionPlan();
+        plan.setPlanProductionTime(today.minusDays(16).atStartOfDay());
+        plan.setCurrentStatus("生产中");
+
+        ProductionPlanOverdueDto overdue = new ProductionPlanProgressServiceImpl()
+                .calculateOverdue(plan, today.minusDays(13).atStartOfDay());
+
+        assertTrue(overdue.getPlanProductionTime());
+        assertEquals(3L, overdue.getPlanProductionOverdueDays());
+        assertEquals("实际晚了3天", overdue.getPlanProductionTimeText());
+    }
+
+    /**
+     * 计划表生产开始时间优先于工单配置日期
+     */
+    @Test
+    public void testPlanProductionStartTakesPriority() {
+        LocalDate today = LocalDate.now();
+        ProductionPlan plan = new ProductionPlan();
+        plan.setPlanProductionTime(today.minusDays(16).atStartOfDay());
+        plan.setProductionStartTime(today.minusDays(13).atStartOfDay());
+        plan.setCurrentStatus("生产中");
+
+        ProductionPlanOverdueDto overdue = new ProductionPlanProgressServiceImpl()
+                .calculateOverdue(plan, today.minusDays(2).atStartOfDay());
+
+        assertEquals(3L, overdue.getPlanProductionOverdueDays());
+    }
+
+    /**
      * 已完成计划保留实际开始晚于计划开始的历史逾期天数
      */
     @Test

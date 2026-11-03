@@ -142,7 +142,8 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
             List<PurchaseOrders> orders = planId == null
                     ? List.of() : ordersByPlanId.getOrDefault(planId, List.of());
             plan.setPurchaseProgress(buildSummary(purchasePlans, orders));
-            plan.setOverdue(calculateOverdue(plan));
+            // 计划表生产开始时间可能尚未同步，回退取关联工单最早配置日期
+            plan.setOverdue(calculateOverdue(plan, earliestWorkOrderStart(plan.getWorkOrders())));
         }
     }
 
@@ -626,7 +627,8 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
         detail.setCurrentStatus(plan.getCurrentStatus());
         detail.setPlanProductionTime(plan.getPlanProductionTime());
         detail.setDeliveryTime(plan.getDeliveryTime());
-        detail.setOverdue(calculateOverdue(plan));
+        // 计划表生产开始时间可能尚未同步，回退取关联工单最早配置日期
+        detail.setOverdue(calculateOverdue(plan, earliestWorkOrderStart(workOrders)));
         detail.setPurchaseSummary(buildSummary(purchasePlans, orders));
         detail.setChains(chains);
         detail.setRelatedDocuments(buildRelatedDocuments(plan, purchasePlans, orders, acceptances,
@@ -1318,6 +1320,22 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
      */
     @Override
     public ProductionPlanOverdueDto calculateOverdue(ProductionPlan plan) {
+        return calculateOverdue(plan, null);
+    }
+
+    /**
+     * 计算生产计划逾期信息（可携带关联工单的最早生产开始时间）
+     * <p>
+     * 计划表的生产开始时间由工单时间同步而来，历史数据可能尚未回写；
+     * 当计划表字段为空时，使用关联工单的最早配置日期作为实际生产开始时间，
+     * 避免把已开始生产的计划误判为持续逾期。
+     * </p>
+     *
+     * @param plan                   生产计划
+     * @param earliestWorkOrderStart 关联工单最早配置日期，可为空
+     * @return 逾期信息
+     */
+    public ProductionPlanOverdueDto calculateOverdue(ProductionPlan plan, LocalDateTime earliestWorkOrderStart) {
         ProductionPlanOverdueDto dto = new ProductionPlanOverdueDto();
         if (plan == null || "作废".equals(plan.getCurrentStatus())) {
             clearOverdue(dto);
@@ -1330,7 +1348,7 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
         LocalDateTime now = LocalDateTime.now();
 
         // 计划生产时间：以实际生产开始时间作为实际值；尚未开始生产时按当前时间持续计算
-        LocalDateTime actualStart = resolveActualProductionStart(plan, finished, now);
+        LocalDateTime actualStart = resolveActualProductionStart(plan, earliestWorkOrderStart, finished, now);
         long planDays = overdueDays(plan.getPlanProductionTime(), actualStart);
 
         // 需交付时间：以成品实际出库时间作为实际值；尚未出库时按当前时间持续计算
@@ -1365,18 +1383,24 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
     /**
      * 解析实际生产开始时间
      * <p>
-     * 优先取计划同步的生产开始时间；历史数据缺失时，已完成/已归档计划回退到生产结束时间或状态变更时间，
+     * 优先取计划同步的生产开始时间；计划表字段为空时回退到关联工单最早配置日期；
+     * 仍未取到时，已完成/已归档计划回退到生产结束时间或状态变更时间，
      * 避免把“已完成但缺时间”的计划误判为持续逾期；其余情况回退到当前时间，表示尚未开始生产。
      * </p>
      *
-     * @param plan     生产计划
-     * @param finished 计划是否已完成/已归档
-     * @param now      当前时间
+     * @param plan                   生产计划
+     * @param earliestWorkOrderStart 关联工单最早配置日期，可为空
+     * @param finished               计划是否已完成/已归档
+     * @param now                    当前时间
      * @return 实际生产开始时间
      */
-    private LocalDateTime resolveActualProductionStart(ProductionPlan plan, boolean finished, LocalDateTime now) {
+    private LocalDateTime resolveActualProductionStart(ProductionPlan plan, LocalDateTime earliestWorkOrderStart,
+                                                       boolean finished, LocalDateTime now) {
         if (plan.getProductionStartTime() != null) {
             return plan.getProductionStartTime();
+        }
+        if (earliestWorkOrderStart != null) {
+            return earliestWorkOrderStart;
         }
         if (!finished) {
             return now;
@@ -1409,6 +1433,28 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
             return plan.getArchiveTime();
         }
         return now;
+    }
+
+    /**
+     * 取关联工单的最早配置日期（排除已删除工单）
+     * <p>
+     * 配置日期代表工单进入生产的时间，与计划同步逻辑中“生产开始时间取最早配置日期”保持一致。
+     * </p>
+     *
+     * @param workOrders 关联工单列表
+     * @return 最早配置日期，无有效工单或配置日期时返回 null
+     */
+    private LocalDateTime earliestWorkOrderStart(List<WorkOrder> workOrders) {
+        if (workOrders == null || workOrders.isEmpty()) {
+            return null;
+        }
+        return workOrders.stream()
+                .filter(Objects::nonNull)
+                .filter(workOrder -> !Integer.valueOf(1).equals(workOrder.getIsDeleted()))
+                .map(WorkOrder::getConfigDate)
+                .filter(Objects::nonNull)
+                .min(Comparator.naturalOrder())
+                .orElse(null);
     }
 
     /**
