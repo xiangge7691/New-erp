@@ -4,8 +4,10 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -138,6 +140,20 @@ public class AcceptanceOrder extends AuditEntity {
      */
     @TableField(value = "status")
     private String status;
+
+    /**
+     * 确认到货时间（服务端写入，前端只读）
+     */
+    @TableField(value = "arrival_time")
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    private LocalDateTime arrivalTime;
+
+    /**
+     * 验收完成时间（全部验收明细终结，服务端写入，前端只读）
+     */
+    @TableField(value = "acceptance_time")
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    private LocalDateTime acceptanceTime;
 
     /**
      * 预计交付日期（交期）

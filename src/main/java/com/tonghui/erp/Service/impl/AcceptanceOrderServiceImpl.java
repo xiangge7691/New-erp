@@ -206,6 +206,15 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         if (!StringUtils.hasText(acceptance.getStatus())) {
             acceptance.setStatus(AcceptanceStatusPolicy.MAIN_TRANSPORTING);
         }
+        // 直接以验收中/已入库创建时，补写到货/验收完成时间
+        if (AcceptanceStatusPolicy.MAIN_INSPECTING.equals(acceptance.getStatus())
+                && acceptance.getArrivalTime() == null) {
+            acceptance.setArrivalTime(LocalDateTime.now());
+        }
+        if (AcceptanceStatusPolicy.MAIN_INBOUND.equals(acceptance.getStatus())
+                && acceptance.getAcceptanceTime() == null) {
+            acceptance.setAcceptanceTime(LocalDateTime.now());
+        }
         // 外包装/性状检查结果：为空默认"合格"，非空时校验取值
         acceptance.setOuterPackageCheck(normalizeCheckResult(acceptance.getOuterPackageCheck(), "外包装检查"));
         acceptance.setAppearanceCheck(normalizeCheckResult(acceptance.getAppearanceCheck(), "性状检查"));
@@ -234,6 +243,17 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         // 已入库不可修改（批号/单价锁定）
         if ("已入库".equals(existing.getStatus())) {
             throw new RuntimeException("已入库的验收单不可修改");
+        }
+
+        // 直接通过更新入口推进状态时，补写到货/验收完成时间
+        if (AcceptanceStatusPolicy.MAIN_INSPECTING.equals(acceptance.getStatus())) {
+            acceptance.setArrivalTime(existing.getArrivalTime() != null
+                    ? existing.getArrivalTime() : LocalDateTime.now());
+        }
+        if (AcceptanceStatusPolicy.MAIN_INBOUND.equals(acceptance.getStatus())
+                || AcceptanceStatusPolicy.MAIN_FINISHED.equals(acceptance.getStatus())) {
+            acceptance.setAcceptanceTime(existing.getAcceptanceTime() != null
+                    ? existing.getAcceptanceTime() : LocalDateTime.now());
         }
 
         // 更新验收单主表
@@ -589,6 +609,8 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
             throw new RuntimeException("仅运输中的验收单可确认到货");
         }
         acceptance.setStatus(AcceptanceStatusPolicy.MAIN_INSPECTING);
+        // 到货时间：确认到货动作发生的时间
+        acceptance.setArrivalTime(LocalDateTime.now());
         appendRemark(acceptance, "确认到货");
         acceptanceOrderMapper.updateById(acceptance);
 
@@ -648,6 +670,8 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         }
         // 主单状态按全部明细派生（部分行推进后仍为验收中，全退则已结束）
         applyDerivedMainStatus(acceptance, allDetails);
+        // 验收完成时间：全部明细终结时写入
+        fillAcceptanceCompleteTime(acceptance, allDetails);
         acceptanceOrderMapper.updateById(acceptance);
 
         // 同步关联采购订单明细状态与主单状态
@@ -741,6 +765,8 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         }
         // 主单按全部明细派生（全退则为已结束，存在待入库则仍为验收中）
         applyDerivedMainStatus(acceptance, allDetails);
+        // 验收完成时间：全部验收明细终结时写入，供生产计划采购流程时间线使用
+        fillAcceptanceCompleteTime(acceptance, allDetails);
         acceptanceOrderMapper.updateById(acceptance);
 
         // 同步关联采购订单明细状态与主单状态
@@ -806,6 +832,10 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         // 单据级仓库取第一明细（兼容旧展示），明细级仓库各自保留
         acceptance.setProdUnitId(pendingInbound.get(0).getProdUnitId());
         appendRemark(acceptance, "整单入库");
+        // 验收完成时间兜底：若检验阶段未写入（如历史数据），入库前补记
+        if (acceptance.getAcceptanceTime() == null) {
+            acceptance.setAcceptanceTime(LocalDateTime.now());
+        }
 
         // 生成入库单与库存流水（入库单主表仓库=第一明细仓库，明细级仓库各自写入）
         StockIn stockIn = applyAcceptanceInbound(acceptance, pendingInbound);
@@ -971,6 +1001,7 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
                 + (StringUtils.hasText(remark) ? "（" + remark + "）" : ""));
         List<AcceptanceDetail> latestDetails = getDetailsByAcceptanceId(acceptance.getAcceptanceId());
         applyDerivedMainStatus(acceptance, latestDetails);
+        fillAcceptanceCompleteTime(acceptance, latestDetails);
         acceptanceOrderMapper.updateById(acceptance);
 
         // 同步关联采购订单明细状态与主单状态（验收子行与退货子行各自回写）
@@ -1372,6 +1403,26 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
                 detail.setReturnRemark(returnRemark);
             }
             acceptanceDetailMapper.updateById(detail);
+        }
+    }
+
+    /**
+     * 全部验收明细终结时写入验收完成时间
+     * <p>初验全部不合格、检验全部不合格、全部合格待入库等场景均视为验收完成；
+     * 已写入的时间不重复覆盖，保留第一次完成时间。</p>
+     *
+     * @param acceptance 验收单主表
+     * @param details    验收明细列表
+     */
+    private void fillAcceptanceCompleteTime(AcceptanceOrder acceptance, List<AcceptanceDetail> details) {
+        if (acceptance == null || acceptance.getAcceptanceTime() != null
+                || details == null || details.isEmpty()) {
+            return;
+        }
+        boolean allTerminal = details.stream()
+                .allMatch(detail -> AcceptanceStatusPolicy.isDetailTerminal(detail.getStatus()));
+        if (allTerminal) {
+            acceptance.setAcceptanceTime(LocalDateTime.now());
         }
     }
 

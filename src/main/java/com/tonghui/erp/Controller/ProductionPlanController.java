@@ -5,8 +5,10 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.PagedResultWithSummary;
+import com.tonghui.erp.Common.Dto.ProductionPlanPurchaseProgressDto;
 import com.tonghui.erp.Common.Dto.ProductionPlanWithRecordsDto;
 import com.tonghui.erp.Data.Entity.ProductionPlan;
+import com.tonghui.erp.Service.ProductionPlanProgressService;
 import com.tonghui.erp.Service.ProductionPlanService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -29,6 +31,7 @@ import java.time.LocalDateTime;
  * │ 7  │ /api/production-plans/search-with-details  │ GET    │ 高级查询生产计划（含工序记录）   │
  * │ 8  │ /api/production-plans/generate-plan-number │ GET    │ 自动生成计划编号                │
  * │ 9  │ /api/production-plans/by-work-order/{id}    │ GET    │ 根据生产任务查询关联生产计划    │
+ * │ 10 │ /api/production-plans/{id}/purchase-progress│ GET    │ 查询采购流程进度与关联单据      │
  * └────┴────────────────────────────────────────────┴────────┴─────────────────────────────────┘
  */
 @RestController
@@ -45,6 +48,12 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
      */
     @Autowired
     private ProductionPlanService productionPlanService;
+
+    /**
+     * 生产计划采购进度服务
+     */
+    @Autowired
+    private ProductionPlanProgressService productionPlanProgressService;
 
     // endregion
 
@@ -351,6 +360,35 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
             return success(pagedResult);
         } catch (Exception ex) {
             return exception(ex, "查询失败");
+        }
+    }
+
+    // endregion
+
+    // region 采购流程进度
+    // ===================================
+    // 采购流程进度
+    // ===================================
+
+    /**
+     * 查询生产计划关联采购的流程进度详情
+     * <p>
+     * 返回采购申请、审批、下单、到货、验收、入库六个节点的时间、节点间耗时，
+     * 以及采购/计划/生产/检验/入库五个子页面的关联单据。一个生产计划关联多个采购订单时返回多条链路。
+     * </p>
+     *
+     * 示例请求：
+     * GET /api/production-plans/12/purchase-progress
+     *
+     * @param id 生产计划ID（路径参数，必填）
+     * @return ApiResponse&lt;ProductionPlanPurchaseProgressDto&gt; 采购流程详情
+     */
+    @GetMapping("/{id}/purchase-progress")
+    public ApiResponse<ProductionPlanPurchaseProgressDto> getPurchaseProgress(@PathVariable Integer id) {
+        try {
+            return success(productionPlanProgressService.getPurchaseProgress(id));
+        } catch (Exception ex) {
+            return exception(ex, "查询采购进度失败");
         }
     }
 

@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -148,6 +149,10 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
     @Override
     @Transactional
     public boolean addPurchaseOrder(PurchaseOrders purchaseOrders) {
+        // 直接以"运输中"创建订单时补写下单时间
+        if ("运输中".equals(String.valueOf(purchaseOrders.getStatus()))) {
+            purchaseOrders.setOrderTime(LocalDateTime.now());
+        }
         // 重试机制：处理采购订单编号并发冲突
         for (int i = 0; i < MAX_RETRY; i++) {
             // 未提供编号时自动生成（替代原数据库触发器逻辑）
@@ -189,6 +194,11 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
                 && "运输中".equals(String.valueOf(purchaseOrders.getStatus()))) {
             PurchaseOrders order = this.getById(purchaseOrders.getId());
             if (order != null) {
+                // 兼容通过通用更新入口直接改为"运输中"的场景，补写下单时间
+                if (order.getOrderTime() == null) {
+                    order.setOrderTime(LocalDateTime.now());
+                    this.updateById(order);
+                }
                 createAcceptanceFromOrder(order);
             }
         }
@@ -356,6 +366,8 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
 
         // 主单状态 → 运输中，并自动生成验收单（幂等）
         order.setStatus(AcceptanceStatusPolicy.MAIN_TRANSPORTING);
+        // 下单时间：确认采购动作发生的时间，供生产计划采购流程时间线使用
+        order.setOrderTime(LocalDateTime.now());
         this.updateById(order);
         createAcceptanceFromOrder(order);
         // 回写关联采购计划的采购进度

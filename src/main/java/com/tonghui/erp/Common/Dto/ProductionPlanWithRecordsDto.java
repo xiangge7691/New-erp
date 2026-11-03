@@ -32,4 +32,14 @@ public class ProductionPlanWithRecordsDto extends ProductionPlan {
      * 该计划的生产任务（工单）列表
      */
     private List<WorkOrder> workOrders;
+
+    /**
+     * 关联采购进度摘要（列表展示用）
+     */
+    private ProductionPlanPurchaseSummaryDto purchaseProgress;
+
+    /**
+     * 生产计划时间/需交付时间逾期信息
+     */
+    private ProductionPlanOverdueDto overdue;
 }

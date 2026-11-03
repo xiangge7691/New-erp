@@ -79,6 +79,7 @@ public class PurchasePlanStatusTrackingTest {
         assertEquals(AcceptanceStatusPolicy.ORDER_PENDING, approved.getCurrentStatus(),
                 "审批通过后采购进度应为待采购");
         assertNotNull(approved.getCurrentStatusDate(), "审批通过后应记录采购进度日期");
+        assertNotNull(approved.getApprovalTime(), "审批通过后应记录审批时间");
 
         PurchaseOrders order = purchaseOrdersMapper.selectById(approved.getPurchaseOrderId());
         assertEquals(AcceptanceStatusPolicy.ORDER_PENDING, String.valueOf(order.getStatus()));
@@ -90,6 +91,8 @@ public class PurchasePlanStatusTrackingTest {
         purchaseOrdersService.confirmPurchase(order.getId());
         assertEquals(AcceptanceStatusPolicy.MAIN_TRANSPORTING, currentStatus(plan.getId()),
                 "确认采购后采购进度应为运输中");
+        PurchaseOrders confirmed = purchaseOrdersMapper.selectById(order.getId());
+        assertNotNull(confirmed.getOrderTime(), "确认采购后应记录下单时间");
     }
 
     /**

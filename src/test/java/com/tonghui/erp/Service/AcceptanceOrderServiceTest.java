@@ -177,7 +177,9 @@ public class AcceptanceOrderServiceTest {
 
         // 确认到货：运输中 → 验收中，明细进入待初验
         acceptanceOrderService.confirmArrival(id);
-        assertEquals("验收中", acceptanceOrderService.getAcceptanceById(id).getStatus());
+        AcceptanceOrder arrived = acceptanceOrderService.getAcceptanceById(id);
+        assertEquals("验收中", arrived.getStatus());
+        assertNotNull(arrived.getArrivalTime(), "确认到货后应记录到货时间");
 
         // 逐行初验合格（detailIds为空=全部待初验行）：主单维持验收中，明细进入待检验
         acceptanceOrderService.inspect(id, null, true, "数量外观核对无误");
@@ -188,7 +190,9 @@ public class AcceptanceOrderServiceTest {
 
         // 逐行检验合格：明细进入待入库，主单按明细派生仍为验收中（等待整单入库）
         acceptanceOrderService.qualityCheck(id, null, true, "合格");
-        assertEquals("验收中", acceptanceOrderService.getAcceptanceById(id).getStatus());
+        AcceptanceOrder accepted = acceptanceOrderService.getAcceptanceById(id);
+        assertEquals("验收中", accepted.getStatus());
+        assertNotNull(accepted.getAcceptanceTime(), "全部明细检验完成后应记录验收完成时间");
         assertTrue(acceptanceOrderService.getDetailsByAcceptanceId(id).stream()
                         .allMatch(d -> "待入库".equals(d.getStatus())),
                 "检验合格后明细应全部为待入库");

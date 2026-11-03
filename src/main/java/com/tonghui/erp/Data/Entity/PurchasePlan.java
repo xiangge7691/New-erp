@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -157,6 +158,13 @@ public class PurchasePlan extends AuditEntity {
      */
     @TableField(value = "status")
     private String status;
+
+    /**
+     * 审批完成/驳回时间（服务端写入，前端只读）
+     */
+    @TableField(value = "approval_time")
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    private LocalDateTime approvalTime;
 
     /**
      * 审批意见

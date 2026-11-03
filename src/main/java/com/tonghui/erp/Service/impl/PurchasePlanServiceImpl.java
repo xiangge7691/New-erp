@@ -1,6 +1,7 @@
 package com.tonghui.erp.Service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.Purchase.PurchasePlanWithDetailsDto;
@@ -72,6 +73,10 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
         // 设置默认状态
         if (!StringUtils.hasText(purchasePlan.getStatus())) {
             purchasePlan.setStatus("草稿");
+        }
+        // 创建时即为审批终态的场景，同步补审批时间
+        if ("已审批".equals(purchasePlan.getStatus()) || "已驳回".equals(purchasePlan.getStatus())) {
+            purchasePlan.setApprovalTime(LocalDateTime.now());
         }
 
         boolean saved = this.save(purchasePlan);
@@ -160,6 +165,10 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
 
         // 更新状态和审批意见
         plan.setStatus(targetStatus);
+        // 审批完成/驳回时间：仅在这两个终态写入，供生产计划采购流程时间线使用
+        if ("已审批".equals(targetStatus) || "已驳回".equals(targetStatus)) {
+            plan.setApprovalTime(LocalDateTime.now());
+        }
         if (StringUtils.hasText(approvalOpinion)) {
             plan.setApprovalOpinion(approvalOpinion);
         }
@@ -190,7 +199,14 @@ public class PurchasePlanServiceImpl extends ServiceImpl<PurchasePlanMapper, Pur
             return true;
         }
 
-        return this.updateById(plan);
+        boolean updated = this.updateById(plan);
+        // 从审批终态退回草稿/待审批时清空审批时间，避免时间线展示过期审批节点
+        if (!"已驳回".equals(targetStatus)) {
+            this.update(new UpdateWrapper<PurchasePlan>()
+                    .eq("id", planId)
+                    .set("approval_time", null));
+        }
+        return updated;
     }
 
     @Override

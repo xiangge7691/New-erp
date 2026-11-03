@@ -17,6 +17,7 @@ import com.tonghui.erp.Data.mapper.ProductionProcessRecordMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderMapper;
 import com.tonghui.erp.Service.ProductionPlanService;
 import com.tonghui.erp.Data.mapper.ProductionPlanMapper;
+import com.tonghui.erp.Service.ProductionPlanProgressService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -61,6 +62,10 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
     /** 制剂数据访问层，用于查询时为单价为空的计划回填制剂销售价 */
     @Autowired
     private PreparationMapper preparationMapper;
+
+    /** 采购进度服务，用于填充采购摘要和逾期信息 */
+    @Autowired
+    private ProductionPlanProgressService productionPlanProgressService;
 
     // endregion
     
@@ -561,6 +566,9 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
 
         // 制剂规格实时派生（生产计划表未存规格，按制剂主数据批量回填）
         fillPreparationSpec(dtos);
+
+        // 采购进度摘要与逾期标记（批量查询采购计划/订单，避免 N+1）
+        productionPlanProgressService.fillPurchaseSummaries(dtos);
 
         result.setItems(dtos);
         result.setTotalCount(parentPage.getTotal());
