@@ -38,6 +38,7 @@ import org.springframework.util.StringUtils;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -1302,6 +1303,15 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
 
     /**
      * 计算生产计划逾期信息
+     * <p>
+     * 逾期口径（按自然日计算）：
+     * <ul>
+     *   <li>计划生产时间：实际生产开始时间与计划生产时间比较；尚未开始生产时与当前时间比较</li>
+     *   <li>需交付时间：成品实际出库时间与需交付时间比较；尚未出库时与当前时间比较</li>
+     *   <li>已完成/已归档计划保留历史逾期结果，不再直接归零</li>
+     *   <li>作废计划不参与逾期计算</li>
+     * </ul>
+     * </p>
      *
      * @param plan 生产计划
      * @return 逾期信息
@@ -1309,70 +1319,158 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
     @Override
     public ProductionPlanOverdueDto calculateOverdue(ProductionPlan plan) {
         ProductionPlanOverdueDto dto = new ProductionPlanOverdueDto();
-        if (plan == null) {
-            dto.setPlanProductionTime(false);
-            dto.setPlanProductionOverdueMinutes(0L);
-            dto.setDeliveryTime(false);
-            dto.setDeliveryOverdueMinutes(0L);
-            dto.setLevel("NONE");
-            dto.setText(null);
+        if (plan == null || "作废".equals(plan.getCurrentStatus())) {
+            clearOverdue(dto);
             return dto;
         }
+
         boolean finished = "已完成".equals(plan.getCurrentStatus())
                 || "已归档".equals(plan.getCurrentStatus())
                 || Integer.valueOf(1).equals(plan.getIsArchived());
-        long planMinutes = overdueMinutes(plan.getPlanProductionTime(), finished);
-        long deliveryMinutes = overdueMinutes(plan.getDeliveryTime(), finished);
+        LocalDateTime now = LocalDateTime.now();
 
-        dto.setPlanProductionTime(planMinutes > 0);
-        dto.setPlanProductionOverdueMinutes(planMinutes);
-        dto.setDeliveryTime(deliveryMinutes > 0);
-        dto.setDeliveryOverdueMinutes(deliveryMinutes);
-        if (planMinutes > 0 && deliveryMinutes > 0) {
+        // 计划生产时间：以实际生产开始时间作为实际值；尚未开始生产时按当前时间持续计算
+        LocalDateTime actualStart = resolveActualProductionStart(plan, finished, now);
+        long planDays = overdueDays(plan.getPlanProductionTime(), actualStart);
+
+        // 需交付时间：以成品实际出库时间作为实际值；尚未出库时按当前时间持续计算
+        LocalDateTime actualOutbound = resolveActualOutboundTime(plan, now);
+        long deliveryDays = overdueDays(plan.getDeliveryTime(), actualOutbound);
+
+        dto.setPlanProductionTime(planDays > 0);
+        dto.setPlanProductionOverdueDays(planDays);
+        // 兼容旧字段：按自然日折算分钟数
+        dto.setPlanProductionOverdueMinutes(planDays * 24 * 60);
+        dto.setPlanProductionTimeText(buildPerFieldOverdueText(planDays));
+
+        dto.setDeliveryTime(deliveryDays > 0);
+        dto.setDeliveryOverdueDays(deliveryDays);
+        // 兼容旧字段：按自然日折算分钟数
+        dto.setDeliveryOverdueMinutes(deliveryDays * 24 * 60);
+        dto.setDeliveryTimeText(buildPerFieldOverdueText(deliveryDays));
+
+        if (planDays > 0 && deliveryDays > 0) {
             dto.setLevel("BOTH");
-        } else if (planMinutes > 0) {
+        } else if (planDays > 0) {
             dto.setLevel("PLAN");
-        } else if (deliveryMinutes > 0) {
+        } else if (deliveryDays > 0) {
             dto.setLevel("DELIVERY");
         } else {
             dto.setLevel("NONE");
         }
-        dto.setText(buildOverdueText(planMinutes, deliveryMinutes));
+        dto.setText(buildOverdueText(planDays, deliveryDays));
         return dto;
     }
 
     /**
-     * 计算单个时间字段的逾期分钟数
+     * 解析实际生产开始时间
+     * <p>
+     * 优先取计划同步的生产开始时间；历史数据缺失时，已完成/已归档计划回退到生产结束时间或状态变更时间，
+     * 避免把“已完成但缺时间”的计划误判为持续逾期；其余情况回退到当前时间，表示尚未开始生产。
+     * </p>
      *
-     * @param target   目标时间
+     * @param plan     生产计划
      * @param finished 计划是否已完成/已归档
-     * @return 逾期分钟数，未逾期返回 0
+     * @param now      当前时间
+     * @return 实际生产开始时间
      */
-    private long overdueMinutes(LocalDateTime target, boolean finished) {
-        if (target == null || finished) {
-            return 0L;
+    private LocalDateTime resolveActualProductionStart(ProductionPlan plan, boolean finished, LocalDateTime now) {
+        if (plan.getProductionStartTime() != null) {
+            return plan.getProductionStartTime();
         }
-        LocalDateTime now = LocalDateTime.now();
-        if (!now.isAfter(target)) {
-            return 0L;
+        if (!finished) {
+            return now;
         }
-        return Duration.between(target, now).toMinutes();
+        if (plan.getProductionEndTime() != null) {
+            return plan.getProductionEndTime();
+        }
+        if (plan.getCurrentStatusDate() != null) {
+            return plan.getCurrentStatusDate();
+        }
+        return now;
     }
 
     /**
-     * 构建逾期展示文案
+     * 解析实际成品出库时间
+     * <p>
+     * 优先取成品实际出库时间；已归档但缺失出库时间时回退到归档时间，其余情况回退到当前时间，
+     * 表示尚未出库、逾期持续累计。
+     * </p>
      *
-     * @param planMinutes     计划生产时间逾期分钟数
-     * @param deliveryMinutes 需交付时间逾期分钟数
+     * @param plan 生产计划
+     * @param now  当前时间
+     * @return 实际成品出库时间
+     */
+    private LocalDateTime resolveActualOutboundTime(ProductionPlan plan, LocalDateTime now) {
+        if (plan.getOutboundTime() != null) {
+            return plan.getOutboundTime();
+        }
+        if (Integer.valueOf(1).equals(plan.getIsArchived()) && plan.getArchiveTime() != null) {
+            return plan.getArchiveTime();
+        }
+        return now;
+    }
+
+    /**
+     * 计算目标时间的逾期自然日数
+     * <p>
+     * 按日期比较，实际日期晚于目标日期才算逾期；同一天内即使时间更晚也按 0 天处理。
+     * </p>
+     *
+     * @param target 计划时间（计划生产时间/需交付时间）
+     * @param actual 实际时间（实际生产开始时间/实际出库时间）
+     * @return 逾期自然日数，未逾期返回 0
+     */
+    private long overdueDays(LocalDateTime target, LocalDateTime actual) {
+        if (target == null || actual == null) {
+            return 0L;
+        }
+        long days = ChronoUnit.DAYS.between(target.toLocalDate(), actual.toLocalDate());
+        return Math.max(days, 0L);
+    }
+
+    /**
+     * 清空逾期信息（空计划或作废计划）
+     *
+     * @param dto 逾期信息
+     */
+    private void clearOverdue(ProductionPlanOverdueDto dto) {
+        dto.setPlanProductionTime(false);
+        dto.setPlanProductionOverdueDays(0L);
+        dto.setPlanProductionOverdueMinutes(0L);
+        dto.setPlanProductionTimeText(null);
+        dto.setDeliveryTime(false);
+        dto.setDeliveryOverdueDays(0L);
+        dto.setDeliveryOverdueMinutes(0L);
+        dto.setDeliveryTimeText(null);
+        dto.setLevel("NONE");
+        dto.setText(null);
+    }
+
+    /**
+     * 构建单个时间字段的逾期文案
+     *
+     * @param overdueDays 逾期自然日数
+     * @return 展示文案，未逾期返回 null
+     */
+    private String buildPerFieldOverdueText(long overdueDays) {
+        return overdueDays > 0 ? "实际晚了" + overdueDays + "天" : null;
+    }
+
+    /**
+     * 构建逾期合并展示文案
+     *
+     * @param planDays     计划生产时间逾期自然日数
+     * @param deliveryDays 需交付时间逾期自然日数
      * @return 展示文案
      */
-    private String buildOverdueText(long planMinutes, long deliveryMinutes) {
+    private String buildOverdueText(long planDays, long deliveryDays) {
         List<String> parts = new ArrayList<>();
-        if (planMinutes > 0) {
-            parts.add("计划生产时间逾期" + formatDuration(planMinutes));
+        if (planDays > 0) {
+            parts.add("计划生产时间实际晚了" + planDays + "天");
         }
-        if (deliveryMinutes > 0) {
-            parts.add("需交付时间逾期" + formatDuration(deliveryMinutes));
+        if (deliveryDays > 0) {
+            parts.add("需交付时间实际晚了" + deliveryDays + "天");
         }
         return parts.isEmpty() ? null : String.join("，", parts);
     }
