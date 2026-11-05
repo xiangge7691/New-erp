@@ -440,6 +440,80 @@ public class FileStorageServiceImpl implements FileStorageService {
         return fileInfo;
     }
 
+    /**
+     * 按指定相对目录上传文件（不写业务关联）
+     * <p>
+     * 路径：{basePath}/{relativeDir}/{年}/{月}/{实体名}/{uuid.ext}
+     * </p>
+     *
+     * @param file        文件对象
+     * @param relativeDir 相对目录（如“生产管理/工序附件”）
+     * @param entityName  实体名称（用于目录名）
+     * @param description 文件描述
+     * @return 文件信息（未持久化）
+     * @throws IOException IO异常
+     */
+    @Override
+    public FileInfo uploadFileToDir(MultipartFile file, String relativeDir, String entityName,
+                                    String description) throws IOException {
+        if (!isAllowedFileType(file)) {
+            throw new IllegalArgumentException("不支持的文件类型: " + file.getContentType());
+        }
+        if (isFileSizeExceeded(file)) {
+            throw new IllegalArgumentException("文件大小超出限制: " + file.getSize() + " bytes");
+        }
+
+        String originalFilename = file.getOriginalFilename();
+        String extension = getFileExtension(originalFilename);
+        String storedName = generateStoredName(extension);
+
+        Path storagePath = determineDirPath(relativeDir, entityName, storedName);
+        Files.createDirectories(storagePath.getParent());
+        Files.copy(file.getInputStream(), storagePath, StandardCopyOption.REPLACE_EXISTING);
+
+        FileInfo fileInfo = new FileInfo();
+        fileInfo.setOriginalName(originalFilename);
+        fileInfo.setStoredName(storedName);
+        fileInfo.setFilePath(storagePath.toString());
+        fileInfo.setFileSize(file.getSize());
+        fileInfo.setContentType(file.getContentType());
+        fileInfo.setFileExtension(extension);
+        fileInfo.setCategory(relativeDir);
+        fileInfo.setDescription(description);
+        fileInfo.setStorageType("LOCAL");
+
+        if (fileStorageConfig.isEnableMd5Check()) {
+            fileInfo.setFileMd5(calculateMD5(file));
+        }
+
+        return fileInfo;
+    }
+
+    /**
+     * 按指定相对目录确定存储路径（支持“生产管理/工序附件”这类多级目录）
+     *
+     * @param relativeDir 相对目录
+     * @param entityName  实体名称
+     * @param storedName  存储文件名
+     * @return 文件完整存储路径
+     */
+    private Path determineDirPath(String relativeDir, String entityName, String storedName) {
+        String basePath = resolveBasePath();
+        String dir = StringUtils.hasText(relativeDir) ? relativeDir : "通用文件";
+        String year = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy"));
+        String month = LocalDateTime.now().format(DateTimeFormatter.ofPattern("MM"));
+        String safeName = sanitizeFileName(entityName);
+
+        String[] dirParts = dir.split("/");
+        String[] pathParts = new String[dirParts.length + 4];
+        System.arraycopy(dirParts, 0, pathParts, 0, dirParts.length);
+        pathParts[dirParts.length] = year;
+        pathParts[dirParts.length + 1] = month;
+        pathParts[dirParts.length + 2] = safeName;
+        pathParts[dirParts.length + 3] = storedName;
+        return Paths.get(basePath, pathParts);
+    }
+
     // endregion
 
     // region 路径解析辅助方法

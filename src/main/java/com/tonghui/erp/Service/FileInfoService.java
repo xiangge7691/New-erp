@@ -72,6 +72,19 @@ public interface FileInfoService extends IService<FileInfo> {
     FileInfo uploadFileWithBusinessPath(MultipartFile file, String businessType,
                                         Long businessId, String entityName, String description, String customPath) throws IOException;
 
+    /**
+     * 按指定目录上传文件（不写业务关联）
+     *
+     * @param file        文件
+     * @param relativeDir 相对目录
+     * @param entityName  实体名称
+     * @param description 文件描述
+     * @return 保存后的文件信息（含fileId、fileUrl）
+     * @throws IOException IO异常
+     */
+    FileInfo uploadFileToDir(MultipartFile file, String relativeDir, String entityName,
+                             String description) throws IOException;
+
     // endregion
 
     // region 文件操作方法

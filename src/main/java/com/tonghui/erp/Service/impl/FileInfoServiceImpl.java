@@ -113,7 +113,34 @@ public class FileInfoServiceImpl extends ServiceImpl<FileInfoMapper, FileInfo>
 
         return fileInfo;
     }
-    
+
+    /**
+     * 按指定目录上传文件（不写业务关联）
+     * <p>
+     * 供业务附件关系表 business_file 使用：物理文件只写 file_info，
+     * 业务归属由 business_file 关系行表达，避免 file_info 上出现双源关联。
+     * </p>
+     *
+     * @param file        文件
+     * @param relativeDir 相对目录
+     * @param entityName  实体名称
+     * @param description 文件描述
+     * @return 保存后的文件信息（含fileId、fileUrl）
+     * @throws IOException IO异常
+     */
+    @Override
+    @Transactional
+    public FileInfo uploadFileToDir(MultipartFile file, String relativeDir, String entityName,
+                                    String description) throws IOException {
+        FileInfo fileInfo = fileStorageService.uploadFileToDir(file, relativeDir, entityName, description);
+        fileInfo.setFileMd5(fileStorageService.calculateMD5(file));
+        fileInfo.setDescription(description);
+        save(fileInfo);
+        fileInfo.setFileUrl("/api/files/" + fileInfo.getFileId());
+        updateById(fileInfo);
+        return fileInfo;
+    }
+
     // endregion
 
     // region 文件操作方法

@@ -4,6 +4,7 @@ import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.FileInfo;
+import com.tonghui.erp.Service.BusinessFileService;
 import com.tonghui.erp.Service.FileInfoService;
 import com.tonghui.erp.Service.FileOperationLogService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -141,6 +142,12 @@ public class FileController extends BaseController {
     @Autowired
     private FileOperationLogService fileOperationLogService;
 
+    /**
+     * 业务附件服务（用于删除文件前检查业务引用）
+     */
+    @Autowired
+    private BusinessFileService businessFileService;
+
     // region 按业务路径上传
     // ===================================
     // 按业务路径上传
@@ -190,7 +197,11 @@ public class FileController extends BaseController {
      *   },
      *   "timestamp": 1719734400000
      * }
+     *
+     * @deprecated 新业务请使用 POST /api/business-files/upload（统一附件关系表）。
+     *             本接口仅保留给未迁移页面，迁移完成后下线。
      */
+    @Deprecated
     @PostMapping("/upload-business")
     public ApiResponse<FileInfo> uploadFileWithBusinessPath(
             @RequestParam("file") MultipartFile file,
@@ -240,7 +251,11 @@ public class FileController extends BaseController {
      *   file:         [选择文件]
      *   category:     document
      *   description:  通用文档
+     *
+     * @deprecated 新业务请使用 POST /api/business-files/upload（统一附件关系表）。
+     *             本接口仅保留给未迁移页面，迁移完成后下线。
      */
+    @Deprecated
     @PostMapping("/upload")
     public ApiResponse<FileInfo> uploadFile(
             @RequestParam("file") MultipartFile file,
@@ -455,6 +470,11 @@ public class FileController extends BaseController {
     @DeleteMapping("/{id}")
     public ApiResponse<Boolean> deleteFile(@PathVariable Long id) {
         try {
+            // 业务附件关系表存在引用时禁止直接删除文件，避免业务附件悬空
+            long refs = businessFileService.countByFileId(id);
+            if (refs > 0) {
+                return error("该文件已被 " + refs + " 条业务记录引用，请从业务页面删除附件");
+            }
             // 先获取文件信息，用于记录操作日志
             FileInfo fileInfo = fileInfoService.getById(id);
             boolean result = fileInfoService.deleteFile(id);
@@ -514,7 +534,11 @@ public class FileController extends BaseController {
      *   ],
      *   "timestamp": 1719734400000
      * }
+     *
+     * @deprecated 新业务请使用 GET /api/business-files（统一附件关系表）。
+     *             本接口仅保留给未迁移页面，迁移完成后下线。
      */
+    @Deprecated
     @GetMapping("/business")
     public ApiResponse<List<FileInfo>> getFilesByBusiness(
             @RequestParam Long businessId,

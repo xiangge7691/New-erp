@@ -143,5 +143,19 @@ public interface FileStorageService {
     FileInfo uploadFileWithBusinessPath(MultipartFile file, String businessType,
                                         Long businessId, String entityName, String description, String customPath) throws IOException;
 
+    /**
+     * 按指定相对目录上传文件（不写业务关联）
+     * 路径格式：{basePath}/{relativeDir}/{年}/{月}/{实体名}/{uuid.ext}
+     *
+     * @param file        文件对象
+     * @param relativeDir 相对目录（如“生产管理/工序附件”）
+     * @param entityName  实体名称（用于目录名）
+     * @param description 文件描述
+     * @return 文件信息（未持久化）
+     * @throws IOException IO异常
+     */
+    FileInfo uploadFileToDir(MultipartFile file, String relativeDir, String entityName,
+                             String description) throws IOException;
+
     // endregion
 }
