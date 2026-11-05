@@ -219,13 +219,13 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
                 continue;
             }
             LocalDateTime inboundTime = inboundTimeMap.get(plan.getId());
-            BigDecimal durationDays = ProductionDurationUtils.calcDays(resolveDurationStartTime(plan), inboundTime);
-            if (durationDays != null) {
+            BigDecimal durationHours = ProductionDurationUtils.calcHours(resolveDurationStartTime(plan), inboundTime);
+            if (durationHours != null) {
                 samples.add(new ProductionDurationUtils.DurationSample(
                         plan.getPreparationId(),
                         plan.getPreparationCode(),
                         plan.getPreparationName(),
-                        durationDays));
+                        durationHours));
             }
         }
         return ProductionDurationUtils.summarize(samples);
@@ -448,8 +448,8 @@ public class ProductionPlanServiceImpl extends ServiceImpl<ProductionPlanMapper,
         for (ProductionPlan plan : plans) {
             LocalDateTime inboundTime = inboundTimeMap.get(plan.getId());
             plan.setInboundTime(inboundTime);
-            plan.setProductionDurationDays(
-                    ProductionDurationUtils.calcDays(resolveDurationStartTime(plan), inboundTime));
+            plan.setProductionDurationHours(
+                    ProductionDurationUtils.calcHours(resolveDurationStartTime(plan), inboundTime));
         }
     }
 

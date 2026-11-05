@@ -211,11 +211,11 @@ public class ProductionPlan extends AuditEntity {
     private LocalDateTime inboundTime;
 
     /**
-     * 生产用时（天，派生字段，不落库）
-     * <p>采购计划下达时间 → 计划级入库时间</p>
+     * 生产用时（小时，派生字段，不落库）
+     * <p>采购计划下达时间 → 计划级入库时间；无采购计划下达时间时按计划创建时间计算</p>
      */
     @TableField(exist = false)
-    private BigDecimal productionDurationDays;
+    private BigDecimal productionDurationHours;
 
     // endregion
 

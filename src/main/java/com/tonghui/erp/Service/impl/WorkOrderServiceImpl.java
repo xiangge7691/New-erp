@@ -392,13 +392,13 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
             if ("作废".equals(item.getCurrentStatus())) {
                 continue;
             }
-            BigDecimal durationDays = ProductionDurationUtils.calcDays(item.getConfigDate(), item.getInboundTime());
-            if (durationDays != null) {
+            BigDecimal durationHours = ProductionDurationUtils.calcHours(item.getConfigDate(), item.getInboundTime());
+            if (durationHours != null) {
                 samples.add(new ProductionDurationUtils.DurationSample(
                         item.getPreparationId(),
                         item.getPreparationCode(),
                         item.getPreparationName(),
-                        durationDays));
+                        durationHours));
             }
         }
         return ProductionDurationUtils.summarize(samples);
@@ -565,8 +565,8 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
             return;
         }
         for (WorkOrder workOrder : workOrders) {
-            workOrder.setProductionDurationDays(
-                    ProductionDurationUtils.calcDays(workOrder.getConfigDate(), workOrder.getInboundTime()));
+            workOrder.setProductionDurationHours(
+                    ProductionDurationUtils.calcHours(workOrder.getConfigDate(), workOrder.getInboundTime()));
         }
     }
 

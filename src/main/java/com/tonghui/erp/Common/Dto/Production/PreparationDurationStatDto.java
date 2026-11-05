@@ -29,9 +29,9 @@ public class PreparationDurationStatDto {
     private String preparationName;
 
     /**
-     * 平均生产时间（天，保留两位小数）
+     * 平均生产时间（小时，保留两位小数）
      */
-    private BigDecimal avgDays;
+    private BigDecimal avgHours;
 
     /**
      * 参与统计的有效样本数

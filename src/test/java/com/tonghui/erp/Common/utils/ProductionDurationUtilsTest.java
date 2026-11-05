@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 /**
  * 生产用时计算工具类单元测试
  * <p>
- * 覆盖天数计算、无效时间过滤及按制剂平均生产时间汇总等场景，不依赖数据库
+ * 覆盖小时数计算、无效时间过滤及按制剂平均生产时间汇总等场景，不依赖数据库
  * </p>
  */
 public class ProductionDurationUtilsTest {
@@ -24,27 +24,27 @@ public class ProductionDurationUtilsTest {
     // ===================================
 
     /**
-     * 正常时间区间按秒精确换算为天数并保留两位小数
+     * 正常时间区间按秒精确换算为小时并保留两位小数
      */
     @Test
-    public void testCalcDays() {
+    public void testCalcHours() {
         LocalDateTime start = LocalDateTime.of(2026, 1, 1, 0, 0);
         LocalDateTime end = LocalDateTime.of(2026, 1, 2, 12, 0);
 
-        assertEquals(new BigDecimal("1.50"), ProductionDurationUtils.calcDays(start, end));
+        assertEquals(new BigDecimal("36.00"), ProductionDurationUtils.calcHours(start, end));
     }
 
     /**
      * 开始或结束为空、结束早于开始时返回 null
      */
     @Test
-    public void testCalcDaysInvalid() {
+    public void testCalcHoursInvalid() {
         LocalDateTime start = LocalDateTime.of(2026, 1, 2, 0, 0);
         LocalDateTime end = LocalDateTime.of(2026, 1, 1, 0, 0);
 
-        assertNull(ProductionDurationUtils.calcDays(null, end));
-        assertNull(ProductionDurationUtils.calcDays(start, null));
-        assertNull(ProductionDurationUtils.calcDays(start, end));
+        assertNull(ProductionDurationUtils.calcHours(null, end));
+        assertNull(ProductionDurationUtils.calcHours(start, null));
+        assertNull(ProductionDurationUtils.calcHours(start, end));
     }
 
     // endregion
@@ -67,9 +67,9 @@ public class ProductionDurationUtilsTest {
         ProductionDurationSummaryDto summary = ProductionDurationUtils.summarize(samples);
 
         assertEquals(3, summary.getSampleCount());
-        assertEquals(new BigDecimal("3.00"), summary.getAvgDays());
+        assertEquals(new BigDecimal("3.00"), summary.getAvgHours());
         assertEquals(2, summary.getByPreparation().size());
-        assertEquals(new BigDecimal("3.00"), summary.getByPreparation().get(0).getAvgDays());
+        assertEquals(new BigDecimal("3.00"), summary.getByPreparation().get(0).getAvgHours());
         assertEquals(2, summary.getByPreparation().get(0).getSampleCount());
     }
 
@@ -81,7 +81,7 @@ public class ProductionDurationUtilsTest {
         ProductionDurationSummaryDto summary = ProductionDurationUtils.summarize(List.of());
 
         assertEquals(0, summary.getSampleCount());
-        assertNull(summary.getAvgDays());
+        assertNull(summary.getAvgHours());
         assertEquals(0, summary.getByPreparation().size());
     }
 

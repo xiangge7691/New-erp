@@ -17,7 +17,7 @@ import java.util.Map;
 /**
  * 生产用时计算工具类
  * <p>
- * 统一生产计划、生产任务的生产用时口径：开始时间到结束时间的天数，
+ * 统一生产计划、生产任务的生产用时口径：开始时间到结束时间的小时数，
  * 并支持按制剂维度汇总平均生产时间
  * </p>
  */
@@ -28,10 +28,10 @@ public final class ProductionDurationUtils {
     // 常量
     // ===================================
 
-    /** 一天的秒数 */
-    private static final BigDecimal SECONDS_PER_DAY = BigDecimal.valueOf(86400);
+    /** 一小时的秒数 */
+    private static final BigDecimal SECONDS_PER_HOUR = BigDecimal.valueOf(3600);
 
-    /** 平均天数保留小数位 */
+    /** 平均小时数保留小数位 */
     private static final int AVG_SCALE = 2;
 
     // endregion
@@ -55,22 +55,22 @@ public final class ProductionDurationUtils {
     // ===================================
 
     /**
-     * 计算两个时间之间的生产用时（天）
+     * 计算两个时间之间的生产用时（小时）
      * <p>
      * 开始或结束时间为空、结束时间早于开始时间时返回 null
      * </p>
      *
      * @param start 开始时间
      * @param end   结束时间
-     * @return 生产用时（天，保留两位小数），无效时返回 null
+     * @return 生产用时（小时，保留两位小数），无效时返回 null
      */
-    public static BigDecimal calcDays(LocalDateTime start, LocalDateTime end) {
+    public static BigDecimal calcHours(LocalDateTime start, LocalDateTime end) {
         if (!isValid(start, end)) {
             return null;
         }
         long seconds = Duration.between(start, end).getSeconds();
         return BigDecimal.valueOf(seconds)
-                .divide(SECONDS_PER_DAY, AVG_SCALE, RoundingMode.HALF_UP);
+                .divide(SECONDS_PER_HOUR, AVG_SCALE, RoundingMode.HALF_UP);
     }
 
     /**
@@ -99,7 +99,7 @@ public final class ProductionDurationUtils {
      * </p>
      *
      * @param samples 生产用时样本列表
-     * @return 汇总结果（无有效样本时 sampleCount=0、avgDays=null）
+     * @return 汇总结果（无有效样本时 sampleCount=0、avgHours=null）
      */
     public static ProductionDurationSummaryDto summarize(List<DurationSample> samples) {
         ProductionDurationSummaryDto summary = new ProductionDurationSummaryDto();
@@ -109,14 +109,14 @@ public final class ProductionDurationUtils {
 
         // 制剂分组累加器
         Map<String, DurationAccumulator> accumulatorMap = new LinkedHashMap<>();
-        BigDecimal totalDays = BigDecimal.ZERO;
+        BigDecimal totalHours = BigDecimal.ZERO;
         long totalCount = 0;
 
         for (DurationSample sample : samples) {
-            if (sample == null || sample.days() == null || sample.days().signum() < 0) {
+            if (sample == null || sample.hours() == null || sample.hours().signum() < 0) {
                 continue;
             }
-            totalDays = totalDays.add(sample.days());
+            totalHours = totalHours.add(sample.hours());
             totalCount++;
 
             String key = buildPreparationKey(sample);
@@ -127,13 +127,13 @@ public final class ProductionDurationUtils {
                 item.preparationName = sample.preparationName();
                 return item;
             });
-            accumulator.totalDays = accumulator.totalDays.add(sample.days());
+            accumulator.totalHours = accumulator.totalHours.add(sample.hours());
             accumulator.sampleCount++;
         }
 
         summary.setSampleCount(totalCount);
         if (totalCount > 0) {
-            summary.setAvgDays(totalDays.divide(BigDecimal.valueOf(totalCount), AVG_SCALE, RoundingMode.HALF_UP));
+            summary.setAvgHours(totalHours.divide(BigDecimal.valueOf(totalCount), AVG_SCALE, RoundingMode.HALF_UP));
         }
 
         List<PreparationDurationStatDto> byPreparation = new ArrayList<>();
@@ -143,7 +143,7 @@ public final class ProductionDurationUtils {
             item.setPreparationCode(accumulator.preparationCode);
             item.setPreparationName(accumulator.preparationName);
             item.setSampleCount(accumulator.sampleCount);
-            item.setAvgDays(accumulator.totalDays.divide(
+            item.setAvgHours(accumulator.totalHours.divide(
                     BigDecimal.valueOf(accumulator.sampleCount), AVG_SCALE, RoundingMode.HALF_UP));
             byPreparation.add(item);
         }
@@ -189,10 +189,10 @@ public final class ProductionDurationUtils {
      * @param preparationId   制剂ID
      * @param preparationCode 制剂编码
      * @param preparationName 制剂名称
-     * @param days            生产用时（天）
+     * @param hours           生产用时（小时）
      */
     public record DurationSample(Long preparationId, String preparationCode,
-                                 String preparationName, BigDecimal days) {
+                                 String preparationName, BigDecimal hours) {
     }
 
     /**
@@ -209,8 +209,8 @@ public final class ProductionDurationUtils {
         /** 制剂名称 */
         private String preparationName;
 
-        /** 生产用时合计 */
-        private BigDecimal totalDays = BigDecimal.ZERO;
+        /** 生产用时合计（小时） */
+        private BigDecimal totalHours = BigDecimal.ZERO;
 
         /** 样本数 */
         private long sampleCount;
