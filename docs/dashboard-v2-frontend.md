@@ -12,8 +12,8 @@
 |------|---------|
 | 总实际成本 = 原辅包 + 水电气 + 其他 | `actualCost` 构成扩展，新增 `otherAmount` 字段 |
 | 总预计成本 = 制剂预计成本 × 生产数量 | 保持原口径不变，预计成本价改取**工单快照** |
-| 总毛利 / 毛利率 | 以「**成本偏差 / 偏差率**」命名提供（`varianceToEstimated` / `varianceRate`，本次未改名） |
-| 单位实际成本 / 单位预计成本 / 单位偏差 / 单位偏差率 | 明细行新增 4 个字段 |
+| 总毛利 / 毛利率 | 以「**成本节约额 / 成本节约率**」命名提供（`varianceToEstimated` / `varianceRate`，字段名未改） |
+| 单位实际成本 / 单位预计成本 / 单位成本节约额 / 单位成本节约率 | 明细行新增 4 个字段 |
 | 批次生产时间（采购下达 → 成品入库） | 明细行新增 `purchaseDate` / `inboundDate` / `productionDays` |
 | 批次盈亏排行 | 新增图表节点 `batchCostVarianceRank` |
 | 成本构成占比（可分品种） | `costStructure` 增加原料/辅料/包材/其他；新增 `costStructureByPreparation` |
@@ -50,8 +50,8 @@
       "otherAmount": 2000.0,        // ← 新增：其他成本
       "batchCount": 10,
       "ratioOfOutput": 0.8,
-      "varianceToEstimated": 572204.62,  // 成本偏差 = 预计 − 实际
-      "varianceRate": 99.3               // 偏差率（%）
+      "varianceToEstimated": 572204.62,  // 成本节约额 = 预计 − 实际（正=节约）
+      "varianceRate": 99.3               // 成本节约率（%）
     },
     "outputValue": { "...": "未变化" }
   },
@@ -59,12 +59,14 @@
 }
 ```
 
-> **命名对照**：`varianceToEstimated` = 成本偏差（预计成本 − 实际成本），`varianceRate` = 成本偏差率。
-> 前端如需显示「总毛利 / 毛利率」文案，直接复用这两个字段即可，无需后端再改。
+> **命名对照**：`varianceToEstimated` = 成本节约额（预计成本 − 实际成本，正=节约、负=超支），`varianceRate` = 成本节约率。
+> 前端如需显示「节约/超支」文案，直接复用这两个字段即可，无需后端再改。
+>
+> ⚠️ **不要叫「偏差」**：制药语境中「偏差（Deviation）」是 GMP 质量体系专有名词，系统另有「偏差管理」模块，成本口径沿用会与 QA 混淆。
 
 ### 2.2 `/api/dashboard/charts`
 
-#### ① `costTrend[]` 新增偏差字段
+#### ① `costTrend[]` 新增成本节约字段
 
 ```jsonc
 {
@@ -143,10 +145,10 @@
 规则：
 
 - 按 `costVarianceRate` **降序**，最多 10 条。
-- `costVarianceRate > 0` 表示成本低于预估（「盈利」），`< 0` 表示成本超预估。
-- **预计成本为 0 的批次不参与排名**（未维护预计成本价，偏差率无意义）。
-- 只有产生过实际成本行的批次才会入榜，避免「零成本 = 100% 盈利」的假象。
-- 建议展示：横向条形图，正负值用两种颜色；右侧显示「偏差率 %」和「生产天数」。
+- `costVarianceRate > 0` 表示成本低于预计（即「节约」），`< 0` 表示成本超出预计（即「超支」）。
+- **预计成本为 0 的批次不参与排名**（未维护预计成本价，节约率无意义）。
+- 只有产生过实际成本行的批次才会入榜，避免「零成本 = 100% 节约」的假象。
+- 建议展示：横向条形图，正负值用两种颜色；右侧显示「成本节约率 %」和「生产天数」。
 
 #### ⑤ `costStructureByPreparation[]`（新增：品种成本构成）
 
@@ -189,8 +191,8 @@
 |------|------|------|---------|
 | `unitEstimatedCost` | 元/件 | 单位预计成本（**快照价**） | 预估成本、实际成本明细 |
 | `unitActualCost` | 元/件 | 单位实际成本 = 实际成本 ÷ 批量 | 实际成本明细 |
-| `unitCostVariance` | 元/件 | 单位成本偏差 = 单位预计 − 单位实际 | 实际成本明细 |
-| `unitCostVarianceRate` | % | 单位偏差率 = 单位偏差 ÷ 单位预计 | 实际成本明细 |
+| `unitCostVariance` | 元/件 | 单位成本节约额 = 单位预计 − 单位实际（正=节约） | 实际成本明细 |
+| `unitCostVarianceRate` | % | 单位成本节约率 = 单位节约额 ÷ 单位预计 | 实际成本明细 |
 | `rawMaterialAmount` | 元 | 原料成本 | 实际成本明细 |
 | `auxiliaryMaterialAmount` | 元 | 辅料成本 | 实际成本明细 |
 | `packagingAmount` | 元 | 包材成本 | 实际成本明细 |
@@ -258,9 +260,9 @@
 ### 3.3 明细下钻
 
 - 批次表新增列（建议默认隐藏后 3 列，提供「列设置」）：
-  `单位预计成本`、`单位实际成本`、`单位偏差`、`偏差率`、`原料`、`辅料`、`包材`、`其他`、`采购下达`、`成品入库`、`生产天数`
+  `预计单位成本`、`实际单位成本`、`单位成本节约额`、`单位成本节约率`、`原料`、`辅料`、`包材`、`其他`、`采购下达`、`成品入库`、`生产天数`
 - 数值为空时统一显示 `—`，不要当 0 处理（`productionDays` 为 null 表示采购单缺少生产计划关联，属于数据问题不是 0 天）。
-- `rowType` 为「未关联制剂」「未分摊水电气」的行：不要展示单位成本与偏差列（无意义）。
+- `rowType` 为「未关联制剂」「未分摊水电气」的行：不要展示单位成本与节约额列（无意义）。
 
 ### 3.4 能耗录入页（`/api/energy`）
 
@@ -331,12 +333,13 @@ WHERE (w.sales_price IS NULL OR w.sales_price = 0) AND p.sales_price IS NOT NULL
 ## 7. 口径备忘
 
 1. **生产数量**：一律使用工单批量 `batch_qty`（按批，不按件），胶囊类同样适用。
-2. **成本偏差**：`预计成本 − 实际成本`，正数 = 成本低于预期。
+2. **成本节约额**：`预计成本 − 实际成本`，正数 = 成本低于预计（节约），负数 = 超支；节约率 = 节约额 ÷ 预计成本。
 3. **水电气 / 其他成本分摊**：按月金额 ÷ 当月已交付工单数，尾差由最后一张工单承接。
 4. **物料成本**：出库明细金额 − 退库冲减，先归生产计划，再按批量分摊到工单。
 5. **原辅包拆分**：按「月份 + 计划」的分类金额比例拆分到工单，尾差计入包材，保证行内三类之和 = 物料成本。
 6. **批次生产天数**：`成品入库时间 − 最早采购单创建时间`，向上取整；采购单优先按 `production_plan_id` 关联，缺失时回退 `production_plan_code`。
 7. **快照优先级**：工单快照 → 制剂编码 → 制剂 ID。只有工单创建时的价格会被冻结，`updateWorkOrder` 不回写快照。
+8. **计划归属月份**：优先取「计划生产时间」；该字段为空时回退「创建时间」。待生产计划常未填计划生产时间，若不回退会被区间过滤整体丢弃，导致总计划量 / 待生产计划量偏小。`总计划量` = 区间内有效（未删除、未作废）计划单数，`待生产` = 计划量未交完的计划单数，满足「已全部交付 + 待生产 = 总计划」。
 
 ---
 
@@ -371,7 +374,7 @@ WHERE (w.sales_price IS NULL OR w.sales_price = 0) AND p.sales_price IS NOT NULL
 }
 ```
 
-> 测试库物料金额很小（出库数据少），所以偏差率接近 100%，属数据量问题而非算法问题。
+> 测试库物料金额很小（出库数据少），所以成本节约率接近 100%，属数据量问题而非算法问题。
 
 ---
 
@@ -385,10 +388,10 @@ WHERE (w.sales_price IS NULL OR w.sales_price = 0) AND p.sales_price IS NOT NULL
 | `Data/mapper/EnergyRecordMapper.java` | 汇总 SQL 新增 `otherAmount` |
 | `Common/Dto/Dashboard/DashboardMetricsDto.java` | `ActualCostCardDto` 新增 `otherAmount` |
 | `Common/Dto/Dashboard/DashboardDetailRowDto.java` | 新增单位成本、原辅包、周期共 11 个字段 |
-| `Common/Dto/Dashboard/DashboardTreeDto.java` | 新增偏差与批次扩展字段 |
-| `Common/Dto/Dashboard/ChartDataDto.java` | 趋势偏差、构成分类、生产平衡、两个新图表 |
+| `Common/Dto/Dashboard/DashboardTreeDto.java` | 新增成本节约与批次扩展字段 |
+| `Common/Dto/Dashboard/ChartDataDto.java` | 趋势成本节约、构成分类、生产平衡、两个新图表 |
 | `Service/DashboardCostService.java` | 新增 2 个图表方法 |
 | `Service/impl/DashboardCostServiceImpl.java` | 快照取价、其他成本、分类拆分、批次周期、2 个新图表 |
 | `Service/impl/DashboardProductionServiceImpl.java` | 生产平衡数据 |
-| `Service/impl/DashboardTreeServiceImpl.java` | 偏差与批次扩展字段 |
+| `Service/impl/DashboardTreeServiceImpl.java` | 成本节约与批次扩展字段 |
 | `Controller/DashboardController.java` | `/charts` 挂载 2 个新图表 |

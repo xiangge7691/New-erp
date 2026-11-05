@@ -1,0 +1,1553 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>首页看板 V2 · 结构示例</title>
+<style>
+  :root {
+    --primary: #2f6fed;
+    --violet: #7a5af8;
+    --green: #12b76a;
+    --amber: #f79009;
+    --cyan: #06aed4;
+    --rose: #f04438;
+    --other: #667085;
+    --text: #182230;
+    --muted: #6b7787;
+    --line: #e6eaf2;
+    --bg: #f5f7fb;
+    --soft: #fbfcff;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+      "Microsoft YaHei", Arial, sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .page { max-width: 1480px; margin: 0 auto; padding: 22px 24px 70px; }
+
+  /* ---------- 页头 ---------- */
+  .page-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .page-title { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.2px; }
+  .page-sub { margin: 4px 0 0; color: var(--muted); }
+  .toolbar { display: flex; align-items: center; gap: 8px; }
+  .input, .btn {
+    height: 32px;
+    padding: 0 11px;
+    font-size: 12.5px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: #fff;
+    color: var(--text);
+  }
+  .btn { cursor: pointer; }
+  .btn--primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+  .notice {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 11px 14px;
+    margin-bottom: 4px;
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: #4a3a8f;
+    background: #fcfaff;
+    border: 1px solid #d9d6fe;
+    border-radius: 10px;
+  }
+  .notice b { color: #5b3fd1; }
+  .notice code {
+    padding: 1px 5px;
+    font-size: 11.5px;
+    color: #5b3fd1;
+    background: #f4f3ff;
+    border-radius: 4px;
+  }
+
+  /* ---------- 分组标题 ---------- */
+  .group {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    flex-wrap: wrap;
+    margin: 24px 0 10px;
+  }
+  .group__tag {
+    padding: 3px 10px;
+    font-size: 12px;
+    font-weight: 650;
+    color: #344054;
+    background: #eaf0ff;
+    border-radius: 20px;
+  }
+  .group__tag--prod { color: #067647; background: #e8f8f0; }
+  .group__desc { font-size: 12px; color: var(--muted); }
+
+  /* ---------- 栅格 / 卡片 ---------- */
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .charts2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 14px; }
+  .charts3 { display: grid; grid-template-columns: 1.15fr 1fr 1.1fr; gap: 14px; }
+
+  .card {
+    position: relative;
+    padding: 16px 18px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+  }
+  .card.is-new { border: 1px dashed #bdb4fe; box-shadow: 0 0 0 3px rgba(122, 90, 248, 0.05); }
+
+  .card__head {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .card__title {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin: 0;
+    font-size: 14.5px;
+    font-weight: 650;
+  }
+  .card__desc { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+  .dot {
+    display: inline-block;
+    width: 4px;
+    height: 15px;
+    background: var(--primary);
+    border-radius: 2px;
+    flex: none;
+  }
+  .dot--green { background: var(--green); }
+  .dot--amber { background: var(--amber); }
+  .dot--cyan { background: var(--cyan); }
+  .dot--rose { background: var(--rose); }
+
+  /* ---------- 新增标记 ---------- */
+  .new-tag {
+    display: inline-flex;
+    align-items: center;
+    height: 18px;
+    padding: 0 6px;
+    font-size: 11px;
+    font-weight: 650;
+    color: #6941c6;
+    background: #f4f3ff;
+    border: 1px solid #d9d6fe;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
+  /* ---------- 指标卡 ---------- */
+  .metric { display: flex; flex-direction: column; gap: 9px; }
+  .metric__top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .metric__title { margin: 0; font-size: 14px; font-weight: 650; }
+  .metric__formula { font-size: 11.5px; color: var(--muted); }
+  .metric__value {
+    font-size: 29px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    font-variant-numeric: tabular-nums;
+  }
+  .metric__value small { margin-left: 4px; font-size: 12px; font-weight: 400; letter-spacing: 0; color: var(--muted); }
+  .metric__rows {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--line);
+  }
+  .metric__row { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); }
+  .metric__row b { font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; }
+  .metric__foot { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill {
+    padding: 1px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #475467;
+    background: #f2f5fa;
+    border-radius: 20px;
+  }
+  .pill--down { color: #067647; background: #e8f8f0; }
+  .pill--up { color: #b42318; background: #fef3f2; }
+  .pill--warn { color: #b54708; background: #fff4e5; }
+
+  /* ---------- 实际成本构成条 ---------- */
+  .compose {
+    display: flex;
+    width: 100%;
+    height: 9px;
+    overflow: hidden;
+    background: #eef1f7;
+    border-radius: 9px;
+  }
+  .compose span { display: block; height: 100%; }
+  .compose-legend {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+  .compose-legend i {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 4px;
+    border-radius: 2px;
+  }
+
+  /* ---------- 产值成本率对比尺 ---------- */
+  .ratio {
+    margin-top: 14px;
+    padding: 16px 18px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+  }
+  .ratio__head {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+  .ratio__title { font-size: 14.5px; font-weight: 650; }
+  .ratio__sub { font-size: 12px; color: var(--muted); }
+  .ratio__gap { font-size: 12px; color: var(--muted); }
+  .ratio__gap b { color: var(--amber); }
+  .ratio__row {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr) 96px;
+    gap: 10px;
+    align-items: center;
+    margin: 9px 0;
+  }
+  .ratio__name { display: flex; align-items: center; gap: 6px; font-size: 12.5px; }
+  .ratio__name i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; }
+  .ratio__track { height: 8px; overflow: hidden; background: #eef1f7; border-radius: 6px; }
+  .ratio__track i { display: block; height: 100%; border-radius: 6px; }
+  .ratio__value { text-align: right; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .ratio__note {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding-top: 9px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--muted);
+    border-top: 1px dashed var(--line);
+  }
+  .ratio__note b { color: var(--text); }
+
+  /* ---------- 生产平衡 ---------- */
+  .balance {
+    margin-top: 14px;
+    padding: 16px 18px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+  }
+  .balance__head {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .balance__title { font-size: 14.5px; font-weight: 650; }
+  .balance__sub { font-size: 12px; color: var(--muted); }
+  .balance__total { font-size: 12px; font-weight: 600; color: #475467; }
+  .balance__bar {
+    display: flex;
+    height: 30px;
+    overflow: hidden;
+    background: #eef1f7;
+    border-radius: 8px;
+  }
+  .balance__bar span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #fff;
+  }
+  .balance__legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 9px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .balance__legend i {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 5px;
+    border-radius: 2px;
+  }
+  .balance__legend b { margin-left: 4px; color: var(--text); }
+  .balance__tip { margin: 8px 0 0; font-size: 11.5px; color: #b54708; }
+
+  /* ---------- 图例 ---------- */
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11.5px; color: var(--muted); }
+  .legend i { display: inline-block; width: 9px; height: 9px; margin-right: 4px; border-radius: 2px; }
+  .chart-unit { font-size: 11px; color: var(--muted); }
+
+  /* ---------- 月度趋势柱 ---------- */
+  .trend__plot {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-around;
+    height: 200px;
+    padding: 10px 4px 0;
+    border-bottom: 1px solid var(--line);
+    background: repeating-linear-gradient(to top, transparent 0 49px, #f0f3f9 49px 50px);
+  }
+  .trend__group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    height: 100%;
+  }
+  .trend__bars { display: flex; align-items: flex-end; gap: 4px; height: 170px; }
+  .bar { display: block; width: 14px; background: var(--primary); border-radius: 3px 3px 0 0; }
+  .bar--violet { background: var(--violet); }
+  .bar--green { background: var(--green); }
+  .bar--amber { background: var(--amber); }
+  .bar--cyan { background: var(--cyan); }
+  .trend__label { font-size: 11px; color: var(--muted); }
+
+  /* ---------- 7 段堆叠柱 ---------- */
+  .stack-plot {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-around;
+    height: 200px;
+    padding-top: 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  .stack-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 5px;
+    height: 100%;
+  }
+  .stack {
+    display: flex;
+    flex-direction: column-reverse;
+    width: 30px;
+    overflow: hidden;
+    border-radius: 4px 4px 0 0;
+  }
+  .stack i { display: block; width: 100%; }
+  .stack-col b { font-size: 11px; font-weight: 600; color: var(--muted); }
+
+  /* ---------- 品种成本横向堆叠 ---------- */
+  .hstack { display: flex; flex-direction: column; gap: 10px; padding-top: 4px; }
+  .hstack__row {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr) 64px;
+    gap: 8px;
+    align-items: center;
+  }
+  .hstack__name { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+  .hstack__track {
+    display: flex;
+    height: 18px;
+    overflow: hidden;
+    background: #eef1f7;
+    border-radius: 4px;
+  }
+  .hstack__track i { display: block; height: 100%; }
+  .hstack__total { text-align: right; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* ---------- 批次成本节约排行 ---------- */
+  .rank { display: flex; flex-direction: column; gap: 13px; padding-top: 6px; }
+  .rank__row {
+    display: grid;
+    grid-template-columns: 168px minmax(0, 1fr) 62px;
+    gap: 8px;
+    align-items: center;
+  }
+  .rank__name { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+  .rank__track {
+    position: relative;
+    display: flex;
+    height: 10px;
+    background: #eef1f7;
+    border-radius: 5px;
+  }
+  .rank__track::after {
+    position: absolute;
+    top: -3px;
+    bottom: -3px;
+    left: 50%;
+    width: 1px;
+    content: "";
+    background: #c7d2e5;
+  }
+  .rank__left { display: flex; justify-content: flex-end; width: 50%; }
+  .rank__right { width: 50%; }
+  .rank__left i, .rank__right i { display: block; height: 10px; border-radius: 5px; }
+  .rank__val { text-align: right; font-size: 11.5px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .rank__val.pos { color: var(--green); }
+  .rank__val.neg { color: var(--rose); }
+
+  /* ---------- 折线 / Top5 ---------- */
+  .line-chart { display: block; width: 100%; height: 205px; }
+  .top5 { display: flex; flex-direction: column; gap: 11px; padding-top: 10px; }
+  .top5__row {
+    display: grid;
+    grid-template-columns: 88px minmax(0, 1fr) 62px;
+    gap: 8px;
+    align-items: center;
+  }
+  .top5__name { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+  .top5__track { height: 14px; overflow: hidden; background: #eef1f7; border-radius: 4px; }
+  .top5__track i { display: block; height: 100%; background: var(--cyan); border-radius: 4px; }
+  .top5__val { text-align: right; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* ---------- 明细表 ---------- */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+  table.data { width: 100%; min-width: 1420px; border-collapse: collapse; font-size: 11px; }
+  table.data th, table.data td {
+    padding: 7px;
+    text-align: left;
+    white-space: nowrap;
+    border-bottom: 1px solid #eef1f7;
+  }
+  table.data th { font-weight: 650; color: #475467; background: #f8faff; }
+  table.data td.num, table.data th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  table.data tr:last-child td { border-bottom: 0; }
+  table.data tr.total td { font-weight: 650; background: #fbfcff; }
+  .table-note { margin: 8px 0 0; font-size: 11.5px; color: var(--muted); }
+  .table-scroll-hint { margin: 0 0 8px; font-size: 11.5px; color: #6941c6; }
+
+  /* ---------- 明细树 ---------- */
+  .tree { display: flex; flex-direction: column; gap: 8px; }
+  .tree__month { overflow: hidden; border: 1px solid var(--line); border-radius: 10px; }
+  .tree__month-head {
+    display: grid;
+    grid-template-columns: 20px 130px repeat(5, minmax(0, 1fr));
+    gap: 8px;
+    align-items: center;
+    padding: 11px 14px;
+    font-weight: 650;
+    background: var(--soft);
+  }
+  .tree__month-head .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .tree__month-head small { display: block; font-size: 10.5px; font-weight: 400; color: var(--muted); }
+  .tree__body { padding: 6px 14px 14px; }
+  .tree__prep { margin-top: 8px; overflow: hidden; border: 1px solid var(--line); border-radius: 9px; }
+  .tree__prep-head {
+    display: grid;
+    grid-template-columns: 20px 200px repeat(4, minmax(0, 1fr)) 86px;
+    gap: 8px;
+    align-items: center;
+    padding: 9px 12px;
+    font-size: 12.5px;
+    font-weight: 650;
+    background: #fff;
+  }
+  .tree__prep-head .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .tree__prep-head .unit { font-weight: 600; }
+  .tree__prep-body { padding: 0 10px 10px; }
+  .tree__batch-title { margin: 8px 0 6px; font-size: 11.5px; font-weight: 650; color: #3d4a5c; }
+  .chev { font-size: 10px; color: var(--muted); }
+  table.tree-table { width: 100%; min-width: 1080px; border-collapse: collapse; font-size: 11.5px; }
+  table.tree-table th, table.tree-table td {
+    padding: 7px 8px;
+    text-align: right;
+    white-space: nowrap;
+    border: 1px solid #eef1f7;
+  }
+  table.tree-table th { font-weight: 650; color: #475467; background: #fbfcff; }
+  table.tree-table th:first-child, table.tree-table td:first-child { text-align: left; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+  .muted { color: var(--muted); }
+  .tag { display: inline-block; padding: 1px 7px; font-size: 11px; border-radius: 4px; }
+  .tag--success { color: #067647; background: #e8f8f0; }
+  .tag--primary { color: #175cd3; background: #eff4ff; }
+  .tag--warning { color: #b54708; background: #fff4e5; }
+  .tag--info { color: #475467; background: #f2f4f7; }
+
+  /* ---------- 弹窗示例 ---------- */
+  .dialog {
+    max-width: 780px;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: 0 16px 44px rgba(16, 24, 40, 0.12);
+  }
+  .dialog__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    font-weight: 650;
+    border-bottom: 1px solid var(--line);
+  }
+  .dialog__body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 18px;
+    padding: 18px;
+  }
+  .form-item { display: flex; flex-direction: column; gap: 5px; }
+  .form-item label { font-size: 12px; color: #475467; }
+  .form-item label em { margin-right: 3px; font-style: normal; color: var(--rose); }
+  .form-control {
+    display: flex;
+    align-items: center;
+    height: 34px;
+    padding: 0 10px;
+    font-size: 12.5px;
+    background: #fff;
+    border: 1px solid #d0d5dd;
+    border-radius: 7px;
+  }
+  .form-control.is-disabled { color: var(--muted); background: #f8fafc; }
+  .form-control.is-select { justify-content: space-between; }
+  .form-control .arrow { font-size: 10px; color: #98a2b3; }
+  .form-item--full { grid-column: 1 / -1; }
+  .hidden-fields {
+    grid-column: 1 / -1;
+    padding: 10px 12px;
+    font-size: 11.5px;
+    color: #6941c6;
+    background: #fcfaff;
+    border: 1px dashed #d9d6fe;
+    border-radius: 8px;
+  }
+  .dialog__foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 18px;
+    border-top: 1px solid var(--line);
+  }
+  .energy-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+  /* ---------- 响应式 ---------- */
+  @media (max-width: 1100px) {
+    .charts3, .charts2 { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 820px) {
+    .page { padding: 16px 14px 50px; }
+    .grid3 { grid-template-columns: 1fr; }
+    .dialog__body { grid-template-columns: 1fr; }
+    .tree__month-head { grid-template-columns: 20px 90px repeat(5, minmax(0, 1fr)); }
+    .tree__prep-head { grid-template-columns: 20px 120px repeat(4, minmax(0, 1fr)) 60px; }
+  }
+
+</style>
+</head>
+<body>
+<div class="page">
+<header class="page-head">
+  <div>
+    <h1 class="page-title">经营看板 · 成本核算与生产</h1>
+    <p class="page-sub">数据区间 2026-08 ~ 2026-10 · 示例数据（演示口径，仅用于确认结构）</p>
+  </div>
+  <div class="toolbar">
+    <input class="input" value="2026-08" readonly />
+    <span class="muted">~</span>
+    <input class="input" value="2026-10" readonly />
+    <button class="btn btn--primary">查询</button>
+    <button class="btn">重置</button>
+  </div>
+</header>
+
+<div class="notice">
+  <span>ⓘ</span>
+  <div>
+    <b>这是静态结构示例，不是真实数据。</b>
+    紫色虚线框 / <span class="new-tag">新增</span> 标出本次 V2 的变化；其余为原有结构，保持不动。
+    重点确认：① 实际成本构成是否加「其他」；② 生产平衡是否改按「批」；③ 两张新图位置是否合适；④ 明细列是否过宽；⑤ 能耗「其他」表单是否符合预期；
+    ⑥ 新命名是否接受（产值成本率 / 成本节约额 / 成本节约率 / 末月环比）。
+  </div>
+</div>
+
+<div class="group">
+  <span class="group__tag">Top 1 成本</span>
+  <span class="group__desc">预估成本 / 实际成本 / 预估产值 · 卡片主数值单位：万元</span>
+</div>
+
+<div class="grid3">
+  <div class="card">
+    <div class="metric">
+      <div class="metric__top">
+        <h2 class="metric__title">预估成本</h2>
+        <span class="metric__formula">预计成本价 × 批量</span>
+      </div>
+      <div class="metric__value">58.79<small>万元</small></div>
+      <div class="metric__foot">
+        <span class="pill" title="末月 10 月 vs 上一自然月 9 月：（本月 − 上月）÷ 上月">末月环比 +12.3%</span>
+        <span class="pill">10 批</span>
+        <span class="pill">按批次核算</span>
+      </div>
+      <div class="metric__rows">
+        <div class="metric__row"><span>批量合计</span><b>39,200 件</b></div>
+        <div class="metric__row"><span>单位成本（元/件）</span><b>15.00</b></div>
+        <div class="metric__row" title="预估成本 ÷ 预估产值 × 100%"><span>产值成本率</span><b>112.5%</b></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="metric">
+      <div class="metric__top">
+        <h2 class="metric__title">实际成本 <span class="new-tag">构成变化</span></h2>
+        <span class="metric__formula">原辅包 + 水电气 + 其他</span>
+      </div>
+      <div class="metric__value">40.11<small>万元</small></div>
+      <div
+        class="compose"
+        title="物料 38.11万（95.0%）/ 水 0.80万 / 电 0.60万 / 气 0.40万 / 其他 0.20万"
+      >
+        <span style="width:95%;background:#2f6fed"></span>
+        <span style="width:2%;background:#06aed4"></span>
+        <span style="width:1.5%;background:#7a5af8"></span>
+        <span style="width:1%;background:#f79009"></span>
+        <span style="width:0.5%;background:#667085"></span>
+      </div>
+      <div class="compose-legend">
+        <span><i style="background:#2f6fed"></i>物料 38.11万</span>
+        <span><i style="background:#06aed4"></i>水 0.80万</span>
+        <span><i style="background:#7a5af8"></i>电 0.60万</span>
+        <span><i style="background:#f79009"></i>气 0.40万</span>
+        <span><i style="background:#667085"></i>其他 0.20万 <span class="new-tag">新增</span></span>
+      </div>
+      <div class="metric__foot">
+        <span class="pill pill--down">节约 31.8%</span>
+        <span class="pill">较预计成本低 18.68 万元 · 10 批</span>
+      </div>
+      <div class="metric__rows">
+        <div class="metric__row" title="实际成本 ÷ 预估产值 × 100%"><span>产值成本率</span><b>76.8%</b></div>
+        <div class="metric__row" title="预计成本 − 实际成本；正数=成本节约，负数=成本超支">
+          <span>成本节约额</span><b>18.68 万元</b>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="metric">
+      <div class="metric__top">
+        <h2 class="metric__title">预估产值</h2>
+        <span class="metric__formula">生产任务总金额</span>
+      </div>
+      <div class="metric__value">52.26<small>万元</small></div>
+      <div class="metric__foot">
+        <span class="pill pill--down" title="末月 10 月 vs 上一自然月 9 月">末月环比 ↑ 8.2%</span>
+        <span class="pill">10 批</span>
+      </div>
+      <div class="metric__rows">
+        <div class="metric__row" title="实际成本 ÷ 预估产值"><span>实际产值成本率</span><b>76.8%</b></div>
+        <div class="metric__row" title="预估成本 ÷ 预估产值"><span>预估产值成本率</span><b>112.5%</b></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="table-note">
+  <b>「末月环比」说明：</b>环比 = 相邻两个周期相比，公式（本期 − 上期）÷ 上期 × 100%，这里取「最新有数据月 vs 上一自然月」（示例为 10 月 vs 9 月）；
+  与它相对的是同比 = 与去年同月相比。接口 `momRate` 只给「预估成本」「预估产值」两张卡，实际成本卡无此字段。
+  若区间跨多个月，该值只反映最后一个月，所以文案写成「末月环比」而不是笼统的「环比」；不需要也可以整块去掉，不影响其他字段。
+</p>
+
+<div class="ratio">
+  <div class="ratio__head">
+    <div>
+      <div class="ratio__title">产值成本率对比</div>
+      <div class="ratio__sub">
+        产值成本率 = 成本 ÷ 预估产值 × 100%，即以预估产值为 100% 基准
+      </div>
+    </div>
+    <div class="ratio__gap">预估成本较实际高 <b>18.68 万元</b>（31.8 个百分点）</div>
+  </div>
+
+  <div class="ratio__row">
+    <span class="ratio__name"><i style="background:#2f6fed"></i>预估产值</span>
+    <span class="ratio__track"><i style="width:100%;background:#2f6fed"></i></span>
+    <span class="ratio__value">52.26 万元</span>
+  </div>
+  <div class="ratio__row">
+    <span class="ratio__name"><i style="background:#7a5af8"></i>预估成本</span>
+    <span class="ratio__track"><i style="width:100%;background:#7a5af8"></i></span>
+    <span class="ratio__value">112.5%</span>
+  </div>
+  <div class="ratio__row">
+    <span class="ratio__name"><i style="background:#12b76a"></i>实际成本</span>
+    <span class="ratio__track"><i style="width:76.8%;background:#12b76a"></i></span>
+    <span class="ratio__value">76.8%</span>
+  </div>
+
+  <div class="ratio__note">
+    <span>预估成本 <b>58.79 万元</b></span>
+    <span>实际成本 <b>40.11 万元</b></span>
+    <span>成本节约额 <b>18.68 万元</b>（节约率 31.8%）</span>
+    <span>成本节约额持续为正，说明「预计成本价」定得高于实际，建议核对制剂定价。</span>
+  </div>
+  <p class="table-note">
+    产值成本率 &gt; 100% 表示该口径下成本已高于预估产值（定价倒挂）；示例中预估产值成本率 112.5%，即按当前预计成本价投料会亏损。
+    真实生产库因「预计成本价」尚未维护（0 条），预估成本为 0，该处会显示 0.0%。
+  </p>
+</div>
+
+<div class="group">
+  <span class="group__tag group__tag--prod">Top 2 生产</span>
+  <span class="group__desc">总计划量 / 总交付量 / 待生产计划量 · 卡片主数值为单据数，数量见副信息</span>
+</div>
+
+<div class="grid3">
+  <div class="card">
+    <div class="metric">
+      <div class="metric__top">
+        <h2 class="metric__title">总计划量</h2>
+        <span class="metric__formula">生产计划单数</span>
+      </div>
+      <div class="metric__value">8<small>张计划单</small></div>
+      <div class="metric__foot">
+        <span class="pill">2026-08 ~ 2026-10</span>
+        <span class="pill">覆盖 5 个制剂</span>
+      </div>
+      <div class="metric__rows">
+        <div class="metric__row"><span>计划量合计（件）</span><b>30,001</b></div>
+        <div class="metric__row"><span>平均单张计划量（件）</span><b>3,750.1</b></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="metric">
+      <div class="metric__top">
+        <h2 class="metric__title">总交付量</h2>
+        <span class="metric__formula">已交付生产任务</span>
+      </div>
+      <div class="metric__value">10<small>张生产任务</small></div>
+      <div class="metric__foot">
+        <span class="pill pill--down">130.7%</span>
+        <span class="pill">计划量交付率</span>
+        <span class="pill">4 张已全部交付</span>
+      </div>
+      <div class="metric__rows">
+        <div class="metric__row"><span>交付量合计（件）</span><b>39,200</b></div>
+        <div class="metric__row"><span>已全部交付计划单</span><b>4 张</b></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="metric">
+      <div class="metric__top">
+        <h2 class="metric__title">待生产</h2>
+        <span class="metric__formula">计划量 − 已交付量 &gt; 0</span>
+      </div>
+      <div class="metric__value">4<small>张计划单</small></div>
+      <div class="metric__foot">
+        <span class="pill pill--warn">33.3%</span>
+        <span class="pill">占计划量</span>
+        <span class="pill">涉及 3 个制剂</span>
+      </div>
+      <div class="metric__rows">
+        <div class="metric__row"><span>待生产量合计（件）</span><b>10,001</b></div>
+        <div class="metric__row"><span>最长滞留</span><b>21 天</b></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="balance is-new">
+  <div class="balance__head">
+    <div>
+      <div class="balance__title">生产平衡 <span class="new-tag">改按「批」</span></div>
+      <div class="balance__sub">计划批数 = 已全部交付 + 待生产（含部分交付）</div>
+    </div>
+    <span class="balance__total">8 批 · 30,001 件</span>
+  </div>
+
+  <div class="balance__bar">
+    <span style="width:50%;background:#12b76a">已全部交付 4 批（50.0%）</span>
+    <span style="width:50%;background:#f79009">待生产 4 批（50.0%）</span>
+  </div>
+
+  <div class="balance__legend">
+    <span><i style="background:#12b76a"></i>已全部交付 <b>4 批 · 50.0%</b></span>
+    <span><i style="background:#f79009"></i>待生产（含部分交付）<b>4 批 · 50.0%</b></span>
+    <span class="muted">已全部交付计划量 20,000 件 · 待生产计划量 10,001 件</span>
+  </div>
+
+  <p class="balance__tip">
+    区间内实际交付 39,200 件（交付率 130.7%，分子含未关联计划的已交付任务，按件口径可能 &gt;100%，与按批平衡不冲突）。
+  </p>
+</div>
+
+<div class="group">
+  <span class="group__tag">成本核算 · 分析</span>
+  <span class="group__desc">趋势 / 构成 / 品种 / 批次成本节约 · 图表元素可点击下钻（示例中为静态）</span>
+</div>
+
+<div class="charts2">
+  <div class="card">
+    <div class="card__head">
+      <div>
+        <h3 class="card__title"><span class="dot"></span>月度趋势：产值 / 预估成本 / 实际成本</h3>
+        <p class="card__desc">单位：万元 · 按配置完成时间归月 · 点击柱体查看当月明细</p>
+      </div>
+    </div>
+
+    <div class="legend" style="margin-bottom:8px">
+      <span><i style="background:#2f6fed"></i>预估产值</span>
+      <span><i style="background:#7a5af8"></i>预估成本</span>
+      <span><i style="background:#12b76a"></i>实际成本</span>
+    </div>
+
+    <div class="trend__plot">
+      <div class="trend__group">
+        <div class="trend__bars">
+          <i class="bar" style="height:117px" title="预估产值 15.00 万元"></i>
+          <i class="bar bar--violet" style="height:125px" title="预估成本 16.00 万元"></i>
+          <i class="bar bar--green" style="height:82px" title="实际成本 10.50 万元"></i>
+        </div>
+        <span class="trend__label">8月</span>
+      </div>
+      <div class="trend__group">
+        <div class="trend__bars">
+          <i class="bar" style="height:156px" title="预估产值 20.00 万元"></i>
+          <i class="bar bar--violet" style="height:164px" title="预估成本 21.00 万元"></i>
+          <i class="bar bar--green" style="height:113px" title="实际成本 14.50 万元"></i>
+        </div>
+        <span class="trend__label">9月</span>
+      </div>
+      <div class="trend__group">
+        <div class="trend__bars">
+          <i class="bar" style="height:135px" title="预估产值 17.26 万元"></i>
+          <i class="bar bar--violet" style="height:170px" title="预估成本 21.79 万元"></i>
+          <i class="bar bar--green" style="height:118px" title="实际成本 15.11 万元"></i>
+        </div>
+        <span class="trend__label">10月</span>
+      </div>
+    </div>
+    <p class="table-note">tooltip 可追加「成本节约额 / 成本节约率」，不加也能正常使用。</p>
+  </div>
+
+  <div class="card">
+    <div class="card__head">
+      <div>
+        <h3 class="card__title"><span class="dot"></span>实际成本构成 <span class="new-tag">4 段 → 7 段</span></h3>
+        <p class="card__desc">单位：万元 · 原辅包 + 平摊水电气 + 其他 · 点击柱子查看当月明细</p>
+      </div>
+    </div>
+
+    <div class="legend" style="margin-bottom:8px">
+      <span><i style="background:#2f6fed"></i>原料</span>
+      <span><i style="background:#12b76a"></i>辅料</span>
+      <span><i style="background:#ee46bc"></i>包材</span>
+      <span><i style="background:#06aed4"></i>水</span>
+      <span><i style="background:#7a5af8"></i>电</span>
+      <span><i style="background:#f79009"></i>气</span>
+      <span><i style="background:#667085"></i>其他</span>
+    </div>
+
+    <div class="stack-plot">
+      <div class="stack-col">
+        <div class="stack" style="height:125px">
+          <i style="height:71px;background:#2f6fed" title="原料 6.00 万元"></i>
+          <i style="height:30px;background:#12b76a" title="辅料 2.50 万元"></i>
+          <i style="height:15px;background:#ee46bc" title="包材 1.30 万元"></i>
+          <i style="height:4px;background:#06aed4" title="水 0.30 万元"></i>
+          <i style="height:2px;background:#7a5af8" title="电 0.20 万元"></i>
+          <i style="height:2px;background:#f79009" title="气 0.20 万元"></i>
+          <i style="height:0;background:#667085" title="其他 0"></i>
+        </div>
+        <b>10.50万</b>
+        <span class="trend__label">8月</span>
+      </div>
+      <div class="stack-col">
+        <div class="stack" style="height:173px">
+          <i style="height:105px;background:#2f6fed" title="原料 8.80 万元"></i>
+          <i style="height:38px;background:#12b76a" title="辅料 3.20 万元"></i>
+          <i style="height:21px;background:#ee46bc" title="包材 1.80 万元"></i>
+          <i style="height:4px;background:#06aed4" title="水 0.30 万元"></i>
+          <i style="height:2px;background:#7a5af8" title="电 0.20 万元"></i>
+          <i style="height:1px;background:#f79009" title="气 0.10 万元"></i>
+          <i style="height:1px;background:#667085" title="其他 0.10 万元"></i>
+        </div>
+        <b>14.50万</b>
+        <span class="trend__label">9月</span>
+      </div>
+      <div class="stack-col">
+        <div class="stack" style="height:180px">
+          <i style="height:107px;background:#2f6fed" title="原料 9.00 万元"></i>
+          <i style="height:42px;background:#12b76a" title="辅料 3.50 万元"></i>
+          <i style="height:24px;background:#ee46bc" title="包材 2.01 万元"></i>
+          <i style="height:2px;background:#06aed4" title="水 0.20 万元"></i>
+          <i style="height:2px;background:#7a5af8" title="电 0.20 万元"></i>
+          <i style="height:1px;background:#f79009" title="气 0.10 万元"></i>
+          <i style="height:1px;background:#667085" title="其他 0.10 万元"></i>
+        </div>
+        <b>15.11万</b>
+        <span class="trend__label">10月</span>
+      </div>
+    </div>
+    <p class="table-note">物料合计（material）不再单独画，避免与原料 / 辅料 / 包材重复计算。</p>
+  </div>
+</div>
+
+<div class="charts2">
+  <div class="card is-new">
+    <div class="card__head">
+      <div>
+        <h3 class="card__title"><span class="dot"></span>品种成本构成 <span class="new-tag">新增图表</span></h3>
+        <p class="card__desc">单位：万元 · 按实际成本降序 · 含「未关联制剂 / 未分摊水电气」伪品种</p>
+      </div>
+    </div>
+
+    <div class="legend" style="margin-bottom:10px">
+      <span><i style="background:#2f6fed"></i>原料</span>
+      <span><i style="background:#12b76a"></i>辅料</span>
+      <span><i style="background:#ee46bc"></i>包材</span>
+      <span><i style="background:#06aed4"></i>水电气</span>
+      <span><i style="background:#667085"></i>其他</span>
+    </div>
+
+    <div class="hstack">
+      <div class="hstack__row">
+        <span class="hstack__name">壮骨关节丸</span>
+        <div class="hstack__track" title="原料 12.00万 / 辅料 4.50万 / 包材 2.60万 / 水电气 0.90万 / 其他 0.10万">
+          <i style="width:59.7%;background:#2f6fed"></i>
+          <i style="width:22.4%;background:#12b76a"></i>
+          <i style="width:12.9%;background:#ee46bc"></i>
+          <i style="width:4.5%;background:#06aed4"></i>
+          <i style="width:0.5%;background:#667085"></i>
+        </div>
+        <span class="hstack__total">20.10万</span>
+      </div>
+
+      <div class="hstack__row">
+        <span class="hstack__name">护肾排毒丸</span>
+        <div class="hstack__track" title="原料 9.00万 / 辅料 3.50万 / 包材 2.00万 / 水电气 0.70万 / 其他 0.10万">
+          <i style="width:44.8%;background:#2f6fed"></i>
+          <i style="width:17.4%;background:#12b76a"></i>
+          <i style="width:10%;background:#ee46bc"></i>
+          <i style="width:3.5%;background:#06aed4"></i>
+          <i style="width:0.5%;background:#667085"></i>
+        </div>
+        <span class="hstack__total">15.30万</span>
+      </div>
+
+      <div class="hstack__row">
+        <span class="hstack__name">活血通络丸</span>
+        <div class="hstack__track" title="原料 2.00万 / 辅料 1.00万 / 包材 0.41万 / 水电气 0.10万">
+          <i style="width:10%;background:#2f6fed"></i>
+          <i style="width:5%;background:#12b76a"></i>
+          <i style="width:2.1%;background:#ee46bc"></i>
+          <i style="width:0.5%;background:#06aed4"></i>
+        </div>
+        <span class="hstack__total">3.51万</span>
+      </div>
+
+      <div class="hstack__row">
+        <span class="hstack__name">未关联制剂</span>
+        <div class="hstack__track" title="原料 0.80万 / 辅料 0.20万 / 包材 0.10万 / 水电气 0.10万">
+          <i style="width:4%;background:#2f6fed"></i>
+          <i style="width:1%;background:#12b76a"></i>
+          <i style="width:0.5%;background:#ee46bc"></i>
+          <i style="width:0.5%;background:#06aed4"></i>
+        </div>
+        <span class="hstack__total">1.20万</span>
+      </div>
+    </div>
+    <p class="table-note">伪品种不要过滤，否则各行合计对不上实际成本卡片。</p>
+  </div>
+
+  <div class="card is-new">
+    <div class="card__head">
+      <div>
+        <h3 class="card__title"><span class="dot dot--rose"></span>批次成本节约排行 <span class="new-tag">新增图表</span></h3>
+        <p class="card__desc">
+          成本节约率 =（预计成本 − 实际成本）÷ 预计成本 × 100% · 正=节约（绿），负=超支（红）
+        </p>
+      </div>
+    </div>
+
+    <div class="rank">
+      <div class="rank__row">
+        <span class="rank__name">20261015 · 壮骨关节丸</span>
+        <div class="rank__track">
+          <div class="rank__left"></div>
+          <div class="rank__right"><i style="width:100%;background:#12b76a"></i></div>
+        </div>
+        <span class="rank__val pos">45.0%</span>
+      </div>
+
+      <div class="rank__row">
+        <span class="rank__name">20261016 · 护肾排毒丸</span>
+        <div class="rank__track">
+          <div class="rank__left"></div>
+          <div class="rank__right"><i style="width:74%;background:#12b76a"></i></div>
+        </div>
+        <span class="rank__val pos">33.3%</span>
+      </div>
+
+      <div class="rank__row">
+        <span class="rank__name">20261017 · 活血通络丸</span>
+        <div class="rank__track">
+          <div class="rank__left"></div>
+          <div class="rank__right"><i style="width:37%;background:#12b76a"></i></div>
+        </div>
+        <span class="rank__val pos">16.7%</span>
+      </div>
+
+      <div class="rank__row">
+        <span class="rank__name">20261018 · 疏肝养胃丸</span>
+        <div class="rank__track">
+          <div class="rank__left"><i style="width:23%;background:#f04438"></i></div>
+          <div class="rank__right"></div>
+        </div>
+        <span class="rank__val neg">-10.4%</span>
+      </div>
+    </div>
+
+    <p class="table-note">
+      按成本节约率降序、最多 10 条；预计成本为 0 的批次不参与；生产天数缺失显示 —。
+    </p>
+  </div>
+</div>
+
+<div class="group">
+  <span class="group__tag group__tag--prod">生产 · 分析</span>
+  <span class="group__desc">计划 vs 交付 / 待生产 / 品种排名 · 原结构保持不变</span>
+</div>
+
+<div class="charts3">
+  <div class="card">
+    <div class="card__head">
+      <div>
+        <h3 class="card__title"><span class="dot dot--green"></span>计划量 vs 交付量</h3>
+        <p class="card__desc">单位：件 · 点击柱体查看当月计划单 / 生产任务明细</p>
+      </div>
+    </div>
+    <div class="legend" style="margin-bottom:8px">
+      <span><i style="background:#c7d2e5"></i>计划量</span>
+      <span><i style="background:#12b76a"></i>交付量</span>
+    </div>
+    <div class="trend__plot" style="height:180px">
+      <div class="trend__group">
+        <div class="trend__bars" style="height:150px">
+          <i class="bar" style="height:113px;background:#c7d2e5" title="计划量 10,000 件"></i>
+          <i class="bar bar--green" style="height:124px" title="交付量 11,000 件"></i>
+        </div>
+        <span class="trend__label">8月</span>
+      </div>
+      <div class="trend__group">
+        <div class="trend__bars" style="height:150px">
+          <i class="bar" style="height:135px;background:#c7d2e5" title="计划量 12,000 件"></i>
+          <i class="bar bar--green" style="height:158px" title="交付量 14,000 件"></i>
+        </div>
+        <span class="trend__label">9月</span>
+      </div>
+      <div class="trend__group">
+        <div class="trend__bars" style="height:150px">
+          <i class="bar" style="height:90px;background:#c7d2e5" title="计划量 8,001 件"></i>
+          <i class="bar bar--green" style="height:160px" title="交付量 14,200 件"></i>
+        </div>
+        <span class="trend__label">10月</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card__head">
+      <div>
+        <h3 class="card__title"><span class="dot dot--amber"></span>待生产计划量</h3>
+        <p class="card__desc">单位：件 · 时点值 · 点击节点查看计划单</p>
+      </div>
+      <span class="pill pill--warn">当前 10,001</span>
+    </div>
+    <svg class="line-chart" viewBox="0 0 320 190" role="img" aria-label="待生产趋势">
+      <line x1="36" y1="150" x2="306" y2="150" stroke="#e6eaf2" />
+      <line x1="36" y1="85" x2="306" y2="85" stroke="#f0f3f9" />
+      <line x1="36" y1="20" x2="306" y2="20" stroke="#f0f3f9" />
+      <text x="4" y="154" font-size="10" fill="#6b7787">0</text>
+      <text x="4" y="89" font-size="10" fill="#6b7787">5千</text>
+      <text x="0" y="24" font-size="10" fill="#6b7787">1万</text>
+      <polygon points="60,150 60,137 170,124 280,20 280,150" fill="rgba(247,144,9,0.12)" />
+      <polyline points="60,137 170,124 280,20" fill="none" stroke="#f79009" stroke-width="2.5" />
+      <circle cx="60" cy="137" r="4" fill="#f79009" />
+      <circle cx="170" cy="124" r="4" fill="#f79009" />
+      <circle cx="280" cy="20" r="4" fill="#f79009" />
+      <text x="52" y="128" font-size="10" fill="#475467">1,000</text>
+      <text x="160" y="115" font-size="10" fill="#475467">2,000</text>
+      <text x="252" y="12" font-size="10" fill="#b54708" font-weight="600">10,001</text>
+      <text x="48" y="172" font-size="10" fill="#6b7787">8月</text>
+      <text x="158" y="172" font-size="10" fill="#6b7787">9月</text>
+      <text x="268" y="172" font-size="10" fill="#6b7787">10月</text>
+    </svg>
+    <p class="table-note">待生产量较上月上升，建议核查排产。</p>
+  </div>
+
+  <div class="card">
+    <div class="card__head">
+      <div>
+        <h3 class="card__title"><span class="dot dot--cyan"></span>品种交付 Top 5</h3>
+        <p class="card__desc">单位：件 · 合计 39,200 件 · 点击条形查看生产任务</p>
+      </div>
+    </div>
+    <div class="top5">
+      <div class="top5__row">
+        <span class="top5__name">壮骨关节丸</span>
+        <div class="top5__track"><i style="width:100%"></i></div>
+        <span class="top5__val">15,000</span>
+      </div>
+      <div class="top5__row">
+        <span class="top5__name">护肾排毒丸</span>
+        <div class="top5__track"><i style="width:80%"></i></div>
+        <span class="top5__val">12,000</span>
+      </div>
+      <div class="top5__row">
+        <span class="top5__name">活血通络丸</span>
+        <div class="top5__track"><i style="width:53.3%"></i></div>
+        <span class="top5__val">8,000</span>
+      </div>
+      <div class="top5__row">
+        <span class="top5__name">疏肝养胃丸</span>
+        <div class="top5__track"><i style="width:20%"></i></div>
+        <span class="top5__val">3,000</span>
+      </div>
+      <div class="top5__row">
+        <span class="top5__name">益肺平喘丸</span>
+        <div class="top5__track"><i style="width:8%"></i></div>
+        <span class="top5__val">1,200</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="group">
+  <span class="group__tag">明细下钻</span>
+  <span class="group__desc">实际成本抽屉（新增列）· 横向滚动查看全部字段</span>
+</div>
+
+<div class="card">
+  <div class="card__head">
+    <div>
+      <h3 class="card__title"><span class="dot"></span>实际成本明细 <span class="new-tag">新增 11 列</span></h3>
+      <p class="card__desc">预估成本价 × 批量、原辅包拆分、单位成本、批次周期 · 合计行取接口 totals</p>
+    </div>
+  </div>
+
+  <p class="table-scroll-hint">
+    新增列：预计单位成本 / 实际单位成本 / 单位成本节约额 / 单位成本节约率、原料 / 辅料 / 包材、其他、采购下达 / 成品入库 / 生产天数。
+  </p>
+
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th>月份</th>
+          <th>制剂</th>
+          <th>生产任务号</th>
+          <th>批号</th>
+          <th class="num">批量</th>
+          <th class="num" title="预计成本价 × 批量 ÷ 批量，即预计成本价（元/件）">预计单位成本</th>
+          <th class="num" title="实际成本 ÷ 批量（元/件）">实际单位成本</th>
+          <th class="num" title="预计单位成本 − 实际单位成本；正=节约">单位成本节约额</th>
+          <th class="num" title="单位成本节约额 ÷ 预计单位成本 × 100%">单位成本节约率</th>
+          <th class="num">原料</th>
+          <th class="num">辅料</th>
+          <th class="num">包材</th>
+          <th class="num">水</th>
+          <th class="num">电</th>
+          <th class="num">气</th>
+          <th class="num">其他</th>
+          <th class="num">实际成本</th>
+          <th>采购下达</th>
+          <th>成品入库</th>
+          <th class="num">生产天数</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>2026-09</td>
+          <td>壮骨关节丸</td>
+          <td class="mono">GD202609150001</td>
+          <td class="mono">20260915</td>
+          <td class="num">5,000</td>
+          <td class="num">8.00</td>
+          <td class="num">4.40</td>
+          <td class="num">3.60</td>
+          <td class="num">45.0%</td>
+          <td class="num">15,000.00</td>
+          <td class="num">3,000.00</td>
+          <td class="num">1,500.00</td>
+          <td class="num">1,000.00</td>
+          <td class="num">750.00</td>
+          <td class="num">500.00</td>
+          <td class="num">250.00</td>
+          <td class="num">22,000.00</td>
+          <td>09-10</td>
+          <td>09-17</td>
+          <td class="num">7 天</td>
+        </tr>
+        <tr>
+          <td>2026-10</td>
+          <td>护肾排毒丸</td>
+          <td class="mono">GD202610160002</td>
+          <td class="mono">20261016</td>
+          <td class="num">6,000</td>
+          <td class="num">6.00</td>
+          <td class="num">4.00</td>
+          <td class="num">2.00</td>
+          <td class="num">33.3%</td>
+          <td class="num">15,600.00</td>
+          <td class="num">4,200.00</td>
+          <td class="num">2,400.00</td>
+          <td class="num">900.00</td>
+          <td class="num">600.00</td>
+          <td class="num">180.00</td>
+          <td class="num">120.00</td>
+          <td class="num">24,000.00</td>
+          <td>10-08</td>
+          <td>10-13</td>
+          <td class="num">5 天</td>
+        </tr>
+        <tr>
+          <td>2026-10</td>
+          <td>活血通络丸</td>
+          <td class="mono">GD202610170003</td>
+          <td class="mono">20261017</td>
+          <td class="num">5,000</td>
+          <td class="num">6.00</td>
+          <td class="num">5.00</td>
+          <td class="num">1.00</td>
+          <td class="num">16.7%</td>
+          <td class="num">15,000.00</td>
+          <td class="num">5,000.00</td>
+          <td class="num">2,500.00</td>
+          <td class="num">1,500.00</td>
+          <td class="num">500.00</td>
+          <td class="num">400.00</td>
+          <td class="num">100.00</td>
+          <td class="num">25,000.00</td>
+          <td>10-12</td>
+          <td>10-17</td>
+          <td class="num">5 天</td>
+        </tr>
+        <tr>
+          <td>2026-10</td>
+          <td>疏肝养胃丸</td>
+          <td class="mono">GD202610180004</td>
+          <td class="mono">20261018</td>
+          <td class="num">4,000</td>
+          <td class="num">6.00</td>
+          <td class="num">6.625</td>
+          <td class="num">-0.625</td>
+          <td class="num">-10.4%</td>
+          <td class="num">16,000.00</td>
+          <td class="num">6,000.00</td>
+          <td class="num">2,000.00</td>
+          <td class="num">1,600.00</td>
+          <td class="num">600.00</td>
+          <td class="num">200.00</td>
+          <td class="num">100.00</td>
+          <td class="num">26,500.00</td>
+          <td>10-01</td>
+          <td>10-13</td>
+          <td class="num">12 天</td>
+        </tr>
+        <tr class="total">
+          <td colspan="4">合计</td>
+          <td class="num">20,000</td>
+          <td class="num">—</td>
+          <td class="num">—</td>
+          <td class="num">—</td>
+          <td class="num">—</td>
+          <td class="num">61,600.00</td>
+          <td class="num">18,200.00</td>
+          <td class="num">8,400.00</td>
+          <td class="num">5,000.00</td>
+          <td class="num">2,450.00</td>
+          <td class="num">1,280.00</td>
+          <td class="num">570.00</td>
+          <td class="num">97,500.00</td>
+          <td>—</td>
+          <td>—</td>
+          <td class="num">—</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="table-note">
+    单位成本 / 单位节约率 / 生产天数不参与合计（相加无业务意义）；`null` 一律显示 —，不要当 0。
+    示例中「采购下达 / 成品入库」只显示日期，实际接口为 `yyyy-MM-dd HH:mm:ss`。
+  </p>
+</div>
+
+<div class="group">
+  <span class="group__tag">明细下钻</span>
+  <span class="group__desc">月份 → 制剂 → 批次 · 月份 / 制剂级新增「成本节约额」</span>
+</div>
+
+<div class="card">
+  <div class="card__head">
+    <div>
+      <h3 class="card__title"><span class="dot"></span>成本与生产明细</h3>
+      <p class="card__desc">月份为万元，制剂 / 批次为元 · 逐层展开</p>
+    </div>
+    <span class="pill">1 个月 / 2 个制剂 / 2 批</span>
+  </div>
+
+  <div class="tree">
+    <div class="tree__month">
+      <div class="tree__month-head">
+        <span class="chev">▼</span>
+        <span>2026-10</span>
+        <span class="num">17.26<small>预估产值（万）</small></span>
+        <span class="num">21.79<small>预估成本（万）</small></span>
+        <span class="num">15.11<small>实际成本（万）</small></span>
+        <span class="num">6.68<small>成本节约额（万） <span class="new-tag">新</span></small></span>
+        <span class="num">14,200<small>交付量</small></span>
+      </div>
+
+      <div class="tree__body">
+        <div class="tree__prep">
+          <div class="tree__prep-head">
+            <span class="chev">▼</span>
+            <span>壮骨关节丸 <span class="muted mono">Z01-001</span></span>
+            <span class="num">100,000.00</span>
+            <span class="num">76,000.00</span>
+            <span class="num">46,000.00</span>
+            <span class="num">39.5%</span>
+            <span class="num unit">11,000 件</span>
+          </div>
+          <div class="tree__prep-body">
+            <div class="tree__batch-title">批次明细</div>
+            <div class="table-wrap">
+              <table class="tree-table">
+                <thead>
+                  <tr>
+                    <th>批号 / 工单号</th>
+                    <th>状态</th>
+                    <th>批量</th>
+                    <th>预估成本</th>
+                    <th>原料</th>
+                    <th>辅料</th>
+                    <th>包材</th>
+                    <th>其他</th>
+                    <th>实际成本</th>
+                    <th>单位成本节约率</th>
+                    <th>生产天数</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <span class="mono">20261015</span>
+                      <span class="muted"> · </span>
+                      <span class="mono">GD202610150001</span>
+                    </td>
+                    <td><span class="tag tag--primary">已生产</span></td>
+                    <td class="num">5,000</td>
+                    <td class="num">40,000.00</td>
+                    <td class="num">15,000.00</td>
+                    <td class="num">3,000.00</td>
+                    <td class="num">1,500.00</td>
+                    <td class="num">250.00</td>
+                    <td class="num">22,000.00</td>
+                    <td class="num">45.0%</td>
+                    <td class="num">7 天</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <span class="mono">20261016</span>
+                      <span class="muted"> · </span>
+                      <span class="mono">GD202610160002</span>
+                    </td>
+                    <td><span class="tag tag--success">已入库</span></td>
+                    <td class="num">6,000</td>
+                    <td class="num">36,000.00</td>
+                    <td class="num">15,600.00</td>
+                    <td class="num">4,200.00</td>
+                    <td class="num">2,400.00</td>
+                    <td class="num">120.00</td>
+                    <td class="num">24,000.00</td>
+                    <td class="num">33.3%</td>
+                    <td class="num">5 天</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="tree__prep">
+          <div class="tree__prep-head">
+            <span class="chev">▶</span>
+            <span>护肾排毒丸 <span class="muted mono">Z01-002</span></span>
+            <span class="num">72,592.00</span>
+            <span class="num">141,916.00</span>
+            <span class="num">105,138.00</span>
+            <span class="num">25.9%</span>
+            <span class="num unit">3,200 件</span>
+          </div>
+        </div>
+
+        <div
+          style="display:grid;grid-template-columns:20px 200px repeat(4,minmax(0,1fr)) 86px;gap:8px;align-items:center;padding:9px 12px;margin-top:8px;border:1px solid #fedf89;background:#fffcf5;border-radius:9px;font-size:12px"
+        >
+          <span>⚠</span>
+          <span><b>未关联制剂</b> <small class="muted">无法匹配计划 / 工单的出库</small></span>
+          <span class="num">—</span>
+          <span class="num">—</span>
+          <span class="num">12,000.00</span>
+          <span class="num">—</span>
+          <span class="num unit">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="table-note">
+    伪节点（未关联制剂 / 未分摊水电气）单独成行，保证总额不丢失；历史批次缺采购单关联时，生产天数显示 —。
+  </p>
+</div>
+
+<div class="group">
+  <span class="group__tag">能耗录入</span>
+  <span class="group__desc">类型新增「其他」· 单位=元 · 只填总价</span>
+</div>
+
+<div class="charts2">
+  <div class="card">
+    <div class="card__head">
+      <div>
+        <h3 class="card__title"><span class="dot"></span>能耗列表汇总卡</h3>
+        <p class="card__desc">保持 4 张卡布局，在「总金额」卡内补一行「其中其他」</p>
+      </div>
+      <span class="new-tag">不新增第 5 张卡</span>
+    </div>
+    <div class="metric__value">3,600.00<small>元</small></div>
+    <div class="metric__rows">
+      <div class="metric__row"><span>自来水费</span><b>1,200.00</b></div>
+      <div class="metric__row"><span>电费</span><b>1,000.00</b></div>
+      <div class="metric__row"><span>燃气费</span><b>600.00</b></div>
+      <div class="metric__row"><span>其中其他成本 <span class="new-tag">新增</span></span><b>800.00</b></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card__head">
+      <div>
+        <h3 class="card__title"><span class="dot"></span>类型标签与筛选</h3>
+        <p class="card__desc">列表标签 / 详情标签 / 搜索下拉同步增加「其他」</p>
+      </div>
+    </div>
+    <div class="energy-tags">
+      <span class="tag tag--primary">自来水</span>
+      <span class="tag tag--warning">电</span>
+      <span class="tag tag--success">燃气</span>
+      <span class="tag tag--info">其他</span>
+    </div>
+    <div class="metric__rows" style="margin-top:14px">
+      <div class="metric__row"><span>自来水</span><b>计量单位：立方米</b></div>
+      <div class="metric__row"><span>电</span><b>计量单位：度</b></div>
+      <div class="metric__row"><span>燃气</span><b>计量单位：立方米</b></div>
+      <div class="metric__row"><span>其他</span><b>计量单位：元（金额直填）</b></div>
+    </div>
+  </div>
+</div>
+
+<div class="dialog is-new" style="margin-top:14px">
+  <div class="dialog__head">
+    <span>新增能耗记录</span>
+    <span class="muted">×</span>
+  </div>
+
+  <div class="dialog__body">
+    <div class="form-item">
+      <label>月份</label>
+      <div class="form-control">2026-10</div>
+    </div>
+
+    <div class="form-item">
+      <label>能耗类型</label>
+      <div class="form-control is-select">
+        <span>其他</span>
+        <span class="arrow">▼</span>
+      </div>
+    </div>
+
+    <div class="form-item">
+      <label>计量单位</label>
+      <div class="form-control is-disabled">元</div>
+    </div>
+
+    <div class="hidden-fields">
+      选择「其他」后隐藏：上月表底读数 / 本月表底读数 / 本月实用量 / 单价；<br />
+      提交时 <code>actual_usage</code>、<code>unit_price</code> 为空即可。
+    </div>
+
+    <div class="form-item">
+      <label><em>*</em>总价（元）</label>
+      <div class="form-control">800.00</div>
+    </div>
+
+    <div class="form-item">
+      <label>操作人</label>
+      <div class="form-control is-disabled">root</div>
+    </div>
+
+    <div class="form-item form-item--full">
+      <label>备注</label>
+      <div class="form-control is-disabled" style="height:58px;align-items:flex-start;padding-top:8px">
+        车间杂项（清洗、耗材等）
+      </div>
+    </div>
+  </div>
+
+  <div class="dialog__foot">
+    <button class="btn">取消</button>
+    <button class="btn btn--primary">保存</button>
+  </div>
+</div>
+
+<p class="table-note">
+  校验规则：选「其他」时「总价」必填；单位固定「元」；表底与实用量不参与计算。
+</p>
+
+</div>
+</body>
+</html>
