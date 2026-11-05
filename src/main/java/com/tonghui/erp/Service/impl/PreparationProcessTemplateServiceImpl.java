@@ -2,9 +2,11 @@ package com.tonghui.erp.Service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.tonghui.erp.Common.utils.PreparationTemplateValidator;
 import com.tonghui.erp.Data.Entity.PreparationProcessTemplate;
 import com.tonghui.erp.Data.mapper.PreparationProcessTemplateMapper;
 import com.tonghui.erp.Service.PreparationProcessTemplateService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
@@ -24,6 +26,19 @@ import java.util.stream.Collectors;
  */
 @Service
 public class PreparationProcessTemplateServiceImpl extends ServiceImpl<PreparationProcessTemplateMapper, PreparationProcessTemplate> implements PreparationProcessTemplateService {
+
+    // region 依赖注入
+    // ===================================
+    // 依赖注入
+    // ===================================
+
+    /**
+     * 工序模板关联校验器（配置室/设备ID校验与规范化）
+     */
+    @Autowired
+    private PreparationTemplateValidator preparationTemplateValidator;
+
+    // endregion
 
     // region 查询操作
     // ===================================
@@ -58,10 +73,12 @@ public class PreparationProcessTemplateServiceImpl extends ServiceImpl<Preparati
      * 使用事务保证数据一致性。为支持按行附件（file_info.business_id = template_id），
      * 采用原地更新保留ID的策略：入参中携带 templateId 且属于该制剂的已有行执行更新（ID不变），
      * 无 templateId 的行新增，数据库中未被入参覆盖的既有行被删除。
+     * 保存前统一校验配置室/设备关联（设备必填、房间由设备带出、名称兜底唯一解析）。
      * </p>
      *
      * @param preparationId 制剂ID
      * @param templates     工序模版列表（已有行须携带原 templateId，可为null或空列表将清空所有模版）
+     * @throws IllegalArgumentException 配置室/设备关联校验不通过
      */
     @Override
     @Transactional
@@ -75,6 +92,8 @@ public class PreparationProcessTemplateServiceImpl extends ServiceImpl<Preparati
         if (templates != null && !templates.isEmpty()) {
             for (PreparationProcessTemplate template : templates) {
                 template.setPreparationId(preparationId);
+                // 校验并规范化配置室、设备关联（设备必填、房间由设备带出、名称兜底解析）
+                preparationTemplateValidator.validateAndNormalize(template);
                 // 已有行：按 ID 原地更新，保留 template_id（附件可继续按行定位）
                 if (template.getTemplateId() != null && existingMap.containsKey(template.getTemplateId())) {
                     incomingIds.add(template.getTemplateId());

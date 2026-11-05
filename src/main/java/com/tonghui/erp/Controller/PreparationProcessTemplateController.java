@@ -4,15 +4,21 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.utils.PreparationTemplateValidator;
+import com.tonghui.erp.Data.Entity.Equipment;
 import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.PreparationProcessTemplate;
 import com.tonghui.erp.Data.Entity.ProcessType;
+import com.tonghui.erp.Data.Entity.RoomInfo;
 import com.tonghui.erp.Data.Entity.Unit;
+import com.tonghui.erp.Service.EquipmentService;
 import com.tonghui.erp.Service.PreparationProcessTemplateService;
 import com.tonghui.erp.Service.PreparationService;
 import com.tonghui.erp.Service.ProcessTypeService;
+import com.tonghui.erp.Service.RoomInfoService;
 import com.tonghui.erp.Service.UnitService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
@@ -67,6 +73,24 @@ public class PreparationProcessTemplateController extends BaseController {
      */
     @Autowired
     private UnitService unitService;
+
+    /**
+     * 房间服务（用于填充工序模版的配置室名称/编码）
+     */
+    @Autowired
+    private RoomInfoService roomInfoService;
+
+    /**
+     * 设备服务（用于填充工序模版的设备名称/编码）
+     */
+    @Autowired
+    private EquipmentService equipmentService;
+
+    /**
+     * 工序模板关联校验器
+     */
+    @Autowired
+    private PreparationTemplateValidator preparationTemplateValidator;
 
     // endregion
 
@@ -145,8 +169,9 @@ public class PreparationProcessTemplateController extends BaseController {
      *   "preparationId": 1,
      *   "processTypeId": 1,
      *   "stepOrder": 1,
-     *   "stepName": "配制",
-     *   "processTime": 60,
+     *   "roomId": 8,
+     *   "equipmentId": 42,
+     *   "standardDuration": 60,
      *   "unitId": 1
      * }
      *
@@ -155,6 +180,8 @@ public class PreparationProcessTemplateController extends BaseController {
      */
     @PostMapping
     public ApiResponse<PreparationProcessTemplate> create(@RequestBody PreparationProcessTemplate template) {
+        // 校验配置室/设备关联：设备必填，未传房间时由设备所在房间自动带出
+        preparationTemplateValidator.validateAndNormalize(template);
         template.setIsDeleted(0);
         template.setVersion(0);
         templateService.save(template);
@@ -168,8 +195,9 @@ public class PreparationProcessTemplateController extends BaseController {
      * PUT /api/preparationProcessTemplate/1
      * Content-Type: application/json
      * {
-     *   "stepName": "配制（更新）",
-     *   "processTime": 90
+     *   "roomId": 8,
+     *   "equipmentId": 42,
+     *   "standardDuration": 90
      * }
      *
      * @param id 工序模版ID（路径参数）
@@ -182,6 +210,17 @@ public class PreparationProcessTemplateController extends BaseController {
         if (existing == null) {
             return error("工序模版不存在");
         }
+        // 局部更新兼容：未提交关联字段时沿用原值，避免部分字段更新误清空关联
+        if (template.getEquipmentId() == null && !StringUtils.hasText(template.getEquipmentDesc())) {
+            template.setEquipmentId(existing.getEquipmentId());
+            template.setEquipmentDesc(existing.getEquipmentDesc());
+        }
+        if (template.getRoomId() == null && !StringUtils.hasText(template.getRoomDesc())) {
+            template.setRoomId(existing.getRoomId());
+            template.setRoomDesc(existing.getRoomDesc());
+        }
+        // 校验配置室/设备关联：设备必填，未传房间时由设备所在房间自动带出
+        preparationTemplateValidator.validateAndNormalize(template);
         template.setTemplateId(id);
         templateService.updateById(template);
         return success(template, "修改成功");
@@ -243,18 +282,23 @@ public class PreparationProcessTemplateController extends BaseController {
      *     "templateId": 10,
      *     "processTypeId": 1,
      *     "stepOrder": 1,
-     *     "stepName": "配制",
-     *     "processTime": 60,
+     *     "roomId": 8,
+     *     "equipmentId": 42,
+     *     "standardDuration": 60,
      *     "unitId": 1
      *   },
      *   {
      *     "processTypeId": 2,
      *     "stepOrder": 2,
-     *     "stepName": "制粒",
-     *     "processTime": 120,
+     *     "roomId": 8,
+     *     "equipmentId": 43,
+     *     "standardDuration": 120,
      *     "unitId": 1
      *   }
      * ]
+     *
+     * 说明：配置室/设备以 ID 为准；未传 roomId 时由设备所在房间自动带出；
+     *       roomDesc / equipmentDesc 由后端按 ID 反填，前端只读展示，不再作为提交依据。
      *
      * @param preparationId 制剂ID（请求参数）
      * @param templates 工序模版列表（已有行带 templateId，新增行不带）
@@ -305,6 +349,24 @@ public class PreparationProcessTemplateController extends BaseController {
             Unit unit = unitService.getById(template.getUnitId());
             if (unit != null) {
                 template.setUnitName(unit.getUnitName());
+            }
+        }
+
+        // 填充配置室名称/编码（以 room_id 为准）
+        if (template.getRoomId() != null) {
+            RoomInfo room = roomInfoService.getById(template.getRoomId());
+            if (room != null) {
+                template.setRoomName(room.getRoomName());
+                template.setRoomCode(room.getRoomCode());
+            }
+        }
+
+        // 填充设备名称/编码（以 equipment_id 为准，编码用于区分重名设备）
+        if (template.getEquipmentId() != null) {
+            Equipment equipment = equipmentService.getById(template.getEquipmentId());
+            if (equipment != null) {
+                template.setEquipmentName(equipment.getEquipmentName());
+                template.setFixedAssetCode(equipment.getFixedAssetCode());
             }
         }
     }

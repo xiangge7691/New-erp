@@ -48,6 +48,20 @@ public class PreparationProcessTemplate extends AuditEntity {
     private Long processTypeId;
 
     /**
+     * 配置室ID（关联 room_info.room_id）
+     * <p>工序模板的配置室以ID为准，必须与设备所在房间一致</p>
+     */
+    @TableField(value = "room_id")
+    private Integer roomId;
+
+    /**
+     * 设备ID（关联 equipment.equipment_id）
+     * <p>工序模板的设备以ID为准，避免设备重名时按名称匹配出错</p>
+     */
+    @TableField(value = "equipment_id")
+    private Integer equipmentId;
+
+    /**
      * 工序顺序
      */
     @TableField(value = "step_order")
@@ -72,7 +86,7 @@ public class PreparationProcessTemplate extends AuditEntity {
     private Integer standardDuration;
 
     /**
-     * 设备要求描述
+     * 设备名称快照（由 equipment_id 反填，仅用于展示，不再作为关联依据）
      */
     @TableField(value = "equipment_desc")
     private String equipmentDesc;
@@ -90,7 +104,7 @@ public class PreparationProcessTemplate extends AuditEntity {
     private String keyProcessParams;
 
     /**
-     * 配置室要求
+     * 配置室名称快照（由 room_id 反填，仅用于展示，不再作为关联依据）
      */
     @TableField(value = "room_desc")
     private String roomDesc;
@@ -150,6 +164,30 @@ public class PreparationProcessTemplate extends AuditEntity {
      */
     @TableField(exist = false)
     private String unitName;
+
+    /**
+     * 配置室名称（关联room_info表，按 room_id 查询）
+     */
+    @TableField(exist = false)
+    private String roomName;
+
+    /**
+     * 配置室编码（关联room_info表，按 room_id 查询）
+     */
+    @TableField(exist = false)
+    private String roomCode;
+
+    /**
+     * 设备名称（关联equipment表，按 equipment_id 查询）
+     */
+    @TableField(exist = false)
+    private String equipmentName;
+
+    /**
+     * 设备编码（关联equipment表，按 equipment_id 查询，用于区分重名设备）
+     */
+    @TableField(exist = false)
+    private String fixedAssetCode;
 
     // endregion
 }

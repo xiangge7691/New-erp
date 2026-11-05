@@ -7,22 +7,22 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Production.ProductionDurationSummaryDto;
+import com.tonghui.erp.Common.utils.PreparationTemplateValidator;
 import com.tonghui.erp.Common.utils.ProductionDurationUtils;
 import com.tonghui.erp.Data.Entity.Equipment;
 import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.PreparationProcessTemplate;
 import com.tonghui.erp.Data.Entity.ProductionPlan;
-import com.tonghui.erp.Data.Entity.RoomInfo;
 import com.tonghui.erp.Data.Entity.WorkOrder;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessExecution;
 import com.tonghui.erp.Data.mapper.WorkOrderMapper;
-import com.tonghui.erp.Service.EquipmentService;
 import com.tonghui.erp.Service.PreparationProcessTemplateService;
 import com.tonghui.erp.Service.PreparationService;
 import com.tonghui.erp.Service.ProductionPlanService;
-import com.tonghui.erp.Service.RoomInfoService;
 import com.tonghui.erp.Service.WorkOrderProcessExecutionService;
 import com.tonghui.erp.Service.WorkOrderService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -48,7 +48,16 @@ import java.util.stream.Collectors;
 @Service
 public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder>
         implements WorkOrderService {
-    
+
+    // region 日志
+    // ===================================
+    // 日志
+    // ===================================
+
+    private static final Logger log = LoggerFactory.getLogger(WorkOrderServiceImpl.class);
+
+    // endregion
+
     // region 服务依赖注入
     // ===================================
     // 服务依赖注入
@@ -66,13 +75,9 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
     @Autowired
     private WorkOrderProcessExecutionService workOrderProcessExecutionService;
 
-    /** 配置室服务，用于根据描述匹配配置室ID */
+    /** 配置室/设备关联校验器，用于工序模板绑定兜底解析 */
     @Autowired
-    private RoomInfoService roomInfoService;
-
-    /** 设备服务，用于根据描述匹配设备ID */
-    @Autowired
-    private EquipmentService equipmentService;
+    private PreparationTemplateValidator preparationTemplateValidator;
 
     /** 生产计划服务，用于工单变更后联动刷新关联计划的状态 */
     @Autowired
@@ -704,7 +709,9 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
     /**
      * 根据制剂ID拉取工序模板，转换为工单工序执行记录并批量保存
      * <p>
-     * 在新增工单时自动调用，将制剂的工序模板绑定到工单的工序执行记录中
+     * 在新增工单时自动调用，将制剂的工序模板绑定到工单的工序执行记录中。
+     * 配置室/设备一律按模板中的 ID 写入，确保同房同名设备也能精确绑定；
+     * 仅当历史模板 ID 为空时才按名称唯一兜底，无法唯一确定则跳过并记录日志。
      * </p>
      *
      * @param workOrder 工单实体（需已保存，包含workOrderId）
@@ -727,26 +734,24 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
             exec.setKeyProcessParams(template.getKeyProcessParams());
             exec.setRemark(template.getRemark());
 
-            // 根据模板中的描述文本匹配配置室ID
-            if (StringUtils.hasText(template.getRoomDesc())) {
-                QueryWrapper<RoomInfo> roomWrapper = new QueryWrapper<>();
-                roomWrapper.eq("room_name", template.getRoomDesc());
-                roomWrapper.last("LIMIT 1");
-                RoomInfo room = roomInfoService.getOne(roomWrapper);
-                if (room != null) {
-                    exec.setRoomId(room.getRoomId());
+            // 配置室/设备按模板ID精确绑定；仅历史模板ID为空时按名称唯一兜底
+            Integer roomId = template.getRoomId();
+            Equipment equipment = preparationTemplateValidator.resolveEquipmentForBinding(
+                    template.getEquipmentId(), template.getEquipmentDesc(), roomId);
+            if (equipment != null) {
+                Integer equipmentRoomId = equipment.getRoomId();
+                if (roomId == null) {
+                    roomId = equipmentRoomId;
+                } else if (equipmentRoomId != null && !roomId.equals(equipmentRoomId)) {
+                    // 设备当前所在房间为权威值，避免模板房间过期导致记录不一致
+                    log.warn("工序模板[{}]房间与设备不一致，按设备所在房间绑定：templateRoomId={}, equipmentRoomId={}",
+                            template.getTemplateId(), roomId, equipmentRoomId);
+                    roomId = equipmentRoomId;
                 }
+                exec.setEquipmentId(equipment.getEquipmentId());
             }
-
-            // 根据模板中的描述文本匹配设备ID
-            if (StringUtils.hasText(template.getEquipmentDesc())) {
-                QueryWrapper<Equipment> eqWrapper = new QueryWrapper<>();
-                eqWrapper.eq("equipment_name", template.getEquipmentDesc());
-                eqWrapper.last("LIMIT 1");
-                Equipment equipment = equipmentService.getOne(eqWrapper);
-                if (equipment != null) {
-                    exec.setEquipmentId(equipment.getEquipmentId());
-                }
+            if (roomId != null) {
+                exec.setRoomId(roomId);
             }
 
             exec.setStatus("待执行");

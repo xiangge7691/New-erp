@@ -6,6 +6,7 @@ import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.PagedResultWithSummary;
 import com.tonghui.erp.Controller.ProductionPlanController;
+import com.tonghui.erp.Data.Entity.Equipment;
 import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.ProcessType;
 import com.tonghui.erp.Data.Entity.ProductionPlan;
@@ -22,6 +23,7 @@ import com.tonghui.erp.Data.Entity.Material;
 import com.tonghui.erp.Data.Entity.Unit;
 import com.tonghui.erp.Data.mapper.MaterialMapper;
 import com.tonghui.erp.Data.mapper.UnitMapper;
+import com.tonghui.erp.Data.mapper.EquipmentMapper;
 import com.tonghui.erp.Data.mapper.PreparationMapper;
 import com.tonghui.erp.Service.ProductionPlanService;
 import com.tonghui.erp.Service.WorkOrderService;
@@ -144,6 +146,12 @@ public class ProductionModuleTest {
      */
     @Autowired
     private UnitMapper unitMapper;
+
+    /**
+     * 设备数据访问层（测试工序模板关联设备/房间）
+     */
+    @Autowired
+    private EquipmentMapper equipmentMapper;
 
     // endregion
 
@@ -472,20 +480,24 @@ public class ProductionModuleTest {
     public void testProcessTemplateAndRecords() {
         Long preparationId = findAnyPreparationId();
         Long processTypeId = findAnyProcessTypeId();
-        if (preparationId == null || processTypeId == null) {
-            System.out.println("无制剂或工序类型数据，跳过该测试");
+        Equipment equipment = findAnyEquipmentWithRoom();
+        if (preparationId == null || processTypeId == null || equipment == null) {
+            System.out.println("无制剂/工序类型/已分配房间的设备数据，跳过该测试");
             return;
         }
 
-        // 工艺模板
+        // 工艺模板（设备必填，房间由设备所在房间带出）
         PreparationProcessTemplate template = new PreparationProcessTemplate();
         template.setPreparationId(preparationId);
         template.setProcessTypeId(processTypeId);
         template.setStepOrder(1);
+        template.setEquipmentId(equipment.getEquipmentId());
         preparationProcessTemplateService.batchSave(preparationId, List.of(template));
         List<PreparationProcessTemplate> templates =
                 preparationProcessTemplateService.findByPreparationId(preparationId);
         assertEquals(1, templates.size(), "应查到1条工艺模板");
+        assertEquals(equipment.getEquipmentId(), templates.get(0).getEquipmentId(), "应保存设备ID");
+        assertEquals(equipment.getRoomId(), templates.get(0).getRoomId(), "房间应由设备所在房间自动带出");
 
         // 二次保存（携带原 templateId）：应保留原ID，确保按行附件可定位
         template.setTemplateId(templates.get(0).getTemplateId());
@@ -661,6 +673,20 @@ public class ProductionModuleTest {
         try {
             List<ProcessType> list = processTypeService.listActive();
             return list.isEmpty() ? null : list.get(0).getProcessId().longValue();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * 查询任意一个已分配房间的设备，无数据时返回null
+     *
+     * @return 设备
+     */
+    private Equipment findAnyEquipmentWithRoom() {
+        try {
+            List<Equipment> list = equipmentMapper.selectList(null);
+            return list.stream().filter(e -> e.getRoomId() != null).findFirst().orElse(null);
         } catch (Exception e) {
             return null;
         }

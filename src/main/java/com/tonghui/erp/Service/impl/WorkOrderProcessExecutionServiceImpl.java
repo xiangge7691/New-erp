@@ -93,10 +93,11 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
                 if (execution.getId() != null && existingMap.containsKey(execution.getId())) {
                     incomingIds.add(execution.getId());
                     this.updateById(execution);
-                    // MyBatis-Plus 更新默认忽略 null 字段，需显式清空"设备/开始/结束时间"，
+                    // MyBatis-Plus 更新默认忽略 null 字段，需显式清空"房间/设备/开始/结束时间"，
                     // 否则用户取消设备或清空时间后旧值会残留，导致错误的设备占用
                     this.lambdaUpdate()
                             .eq(WorkOrderProcessExecution::getId, execution.getId())
+                            .set(WorkOrderProcessExecution::getRoomId, execution.getRoomId())
                             .set(WorkOrderProcessExecution::getEquipmentId, execution.getEquipmentId())
                             .set(WorkOrderProcessExecution::getStartTime, execution.getStartTime())
                             .set(WorkOrderProcessExecution::getEndTime, execution.getEndTime())
