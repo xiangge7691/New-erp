@@ -73,7 +73,7 @@ public class EquipmentUsageServiceImpl implements EquipmentUsageService {
      * 明细 sheet 表头
      */
     private static final String[] DETAIL_HEADERS = {
-            "序号", "设备名称", "固定资产编号", "设备型号", "设备类型", "所在房间",
+            "序号", "设备名称", "设备编码", "设备型号", "设备类型", "所在房间",
             "工单编号", "生产计划", "制剂名称", "批号", "工序名称", "工序顺序",
             "操作人", "开始时间", "结束时间", "使用时长(分钟)", "执行状态", "备注"
     };
@@ -82,7 +82,7 @@ public class EquipmentUsageServiceImpl implements EquipmentUsageService {
      * 维保记录 sheet 表头
      */
     private static final String[] MAINTENANCE_HEADERS = {
-            "序号", "设备名称", "固定资产编号", "维保类型", "维保开始时间", "维保结束时间",
+            "序号", "设备名称", "设备编码", "维保类型", "维保开始时间", "维保结束时间",
             "维保时长(分钟)", "维保内容", "维保结果", "维保人员", "维保公司", "下次维保日期"
     };
 
@@ -95,7 +95,7 @@ public class EquipmentUsageServiceImpl implements EquipmentUsageService {
      * 汇总 sheet 表头
      */
     private static final String[] SUMMARY_HEADERS = {
-            "设备名称", "固定资产编号", "设备型号", "设备类型", "所在房间",
+            "设备名称", "设备编码", "设备型号", "设备类型", "所在房间",
             "使用次数", "累计使用时长(分钟)", "首次使用时间", "最近使用时间",
             "维保次数", "累计维保时长(分钟)"
     };
