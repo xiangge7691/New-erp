@@ -184,6 +184,36 @@ public class DashboardV2SmokeTest {
             + " prepStructure=" + charts.path("costStructureByPreparation").size());
     }
 
+    /**
+     * 回归：计划生产时间为空的待生产计划也应计入总计划量
+     * <p>
+     * 测试库 2026-06~2026-11 共 7 张有效计划，其中 3 张未交完；
+     * 其中 2 张待生产计划的「计划生产时间」为空，必须按创建时间归月后纳入统计。
+     * </p>
+     *
+     * @throws Exception 请求异常
+     */
+    @Test
+    public void pendingPlansWithoutProductionTimeShouldBeCounted() throws Exception {
+        JsonNode production = get("/api/dashboard/metrics?startMonth=2026-06&endMonth=2026-11")
+            .path("data").path("production");
+        System.out.println("@@PROD_6M@@" + production);
+
+        int planCount = production.path("totalPlan").path("planCount").asInt();
+        int pendingCount = production.path("pending").path("planCount").asInt();
+        int fullyDelivered = production.path("delivery").path("fullyDeliveredPlanCount").asInt();
+
+        Assumptions.assumeTrue(planCount > 0, "测试库 2026-06~2026-11 无生产计划，跳过");
+
+        Assertions.assertEquals(7, planCount, "总计划量应为 7 张（含计划生产时间为空的计划）");
+        Assertions.assertEquals(3, pendingCount, "待生产计划量应为 3 张");
+        Assertions.assertEquals(planCount, fullyDelivered + pendingCount, "总计划 = 已全部交付 + 待生产");
+        Assertions.assertEquals(0, production.path("totalPlan").path("planQuantity").decimalValue()
+            .compareTo(new BigDecimal("42000")), "总计划量应为 42,000 件");
+        Assertions.assertEquals(0, production.path("pending").path("pendingQuantity").decimalValue()
+            .compareTo(new BigDecimal("17500")), "待生产量应为 17,500 件");
+    }
+
     private JsonNode get(String path) throws Exception {
         String token = JwtHelper.generateToken("1", "root", new String[] {"admin"},
             jwtConfig.getSecretKey(), jwtConfig.getIssuer(), jwtConfig.getAudience(), 30);

@@ -306,11 +306,14 @@ public class DashboardProductionServiceImpl implements DashboardProductionServic
         LocalDate today = LocalDate.now();
 
         // === 1. 区间内生产计划 ===
-        for (ProductionPlan plan : productionPlanMapper.selectList(null)) {
+        // 排除作废计划；软删除由 MyBatis-Plus 自动过滤
+        List<ProductionPlan> allPlans = productionPlanMapper.selectList(
+            new QueryWrapper<ProductionPlan>().ne("current_status", STATUS_VOID));
+        for (ProductionPlan plan : allPlans) {
             if (plan.getId() != null) {
                 data.planNumberById.put(plan.getId().longValue(), plan.getPlanNumber());
             }
-            String month = DashboardCalcUtils.monthOf(plan.getPlanProductionTime());
+            String month = resolvePlanMonth(plan);
             if (DashboardCalcUtils.inRange(month, startMonth, endMonth)) {
                 data.plans.add(plan);
             }
@@ -349,7 +352,7 @@ public class DashboardProductionServiceImpl implements DashboardProductionServic
             data.planQtyTotal = data.planQtyTotal.add(planQty);
             data.planDeliveredQtyTotal = data.planDeliveredQtyTotal.add(deliveredQty);
             data.planPendingQtyTotal = data.planPendingQtyTotal.add(pendingQty);
-            String month = DashboardCalcUtils.monthOf(plan.getPlanProductionTime());
+            String month = resolvePlanMonth(plan);
             data.planQtyByMonth.merge(month, planQty, BigDecimal::add);
             if (StringUtils.hasText(plan.getPreparationCode())) {
                 planPreparations.add(plan.getPreparationCode());
@@ -449,6 +452,27 @@ public class DashboardProductionServiceImpl implements DashboardProductionServic
             Comparator.nullsLast(Comparator.naturalOrder())));
 
         return data;
+    }
+
+    /**
+     * 解析生产计划归属月份
+     * <p>
+     * 优先使用「计划生产时间」；该字段未填写时回退到「创建时间」，
+     * 避免待生产计划因计划生产时间为空而被区间过滤整体丢弃。
+     * 两者都为空时返回 {@code null}，由区间判断决定是否纳入。
+     * </p>
+     *
+     * @param plan 生产计划
+     * @return yyyy-MM；无任何可用时间时返回 null
+     */
+    static String resolvePlanMonth(ProductionPlan plan) {
+        if (plan == null) {
+            return null;
+        }
+        LocalDateTime time = plan.getPlanProductionTime() != null
+            ? plan.getPlanProductionTime()
+            : plan.getCreatedTime();
+        return DashboardCalcUtils.monthOf(time);
     }
 
     /**
