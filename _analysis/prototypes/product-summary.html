@@ -1,0 +1,1872 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>产品信息汇总</title>
+<style>
+  :root{
+    --main:#5D87FF;--bg:#fafbfc;--card:#fff;--border:rgba(0,0,0,.08);--border2:#e2e8ee;
+    --g100:#f9fafb;--g200:#f2f4f5;--g300:#e6eaeb;--g400:#dbdfe1;--g500:#949eb7;
+    --g600:#7987a1;--g700:#4d5875;--g800:#383853;--g900:#323251;
+    --success:#13deb9;--warning:#ffae1f;--danger:#ff4d4f;--radius:14px;--radius-sm:8px;
+    --shadow:0 1px 2px rgba(0,0,0,.03);--shadow-md:0 8px 24px rgba(0,0,0,.08);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{background:var(--bg);color:var(--g900);font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif;-webkit-font-smoothing:antialiased;}
+  button,select,input{font:inherit;color:inherit;}
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--g400);border-radius:4px;}
+  .page{max-width:1280px;margin:0 auto;padding:28px 24px 64px;}
+  .head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+  .head h1{margin:0;font-size:20px;font-weight:600;letter-spacing:.2px;}
+  .sub{margin:4px 0 0;color:var(--g600);font-size:12.5px;}
+  .head-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .data-time{font-size:11.5px;color:var(--g500);}
+  .btn{height:34px;padding:0 14px;border-radius:var(--radius-sm);border:1px solid var(--border2);background:#fff;
+    color:var(--g700);font-size:13px;cursor:pointer;transition:.2s;white-space:nowrap;}
+  .btn:hover{border-color:#c9d4e6;color:var(--g900);background:#fbfcfd;}
+  .btn-primary{background:var(--main);border-color:var(--main);color:#fff;box-shadow:0 2px 6px rgba(93,135,255,.28);}
+  .btn-primary:hover{background:#7c9eff;border-color:#7c9eff;color:#fff;}
+  .btn-mini{height:26px;padding:0 9px;font-size:12px;border-radius:6px;}
+
+  /* 筛选 */
+  .filters{display:flex;align-items:center;gap:9px;flex-wrap:wrap;background:var(--card);border:1px solid var(--border);
+    border-radius:var(--radius);padding:12px 14px;margin:16px 0 14px;box-shadow:var(--shadow);}
+  .filters select,.filters input[type=date],.filters input[type=text]{border:1px solid var(--border2);background:#fff;
+    border-radius:var(--radius-sm);height:34px;padding:0 10px;font-size:13px;color:var(--g800);outline:none;transition:.2s;}
+  .filters select{cursor:pointer;}
+  .filters input[type=date]{width:140px;}
+  .filters input[type=text]{width:250px;}
+  .filters select:focus,.filters input:focus{border-color:var(--main);box-shadow:0 0 0 3px rgba(93,135,255,.12);}
+  .range{display:flex;align-items:center;gap:5px;color:var(--g500);font-size:12px;}
+  .check{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--g700);cursor:pointer;white-space:nowrap;}
+  .check input{width:15px;height:15px;accent-color:var(--main);margin:0;cursor:pointer;}
+  .spacer{flex:1;}
+
+  /* 统计 / 槽位概览 */
+  .stats{display:block;background:var(--card);border:1px solid var(--border);
+    border-radius:var(--radius);padding:12px 14px;margin-bottom:14px;box-shadow:var(--shadow);}
+  .stat{display:flex;align-items:baseline;gap:6px;padding:0 18px;border-left:1px solid var(--g200);min-width:0;}
+  .stat:first-child{border-left:0;}
+  .stat .s-label{font-size:12px;color:var(--g600);white-space:nowrap;}
+  .stat b{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;}
+  .stat .s-unit{font-size:11.5px;color:var(--g500);}
+  .stat.warn b{color:var(--danger);}
+  .slot-summary{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;font-size:11.5px;color:var(--g600);margin-bottom:9px;}
+  .slot-summary b{color:var(--g900);font-weight:600;font-size:12.5px;}
+  .slot-summary .bad b{color:var(--danger);}
+  .slot-chips{display:flex;gap:6px;flex-wrap:wrap;}
+  .slot-chip{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 8px;border-radius:6px;
+    border:1px solid var(--g300);background:#fff;font-size:11.5px;color:var(--g700);white-space:nowrap;}
+  .slot-chip b{font-weight:600;color:var(--g900);}
+  .slot-chip .miss-n{color:var(--danger);font-weight:600;}
+  .slot-chip.ok{background:#f5fffb;border-color:#b7ebd8;color:#0e8f76;}
+  .slot-chip.ok b{color:#0e8f76;}
+  .slot-chip.bad{background:#fff1f0;border-color:#ffccc7;color:#a8071a;}
+  .slot-chip.bad b{color:#a8071a;}
+  .slot-chip.optional{background:#fffbe6;border-color:#ffe58f;color:#8a6100;}
+  .slot-chip.optional b{color:#8a6100;}
+  .slot-chip.optional .miss-n{color:#8a6100;}
+  .slot-group-label{display:inline-flex;align-items:center;height:24px;padding:0 8px;border-radius:6px;
+    background:#fffbe6;border:1px solid #ffe58f;color:#8a6100;font-size:11px;font-weight:600;white-space:nowrap;}
+  .optional-chips{margin-top:6px;}
+  .req-tag{display:inline-flex;align-items:center;height:16px;padding:0 5px;border-radius:4px;font-size:10px;
+    font-weight:600;border:1px solid transparent;white-space:nowrap;margin-left:4px;}
+  .req-tag.required{background:#fff1f0;border-color:#ffccc7;color:#a8071a;}
+  .req-tag.conditional{background:#fff7e6;border-color:#ffe0a3;color:#ad6800;}
+  .req-tag.optional{background:#fffbe6;border-color:#ffe58f;color:#8a6100;}
+  .req-tag.pending{background:#f2f4f5;border-color:#dbdfe1;color:#7987a1;}
+  .optional-note{padding:8px 10px;border-top:1px solid #ffe58f;background:#fffbe6;color:#8a6100;font-size:11.5px;line-height:1.5;}
+  .file-group.optional-group{border-color:#ffe58f;}
+  .file-group.pending-group{border-color:#dbdfe1;}
+  .batch-stats{margin:0 0 12px;}
+
+  /* 视图切换 */
+  .view-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap;}
+  .view-meta{font-size:12px;color:var(--g500);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .ctx-label{color:var(--g800);font-weight:600;}
+  .mini-link{border:0;background:none;color:var(--main);font-size:11.5px;cursor:pointer;padding:0;}
+  .mini-link:hover{text-decoration:underline;}
+  #listContext{display:none;margin-bottom:12px;}
+  #listContext.show{display:block;}
+  .view-seg{display:flex;gap:2px;background:var(--g200);border-radius:9px;padding:3px;}
+  .view-seg button{border:0;background:none;border-radius:6px;height:28px;padding:0 12px;font-size:12.5px;
+    color:var(--g600);cursor:pointer;transition:.2s;}
+  .view-seg button:hover{color:var(--g900);}
+  .view-seg button.on{background:#fff;color:var(--g900);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.06);}
+
+  /* 卡片视图 */
+  .card-view{display:none;}
+  .card-view.show{display:block;}
+  .variety-block{margin-bottom:22px;}
+  .variety-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px;}
+  .variety-head h2{margin:0;font-size:15px;font-weight:600;color:var(--g900);display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
+  .variety-head .v-spec{font-size:11.5px;color:var(--g500);font-weight:400;}
+  .variety-meta{display:flex;gap:14px;font-size:11.5px;color:var(--g600);flex-wrap:wrap;}
+  .variety-meta b{color:var(--g900);font-weight:600;}
+  .variety-meta .bad{color:var(--danger);}
+  .wo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:13px;}
+  .wo-card{display:flex;flex-direction:column;gap:7px;background:var(--card);border:1px solid var(--border);
+    border-radius:12px;padding:14px 15px;cursor:pointer;box-shadow:var(--shadow);transition:.2s;}
+  .wo-card:hover{border-color:rgba(93,135,255,.55);box-shadow:var(--shadow-md);transform:translateY(-1px);}
+  .wo-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .wo-code{font-size:13.5px;font-weight:600;color:var(--g900);}
+  .wo-top .st{margin-left:auto;}
+  .wo-meta{font-size:11.5px;color:var(--g500);display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .wo-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:7px 0;border-top:1px solid var(--g200);border-bottom:1px solid var(--g200);}
+  .wo-stats div{display:flex;flex-direction:column;min-width:0;}
+  .wo-stats b{font-size:15px;font-weight:600;color:var(--g900);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .wo-stats span{font-size:10.5px;color:var(--g500);}
+  .wo-files{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11.5px;color:var(--g600);}
+  .wo-files b{color:var(--g900);font-weight:600;}
+  .wo-miss{font-size:11.5px;color:#cf1322;line-height:1.5;}
+  .wo-info{display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;font-size:11px;color:var(--g500);line-height:1.55;}
+  .wo-info b{color:var(--g700);font-weight:500;}
+  .v-info{font-size:11px;color:var(--g500);line-height:1.5;}
+  .wo-actions{display:flex;gap:6px;margin-top:2px;}
+  .wo-actions button{border:1px solid var(--border2);background:#fff;border-radius:6px;height:26px;padding:0 9px;
+    font-size:12px;color:var(--g700);cursor:pointer;}
+  .wo-actions button:hover{border-color:var(--main);color:var(--main);}
+
+  /* 品种卡片 */
+  .variety-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;}
+  .v-card{display:flex;flex-direction:column;gap:9px;background:var(--card);border:1px solid var(--border);
+    border-radius:14px;padding:16px;text-align:left;cursor:pointer;font:inherit;color:inherit;
+    box-shadow:var(--shadow);transition:.2s;}
+  .v-card:hover{border-color:rgba(93,135,255,.55);box-shadow:var(--shadow-md);transform:translateY(-1px);}
+  .v-top{display:flex;align-items:baseline;gap:8px;min-width:0;}
+  .v-name{font-size:15px;font-weight:600;color:var(--g900);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .v-code{font-size:11px;color:var(--g500);flex:none;}
+  .v-go{margin-left:auto;color:var(--g400);font-size:14px;}
+  .v-spec{font-size:11.5px;color:var(--g500);margin-top:-5px;}
+  .v-nums{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+  .v-nums div{display:flex;flex-direction:column;min-width:0;}
+  .v-nums b{font-size:18px;font-weight:600;color:var(--g900);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .v-nums span{font-size:11px;color:var(--g600);}
+  .v-bar{display:flex;height:6px;border-radius:4px;overflow:hidden;background:var(--g200);margin-top:2px;}
+  .v-bar i{display:block;height:100%;}
+  .v-bar .done{background:var(--success);}
+  .v-bar .run{background:var(--main);}
+  .v-bar .bad{background:var(--danger);}
+  .v-legend{display:flex;align-items:center;gap:10px;font-size:11px;color:var(--g600);flex-wrap:wrap;}
+  .v-legend .done{color:#0eaf93;}
+  .v-legend .run{color:var(--main);}
+  .v-legend .bad{color:var(--danger);}
+  .v-legend .rate{margin-left:auto;color:var(--g500);}
+  .v-legend .rate b{color:var(--g900);}
+
+  /* 品种页 / 批次页 */
+  .crumb{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--g600);margin-bottom:12px;flex-wrap:wrap;}
+  .crumb button{border:0;background:none;color:var(--g600);cursor:pointer;padding:0;font:inherit;}
+  .crumb button:hover{color:var(--main);}
+  .crumb .sep{color:var(--g400);}
+  .crumb .cur{color:var(--g800);}
+  .brief{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:12px;}
+  .brief h2{margin:0;font-size:18px;font-weight:600;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
+  .brief .spec{font-size:11.5px;color:var(--g500);font-weight:400;}
+  .brief-stats{display:flex;gap:16px;font-size:12px;color:var(--g600);flex-wrap:wrap;}
+  .brief-stats b{color:var(--g900);font-weight:600;}
+  .asset-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:14px;}
+  .asset-card{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);
+    border-radius:11px;padding:11px 13px;cursor:pointer;text-align:left;font:inherit;color:inherit;box-shadow:var(--shadow);}
+  .asset-card:hover{border-color:rgba(93,135,255,.55);box-shadow:var(--shadow-md);}
+  .asset-ico{width:32px;height:32px;border-radius:9px;background:#eef3ff;color:var(--main);flex:none;
+    display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;}
+  .asset-main{flex:1;min-width:0;}
+  .asset-main b{display:block;font-size:12.5px;color:var(--g900);}
+  .asset-main span{display:block;font-size:11px;color:var(--g500);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .asset-count{font-size:11.5px;color:var(--g600);white-space:nowrap;}
+  .asset-go{color:var(--g400);}
+
+  /* 节点圆点 */
+  .dots{display:flex;gap:4px;align-items:center;}
+  .dots i{width:6px;height:6px;border-radius:50%;background:var(--g300);}
+  .dots i.done{background:var(--success);}
+  .dots i.active{background:var(--main);}
+  .dots i.error{background:var(--danger);}
+
+  /* 批次时间轴 */
+  .timeline-panel{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:2px 16px 6px;box-shadow:var(--shadow);}
+  .tl-wrap{border-bottom:1px solid var(--g200);}
+  .tl-wrap:last-child{border-bottom:0;}
+  .tl{display:grid;grid-template-columns:10px 52px minmax(0,1fr) auto auto 12px;align-items:center;gap:10px;
+    padding:10px 0;font-size:13px;}
+  .tl.has-body{cursor:pointer;}
+  .tl.has-body:hover .tl-main{color:var(--main);}
+  .tl-dot{width:6px;height:6px;border-radius:50%;background:var(--g300);}
+  .tl-dot.done{background:var(--success);}
+  .tl-dot.active{background:var(--main);}
+  .tl-dot.error{background:var(--danger);}
+  .tl-label{color:var(--g600);font-size:12px;white-space:nowrap;}
+  .tl-main{color:var(--g800);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .tl-meta{color:var(--g500);font-size:11.5px;white-space:nowrap;max-width:280px;overflow:hidden;text-overflow:ellipsis;}
+  .tl-files{white-space:nowrap;}
+  .tl-caret{color:var(--g400);font-size:10px;text-align:right;transition:transform .2s;}
+  .tl-wrap.open .tl-caret{transform:rotate(180deg);}
+  .tl-body{display:none;padding:2px 0 14px 22px;}
+  .tl-wrap.open .tl-body{display:block;}
+  .file-chip{display:inline-flex;align-items:center;height:20px;padding:0 7px;border:1px solid var(--g300);
+    border-radius:6px;background:#fff;color:var(--g600);font-size:11px;cursor:pointer;white-space:nowrap;}
+  .file-chip:hover{color:var(--main);border-color:rgba(93,135,255,.5);background:#f5f8ff;}
+  .file-chip.none{color:var(--g400);border-color:transparent;background:none;cursor:default;}
+  .file-chip.planned{color:var(--g400);border-style:dashed;background:var(--g100);cursor:help;}
+  .file-chip.missing{color:#cf1322;border-color:#ffccc7;background:#fff1f0;}
+
+  /* 列表 */
+  .table-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;
+    box-shadow:var(--shadow);}
+  .table-scroll{overflow:auto;}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  thead th{background:var(--g100);color:var(--g600);font-weight:500;text-align:left;padding:10px 12px;
+    border-bottom:1px solid var(--g200);white-space:nowrap;font-size:11.5px;position:sticky;top:0;z-index:1;}
+  tbody td{padding:11px 12px;border-bottom:1px solid var(--g200);color:var(--g700);vertical-align:top;}
+  tbody tr:last-child td{border-bottom:0;}
+  tbody tr{cursor:pointer;transition:background .15s;}
+  tbody tr:hover td{background:#f7f9ff;}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;}
+  .cell-main{color:var(--g900);font-weight:500;}
+  .cell-sub{display:block;font-size:11px;color:var(--g500);margin-top:1px;}
+  .tag{display:inline-flex;align-items:center;height:18px;padding:0 6px;border-radius:5px;font-size:10.5px;
+    background:var(--g200);color:var(--g600);white-space:nowrap;}
+  .tag-purchase{background:#eef3ff;color:#3f6bd6;}
+  .tag-requisition{background:#e8f8f3;color:#0e8f76;}
+  .st{font-size:12px;white-space:nowrap;}
+  .st-done{color:#0eaf93;}
+  .st-run{color:var(--main);}
+  .st-wait{color:var(--g500);}
+  .st-bad{color:var(--danger);}
+  .lv{display:inline-flex;align-items:center;justify-content:center;height:16px;padding:0 5px;border-radius:4px;
+    font-size:10px;font-weight:700;white-space:nowrap;}
+  .lv-A{background:#fdecec;color:#c9353f;}
+  .lv-B{background:#fff4e5;color:#b26a00;}
+  .lv-C{background:#eef3ff;color:#3f6bd6;}
+  .miss{display:inline-flex;align-items:center;height:18px;padding:0 6px;border-radius:5px;background:#fff1f0;
+    color:#cf1322;font-size:10.5px;white-space:nowrap;}
+  .files-cell b{font-weight:600;color:var(--g900);}
+  .files-cell .lv{margin-left:3px;}
+  .miss-text{color:#cf1322;}
+  .row-actions{display:flex;gap:6px;white-space:nowrap;}
+  .row-actions button{border:1px solid var(--border2);background:#fff;border-radius:6px;height:26px;padding:0 9px;
+    font-size:12px;color:var(--g700);cursor:pointer;}
+  .row-actions button:hover{border-color:var(--main);color:var(--main);}
+  .table-foot{padding:10px 14px;border-top:1px solid var(--g200);font-size:12px;color:var(--g500);background:var(--g100);}
+  .empty{padding:56px 20px;text-align:center;color:var(--g500);font-size:13px;}
+  .foot{margin-top:28px;text-align:center;font-size:11.5px;color:var(--g500);}
+
+  /* 抽屉 */
+  .mask{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:.2s;z-index:20;}
+  .mask.show{opacity:1;pointer-events:auto;}
+  .panel{position:fixed;top:0;right:0;bottom:0;width:780px;max-width:96vw;background:#fff;z-index:21;
+    transform:translateX(100%);transition:transform .24s ease;display:flex;flex-direction:column;
+    box-shadow:-10px 0 30px rgba(0,0,0,.1);}
+  .panel.show{transform:none;}
+  .panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 20px 12px;
+    border-bottom:1px solid var(--g200);}
+  .panel-title{font-size:17px;font-weight:600;color:var(--g900);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .panel-sub{font-size:12px;color:var(--g600);margin-top:4px;}
+  .icon-btn{border:0;background:none;color:var(--g500);font-size:18px;line-height:1;cursor:pointer;padding:4px 8px;
+    border-radius:var(--radius-sm);}
+  .icon-btn:hover{background:var(--g200);color:var(--g900);}
+  .panel-tabs{display:flex;gap:4px;padding:8px 20px 0;border-bottom:1px solid var(--g200);}
+  .panel-tabs button{border:0;background:none;padding:7px 12px;border-radius:8px 8px 0 0;font-size:13px;
+    color:var(--g600);cursor:pointer;border-bottom:2px solid transparent;}
+  .panel-tabs button.on{color:var(--g900);font-weight:600;border-bottom-color:var(--main);}
+  .panel-body{flex:1;overflow:auto;padding:14px 20px 24px;}
+  .panel-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px;
+    border-top:1px solid var(--g200);font-size:12px;color:var(--g600);}
+
+  /* 缺件提示 */
+  .missing-box{border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12.5px;line-height:1.65;}
+  .missing-box.has{background:#fff1f0;border:1px solid #ffccc7;color:#a8071a;}
+  .missing-box.ok{background:#e8f8f3;border:1px solid #b7ebd8;color:#0e8f76;}
+  .missing-box b{font-weight:600;}
+  .missing-list{margin:6px 0 0;padding-left:18px;columns:2;column-gap:24px;}
+  .missing-list li{margin:2px 0;break-inside:avoid;}
+  .miss-summary{margin-top:4px;font-size:11.5px;color:var(--g600);line-height:1.7;}
+  .stage-tag{display:inline-block;height:16px;line-height:16px;padding:0 5px;border-radius:4px;
+    background:var(--g200);color:var(--g600);font-size:10px;margin-right:5px;vertical-align:1px;}
+  .slot-code{display:inline-block;font-family:Consolas,Monaco,monospace;font-size:10px;color:var(--g500);
+    background:var(--g100);border:1px solid var(--g200);border-radius:4px;padding:0 4px;margin-left:4px;white-space:nowrap;}
+  .missing-list .lv{margin-right:4px;}
+
+  /* 链路 */
+  .stage{border-bottom:1px solid var(--g200);padding:12px 0;}
+  .stage:last-child{border-bottom:0;}
+  .stage-head{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+  .stage-title{font-size:13px;font-weight:600;color:var(--g900);}
+  .stage-meta{font-size:11.5px;color:var(--g500);}
+  .kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:6px 18px;}
+  .kv div{font-size:12.5px;color:var(--g700);}
+  .kv .k{color:var(--g500);margin-right:6px;}
+  .doc{border:1px solid var(--g200);border-radius:10px;padding:10px 12px;margin:8px 0;background:#fff;overflow-x:auto;}
+  .doc-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px;}
+  .doc-head b{font-size:12.5px;color:var(--g900);}
+  .doc-head span{font-size:11.5px;color:var(--g500);}
+  .mini{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:4px;}
+  .mini th{background:var(--g100);color:var(--g600);font-weight:500;text-align:left;padding:5px 8px;
+    border-bottom:1px solid var(--g200);white-space:nowrap;}
+  .mini td{padding:5px 8px;border-bottom:1px solid var(--g200);color:var(--g700);white-space:nowrap;}
+  .mini tr:last-child td{border-bottom:0;}
+  .mini td.num{text-align:right;font-variant-numeric:tabular-nums;}
+  .doc-empty{padding:8px 0;font-size:11.5px;color:var(--g500);}
+  .data-note{margin-top:6px;font-size:11px;color:#b26a00;background:#fffbe6;border:1px solid #ffe58f;
+    border-radius:7px;padding:6px 8px;line-height:1.5;}
+  .rules{margin-top:12px;border:1px solid var(--g200);border-radius:9px;padding:8px 11px;font-size:11.5px;color:var(--g600);}
+  .rules summary{cursor:pointer;font-weight:600;color:var(--g700);}
+  .rules p{margin:6px 0 0;line-height:1.7;}
+  .rules b{color:var(--g800);}
+
+  /* 附件 */
+  .file-group{border:1px solid var(--g200);border-radius:10px;margin:10px 0;overflow:hidden;}
+  .file-group-head{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--g100);
+    font-size:12px;color:var(--g700);flex-wrap:wrap;}
+  .file-group-head b{font-weight:600;color:var(--g900);}
+  .file-group-head .cnt{margin-left:auto;color:var(--g500);font-size:11px;}
+  .file-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-top:1px solid var(--g200);}
+  .file-ico{width:30px;height:30px;border-radius:7px;background:var(--g200);color:var(--g600);flex:none;
+    display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;}
+  .file-main{flex:1;min-width:0;}
+  .file-name{font-size:12px;color:var(--g800);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .file-meta{font-size:10.5px;color:var(--g500);margin-top:1px;}
+  .file-act{font-size:11.5px;color:var(--main);cursor:pointer;white-space:nowrap;}
+  .file-act:hover{text-decoration:underline;}
+  .file-missing{padding:8px 10px;border-top:1px solid #ffd8d8;background:#fffafa;font-size:12px;color:#a8071a;}
+  .planned-note{margin:8px 0;padding:8px 10px;border:1px dashed var(--g300);border-radius:8px;background:var(--g100);
+    font-size:11.5px;color:var(--g500);line-height:1.65;}
+
+  .toast{position:fixed;left:50%;bottom:30px;transform:translate(-50%,10px);background:var(--g900);color:#fff;
+    border-radius:9px;padding:9px 16px;font-size:12.5px;opacity:0;pointer-events:none;transition:.2s;z-index:30;}
+  .toast.show{opacity:1;transform:translate(-50%,0);}
+
+  @media (max-width:800px){
+    .page{padding:18px 12px 48px;}
+    .filters input[type=text]{width:100%;}
+    .stats .stat{padding:6px 12px;border-left:0;min-width:44%;}
+    .panel{width:100vw;}
+    .hide-sm{display:none;}
+    .missing-list{columns:1;}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="head">
+    <div>
+      <h1>产品信息汇总</h1>
+      <p class="sub">计划 → 采购 / 领料（二选一）→ 工单 → 生产 → 入库 → 出库 → 检验 · 单据明细与附件均来自测试库</p>
+    </div>
+    <div class="head-actions">
+      <span class="data-time" id="dataTime"></span>
+      <button class="btn" id="btnRefresh">刷新</button>
+      <button class="btn btn-primary" id="btnExport">导出当前结果</button>
+    </div>
+  </header>
+
+  <section class="filters">
+    <select id="fVariety"><option value="">全部品种</option></select>
+    <select id="fDateType">
+      <option value="planDate">计划日期</option>
+      <option value="workOrderDate">工单日期</option>
+      <option value="inboundDate">入库日期</option>
+      <option value="inspectionDate">检验日期</option>
+    </select>
+    <div class="range">
+      <input type="date" id="fStart" />
+      <span>~</span>
+      <input type="date" id="fEnd" />
+    </div>
+    <input type="text" id="fKeyword" placeholder="计划号 / 工单号 / 批号 / 采购单号" />
+    <label class="check"><input type="checkbox" id="fMissing" /> 只看缺件</label>
+    <div class="spacer"></div>
+    <button class="btn" id="btnReset">重置</button>
+    <button class="btn btn-primary" id="btnSearch">查询</button>
+  </section>
+
+  <section class="stats" id="stats"></section>
+
+  <div class="view-bar">
+    <div class="view-meta" id="viewMeta"></div>
+    <div class="view-seg" id="viewSeg">
+      <button data-view="card" class="on">卡片</button>
+      <button data-view="list">列表</button>
+    </div>
+  </div>
+
+  <section id="cardView" class="card-view show"></section>
+
+  <section id="listContext"></section>
+
+  <section class="table-card" id="listView" style="display:none">
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>品种</th>
+            <th>计划 / 物料来源</th>
+            <th>工单 / 批号</th>
+            <th>生产</th>
+            <th>入库 / 出库</th>
+            <th>检验</th>
+            <th>附件</th>
+            <th>状态</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <div class="table-foot" id="tableFoot"></div>
+  </section>
+
+  <p class="foot">原型快照 · 测试库 8.134.48.54 · 只读查询 · 附件来自 business_file / file_info</p>
+</div>
+
+<div class="mask" id="mask"></div>
+<aside class="panel" id="panel">
+  <div class="panel-head">
+    <div>
+      <div class="panel-title" id="panelTitle">—</div>
+      <div class="panel-sub" id="panelSub"></div>
+    </div>
+    <button class="icon-btn" id="panelClose" aria-label="关闭">×</button>
+  </div>
+  <div class="panel-tabs" id="panelTabs">
+    <button class="on" data-tab="chain">链路详情</button>
+    <button data-tab="files">附件 <b id="tabFileCount">0</b></button>
+  </div>
+  <div class="panel-body" id="panelBody"></div>
+  <div class="panel-foot">
+    <span id="panelFootInfo"></span>
+    <span><button class="btn btn-mini" id="panelExport">导出本批次</button></span>
+  </div>
+</aside>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+ * 数据快照（由 _analysis/tools/build_product_summary_data.py 生成）
+ * =======================================================*/
+const SNAPSHOT = {"generatedAt":"2026-11-05 12:06:56","plans":[{"id":315,"planNumber":"Plan202611030001","planDate":"2026-11-03","planQuantity":3500,"planType":"自主加工","planStatus":"待生产","preparationId":242,"preparationCode":"Z04-010","preparationName":"强筋壮骨丸","spec":"每50丸重6g（每1g相当于饮片约0.92g）","unitName":"盒","packageSpec":"36g/瓶*1瓶/盒","receiver":"耒阳市中医医院","productionUnit":"耒阳制剂室","purchaseOrderTime":"2026-11-03 13:49:08","productionStart":null,"productionEnd":null,"inspectionStart":null,"inspectionEnd":null,"outboundTime":null,"materialSource":null,"purchases":[],"requisitions":[],"workOrders":[],"stockOuts":[]},{"id":314,"planNumber":"Plan202611020001","planDate":"2026-11-02","planQuantity":7000,"planType":"自主加工","planStatus":"待生产","preparationId":241,"preparationCode":"Z04-009","preparationName":"活血通络丸","spec":"每50丸重6g（每1g相当于饮片约0.83g）","unitName":"盒","packageSpec":"36g/瓶*1瓶/盒","receiver":"耒阳市中医医院","productionUnit":"耒阳制剂室","purchaseOrderTime":"2026-11-02 15:59:15","productionStart":null,"productionEnd":null,"inspectionStart":null,"inspectionEnd":null,"outboundTime":null,"materialSource":null,"purchases":[],"requisitions":[],"workOrders":[],"stockOuts":[]},{"id":313,"planNumber":"Plan202610190008","planDate":"2026-10-18","planQuantity":7000,"planType":"自主加工","planStatus":"生产中","preparationId":238,"preparationCode":"Z04-006","preparationName":"桂附潜阳丸","spec":"每50丸重6g（每1g相当于饮片约0.92g）","unitName":"盒","packageSpec":"36g/瓶*1瓶/盒","receiver":"耒阳市中医医院","productionUnit":"耒阳制剂室","purchaseOrderTime":"2026-10-19 13:49:13","productionStart":null,"productionEnd":null,"inspectionStart":null,"inspectionEnd":null,"outboundTime":"2026-10-18 00:00:00","materialSource":"requisition","purchases":[{"id":1512,"code":"CGDH202610190001","date":"2026-10-19","status":"已入库","materialType":"原料","supplier":"湖南省松龄堂中药饮片有限公司","amount":0.0,"items":[{"code":"Z032","name":"黄柏","category":"原料","qty":22.04,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z174","name":"仙鹤草","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z162","name":"肉苁蓉","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z195","name":"紫苏叶","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z021","name":"生地黄","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z157","name":"茯苓","category":"原料","qty":22.04,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z163","name":"知母","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z122","name":"淫羊藿","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z040","name":"肉桂","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z036","name":"砂仁","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z373","name":"醋龟甲","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z482","name":"甘草片","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z227","name":"巴戟天","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z601","name":"黑顺片","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z083","name":"炮姜","category":"原料","qty":22.04,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"}],"acceptanceId":2037,"acceptanceCode":"YS-20261019-009","acceptanceStatus":"已入库"}],"requisitions":[{"id":37,"code":"SCLL-20261105-001","date":"2026-11-05","status":"已发料","applicant":"zqy","stockOutCode":"OUT202611050001","items":[{"code":"B05-004-01","name":"60ml口服固体药用高密度聚乙烯瓶","category":"包材","qty":1,"unit":"个","batch":"A202603023"}]}],"workOrders":[{"id":467,"code":"GD202610200005","batch":"","qty":7000,"finishedQty":7000,"yieldRate":100,"status":"生产中","configDate":"2026-10-21","start":"2026-10-21","end":null,"inboundTime":null,"outboundTime":null,"processes":[{"id":440,"process":"干燥饮片","room":"干燥粉碎间","operator":"廖晟璋","qty":null,"start":"2026-10-21 09:13:00","end":"2026-10-21 20:10:00","status":"待执行"},{"id":441,"process":"粉碎","room":"干燥粉碎间","operator":"廖晟璋","qty":null,"start":"2026-10-21 15:24:00","end":"2026-10-22 15:58:00","status":"待执行"},{"id":442,"process":"灭菌","room":"灭菌间","operator":"夏维","qty":null,"start":"2026-10-22 14:29:00","end":"2026-10-23 11:47:00","status":"待执行"},{"id":443,"process":"炼蜜","room":"炼蜜间","operator":"谭秀凤","qty":null,"start":"2026-10-23 08:06:00","end":"2026-10-23 08:26:00","status":"待执行"},{"id":444,"process":"混合","room":"和料间","operator":"谭秀凤","qty":null,"start":"2026-10-23 08:38:00","end":"2026-10-24 10:27:00","status":"待执行"},{"id":445,"process":"制软材","room":"和料间","operator":"谭秀凤","qty":null,"start":"2026-10-23 08:59:00","end":"2026-10-24 11:48:00","status":"待执行"},{"id":446,"process":"制丸","room":"制丸间","operator":"陈曜辉","qty":null,"start":"2026-10-23 09:26:00","end":"2026-10-24 15:20:00","status":"待执行"},{"id":447,"process":"包衣","room":"抛光间","operator":"陈曜辉","qty":null,"start":"2026-10-23 10:14:00","end":"2026-10-24 16:03:00","status":"待执行"},{"id":448,"process":"干燥（丸）","room":"制粒干燥间","operator":"陈曜辉","qty":null,"start":"2026-10-23 16:26:00","end":"2026-10-24 23:30:00","status":"待执行"},{"id":449,"process":"内包","room":"内包间","operator":"","qty":null,"start":null,"end":null,"status":"待执行"},{"id":450,"process":"包装","room":"外包间","operator":"","qty":null,"start":null,"end":null,"status":"待执行"}],"stockIns":[],"inspectionRequests":[],"inspections":[],"releases":[]}],"stockOuts":[{"id":920,"code":"OUT202611050001","type":"生产领料出库","date":"2026-11-05","status":"草稿","amount":0.9,"items":[{"code":"B05-004-01","name":"60ml口服固体药用高密度聚乙烯瓶","category":"包材","qty":1,"unit":"个","batch":"A202603023","amount":0.9}]},{"id":840,"code":"OUT202610200008","type":"生产领料出库","date":"2026-10-18","status":"已出库","amount":29186.99,"items":[{"code":"Z032","name":"黄柏","category":"原料","qty":22.04,"unit":"千克","batch":"260701","amount":3394.16},{"code":"Z174","name":"仙鹤草","category":"原料","qty":14.71,"unit":"千克","batch":"260401","amount":152.98},{"code":"Z162","name":"肉苁蓉","category":"原料","qty":14.71,"unit":"千克","batch":"260302","amount":1691.65},{"code":"Z195","name":"紫苏叶","category":"原料","qty":14.71,"unit":"千克","batch":"250901","amount":1014.99},{"code":"Z021","name":"生地黄","category":"原料","qty":14.71,"unit":"千克","batch":"260704","amount":411.88},{"code":"Z157","name":"茯苓","category":"原料","qty":22.04,"unit":"千克","batch":"250303","amount":766.99},{"code":"Z163","name":"知母","category":"原料","qty":14.71,"unit":"千克","batch":"260501","amount":1000.28},{"code":"Z122","name":"淫羊藿","category":"原料","qty":14.71,"unit":"千克","batch":"260701","amount":4118.8},{"code":"Z040","name":"肉桂","category":"原料","qty":14.71,"unit":"千克","batch":"260601","amount":1044.41},{"code":"Z036","name":"砂仁","category":"原料","qty":14.71,"unit":"千克","batch":"250701","amount":4413},{"code":"Z373","name":"醋龟甲","category":"原料","qty":14.71,"unit":"千克","batch":"260601","amount":4339.45},{"code":"Z482","name":"甘草片","category":"原料","qty":14.71,"unit":"千克","batch":"250302","amount":661.95},{"code":"Z227","name":"巴戟天","category":"原料","qty":14.71,"unit":"千克","batch":"260501","amount":2721.35},{"code":"Z601","name":"黑顺片","category":"原料","qty":14.71,"unit":"千克","batch":"260501","amount":1912.3},{"code":"Z083","name":"炮姜","category":"原料","qty":22.04,"unit":"千克","batch":"260301","amount":1542.8}]}]},{"id":310,"planNumber":"Plan202610190005","planDate":"2026-10-17","planQuantity":7000,"planType":"自主加工","planStatus":"生产中","preparationId":244,"preparationCode":"Z04-012","preparationName":"益肺平喘丸","spec":"每50丸重6g（每1g相当于饮片约0.86g）","unitName":"盒","packageSpec":"36g/瓶*1瓶/盒","receiver":"耒阳市中医医院","productionUnit":"耒阳制剂室","purchaseOrderTime":"2026-10-19 13:41:12","productionStart":"2026-10-14 00:00:00","productionEnd":"2026-10-20 00:00:00","inspectionStart":"2026-10-20 00:00:00","inspectionEnd":null,"outboundTime":"2026-10-19 00:00:00","materialSource":"purchase","purchases":[{"id":1514,"code":"CGDH202610190003","date":"2026-10-19","status":"已入库","materialType":"原料","supplier":"湖南省松龄堂中药饮片有限公司","amount":0.0,"items":[{"code":"Z046","name":"当归","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z125","name":"红花","category":"原料","qty":7.36,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z185","name":"枸杞子","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z162","name":"肉苁蓉","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z193","name":"法半夏","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z063","name":"防风","category":"原料","qty":7.36,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z157","name":"茯苓","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z010","name":"丹参","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z122","name":"淫羊藿","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z022","name":"麦冬","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z047","name":"黄芪","category":"原料","qty":29.4,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z351","name":"炙甘草","category":"原料","qty":7.36,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z110","name":"五味子","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z389","name":"化橘红","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z642","name":"人参片","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z305","name":"葶苈子","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"}],"acceptanceId":2035,"acceptanceCode":"YS-20261019-007","acceptanceStatus":"已入库"},{"id":1513,"code":"CGDH202610190002","date":"2026-10-19","status":"已入库","materialType":"包材","supplier":"湖南九恒医药科技有限公司、湖南立信彩印有限公司","amount":0.0,"items":[{"code":"B05-004-01","name":"60ml口服固体药用高密度聚乙烯瓶","category":"包材","qty":20000,"unit":"个","price":null,"amount":0,"supplier":"湖南九恒医药科技有限公司","status":"已入库"},{"code":"B06-011-01","name":"益肺平喘丸纸盒","category":"包材","qty":7000,"unit":"个","price":null,"amount":0,"supplier":"湖南立信彩印有限公司","status":"已入库"},{"code":"B06-011-02","name":"益肺平喘丸标签（卷标）","category":"包材","qty":10000,"unit":"个","price":null,"amount":0,"supplier":"湖南立信彩印有限公司","status":"已入库"},{"code":"B06-011-03","name":"益肺平喘丸说明书","category":"包材","qty":12000,"unit":"张","price":null,"amount":0,"supplier":"湖南立信彩印有限公司","status":"已入库"}],"acceptanceId":2036,"acceptanceCode":"YS-20261019-008","acceptanceStatus":"已入库"}],"requisitions":[],"workOrders":[{"id":466,"code":"GD202610200004","batch":"261001","qty":7000,"finishedQty":7004,"yieldRate":100.06,"status":"检验中","configDate":"2026-10-14","start":"2026-10-14","end":"2026-10-20","inboundTime":null,"outboundTime":null,"processes":[{"id":429,"process":"干燥饮片","room":"干燥粉碎间","operator":"廖晟璋    ","qty":228,"start":"2026-10-14 09:12:00","end":"2026-10-14 20:00:00","status":"待执行"},{"id":430,"process":"粉碎","room":"干燥粉碎间","operator":"廖晟璋","qty":218.45,"start":"2026-10-14 15:13:00","end":"2026-10-15 15:09:00","status":"待执行"},{"id":431,"process":"灭菌","room":"灭菌间","operator":"陈曜辉","qty":216.5,"start":"2026-10-15 09:38:00","end":"2026-10-15 16:38:00","status":"待执行"},{"id":432,"process":"炼蜜","room":"炼蜜间","operator":"谭秀凤","qty":58,"start":"2026-10-16 08:09:00","end":"2026-10-16 08:29:00","status":"待执行"},{"id":433,"process":"混合","room":"和料间","operator":"谭秀凤","qty":210.5,"start":"2026-10-16 08:43:00","end":"2026-10-17 10:26:00","status":"待执行"},{"id":434,"process":"制软材","room":"和料间","operator":"廖晟璋","qty":210.5,"start":"2026-10-16 09:04:00","end":"2026-10-17 11:35:00","status":"待执行"},{"id":435,"process":"制丸","room":"制丸间","operator":"陈曜辉","qty":null,"start":"2026-10-16 09:32:00","end":"2026-10-17 14:43:00","status":"待执行"},{"id":436,"process":"包衣","room":"抛光间","operator":"陈曜辉","qty":null,"start":"2026-10-16 10:13:00","end":"2026-10-17 15:27:00","status":"待执行"},{"id":437,"process":"干燥（丸）","room":"制粒干燥间","operator":"陈曜辉","qty":253.98,"start":"2026-10-16 16:08:00","end":"2026-10-17 23:30:00","status":"待执行"},{"id":438,"process":"内包","room":"内包间","operator":"夏维","qty":253.98,"start":"2026-10-19 09:19:00","end":"2026-10-19 17:46:00","status":"待执行"},{"id":439,"process":"包装","room":"外包间","operator":"张力","qty":null,"start":"2026-10-19 10:20:00","end":"2026-10-20 16:00:00","status":"待执行"}],"stockIns":[],"inspectionRequests":[{"id":129,"code":"QJ-20261027-003","time":"2026-10-20 00:00:00","process":"成品检验","items":"性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度","requester":"张力","batch":"261001","category":"成品","status":null},{"id":128,"code":"QJ-20261027-002","time":"2026-10-17 00:00:00","process":"干燥（丸）","items":"性状、水分、重量差异","requester":"丁圣芳","batch":"","category":"中间产品","status":null},{"id":127,"code":"QJ-20261027-001","time":"2026-10-15 00:00:00","process":"粉碎","items":"粒度","requester":"廖晟璋","batch":"","category":"中间产品","status":null}],"inspections":[{"id":93,"code":"JY-20261027-002","date":"2026-10-20","start":"2026-10-19 00:00:00","end":"2026-10-20 00:00:00","items":"性状、水分、重量差异","basis":"中国药典2025版","inspector":"丁圣芳","reviewer":"资晓红","conclusion":"合格","status":"合格"},{"id":92,"code":"JY-20261027-001","date":"2026-10-17","start":"2026-10-16 00:00:00","end":"2026-10-17 00:00:00","items":"粒度","basis":"中国药典2025版","inspector":"丁圣芳","reviewer":"资晓红","conclusion":"合格","status":"合格"}],"releases":[]}],"stockOuts":[{"id":845,"code":"OUT202611020002","type":"生产领料出库","date":"2026-10-19","status":"已出库","amount":12622.56,"items":[{"code":"B05-004-01","name":"60ml口服固体药用高密度聚乙烯瓶","category":"包材","qty":7051,"unit":"个","batch":"A202603023","amount":6345.9},{"code":"B06-011-01","name":"益肺平喘丸纸盒","category":"包材","qty":7050,"unit":"个","batch":"261001","amount":4230},{"code":"B06-011-02","name":"益肺平喘丸标签（卷标）","category":"包材","qty":8328,"unit":"个","batch":"261001","amount":1415.76},{"code":"B06-011-03","name":"益肺平喘丸说明书","category":"包材","qty":7010,"unit":"张","batch":"261001","amount":630.9}]},{"id":844,"code":"OUT202611020001","type":"生产领料出库","date":"2026-10-16","status":"已出库","amount":2925,"items":[{"code":"F030","name":"蜂蜜（药用）","category":"辅料","qty":75,"unit":"千克","batch":"260908-1","amount":2925}]},{"id":839,"code":"OUT202610200007","type":"生产领料出库","date":"2026-10-14","status":"已出库","amount":37817.45,"items":[{"code":"Z046","name":"当归","category":"原料","qty":14.71,"unit":"千克","batch":"260501","amount":2147.66},{"code":"Z125","name":"红花","category":"原料","qty":7.36,"unit":"千克","batch":"260701","amount":846.4},{"code":"Z185","name":"枸杞子","category":"原料","qty":14.71,"unit":"千克","batch":"260801","amount":1323.9},{"code":"Z162","name":"肉苁蓉","category":"原料","qty":14.71,"unit":"千克","batch":"260701","amount":1691.65},{"code":"Z193","name":"法半夏","category":"原料","qty":14.71,"unit":"千克","batch":"251101","amount":2942},{"code":"Z063","name":"防风","category":"原料","qty":7.36,"unit":"千克","batch":"251202","amount":4416},{"code":"Z157","name":"茯苓","category":"原料","qty":14.71,"unit":"千克","batch":"250303","amount":511.91},{"code":"Z010","name":"丹参","category":"原料","qty":14.71,"unit":"千克","batch":"260604","amount":691.37},{"code":"Z122","name":"淫羊藿","category":"原料","qty":14.71,"unit":"千克","batch":"260701","amount":4118.8},{"code":"Z022","name":"麦冬","category":"原料","qty":14.71,"unit":"千克","batch":"251102","amount":1559.26},{"code":"Z047","name":"黄芪","category":"原料","qty":29.4,"unit":"千克","batch":"250202","amount":4116},{"code":"Z351","name":"炙甘草","category":"原料","qty":7.36,"unit":"千克","batch":"251201","amount":301.76},{"code":"Z110","name":"五味子","category":"原料","qty":14.71,"unit":"千克","batch":"260601","amount":1397.45},{"code":"Z389","name":"化橘红","category":"原料","qty":14.71,"unit":"千克","batch":"260501","amount":661.95},{"code":"Z642","name":"人参片","category":"原料","qty":14.71,"unit":"千克","batch":"251201","amount":10002.8},{"code":"Z305","name":"葶苈子","category":"原料","qty":14.71,"unit":"千克","batch":"250601","amount":1088.54}]}]},{"id":308,"planNumber":"Plan202610190003","planDate":"2026-09-22","planQuantity":3500,"planType":"自主加工","planStatus":"已完成","preparationId":239,"preparationCode":"Z04-007","preparationName":"护肾排毒丸","spec":"每50丸重6g（每1g相当于饮片约0.86g）","unitName":"盒","packageSpec":"36g/瓶*1瓶/盒","receiver":"耒阳市中医医院","productionUnit":"耒阳制剂室","purchaseOrderTime":"2026-10-19 10:27:32","productionStart":"2026-09-22 00:00:00","productionEnd":"2026-09-30 00:00:00","inspectionStart":"2026-09-30 00:00:00","inspectionEnd":"2026-10-19 00:00:00","outboundTime":"2026-09-30 00:00:00","materialSource":"purchase","purchases":[{"id":1516,"code":"CGDH202610190005","date":"2026-10-19","status":"已入库","materialType":"原料","supplier":"湖南省松龄堂中药饮片有限公司","amount":0.0,"items":[{"code":"Z046","name":"当归","category":"原料","qty":7.36,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z115","name":"大黄","category":"原料","qty":7.36,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z055","name":"川芎","category":"原料","qty":7.36,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z162","name":"肉苁蓉","category":"原料","qty":7.36,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z159","name":"菟丝子","category":"原料","qty":7.36,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z010","name":"丹参","category":"原料","qty":7.36,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z122","name":"淫羊藿","category":"原料","qty":7.36,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z040","name":"肉桂","category":"原料","qty":3.68,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z047","name":"黄芪","category":"原料","qty":22.06,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z076","name":"干姜","category":"原料","qty":7.36,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z243","name":"太子参","category":"原料","qty":14.7,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z347","name":"红景天","category":"原料","qty":7.36,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z072","name":"山楂","category":"原料","qty":7.36,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"}],"acceptanceId":2033,"acceptanceCode":"YS-20261019-005","acceptanceStatus":"已入库"},{"id":1515,"code":"CGDH202610190004","date":"2026-10-19","status":"已入库","materialType":"包材","supplier":"湖南立信彩印有限公司","amount":0.0,"items":[{"code":"B06-007-03","name":"护肾排毒丸说明书","category":"包材","qty":4000,"unit":"张","price":null,"amount":0,"supplier":"湖南立信彩印有限公司","status":"已入库"}],"acceptanceId":2034,"acceptanceCode":"YS-20261019-006","acceptanceStatus":"已入库"}],"requisitions":[],"workOrders":[{"id":465,"code":"GD202610200003","batch":"260901","qty":3500,"finishedQty":3502,"yieldRate":100.06,"status":"已入库","configDate":"2026-09-22","start":"2026-09-22","end":"2026-09-30","inboundTime":"2026-10-20 00:00:00","outboundTime":null,"processes":[{"id":418,"process":"干燥饮片","room":"干燥粉碎间","operator":"廖晟璋","qty":114.04,"start":"2026-09-22 09:34:00","end":"2026-09-22 14:30:00","status":"待执行"},{"id":419,"process":"粉碎","room":"干燥粉碎间","operator":"廖晟璋","qty":109.72,"start":"2026-09-23 09:34:00","end":"2026-09-23 14:30:00","status":"待执行"},{"id":420,"process":"灭菌","room":"灭菌间","operator":"廖晟璋","qty":107.63,"start":"2026-09-24 08:41:00","end":"2026-09-24 11:29:00","status":"待执行"},{"id":421,"process":"炼蜜","room":"炼蜜间","operator":"谭秀凤","qty":42,"start":"2026-09-29 08:09:00","end":"2026-09-29 08:29:00","status":"待执行"},{"id":422,"process":"混合","room":"和料间","operator":"谭秀凤","qty":107.63,"start":"2026-09-29 08:45:00","end":"2026-09-29 10:43:00","status":"待执行"},{"id":423,"process":"制软材","room":"和料间","operator":"谭秀凤","qty":107.63,"start":"2026-09-29 09:06:00","end":"2026-09-29 11:50:00","status":"待执行"},{"id":424,"process":"制丸","room":"制丸间","operator":"陈曜辉","qty":107.63,"start":"2026-09-29 09:46:00","end":"2026-09-29 15:12:00","status":"待执行"},{"id":425,"process":"包衣","room":"抛光间","operator":"陈曜辉","qty":107.63,"start":"2026-09-29 10:27:00","end":"2026-09-29 15:48:00","status":"待执行"},{"id":426,"process":"干燥（丸）","room":"制粒干燥间","operator":"陈曜辉","qty":127.22,"start":"2026-09-29 16:04:00","end":"2026-09-29 23:40:00","status":"待执行"},{"id":427,"process":"内包","room":"内包间","operator":"夏维","qty":127.22,"start":"2026-09-30 09:37:00","end":"2026-09-30 14:28:00","status":"待执行"},{"id":428,"process":"包装","room":"外包间","operator":"张力","qty":127.22,"start":"2026-09-30 10:30:00","end":"2026-09-30 17:10:00","status":"待执行"}],"stockIns":[{"id":1237,"code":"IN202610200004","type":"成品入库","date":"2026-10-20","status":"已入库","amount":114340.3,"items":[{"code":"Z04-007","name":"护肾排毒丸","category":"成品","qty":3502,"unit":"","batch":"260901","amount":114340.3}]}],"inspectionRequests":[{"id":126,"code":"QJ-20261020-006","time":"2026-09-30 00:00:00","process":"成品检验","items":"性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度","requester":"张力","batch":"260901","category":"成品","status":null},{"id":125,"code":"QJ-20261020-005","time":"2026-09-30 00:00:00","process":"干燥（丸）","items":"性状、水分、重量差异","requester":"丁圣芳","batch":"260901","category":"中间产品","status":null},{"id":124,"code":"QJ-20261020-004","time":"2026-09-23 00:00:00","process":"粉碎","items":"粒度","requester":"丁圣芳","batch":"260901","category":"中间产品","status":null}],"inspections":[{"id":91,"code":"JY-20261020-006","date":"2026-10-19","start":"2026-10-09 00:00:00","end":"2026-10-19 00:00:00","items":"性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度","basis":"中国药典2025版","inspector":"丁圣芳","reviewer":"资晓红","conclusion":"合格","status":"合格"},{"id":89,"code":"JY-20261020-004","date":"2026-09-30","start":"2026-09-30 00:00:00","end":"2026-09-30 00:00:00","items":"性状、水分、重量差异","basis":"中国药典2025版","inspector":"丁圣芳","reviewer":"资晓红","conclusion":"合格","status":"合格"},{"id":88,"code":"JY-20261020-003","date":"2026-09-24","start":"2026-09-23 00:00:00","end":"2026-09-24 00:00:00","items":"粒度","basis":"中国药典2025版","inspector":"丁圣芳","reviewer":"资晓红","conclusion":"合格","status":"合格"}],"releases":[{"id":89,"code":"FX-20261020-002","time":"2026-10-20 00:00:00","conclusion":"放行","reviewer":"陈仲新","opinion":null,"relatedInspection":"JY-20261020-006"}]}],"stockOuts":[{"id":838,"code":"OUT202610200006","type":"生产领料出库","date":"2026-09-30","status":"已出库","amount":3537,"items":[{"code":"B05-004-01","name":"60ml口服固体药用高密度聚乙烯瓶","category":"包材","qty":3579,"unit":"个","batch":"A202603023","amount":3221.1},{"code":"B06-007-03","name":"护肾排毒丸说明书","category":"包材","qty":3510,"unit":"张","batch":"260901","amount":315.9}]},{"id":837,"code":"OUT202610200005","type":"生产领料出库","date":"2026-09-29","status":"已出库","amount":1638,"items":[{"code":"F030","name":"蜂蜜（药用）","category":"辅料","qty":42,"unit":"千克","batch":"260908-1","amount":1638}]},{"id":836,"code":"OUT202610200004","type":"生产领料出库","date":"2026-09-22","status":"已出库","amount":13530.07,"items":[{"code":"Z046","name":"当归","category":"原料","qty":7.36,"unit":"千克","batch":"260106","amount":1080.45},{"code":"Z115","name":"大黄","category":"原料","qty":7.36,"unit":"千克","batch":"260401","amount":441.6},{"code":"Z055","name":"川芎","category":"原料","qty":7.36,"unit":"千克","batch":"260601","amount":182.53},{"code":"Z162","name":"肉苁蓉","category":"原料","qty":7.36,"unit":"千克","batch":"260302","amount":846.4},{"code":"Z159","name":"菟丝子","category":"原料","qty":7.36,"unit":"千克","batch":"251202","amount":1678.08},{"code":"Z010","name":"丹参","category":"原料","qty":7.36,"unit":"千克","batch":"260401","amount":345.92},{"code":"Z122","name":"淫羊藿","category":"原料","qty":7.36,"unit":"千克","batch":"250601","amount":2060.8},{"code":"Z040","name":"肉桂","category":"原料","qty":3.68,"unit":"千克","batch":"260601","amount":261.28},{"code":"Z047","name":"黄芪","category":"原料","qty":22.06,"unit":"千克","batch":"250202","amount":2867.8},{"code":"Z076","name":"干姜","category":"原料","qty":7.36,"unit":"千克","batch":"260401","amount":441.6},{"code":"Z243","name":"太子参","category":"原料","qty":14.7,"unit":"千克","batch":"250702","amount":1203.93},{"code":"Z347","name":"红景天","category":"原料","qty":7.36,"unit":"千克","batch":"260401","amount":1766.4},{"code":"Z072","name":"山楂","category":"原料","qty":7.36,"unit":"千克","batch":"260601","amount":353.28}]}]},{"id":307,"planNumber":"Plan202610190002","planDate":"2026-09-08","planQuantity":7000,"planType":"自主加工","planStatus":"已完成","preparationId":241,"preparationCode":"Z04-009","preparationName":"活血通络丸","spec":"每50丸重6g（每1g相当于饮片约0.83g）","unitName":"盒","packageSpec":"36g/瓶*1瓶/盒","receiver":"耒阳市中医医院","productionUnit":"耒阳制剂室","purchaseOrderTime":"2026-10-19 09:50:47","productionStart":"2026-09-08 00:00:00","productionEnd":"2026-09-15 17:21:00","inspectionStart":"2026-09-15 17:20:00","inspectionEnd":"2026-09-24 00:00:00","outboundTime":"2026-09-14 00:00:00","materialSource":"purchase","purchases":[{"id":1518,"code":"CGDH202610190007","date":"2026-10-19","status":"已入库","materialType":"原料","supplier":"湖南省松龄堂中药饮片有限公司","amount":0.0,"items":[{"code":"Z046","name":"当归","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z125","name":"红花","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z055","name":"川芎","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z013","name":"桃仁","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z069","name":"蜈蚣（kg）","category":"原料","qty":7.36,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z067","name":"全蝎","category":"原料","qty":7.36,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z063","name":"防风","category":"原料","qty":7.36,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z157","name":"茯苓","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z008","name":"党参","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z324","name":"蝉蜕","category":"原料","qty":7.36,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z047","name":"黄芪","category":"原料","qty":29.4,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z262","name":"秦艽","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z482","name":"甘草片","category":"原料","qty":7.36,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z227","name":"巴戟天","category":"原料","qty":7.36,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z223","name":"桂枝","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z377","name":"炒僵蚕","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z393","name":"制白附子","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"}],"acceptanceId":2031,"acceptanceCode":"YS-20261019-003","acceptanceStatus":"已入库"},{"id":1517,"code":"CGDH202610190006","date":"2026-10-19","status":"已入库","materialType":"包材","supplier":"湖南立信彩印有限公司","amount":0.0,"items":[{"code":"B06-009-01","name":"活血通络丸纸盒","category":"包材","qty":12000,"unit":"个","price":null,"amount":0,"supplier":"湖南立信彩印有限公司","status":"已入库"},{"code":"B06-009-02","name":"活血通络丸标签（卷标）","category":"包材","qty":10000,"unit":"个","price":null,"amount":0,"supplier":"湖南立信彩印有限公司","status":"已入库"},{"code":"B06-009-03","name":"活血通络丸说明书","category":"包材","qty":13000,"unit":"张","price":null,"amount":0,"supplier":"湖南立信彩印有限公司","status":"已入库"}],"acceptanceId":2032,"acceptanceCode":"YS-20261019-004","acceptanceStatus":"已入库"}],"requisitions":[],"workOrders":[{"id":462,"code":"GD202610190001","batch":"260901","qty":7000,"finishedQty":6998,"yieldRate":99.97,"status":"已入库","configDate":"2026-09-08","start":"2026-09-08","end":"2026-09-15","inboundTime":"2026-09-28 17:12:30","outboundTime":null,"processes":[{"id":386,"process":"干燥饮片","room":"干燥粉碎间","operator":"廖晟璋","qty":220.66,"start":"2026-09-08 09:12:00","end":"2026-09-08 20:00:00","status":"待执行"},{"id":387,"process":"粉碎","room":"干燥粉碎间","operator":"廖晟璋","qty":212.04,"start":"2026-09-08 15:10:00","end":"2026-09-09 15:30:00","status":"待执行"},{"id":388,"process":"灭菌","room":"灭菌间","operator":"陈曜辉","qty":209.78,"start":"2026-09-10 08:51:00","end":"2026-09-10 15:46:00","status":"待执行"},{"id":389,"process":"炼蜜","room":"和料间","operator":"谭秀凤","qty":68,"start":"2026-09-11 08:08:00","end":"2026-09-11 08:28:00","status":"待执行"},{"id":390,"process":"混合","room":"和料间","operator":"谭秀凤","qty":209.78,"start":"2026-09-11 08:41:00","end":"2026-09-12 10:26:00","status":"待执行"},{"id":391,"process":"制软材","room":"和料间","operator":"谭秀凤","qty":209.78,"start":"2026-09-11 09:02:00","end":"2026-09-12 11:42:00","status":"待执行"},{"id":392,"process":"制丸","room":"制丸间","operator":"陈曜辉","qty":209.78,"start":"2026-09-11 09:34:00","end":"2026-09-12 14:47:00","status":"待执行"},{"id":393,"process":"包衣","room":"抛光间","operator":"陈曜辉","qty":209.78,"start":"2026-09-11 10:02:00","end":"2026-09-12 15:26:00","status":"待执行"},{"id":394,"process":"干燥（丸）","room":"制粒干燥间","operator":"陈曜辉","qty":253.12,"start":"2026-09-11 16:02:00","end":"2026-09-12 23:30:00","status":"待执行"},{"id":395,"process":"内包","room":"内包间","operator":"夏维","qty":253.12,"start":"2026-09-14 09:06:00","end":"2026-09-14 18:40:00","status":"待执行"},{"id":396,"process":"包装","room":"外包间","operator":"张力","qty":253.12,"start":"2026-09-14 10:11:00","end":"2026-09-15 17:21:00","status":"待执行"}],"stockIns":[{"id":1233,"code":"IN202610190008","type":"成品入库","date":"2026-09-28","status":"已入库","amount":283279.04,"items":[{"code":"Z04-009","name":"活血通络丸","category":"成品","qty":6998,"unit":"","batch":"260901","amount":283279.04}]}],"inspectionRequests":[{"id":120,"code":"QJ-20261019-003","time":"2026-09-15 17:20:00","process":"成品检验","items":"成品检验","requester":"丁圣芳","batch":"260901","category":"成品","status":null},{"id":119,"code":"QJ-20261019-002","time":"2026-09-13 00:00:00","process":"干燥（丸）","items":"性状、水分、重量差异","requester":"丁圣芳","batch":"260901","category":"中间产品","status":null},{"id":118,"code":"QJ-20261019-001","time":"2026-09-09 00:00:00","process":"粉碎","items":"粒度","requester":"丁圣芳","batch":"260901","category":"中间产品","status":null}],"inspections":[{"id":85,"code":"JY-20261019-003","date":"2026-09-24","start":"2026-09-16 00:00:00","end":"2026-09-24 00:00:00","items":"性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度","basis":"中国药典2025版","inspector":"丁圣芳","reviewer":"资晓红","conclusion":"合格","status":"合格"},{"id":84,"code":"JY-20261019-002","date":"2026-09-15","start":"2026-09-14 00:00:00","end":"2026-09-15 00:00:00","items":"性状、水分、重量差异","basis":"中国药典2025版","inspector":"丁圣芳","reviewer":"资晓红","conclusion":"合格","status":"合格"},{"id":83,"code":"JY-20261019-001","date":"2026-09-11","start":"2026-09-10 00:00:00","end":"2026-09-11 00:00:00","items":"粒度","basis":"中国药典2025版","inspector":"丁圣芳","reviewer":"资晓红","conclusion":"合格","status":"合格"}],"releases":[{"id":87,"code":"FX-20261019-001","time":"2026-09-28 00:00:00","conclusion":"放行","reviewer":"陈仲新","opinion":null,"relatedInspection":"JY-20261019-003"}]}],"stockOuts":[{"id":832,"code":"OUT202610190003","type":"生产领料出库","date":"2026-09-14","status":"已出库","amount":13404.24,"items":[{"code":"B05-004-01","name":"60ml口服固体药用高密度聚乙烯瓶","category":"包材","qty":7678,"unit":"个","batch":"A202603023","amount":6910.2},{"code":"B06-009-01","name":"活血通络丸纸盒","category":"包材","qty":7040,"unit":"个","batch":"260901","amount":4224},{"code":"B06-009-02","name":"活血通络丸标签（卷标）","category":"包材","qty":9642,"unit":"个","batch":"260901","amount":1639.14},{"code":"B06-009-03","name":"活血通络丸说明书","category":"包材","qty":7010,"unit":"张","batch":"260901","amount":630.9}]},{"id":831,"code":"OUT202610190002","type":"生产领料出库","date":"2026-09-11","status":"已出库","amount":3042,"items":[{"code":"F030","name":"蜂蜜（药用）","category":"辅料","qty":78,"unit":"千克","batch":"260908-1","amount":3042}]},{"id":830,"code":"OUT202610190001","type":"生产领料出库","date":"2026-09-08","status":"已出库","amount":109406.29,"items":[{"code":"Z046","name":"当归","category":"原料","qty":14.71,"unit":"千克","batch":"260501","amount":2177.08},{"code":"Z125","name":"红花","category":"原料","qty":14.71,"unit":"千克","batch":"260701","amount":1676.94},{"code":"Z055","name":"川芎","category":"原料","qty":14.71,"unit":"千克","batch":"260601","amount":6924.29},{"code":"Z013","name":"桃仁","category":"原料","qty":14.71,"unit":"千克","batch":"251101","amount":2353.6},{"code":"Z069","name":"蜈蚣（kg）","category":"原料","qty":7.36,"unit":"千克","batch":"260701","amount":35328},{"code":"Z067","name":"全蝎","category":"原料","qty":7.36,"unit":"千克","batch":"260401","amount":21712},{"code":"Z063","name":"防风","category":"原料","qty":7.36,"unit":"千克","batch":"251202","amount":4416},{"code":"Z157","name":"茯苓","category":"原料","qty":14.71,"unit":"千克","batch":"250303","amount":511.91},{"code":"Z008","name":"党参","category":"原料","qty":14.71,"unit":"千克","batch":"250401","amount":3971.7},{"code":"Z324","name":"蝉蜕","category":"原料","qty":7.36,"unit":"千克","batch":"260701","amount":12144},{"code":"Z047","name":"黄芪","category":"原料","qty":29.4,"unit":"千克","batch":"250202","amount":4116},{"code":"Z262","name":"秦艽","category":"原料","qty":14.71,"unit":"千克","batch":"251201","amount":3898.15},{"code":"Z482","name":"甘草片","category":"原料","qty":7.36,"unit":"千克","batch":"250302","amount":404.8},{"code":"Z227","name":"巴戟天","category":"原料","qty":7.36,"unit":"千克","batch":"260501","amount":1906.24},{"code":"Z223","name":"桂枝","category":"原料","qty":14.71,"unit":"千克","batch":"240901","amount":216.38},{"code":"Z377","name":"炒僵蚕","category":"原料","qty":14.71,"unit":"千克","batch":"251202","amount":4413},{"code":"Z393","name":"制白附子","category":"原料","qty":14.71,"unit":"千克","batch":"260501","amount":3236.2}]}]},{"id":306,"planNumber":"Plan202610190001","planDate":"2026-09-16","planQuantity":7000,"planType":"自主加工","planStatus":"已完成","preparationId":243,"preparationCode":"Z04-011","preparationName":"疏肝养胃丸","spec":"每50丸重6g（每1g相当于饮片约0.83g）","unitName":"盒","packageSpec":"36g/瓶*瓶/盒","receiver":"耒阳市中医医院","productionUnit":"耒阳制剂室","purchaseOrderTime":"2026-10-19 09:25:39","productionStart":"2026-09-16 00:00:00","productionEnd":"2026-09-24 00:00:00","inspectionStart":"2026-09-24 00:00:00","inspectionEnd":"2026-10-19 00:00:00","outboundTime":"2026-09-23 00:00:00","materialSource":"purchase","purchases":[{"id":1521,"code":"CGDH202610190010","date":"2026-10-19","status":"已入库","materialType":"原料","supplier":"湖南省松龄堂中药饮片有限公司","amount":0.0,"items":[{"code":"Z172","name":"白及","category":"原料","qty":22.04,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z195","name":"紫苏叶","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z156","name":"陈皮","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z008","name":"党参","category":"原料","qty":22.04,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z054","name":"柴胡","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z038","name":"白芍","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z232","name":"白术","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z073","name":"鸡内金","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z039","name":"海螵蛸","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z482","name":"甘草片","category":"原料","qty":7.36,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z076","name":"干姜","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z168","name":"厚朴","category":"原料","qty":14.71,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"Z294","name":"吴茱萸","category":"原料","qty":7.36,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"z666","name":"黄连片","category":"原料","qty":7.36,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"},{"code":"z667","name":"瓦楞子","category":"原料","qty":22.04,"unit":"千克","price":null,"amount":0,"supplier":"湖南省松龄堂中药饮片有限公司","status":"已入库"}],"acceptanceId":2038,"acceptanceCode":"YS-20261019-010","acceptanceStatus":"已入库"},{"id":1519,"code":"CGDH202610190008","date":"2026-10-19","status":"已入库","materialType":"包材","supplier":"湖南九恒医药科技有限公司、湖南立信彩印有限公司","amount":0.0,"items":[{"code":"B05-004-01","name":"60ml口服固体药用高密度聚乙烯瓶","category":"包材","qty":20000,"unit":"个","price":null,"amount":0,"supplier":"湖南九恒医药科技有限公司","status":"已入库"},{"code":"B06-010-01","name":"疏肝养胃丸纸盒","category":"包材","qty":13700,"unit":"个","price":null,"amount":0,"supplier":"湖南立信彩印有限公司","status":"已入库"},{"code":"B06-010-02","name":"疏肝养胃丸标签（卷标）","category":"包材","qty":15000,"unit":"个","price":null,"amount":0,"supplier":"湖南立信彩印有限公司","status":"已入库"},{"code":"B06-010-03","name":"疏肝养胃丸说明书","category":"包材","qty":11000,"unit":"张","price":null,"amount":0,"supplier":"湖南立信彩印有限公司","status":"已入库"}],"acceptanceId":2030,"acceptanceCode":"YS-20261019-002","acceptanceStatus":"已入库"}],"requisitions":[],"workOrders":[{"id":463,"code":"GD202610200001","batch":"260901","qty":7000,"finishedQty":7001,"yieldRate":100.01,"status":"已入库","configDate":"2026-09-16","start":"2026-09-16","end":"2026-09-24","inboundTime":"2026-10-20 00:00:00","outboundTime":null,"processes":[{"id":397,"process":"干燥饮片","room":"干燥粉碎间","operator":"廖晟璋","qty":220.59,"start":"2026-09-16 09:24:00","end":"2026-09-16 20:00:00","status":"待执行"},{"id":398,"process":"粉碎","room":"干燥粉碎间","operator":"廖晟璋","qty":211.03,"start":"2026-09-16 15:14:00","end":"2026-09-17 15:29:00","status":"待执行"},{"id":399,"process":"灭菌","room":"灭菌间","operator":"陈曜辉","qty":210.48,"start":"2026-09-18 09:07:00","end":"2026-09-18 16:22:00","status":"待执行"},{"id":400,"process":"炼蜜","room":"炼蜜间","operator":"谭秀凤","qty":68,"start":"2026-09-21 08:06:00","end":"2026-09-21 08:26:00","status":"待执行"},{"id":401,"process":"混合","room":"和料间","operator":"谭秀凤","qty":210.48,"start":"2026-09-21 08:38:00","end":"2026-09-22 10:40:00","status":"待执行"},{"id":402,"process":"制软材","room":"和料间","operator":"谭秀凤","qty":210.48,"start":"2026-09-21 08:59:00","end":"2026-09-22 11:45:00","status":"待执行"},{"id":403,"process":"制丸","room":"制丸间","operator":"陈曜辉","qty":210.48,"start":"2026-09-21 09:26:00","end":"2026-09-22 14:43:00","status":"待执行"},{"id":404,"process":"包衣","room":"抛光间","operator":"陈曜辉","qty":210.48,"start":"2026-09-21 10:03:00","end":"2026-09-22 15:26:00","status":"待执行"},{"id":405,"process":"干燥（丸）","room":"制粒干燥间","operator":"陈曜辉","qty":253.18,"start":"2026-09-21 16:14:00","end":"2026-09-22 23:30:00","status":"待执行"},{"id":406,"process":"内包","room":"内包间","operator":"夏维","qty":253.18,"start":"2026-09-23 09:01:00","end":"2026-09-23 17:54:00","status":"待执行"},{"id":407,"process":"包装","room":"外包间","operator":"张力","qty":253.18,"start":"2026-09-23 10:19:00","end":"2026-09-24 11:21:00","status":"待执行"}],"stockIns":[{"id":1236,"code":"IN202610200003","type":"成品入库","date":"2026-10-20","status":"已入库","amount":205829.4,"items":[{"code":"Z04-011","name":"疏肝养胃丸","category":"成品","qty":7001,"unit":"","batch":"260901","amount":205829.4}]}],"inspectionRequests":[{"id":123,"code":"QJ-20261020-003","time":"2026-09-24 00:00:00","process":"成品检验","items":"性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度","requester":"丁圣芳","batch":"260901","category":"成品","status":null},{"id":122,"code":"QJ-20261020-002","time":"2026-09-22 00:00:00","process":"干燥（丸）","items":"性状、水分、重量差异","requester":"丁圣芳","batch":"260901","category":"中间产品","status":null},{"id":121,"code":"QJ-20261020-001","time":"2026-09-17 15:50:00","process":"粉碎","items":"粒度","requester":"丁圣芳","batch":"260901","category":"中间产品","status":null}],"inspections":[{"id":90,"code":"JY-20261020-005","date":"2026-10-19","start":"2026-10-09 00:00:00","end":"2026-10-19 00:00:00","items":"性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度","basis":"中国药典2025版","inspector":"丁圣芳","reviewer":"资晓红","conclusion":"合格","status":"合格"},{"id":87,"code":"JY-20261020-002","date":"2026-09-24","start":"2026-09-23 00:00:00","end":"2026-09-24 00:00:00","items":"性状、水分、重量差异","basis":"中国药典2025版","inspector":"丁圣芳","reviewer":"资晓红","conclusion":"合格","status":"合格"},{"id":86,"code":"JY-20261020-001","date":"2026-09-21","start":"2026-09-18 00:00:00","end":"2026-09-21 00:00:00","items":"粒度","basis":"中国药典2025版","inspector":"丁圣芳","reviewer":"资晓红","conclusion":"合格","status":"合格"}],"releases":[{"id":88,"code":"FX-20261020-001","time":"2026-10-20 00:00:00","conclusion":"放行","reviewer":"陈仲新","opinion":null,"relatedInspection":"JY-20261020-005"}]}],"stockOuts":[{"id":835,"code":"OUT202610200003","type":"生产领料出库","date":"2026-09-23","status":"已出库","amount":13102.41,"items":[{"code":"B05-004-01","name":"60ml口服固体药用高密度聚乙烯瓶","category":"包材","qty":7621,"unit":"个","batch":"A202603023","amount":6858.9},{"code":"B06-010-01","name":"疏肝养胃丸纸盒","category":"包材","qty":7050,"unit":"个","batch":"260901","amount":4230},{"code":"B06-010-02","name":"疏肝养胃丸标签（卷标）","category":"包材","qty":8133,"unit":"个","batch":"260901","amount":1382.61},{"code":"B06-010-03","name":"疏肝养胃丸说明书","category":"包材","qty":7010,"unit":"张","batch":"260901","amount":630.9}]},{"id":834,"code":"OUT202610200002","type":"生产领料出库","date":"2026-09-21","status":"已出库","amount":3315,"items":[{"code":"F030","name":"蜂蜜（药用）","category":"辅料","qty":85,"unit":"千克","batch":"260908-1","amount":3315}]},{"id":833,"code":"OUT202610200001","type":"生产领料出库","date":"2026-09-16","status":"已出库","amount":36903.07,"items":[{"code":"Z172","name":"白及","category":"原料","qty":22.04,"unit":"千克","batch":"250801","amount":6612},{"code":"Z195","name":"紫苏叶","category":"原料","qty":14.71,"unit":"千克","batch":"251201","amount":500.14},{"code":"Z156","name":"陈皮","category":"原料","qty":14.71,"unit":"千克","batch":"250401","amount":264.78},{"code":"Z008","name":"党参","category":"原料","qty":22.04,"unit":"千克","batch":"250401","amount":6391.6},{"code":"Z054","name":"柴胡","category":"原料","qty":14.71,"unit":"千克","batch":"260602","amount":4736.62},{"code":"Z038","name":"白芍","category":"原料","qty":14.71,"unit":"千克","batch":"250103","amount":2280.05},{"code":"Z232","name":"白术","category":"原料","qty":14.71,"unit":"千克","batch":"260504","amount":4383.58},{"code":"Z073","name":"鸡内金","category":"原料","qty":14.71,"unit":"千克","batch":"260401","amount":500.14},{"code":"Z039","name":"海螵蛸","category":"原料","qty":14.71,"unit":"千克","batch":"260602","amount":2029.98},{"code":"Z482","name":"甘草片","category":"原料","qty":7.36,"unit":"千克","batch":"250302","amount":412.16},{"code":"Z076","name":"干姜","category":"原料","qty":14.71,"unit":"千克","batch":"260701","amount":764.92},{"code":"Z168","name":"厚朴","category":"原料","qty":14.71,"unit":"千克","batch":"260301","amount":558.98},{"code":"Z294","name":"吴茱萸","category":"原料","qty":7.36,"unit":"千克","batch":"260401","amount":706.56},{"code":"z666","name":"黄连片","category":"原料","qty":7.36,"unit":"千克","batch":"260801","amount":5505.28},{"code":"z667","name":"瓦楞子","category":"原料","qty":22.04,"unit":"千克","batch":"251101","amount":1256.28}]}]}],"files":[{"bizType":"PREPARATION","bizId":292,"kind":"BATCH_RECORD_TEMPLATE","name":"SOR-PM-012-02跌打损伤酊批生产记录(3000盒) 检查后调 -24个月.docx","size":79037,"time":"2026-10-14 10:02:46","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":292,"kind":"QUALITY_STANDARD","name":"STP-CP-012跌打损伤酊成品质量标准及检验操作规程.doc","size":74240,"time":"2026-10-14 10:02:46","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":292,"kind":"VERIFICATION_PLAN","name":"STP-VM-212-00 跌打损伤酊工艺验证方案.doc","size":365572,"time":"2026-10-14 10:02:46","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":291,"kind":"QUALITY_STANDARD","name":"STP-CP-013首乌生发丸成品质量标准及检验操作规程.doc","size":69186,"time":"2026-10-14 10:07:21","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":291,"kind":"BATCH_RECORD_TEMPLATE","name":"SOR-PM-013-01 首乌生发丸批生产记录.docx","size":109435,"time":"2026-10-14 10:07:21","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":291,"kind":"VERIFICATION_PLAN","name":"STP-VM--213-00首乌生发丸工艺验证方案.doc","size":415006,"time":"2026-10-14 10:07:21","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":244,"kind":"QUALITY_STANDARD","name":"STP-CP-009益肺平喘丸成品质量标准及检验操作规程.doc","size":67874,"time":"2026-10-14 10:09:21","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":244,"kind":"BATCH_RECORD_TEMPLATE","name":"SOR-PM-09-03 益肺平喘丸批生产记录G24个月 - 大批量.docx","size":106929,"time":"2026-10-14 10:09:21","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":244,"kind":"VERIFICATION_PLAN","name":"STP-VM--209-00益肺平喘丸工艺验证方案.doc","size":360276,"time":"2026-10-14 10:09:21","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":243,"kind":"QUALITY_STANDARD","name":"STP-CP-008疏肝养胃丸成品质量标准及检验操作规程.doc","size":65449,"time":"2026-10-14 10:32:07","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":243,"kind":"BATCH_RECORD_TEMPLATE","name":"SOR-PM-08-03疏肝养胃丸批生产记录G 24个月 - 大批量.docx","size":107341,"time":"2026-10-14 10:32:07","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":243,"kind":"VERIFICATION_PLAN","name":"STP-VM--208-00疏肝养胃丸工艺验证方案.doc","size":360300,"time":"2026-10-14 10:32:07","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":242,"kind":"QUALITY_STANDARD","name":"STP-CP-007强筋壮骨丸成品质量标准及检验操作规程.doc","size":62015,"time":"2026-10-14 10:34:36","uploader":"陶新文"},{"bizType":"WORK_ORDER_PROCESS_EXECUTION","bizId":340,"kind":"PROCESS_ATTACHMENT","name":"SOR-PM-07-03 强筋壮骨丸批生产记录G24个月.docx","size":103735,"time":"2026-10-14 10:34:36","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":242,"kind":"BATCH_RECORD_TEMPLATE","name":"SOR-PM-07-03 强筋壮骨丸批生产记录G24个月.docx","size":103735,"time":"2026-10-14 10:34:36","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":242,"kind":"VERIFICATION_PLAN","name":"STP-VM--207-00强筋壮骨丸工艺验证方案.doc","size":356590,"time":"2026-10-14 10:34:36","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":241,"kind":"QUALITY_STANDARD","name":"STP-CP-006活血通络丸成品质量标准及检验操作规程.doc","size":57856,"time":"2026-10-14 10:35:43","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":241,"kind":"BATCH_RECORD_TEMPLATE","name":"SOR-PM-06-03 活血通络丸批生产记录G -24个月 - 大批量.docx","size":107303,"time":"2026-10-14 10:35:43","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":241,"kind":"VERIFICATION_PLAN","name":"STP-VM--206-00活血通络丸工艺验证方案.doc","size":362308,"time":"2026-10-14 10:35:43","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":240,"kind":"VERIFICATION_PLAN","name":"STP-CP-010槐榆凉血丸成品质量标准及检验操作规程.doc","size":67138,"time":"2026-10-14 10:38:08","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":240,"kind":"QUALITY_STANDARD","name":"STP-CP-010槐榆凉血丸成品质量标准及检验操作规程.doc","size":67138,"time":"2026-10-14 10:38:08","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":240,"kind":"BATCH_RECORD_TEMPLATE","name":"SOR-PM-010-03 槐榆凉血丸批生产记录G - 24个月.docx","size":102708,"time":"2026-10-14 10:38:08","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":239,"kind":"QUALITY_STANDARD","name":"STP-CP-005护肾排毒丸成品质量标准及检验操作规程.doc","size":60479,"time":"2026-10-14 10:48:56","uploader":"陶新文"},{"bizType":"DEVIATION_RECORD","bizId":10,"kind":"DEFAULT","name":"SOR-PM-05-02护肾排毒丸批生产记录G - 24个月.docx","size":104731,"time":"2026-10-14 10:48:56","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":239,"kind":"BATCH_RECORD_TEMPLATE","name":"SOR-PM-05-02护肾排毒丸批生产记录G - 24个月.docx","size":104731,"time":"2026-10-14 10:48:56","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":239,"kind":"VERIFICATION_PLAN","name":"STP-VM--205-00护肾排毒丸工艺验证方案.doc","size":357482,"time":"2026-10-14 10:48:56","uploader":"陶新文"},{"bizType":"DEVIATION_RECORD","bizId":11,"kind":"DEFAULT","name":"STP-CP-004桂附潜阳丸成品质量标准及检验操作规程.doc","size":62527,"time":"2026-10-14 10:52:00","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":238,"kind":"QUALITY_STANDARD","name":"STP-CP-004桂附潜阳丸成品质量标准及检验操作规程.doc","size":62527,"time":"2026-10-14 10:52:00","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":238,"kind":"BATCH_RECORD_TEMPLATE","name":"SOR-PM-04-03 桂附潜阳丸批生产记录YG - 24个月 -大批量.docx","size":108501,"time":"2026-10-14 10:52:00","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":238,"kind":"VERIFICATION_PLAN","name":"STP-VM--204-00桂附潜阳丸工艺验证方案.doc","size":360606,"time":"2026-10-14 10:52:00","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":212,"kind":"QUALITY_STANDARD","name":"STP-CP-003乙肝丸成品质量标准及检验操作规程.doc","size":57344,"time":"2026-10-14 10:53:44","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":243,"kind":"QUALITY_STANDARD","name":"SOR-PM-03-03乙肝丸批生产记录YG - 24个月.docx","size":103556,"time":"2026-10-14 10:53:44","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":212,"kind":"BATCH_RECORD_TEMPLATE","name":"SOR-PM-03-03乙肝丸批生产记录YG - 24个月.docx","size":103556,"time":"2026-10-14 10:53:44","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":243,"kind":"BATCH_RECORD_TEMPLATE","name":"STP-VM--203-00 乙肝丸工艺验证方案.doc","size":354810,"time":"2026-10-14 10:53:44","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":212,"kind":"VERIFICATION_PLAN","name":"STP-VM--203-00 乙肝丸工艺验证方案.doc","size":354810,"time":"2026-10-14 10:53:44","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":243,"kind":"VERIFICATION_PLAN","name":"STP-CP-011消肿止痛丸成品质量标准及检验操作规程.doc","size":62530,"time":"2026-10-14 10:55:26","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":211,"kind":"QUALITY_STANDARD","name":"STP-CP-011消肿止痛丸成品质量标准及检验操作规程.doc","size":62530,"time":"2026-10-14 10:55:26","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":211,"kind":"BATCH_RECORD_TEMPLATE","name":"SOR-PM-011-03消肿止痛丸批生产记录   -24个月 - 大批量.docx","size":103817,"time":"2026-10-14 10:55:26","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":211,"kind":"VERIFICATION_PLAN","name":"STP-VM--211-00消肿止痛丸工艺验证方案.doc","size":378014,"time":"2026-10-14 10:55:26","uploader":"陶新文"},{"bizType":"WORK_ORDER_PROCESS_EXECUTION","bizId":341,"kind":"PROCESS_ATTACHMENT","name":"STP-CP-002降酶丸成品质量标准及检验操作规程.doc","size":54272,"time":"2026-10-14 10:56:47","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":210,"kind":"QUALITY_STANDARD","name":"STP-CP-002降酶丸成品质量标准及检验操作规程.doc","size":54272,"time":"2026-10-14 10:56:47","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":210,"kind":"BATCH_RECORD_TEMPLATE","name":"SOR-PM-02-03 降酶丸批生产记录YG -24个月.docx","size":100301,"time":"2026-10-14 10:56:47","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":210,"kind":"VERIFICATION_PLAN","name":"STP-VM--202-00 降酶丸工艺验证方案.doc","size":348590,"time":"2026-10-14 10:56:47","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":144,"kind":"PROCESS_SPEC","name":"STP-CP-001归芪精口服液成品质量标准及检验操作规程.doc","size":75836,"time":"2026-10-14 10:57:57","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":209,"kind":"QUALITY_STANDARD","name":"STP-CP-001归芪精口服液成品质量标准及检验操作规程.doc","size":75836,"time":"2026-10-14 10:57:57","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":209,"kind":"VERIFICATION_PLAN","name":"S0T-VM-201-00 归芪精口服液工艺验证方案.doc","size":314994,"time":"2026-10-14 10:57:57","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":209,"kind":"BATCH_RECORD_TEMPLATE","name":"SOR-PM-01-01归芪精口服液批生产记录(2500盒).doc","size":349141,"time":"2026-10-14 10:57:58","uploader":"陶新文"},{"bizType":"PRODUCTION_PLAN","bizId":317,"kind":"DEFAULT","name":"疏肝养胃丸260907.pdf","size":12354380,"time":"2026-10-17 08:27:47","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2107,"kind":"WAYBILL","name":"d0c5c2d09e16fbe45b3790992132b0cd_compress.jpg","size":372374,"time":"2026-10-17 15:51:59","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2107,"kind":"INVOICE","name":"d0c5c2d09e16fbe45b3790992132b0cd_compress.jpg","size":372374,"time":"2026-10-17 15:55:39","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2107,"kind":"INSPECTION_REPORT","name":"d0c5c2d09e16fbe45b3790992132b0cd_compress.jpg","size":372374,"time":"2026-10-17 15:58:25","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2108,"kind":"WAYBILL","name":"44513873d9cdb319e18fe0eee0e2ef96_compress.jpg","size":499730,"time":"2026-10-17 15:58:25","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2108,"kind":"INVOICE","name":"3952847988b3a0c76eb5560c4922f780_compress.jpg","size":636786,"time":"2026-10-17 15:58:56","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2108,"kind":"INSPECTION_REPORT","name":"0a8fb87a3cae1aa2272e400ae36ff536_compress.jpg","size":535434,"time":"2026-10-19 08:13:41","uploader":"陶新文"},{"bizType":"INSPECTION_REQUEST","bizId":112,"kind":"DEFAULT","name":"a71c83b0d08fc6d4b46223872fe6f05e_compress.jpg","size":555022,"time":"2026-10-19 08:20:42","uploader":"陶新文"},{"bizType":"RELEASE_REVIEW","bizId":91,"kind":"DEFAULT","name":"0a8fb87a3cae1aa2272e400ae36ff536_compress.jpg","size":535434,"time":"2026-10-19 14:13:31","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2029,"kind":"WAYBILL","name":"0a8fb87a3cae1aa2272e400ae36ff536_compress.jpg","size":535434,"time":"2026-10-19 14:13:31","uploader":"陶新文"},{"bizType":"PRODUCTION_PLAN","bizId":320,"kind":"DEFAULT","name":"a71c83b0d08fc6d4b46223872fe6f05e_compress.jpg","size":555022,"time":"2026-10-19 14:13:44","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2029,"kind":"INSPECTION_REPORT","name":"a71c83b0d08fc6d4b46223872fe6f05e_compress.jpg","size":555022,"time":"2026-10-19 14:13:44","uploader":"陶新文"},{"bizType":"WORK_ORDER","bizId":499,"kind":"BATCH_RECORD","name":"d0c5c2d09e16fbe45b3790992132b0cd_compress.jpg","size":372374,"time":"2026-10-19 14:21:36","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2030,"kind":"WAYBILL","name":"d0c5c2d09e16fbe45b3790992132b0cd_compress.jpg","size":372374,"time":"2026-10-19 14:21:36","uploader":"陶新文"},{"bizType":"WORK_ORDER","bizId":499,"kind":"OTHER","name":"d0c5c2d09e16fbe45b3790992132b0cd_compress.jpg","size":372374,"time":"2026-10-19 14:21:50","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2030,"kind":"WAYBILL","name":"d0c5c2d09e16fbe45b3790992132b0cd_compress.jpg","size":372374,"time":"2026-10-19 14:21:50","uploader":"陶新文"},{"bizType":"WORK_ORDER_PROCESS_EXECUTION","bizId":344,"kind":"PROCESS_ATTACHMENT","name":"44513873d9cdb319e18fe0eee0e2ef96_compress.jpg","size":499730,"time":"2026-10-19 14:21:51","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2030,"kind":"WAYBILL","name":"44513873d9cdb319e18fe0eee0e2ef96_compress.jpg","size":499730,"time":"2026-10-19 14:21:51","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2030,"kind":"INSPECTION_REPORT","name":"3952847988b3a0c76eb5560c4922f780_compress.jpg","size":636786,"time":"2026-10-19 14:22:13","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2112,"kind":"WAYBILL","name":"活血通络丸原料260907.pdf","size":14452255,"time":"2026-10-19 14:39:14","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2031,"kind":"WAYBILL","name":"活血通络丸原料260907.pdf","size":14452255,"time":"2026-10-19 14:39:14","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2031,"kind":"INSPECTION_REPORT","name":"活血通络丸原料260907.pdf","size":14452255,"time":"2026-10-19 14:39:24","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2110,"kind":"WAYBILL","name":"57d52760d60e03d3461526936fee4463_compress.jpg","size":271713,"time":"2026-10-19 14:44:39","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2032,"kind":"WAYBILL","name":"57d52760d60e03d3461526936fee4463_compress.jpg","size":271713,"time":"2026-10-19 14:44:39","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2032,"kind":"INSPECTION_REPORT","name":"57d52760d60e03d3461526936fee4463_compress.jpg","size":271713,"time":"2026-10-19 14:44:55","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2038,"kind":"WAYBILL","name":"疏肝养胃丸260907.pdf","size":12354380,"time":"2026-10-19 15:01:20","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2038,"kind":"INSPECTION_REPORT","name":"疏肝养胃丸260907.pdf","size":12354380,"time":"2026-10-19 15:01:29","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2033,"kind":"WAYBILL","name":"护肾排毒丸260921.pdf","size":14775562,"time":"2026-10-19 15:14:17","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2033,"kind":"INSPECTION_REPORT","name":"护肾排毒丸260921.pdf","size":14775562,"time":"2026-10-19 15:14:24","uploader":"陶新文"},{"bizType":"WORK_ORDER","bizId":499,"kind":"BATCH_RECORD","name":"6946d59e20fa6f56a2b6c84e866607cf_compress.jpg","size":222543,"time":"2026-10-19 15:18:01","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2034,"kind":"WAYBILL","name":"6946d59e20fa6f56a2b6c84e866607cf_compress.jpg","size":222543,"time":"2026-10-19 15:18:01","uploader":"陶新文"},{"bizType":"WORK_ORDER","bizId":499,"kind":"BATCH_RECORD","name":"6946d59e20fa6f56a2b6c84e866607cf_compress.jpg","size":222543,"time":"2026-10-19 15:18:13","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2034,"kind":"INSPECTION_REPORT","name":"6946d59e20fa6f56a2b6c84e866607cf_compress.jpg","size":222543,"time":"2026-10-19 15:18:13","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2110,"kind":"WAYBILL","name":"益肺平喘丸261014.pdf","size":17000638,"time":"2026-10-20 11:12:28","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2035,"kind":"WAYBILL","name":"益肺平喘丸261014.pdf","size":17000638,"time":"2026-10-20 11:12:28","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2035,"kind":"INSPECTION_REPORT","name":"益肺平喘丸261014.pdf","size":17000638,"time":"2026-10-20 11:12:40","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2037,"kind":"WAYBILL","name":"桂附潜阳丸261017.pdf","size":15651309,"time":"2026-10-20 11:28:44","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2112,"kind":"WAYBILL","name":"桂附潜阳丸261017.pdf","size":15651309,"time":"2026-10-20 11:28:49","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2037,"kind":"INSPECTION_REPORT","name":"桂附潜阳丸261017.pdf","size":15651309,"time":"2026-10-20 11:28:49","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2110,"kind":"INSPECTION_REPORT","name":"STP-PZ-12-02   跌打损伤酊配制工艺规程24个月.doc","size":243772,"time":"2026-10-20 14:01:14","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":292,"kind":"PROCESS_SPEC","name":"STP-PZ-12-02   跌打损伤酊配制工艺规程24个月.doc","size":243772,"time":"2026-10-20 14:01:14","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2110,"kind":"INVOICE","name":"STP-PZ-13-01 首乌生发丸配制工艺规程 新开始24个月.doc","size":266070,"time":"2026-10-20 14:01:30","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":291,"kind":"PROCESS_SPEC","name":"STP-PZ-13-01 首乌生发丸配制工艺规程 新开始24个月.doc","size":266070,"time":"2026-10-20 14:01:30","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":244,"kind":"PROCESS_SPEC","name":"STP-PZ-09-03 益肺平喘丸配制工艺规程G 24个月.doc","size":337318,"time":"2026-10-20 14:01:39","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":243,"kind":"PROCESS_SPEC","name":"STP-PZ-08-03 疏肝养胃丸配制工艺规程G 24个月.doc","size":338570,"time":"2026-10-20 14:03:04","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":242,"kind":"PROCESS_SPEC","name":"STP-PZ-07-03 强筋壮骨丸配制工艺规程G - 24个月.doc","size":321214,"time":"2026-10-20 14:03:22","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":241,"kind":"PROCESS_SPEC","name":"STP-PZ-06-03 活血通络丸配制工艺规程G - 24个月.doc","size":347270,"time":"2026-10-20 14:03:37","uploader":"陶新文"},{"bizType":"WORK_ORDER","bizId":498,"kind":"BATCH_RECORD","name":"STP-PZ-10-03 槐榆凉血丸配制工艺规程G - 24.doc","size":269872,"time":"2026-10-20 14:03:46","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":240,"kind":"PROCESS_SPEC","name":"STP-PZ-10-03 槐榆凉血丸配制工艺规程G - 24.doc","size":269872,"time":"2026-10-20 14:03:46","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":239,"kind":"PROCESS_SPEC","name":"STP-PZ-05-03护肾排毒丸配制工艺规程G -24个月.doc","size":318426,"time":"2026-10-20 14:03:57","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":238,"kind":"PROCESS_SPEC","name":"STP-PZ-04-03 桂附潜阳丸配制工艺规程G - 24个月.doc","size":311930,"time":"2026-10-20 14:04:05","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":212,"kind":"PROCESS_SPEC","name":"STP-PZ-03-03 乙肝丸配制工艺规程24个月.doc","size":270072,"time":"2026-10-20 14:04:15","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":211,"kind":"PROCESS_SPEC","name":"STP-PZ-11-03 消肿止痛丸配制工艺规程G - 24个月.doc","size":267796,"time":"2026-10-20 14:04:26","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2125,"kind":"WAYBILL","name":"STP-PZ-02-03 降酶丸配制工艺规程G24个月.doc","size":255162,"time":"2026-10-20 14:04:39","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":210,"kind":"PROCESS_SPEC","name":"STP-PZ-02-03 降酶丸配制工艺规程G24个月.doc","size":255162,"time":"2026-10-20 14:04:39","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2112,"kind":"INVOICE","name":"STP-PZ-01-02归芪精口服液配制工艺规程开始24个月.doc","size":140914,"time":"2026-10-20 14:05:54","uploader":"陶新文"},{"bizType":"PREPARATION","bizId":209,"kind":"PROCESS_SPEC","name":"STP-PZ-01-02归芪精口服液配制工艺规程开始24个月.doc","size":140914,"time":"2026-10-20 14:05:54","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2188,"kind":"WAYBILL","name":"活血通络丸260901 批生产记录.pdf","size":14046937,"time":"2026-10-31 09:45:10","uploader":"陶新文"},{"bizType":"WORK_ORDER","bizId":462,"kind":"BATCH_RECORD","name":"活血通络丸260901 批生产记录.pdf","size":14046937,"time":"2026-10-31 09:45:10","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2238,"kind":"WAYBILL","name":"益肺平喘丸包材20261023.pdf","size":2834001,"time":"2026-11-02 14:02:03","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2036,"kind":"WAYBILL","name":"益肺平喘丸包材20261023.pdf","size":2834001,"time":"2026-11-02 14:02:03","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2238,"kind":"INSPECTION_REPORT","name":"益肺平喘丸包材20261023.pdf","size":2834001,"time":"2026-11-02 14:02:12","uploader":"陶新文"},{"bizType":"ACCEPTANCE_ORDER","bizId":2036,"kind":"INSPECTION_REPORT","name":"益肺平喘丸包材20261023.pdf","size":2834001,"time":"2026-11-02 14:02:12","uploader":"陶新文"}]};
+const PLANS = SNAPSHOT.plans || [];
+const FILES = SNAPSHOT.files || [];
+
+/* =========================================================
+ * 工具
+ * =======================================================*/
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmtNum = n => (n == null || n === '') ? '—' : Number(n).toLocaleString('zh-CN', {maximumFractionDigits: 2});
+const fmtMoney = n => (n == null || n === '') ? '—' : '¥' + Number(n).toLocaleString('zh-CN', {maximumFractionDigits: 2});
+const d = s => s ? String(s).slice(0, 10) : '—';
+const dt = s => s ? String(s).replace('T', ' ').slice(0, 16) : '—';
+const fmtSize = b => {
+  if (b == null) return '—';
+  if (b >= 1048576) return (b / 1048576).toFixed(1) + ' MB';
+  return Math.max(1, Math.round(b / 1024)) + ' KB';
+};
+const fileExt = name => String(name || '').split('.').pop().toUpperCase().slice(0, 4) || 'FILE';
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+/* =========================================================
+ * 文件分类分级
+ * =======================================================*/
+const TYPE_LABEL = {
+  PREPARATION: '品种资料',
+  PRODUCTION_PLAN: '生产计划',
+  PURCHASE_ORDER: '采购订单',
+  ACCEPTANCE_ORDER: '物料验收',
+  WORK_ORDER: '工单',
+  WORK_ORDER_PROCESS_EXECUTION: '工序附件',
+  INSPECTION_REQUEST: '请检单',
+  INSPECTION_RECORD: '检验记录',
+  RELEASE_REVIEW: '放行记录',
+  DEVIATION_RECORD: '偏差记录'
+};
+const KIND_LABEL = {
+  PROCESS_SPEC: '工艺规程', QUALITY_STANDARD: '质量标准', BATCH_RECORD_TEMPLATE: '批记录模板',
+  VERIFICATION_PLAN: '验证方案', PROCESS_FLOWCHART: '工艺流程图',
+  WAYBILL: '随货清单', INVOICE: '发票', INSPECTION_REPORT: '验收检验报告',
+  BATCH_RECORD: '批生产记录', OTHER: '其他文件', PROCESS_ATTACHMENT: '工序附件',
+  DEFAULT: ''
+};
+const LEVEL_OF = {
+  'PREPARATION/PROCESS_SPEC': 'A',
+  'PREPARATION/QUALITY_STANDARD': 'A',
+  'PREPARATION/BATCH_RECORD_TEMPLATE': 'A',
+  'PREPARATION/VERIFICATION_PLAN': 'B',
+  'PREPARATION/PROCESS_FLOWCHART': 'B',
+  'WORK_ORDER/BATCH_RECORD': 'A',
+  'WORK_ORDER_PROCESS_EXECUTION/PROCESS_ATTACHMENT': 'A',
+  'INSPECTION_RECORD/DEFAULT': 'A',
+  'RELEASE_REVIEW/DEFAULT': 'A',
+  'DEVIATION_RECORD/DEFAULT': 'A',
+  'ACCEPTANCE_ORDER/INSPECTION_REPORT': 'B',
+  'INSPECTION_REQUEST/DEFAULT': 'B',
+  'PREPARATION_PROCESS_TEMPLATE/DEFAULT': 'B'
+};
+const levelOf = f => LEVEL_OF[f.bizType + '/' + f.kind] || 'C';
+const labelOf = f => KIND_LABEL[f.kind] || TYPE_LABEL[f.bizType] || f.kind;
+
+/** 槽位必传状态 */
+const REQUIRED_SLOTS = new Set([
+  'PREPARATION/PROCESS_SPEC', 'PREPARATION/QUALITY_STANDARD', 'PREPARATION/BATCH_RECORD_TEMPLATE',
+  'ACCEPTANCE_ORDER/INSPECTION_REPORT', 'WORK_ORDER/BATCH_RECORD', 'INSPECTION_RECORD/DEFAULT', 'RELEASE_REVIEW/DEFAULT'
+]);
+const CONDITIONAL_SLOTS = new Set([
+  'PREPARATION/VERIFICATION_PLAN', 'PRODUCTION_PLAN/DEFAULT', 'PURCHASE_ORDER/DEFAULT',
+  'ACCEPTANCE_ORDER/WAYBILL', 'INSPECTION_REQUEST/DEFAULT', 'SAMPLING_RECORD/DEFAULT'
+]);
+function slotStatusFor(bizType, kind) {
+  const key = bizType + '/' + (kind || 'DEFAULT');
+  if (REQUIRED_SLOTS.has(key)) return 'required';
+  if (CONDITIONAL_SLOTS.has(key)) return 'conditional';
+  return 'optional';
+}
+function statusLabel(status) {
+  return status === 'required' ? '必传' : status === 'conditional' ? '条件必传' : '不必传';
+}
+
+/** 文件所属槽位名称 */
+function slotLabel(f) {
+  const base = KIND_LABEL[f.kind] || TYPE_LABEL[f.bizType] || f.kind;
+  if (f.bizType === 'PREPARATION') return '品种资料 · ' + base;
+  if (f.bizType === 'WORK_ORDER') return '工单 · ' + base;
+  if (f.bizType === 'ACCEPTANCE_ORDER') return '验收 · ' + base;
+  if (f.bizType === 'PRODUCTION_PLAN') return '生产计划附件';
+  if (f.bizType === 'PURCHASE_ORDER') return '采购订单附件';
+  if (f.bizType === 'WORK_ORDER_PROCESS_EXECUTION') return '工序附件';
+  if (f.bizType === 'INSPECTION_REQUEST') return '请检单附件';
+  if (f.bizType === 'INSPECTION_RECORD') return '检验记录附件';
+  if (f.bizType === 'RELEASE_REVIEW') return '放行附件';
+  return base;
+}
+
+function filesOf(type, id, kind) {
+  return FILES.filter(f => f.bizType === type && f.bizId === id && (!kind || f.kind === kind));
+}
+
+/* =========================================================
+ * 展平：一行 = 一张工单（无工单的计划保留一行）
+ * =======================================================*/
+const ROWS = [];
+PLANS.forEach(p => {
+  if (p.workOrders && p.workOrders.length) {
+    p.workOrders.forEach(w => ROWS.push(Object.assign({}, p, {wo: w, rowId: p.id + '__' + w.id})));
+  } else {
+    ROWS.push(Object.assign({}, p, {wo: null, rowId: p.id + '__none'}));
+  }
+});
+
+/* =========================================================
+ * 附件与缺件
+ * =======================================================*/
+function prepFiles(row) {
+  return row.preparationId ? filesOf('PREPARATION', row.preparationId) : [];
+}
+function planFiles(row) {
+  return filesOf('PRODUCTION_PLAN', row.id);
+}
+function purchaseFiles(po) {
+  return filesOf('PURCHASE_ORDER', po.id);
+}
+function acceptanceFiles(po, kind) {
+  return po.acceptanceId ? filesOf('ACCEPTANCE_ORDER', po.acceptanceId, kind) : [];
+}
+function workOrderFiles(row, kind) {
+  return row.wo ? filesOf('WORK_ORDER', row.wo.id, kind) : [];
+}
+function processFiles(row) {
+  if (!row.wo) return [];
+  const ids = new Set((row.wo.processes || []).map(p => p.id));
+  return FILES.filter(f => f.bizType === 'WORK_ORDER_PROCESS_EXECUTION' && ids.has(f.bizId));
+}
+function requestFiles(req) {
+  return filesOf('INSPECTION_REQUEST', req.id);
+}
+function inspectionFiles(rec) {
+  return filesOf('INSPECTION_RECORD', rec.id);
+}
+function releaseFiles(rel) {
+  return filesOf('RELEASE_REVIEW', rel.id);
+}
+
+/** 本批次实际附件（含品种资料） */
+function actualFiles(row) {
+  const out = [];
+  const push = (group, level, list) => list.forEach(f => out.push({group, level: level || levelOf(f), file: f}));
+  push('品种资料', null, prepFiles(row));
+  push('生产计划', 'C', planFiles(row));
+  if (row.materialSource === 'purchase') {
+    (row.purchases || []).forEach(po => push('采购订单 ' + po.code, 'C', purchaseFiles(po)));
+    (row.purchases || []).forEach(po => {
+      if (!po.acceptanceId) return;
+      ['WAYBILL', 'INSPECTION_REPORT', 'INVOICE'].forEach(k => {
+        push('物料验收 · ' + (KIND_LABEL[k] || k), k === 'INSPECTION_REPORT' ? 'B' : 'C', acceptanceFiles(po, k));
+      });
+    });
+  }
+  push('工单批记录', 'A', workOrderFiles(row));
+  push('工序附件', 'A', processFiles(row));
+  (row.wo ? row.wo.inspectionRequests : []).forEach(r => push('请检单 ' + r.code, 'B', requestFiles(r)));
+  (row.wo ? row.wo.inspections : []).forEach(r => push('检验记录 ' + r.code, 'A', inspectionFiles(r)));
+  (row.wo ? row.wo.releases : []).forEach(r => push('放行记录 ' + r.code, 'A', releaseFiles(r)));
+  return out;
+}
+
+/** 用户已确认“标红=不必传”的槽位，缺件判定中跳过 */
+const NOT_REQUIRED = new Set([
+  'DEVIATION_RECORD', 'DESTRUCTION_RECORD', 'RETAINED_SAMPLE', 'APPROVAL_INSTANCE',
+  'DOSAGE_FORM', 'PRODUCTION_UNIT', 'EQUIPMENT', 'ROOM_INFO', 'ENERGY_RECORD'
+]);
+
+/** 不计入缺件的文件项：可空缺 + 已确认不必传 */
+const NOT_COUNTED_MISSING = new Set([
+  '品种资料 · 工艺流程图',
+  '验收 · 发票',
+  '其他文件',
+  '偏差处理/CAPA',
+  '工序附件'
+]);
+
+/** 缺件一句话提示：按环节汇总，用于列表和卡片 */
+function missText(miss) {
+  if (!miss.length) return '';
+  const counts = new Map();
+  miss.forEach(m => counts.set(m.stage || '其他', (counts.get(m.stage || '其他') || 0) + 1));
+  const parts = [...counts.entries()].slice(0, 3).map(([stage, n]) => `${stage} ${n}`);
+  const more = counts.size > 3 ? ` 等 ${counts.size} 个环节` : '';
+  return `缺：${parts.join('、')}${more}，共 ${miss.length} 项`;
+}
+
+/** 缺件清单 */
+function missingItems(row) {
+  const out = [];
+  const add = (level, label, doc, stage, slot) => out.push({level, label, doc, stage, slot});
+
+  // 品种资料：5 个槽位
+  const prepKinds = [
+    ['PROCESS_SPEC', 'A', '工艺规程'],
+    ['QUALITY_STANDARD', 'A', '质量标准'],
+    ['BATCH_RECORD_TEMPLATE', 'A', '批记录模板'],
+    ['VERIFICATION_PLAN', 'B', '验证方案'],
+    ['PROCESS_FLOWCHART', 'B', '工艺流程图']
+  ];
+  prepKinds.forEach(([k, lv, label]) => {
+    if (!filesOf('PREPARATION', row.preparationId, k).length) add(lv, '品种资料 · ' + label, row.preparationName, '品种资料', 'PREPARATION / ' + k);
+  });
+
+  // 计划
+  if (!planFiles(row).length) add('C', '生产计划附件', row.planNumber, '计划', 'PRODUCTION_PLAN / DEFAULT');
+
+  // 采购与验收（仅采购路径）
+  if (row.materialSource === 'purchase') {
+    (row.purchases || []).forEach(po => {
+      if (!purchaseFiles(po).length) add('C', '采购订单附件', po.code, '采购', 'PURCHASE_ORDER / DEFAULT');
+      if (po.acceptanceId) {
+        if (!acceptanceFiles(po, 'WAYBILL').length) add('C', '验收 · 随货清单', po.acceptanceCode || po.code, '验收', 'ACCEPTANCE_ORDER / WAYBILL');
+        if (!acceptanceFiles(po, 'INSPECTION_REPORT').length) add('B', '验收 · 检验报告', po.acceptanceCode || po.code, '验收', 'ACCEPTANCE_ORDER / INSPECTION_REPORT');
+        if (!acceptanceFiles(po, 'INVOICE').length) add('C', '验收 · 发票', po.acceptanceCode || po.code, '验收', 'ACCEPTANCE_ORDER / INVOICE');
+      }
+    });
+  }
+
+  // 工单与工序
+  if (row.wo) {
+    if (!workOrderFiles(row, 'BATCH_RECORD').length) add('A', '批生产记录', row.wo.code, '工单', 'WORK_ORDER / BATCH_RECORD');
+    const procs = row.wo.processes || [];
+    if (procs.length) {
+      const missingProc = procs.filter(p => !filesOf('WORK_ORDER_PROCESS_EXECUTION', p.id).length).length;
+      if (missingProc) add('A', '工序附件', missingProc + ' / ' + procs.length + ' 道工序未上传', '工序', 'WORK_ORDER_PROCESS_EXECUTION / PROCESS_ATTACHMENT');
+    }
+    (row.wo.inspectionRequests || []).forEach(r => {
+      if (!requestFiles(r).length) add('B', '请检单附件', r.code, '检验', 'INSPECTION_REQUEST / DEFAULT');
+    });
+    (row.wo.inspections || []).forEach(r => {
+      if (!inspectionFiles(r).length) add('A', '检验记录附件', r.code, '检验', 'INSPECTION_RECORD / DEFAULT');
+    });
+    (row.wo.releases || []).forEach(r => {
+      if (!releaseFiles(r).length) add('A', '放行附件', r.code, '放行', 'RELEASE_REVIEW / DEFAULT');
+    });
+  }
+  return out.filter(m => !NOT_COUNTED_MISSING.has(m.label));
+}
+
+function fileStatsOfRows(rows) {
+  const seen = new Set();
+  const stat = {total: 0, A: 0, B: 0, C: 0, size: 0};
+  rows.forEach(row => actualFiles(row).forEach(x => {
+    const f = x.file;
+    const key = [f.bizType, f.bizId, f.kind, f.name, f.size].join('|');
+    if (seen.has(key)) return;
+    seen.add(key);
+    stat.total++;
+    stat[x.level || levelOf(f)]++;
+    stat.size += Number(f.size) || 0;
+  }));
+  return stat;
+}
+
+/* =========================================================
+ * 行内派生
+ * =======================================================*/
+function inQty(row) {
+  return (row.wo ? row.wo.stockIns : []).reduce((s, x) => s + (Number(x.items.reduce((a, i) => a + (Number(i.qty) || 0), 0)) || 0), 0);
+}
+function outQty(row) {
+  return (row.stockOuts || [])
+    .filter(x => (x.type || '').includes('成品出库'))
+    .reduce((s, x) => s + (Number(x.items.reduce((a, i) => a + (Number(i.qty) || 0), 0)) || 0), 0);
+}
+function latestInspection(row) {
+  const list = row.wo ? (row.wo.inspections || []) : [];
+  return list.length ? list[0] : null;
+}
+function rowStatus(row) {
+  const list = row.wo ? (row.wo.inspections || []) : [];
+  if (list.some(x => x.conclusion && x.conclusion !== '合格')) return '异常';
+  if (row.wo && row.wo.releases && row.wo.releases.some(x => x.conclusion && x.conclusion.includes('拒绝'))) return '异常';
+  return row.planStatus || '进行中';
+}
+function statusCls(s) {
+  if (s === '已完成') return 'st-done';
+  if (s === '异常' || s === '不合格') return 'st-bad';
+  if (s === '生产中' || s === '进行中') return 'st-run';
+  return 'st-wait';
+}
+function rowDate(row, type) {
+  if (type === 'workOrderDate') return row.wo ? (row.wo.start || row.wo.configDate) : null;
+  if (type === 'inboundDate') return row.wo && row.wo.stockIns.length ? row.wo.stockIns[0].date : null;
+  if (type === 'inspectionDate') return row.wo && row.wo.inspections.length ? row.wo.inspections[0].date : null;
+  return row.planDate;
+}
+function keywordHay(row) {
+  const parts = [row.preparationName, row.preparationCode, row.planNumber, row.wo ? row.wo.code : '', row.wo ? row.wo.batch : ''];
+  (row.purchases || []).forEach(p => parts.push(p.code, p.supplier || ''));
+  (row.requisitions || []).forEach(p => parts.push(p.code, p.stockOutCode || ''));
+  (row.wo ? row.wo.inspectionRequests : []).forEach(r => parts.push(r.code));
+  (row.wo ? row.wo.inspections : []).forEach(r => parts.push(r.code));
+  (row.wo ? row.wo.releases : []).forEach(r => parts.push(r.code));
+  return parts.filter(Boolean).join(' ').toLowerCase();
+}
+
+/* =========================================================
+ * 筛选与统计
+ * =======================================================*/
+const state = {variety: '', dateType: 'planDate', start: '', end: '', keyword: '', onlyMissing: false, view: 'card'};
+
+function match(row) {
+  if (state.variety && row.preparationCode !== state.variety) return false;
+  const day = rowDate(row, state.dateType);
+  if (state.start || state.end) {
+    if (!day) return false;
+    if (state.start && day < state.start) return false;
+    if (state.end && day > state.end) return false;
+  }
+  if (state.keyword && !keywordHay(row).includes(state.keyword.trim().toLowerCase())) return false;
+  if (state.onlyMissing && missingItems(row).length === 0) return false;
+  return true;
+}
+function filteredRows() { return ROWS.filter(match); }
+
+/** 按文件槽位汇总：应传 / 已传 / 缺 */
+function slotSummary(rows) {
+  const prepIds = new Set(), planIds = new Set(), poIds = new Set(), accIds = new Set();
+  const woIds = new Set(), reqIds = new Set(), recIds = new Set(), relIds = new Set();
+  const procIds = new Set(), pickIds = new Set(), inIds = new Set(), outIds = new Set();
+  rows.forEach(r => {
+    if (r.preparationId) prepIds.add(r.preparationId);
+    planIds.add(r.id);
+    if (r.materialSource === 'purchase') {
+      (r.purchases || []).forEach(po => {
+        poIds.add(po.id);
+        if (po.acceptanceId) accIds.add(po.acceptanceId);
+      });
+    }
+    (r.requisitions || []).forEach(p => pickIds.add(p.id));
+    if (r.wo) {
+      woIds.add(r.wo.id);
+      (r.wo.processes || []).forEach(x => procIds.add(x.id));
+      (r.wo.stockIns || []).forEach(x => inIds.add(x.id));
+      (r.wo.inspectionRequests || []).forEach(x => reqIds.add(x.id));
+      (r.wo.inspections || []).forEach(x => recIds.add(x.id));
+      (r.wo.releases || []).forEach(x => relIds.add(x.id));
+    }
+    (r.stockOuts || []).filter(x => (x.type || '').includes('成品出库')).forEach(x => outIds.add(x.id));
+  });
+  const uploaded = (ids, type, kind) => [...ids].filter(id => filesOf(type, id, kind).length > 0).length;
+  const defs = [
+    ['工艺规程', '品种资料', prepIds, 'PREPARATION', 'PROCESS_SPEC'],
+    ['质量标准', '品种资料', prepIds, 'PREPARATION', 'QUALITY_STANDARD'],
+    ['批记录模板', '品种资料', prepIds, 'PREPARATION', 'BATCH_RECORD_TEMPLATE'],
+    ['验证方案', '品种资料', prepIds, 'PREPARATION', 'VERIFICATION_PLAN'],
+    ['工艺流程图', '品种资料', prepIds, 'PREPARATION', 'PROCESS_FLOWCHART'],
+    ['工序模板', '品种资料', prepIds, 'PREPARATION_PROCESS_TEMPLATE', null],
+    ['生产计划', '计划', planIds, 'PRODUCTION_PLAN', null],
+    ['采购订单', '采购', poIds, 'PURCHASE_ORDER', null],
+    ['随货清单', '验收', accIds, 'ACCEPTANCE_ORDER', 'WAYBILL'],
+    ['验收报告', '验收', accIds, 'ACCEPTANCE_ORDER', 'INSPECTION_REPORT'],
+    ['发票', '验收', accIds, 'ACCEPTANCE_ORDER', 'INVOICE'],
+    ['批生产记录', '工单', woIds, 'WORK_ORDER', 'BATCH_RECORD'],
+    ['其他文件', '工单', woIds, 'WORK_ORDER', 'OTHER'],
+    ['工序附件', '工序', procIds, 'WORK_ORDER_PROCESS_EXECUTION', 'PROCESS_ATTACHMENT'],
+    ['领料单附件', '领料', pickIds, 'STOCK_OUT_PRODUCTION', null],
+    ['成品入库单附件', '入库', inIds, 'STOCK_IN_PRODUCT', null],
+    ['成品出库单附件', '出库', outIds, 'STOCK_OUT_SALES', null],
+    ['请检单', '检验', reqIds, 'INSPECTION_REQUEST', null],
+    ['检验记录', '检验', recIds, 'INSPECTION_RECORD', null],
+    ['放行审核', '放行', relIds, 'RELEASE_REVIEW', null]
+  ];
+  return defs.map(([label, stage, ids, type, kind]) => {
+    const expected = ids.size;
+    const up = uploaded(ids, type, kind);
+    const status = slotStatusFor(type, kind);
+    return {label, stage, expected, uploaded: up, missing: Math.max(expected - up, 0), status};
+  });
+}
+
+function slotChipsHtml(rows) {
+  const slots = slotSummary(rows).filter(s => s.expected > 0);
+  const main = slots.filter(s => s.status !== 'optional');
+  const optional = slots.filter(s => s.status === 'optional');
+  const chipHtml = s => {
+    const cls = s.status === 'optional' ? 'optional' : (s.missing ? 'bad' : (s.uploaded ? 'ok' : ''));
+    const title = `${s.stage} · ${statusLabel(s.status)} · 应传 ${s.expected}，已传 ${s.uploaded}`;
+    return `<span class="slot-chip ${cls}" title="${esc(title)}">
+      <span>${esc(s.label)}</span><b>${s.uploaded}/${s.expected}</b>${s.status !== 'optional' && s.missing ? `<span class="miss-n">缺 ${s.missing}</span>` : ''}
+    </span>`;
+  };
+  return `<div class="slot-chips">${main.map(chipHtml).join('')}</div>` +
+    (optional.length ? `<div class="slot-chips optional-chips"><span class="slot-group-label">不必传</span>${optional.map(chipHtml).join('')}</div>` : '');
+}
+
+function renderStats(rows) {
+  const stat = fileStatsOfRows(rows);
+  const missRows = rows.filter(r => missingItems(r).length > 0).length;
+  const missItems = rows.reduce((s, r) => s + missingItems(r).length, 0);
+  const summary = `<div class="slot-summary">
+    <span>品种 <b>${new Set(rows.map(r => r.preparationCode)).size}</b></span>
+    <span>生产计划 <b>${new Set(rows.map(r => r.planNumber)).size}</b></span>
+    <span>批次 <b>${rows.filter(r => r.wo).length}</b></span>
+    <span>附件 <b>${stat.total}</b></span>
+    <span class="${missRows ? 'bad' : ''}">缺件批次 <b>${missRows}</b></span>
+    <span class="${missItems ? 'bad' : ''}">缺件项 <b>${missItems}</b></span>
+  </div>`;
+  $('stats').innerHTML = summary + slotChipsHtml(rows);
+}
+
+/* =========================================================
+ * 列表
+ * =======================================================*/
+function renderTable(rows) {
+  const body = $('rows');
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="9"><div class="empty">没有符合条件的记录，请调整筛选条件</div></td></tr>`;
+  } else {
+    body.innerHTML = rows.map(row => {
+      const miss = missingItems(row);
+      const stat = fileStatsOfRows([row]);
+      const insp = latestInspection(row);
+      const inTotal = inQty(row);
+      const outTotal = outQty(row);
+      const source = row.materialSource === 'requisition' ? '<span class="tag tag-requisition">领料</span>'
+        : row.materialSource === 'purchase' ? '<span class="tag tag-purchase">采购</span>' : '<span class="tag">—</span>';
+      const woText = row.wo ? row.wo.code : '未下达工单';
+      const batchText = row.wo ? (row.wo.batch || '—') : '—';
+      const prodText = row.wo && row.wo.finishedQty != null ? `${fmtNum(row.wo.finishedQty)} / ${fmtNum(row.wo.qty)}` : (row.wo ? '—' : '—');
+      const prodSub = row.wo ? (row.wo.status || '') + (row.wo.yieldRate != null ? ' · 得率 ' + fmtNum(row.wo.yieldRate) + '%' : '') : '';
+      const inspText = insp ? (insp.conclusion || '—') : '暂无检验';
+      const inspSub = insp ? insp.code : (row.wo && row.wo.inspectionRequests.length ? row.wo.inspectionRequests[0].code : '');
+      return `<tr data-row="${row.rowId}">
+        <td><span class="cell-main">${esc(row.preparationName)}</span><span class="cell-sub">${esc(row.spec || '')} · ${esc(row.preparationCode)}</span></td>
+        <td><span class="cell-main">${esc(row.planNumber)}</span><span class="cell-sub">${d(row.planDate)} · ${source}</span></td>
+        <td><span class="cell-main">${esc(woText)}</span><span class="cell-sub">批号 ${esc(batchText)}</span></td>
+        <td><span class="cell-main">${prodText}</span><span class="cell-sub">${esc(prodSub)}</span></td>
+        <td><span class="cell-main">${fmtNum(inTotal)} / ${fmtNum(outTotal)}</span><span class="cell-sub">${inTotal ? '已入库' : '未入库'} · ${outTotal ? '已出库' : '未出库'}</span></td>
+        <td><span class="cell-main ${statusCls(inspText)}">${esc(inspText)}</span><span class="cell-sub">${esc(inspSub)}</span></td>
+        <td class="files-cell"><b>${stat.total} 个</b><span class="cell-sub">${miss.length ? `<span class="miss">缺 ${miss.length}</span>` : '附件齐全'}</span>${miss.length ? `<span class="cell-sub miss-text">${esc(missText(miss))}</span>` : ''}</td>
+        <td><span class="st ${statusCls(rowStatus(row))}">${esc(rowStatus(row))}</span></td>
+        <td><div class="row-actions"><button data-open="${row.rowId}">详情</button><button data-export="${row.rowId}">导出</button></div></td>
+      </tr>`;
+    }).join('');
+  }
+  $('tableFoot').textContent = `共 ${rows.length} 条批次记录 · 点击行查看链路与单据明细`;
+}
+
+/* =========================================================
+ * 卡片视图（按品种分组）
+ * =======================================================*/
+/* =========================================================
+ * 卡片视图：品种 → 品种内工单 → 批次时间轴
+ * =======================================================*/
+const nav = {level: 'varieties', varietyCode: null, rowId: null};
+const rowById = id => ROWS.find(r => r.rowId === id);
+
+function navHome() {
+  nav.level = 'varieties';
+  nav.varietyCode = null;
+  nav.rowId = null;
+}
+function navVariety(code) {
+  nav.level = 'variety';
+  nav.varietyCode = code;
+  nav.rowId = null;
+}
+function navBatch(rowId) {
+  const row = rowById(rowId);
+  nav.level = 'batch';
+  nav.rowId = rowId;
+  if (row) nav.varietyCode = row.preparationCode;
+}
+function ensureNav() {
+  // 只校验批次/品种是否真实存在，不因筛选结果为空而把用户踢回上一级
+  if (nav.level === 'batch' && !ROWS.some(r => r.rowId === nav.rowId)) {
+    nav.level = 'variety';
+    nav.rowId = null;
+  }
+  if (nav.level === 'variety' && !ROWS.some(r => r.preparationCode === nav.varietyCode)) {
+    navHome();
+  }
+}
+
+/** 工序状态按起止时间推导：有结束=已完成，有开始=执行中，否则待执行 */
+function processStatus(p) {
+  if (p.end) return '已完成';
+  if (p.start) return '执行中';
+  return '待执行';
+}
+
+function stageStates(row) {
+  const ins = row.wo ? (row.wo.stockIns || []) : [];
+  const outs = (row.stockOuts || []).filter(s => (s.type || '').includes('成品出库'));
+  const reqs = row.wo ? (row.wo.inspectionRequests || []) : [];
+  const recs = row.wo ? (row.wo.inspections || []) : [];
+  const rels = row.wo ? (row.wo.releases || []) : [];
+  const procs = row.wo ? (row.wo.processes || []) : [];
+  const purchasesDone = (row.purchases || []).length > 0 && (row.purchases || []).every(p => p.status === '已入库');
+  const pickDone = (row.requisitions || []).some(p => p.status === '已发料');
+  const bad = recs.some(r => r.conclusion && r.conclusion !== '合格')
+    || rels.some(r => r.conclusion && r.conclusion.includes('拒绝'));
+  const procDone = procs.some(p => p.end) || (row.wo && row.wo.finishedQty != null);
+  const procActive = procs.some(p => p.start);
+  return {
+    plan: 'done',
+    material: row.materialSource === 'requisition'
+      ? (pickDone ? 'done' : ((row.requisitions || []).length ? 'active' : 'pending'))
+      : (purchasesDone ? 'done' : ((row.purchases || []).length ? 'active' : 'pending')),
+    workOrder: row.wo ? (row.wo.finishedQty != null ? 'done' : 'active') : 'pending',
+    production: row.wo && procs.length ? (procDone ? 'done' : (procActive ? 'active' : 'pending')) : (row.wo ? 'active' : 'pending'),
+    inbound: ins.length ? 'done' : (row.wo ? 'active' : 'pending'),
+    outbound: outs.length ? 'done' : (ins.length ? 'active' : 'pending'),
+    inspection: bad ? 'error' : (recs.length ? 'done' : (reqs.length ? 'active' : 'pending')),
+    release: rels.length ? (rels.some(r => r.conclusion && r.conclusion.includes('拒绝')) ? 'error' : 'done') : 'pending'
+  };
+}
+
+function materialFiles(row) {
+  if (row.materialSource !== 'purchase') return [];
+  const out = [];
+  (row.purchases || []).forEach(po => {
+    out.push(...purchaseFiles(po));
+    if (po.acceptanceId) {
+      ['WAYBILL', 'INSPECTION_REPORT', 'INVOICE'].forEach(k => out.push(...acceptanceFiles(po, k)));
+    }
+  });
+  return out;
+}
+function inspectionFilesAll(row) {
+  if (!row.wo) return [];
+  const out = [];
+  (row.wo.inspectionRequests || []).forEach(r => out.push(...requestFiles(r)));
+  (row.wo.inspections || []).forEach(r => out.push(...inspectionFiles(r)));
+  return out;
+}
+function releaseFilesAll(row) {
+  if (!row.wo) return [];
+  return (row.wo.releases || []).reduce((a, r) => a.concat(releaseFiles(r)), []);
+}
+
+function stagePlanBody(row) {
+  return kvHtml([
+    ['计划编号', row.planNumber],
+    ['品种', row.preparationName + (row.spec ? ' · ' + row.spec : '')],
+    ['计划量', fmtNum(row.planQuantity) + ' ' + (row.unitName || '')],
+    ['计划类型', row.planType],
+    ['物料来源', row.materialSource === 'requisition' ? '生产领料' : row.materialSource === 'purchase' ? '采购入库' : '—'],
+    ['生产单位', row.productionUnit || '—'],
+    ['收货单位', row.receiver || '—'],
+    ['状态', row.planStatus]
+  ]);
+}
+
+function stageMaterialBody(row) {
+  if (row.materialSource === 'requisition' && (row.requisitions || []).length) {
+    return row.requisitions.map(p => docHtml(
+      '领料单 ' + p.code,
+      `${d(p.date)} · ${p.status || ''} · 领料人 ${p.applicant || '—'}${p.stockOutCode ? ' · 出库单 ' + p.stockOutCode : ''}`,
+      miniTable(['物料编码', '物料名称', '分类', '数量', '单位', '批次'],
+        (p.items || []).map(i => [esc(i.code), esc(i.name), esc(i.category), fmtNum(i.qty), esc(i.unit), esc(i.batch || '—')]))
+    )).join('');
+  }
+  if ((row.purchases || []).length) {
+    return row.purchases.map(po => docHtml(
+      '采购订单 ' + po.code,
+      `${d(po.date)} · ${po.status || ''} · ${po.materialType || ''}${po.acceptanceCode ? ' · 验收单 ' + po.acceptanceCode : ''}`,
+      miniTable(['物料编码', '物料名称', '分类', '数量', '单位', '供应商', '状态'],
+        (po.items || []).map(i => [esc(i.code), esc(i.name), esc(i.category), fmtNum(i.qty), esc(i.unit), esc(i.supplier || '—'), esc(i.status || '')]))
+    )).join('');
+  }
+  return `<div class="doc-empty">暂无采购或领料记录</div>`;
+}
+
+function stageWorkOrderBody(row) {
+  if (!row.wo) return `<div class="doc-empty">尚未下达工单</div>`;
+  return kvHtml([
+    ['工单号', row.wo.code],
+    ['批号', row.wo.batch || '—'],
+    ['批量', fmtNum(row.wo.qty) + ' ' + (row.unitName || '')],
+    ['成品量', row.wo.finishedQty != null ? fmtNum(row.wo.finishedQty) + ' ' + (row.unitName || '') : '—'],
+    ['得率', row.wo.yieldRate != null ? fmtNum(row.wo.yieldRate) + '%' : '—'],
+    ['状态', row.wo.status],
+    ['开工', d(row.wo.start)],
+    ['完工', d(row.wo.end)]
+  ]);
+}
+
+function stageProductionBody(row) {
+  const procs = row.wo ? (row.wo.processes || []) : [];
+  if (!procs.length) return `<div class="doc-empty">暂无工序执行记录</div>`;
+  const table = miniTable(['工序', '房间', '操作人', '加工数量', '开始', '结束', '状态'],
+    procs.map(p => [esc(p.process), esc(p.room || '—'), esc(p.operator || '—'), fmtNum(p.qty), dt(p.start), dt(p.end), esc(processStatus(p))]));
+  const stale = procs.some(p => p.status === '待执行' && (p.start || p.end));
+  const note = stale
+    ? `<div class="data-note">工序状态已按起止时间推导：有结束时间=已完成，有开始时间=执行中。库表 <code>work_order_process_execution.status</code> 仍全部为“待执行”，建议后端在工序开始/结束时回写状态。</div>`
+    : '';
+  return table + note;
+}
+
+function stageInboundBody(row) {
+  const ins = row.wo ? (row.wo.stockIns || []) : [];
+  if (!ins.length) return `<div class="doc-empty">暂无成品入库记录</div>`;
+  return ins.map(s => docHtml(
+    '入库单 ' + s.code,
+    `${d(s.date)} · ${s.type || ''} · ${s.status || ''} · ${fmtMoney(s.amount)}`,
+    miniTable(['物料编码', '名称', '分类', '数量', '单位', '批次'],
+      (s.items || []).map(i => [esc(i.code), esc(i.name), esc(i.category), fmtNum(i.qty), esc(i.unit), esc(i.batch || '—')]))
+  )).join('');
+}
+
+function stageOutboundBody(row) {
+  const outs = (row.stockOuts || []).filter(s => (s.type || '').includes('成品出库'));
+  if (!outs.length) return `<div class="doc-empty">暂无成品出库记录</div>`;
+  return outs.map(s => docHtml(
+    '出库单 ' + s.code,
+    `${d(s.date)} · ${s.type || ''} · ${s.status || ''} · ${fmtMoney(s.amount)}`,
+    miniTable(['物料编码', '名称', '分类', '数量', '单位', '批次'],
+      (s.items || []).map(i => [esc(i.code), esc(i.name), esc(i.category), fmtNum(i.qty), esc(i.unit), esc(i.batch || '—')]))
+  )).join('');
+}
+
+function stageInspectionBody(row) {
+  if (!row.wo) return `<div class="doc-empty">暂无检验记录</div>`;
+  const reqs = row.wo.inspectionRequests || [];
+  const recs = row.wo.inspections || [];
+  return [
+    reqs.length ? miniTable(['请检单号', '时间', '工序', '请检人', '检验项目'],
+      reqs.map(r => [esc(r.code), dt(r.time), esc(r.process || '—'), esc(r.requester || '—'), esc(r.items || '—')])) : `<div class="doc-empty">暂无请检单</div>`,
+    recs.length ? miniTable(['检验单号', '起止', '检验项目', '检验人', '结论'],
+      recs.map(r => [esc(r.code), `${dt(r.start)} ~ ${dt(r.end)}`, esc(r.items || '—'), esc(r.inspector || '—'), esc(r.conclusion || '—')])) : `<div class="doc-empty">暂无检验记录</div>`
+  ].join('');
+}
+
+function stageReleaseBody(row) {
+  const rels = row.wo ? (row.wo.releases || []) : [];
+  if (!rels.length) return `<div class="doc-empty">暂无放行记录</div>`;
+  return miniTable(['放行单号', '时间', '结论', '审核人', '意见'],
+    rels.map(r => [esc(r.code), dt(r.time), esc(r.conclusion || '—'), esc(r.reviewer || '—'), esc(r.opinion || '—')]));
+}
+
+function stageNodes(row) {
+  const unit = row.unitName || '';
+  const st = stageStates(row);
+  const miss = missingItems(row);
+  const missBy = pred => miss.filter(pred);
+  const chip = (files, missList, planned) => {
+    if (planned) return `<span class="req-tag optional" title="附件位未接入，不必传">不必传</span>`;
+    if (missList.length) return `<button class="file-chip missing" data-files="${row.rowId}">附件 ${files.length} · 缺 ${missList.length}</button>`;
+    if (files.length) return `<button class="file-chip" data-files="${row.rowId}">附件 ${files.length}</button>`;
+    return `<span class="file-chip none">无附件</span>`;
+  };
+
+  const nodes = [];
+  nodes.push({
+    key: 'plan', label: '计划', state: st.plan, main: row.planNumber,
+    meta: `${d(row.planDate)} · ${fmtNum(row.planQuantity)} ${unit} · ${row.planStatus}`,
+    chip: chip(planFiles(row), missBy(m => m.label.startsWith('生产计划')), false),
+    body: stagePlanBody(row)
+  });
+
+  if (row.materialSource === 'requisition') {
+    const picks = row.requisitions || [];
+    nodes.push({
+      key: 'material', label: '领料', state: st.material, main: `${picks.length} 张领料单`,
+      meta: picks.length ? `${d(picks[0].date)} · ${picks[0].status || ''}${picks[0].stockOutCode ? ' · 出库 ' + picks[0].stockOutCode : ''}` : '—',
+      chip: chip([], [], true), body: stageMaterialBody(row)
+    });
+  } else {
+    const purchases = row.purchases || [];
+    const amount = purchases.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    nodes.push({
+      key: 'material', label: '采购', state: st.material, main: `${purchases.length} 张采购单`,
+      meta: `${fmtMoney(amount)} · ${purchases.length ? (purchases.every(p => p.status === '已入库') ? '已入库' : '执行中') : '—'}`,
+      chip: chip(materialFiles(row), missBy(m => m.label.includes('采购订单') || m.label.includes('验收')), false),
+      body: stageMaterialBody(row)
+    });
+  }
+
+  nodes.push({
+    key: 'workOrder', label: '工单', state: st.workOrder,
+    main: row.wo ? `${row.wo.code} · ${row.wo.batch || '无批号'}` : '未下达工单',
+    meta: row.wo ? `${fmtNum(row.wo.qty)} ${unit} · ${row.wo.status}` : '—',
+    chip: chip(workOrderFiles(row), missBy(m => m.label === '批生产记录'), false),
+    body: stageWorkOrderBody(row)
+  });
+
+  const procs = row.wo ? (row.wo.processes || []) : [];
+  nodes.push({
+    key: 'production', label: '生产', state: st.production,
+    main: row.wo && row.wo.finishedQty != null ? `${fmtNum(row.wo.finishedQty)} ${unit}` : (row.wo ? '生产中' : '—'),
+    meta: row.wo ? `${procs.length} 道工序 · 得率 ${row.wo.yieldRate != null ? fmtNum(row.wo.yieldRate) + '%' : '—'}` : '—',
+    chip: chip(processFiles(row), missBy(m => m.label === '工序附件'), false),
+    body: stageProductionBody(row)
+  });
+
+  const ins = row.wo ? (row.wo.stockIns || []) : [];
+  nodes.push({
+    key: 'inbound', label: '入库', state: st.inbound,
+    main: ins.length ? ins[0].code : '未入库',
+    meta: ins.length ? `${ins.length} 张单 · ${d(ins[0].date)}` : '—',
+    chip: chip([], [], ins.length > 0), body: stageInboundBody(row)
+  });
+
+  const outs = (row.stockOuts || []).filter(s => (s.type || '').includes('成品出库'));
+  nodes.push({
+    key: 'outbound', label: '出库', state: st.outbound,
+    main: outs.length ? outs[0].code : '未出库',
+    meta: outs.length ? `${outs.length} 张单 · ${d(outs[0].date)}` : '—',
+    chip: chip([], [], outs.length > 0), body: stageOutboundBody(row)
+  });
+
+  const reqs = row.wo ? (row.wo.inspectionRequests || []) : [];
+  const recs = row.wo ? (row.wo.inspections || []) : [];
+  nodes.push({
+    key: 'inspection', label: '检验', state: st.inspection,
+    main: recs.length ? `${recs[0].code} · ${recs[0].conclusion || '—'}` : (reqs.length ? `${reqs.length} 张请检单` : '暂无检验'),
+    meta: `${reqs.length} 请检 / ${recs.length} 检验`,
+    chip: chip(inspectionFilesAll(row), missBy(m => m.label.includes('请检单') || m.label.includes('检验记录')), false),
+    body: stageInspectionBody(row)
+  });
+
+  const rels = row.wo ? (row.wo.releases || []) : [];
+  nodes.push({
+    key: 'release', label: '放行', state: st.release,
+    main: rels.length ? `${rels[0].code} · ${rels[0].conclusion || '—'}` : '未放行',
+    meta: rels.length ? dt(rels[0].time) : '—',
+    chip: chip(releaseFilesAll(row), missBy(m => m.label.includes('放行')), false),
+    body: stageReleaseBody(row)
+  });
+
+  return nodes.map(n => ({...n, optional: optionalSlotsForStage(row, n.key)}));
+}
+
+function optionalSlotsForStage(row, key) {
+  const out = [];
+  if (key === 'material' && row.materialSource === 'purchase') out.push('验收 · 发票');
+  if (key === 'workOrder') out.push('工单 · 其他文件');
+  if (key === 'production') out.push('工序附件');
+  return out;
+}
+
+function renderTimeline(row) {
+  return stageNodes(row).map(s => {
+    const opt = s.optional && s.optional.length
+      ? `<span class="req-tag optional" title="不必传：${esc(s.optional.join('、'))}">不必传 ${s.optional.length}</span>`
+      : '';
+    return `<div class="tl-wrap">
+    <div class="tl has-body" data-tl>
+      <i class="tl-dot ${s.state}"></i>
+      <span class="tl-label">${esc(s.label)}</span>
+      <span class="tl-main">${esc(s.main)}</span>
+      <span class="tl-meta">${esc(s.meta)}</span>
+      <span class="tl-files">${s.chip}${opt}</span>
+      <span class="tl-caret">⌄</span>
+    </div>
+    <div class="tl-body">${s.body}</div>
+  </div>`;
+  }).join('');
+}
+
+function varietyStats(rows) {
+  const stat = fileStatsOfRows(rows);
+  const missRows = rows.filter(r => missingItems(r).length > 0).length;
+  const done = rows.filter(r => rowStatus(r) === '已完成').length;
+  const bad = rows.filter(r => rowStatus(r) === '异常').length;
+  const inspected = rows.reduce((a, r) => a.concat(r.wo ? (r.wo.inspections || []) : []), []);
+  const ok = inspected.filter(i => i.conclusion === '合格').length;
+  return {
+    stat, missRows, done, bad, run: rows.length - done - bad, total: rows.length,
+    rate: inspected.length ? Math.round(ok / inspected.length * 100) : null
+  };
+}
+
+function renderVarietyGrid(rows) {
+  const groups = [];
+  const map = new Map();
+  rows.forEach(row => {
+    if (!map.has(row.preparationCode)) {
+      map.set(row.preparationCode, {code: row.preparationCode, name: row.preparationName, spec: row.spec, rows: []});
+      groups.push(map.get(row.preparationCode));
+    }
+    map.get(row.preparationCode).rows.push(row);
+  });
+  return `<div class="variety-grid">${groups.map(g => {
+    const s = varietyStats(g.rows);
+    const pct = n => Math.round(n / (s.total || 1) * 100);
+    return `<button class="v-card" data-variety="${esc(g.code)}">
+      <div class="v-top"><span class="v-name">${esc(g.name)}</span><span class="v-code">${esc(g.code)}</span><span class="v-go">›</span></div>
+      <div class="v-spec">${esc(g.spec || '')}</div>
+      <div class="v-nums">
+        <div><b>${new Set(g.rows.map(r => r.planNumber)).size}</b><span>生产计划</span></div>
+        <div><b>${g.rows.filter(r => r.wo).length}</b><span>生产批次</span></div>
+        <div><b>${s.stat.total}</b><span>附件</span></div>
+      </div>
+      <div class="v-info">最近计划 ${d(g.rows.map(r => r.planDate).filter(Boolean).sort().pop())} · 最近批次 ${esc(g.rows.map(r => r.wo ? (r.wo.batch || r.wo.code) : '').filter(Boolean).sort().pop() || '—')} · 未下达 ${g.rows.filter(r => !r.wo).length}</div>
+      <div class="v-bar"><i class="done" style="width:${pct(s.done)}%"></i><i class="run" style="width:${pct(s.run)}%"></i><i class="bad" style="width:${pct(s.bad)}%"></i></div>
+      <div class="v-legend">
+        <span class="done">已完成 ${s.done}</span><span class="run">进行中 ${s.run}</span>${s.bad ? `<span class="bad">异常 ${s.bad}</span>` : ''}
+        <span class="rate">合格率 <b>${s.rate === null ? '—' : s.rate + '%'}</b></span>
+        <span class="rate">缺件批次 <b>${s.missRows}</b></span>
+      </div>
+    </button>`;
+  }).join('')}</div>`;
+}
+
+function renderVarietyPage(rows) {
+  const vrows = rows.filter(r => r.preparationCode === nav.varietyCode);
+  if (!vrows.length) return '';
+  const first = vrows[0];
+  const s = varietyStats(vrows);
+  const prepFilesCount = first.preparationId ? filesOf('PREPARATION', first.preparationId).length : 0;
+  const prepMissing = missingItems(first).filter(m => m.label.startsWith('品种资料')).length;
+  return `
+  <div class="crumb"><button data-home>全部品种</button><span class="sep">/</span><span class="cur">${esc(first.preparationName)}</span></div>
+  <div class="brief">
+    <h2>${esc(first.preparationName)}<span class="spec">${esc(first.preparationCode)} · ${esc(first.spec || '')}</span></h2>
+    <div class="brief-stats">
+      <span>计划 <b>${new Set(vrows.map(r => r.planNumber)).size}</b></span>
+      <span>批次 <b>${vrows.filter(r => r.wo).length}</b></span>
+      <span>附件 <b>${s.stat.total}</b></span>
+      <span>缺件批次 <b class="${s.missRows ? 'st-bad' : ''}">${s.missRows}</b></span>
+      <button class="btn btn-mini" data-export-variety="${esc(first.preparationCode)}">导出该品种</button>
+    </div>
+  </div>
+  <div class="asset-row">
+    <button class="asset-card" data-asset="${first.rowId}">
+      <span class="asset-ico">档</span>
+      <div class="asset-main"><b>品种资料</b><span>工艺规程 / 质量标准 / 批记录模板 / 验证方案 / 工艺流程图 / 工序模板 / 备案凭证 / 包装设计稿 / 验证报告 / 579号资料</span></div>
+      <span class="asset-count">${prepFilesCount} 个${prepMissing ? ` · 缺 ${prepMissing}` : ''}</span>
+      <span class="asset-go">›</span>
+    </button>
+  </div>
+  <div class="wo-grid">${vrows.map(renderBatchCard).join('')}</div>`;
+}
+
+function renderBatchCard(row) {
+  const miss = missingItems(row);
+  const stat = fileStatsOfRows([row]);
+  const insp = latestInspection(row);
+  const inTotal = inQty(row);
+  const outTotal = outQty(row);
+  const st = stageStates(row);
+  const source = row.materialSource === 'requisition' ? '<span class="tag tag-requisition">领料</span>'
+    : row.materialSource === 'purchase' ? '<span class="tag tag-purchase">采购</span>' : '<span class="tag">—</span>';
+  const woText = row.wo ? row.wo.code : '未下达工单';
+  const batchText = row.wo ? (row.wo.batch || '—') : '—';
+  const prodText = row.wo && row.wo.finishedQty != null ? `${fmtNum(row.wo.finishedQty)} / ${fmtNum(row.wo.qty)}` : '—';
+  const inspText = insp ? (insp.conclusion || '—') : '暂无检验';
+  const procs = row.wo ? (row.wo.processes || []) : [];
+  const procDone = procs.filter(p => p.end).length;
+  const dateRange = row.wo ? `${d(row.wo.start)} ~ ${d(row.wo.end || '')}` : '—';
+  const materialCount = row.materialSource === 'requisition' ? `${row.requisitions.length} 张领料` : `${row.purchases.length} 张采购`;
+  const inCount = row.wo ? row.wo.stockIns.length : 0;
+  const outCount = (row.stockOuts || []).filter(s => (s.type || '').includes('成品出库')).length;
+  const yieldText = row.wo && row.wo.yieldRate != null ? fmtNum(row.wo.yieldRate) + '%' : '—';
+  const dots = [
+    ['plan', '计划'], ['material', row.materialSource === 'requisition' ? '领料' : '采购'], ['workOrder', '工单'],
+    ['production', '生产'], ['inbound', '入库'], ['outbound', '出库'], ['inspection', '检验'], ['release', '放行']
+  ].map(([k, label]) => `<i class="${st[k]}" title="${label}"></i>`).join('');
+  return `<article class="wo-card" data-batch="${row.rowId}">
+    <div class="wo-top">
+      <span class="wo-code">${esc(woText)}</span>
+      <span class="tag">批号 ${esc(batchText)}</span>
+      ${miss.length ? `<span class="miss">缺 ${miss.length}</span>` : ''}
+      <span class="st ${statusCls(rowStatus(row))}">${esc(rowStatus(row))}</span>
+    </div>
+    <div class="wo-meta"><span>${esc(row.planNumber)} · ${d(row.planDate)}</span>${source}</div>
+    <div class="dots">${dots}</div>
+    <div class="wo-info">
+      <span>计划类型 <b>${esc(row.planType || '—')}</b></span>
+      <span>生产单位 <b>${esc(row.productionUnit || '—')}</b></span>
+      <span>开工/完工 <b>${esc(dateRange)}</b></span>
+      <span>工序 <b>${procs.length ? procDone + ' / ' + procs.length + ' 完成' : '—'}</b></span>
+      <span>物料单据 <b>${esc(materialCount)}</b></span>
+      <span>出入库 <b>${inCount} / ${outCount} 张</b></span>
+      <span>检验单 <b>${esc(insp ? insp.code : '—')}</b></span>
+      <span>得率 <b>${yieldText}</b></span>
+    </div>
+    <div class="wo-stats">
+      <div><b>${prodText}</b><span>成品 / 批量</span></div>
+      <div><b>${fmtNum(inTotal)} / ${fmtNum(outTotal)}</b><span>入库 / 出库</span></div>
+      <div><b class="${statusCls(inspText)}">${esc(inspText)}</b><span>检验</span></div>
+    </div>
+    <div class="wo-files"><b>附件 ${stat.total}</b>${miss.length ? '' : '<span class="st st-done">附件齐全</span>'}</div>
+    ${miss.length ? `<div class="wo-miss">${esc(missText(miss))}</div>` : ''}
+    <div class="wo-actions"><button data-export="${row.rowId}">导出</button></div>
+  </article>`;
+}
+
+function renderBatchPage() {
+  const row = rowById(nav.rowId);
+  if (!row) return '';
+  const miss = missingItems(row);
+  const stat = fileStatsOfRows([row]);
+  return `
+  <div class="crumb">
+    <button data-home>全部品种</button><span class="sep">/</span>
+    <button data-variety="${esc(row.preparationCode)}">${esc(row.preparationName)}</button><span class="sep">/</span>
+    <span class="cur">${row.wo ? '批次 ' + esc(row.wo.batch || row.wo.code) : '未下达工单'}</span>
+  </div>
+  <div class="brief">
+    <h2>${row.wo ? esc(row.wo.code) : '未下达工单'}
+      ${row.wo ? `<span class="tag">批号 ${esc(row.wo.batch || '—')}</span>` : ''}
+      <span class="st ${statusCls(rowStatus(row))}">${esc(rowStatus(row))}</span>
+      ${miss.length ? `<span class="miss">缺 ${miss.length} 项附件</span>` : ''}
+    </h2>
+    <div class="brief-stats">
+      <span>附件 <b>${stat.total}</b></span>
+      <span>缺件 <b class="${miss.length ? 'st-bad' : ''}">${miss.length}</b></span>
+      <button class="btn btn-mini" data-drawer-all="${row.rowId}">查看全部附件</button>
+      <button class="btn btn-mini btn-primary" data-export="${row.rowId}">导出本批次</button>
+    </div>
+  </div>
+  <div class="stats batch-stats">${slotChipsHtml([row])}</div>
+  ${missingBoxHtml(miss)}
+  <div class="timeline-panel">${renderTimeline(row)}</div>`;
+}
+
+function renderCardView(rows) {
+  const host = $('cardView');
+  if (!rows.length) {
+    host.innerHTML = `<div class="table-card"><div class="empty">没有符合条件的记录，请调整筛选条件</div></div>`;
+    return;
+  }
+  ensureNav();
+  if (nav.level === 'batch') host.innerHTML = renderBatchPage();
+  else if (nav.level === 'variety') host.innerHTML = renderVarietyPage(rows);
+  else host.innerHTML = renderVarietyGrid(rows);
+}
+
+/* =========================================================
+ * 详情抽屉
+ * =======================================================*/
+let currentRow = null;
+let currentTab = 'chain';
+
+function setPanelOpen(open) {
+  $('mask').classList.toggle('show', open);
+  $('panel').classList.toggle('show', open);
+}
+
+function openPanel(row, tab) {
+  currentRow = row;
+  currentTab = tab || 'chain';
+  $('panelTitle').textContent = row.preparationName;
+  $('panelSub').textContent = `${row.planNumber} · ${row.wo ? row.wo.code + ' · 批号 ' + (row.wo.batch || '—') : '未下达工单'} · ${row.planType || ''}`;
+  document.querySelectorAll('#panelTabs [data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === currentTab));
+  renderPanel();
+  setPanelOpen(true);
+}
+
+function renderPanel() {
+  if (!currentRow) return;
+  const row = currentRow;
+  const miss = missingItems(row);
+  const stat = fileStatsOfRows([row]);
+  $('tabFileCount').textContent = stat.total;
+  $('panelFootInfo').textContent = `附件 ${stat.total} 个 · 缺件 ${miss.length} 项`;
+  $('panelBody').innerHTML = (currentTab === 'files' ? renderFilesTab(row, miss) : renderChainTab(row, miss));
+}
+
+function missingBoxHtml(miss) {
+  if (!miss.length) return `<div class="missing-box ok"><b>附件齐全</b> · 本批次必传附件均已上传</div>`;
+  const counts = new Map();
+  miss.forEach(m => counts.set(m.stage || '其他', (counts.get(m.stage || '其他') || 0) + 1));
+  const summary = [...counts.entries()].map(([stage, n]) => `${stage} ${n}`).join(' · ');
+  return `<div class="missing-box has">
+    <b>缺件 ${miss.length} 项</b> · 红色为未上传的必传/条件必传附件；可空缺与已确认不必传项不计入
+    <div class="miss-summary">按环节：${esc(summary)}</div>
+    <ul class="missing-list">${miss.map(m =>
+      `<li><span class="stage-tag">${esc(m.stage || '其他')}</span> ${esc(m.label)} · ${esc(m.doc)} · <span class="slot-code">${esc(m.slot || '')}</span></li>`).join('')}</ul>
+  </div>`;
+}
+
+function kvHtml(items) {
+  return `<div class="kv">${items.map(([k, v]) =>
+    `<div><span class="k">${esc(k)}</span>${esc(v == null || v === '' ? '—' : v)}</div>`).join('')}</div>`;
+}
+
+function miniTable(headers, rows) {
+  if (!rows.length) return `<div class="doc-empty">暂无明细</div>`;
+  return `<table class="mini"><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(cells => `<tr>${cells.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+}
+
+function stageHtml(title, meta, body) {
+  return `<div class="stage"><div class="stage-head"><span class="stage-title">${esc(title)}</span><span class="stage-meta">${esc(meta || '')}</span></div>${body}</div>`;
+}
+
+function docHtml(title, meta, body) {
+  return `<div class="doc"><div class="doc-head"><b>${esc(title)}</b><span>${esc(meta || '')}</span></div>${body}</div>`;
+}
+
+function renderChainTab(row, miss) {
+  const parts = [];
+  parts.push(missingBoxHtml(miss));
+
+  // 计划
+  parts.push(stageHtml('计划', row.planDate, kvHtml([
+    ['计划编号', row.planNumber],
+    ['品种', row.preparationName + (row.spec ? ' · ' + row.spec : '')],
+    ['计划量', fmtNum(row.planQuantity) + ' ' + (row.unitName || '')],
+    ['计划类型', row.planType],
+    ['物料来源', row.materialSource === 'requisition' ? '生产领料' : row.materialSource === 'purchase' ? '采购入库' : '—'],
+    ['生产单位', row.productionUnit || '—'],
+    ['状态', row.planStatus]
+  ])));
+
+  // 采购 / 领料
+  if (row.materialSource === 'requisition' && (row.requisitions || []).length) {
+    const blocks = row.requisitions.map(p => docHtml(
+      '领料单 ' + p.code,
+      `${d(p.date)} · ${p.status || ''} · 领料人 ${p.applicant || '—'}${p.stockOutCode ? ' · 出库单 ' + p.stockOutCode : ''}`,
+      miniTable(['物料编码', '物料名称', '分类', '数量', '单位', '批次'],
+        (p.items || []).map(i => [esc(i.code), esc(i.name), esc(i.category), fmtNum(i.qty), esc(i.unit), esc(i.batch || '—')]))
+    )).join('');
+    parts.push(stageHtml('领料', `${row.requisitions.length} 张领料单`, blocks));
+  } else if ((row.purchases || []).length) {
+    const blocks = row.purchases.map(po => docHtml(
+      '采购订单 ' + po.code,
+      `${d(po.date)} · ${po.status || ''} · ${po.materialType || ''}${po.acceptanceCode ? ' · 验收单 ' + po.acceptanceCode : ''}`,
+      miniTable(['物料编码', '物料名称', '分类', '数量', '单位', '供应商', '状态'],
+        (po.items || []).map(i => [esc(i.code), esc(i.name), esc(i.category), fmtNum(i.qty), esc(i.unit), esc(i.supplier || '—'), esc(i.status || '')]))
+    )).join('');
+    parts.push(stageHtml('采购', `${row.purchases.length} 张采购单`, blocks));
+  } else {
+    parts.push(stageHtml('采购 / 领料', '', `<div class="doc-empty">暂无采购或领料记录</div>`));
+  }
+
+  // 工单与生产
+  if (row.wo) {
+    parts.push(stageHtml('工单', row.wo.code, kvHtml([
+      ['工单号', row.wo.code],
+      ['批号', row.wo.batch || '—'],
+      ['批量', fmtNum(row.wo.qty) + ' ' + (row.unitName || '')],
+      ['成品量', row.wo.finishedQty != null ? fmtNum(row.wo.finishedQty) + ' ' + (row.unitName || '') : '—'],
+      ['得率', row.wo.yieldRate != null ? fmtNum(row.wo.yieldRate) + '%' : '—'],
+      ['状态', row.wo.status],
+      ['开工', d(row.wo.start)],
+      ['完工', d(row.wo.end)]
+    ])));
+
+    const procs = row.wo.processes || [];
+    const procBody = procs.length
+      ? miniTable(['工序', '房间', '操作人', '加工数量', '开始', '结束', '状态'],
+          procs.map(p => [esc(p.process), esc(p.room || '—'), esc(p.operator || '—'), fmtNum(p.qty), dt(p.start), dt(p.end), esc(p.status || '')]))
+      : `<div class="doc-empty">暂无工序执行记录</div>`;
+    parts.push(stageHtml('生产', procs.length + ' 道工序', procBody));
+  } else {
+    parts.push(stageHtml('工单 / 生产', '', `<div class="doc-empty">尚未下达工单</div>`));
+  }
+
+  // 入库
+  const ins = row.wo ? (row.wo.stockIns || []) : [];
+  parts.push(stageHtml('入库', ins.length + ' 张入库单', ins.length ? ins.map(s => docHtml(
+    '入库单 ' + s.code,
+    `${d(s.date)} · ${s.type || ''} · ${s.status || ''} · ${fmtMoney(s.amount)}`,
+    miniTable(['物料编码', '名称', '分类', '数量', '单位', '批次'],
+      (s.items || []).map(i => [esc(i.code), esc(i.name), esc(i.category), fmtNum(i.qty), esc(i.unit), esc(i.batch || '—')]))
+  )).join('') : `<div class="doc-empty">暂无成品入库记录</div>`));
+
+  // 出库（产品汇总只看成品出库；生产领料出库在领料单中体现）
+  const outs = (row.stockOuts || []).filter(s => (s.type || '').includes('成品出库'));
+  parts.push(stageHtml('出库', outs.length + ' 张成品出库单', outs.length ? outs.map(s => docHtml(
+    '出库单 ' + s.code,
+    `${d(s.date)} · ${s.type || ''} · ${s.status || ''} · ${fmtMoney(s.amount)}`,
+    miniTable(['物料编码', '名称', '分类', '数量', '单位', '批次'],
+      (s.items || []).map(i => [esc(i.code), esc(i.name), esc(i.category), fmtNum(i.qty), esc(i.unit), esc(i.batch || '—')]))
+  )).join('') : `<div class="doc-empty">暂无出库记录</div>`));
+
+  // 检验与放行
+  if (row.wo) {
+    const reqs = row.wo.inspectionRequests || [];
+    const recs = row.wo.inspections || [];
+    const rels = row.wo.releases || [];
+    const inspBody = [
+      reqs.length ? miniTable(['请检单号', '时间', '工序', '请检人', '检验项目'],
+        reqs.map(r => [esc(r.code), dt(r.time), esc(r.process || '—'), esc(r.requester || '—'), esc(r.items || '—')])) : `<div class="doc-empty">暂无请检单</div>`,
+      recs.length ? miniTable(['检验单号', '起止', '检验项目', '检验人', '结论'],
+        recs.map(r => [esc(r.code), `${dt(r.start)} ~ ${dt(r.end)}`, esc(r.items || '—'), esc(r.inspector || '—'), esc(r.conclusion || '—')])) : `<div class="doc-empty">暂无检验记录</div>`
+    ].join('');
+    parts.push(stageHtml('检验', `${reqs.length} 张请检 / ${recs.length} 条检验`, inspBody));
+    parts.push(stageHtml('放行', `${rels.length} 条放行`, rels.length ? miniTable(['放行单号', '时间', '结论', '审核人', '意见'],
+      rels.map(r => [esc(r.code), dt(r.time), esc(r.conclusion || '—'), esc(r.reviewer || '—'), esc(r.opinion || '—')])) : `<div class="doc-empty">暂无放行记录</div>`));
+  }
+
+  return parts.join('');
+}
+
+function renderFilesTab(row, miss) {
+  const files = actualFiles(row);
+  const groups = new Map();
+  files.forEach(x => {
+    const key = x.file.bizType + '|' + x.file.kind;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(x);
+  });
+
+  const actual = [...groups.values()].map(list => {
+    const f0 = list[0].file;
+    const label = slotLabel(f0);
+    const code = f0.bizType + ' / ' + f0.kind;
+    const status = slotStatusFor(f0.bizType, f0.kind);
+    return `<div class="file-group">
+      <div class="file-group-head"><b>${esc(label)}</b><span class="slot-code">${esc(code)}</span><span class="req-tag ${status}">${statusLabel(status)}</span><span class="cnt">${list.length} 个</span></div>
+      ${list.map(x => `<div class="file-row">
+        <span class="file-ico">${fileExt(x.file.name)}</span>
+        <div class="file-main"><div class="file-name" title="${esc(x.file.name)}">${esc(x.file.name)}</div>
+        <div class="file-meta">${fmtSize(x.file.size)} · ${esc(x.file.uploader || '—')} · ${dt(x.file.time)}</div></div>
+        <span class="file-act" data-file="${esc(x.file.name)}">下载</span>
+      </div>`).join('')}
+    </div>`;
+  }).join('');
+
+  const optMap = new Map();
+  const addOpt = (label, code, note) => {
+    if (!optMap.has(code)) optMap.set(code, {label, code, note, count: 0});
+    optMap.get(code).count++;
+  };
+  if (row.preparationId && !filesOf('PREPARATION', row.preparationId, 'PROCESS_FLOWCHART').length) {
+    addOpt('品种资料 · 工艺流程图', 'PREPARATION / PROCESS_FLOWCHART', '可空缺');
+  }
+  if (row.materialSource === 'purchase') {
+    (row.purchases || []).forEach(po => {
+      if (po.acceptanceId && !acceptanceFiles(po, 'INVOICE').length) {
+        addOpt('验收 · 发票', 'ACCEPTANCE_ORDER / INVOICE', '可空缺');
+      }
+    });
+  }
+  if (row.wo && !workOrderFiles(row, 'OTHER').length) {
+    addOpt('工单 · 其他文件', 'WORK_ORDER / OTHER', '可空缺');
+  }
+  if (row.wo && (row.wo.processes || []).length && !processFiles(row).length) {
+    addOpt('工序附件', 'WORK_ORDER_PROCESS_EXECUTION / PROCESS_ATTACHMENT', '不必传');
+  }
+  if (row.materialSource === 'requisition' && (row.requisitions || []).length) {
+    addOpt('领料单附件', 'STOCK_OUT_PRODUCTION / DEFAULT', '附件位未接入');
+  }
+  if (row.wo && (row.wo.stockIns || []).length) {
+    addOpt('成品入库单附件', 'STOCK_IN_PRODUCT / DEFAULT', '附件位未接入');
+  }
+  if ((row.stockOuts || []).some(s => (s.type || '').includes('成品出库'))) {
+    addOpt('成品出库单附件', 'STOCK_OUT_SALES / DEFAULT', '附件位未接入');
+  }
+  const optionalGroups = [...optMap.values()].map(g => `<div class="file-group optional-group">
+    <div class="file-group-head"><b>${esc(g.label)}</b><span class="slot-code">${esc(g.code)}</span><span class="req-tag optional">不必传</span><span class="cnt">${g.note}${g.count > 1 ? ' · ' + g.count + ' 张' : ''}</span></div>
+    <div class="optional-note">该槽位不必传，可空缺。</div>
+  </div>`).join('');
+
+  const pendingGroups = [
+    ['品种资料 · 579号资料', 'PREPARATION / DOC_579（待确认）'],
+    ['品种资料 · 备案凭证/注册批件', 'PREPARATION / REGISTRATION_CERTIFICATE（待新增）'],
+    ['品种资料 · 包装设计稿', 'PREPARATION / PACKAGE_DESIGN（待新增）'],
+    ['品种资料 · 验证报告', 'PREPARATION / VERIFICATION_REPORT（待新增）']
+  ].map(([label, code]) => `<div class="file-group pending-group">
+    <div class="file-group-head"><b>${esc(label)}</b><span class="slot-code">${esc(code)}</span><span class="req-tag pending">待确认</span><span class="cnt">未接入</span></div>
+    <div class="optional-note">该资料属于品种资料，槽位编码和是否必传待确认。</div>
+  </div>`).join('');
+
+  const missing = miss.length ? `<div class="file-group">
+    <div class="file-group-head" style="background:#fff1f0;color:#a8071a"><b>缺件清单</b><span class="cnt">${miss.length} 项</span></div>
+    ${miss.map(m => `<div class="file-missing"><span class="stage-tag">${esc(m.stage || '其他')}</span> ${esc(m.label)} · ${esc(m.doc)} · <span class="slot-code">${esc(m.slot || '')}</span> · 未上传</div>`).join('')}
+  </div>` : '';
+
+  const planned = `<div class="planned-note">领料单、入库单、出库单已在系统中存在，但前端暂未配置附件上传位，因此不计入缺件。</div>`;
+
+  const rules = `<details class="rules">
+    <summary>文件要求（必传 / 条件必传 / 可空缺）</summary>
+    <p><b>品种资料：</b>工艺规程、质量标准、批记录模板、验证方案、工艺流程图、工序模板、备案凭证/注册批件、包装设计稿、验证报告、579号资料。</p>
+    <p><b>必传：</b>工艺规程、质量标准、批记录模板、验收检验报告、批生产记录、检验记录/图谱、放行审核。</p>
+    <p><b>条件必传：</b>验证方案、生产计划附件、采购订单附件、随货清单、请检单、取样记录。</p>
+    <p><b>可空缺：</b>工艺流程图、工序模板、工序附件、发票、其他文件、领料/入库/出库附件。</p>
+    <p><b>已确认不必传：</b>偏差/CAPA、销毁、留样、审批、剂型模板、生产单位、设备、车间环境、能耗。</p>
+    <p><b>待确认新增项：</b>579号资料、备案凭证/注册批件、包装设计稿、验证报告、成品检测报告、中间品请检单。</p>
+  </details>`;
+
+  return `${missingBoxHtml(miss)}${actual || '<div class="doc-empty">暂无已上传附件</div>'}${optionalGroups}${pendingGroups}${missing}${planned}${rules}`;
+}
+
+/* =========================================================
+ * 导出
+ * =======================================================*/
+function csvCell(v) {
+  return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+}
+function downloadCsv(lines, filename) {
+  const csv = '﻿' + lines.map(r => r.map(csvCell).join(',')).join('\r\n');
+  const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function exportRows(rows, label) {
+  if (!rows.length) { toast('没有可导出的记录'); return; }
+  const lines = [['品种', '计划编号', '工单号', '批号', '物料来源', '环节/文件组', '文件名/缺失说明', '大小', '上传人', '时间', '状态']];
+  rows.forEach(row => {
+    actualFiles(row).forEach(x => lines.push([
+      row.preparationName, row.planNumber, row.wo ? row.wo.code : '', row.wo ? row.wo.batch : '',
+      row.materialSource === 'requisition' ? '领料' : '采购', x.group,
+      x.file.name, fmtSize(x.file.size), x.file.uploader, x.file.time, '已上传'
+    ]));
+    missingItems(row).forEach(m => lines.push([
+      row.preparationName, row.planNumber, row.wo ? row.wo.code : '', row.wo ? row.wo.batch : '',
+      row.materialSource === 'requisition' ? '领料' : '采购', m.label, m.doc, '', '', '', '缺失'
+    ]));
+  });
+  downloadCsv(lines, `产品信息汇总_${label}_${new Date().toISOString().slice(0, 10)}.csv`);
+  toast(`已导出 ${rows.length} 条记录的文件清单`);
+}
+
+/* =========================================================
+ * 事件
+ * =======================================================*/
+(function initFilters() {
+  const sel = $('fVariety');
+  const seen = new Set();
+  ROWS.forEach(r => {
+    if (seen.has(r.preparationCode)) return;
+    seen.add(r.preparationCode);
+    sel.insertAdjacentHTML('beforeend', `<option value="${esc(r.preparationCode)}">${esc(r.preparationName)}（${esc(r.preparationCode)}）</option>`);
+  });
+})();
+
+$('dataTime').textContent = SNAPSHOT.generatedAt ? '数据快照：' + String(SNAPSHOT.generatedAt).slice(0, 19) : '';
+
+function contextRows(rows) {
+  if (nav.level === 'batch') {
+    const row = rows.find(r => r.rowId === nav.rowId);
+    return row ? [row] : [];
+  }
+  if (nav.level === 'variety') return rows.filter(r => r.preparationCode === nav.varietyCode);
+  return rows;
+}
+
+function contextLabel(rows) {
+  if (nav.level === 'batch') {
+    const row = rows[0] || rowById(nav.rowId);
+    return row ? `当前批次：${row.wo ? row.wo.code : row.planNumber}${row.wo && row.wo.batch ? ' · 批号 ' + row.wo.batch : ''}` : '当前批次';
+  }
+  if (nav.level === 'variety') {
+    const row = rows[0] || ROWS.find(r => r.preparationCode === nav.varietyCode);
+    return row ? `当前品种：${row.preparationName}` : '当前品种';
+  }
+  return '';
+}
+
+function render() {
+  const rows = filteredRows();
+  ensureNav();
+  const viewRows = contextRows(rows);
+  const isBatch = nav.level === 'batch';
+  const isVariety = nav.level === 'variety';
+
+  $('stats').style.display = isBatch ? 'none' : '';
+  if (!isBatch) renderStats(isVariety ? viewRows : rows);
+
+  $('listContext').innerHTML = (state.view === 'list' && isBatch)
+    ? `<div class="stats batch-stats">${slotChipsHtml(viewRows)}</div>`
+    : '';
+  $('listContext').classList.toggle('show', state.view === 'list' && isBatch);
+
+  const ctx = contextLabel(viewRows);
+  const ctxBtns = [];
+  if (state.view === 'list' && isBatch) ctxBtns.push('<button class="mini-link" id="backContext">返回批次详情</button>');
+  if (state.view === 'list' && isVariety) ctxBtns.push('<button class="mini-link" id="backContext">返回品种</button>');
+  if (isBatch || isVariety) ctxBtns.push('<button class="mini-link" id="backAll">查看全部</button>');
+  $('viewMeta').innerHTML = (ctx ? `<span class="ctx-label">${esc(ctx)}</span> · ` : '')
+    + `共 ${viewRows.length} 条批次记录`
+    + (ctxBtns.length ? ' ' + ctxBtns.join(' ') : '');
+  $('cardView').classList.toggle('show', state.view === 'card');
+  $('listView').style.display = state.view === 'list' ? '' : 'none';
+  document.querySelectorAll('#viewSeg [data-view]').forEach(b => {
+    b.classList.toggle('on', b.dataset.view === state.view);
+  });
+  if (state.view === 'card') {
+    renderCardView(rows);
+  } else {
+    renderTable(viewRows);
+  }
+  const backAll = $('backAll');
+  if (backAll) backAll.addEventListener('click', () => {
+    navHome();
+    render();
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  });
+  const backContext = $('backContext');
+  if (backContext) backContext.addEventListener('click', () => {
+    state.view = 'card';
+    render();
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  });
+}
+
+$('btnSearch').addEventListener('click', () => {
+  state.variety = $('fVariety').value;
+  state.dateType = $('fDateType').value;
+  state.start = $('fStart').value;
+  state.end = $('fEnd').value;
+  state.keyword = $('fKeyword').value;
+  state.onlyMissing = $('fMissing').checked;
+  navHome();
+  render();
+});
+$('fKeyword').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnSearch').click(); });
+$('btnReset').addEventListener('click', () => {
+  $('fVariety').value = '';
+  $('fDateType').value = 'planDate';
+  $('fStart').value = '';
+  $('fEnd').value = '';
+  $('fKeyword').value = '';
+  $('fMissing').checked = false;
+  Object.assign(state, {variety: '', dateType: 'planDate', start: '', end: '', keyword: '', onlyMissing: false});
+  navHome();
+  render();
+});
+$('btnRefresh').addEventListener('click', () => { render(); toast('已刷新（静态快照）'); });
+$('btnExport').addEventListener('click', () => exportRows(filteredRows(), '当前筛选'));
+
+$('viewSeg').addEventListener('click', e => {
+  const btn = e.target.closest('[data-view]');
+  if (!btn) return;
+  state.view = btn.dataset.view;
+  render();
+});
+
+function exportRowById(id) {
+  const row = rowById(id);
+  if (row) exportRows([row], row.preparationName + '_' + (row.wo ? row.wo.batch : row.planNumber));
+}
+
+// 列表：点行进入批次时间轴
+$('rows').addEventListener('click', e => {
+  const exportBtn = e.target.closest('[data-export]');
+  if (exportBtn) { e.stopPropagation(); exportRowById(exportBtn.dataset.export); return; }
+  const tr = e.target.closest('tr[data-row]');
+  if (!tr) return;
+  navBatch(tr.dataset.row);
+  state.view = 'card';
+  render();
+  window.scrollTo({top: 0, behavior: 'smooth'});
+});
+
+// 卡片：品种 → 工单 → 批次时间轴
+$('cardView').addEventListener('click', e => {
+  const exportBtn = e.target.closest('[data-export]');
+  if (exportBtn) { e.stopPropagation(); exportRowById(exportBtn.dataset.export); return; }
+
+  const filesBtn = e.target.closest('[data-files]');
+  if (filesBtn) {
+    e.stopPropagation();
+    const row = rowById(filesBtn.dataset.files);
+    if (row) openPanel(row, 'files');
+    return;
+  }
+
+  const drawerAll = e.target.closest('[data-drawer-all]');
+  if (drawerAll) {
+    const row = rowById(drawerAll.dataset.drawerAll);
+    if (row) openPanel(row, 'files');
+    return;
+  }
+
+  const home = e.target.closest('[data-home]');
+  if (home) { navHome(); render(); window.scrollTo({top: 0, behavior: 'smooth'}); return; }
+
+  const variety = e.target.closest('[data-variety]');
+  if (variety) { navVariety(variety.dataset.variety); render(); window.scrollTo({top: 0, behavior: 'smooth'}); return; }
+
+  const exportVariety = e.target.closest('[data-export-variety]');
+  if (exportVariety) {
+    const code = exportVariety.dataset.exportVariety;
+    exportRows(ROWS.filter(r => r.preparationCode === code), code);
+    return;
+  }
+
+  const asset = e.target.closest('[data-asset]');
+  if (asset) {
+    const row = rowById(asset.dataset.asset);
+    if (row) openPanel(row, 'files');
+    return;
+  }
+
+  const tl = e.target.closest('[data-tl]');
+  if (tl) { tl.parentElement.classList.toggle('open'); return; }
+
+  const batch = e.target.closest('[data-batch]');
+  if (batch) {
+    navBatch(batch.dataset.batch);
+    render();
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  }
+});
+
+$('panelClose').addEventListener('click', () => setPanelOpen(false));
+$('mask').addEventListener('click', () => setPanelOpen(false));
+$('panelTabs').addEventListener('click', e => {
+  const btn = e.target.closest('[data-tab]');
+  if (!btn) return;
+  currentTab = btn.dataset.tab;
+  document.querySelectorAll('#panelTabs [data-tab]').forEach(b => b.classList.toggle('on', b === btn));
+  renderPanel();
+});
+$('panelExport').addEventListener('click', () => {
+  if (currentRow) exportRows([currentRow], currentRow.preparationName + '_' + (currentRow.wo ? currentRow.wo.batch : currentRow.planNumber));
+});
+$('panelBody').addEventListener('click', e => {
+  const act = e.target.closest('[data-file]');
+  if (act) toast('原型演示：下载 ' + act.dataset.file);
+});
+
+render();
+</script>
+</body>
+</html>

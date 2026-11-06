@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>审核放行 · 通惠 ERP</title>
+<style>
+/* =========================================================
+ * Art Design Pro 风格原型公共样式
+ * 主色、灰阶与圆角对齐 C:\Work\Java\art-design-pro-main
+ * =======================================================*/
+:root {
+  --main: #5D87FF;
+  --main-light: #eef3ff;
+  --success: #13deb9;
+  --warning: #ffae1f;
+  --danger: #ff4d4f;
+  --bg: #fafbfc;
+  --card: #ffffff;
+  --border: rgba(0, 0, 0, .07);
+  --border2: #e2e8ee;
+  --g100: #f9fafb;
+  --g200: #f2f4f5;
+  --g300: #e6eaeb;
+  --g400: #dbdfe1;
+  --g500: #949eb7;
+  --g600: #7987a1;
+  --g700: #4d5875;
+  --g800: #383853;
+  --g900: #323251;
+  --radius: 14px;
+  --radius-md: 11px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .03);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, .08);
+  --sidebar: 0px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--g900);
+  font: 14px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: var(--main); text-decoration: none; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--g400); border-radius: 4px; }
+
+/* ---------- 侧边栏 ---------- */
+.app { min-height: 100vh; }
+.sidebar {
+  position: fixed; left: 0; top: 0; bottom: 0; width: var(--sidebar);
+  background: #fff; border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; z-index: 20;
+}
+.brand {
+  display: flex; align-items: center; gap: 10px; height: 60px; padding: 0 18px;
+  border-bottom: 1px solid var(--g200); flex: none;
+}
+.brand-logo {
+  width: 30px; height: 30px; border-radius: 9px; background: var(--main);
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; letter-spacing: .5px;
+}
+.brand b { font-size: 14px; font-weight: 600; color: var(--g900); letter-spacing: .3px; }
+.brand span { display: block; font-size: 10px; color: var(--g500); margin-top: 1px; }
+.menu { padding: 12px 10px; flex: 1; overflow: auto; }
+.menu-label {
+  padding: 8px 10px 5px; font-size: 10.5px; color: var(--g500);
+  letter-spacing: .6px; text-transform: uppercase;
+}
+.menu a {
+  display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 11px;
+  border-radius: 9px; color: var(--g700); font-size: 13px; margin-bottom: 2px;
+  transition: background .18s, color .18s;
+}
+.menu a:hover { background: var(--g100); color: var(--g900); }
+.menu a.active { background: var(--main-light); color: var(--main); font-weight: 600; }
+.menu a svg { width: 17px; height: 17px; flex: none; opacity: .85; }
+.menu a.active svg { opacity: 1; }
+.menu a .badge {
+  margin-left: auto; height: 18px; padding: 0 6px; border-radius: 9px;
+  background: var(--main); color: #fff; font-size: 10px; display: flex; align-items: center;
+}
+.sidebar-foot { padding: 12px 16px; border-top: 1px solid var(--g200); font-size: 10.5px; color: var(--g500); line-height: 1.6; }
+
+/* ---------- 主区域 ---------- */
+.main { margin-left: var(--sidebar); min-height: 100vh; padding: 22px 26px 48px; }
+.page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.page-head h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: .2px; }
+.page-head .sub { margin: 4px 0 0; font-size: 12.5px; color: var(--g600); }
+.head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* ---------- 按钮 ---------- */
+.btn {
+  height: 34px; padding: 0 14px; border-radius: var(--radius-sm); border: 1px solid var(--border2);
+  background: #fff; color: var(--g700); font-size: 13px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; transition: .18s; white-space: nowrap;
+}
+.btn:hover { border-color: #c9d4e6; color: var(--g900); background: #fbfcfd; }
+.btn-primary { background: var(--main); border-color: var(--main); color: #fff; box-shadow: 0 2px 6px rgba(93, 135, 255, .26); }
+.btn-primary:hover { background: #7c9eff; border-color: #7c9eff; color: #fff; }
+.btn-danger { color: var(--danger); border-color: #ffccc7; background: #fff1f0; }
+.btn-danger:hover { background: #ffe7e5; border-color: #ffb3ad; color: var(--danger); }
+.btn-ghost { border-color: transparent; background: transparent; color: var(--main); }
+.btn-ghost:hover { background: var(--main-light); }
+.btn-sm { height: 26px; padding: 0 9px; font-size: 12px; border-radius: 6px; }
+.btn[disabled], .btn.disabled { opacity: .45; cursor: not-allowed; }
+
+/* ---------- 卡片 ---------- */
+.card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+.card-pad { padding: 16px 18px; }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 18px; border-bottom: 1px solid var(--g200); }
+.card-head h2 { margin: 0; font-size: 14px; font-weight: 600; color: var(--g900); }
+.card-head .meta { font-size: 11.5px; color: var(--g500); }
+.card-body { padding: 16px 18px; }
+.mb-2 { margin-bottom: 14px; }
+.mb-3 { margin-bottom: 20px; }
+
+/* ---------- 筛选栏 ---------- */
+.filters { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; padding: 12px 14px; }
+.filters label { font-size: 12.5px; color: var(--g600); white-space: nowrap; }
+.input, .select {
+  height: 34px; border: 1px solid var(--border2); background: #fff; border-radius: var(--radius-sm);
+  padding: 0 10px; font-size: 13px; color: var(--g800); outline: none; transition: .18s;
+}
+.input { width: 200px; }
+.select { cursor: pointer; min-width: 120px; }
+.input:focus, .select:focus { border-color: var(--main); box-shadow: 0 0 0 3px rgba(93, 135, 255, .12); }
+.input::placeholder { color: var(--g500); }
+.spacer { flex: 1; }
+.checkbox { width: 15px; height: 15px; accent-color: var(--main); margin: 0; cursor: pointer; }
+.check-label { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--g700); cursor: pointer; }
+
+/* ---------- 统计 ---------- */
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.stat-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
+.stat-card .label { font-size: 12px; color: var(--g600); }
+.stat-card .num { display: flex; align-items: baseline; gap: 6px; margin-top: 2px; }
+.stat-card b { font-size: 24px; font-weight: 600; letter-spacing: -.3px; font-variant-numeric: tabular-nums; }
+.stat-card .unit { font-size: 11.5px; color: var(--g500); }
+.stat-card.warn b { color: var(--danger); }
+.stat-card.ok b { color: #0eaf93; }
+.stat-card.run b { color: var(--main); }
+
+/* ---------- 表格 ---------- */
+.table-wrap { overflow: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+thead th {
+  background: var(--g100); color: var(--g600); font-weight: 500; text-align: left;
+  padding: 10px 12px; border-bottom: 1px solid var(--g200); white-space: nowrap; font-size: 11.5px;
+}
+tbody td { padding: 10px 12px; border-bottom: 1px solid var(--g200); color: var(--g700); vertical-align: top; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: #f7f9ff; }
+tbody tr.clickable { cursor: pointer; }
+tbody tr.selected td { background: #f0f5ff; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.cell-main { color: var(--g900); font-weight: 500; }
+.cell-sub { display: block; font-size: 11px; color: var(--g500); margin-top: 1px; }
+.table-foot { padding: 10px 14px; border-top: 1px solid var(--g200); font-size: 12px; color: var(--g500); background: var(--g100); }
+.empty { padding: 48px 20px; text-align: center; color: var(--g500); font-size: 13px; }
+
+/* ---------- 标签 ---------- */
+.tag {
+  display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 5px;
+  font-size: 10.5px; white-space: nowrap; background: var(--g200); color: var(--g600);
+}
+.tag.blue { background: #eef3ff; color: #3f6bd6; }
+.tag.green { background: #e8f8f3; color: #0e8f76; }
+.tag.orange { background: #fff7e6; color: #ad6800; }
+.tag.red { background: #fff1f0; color: #cf1322; }
+.tag.gray { background: var(--g200); color: var(--g600); }
+.st { font-size: 12px; white-space: nowrap; }
+.st.done { color: #0eaf93; }
+.st.run { color: var(--main); }
+.st.wait { color: var(--g500); }
+.st.bad { color: var(--danger); }
+.req-tag {
+  display: inline-flex; align-items: center; height: 18px; padding: 0 5px; border-radius: 4px;
+  font-size: 10px; font-weight: 600; border: 1px solid transparent; white-space: nowrap;
+}
+.req-tag.required { background: #fff1f0; border-color: #ffccc7; color: #a8071a; }
+.req-tag.conditional { background: #fff7e6; border-color: #ffe0a3; color: #ad6800; }
+.req-tag.optional { background: #fffbe6; border-color: #ffe58f; color: #8a6100; }
+.req-tag.pending { background: #f2f4f5; border-color: #dbdfe1; color: #7987a1; }
+
+/* ---------- 文件 chip ---------- */
+.file-chip {
+  display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 7px;
+  border: 1px solid var(--g300); border-radius: 6px; background: #fff;
+  color: var(--g600); font-size: 11px; cursor: pointer; white-space: nowrap;
+}
+.file-chip:hover { color: var(--main); border-color: rgba(93, 135, 255, .5); background: #f5f8ff; }
+.file-chip.missing { color: #cf1322; border-color: #ffccc7; background: #fff1f0; }
+.file-chip.none { color: var(--g400); border-color: transparent; background: none; cursor: default; }
+.file-list { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 14px; align-items: start; }
+.detail-side { position: sticky; top: 16px; }
+.detail-main > .card { margin-bottom: 14px; }
+.req-text { max-width: 280px; white-space: normal; line-height: 1.55; }
+.process-layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 14px; align-items: start; }
+.process-list { position: sticky; top: 16px; max-height: calc(100vh - 40px); display: flex; flex-direction: column; }
+.process-list .list-body { overflow: auto; padding: 6px; }
+.process-item { padding: 10px 11px; border-radius: 9px; cursor: pointer; border: 1px solid transparent; margin-bottom: 4px; }
+.process-item:hover { background: var(--g100); }
+.process-item.active { background: var(--main-light); border-color: #d6e2ff; }
+.process-item .p-name { font-size: 13px; font-weight: 600; color: var(--g900); display: flex; align-items: center; gap: 6px; }
+.process-item .p-meta { font-size: 11px; color: var(--g500); margin-top: 2px; }
+.process-item .p-count { margin-left: auto; font-size: 10.5px; color: var(--g600); }
+.editor-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.editor-head h2 { margin: 0; font-size: 17px; }
+.editor-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px 14px; }
+.req-table input, .req-table select { height: 30px; font-size: 12px; }
+.req-table td { vertical-align: middle; }
+@media (max-width: 1100px) { .process-layout { grid-template-columns: 1fr; } .process-list { position: static; max-height: none; } }
+@media (max-width: 1100px) { .detail-layout { grid-template-columns: 1fr; } .detail-side { position: static; } }
+
+/* ---------- 步骤条 / 时间轴 ---------- */
+.steps { display: flex; align-items: flex-start; gap: 0; overflow: auto; padding: 4px 2px 10px; }
+.step-item { flex: 1; min-width: 110px; position: relative; text-align: center; }
+.step-item::after {
+  content: ""; position: absolute; top: 14px; left: 50%; width: 100%; height: 2px; background: var(--g300); z-index: 0;
+}
+.step-item:last-child::after { display: none; }
+.step-dot {
+  width: 28px; height: 28px; border-radius: 50%; background: #fff; border: 2px solid var(--g300);
+  display: flex; align-items: center; justify-content: center; margin: 0 auto 6px; position: relative; z-index: 1;
+  font-size: 11px; font-weight: 600; color: var(--g500);
+}
+.step-item.done .step-dot { border-color: var(--success); background: var(--success); color: #fff; }
+.step-item.active .step-dot { border-color: var(--main); color: var(--main); box-shadow: 0 0 0 4px rgba(93, 135, 255, .12); }
+.step-item.done::after { background: var(--success); }
+.step-item .step-name { font-size: 12px; color: var(--g700); }
+.step-item .step-count { font-size: 10.5px; color: var(--g500); margin-top: 1px; }
+.step-item.active .step-name { color: var(--main); font-weight: 600; }
+
+.timeline { position: relative; }
+.tl-item { display: grid; grid-template-columns: 26px 1fr; gap: 12px; position: relative; padding-bottom: 14px; }
+.tl-item::before {
+  content: ""; position: absolute; left: 12px; top: 24px; bottom: 0; width: 2px; background: var(--g200);
+}
+.tl-item:last-child::before { display: none; }
+.tl-dot {
+  width: 24px; height: 24px; border-radius: 50%; background: #fff; border: 2px solid var(--g300);
+  display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; color: var(--g500); z-index: 1;
+}
+.tl-item.done .tl-dot { border-color: var(--success); background: var(--success); color: #fff; }
+.tl-item.active .tl-dot { border-color: var(--main); color: var(--main); box-shadow: 0 0 0 4px rgba(93, 135, 255, .1); }
+.tl-item.error .tl-dot { border-color: var(--danger); background: var(--danger); color: #fff; }
+.tl-card {
+  background: #fff; border: 1px solid var(--g200); border-radius: 10px; padding: 10px 12px;
+}
+.tl-item.active .tl-card { border-color: rgba(93, 135, 255, .55); box-shadow: 0 4px 14px rgba(93, 135, 255, .08); }
+.tl-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tl-head b { font-size: 13px; color: var(--g900); }
+.tl-head .st { margin-left: auto; }
+.tl-meta { font-size: 11.5px; color: var(--g500); margin-top: 3px; line-height: 1.6; }
+.tl-body { margin-top: 8px; }
+.tl-actions { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* ---------- 键值 / 小节 ---------- */
+.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px 18px; }
+.kv > div { font-size: 12.5px; color: var(--g700); }
+.kv .k { color: var(--g500); margin-right: 6px; }
+.section-title { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--g900); }
+.section-title .meta { font-size: 11.5px; color: var(--g500); font-weight: 400; }
+.divider { height: 1px; background: var(--g200); margin: 16px 0; }
+
+/* ---------- 抽屉 / 弹窗 ---------- */
+.mask { position: fixed; inset: 0; background: rgba(0, 0, 0, .35); opacity: 0; pointer-events: none; transition: .2s; z-index: 30; }
+.mask.show { opacity: 1; pointer-events: auto; }
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: 760px; max-width: 96vw; background: #fff; z-index: 31;
+  transform: translateX(100%); transition: transform .24s ease; display: flex; flex-direction: column;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, .1);
+}
+.drawer.show { transform: none; }
+.drawer-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 20px 12px; border-bottom: 1px solid var(--g200); }
+.drawer-title { font-size: 16px; font-weight: 600; color: var(--g900); }
+.drawer-sub { font-size: 12px; color: var(--g600); margin-top: 3px; }
+.drawer-body { flex: 1; overflow: auto; padding: 16px 20px 24px; }
+.drawer-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; border-top: 1px solid var(--g200); font-size: 12px; color: var(--g600); }
+.icon-btn { border: 0; background: none; color: var(--g500); font-size: 18px; line-height: 1; cursor: pointer; padding: 4px 8px; border-radius: 8px; }
+.icon-btn:hover { background: var(--g200); color: var(--g900); }
+
+.modal { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -46%); width: 520px; max-width: 92vw; background: #fff; border-radius: 14px; z-index: 32; opacity: 0; pointer-events: none; transition: .2s; display: flex; flex-direction: column; max-height: 84vh; box-shadow: 0 16px 48px rgba(0, 0, 0, .14); }
+.modal.show { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%); }
+.modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 18px 20px 10px; }
+.modal-body { padding: 0 20px 8px; overflow: auto; }
+.modal-foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--g200); }
+.form-row { margin-bottom: 12px; }
+.form-row label { display: block; font-size: 12px; color: var(--g600); margin-bottom: 4px; }
+.form-row .input, .form-row .select, .form-row textarea { width: 100%; }
+textarea.input { height: auto; min-height: 76px; padding: 8px 10px; resize: vertical; }
+
+/* ---------- 提示 / 空状态 ---------- */
+.toast {
+  position: fixed; left: 50%; bottom: 30px; transform: translate(-50%, 10px); background: var(--g900); color: #fff;
+  border-radius: 9px; padding: 9px 16px; font-size: 12.5px; opacity: 0; pointer-events: none; transition: .2s; z-index: 40;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.note { border-radius: 9px; padding: 9px 11px; font-size: 12px; line-height: 1.6; }
+.note.info { background: #eef3ff; border: 1px solid #d6e2ff; color: #3f6bd6; }
+.note.warn { background: #fffbe6; border: 1px solid #ffe58f; color: #8a6100; }
+.note.danger { background: #fff1f0; border: 1px solid #ffccc7; color: #a8071a; }
+.note.ok { background: #e8f8f3; border: 1px solid #b7ebd8; color: #0e8f76; }
+
+/* ---------- 工具类 ---------- */
+.flex { display: flex; }
+.between { justify-content: space-between; }
+.center { align-items: center; }
+.gap-6 { gap: 6px; }
+.gap-10 { gap: 10px; }
+.wrap { flex-wrap: wrap; }
+.muted { color: var(--g500); }
+.small { font-size: 11.5px; }
+.mono { font-family: Consolas, Monaco, monospace; font-size: 10.5px; color: var(--g500); }
+.right { text-align: right; }
+.nowrap { white-space: nowrap; }
+.hidden { display: none !important; }
+
+@media (max-width: 1000px) {
+  .sidebar { transform: translateX(-100%); }
+  .main { margin-left: 0; padding: 18px 14px 40px; }
+  .drawer { width: 100vw; }
+}
+
+</style>
+</head>
+<body>
+<div class="app">
+  <main class="main">
+    <header class="page-head">
+      <div>
+        <h1>审核放行</h1>
+        <p class="sub">以批次为单位检查全批内容与文件是否合规 · 工序符合性引用“工序要求配置”</p>
+      </div>
+      <div class="head-actions">
+        <span class="tag gray" style="height:34px;padding:0 12px;font-size:12px;">工序要求来自现有工序页</span>
+        <button class="btn" onclick="toast('原型演示：导出待审核批次')">导出待审核</button>
+      </div>
+    </header>
+
+    <section id="listView">
+      <div class="stat-grid" id="statGrid"></div>
+
+      <section class="card mb-2">
+        <div class="filters">
+          <label>品种</label>
+          <select class="select" id="fVariety"><option value="">全部品种</option></select>
+          <label>批号</label>
+          <input class="input" id="fBatch" placeholder="批号 / 工单号" />
+          <label>放行状态</label>
+          <select class="select" id="fStatus">
+            <option value="">全部状态</option>
+            <option value="待审核">待审核</option>
+            <option value="待放行">待放行</option>
+            <option value="已放行">已放行</option>
+            <option value="已拒绝">已拒绝</option>
+          </select>
+          <div class="spacer"></div>
+          <button class="btn" onclick="resetFilters()">重置</button>
+          <button class="btn btn-primary" onclick="applyFilters()">查询</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>批次审核列表</h2>
+          <span class="meta" id="tableMeta">—</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>品种 / 规格</th>
+                <th>批号 / 工单</th>
+                <th>批量 / 成品</th>
+                <th>计划 / 实际生产</th>
+                <th>检验结论</th>
+                <th>工序符合</th>
+                <th>文件完整</th>
+                <th>偏差</th>
+                <th>放行状态</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="releaseBody"></tbody>
+          </table>
+        </div>
+        <div class="table-foot" id="tableFoot"></div>
+      </section>
+    </section>
+
+    <section id="detailView" class="hidden">
+      <div class="flex between center mb-2 wrap" style="gap:10px;">
+        <div class="flex center gap-10">
+          <button class="btn btn-sm" onclick="backToList()">← 返回列表</button>
+          <span class="muted small" id="detailCrumb"></span>
+        </div>
+        <div class="flex gap-6 wrap">
+          <button class="btn btn-sm" onclick="saveDraft()">保存草稿</button>
+          <button class="btn btn-sm btn-danger" onclick="openReject()">拒绝放行</button>
+          <button class="btn btn-sm btn-primary" id="approveBtn" onclick="approveRelease()">通过放行</button>
+        </div>
+      </div>
+      <div id="detailBody"></div>
+    </section>
+  </main>
+</div>
+
+<div class="mask" id="mask"></div>
+
+<aside class="drawer" id="fileDrawer">
+  <div class="drawer-head">
+    <div><div class="drawer-title" id="fileTitle">文件</div><div class="drawer-sub" id="fileSub"></div></div>
+    <button class="icon-btn" data-close>×</button>
+  </div>
+  <div class="drawer-body" id="fileBody"></div>
+  <div class="drawer-foot"><span class="muted small">原型演示 · 文件来自业务文件表</span><button class="btn btn-sm" data-close>关闭</button></div>
+</aside>
+
+<div class="modal" id="rejectModal">
+  <div class="modal-head">
+    <div><div class="drawer-title">拒绝放行</div><div class="drawer-sub">请填写拒绝原因，记录会写入放行审核意见</div></div>
+    <button class="icon-btn" data-close>×</button>
+  </div>
+  <div class="modal-body">
+    <div class="form-row">
+      <label>拒绝原因</label>
+      <textarea class="input" id="rejectReason" placeholder="例如：工序记录不符合、检验报告缺失、偏差未关闭">工序记录不符合要求，需补充处理后再审核。</textarea>
+    </div>
+  </div>
+  <div class="modal-foot">
+    <button class="btn" data-close>取消</button>
+    <button class="btn btn-danger" onclick="confirmReject()">确认拒绝</button>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+ * 页面独立脚本：Toast、抽屉、弹窗（无侧边栏）
+ * =======================================================*/
+(function () {
+  window.toast = function (msg) {
+    let el = document.getElementById('toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'toast';
+      el.className = 'toast';
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(el._t);
+    el._t = setTimeout(function () { el.classList.remove('show'); }, 1800);
+  };
+
+  window.fmtNum = function (n) {
+    if (n == null || n === '') return '—';
+    return Number(n).toLocaleString('zh-CN', { maximumFractionDigits: 2 });
+  };
+
+  window.openDrawer = function (id) {
+    const mask = document.getElementById('mask');
+    const drawer = document.getElementById(id);
+    if (mask) mask.classList.add('show');
+    if (drawer) drawer.classList.add('show');
+  };
+
+  window.closeDrawer = function () {
+    const mask = document.getElementById('mask');
+    document.querySelectorAll('.drawer.show').forEach(function (d) { d.classList.remove('show'); });
+    if (mask) mask.classList.remove('show');
+  };
+
+  window.openModal = function (id) {
+    const mask = document.getElementById('mask');
+    const modal = document.getElementById(id);
+    if (mask) mask.classList.add('show');
+    if (modal) modal.classList.add('show');
+  };
+
+  window.closeModal = function () {
+    document.querySelectorAll('.modal.show').forEach(function (m) { m.classList.remove('show'); });
+    const mask = document.getElementById('mask');
+    if (mask && !document.querySelector('.drawer.show')) mask.classList.remove('show');
+  };
+
+  document.addEventListener('click', function (e) {
+    if (e.target.id === 'mask') {
+      window.closeDrawer();
+      window.closeModal();
+    }
+    if (e.target.closest('[data-close]')) {
+      window.closeDrawer();
+      window.closeModal();
+    }
+  });
+})();
+</script>
+<script>
+/* =========================================================
+ * 工序要求（引用现有工序页配置）
+ * =======================================================*/
+const PROCESS_REQ = {
+  '粉碎': '粒度符合内控标准；设备清洁合格；操作人签字',
+  '干燥（丸）': '水分 ≤ 9.0%；干燥温度 60±5℃；时间符合工艺规程',
+  '总混': '混合时间 30±5 分钟；混合均匀性合格',
+  '炼蜜': '炼蜜温度 116~118℃；含水量符合要求',
+  '制软材': '软材性状合格；水分符合工艺规程',
+  '制丸': '丸重差异 ±5%；外观圆整；无粘连',
+  '内包装': '装量符合标准；密封性合格；批号打印清晰',
+  '外包装': '标签内容正确；批号/数量一致；装箱数量准确'
+};
+const PROCESS_NAMES = Object.keys(PROCESS_REQ);
+function processRows(overrides = {}) {
+  return PROCESS_NAMES.map((name, i) => ({
+    name, req: PROCESS_REQ[name],
+    result: overrides[name] || '符合',
+    inspector: ['丁圣芳', '廖晟璋', '谭秀凤'][i % 3],
+    date: '2026-09-' + String(16 + i).padStart(2, '0'),
+    files: i % 3 === 0 ? 1 : 0
+  }));
+}
+
+/* =========================================================
+ * 模拟数据：5 个批次，覆盖可放行/不符合/检验中/未检验
+ * =======================================================*/
+const BATCHES = [
+  {
+    id: 'r1', product: '疏肝养胃丸', code: 'Z04-011', spec: '每50丸重6g（每1g相当于饮片约0.83g）',
+    batch: '260901', wo: 'GD202610200001', planNo: 'Plan202610190001', qty: 7000, finished: 7001,
+    planDate: '2026-09-16', actualStart: '2026-09-16', actualEnd: '2026-09-24', yieldRate: 100.01,
+    inspectionConclusion: '合格', status: '待放行',
+    purchases: [
+      { code: 'CGDH202610190010', supplier: '湖南省松龄堂中药饮片有限公司', status: '已入库', files: 1 },
+      { code: 'CGDH202610190008', supplier: '湖南立信彩印有限公司', status: '已入库', files: 1 }
+    ],
+    acceptances: [
+      { code: 'YS-20261019-010', status: '已入库', files: ['随货清单', '检验报告'], missing: [] },
+      { code: 'YS-20261019-002', status: '已入库', files: ['随货清单', '检验报告'], missing: [] }
+    ],
+    instruction: { code: 'SCZL-20260916-001', date: '2026-09-16', files: ['生产指令.pdf'] },
+    requisitions: [{ code: 'SCLL-20260916-001', date: '2026-09-16', status: '已发料', files: 1 }],
+    returns: [],
+    processes: processRows(),
+    requests: [
+      { code: 'QJ-20261020-001', process: '粉碎', status: '已检验', files: 1 },
+      { code: 'QJ-20261020-002', process: '干燥（丸）', status: '已检验', files: 1 },
+      { code: 'QJ-20261020-003', process: '成品检验', status: '已检验', files: 1 }
+    ],
+    samplings: [{ code: 'QY-20260924-001', status: '已取样', files: 1 }],
+    inspections: [{ code: 'JY-20261020-005', conclusion: '合格', files: 2 }],
+    rooms: [
+      { name: '粉碎间', record: '清洁合格', status: '符合' },
+      { name: '制丸间', record: '温湿度合格', status: '符合' },
+      { name: '内包装间', record: '洁净度合格', status: '符合' }
+    ],
+    deviations: [],
+    fileChecklist: [
+      { label: '采购订单', required: true, uploaded: 2, total: 2 },
+      { label: '验收报告', required: true, uploaded: 2, total: 2 },
+      { label: '生产指令', required: true, uploaded: 1, total: 1 },
+      { label: '领料单', required: true, uploaded: 1, total: 1 },
+      { label: '工序记录', required: true, uploaded: 8, total: 8 },
+      { label: '请检单', required: true, uploaded: 3, total: 3 },
+      { label: '取样记录', required: true, uploaded: 1, total: 1 },
+      { label: '检验报告', required: true, uploaded: 1, total: 1 },
+      { label: '批生产记录', required: true, uploaded: 1, total: 1 },
+      { label: '放行审核', required: true, uploaded: 1, total: 1 },
+      { label: '验收发票', required: false, uploaded: 0, total: 1, note: '不必传' }
+    ],
+    release: { conclusion: '', approver: '赵磊', date: '2026-11-06', opinion: '' }
+  },
+  {
+    id: 'r2', product: '活血通络丸', code: 'Z04-009', spec: '每50丸重6g（每1g相当于饮片约0.83g）',
+    batch: '260901', wo: 'GD202610190001', planNo: 'Plan202610190002', qty: 7000, finished: 6998,
+    planDate: '2026-09-08', actualStart: '2026-09-08', actualEnd: '2026-09-24', yieldRate: 99.97,
+    inspectionConclusion: '合格', status: '已放行',
+    purchases: [{ code: 'CGDH202610190007', supplier: '湖南省松龄堂中药饮片有限公司', status: '已入库', files: 1 }],
+    acceptances: [{ code: 'YS-20261019-003', status: '已入库', files: ['随货清单', '检验报告'], missing: [] }],
+    instruction: { code: 'SCZL-20260908-001', date: '2026-09-08', files: ['生产指令.pdf'] },
+    requisitions: [{ code: 'SCLL-20260908-001', date: '2026-09-08', status: '已发料', files: 1 }],
+    returns: [{ code: 'TK-20260925-001', date: '2026-09-25', status: '已退库', files: 1 }],
+    processes: processRows(),
+    requests: [{ code: 'QJ-20261019-003', process: '成品检验', status: '已检验', files: 1 }],
+    samplings: [{ code: 'QY-20260916-001', status: '已取样', files: 1 }],
+    inspections: [{ code: 'JY-20261019-003', conclusion: '合格', files: 1 }],
+    rooms: [{ name: '粉碎间', record: '清洁合格', status: '符合' }],
+    deviations: [],
+    fileChecklist: [
+      { label: '采购订单', required: true, uploaded: 1, total: 1 },
+      { label: '验收报告', required: true, uploaded: 1, total: 1 },
+      { label: '生产指令', required: true, uploaded: 1, total: 1 },
+      { label: '领料单', required: true, uploaded: 1, total: 1 },
+      { label: '工序记录', required: true, uploaded: 8, total: 8 },
+      { label: '请检单', required: true, uploaded: 1, total: 1 },
+      { label: '取样记录', required: true, uploaded: 1, total: 1 },
+      { label: '检验报告', required: true, uploaded: 1, total: 1 },
+      { label: '批生产记录', required: true, uploaded: 1, total: 1 },
+      { label: '放行审核', required: true, uploaded: 1, total: 1 }
+    ],
+    release: { conclusion: '放行', approver: '赵磊', date: '2026-10-20', opinion: '批记录、工序记录、检验报告齐全，检验结果符合规定，同意放行。' }
+  },
+  {
+    id: 'r3', product: '护肾排毒丸', code: 'Z04-007', spec: '每50丸重6g（每1g相当于饮片约0.83g）',
+    batch: '260901', wo: 'GD202610200003', planNo: 'Plan202610190003', qty: 3500, finished: 3502,
+    planDate: '2026-09-22', actualStart: '2026-09-22', actualEnd: '2026-10-19', yieldRate: 100.06,
+    inspectionConclusion: '合格', status: '待审核',
+    purchases: [{ code: 'CGDH202610190005', supplier: '湖南省松龄堂中药饮片有限公司', status: '已入库', files: 1 }],
+    acceptances: [{ code: 'YS-20261019-005', status: '已入库', files: ['随货清单'], missing: ['检验报告'] }],
+    instruction: { code: 'SCZL-20260922-001', date: '2026-09-22', files: ['生产指令.pdf'] },
+    requisitions: [{ code: 'SCLL-20260922-001', date: '2026-09-22', status: '已发料', files: 1 }],
+    returns: [],
+    processes: processRows({ '干燥（丸）': '不符合' }),
+    requests: [{ code: 'QJ-20261020-006', process: '成品检验', status: '已检验', files: 1 }],
+    samplings: [{ code: 'QY-20260930-001', status: '已取样', files: 1 }],
+    inspections: [{ code: 'JY-20261020-006', conclusion: '合格', files: 1 }],
+    rooms: [{ name: '干燥间', record: '温湿度记录缺失 1 条', status: '不符合' }],
+    deviations: [{
+      code: 'PC-20260928-001', title: '干燥工序水分超出内控标准',
+      conclusion: '评估后不影响产品质量，继续生产', qa: '赵磊', date: '2026-09-29', status: '已关闭'
+    }],
+    fileChecklist: [
+      { label: '采购订单', required: true, uploaded: 1, total: 1 },
+      { label: '验收报告', required: true, uploaded: 1, total: 2, note: '缺检验报告' },
+      { label: '生产指令', required: true, uploaded: 1, total: 1 },
+      { label: '领料单', required: true, uploaded: 1, total: 1 },
+      { label: '工序记录', required: true, uploaded: 7, total: 8, note: '缺干燥工序记录' },
+      { label: '请检单', required: true, uploaded: 1, total: 1 },
+      { label: '取样记录', required: true, uploaded: 1, total: 1 },
+      { label: '检验报告', required: true, uploaded: 1, total: 1 },
+      { label: '批生产记录', required: true, uploaded: 1, total: 1 },
+      { label: '放行审核', required: false, uploaded: 0, total: 1 }
+    ],
+    release: { conclusion: '', approver: '赵磊', date: '2026-11-06', opinion: '' }
+  },
+  {
+    id: 'r4', product: '益肺平喘丸', code: 'Z04-012', spec: '每50丸重6g（每1g相当于饮片约0.92g）',
+    batch: '261001', wo: 'GD202610200004', planNo: 'Plan202610190005', qty: 7000, finished: 7004,
+    planDate: '2026-10-17', actualStart: '2026-10-17', actualEnd: '2026-10-24', yieldRate: 100.06,
+    inspectionConclusion: '检验中', status: '待审核',
+    purchases: [{ code: 'CGDH202610190003', supplier: '湖南省松龄堂中药饮片有限公司', status: '已入库', files: 1 }],
+    acceptances: [{ code: 'YS-20261019-006', status: '已入库', files: ['随货清单', '检验报告'], missing: [] }],
+    instruction: { code: 'SCZL-20261017-001', date: '2026-10-17', files: ['生产指令.pdf'] },
+    requisitions: [{ code: 'SCLL-20261017-001', date: '2026-10-17', status: '已发料', files: 1 }],
+    returns: [],
+    processes: processRows({ '总混': '待查', '制丸': '待查' }),
+    requests: [{ code: 'QJ-20261027-003', process: '成品检验', status: '检验中', files: 1 }],
+    samplings: [{ code: 'QY-20261021-001', status: '已取样', files: 1 }],
+    inspections: [{ code: 'JY-20261027-002', conclusion: '待检', files: 0 }],
+    rooms: [{ name: '总混间', record: '清洁合格', status: '符合' }],
+    deviations: [],
+    fileChecklist: [
+      { label: '采购订单', required: true, uploaded: 1, total: 1 },
+      { label: '验收报告', required: true, uploaded: 1, total: 1 },
+      { label: '生产指令', required: true, uploaded: 1, total: 1 },
+      { label: '领料单', required: true, uploaded: 1, total: 1 },
+      { label: '工序记录', required: true, uploaded: 6, total: 8, note: '缺总混、制丸记录' },
+      { label: '请检单', required: true, uploaded: 1, total: 1 },
+      { label: '取样记录', required: true, uploaded: 1, total: 1 },
+      { label: '检验报告', required: true, uploaded: 0, total: 1, note: '检验中' },
+      { label: '批生产记录', required: true, uploaded: 0, total: 1, note: '未上传' },
+      { label: '放行审核', required: false, uploaded: 0, total: 1 }
+    ],
+    release: { conclusion: '', approver: '赵磊', date: '2026-11-06', opinion: '' }
+  },
+  {
+    id: 'r5', product: '桂附潜阳丸', code: 'Z04-006', spec: '每50丸重6g（每1g相当于饮片约0.92g）',
+    batch: '—', wo: 'GD202610200005', planNo: 'Plan202610190008', qty: 7000, finished: 7000,
+    planDate: '2026-10-18', actualStart: '2026-10-21', actualEnd: '—', yieldRate: 100,
+    inspectionConclusion: '未检验', status: '待审核',
+    purchases: [{ code: 'CGDH202610190001', supplier: '湖南省松龄堂中药饮片有限公司', status: '已入库', files: 0 }],
+    acceptances: [{ code: 'YS-20261019-009', status: '已入库', files: ['随货清单'], missing: ['检验报告', '发票'] }],
+    instruction: { code: 'SCZL-20261018-001', date: '2026-10-18', files: ['生产指令.pdf'] },
+    requisitions: [{ code: 'SCLL-20261105-001', date: '2026-11-05', status: '已发料', files: 0 }],
+    returns: [],
+    processes: processRows({ '粉碎': '待查', '干燥（丸）': '待查', '总混': '待查', '炼蜜': '待查', '制软材': '待查', '制丸': '待查', '内包装': '待查', '外包装': '待查' }),
+    requests: [],
+    samplings: [],
+    inspections: [],
+    rooms: [{ name: '粉碎间', record: '待确认', status: '待查' }],
+    deviations: [],
+    fileChecklist: [
+      { label: '采购订单', required: true, uploaded: 0, total: 1 },
+      { label: '验收报告', required: true, uploaded: 1, total: 2, note: '缺检验报告' },
+      { label: '生产指令', required: true, uploaded: 1, total: 1 },
+      { label: '领料单', required: true, uploaded: 0, total: 1 },
+      { label: '工序记录', required: true, uploaded: 0, total: 8 },
+      { label: '请检单', required: true, uploaded: 0, total: 1 },
+      { label: '取样记录', required: true, uploaded: 0, total: 1 },
+      { label: '检验报告', required: true, uploaded: 0, total: 1 },
+      { label: '批生产记录', required: true, uploaded: 0, total: 1 },
+      { label: '放行审核', required: false, uploaded: 0, total: 1 }
+    ],
+    release: { conclusion: '', approver: '赵磊', date: '2026-11-06', opinion: '' }
+  }
+];
+
+BATCHES.forEach(b => { b.unit = b.unit || '盒'; });
+
+const state = { variety: '', batch: '', status: '' };
+let activeBatch = null;
+
+/* =========================================================
+ * 派生
+ * =======================================================*/
+function fileSummary(b) {
+  const req = b.fileChecklist.filter(f => f.required);
+  const uploaded = req.reduce((s, f) => s + f.uploaded, 0);
+  const total = req.reduce((s, f) => s + f.total, 0);
+  return { uploaded, total, missing: req.filter(f => f.uploaded < f.total) };
+}
+function processSummary(b) {
+  const pass = b.processes.filter(p => p.result === '符合').length;
+  const fail = b.processes.filter(p => p.result === '不符合').length;
+  const pending = b.processes.filter(p => p.result === '待查').length;
+  return { pass, fail, pending, total: b.processes.length };
+}
+function deviationSummary(b) {
+  const open = b.deviations.filter(d => d.status !== '已关闭').length;
+  return { open, total: b.deviations.length };
+}
+function compliance(b) {
+  const f = fileSummary(b);
+  const p = processSummary(b);
+  const d = deviationSummary(b);
+  const yieldOk = b.yieldRate >= 98;
+  const inspOk = b.inspectionConclusion === '合格';
+  const filesOk = f.missing.length === 0;
+  const processOk = p.fail === 0 && p.pending === 0;
+  const devOk = d.open === 0;
+  return { f, p, d, yieldOk, inspOk, filesOk, processOk, devOk, canRelease: filesOk && processOk && yieldOk && inspOk && devOk };
+}
+function statusTag(b) {
+  if (b.status === '已放行') return '<span class="tag green">已放行</span>';
+  if (b.status === '已拒绝') return '<span class="tag red">已拒绝</span>';
+  if (b.status === '待放行') return '<span class="tag blue">待放行</span>';
+  return '<span class="tag orange">待审核</span>';
+}
+function filtered() {
+  return BATCHES.filter(b => {
+    if (state.variety && b.code !== state.variety) return false;
+    if (state.status && b.status !== state.status) return false;
+    if (state.batch) {
+      const hay = [b.batch, b.wo, b.planNo, b.product].join(' ').toLowerCase();
+      if (!hay.includes(state.batch.trim().toLowerCase())) return false;
+    }
+    return true;
+  });
+}
+
+/* =========================================================
+ * 列表
+ * =======================================================*/
+function renderStats() {
+  const ready = BATCHES.filter(b => compliance(b).canRelease && b.status === '待放行').length;
+  const audit = BATCHES.filter(b => b.status === '待审核').length;
+  const released = BATCHES.filter(b => b.status === '已放行').length;
+  const bad = BATCHES.filter(b => compliance(b).p.fail > 0 || b.status === '已拒绝').length;
+  document.getElementById('statGrid').innerHTML = `
+    <div class="stat-card run"><div class="label">待审核</div><div class="num"><b>${audit}</b><span class="unit">个批次</span></div></div>
+    <div class="stat-card ok"><div class="label">可放行</div><div class="num"><b>${ready}</b><span class="unit">个批次</span></div></div>
+    <div class="stat-card"><div class="label">已放行</div><div class="num"><b>${released}</b><span class="unit">个批次</span></div></div>
+    <div class="stat-card warn"><div class="label">存在不符合</div><div class="num"><b>${bad}</b><span class="unit">个批次</span></div></div>`;
+}
+function renderTable() {
+  const rows = filtered();
+  document.getElementById('releaseBody').innerHTML = rows.length ? rows.map(b => {
+    const c = compliance(b);
+    return `<tr class="clickable" data-id="${b.id}">
+      <td><span class="cell-main">${b.product}</span><span class="cell-sub">${b.code} · ${b.spec}</span></td>
+      <td><span class="cell-main">批号 ${b.batch}</span><span class="cell-sub">${b.wo}</span></td>
+      <td>${fmtNum(b.qty)} / ${fmtNum(b.finished)}<span class="cell-sub">${b.unit}</span></td>
+      <td>${b.planDate}<span class="cell-sub">${b.actualStart} ~ ${b.actualEnd}</span></td>
+      <td><span class="st ${b.inspectionConclusion === '合格' ? 'done' : b.inspectionConclusion === '不合格' ? 'bad' : 'run'}">${b.inspectionConclusion}</span></td>
+      <td><span class="st ${c.processOk ? 'done' : 'bad'}">${c.p.pass}/${c.p.total}</span><span class="cell-sub">${c.p.fail ? '不符合 ' + c.p.fail : c.p.pending ? '待查 ' + c.p.pending : '全部符合'}</span></td>
+      <td><span class="st ${c.filesOk ? 'done' : 'bad'}">${c.f.uploaded}/${c.f.total}</span><span class="cell-sub">${c.f.missing.length ? '缺 ' + c.f.missing.length + ' 项' : '完整'}</span></td>
+      <td>${c.d.total ? `<span class="st ${c.d.open ? 'bad' : 'done'}">${c.d.total} 条</span><span class="cell-sub">${c.d.open ? '未关闭' : '已关闭'}</span>` : '<span class="muted">无</span>'}</td>
+      <td>${statusTag(b)}</td>
+      <td><button class="btn btn-sm ${b.status === '待放行' ? 'btn-primary' : ''}" data-open="${b.id}">${b.status === '已放行' ? '查看' : '审核'}</button></td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="10"><div class="empty">没有符合条件的批次</div></td></tr>`;
+  document.getElementById('tableFoot').textContent = `共 ${rows.length} 个批次 · 点击行进入全批合规审核`;
+  document.querySelectorAll('#releaseBody [data-id]').forEach(tr => tr.addEventListener('click', () => openDetail(tr.dataset.id)));
+  document.querySelectorAll('#releaseBody [data-open]').forEach(btn => btn.addEventListener('click', e => { e.stopPropagation(); openDetail(btn.dataset.open); }));
+}
+
+/* =========================================================
+ * 详情
+ * =======================================================*/
+function openDetail(id) {
+  activeBatch = BATCHES.find(b => b.id === id);
+  if (!activeBatch) return;
+  document.getElementById('listView').classList.add('hidden');
+  document.getElementById('detailView').classList.remove('hidden');
+  document.getElementById('detailCrumb').textContent = `全部批次 / ${activeBatch.product} / 批号 ${activeBatch.batch}`;
+  renderDetail();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function backToList() {
+  document.getElementById('detailView').classList.add('hidden');
+  document.getElementById('listView').classList.remove('hidden');
+  renderStats();
+  renderTable();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function filesCell(files) {
+  if (!files || !files.length) return '<span class="muted small">无附件</span>';
+  return `<div class="file-list">${files.map(f => `<span class="file-chip" data-file="${esc(f)}">${esc(f)}</span>`).join('')}</div>`;
+}
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+function renderDetail() {
+  const b = activeBatch;
+  const c = compliance(b);
+  const passRate = c.p.total ? Math.round(c.p.pass / c.p.total * 100) : 0;
+  const detail = document.getElementById('detailBody');
+  document.getElementById('approveBtn').disabled = !c.canRelease || b.status === '已放行';
+  document.getElementById('approveBtn').classList.toggle('disabled', !c.canRelease || b.status === '已放行');
+
+  detail.innerHTML = `
+    <div class="card card-pad mb-2">
+      <div class="flex between center wrap gap-10">
+        <div>
+          <h2 style="margin:0;font-size:18px;">${esc(b.product)} <span class="tag blue">批号 ${esc(b.batch)}</span> ${statusTag(b)}</h2>
+          <div class="muted small" style="margin-top:4px;">${esc(b.code)} · ${esc(b.spec)} · ${esc(b.wo)} · ${esc(b.planNo)}</div>
+        </div>
+        <div class="flex gap-6 wrap">
+          <span class="tag ${c.canRelease ? 'green' : 'red'}">${c.canRelease ? '合规，可放行' : '存在不符合项'}</span>
+          <span class="tag gray">文件 ${c.f.uploaded}/${c.f.total}</span>
+          <span class="tag gray">工序 ${c.p.pass}/${c.p.total}</span>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="kv">
+        <div><span class="k">品种</span>${esc(b.product)}</div>
+        <div><span class="k">规格</span>${esc(b.spec)}</div>
+        <div><span class="k">批号</span>${esc(b.batch)}</div>
+        <div><span class="k">批量 / 成品</span>${fmtNum(b.qty)} / ${fmtNum(b.finished)} ${esc(b.unit)}</div>
+        <div><span class="k">计划生产</span>${esc(b.planDate)}</div>
+        <div><span class="k">实际生产</span>${esc(b.actualStart)} ~ ${esc(b.actualEnd)}</div>
+        <div><span class="k">整批收率</span>${fmtNum(b.yieldRate)}%</div>
+        <div><span class="k">放行审核结论</span>${b.release.conclusion || '待审核'}</div>
+        <div><span class="k">放行批准人</span>${b.release.approver || '—'}</div>
+        <div><span class="k">日期</span>${b.release.date || '—'}</div>
+      </div>
+    </div>
+
+    <div class="detail-layout">
+      <div class="detail-main">
+        <section class="card">
+          <div class="card-head"><h2>物料 / 采购 / 验收</h2><span class="meta">可查看采购订单、验收记录与对应文件</span></div>
+          <div class="card-body">
+            <h3 class="section-title">采购订单</h3>
+            <div class="table-wrap"><table><thead><tr><th>采购单号</th><th>供应商</th><th>状态</th><th>文件</th></tr></thead><tbody>
+              ${b.purchases.map(p => `<tr><td>${esc(p.code)}</td><td>${esc(p.supplier)}</td><td>${esc(p.status)}</td><td>${filesCell(Array.from({ length: p.files }, (_, i) => '采购订单文件' + (i + 1)))}</td></tr>`).join('')}
+            </tbody></table></div>
+            <div class="divider"></div>
+            <h3 class="section-title">货物验收</h3>
+            <div class="table-wrap"><table><thead><tr><th>验收单号</th><th>状态</th><th>已上传</th><th>缺失</th><th>文件</th></tr></thead><tbody>
+              ${b.acceptances.map(a => `<tr><td>${esc(a.code)}</td><td>${esc(a.status)}</td><td>${a.files.join('、') || '—'}</td><td>${a.missing.length ? `<span class="tag red">${a.missing.join('、')}</span>` : '<span class="tag green">齐全</span>'}</td><td>${filesCell(a.files)}</td></tr>`).join('')}
+            </tbody></table></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head"><h2>生产指令 / 领料 / 退库</h2><span class="meta">批生产指令与物料流转</span></div>
+          <div class="card-body">
+            <h3 class="section-title">批配置 / 生产指令</h3>
+            <div class="flex between center wrap gap-10">
+              <div><b>${esc(b.instruction.code)}</b><span class="muted small"> · ${esc(b.instruction.date)}</span></div>
+              ${filesCell(b.instruction.files)}
+            </div>
+            <div class="divider"></div>
+            <h3 class="section-title">领料单</h3>
+            <div class="table-wrap"><table><thead><tr><th>领料单号</th><th>日期</th><th>状态</th><th>文件</th></tr></thead><tbody>
+              ${b.requisitions.length ? b.requisitions.map(r => `<tr><td>${esc(r.code)}</td><td>${esc(r.date)}</td><td>${esc(r.status)}</td><td>${filesCell(Array.from({ length: r.files }, (_, i) => '领料单文件' + (i + 1)))}</td></tr>`).join('') : '<tr><td colspan="4" class="muted">无领料单</td></tr>'}
+            </tbody></table></div>
+            <div class="divider"></div>
+            <h3 class="section-title">退库单</h3>
+            <div class="table-wrap"><table><thead><tr><th>退库单号</th><th>日期</th><th>状态</th><th>文件</th></tr></thead><tbody>
+              ${b.returns.length ? b.returns.map(r => `<tr><td>${esc(r.code)}</td><td>${esc(r.date)}</td><td>${esc(r.status)}</td><td>${filesCell(Array.from({ length: r.files }, (_, i) => '退库单文件' + (i + 1)))}</td></tr>`).join('') : '<tr><td colspan="4" class="muted">无退库记录</td></tr>'}
+            </tbody></table></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2>工序记录与符合性</h2>
+            <span class="meta">要求来自现有工序页配置 · 通过 ${c.p.pass}/${c.p.total}</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>工序</th><th>配置要求</th><th>结果</th><th>工艺查证人</th><th>日期</th><th>文件</th></tr></thead>
+              <tbody>
+                ${b.processes.map(p => `<tr>
+                  <td><span class="cell-main">${esc(p.name)}</span></td>
+                  <td><div class="req-text">${esc(p.req)}</div></td>
+                  <td>${p.result === '符合' ? '<span class="tag green">符合</span>' : p.result === '不符合' ? '<span class="tag red">不符合</span>' : '<span class="tag orange">待查</span>'}</td>
+                  <td>${esc(p.inspector)}</td><td>${esc(p.date)}</td>
+                  <td>${p.files ? '<span class="file-chip" data-file="' + esc(p.name) + '工序记录.pdf">工序记录</span>' : '<span class="muted small">无附件</span>'}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head"><h2>检验记录</h2><span class="meta">请检 / 取样 / 检验报告</span></div>
+          <div class="card-body">
+            <div class="kv">
+              <div><span class="k">请检单</span>${b.requests.map(r => r.code).join('、') || '—'}</div>
+              <div><span class="k">取样记录</span>${b.samplings.map(s => s.code).join('、') || '—'}</div>
+              <div><span class="k">检验报告</span>${b.inspections.map(i => i.code).join('、') || '—'}</div>
+              <div><span class="k">检验结论</span><span class="st ${b.inspectionConclusion === '合格' ? 'done' : b.inspectionConclusion === '不合格' ? 'bad' : 'run'}">${b.inspectionConclusion}</span></div>
+            </div>
+            <div class="file-list" style="margin-top:10px;">
+              ${b.requests.map(r => `<span class="file-chip" data-file="${esc(r.code)}_请检单.pdf">${esc(r.code)} 请检单</span>`).join('')}
+              ${b.samplings.map(s => `<span class="file-chip" data-file="${esc(s.code)}_取样记录.pdf">${esc(s.code)} 取样记录</span>`).join('')}
+              ${b.inspections.map(i => `<span class="file-chip ${i.files ? '' : 'missing'}" data-file="${esc(i.code)}_检验报告.pdf">${esc(i.code)} 检验报告</span>`).join('')}
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head"><h2>区域 / 环境</h2><span class="meta">生产区域记录</span></div>
+          <div class="table-wrap"><table><thead><tr><th>区域</th><th>记录</th><th>结果</th></tr></thead><tbody>
+            ${b.rooms.map(r => `<tr><td>${esc(r.name)}</td><td>${esc(r.record)}</td><td>${r.status === '符合' ? '<span class="tag green">符合</span>' : '<span class="tag red">不符合</span>'}</td></tr>`).join('')}
+          </tbody></table></div>
+        </section>
+
+        <section class="card">
+          <div class="card-head"><h2>整批收率 / 偏差处理</h2><span class="meta">质量结论依据</span></div>
+          <div class="card-body">
+            <div class="kv">
+              <div><span class="k">计划批量</span>${fmtNum(b.qty)} ${esc(b.unit)}</div>
+              <div><span class="k">实际成品</span>${fmtNum(b.finished)} ${esc(b.unit)}</div>
+              <div><span class="k">整批收率</span><span class="st ${b.yieldRate >= 98 ? 'done' : 'bad'}">${fmtNum(b.yieldRate)}%</span>（标准 ≥ 98%）</div>
+              <div><span class="k">偏差</span>${b.deviations.length ? b.deviations.length + ' 条' : '无'}</div>
+            </div>
+            <div class="divider"></div>
+            ${b.deviations.length ? `<div class="table-wrap"><table><thead><tr><th>偏差编号</th><th>标题</th><th>结论</th><th>质量管理员</th><th>日期</th><th>状态</th></tr></thead><tbody>
+              ${b.deviations.map(d => `<tr><td>${esc(d.code)}</td><td>${esc(d.title)}</td><td>${esc(d.conclusion)}</td><td>${esc(d.qa)}</td><td>${esc(d.date)}</td><td><span class="tag ${d.status === '已关闭' ? 'green' : 'red'}">${esc(d.status)}</span></td></tr>`).join('')}
+            </tbody></table></div>` : '<div class="note ok">无偏差记录</div>'}
+            <div class="divider"></div>
+            <h3 class="section-title">质量结论记录</h3>
+            <div class="kv">
+              <div><span class="k">批配置指令</span>${esc(b.instruction.code)}</div>
+              <div><span class="k">领料单</span>${b.requisitions.map(r => r.code).join('、') || '—'}</div>
+              <div><span class="k">工序记录</span>${c.p.pass}/${c.p.total} 符合</div>
+              <div><span class="k">检验报告</span>${b.inspections.map(i => i.code).join('、') || '—'}</div>
+              <div><span class="k">整批收率</span>${fmtNum(b.yieldRate)}%</div>
+              <div><span class="k">偏差处理</span>${b.deviations.length ? b.deviations[0].conclusion : '无'}</div>
+              <div><span class="k">质量管理员</span>${b.deviations.length ? b.deviations[0].qa : '赵磊'}</div>
+              <div><span class="k">日期</span>${b.deviations.length ? b.deviations[0].date : b.release.date || '—'}</div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <aside class="detail-side">
+        <section class="card mb-2">
+          <div class="card-head"><h2>合规检查</h2><span class="meta">${c.canRelease ? '全部通过' : '存在不符合'}</span></div>
+          <div class="card-body">
+            ${[
+              ['检验结论', b.inspectionConclusion === '合格' ? '合格' : b.inspectionConclusion, c.inspOk],
+              ['工序符合', `${c.p.pass}/${c.p.total}（不符合 ${c.p.fail} / 待查 ${c.p.pending}）`, c.processOk],
+              ['文件完整', `${c.f.uploaded}/${c.f.total}（缺 ${c.f.missing.length}）`, c.filesOk],
+              ['偏差关闭', c.d.total ? `${c.d.total} 条 / 未关闭 ${c.d.open}` : '无偏差', c.devOk],
+              ['整批收率', `${fmtNum(b.yieldRate)}%`, c.yieldOk]
+            ].map(([label, val, ok]) => `<div class="flex between center" style="padding:6px 0;border-bottom:1px solid var(--g200);">
+              <span class="muted small">${label}</span><span class="st ${ok ? 'done' : 'bad'}">${ok ? '✓ ' : '✗ '}${val}</span>
+            </div>`).join('')}
+          </div>
+        </section>
+
+        <section class="card mb-2">
+          <div class="card-head"><h2>文件完整性</h2><span class="meta">${c.f.uploaded}/${c.f.total}</span></div>
+          <div class="card-body">
+            ${b.fileChecklist.map(f => `<div class="flex between center" style="padding:4px 0;font-size:11.5px;">
+              <span>${f.required ? '' : '<span class="req-tag optional">不必传</span> '}${esc(f.label)}${f.note ? `<span class="muted"> · ${esc(f.note)}</span>` : ''}</span>
+              <span class="st ${!f.required ? 'wait' : f.uploaded >= f.total ? 'done' : 'bad'}">${f.uploaded}/${f.total}</span>
+            </div>`).join('')}
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head"><h2>放行审核</h2><span class="meta">填写结论后提交</span></div>
+          <div class="card-body">
+            <div class="form-row"><label>放行结论</label>
+              <select class="select" id="releaseConclusion" style="width:100%;">
+                <option value="">请选择</option>
+                <option value="放行" ${b.release.conclusion === '放行' ? 'selected' : ''}>放行</option>
+                <option value="拒绝放行" ${b.release.conclusion === '拒绝放行' ? 'selected' : ''}>拒绝放行</option>
+                <option value="待补充" ${b.release.conclusion === '待补充' ? 'selected' : ''}>待补充</option>
+              </select>
+            </div>
+            <div class="form-row"><label>放行批准人</label><input class="input" id="releaseApprover" value="${esc(b.release.approver)}" style="width:100%;" /></div>
+            <div class="form-row"><label>日期</label><input class="input" id="releaseDate" type="date" value="${esc(b.release.date)}" style="width:100%;" /></div>
+            <div class="form-row"><label>审核意见</label><textarea class="input" id="releaseOpinion" placeholder="填写审核意见">${esc(b.release.opinion)}</textarea></div>
+            <div class="note ${c.canRelease ? 'ok' : 'danger'}" style="margin-bottom:10px;">${c.canRelease ? '合规检查全部通过，可以提交放行。' : '存在不符合项，不能直接通过放行。'}</div>
+            <button class="btn btn-primary" style="width:100%;" onclick="approveRelease()" ${c.canRelease && b.status !== '已放行' ? '' : 'disabled'}>通过放行</button>
+          </div>
+        </section>
+      </aside>
+    </div>`;
+
+  detail.querySelectorAll('[data-file]').forEach(el => el.addEventListener('click', () => openFileDrawer(el.dataset.file)));
+}
+
+/* =========================================================
+ * 文件抽屉 / 放行动作
+ * =======================================================*/
+function openFileDrawer(file) {
+  document.getElementById('fileTitle').textContent = file;
+  document.getElementById('fileSub').textContent = '业务文件 · 原型演示';
+  document.getElementById('fileBody').innerHTML = `
+    <div class="note info mb-2">原型演示：这里展示文件的元数据、预览和下载入口。</div>
+    <div class="card card-pad">
+      <div class="kv">
+        <div><span class="k">文件名</span>${esc(file)}</div>
+        <div><span class="k">业务类型</span>业务附件</div>
+        <div><span class="k">上传人</span>陶新文</div>
+        <div><span class="k">上传时间</span>2026-10-20 10:32</div>
+      </div>
+      <div class="file-list" style="margin-top:12px;"><span class="btn btn-sm">预览</span><span class="btn btn-sm">下载</span></div>
+    </div>`;
+  openDrawer('fileDrawer');
+}
+function saveDraft() {
+  if (!activeBatch) return;
+  activeBatch.release.opinion = document.getElementById('releaseOpinion')?.value || '';
+  toast('已保存放行审核草稿');
+}
+function approveRelease() {
+  if (!activeBatch) return;
+  const c = compliance(activeBatch);
+  if (!c.canRelease) { toast('存在不符合项，不能通过放行'); return; }
+  activeBatch.release.conclusion = '放行';
+  activeBatch.release.approver = document.getElementById('releaseApprover')?.value || '赵磊';
+  activeBatch.release.date = document.getElementById('releaseDate')?.value || '2026-11-06';
+  activeBatch.release.opinion = document.getElementById('releaseOpinion')?.value || '合规检查通过，同意放行。';
+  activeBatch.status = '已放行';
+  toast('已通过放行，批次状态更新为已放行');
+  backToList();
+}
+function openReject() {
+  if (!activeBatch) return;
+  openModal('rejectModal');
+}
+function confirmReject() {
+  if (!activeBatch) return;
+  const reason = document.getElementById('rejectReason').value;
+  activeBatch.release.conclusion = '拒绝放行';
+  activeBatch.release.opinion = reason;
+  activeBatch.release.date = '2026-11-06';
+  activeBatch.status = '已拒绝';
+  closeModal();
+  closeDrawer();
+  toast('已拒绝放行，原因已记录');
+  backToList();
+}
+
+/* =========================================================
+ * 筛选 / 初始化
+ * =======================================================*/
+function renderVarietyOptions() {
+  const sel = document.getElementById('fVariety');
+  const seen = new Set();
+  BATCHES.forEach(b => {
+    if (seen.has(b.code)) return;
+    seen.add(b.code);
+    const o = document.createElement('option');
+    o.value = b.code;
+    o.textContent = `${b.product}（${b.code}）`;
+    sel.appendChild(o);
+  });
+}
+function applyFilters() {
+  state.variety = document.getElementById('fVariety').value;
+  state.batch = document.getElementById('fBatch').value;
+  state.status = document.getElementById('fStatus').value;
+  renderTable();
+}
+function resetFilters() {
+  document.getElementById('fVariety').value = '';
+  document.getElementById('fBatch').value = '';
+  document.getElementById('fStatus').value = '';
+  state.variety = ''; state.batch = ''; state.status = '';
+  renderTable();
+}
+
+renderVarietyOptions();
+renderStats();
+renderTable();
+</script>
+</body>
+</html>

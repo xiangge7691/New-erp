@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>检验管理 · 通惠 ERP</title>
+<style>
+/* =========================================================
+ * Art Design Pro 风格原型公共样式
+ * 主色、灰阶与圆角对齐 C:\Work\Java\art-design-pro-main
+ * =======================================================*/
+:root {
+  --main: #5D87FF;
+  --main-light: #eef3ff;
+  --success: #13deb9;
+  --warning: #ffae1f;
+  --danger: #ff4d4f;
+  --bg: #fafbfc;
+  --card: #ffffff;
+  --border: rgba(0, 0, 0, .07);
+  --border2: #e2e8ee;
+  --g100: #f9fafb;
+  --g200: #f2f4f5;
+  --g300: #e6eaeb;
+  --g400: #dbdfe1;
+  --g500: #949eb7;
+  --g600: #7987a1;
+  --g700: #4d5875;
+  --g800: #383853;
+  --g900: #323251;
+  --radius: 14px;
+  --radius-md: 11px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .03);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, .08);
+  --sidebar: 0px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--g900);
+  font: 14px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: var(--main); text-decoration: none; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--g400); border-radius: 4px; }
+
+/* ---------- 侧边栏 ---------- */
+.app { min-height: 100vh; }
+.sidebar {
+  position: fixed; left: 0; top: 0; bottom: 0; width: var(--sidebar);
+  background: #fff; border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; z-index: 20;
+}
+.brand {
+  display: flex; align-items: center; gap: 10px; height: 60px; padding: 0 18px;
+  border-bottom: 1px solid var(--g200); flex: none;
+}
+.brand-logo {
+  width: 30px; height: 30px; border-radius: 9px; background: var(--main);
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; letter-spacing: .5px;
+}
+.brand b { font-size: 14px; font-weight: 600; color: var(--g900); letter-spacing: .3px; }
+.brand span { display: block; font-size: 10px; color: var(--g500); margin-top: 1px; }
+.menu { padding: 12px 10px; flex: 1; overflow: auto; }
+.menu-label {
+  padding: 8px 10px 5px; font-size: 10.5px; color: var(--g500);
+  letter-spacing: .6px; text-transform: uppercase;
+}
+.menu a {
+  display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 11px;
+  border-radius: 9px; color: var(--g700); font-size: 13px; margin-bottom: 2px;
+  transition: background .18s, color .18s;
+}
+.menu a:hover { background: var(--g100); color: var(--g900); }
+.menu a.active { background: var(--main-light); color: var(--main); font-weight: 600; }
+.menu a svg { width: 17px; height: 17px; flex: none; opacity: .85; }
+.menu a.active svg { opacity: 1; }
+.menu a .badge {
+  margin-left: auto; height: 18px; padding: 0 6px; border-radius: 9px;
+  background: var(--main); color: #fff; font-size: 10px; display: flex; align-items: center;
+}
+.sidebar-foot { padding: 12px 16px; border-top: 1px solid var(--g200); font-size: 10.5px; color: var(--g500); line-height: 1.6; }
+
+/* ---------- 主区域 ---------- */
+.main { margin-left: var(--sidebar); min-height: 100vh; padding: 22px 26px 48px; }
+.page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.page-head h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: .2px; }
+.page-head .sub { margin: 4px 0 0; font-size: 12.5px; color: var(--g600); }
+.head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* ---------- 按钮 ---------- */
+.btn {
+  height: 34px; padding: 0 14px; border-radius: var(--radius-sm); border: 1px solid var(--border2);
+  background: #fff; color: var(--g700); font-size: 13px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; transition: .18s; white-space: nowrap;
+}
+.btn:hover { border-color: #c9d4e6; color: var(--g900); background: #fbfcfd; }
+.btn-primary { background: var(--main); border-color: var(--main); color: #fff; box-shadow: 0 2px 6px rgba(93, 135, 255, .26); }
+.btn-primary:hover { background: #7c9eff; border-color: #7c9eff; color: #fff; }
+.btn-danger { color: var(--danger); border-color: #ffccc7; background: #fff1f0; }
+.btn-danger:hover { background: #ffe7e5; border-color: #ffb3ad; color: var(--danger); }
+.btn-ghost { border-color: transparent; background: transparent; color: var(--main); }
+.btn-ghost:hover { background: var(--main-light); }
+.btn-sm { height: 26px; padding: 0 9px; font-size: 12px; border-radius: 6px; }
+.btn[disabled], .btn.disabled { opacity: .45; cursor: not-allowed; }
+
+/* ---------- 卡片 ---------- */
+.card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+.card-pad { padding: 16px 18px; }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 18px; border-bottom: 1px solid var(--g200); }
+.card-head h2 { margin: 0; font-size: 14px; font-weight: 600; color: var(--g900); }
+.card-head .meta { font-size: 11.5px; color: var(--g500); }
+.card-body { padding: 16px 18px; }
+.mb-2 { margin-bottom: 14px; }
+.mb-3 { margin-bottom: 20px; }
+
+/* ---------- 筛选栏 ---------- */
+.filters { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; padding: 12px 14px; }
+.filters label { font-size: 12.5px; color: var(--g600); white-space: nowrap; }
+.input, .select {
+  height: 34px; border: 1px solid var(--border2); background: #fff; border-radius: var(--radius-sm);
+  padding: 0 10px; font-size: 13px; color: var(--g800); outline: none; transition: .18s;
+}
+.input { width: 200px; }
+.select { cursor: pointer; min-width: 120px; }
+.input:focus, .select:focus { border-color: var(--main); box-shadow: 0 0 0 3px rgba(93, 135, 255, .12); }
+.input::placeholder { color: var(--g500); }
+.spacer { flex: 1; }
+.checkbox { width: 15px; height: 15px; accent-color: var(--main); margin: 0; cursor: pointer; }
+.check-label { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--g700); cursor: pointer; }
+
+/* ---------- 统计 ---------- */
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.stat-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
+.stat-card .label { font-size: 12px; color: var(--g600); }
+.stat-card .num { display: flex; align-items: baseline; gap: 6px; margin-top: 2px; }
+.stat-card b { font-size: 24px; font-weight: 600; letter-spacing: -.3px; font-variant-numeric: tabular-nums; }
+.stat-card .unit { font-size: 11.5px; color: var(--g500); }
+.stat-card.warn b { color: var(--danger); }
+.stat-card.ok b { color: #0eaf93; }
+.stat-card.run b { color: var(--main); }
+
+/* ---------- 表格 ---------- */
+.table-wrap { overflow: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+thead th {
+  background: var(--g100); color: var(--g600); font-weight: 500; text-align: left;
+  padding: 10px 12px; border-bottom: 1px solid var(--g200); white-space: nowrap; font-size: 11.5px;
+}
+tbody td { padding: 10px 12px; border-bottom: 1px solid var(--g200); color: var(--g700); vertical-align: top; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: #f7f9ff; }
+tbody tr.clickable { cursor: pointer; }
+tbody tr.selected td { background: #f0f5ff; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.cell-main { color: var(--g900); font-weight: 500; }
+.cell-sub { display: block; font-size: 11px; color: var(--g500); margin-top: 1px; }
+.table-foot { padding: 10px 14px; border-top: 1px solid var(--g200); font-size: 12px; color: var(--g500); background: var(--g100); }
+.empty { padding: 48px 20px; text-align: center; color: var(--g500); font-size: 13px; }
+
+/* ---------- 标签 ---------- */
+.tag {
+  display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 5px;
+  font-size: 10.5px; white-space: nowrap; background: var(--g200); color: var(--g600);
+}
+.tag.blue { background: #eef3ff; color: #3f6bd6; }
+.tag.green { background: #e8f8f3; color: #0e8f76; }
+.tag.orange { background: #fff7e6; color: #ad6800; }
+.tag.red { background: #fff1f0; color: #cf1322; }
+.tag.gray { background: var(--g200); color: var(--g600); }
+.st { font-size: 12px; white-space: nowrap; }
+.st.done { color: #0eaf93; }
+.st.run { color: var(--main); }
+.st.wait { color: var(--g500); }
+.st.bad { color: var(--danger); }
+.req-tag {
+  display: inline-flex; align-items: center; height: 18px; padding: 0 5px; border-radius: 4px;
+  font-size: 10px; font-weight: 600; border: 1px solid transparent; white-space: nowrap;
+}
+.req-tag.required { background: #fff1f0; border-color: #ffccc7; color: #a8071a; }
+.req-tag.conditional { background: #fff7e6; border-color: #ffe0a3; color: #ad6800; }
+.req-tag.optional { background: #fffbe6; border-color: #ffe58f; color: #8a6100; }
+.req-tag.pending { background: #f2f4f5; border-color: #dbdfe1; color: #7987a1; }
+
+/* ---------- 文件 chip ---------- */
+.file-chip {
+  display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 7px;
+  border: 1px solid var(--g300); border-radius: 6px; background: #fff;
+  color: var(--g600); font-size: 11px; cursor: pointer; white-space: nowrap;
+}
+.file-chip:hover { color: var(--main); border-color: rgba(93, 135, 255, .5); background: #f5f8ff; }
+.file-chip.missing { color: #cf1322; border-color: #ffccc7; background: #fff1f0; }
+.file-chip.none { color: var(--g400); border-color: transparent; background: none; cursor: default; }
+.file-list { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 14px; align-items: start; }
+.detail-side { position: sticky; top: 16px; }
+.detail-main > .card { margin-bottom: 14px; }
+.req-text { max-width: 280px; white-space: normal; line-height: 1.55; }
+.process-layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 14px; align-items: start; }
+.process-list { position: sticky; top: 16px; max-height: calc(100vh - 40px); display: flex; flex-direction: column; }
+.process-list .list-body { overflow: auto; padding: 6px; }
+.process-item { padding: 10px 11px; border-radius: 9px; cursor: pointer; border: 1px solid transparent; margin-bottom: 4px; }
+.process-item:hover { background: var(--g100); }
+.process-item.active { background: var(--main-light); border-color: #d6e2ff; }
+.process-item .p-name { font-size: 13px; font-weight: 600; color: var(--g900); display: flex; align-items: center; gap: 6px; }
+.process-item .p-meta { font-size: 11px; color: var(--g500); margin-top: 2px; }
+.process-item .p-count { margin-left: auto; font-size: 10.5px; color: var(--g600); }
+.editor-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.editor-head h2 { margin: 0; font-size: 17px; }
+.editor-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px 14px; }
+.req-table input, .req-table select { height: 30px; font-size: 12px; }
+.req-table td { vertical-align: middle; }
+@media (max-width: 1100px) { .process-layout { grid-template-columns: 1fr; } .process-list { position: static; max-height: none; } }
+@media (max-width: 1100px) { .detail-layout { grid-template-columns: 1fr; } .detail-side { position: static; } }
+
+/* ---------- 步骤条 / 时间轴 ---------- */
+.steps { display: flex; align-items: flex-start; gap: 0; overflow: auto; padding: 4px 2px 10px; }
+.step-item { flex: 1; min-width: 110px; position: relative; text-align: center; }
+.step-item::after {
+  content: ""; position: absolute; top: 14px; left: 50%; width: 100%; height: 2px; background: var(--g300); z-index: 0;
+}
+.step-item:last-child::after { display: none; }
+.step-dot {
+  width: 28px; height: 28px; border-radius: 50%; background: #fff; border: 2px solid var(--g300);
+  display: flex; align-items: center; justify-content: center; margin: 0 auto 6px; position: relative; z-index: 1;
+  font-size: 11px; font-weight: 600; color: var(--g500);
+}
+.step-item.done .step-dot { border-color: var(--success); background: var(--success); color: #fff; }
+.step-item.active .step-dot { border-color: var(--main); color: var(--main); box-shadow: 0 0 0 4px rgba(93, 135, 255, .12); }
+.step-item.done::after { background: var(--success); }
+.step-item .step-name { font-size: 12px; color: var(--g700); }
+.step-item .step-count { font-size: 10.5px; color: var(--g500); margin-top: 1px; }
+.step-item.active .step-name { color: var(--main); font-weight: 600; }
+
+.timeline { position: relative; }
+.tl-item { display: grid; grid-template-columns: 26px 1fr; gap: 12px; position: relative; padding-bottom: 14px; }
+.tl-item::before {
+  content: ""; position: absolute; left: 12px; top: 24px; bottom: 0; width: 2px; background: var(--g200);
+}
+.tl-item:last-child::before { display: none; }
+.tl-dot {
+  width: 24px; height: 24px; border-radius: 50%; background: #fff; border: 2px solid var(--g300);
+  display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; color: var(--g500); z-index: 1;
+}
+.tl-item.done .tl-dot { border-color: var(--success); background: var(--success); color: #fff; }
+.tl-item.active .tl-dot { border-color: var(--main); color: var(--main); box-shadow: 0 0 0 4px rgba(93, 135, 255, .1); }
+.tl-item.error .tl-dot { border-color: var(--danger); background: var(--danger); color: #fff; }
+.tl-card {
+  background: #fff; border: 1px solid var(--g200); border-radius: 10px; padding: 10px 12px;
+}
+.tl-item.active .tl-card { border-color: rgba(93, 135, 255, .55); box-shadow: 0 4px 14px rgba(93, 135, 255, .08); }
+.tl-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tl-head b { font-size: 13px; color: var(--g900); }
+.tl-head .st { margin-left: auto; }
+.tl-meta { font-size: 11.5px; color: var(--g500); margin-top: 3px; line-height: 1.6; }
+.tl-body { margin-top: 8px; }
+.tl-actions { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* ---------- 键值 / 小节 ---------- */
+.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px 18px; }
+.kv > div { font-size: 12.5px; color: var(--g700); }
+.kv .k { color: var(--g500); margin-right: 6px; }
+.section-title { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--g900); }
+.section-title .meta { font-size: 11.5px; color: var(--g500); font-weight: 400; }
+.divider { height: 1px; background: var(--g200); margin: 16px 0; }
+
+/* ---------- 抽屉 / 弹窗 ---------- */
+.mask { position: fixed; inset: 0; background: rgba(0, 0, 0, .35); opacity: 0; pointer-events: none; transition: .2s; z-index: 30; }
+.mask.show { opacity: 1; pointer-events: auto; }
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: 760px; max-width: 96vw; background: #fff; z-index: 31;
+  transform: translateX(100%); transition: transform .24s ease; display: flex; flex-direction: column;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, .1);
+}
+.drawer.show { transform: none; }
+.drawer-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 20px 12px; border-bottom: 1px solid var(--g200); }
+.drawer-title { font-size: 16px; font-weight: 600; color: var(--g900); }
+.drawer-sub { font-size: 12px; color: var(--g600); margin-top: 3px; }
+.drawer-body { flex: 1; overflow: auto; padding: 16px 20px 24px; }
+.drawer-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; border-top: 1px solid var(--g200); font-size: 12px; color: var(--g600); }
+.icon-btn { border: 0; background: none; color: var(--g500); font-size: 18px; line-height: 1; cursor: pointer; padding: 4px 8px; border-radius: 8px; }
+.icon-btn:hover { background: var(--g200); color: var(--g900); }
+
+.modal { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -46%); width: 520px; max-width: 92vw; background: #fff; border-radius: 14px; z-index: 32; opacity: 0; pointer-events: none; transition: .2s; display: flex; flex-direction: column; max-height: 84vh; box-shadow: 0 16px 48px rgba(0, 0, 0, .14); }
+.modal.show { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%); }
+.modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 18px 20px 10px; }
+.modal-body { padding: 0 20px 8px; overflow: auto; }
+.modal-foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--g200); }
+.form-row { margin-bottom: 12px; }
+.form-row label { display: block; font-size: 12px; color: var(--g600); margin-bottom: 4px; }
+.form-row .input, .form-row .select, .form-row textarea { width: 100%; }
+textarea.input { height: auto; min-height: 76px; padding: 8px 10px; resize: vertical; }
+
+/* ---------- 提示 / 空状态 ---------- */
+.toast {
+  position: fixed; left: 50%; bottom: 30px; transform: translate(-50%, 10px); background: var(--g900); color: #fff;
+  border-radius: 9px; padding: 9px 16px; font-size: 12.5px; opacity: 0; pointer-events: none; transition: .2s; z-index: 40;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.note { border-radius: 9px; padding: 9px 11px; font-size: 12px; line-height: 1.6; }
+.note.info { background: #eef3ff; border: 1px solid #d6e2ff; color: #3f6bd6; }
+.note.warn { background: #fffbe6; border: 1px solid #ffe58f; color: #8a6100; }
+.note.danger { background: #fff1f0; border: 1px solid #ffccc7; color: #a8071a; }
+.note.ok { background: #e8f8f3; border: 1px solid #b7ebd8; color: #0e8f76; }
+
+/* ---------- 工具类 ---------- */
+.flex { display: flex; }
+.between { justify-content: space-between; }
+.center { align-items: center; }
+.gap-6 { gap: 6px; }
+.gap-10 { gap: 10px; }
+.wrap { flex-wrap: wrap; }
+.muted { color: var(--g500); }
+.small { font-size: 11.5px; }
+.mono { font-family: Consolas, Monaco, monospace; font-size: 10.5px; color: var(--g500); }
+.right { text-align: right; }
+.nowrap { white-space: nowrap; }
+.hidden { display: none !important; }
+
+@media (max-width: 1000px) {
+  .sidebar { transform: translateX(-100%); }
+  .main { margin-left: 0; padding: 18px 14px 40px; }
+  .drawer { width: 100vw; }
+}
+
+</style>
+</head>
+<body>
+<div class="app">
+  <main class="main">
+    <header class="page-head">
+      <div>
+        <h1>检验管理</h1>
+        <p class="sub">检验计划 → 请检 → 取样 → 留样 → 检验 → 销毁 · 与批次关联 · 一个页面逐步办理</p>
+      </div>
+      <div class="head-actions">
+        <button class="btn" onclick="toast('原型演示：导出检验台账')">导出台账</button>
+        <button class="btn btn-primary" onclick="toast('原型演示：新建检验计划')">+ 新建检验计划</button>
+      </div>
+    </header>
+
+    <div class="stat-grid" id="statGrid"></div>
+
+    <section class="card mb-2">
+      <div class="card-head">
+        <h2>检验流程总览</h2>
+        <span class="meta" id="stepHint">点击环节可筛选下方批次</span>
+      </div>
+      <div class="card-body">
+        <div class="steps" id="stepBar"></div>
+        <div class="flex between center" style="margin-top:4px;">
+          <span class="muted small">当前筛选：<b id="stepFilterText">全部任务</b></span>
+          <button class="btn btn-sm btn-ghost" onclick="clearStepFilter()">查看全部</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card mb-2">
+      <div class="filters">
+        <label>品种</label>
+        <select class="select" id="fVariety"><option value="">全部品种</option></select>
+        <label>检验对象</label>
+        <select class="select" id="fObject">
+          <option value="">全部对象</option>
+          <option value="成品">成品</option>
+          <option value="中间产品">中间产品</option>
+          <option value="生产原料">生产原料</option>
+        </select>
+        <input class="input" id="fKeyword" placeholder="批号 / 工单号 / 请检单号" />
+        <div class="spacer"></div>
+        <button class="btn" onclick="resetFilters()">重置</button>
+        <button class="btn btn-primary" onclick="applyFilters()">查询</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>检验批次</h2>
+        <span class="meta" id="tableMeta">—</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>批号 / 品种</th>
+              <th>检验对象</th>
+              <th>当前环节</th>
+              <th>检验计划</th>
+              <th>请检单</th>
+              <th>取样 / 留样</th>
+              <th>检验结论</th>
+              <th>状态</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="taskBody"></tbody>
+        </table>
+      </div>
+      <div class="table-foot" id="tableFoot"></div>
+    </section>
+  </main>
+</div>
+
+<div class="mask" id="mask"></div>
+<aside class="drawer" id="inspectionDrawer">
+  <div class="drawer-head">
+    <div>
+      <div class="drawer-title" id="drawerTitle">检验办理</div>
+      <div class="drawer-sub" id="drawerSub"></div>
+    </div>
+    <button class="icon-btn" data-close aria-label="关闭">×</button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+  <div class="drawer-foot" id="drawerFoot"></div>
+</aside>
+
+<script>
+/* =========================================================
+ * 页面独立脚本：Toast、抽屉、弹窗（无侧边栏）
+ * =======================================================*/
+(function () {
+  window.toast = function (msg) {
+    let el = document.getElementById('toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'toast';
+      el.className = 'toast';
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(el._t);
+    el._t = setTimeout(function () { el.classList.remove('show'); }, 1800);
+  };
+
+  window.fmtNum = function (n) {
+    if (n == null || n === '') return '—';
+    return Number(n).toLocaleString('zh-CN', { maximumFractionDigits: 2 });
+  };
+
+  window.openDrawer = function (id) {
+    const mask = document.getElementById('mask');
+    const drawer = document.getElementById(id);
+    if (mask) mask.classList.add('show');
+    if (drawer) drawer.classList.add('show');
+  };
+
+  window.closeDrawer = function () {
+    const mask = document.getElementById('mask');
+    document.querySelectorAll('.drawer.show').forEach(function (d) { d.classList.remove('show'); });
+    if (mask) mask.classList.remove('show');
+  };
+
+  window.openModal = function (id) {
+    const mask = document.getElementById('mask');
+    const modal = document.getElementById(id);
+    if (mask) mask.classList.add('show');
+    if (modal) modal.classList.add('show');
+  };
+
+  window.closeModal = function () {
+    document.querySelectorAll('.modal.show').forEach(function (m) { m.classList.remove('show'); });
+    const mask = document.getElementById('mask');
+    if (mask && !document.querySelector('.drawer.show')) mask.classList.remove('show');
+  };
+
+  document.addEventListener('click', function (e) {
+    if (e.target.id === 'mask') {
+      window.closeDrawer();
+      window.closeModal();
+    }
+    if (e.target.closest('[data-close]')) {
+      window.closeDrawer();
+      window.closeModal();
+    }
+  });
+})();
+</script>
+<script>
+/* =========================================================
+ * 模拟数据：基于测试库真实批次，补齐取样/留样/销毁
+ * =======================================================*/
+const STEPS = ['检验计划', '请检', '取样', '留样', '检验', '销毁'];
+const STEP_ACTION = ['完成检验计划', '发起请检', '登记取样', '登记留样', '录入检验结果', '登记销毁'];
+
+const BATCHES = [
+  {
+    id: 'b1', product: '疏肝养胃丸', code: 'Z04-011', spec: '每50丸重6g（每1g相当于饮片约0.83g）', unit: '盒',
+    batch: '260901', wo: 'GD202610200001', planNo: 'Plan202610190001', qty: 7000, finished: 7001,
+    planDate: '2026-09-16', actualStart: '2026-09-16', actualEnd: '2026-09-24', object: '成品',
+    plan: { code: 'JH-20260916-001', date: '2026-09-16', basis: '中国药典2025版', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已完成', files: ['JH-20260916-001_检验计划.pdf'] },
+    request: { code: 'QJ-20261020-003', time: '2026-09-24 09:20', requester: '丁圣芳', dept: '质量部', process: '成品检验', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已请检', files: ['QJ-20261020-003_请检单.pdf'] },
+    sampling: { code: 'QY-20260924-001', time: '2026-09-24 10:10', sampler: '陈静', quantity: '100g×3份', location: '成品库 A 取样间', method: '随机', status: '已取样', files: ['QY-20260924-001_取样记录.pdf'] },
+    retention: { code: 'LY-20260924-001', time: '2026-09-24 10:30', keeper: '陈静', quantity: '100g×3份', location: '留样室 A-03', period: '至2028-09-23', status: '已留样', files: ['LY-20260924-001_留样记录.pdf'] },
+    inspection: { code: 'JY-20261020-005', inspector: '丁圣芳', reviewer: '赵磊', start: '2026-10-09 09:00', end: '2026-10-19 16:30', conclusion: '合格', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已检验', files: ['JY-20261020-005_检验记录.pdf', 'JY-20261020-005_检验图谱.pdf'] },
+    destruction: { code: '—', date: '—', handler: '—', reason: '留样未到期', status: '未到期' }
+  },
+  {
+    id: 'b2', product: '活血通络丸', code: 'Z04-009', spec: '每50丸重6g（每1g相当于饮片约0.83g）', unit: '盒',
+    batch: '260901', wo: 'GD202610190001', planNo: 'Plan202610190002', qty: 7000, finished: 6998,
+    planDate: '2026-09-08', actualStart: '2026-09-08', actualEnd: '2026-09-24', object: '成品',
+    plan: { code: 'JH-20260908-001', date: '2026-09-08', basis: '中国药典2025版', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已完成', files: ['JH-20260908-001_检验计划.pdf'] },
+    request: { code: 'QJ-20261019-003', time: '2026-09-15 17:20', requester: '丁圣芳', dept: '质量部', process: '成品检验', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已请检', files: ['QJ-20261019-003_请检单.pdf'] },
+    sampling: { code: 'QY-20260916-001', time: '2026-09-16 08:40', sampler: '陈静', quantity: '100g×3份', location: '成品库 A 取样间', method: '随机', status: '已取样', files: ['QY-20260916-001_取样记录.pdf'] },
+    retention: { code: 'LY-20260916-001', time: '2026-09-16 09:00', keeper: '陈静', quantity: '100g×3份', location: '留样室 A-05', period: '已到期', status: '已留样', files: ['LY-20260916-001_留样记录.pdf'] },
+    inspection: { code: 'JY-20261019-003', inspector: '丁圣芳', reviewer: '赵磊', start: '2026-09-16 09:30', end: '2026-09-24 11:20', conclusion: '合格', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已检验', files: ['JY-20261019-003_检验记录.pdf'] },
+    destruction: { code: 'XH-20261025-001', date: '2026-10-25', handler: '张力', reason: '留样到期', status: '已销毁', files: ['XH-20261025-001_销毁记录.pdf'] }
+  },
+  {
+    id: 'b3', product: '护肾排毒丸', code: 'Z04-007', spec: '每50丸重6g（每1g相当于饮片约0.83g）', unit: '盒',
+    batch: '260901', wo: 'GD202610200003', planNo: 'Plan202610190003', qty: 3500, finished: 3502,
+    planDate: '2026-09-22', actualStart: '2026-09-22', actualEnd: '2026-10-19', object: '成品',
+    plan: { code: 'JH-20260922-001', date: '2026-09-22', basis: '中国药典2025版', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已完成', files: ['JH-20260922-001_检验计划.pdf'] },
+    request: { code: 'QJ-20261020-006', time: '2026-09-30 10:00', requester: '张力', dept: '质量部', process: '成品检验', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已请检', files: ['QJ-20261020-006_请检单.pdf'] },
+    sampling: { code: 'QY-20260930-001', time: '2026-09-30 11:00', sampler: '陈静', quantity: '100g×3份', location: '成品库 A 取样间', method: '随机', status: '已取样', files: ['QY-20260930-001_取样记录.pdf'] },
+    retention: { code: 'LY-20260930-001', time: '2026-09-30 11:20', keeper: '陈静', quantity: '100g×3份', location: '留样室 A-06', period: '已到期', status: '已留样', files: ['LY-20260930-001_留样记录.pdf'] },
+    inspection: { code: 'JY-20261020-006', inspector: '丁圣芳', reviewer: '赵磊', start: '2026-10-09 09:00', end: '2026-10-19 14:00', conclusion: '合格', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已检验', files: ['JY-20261020-006_检验记录.pdf'] },
+    destruction: { code: 'XH-20261026-001', date: '2026-10-26', handler: '张力', reason: '留样到期，待销毁', status: '待销毁' }
+  },
+  {
+    id: 'b4', product: '益肺平喘丸', code: 'Z04-012', spec: '每50丸重6g（每1g相当于饮片约0.92g）', unit: '盒',
+    batch: '261001', wo: 'GD202610200004', planNo: 'Plan202610190005', qty: 7000, finished: 7004,
+    planDate: '2026-10-17', actualStart: '2026-10-17', actualEnd: '2026-10-24', object: '成品',
+    plan: { code: 'JH-20261017-001', date: '2026-10-17', basis: '中国药典2025版', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已完成', files: ['JH-20261017-001_检验计划.pdf'] },
+    request: { code: 'QJ-20261027-003', time: '2026-10-20 09:00', requester: '张力', dept: '质量部', process: '成品检验', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已请检', files: ['QJ-20261027-003_请检单.pdf'] },
+    sampling: { code: 'QY-20261021-001', time: '2026-10-21 10:00', sampler: '陈静', quantity: '100g×3份', location: '成品库 B 取样间', method: '随机', status: '已取样', files: ['QY-20261021-001_取样记录.pdf'] },
+    retention: { code: 'LY-20261021-001', time: '2026-10-21 10:20', keeper: '陈静', quantity: '100g×3份', location: '留样室 B-02', period: '至2028-10-20', status: '已留样', files: ['LY-20261021-001_留样记录.pdf'] },
+    inspection: { code: 'JY-20261027-002', inspector: '丁圣芳', reviewer: '—', start: '2026-10-19 09:00', end: '—', conclusion: '待检', items: '性状、水分、重量差异、装量、溶散时限、微生物限度', status: '检验中', files: ['JY-20261027-002_检验记录（草稿）.pdf'] },
+    destruction: { code: '—', date: '—', handler: '—', reason: '检验完成后进入留样管理', status: '待检验完成' }
+  },
+  {
+    id: 'b5', product: '桂附潜阳丸', code: 'Z04-006', spec: '每50丸重6g（每1g相当于饮片约0.92g）', unit: '盒',
+    batch: '—', wo: 'GD202610200005', planNo: 'Plan202610190008', qty: 7000, finished: 7000,
+    planDate: '2026-10-18', actualStart: '2026-10-21', actualEnd: '—', object: '成品',
+    plan: { code: 'JH-20261018-001', date: '2026-10-18', basis: '中国药典2025版', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已完成', files: ['JH-20261018-001_检验计划.pdf'] },
+    request: null, sampling: null, retention: null, inspection: null,
+    destruction: { code: '—', date: '—', handler: '—', reason: '未进入检验', status: '未开始' }
+  },
+  {
+    id: 'b6', product: '强筋壮骨丸', code: 'Z04-010', spec: '每50丸重6g（每1g相当于饮片约0.92g）', unit: '盒',
+    batch: '—', wo: '未下达工单', planNo: 'Plan202611030001', qty: 3500, finished: null,
+    planDate: '2026-11-03', actualStart: '—', actualEnd: '—', object: '成品',
+    plan: null, request: null, sampling: null, retention: null, inspection: null,
+    destruction: { code: '—', date: '—', handler: '—', reason: '未进入检验', status: '未开始' }
+  }
+];
+
+const state = { step: null, variety: '', object: '', keyword: '' };
+
+/* =========================================================
+ * 派生
+ * =======================================================*/
+function currentStep(b) {
+  if (!b.plan || b.plan.status !== '已完成') return 0;
+  if (!b.request) return 1;
+  if (!b.sampling) return 2;
+  if (!b.retention) return 3;
+  if (!b.inspection || b.inspection.status === '检验中') return 4;
+  if (b.destruction && b.destruction.status === '待销毁') return 5;
+  return 6;
+}
+function stepLabel(b) {
+  const s = currentStep(b);
+  if (s === 6) return '已完成';
+  return STEPS[s];
+}
+function stepState(b, i) {
+  const cur = currentStep(b);
+  if (cur === 6) return 'done';
+  if (i < cur) return 'done';
+  if (i === cur) return b.inspection && b.inspection.conclusion === '不合格' ? 'error' : 'active';
+  return '';
+}
+function statusTag(b) {
+  const s = currentStep(b);
+  if (b.inspection && b.inspection.conclusion === '不合格') return '<span class="tag red">不合格</span>';
+  if (s === 6) return '<span class="tag green">已完成</span>';
+  if (s === 4) return '<span class="tag blue">检验中</span>';
+  if (s === 5) return '<span class="tag orange">待销毁</span>';
+  return '<span class="tag gray">进行中</span>';
+}
+function filtered() {
+  return BATCHES.filter(b => {
+    if (state.step !== null && currentStep(b) !== state.step) return false;
+    if (state.variety && b.code !== state.variety) return false;
+    if (state.object && b.object !== state.object) return false;
+    if (state.keyword) {
+      const hay = [b.product, b.code, b.batch, b.wo, b.planNo, b.request ? b.request.code : '', b.inspection ? b.inspection.code : ''].join(' ').toLowerCase();
+      if (!hay.includes(state.keyword.trim().toLowerCase())) return false;
+    }
+    return true;
+  });
+}
+
+/* =========================================================
+ * 渲染
+ * =======================================================*/
+function renderStats() {
+  const counts = [0, 0, 0, 0, 0, 0, 0];
+  BATCHES.forEach(b => counts[currentStep(b)]++);
+  const pending = counts[0] + counts[1] + counts[2] + counts[3];
+  document.getElementById('statGrid').innerHTML = `
+    <div class="stat-card run"><div class="label">待检验</div><div class="num"><b>${pending}</b><span class="unit">个批次</span></div></div>
+    <div class="stat-card run"><div class="label">检验中</div><div class="num"><b>${counts[4]}</b><span class="unit">个批次</span></div></div>
+    <div class="stat-card warn"><div class="label">待销毁</div><div class="num"><b>${counts[5]}</b><span class="unit">个批次</span></div></div>
+    <div class="stat-card ok"><div class="label">已完成</div><div class="num"><b>${counts[6]}</b><span class="unit">个批次</span></div></div>`;
+}
+function renderSteps() {
+  const counts = [0, 0, 0, 0, 0, 0];
+  BATCHES.forEach(b => {
+    const s = currentStep(b);
+    if (s < 6) counts[s]++;
+  });
+  document.getElementById('stepBar').innerHTML = STEPS.map((name, i) => {
+    const active = state.step === i;
+    return `<div class="step-item ${active ? 'active' : ''}" data-step="${i}" style="cursor:pointer;">
+      <div class="step-dot">${i + 1}</div>
+      <div class="step-name">${name}</div>
+      <div class="step-count">${counts[i]} 个批次</div>
+    </div>`;
+  }).join('');
+  document.getElementById('stepFilterText').textContent = state.step === null ? '全部任务' : STEPS[state.step];
+  document.querySelectorAll('#stepBar [data-step]').forEach(el => {
+    el.addEventListener('click', () => { state.step = Number(el.dataset.step); renderAll(); });
+  });
+}
+function renderTable() {
+  const rows = filtered();
+  document.getElementById('taskBody').innerHTML = rows.length ? rows.map(b => {
+    const s = currentStep(b);
+    const cur = s === 6 ? '已完成' : STEPS[s];
+    return `<tr class="clickable" data-batch="${b.id}">
+      <td><span class="cell-main">${b.batch === '—' ? '未生成批号' : '批号 ' + b.batch}</span><span class="cell-sub">${b.product} · ${b.code}</span></td>
+      <td>${b.object}<span class="cell-sub">${b.wo}</span></td>
+      <td><span class="tag ${s === 6 ? 'green' : s === 5 ? 'orange' : s === 4 ? 'blue' : 'gray'}">${cur}</span></td>
+      <td>${b.plan ? b.plan.code : '<span class="muted">待制定</span>'}<span class="cell-sub">${b.plan ? b.plan.date : '—'}</span></td>
+      <td>${b.request ? b.request.code : '<span class="muted">未请检</span>'}<span class="cell-sub">${b.request ? b.request.time : '—'}</span></td>
+      <td>${b.sampling ? b.sampling.code : '—'}<span class="cell-sub">${b.retention ? b.retention.code : '未留样'}</span></td>
+      <td>${b.inspection ? `<span class="st ${b.inspection.conclusion === '合格' ? 'done' : b.inspection.conclusion === '不合格' ? 'bad' : 'run'}">${b.inspection.conclusion}</span><span class="cell-sub">${b.inspection.code}</span>` : '<span class="muted">尚无结论</span>'}</td>
+      <td>${statusTag(b)}</td>
+      <td><button class="btn btn-sm ${s === 6 ? '' : 'btn-primary'}" data-open="${b.id}">${s === 6 ? '查看' : '办理'}</button></td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="9"><div class="empty">没有符合条件的检验批次</div></td></tr>`;
+  document.getElementById('tableFoot').textContent = `共 ${rows.length} 个检验批次 · 点击行进入六步检验流程`;
+  document.querySelectorAll('#taskBody [data-batch]').forEach(tr => {
+    tr.addEventListener('click', e => {
+      if (e.target.closest('[data-open]')) e.stopPropagation();
+      openInspection(tr.dataset.batch);
+    });
+  });
+  document.querySelectorAll('#taskBody [data-open]').forEach(btn => {
+    btn.addEventListener('click', e => { e.stopPropagation(); openInspection(btn.dataset.open); });
+  });
+}
+function renderAll() { renderStats(); renderSteps(); renderTable(); }
+
+/* =========================================================
+ * 抽屉：六步流程
+ * =======================================================*/
+let activeBatch = null;
+
+function openInspection(id) {
+  activeBatch = BATCHES.find(b => b.id === id);
+  if (!activeBatch) return;
+  renderDrawer();
+  openDrawer('inspectionDrawer');
+}
+function stepFiles(b, i) {
+  const data = [b.plan, b.request, b.sampling, b.retention, b.inspection, b.destruction][i];
+  return data && data.files ? data.files : [];
+}
+function stepKv(b, i) {
+  if (i === 0) {
+    if (!b.plan) return [['计划编号', '待制定'], ['检验依据', '中国药典2025版'], ['检验项目', '成品全检'], ['计划日期', '—']];
+    return [['计划编号', b.plan.code], ['检验依据', b.plan.basis], ['检验项目', b.plan.items], ['计划日期', b.plan.date]];
+  }
+  if (i === 1) {
+    if (!b.request) return [['请检单号', '未请检'], ['请检人', '—'], ['请检时间', '—'], ['检验项目', '—']];
+    return [['请检单号', b.request.code], ['请检人', b.request.requester + ' · ' + b.request.dept], ['请检时间', b.request.time], ['工序 / 项目', b.request.process + ' · ' + b.request.items]];
+  }
+  if (i === 2) {
+    if (!b.sampling) return [['取样编号', '未取样'], ['取样人', '—'], ['取样量', '—'], ['取样地点', '—']];
+    return [['取样编号', b.sampling.code], ['取样人 / 时间', b.sampling.sampler + ' · ' + b.sampling.time], ['取样量 / 方法', b.sampling.quantity + ' · ' + b.sampling.method], ['取样地点', b.sampling.location]];
+  }
+  if (i === 3) {
+    if (!b.retention) return [['留样编号', '未留样'], ['留样人', '—'], ['留样量', '—'], ['留样期限', '—']];
+    return [['留样编号', b.retention.code], ['留样人 / 时间', b.retention.keeper + ' · ' + b.retention.time], ['留样量 / 地点', b.retention.quantity + ' · ' + b.retention.location], ['留样期限', b.retention.period]];
+  }
+  if (i === 4) {
+    if (!b.inspection) return [['检验编号', '未检验'], ['检验人', '—'], ['检验起止', '—'], ['结论', '—']];
+    return [['检验编号', b.inspection.code], ['检验人 / 复核人', b.inspection.inspector + ' / ' + b.inspection.reviewer], ['检验起止', b.inspection.start + ' ~ ' + b.inspection.end], ['检验项目', b.inspection.items], ['结论', b.inspection.conclusion]];
+  }
+  if (!b.destruction) return [['销毁编号', '无需销毁'], ['销毁日期', '—'], ['处理人', '—'], ['原因', '—']];
+  return [['销毁编号', b.destruction.code], ['销毁日期', b.destruction.date], ['处理人', b.destruction.handler], ['原因', b.destruction.reason], ['状态', b.destruction.status]];
+}
+function renderDrawer() {
+  const b = activeBatch;
+  const s = currentStep(b);
+  document.getElementById('drawerTitle').textContent = `${b.product} · 检验办理`;
+  document.getElementById('drawerSub').textContent = `批号 ${b.batch} · ${b.wo} · ${b.planNo}`;
+  const body = document.getElementById('drawerBody');
+  body.innerHTML = `
+    <div class="card card-pad mb-2">
+      <h3 class="section-title">批次信息 <span class="meta">${b.code} · ${b.spec}</span></h3>
+      <div class="kv">
+        <div><span class="k">品种</span>${b.product}</div>
+        <div><span class="k">规格</span>${b.spec}</div>
+        <div><span class="k">批号</span>${b.batch}</div>
+        <div><span class="k">批量 / 成品量</span>${fmtNum(b.qty)} / ${fmtNum(b.finished)} ${b.unit}</div>
+        <div><span class="k">计划 / 实际生产</span>${b.planDate} / ${b.actualStart} ~ ${b.actualEnd}</div>
+        <div><span class="k">状态</span>${statusTag(b)}</div>
+      </div>
+    </div>
+    <div class="steps mb-2">${STEPS.map((name, i) => `<div class="step-item ${stepState(b, i)}"><div class="step-dot">${stepState(b, i) === 'done' ? '✓' : i + 1}</div><div class="step-name">${name}</div></div>`).join('')}</div>
+    <div class="timeline">${STEPS.map((name, i) => {
+      const st = stepState(b, i);
+      const data = [b.plan, b.request, b.sampling, b.retention, b.inspection, b.destruction][i];
+      const tag = st === 'done' ? '<span class="tag green">已完成</span>' : st === 'active' ? '<span class="tag blue">当前环节</span>' : st === 'error' ? '<span class="tag red">不符合</span>' : '<span class="tag gray">待办理</span>';
+      const files = stepFiles(b, i);
+      return `<div class="tl-item ${st}">
+        <div class="tl-dot">${st === 'done' ? '✓' : i + 1}</div>
+        <div class="tl-card">
+          <div class="tl-head"><b>${name}</b>${tag}</div>
+          <div class="tl-meta">${stepKv(b, i).slice(0, 2).map(x => `${x[0]}：${x[1]}`).join(' · ')}</div>
+          <div class="tl-body">
+            <div class="kv">${stepKv(b, i).map(([k, v]) => `<div><span class="k">${k}</span>${v}</div>`).join('')}</div>
+            ${files.length ? `<div class="file-list">${files.map(f => `<span class="file-chip" data-file="${f}">${f}</span>`).join('')}</div>` : (st !== 'active' && st !== '' ? '<div class="small muted" style="margin-top:6px;">暂无附件</div>' : '')}
+          </div>
+          <div class="tl-actions">
+            ${st === 'active' ? `<button class="btn btn-sm btn-primary" data-advance="${i}">${STEP_ACTION[i]}</button>` : ''}
+            ${st === 'done' ? `<button class="btn btn-sm" data-view="${i}">查看</button>` : ''}
+          </div>
+        </div>
+      </div>`;
+    }).join('')}</div>`;
+  document.getElementById('drawerFoot').innerHTML = `
+    <span>当前环节：<b>${s === 6 ? '已完成' : STEPS[s]}</b></span>
+    <span><button class="btn btn-sm" data-close>关闭</button>${s < 6 ? ` <button class="btn btn-sm btn-primary" data-advance="${s}">${STEP_ACTION[s]}</button>` : ''}</span>`;
+  body.querySelectorAll('[data-advance]').forEach(btn => btn.addEventListener('click', () => advance(Number(btn.dataset.advance))));
+  body.querySelectorAll('[data-view]').forEach(btn => btn.addEventListener('click', () => toast('原型演示：查看已完成的检验资料')));
+  body.querySelectorAll('[data-file]').forEach(el => el.addEventListener('click', () => toast('原型演示：预览 ' + el.dataset.file)));
+  document.getElementById('drawerFoot').querySelectorAll('[data-advance]').forEach(btn => btn.addEventListener('click', () => advance(Number(btn.dataset.advance))));
+}
+
+/* =========================================================
+ * 逐步办理
+ * =======================================================*/
+function advance(step) {
+  const b = activeBatch;
+  if (!b) return;
+  if (step === 0) {
+    b.plan = { code: 'JH-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-001', date: '2026-11-06', basis: '中国药典2025版', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已完成', files: ['检验计划.pdf'] };
+  } else if (step === 1) {
+    b.request = { code: 'QJ-20261106-001', time: '2026-11-06 09:00', requester: '丁圣芳', dept: '质量部', process: '成品检验', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已请检', files: ['请检单.pdf'] };
+  } else if (step === 2) {
+    b.sampling = { code: 'QY-20261106-001', time: '2026-11-06 10:00', sampler: '陈静', quantity: '100g×3份', location: '成品库 A 取样间', method: '随机', status: '已取样', files: ['取样记录.pdf'] };
+  } else if (step === 3) {
+    b.retention = { code: 'LY-20261106-001', time: '2026-11-06 10:20', keeper: '陈静', quantity: '100g×3份', location: '留样室 A-08', period: '至2028-11-05', status: '已留样', files: ['留样记录.pdf'] };
+  } else if (step === 4) {
+    if (!b.inspection) b.inspection = { code: 'JY-20261106-001', inspector: '丁圣芳', reviewer: '赵磊', start: '2026-11-06 09:00', end: '2026-11-06 16:00', conclusion: '合格', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已检验', files: ['检验记录.pdf'] };
+    else { b.inspection.status = '已检验'; b.inspection.conclusion = '合格'; b.inspection.end = '2026-11-06 16:00'; }
+  } else if (step === 5) {
+    if (b.destruction) Object.assign(b.destruction, { code: 'XH-20261106-001', date: '2026-11-06', handler: '张力', status: '已销毁', files: ['销毁记录.pdf'] });
+  }
+  renderAll();
+  renderDrawer();
+  toast(STEPS[step] + ' 已办理，流程已推进');
+}
+
+/* =========================================================
+ * 筛选 / 初始化
+ * =======================================================*/
+function renderVarietyOptions() {
+  const sel = document.getElementById('fVariety');
+  const seen = new Set();
+  BATCHES.forEach(b => {
+    if (seen.has(b.code)) return;
+    seen.add(b.code);
+    const opt = document.createElement('option');
+    opt.value = b.code;
+    opt.textContent = `${b.product}（${b.code}）`;
+    sel.appendChild(opt);
+  });
+}
+function applyFilters() {
+  state.variety = document.getElementById('fVariety').value;
+  state.object = document.getElementById('fObject').value;
+  state.keyword = document.getElementById('fKeyword').value;
+  renderTable();
+}
+function resetFilters() {
+  document.getElementById('fVariety').value = '';
+  document.getElementById('fObject').value = '';
+  document.getElementById('fKeyword').value = '';
+  state.variety = ''; state.object = ''; state.keyword = ''; state.step = null;
+  renderAll();
+}
+function clearStepFilter() { state.step = null; renderAll(); }
+document.getElementById('fKeyword').addEventListener('keydown', e => { if (e.key === 'Enter') applyFilters(); });
+
+renderVarietyOptions();
+renderAll();
+</script>
+</body>
+</html>

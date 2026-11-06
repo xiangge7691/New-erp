@@ -46,6 +46,10 @@ public enum BizFileType {
     DEVIATION_RECORD("DEVIATION_RECORD", "deviation_record", "id", "偏差记录", "质量管理/偏差记录",
             kinds(BizFileKinds.DEFAULT, 10)),
 
+    /** 检验计划 */
+    INSPECTION_PLAN("INSPECTION_PLAN", "inspection_plan", "id", "检验计划", "质量管理/检验计划",
+            kinds(BizFileKinds.DEFAULT, 10)),
+
     /** 请检单 */
     INSPECTION_REQUEST("INSPECTION_REQUEST", "inspection_request", "id", "请检单", "质量管理/请检单",
             kinds(BizFileKinds.DEFAULT, 10, BizFileKinds.FINISHED_PRODUCT_REPORT, 10)),

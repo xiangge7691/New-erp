@@ -67,6 +67,7 @@ init-data:
       ENERGY_RECORD: 能耗记录
       REQUEST: 请检单
       SAMPLE: 样品
+      INSPECTION_PLAN: 检验计划
       SAMPLING: 取样
       INSPECTION_RECORD: 请检记录
       WAYBILL: 随货清单
