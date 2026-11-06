@@ -52,6 +52,12 @@ class BizFileTypeTest {
                 BizFileType.resolve("APPROVAL_INSTANCE"));
         assertEquals(BizFileType.INSPECTION_RECORD,
                 BizFileType.resolve("INSPECTION_RECORD"));
+        assertEquals(BizFileType.STOCK_OUT_PRODUCTION,
+                BizFileType.resolve("STOCK_OUT_PRODUCTION"));
+        assertEquals(BizFileType.STOCK_IN_PRODUCT,
+                BizFileType.resolve("STOCK_IN_PRODUCT"));
+        assertEquals(BizFileType.STOCK_OUT_SALES,
+                BizFileType.resolve("STOCK_OUT_SALES"));
     }
 
     /**
@@ -61,6 +67,29 @@ class BizFileTypeTest {
     void resolveUnknownShouldReturnNull() {
         assertNull(BizFileType.resolve("NOT_EXISTS"));
         assertNull(BizFileType.resolve(null));
+    }
+
+    /**
+     * 补齐的制剂资料 / 验收 / 工单 / 请检槽位必须已注册
+     */
+    @Test
+    void supplementedKindsShouldBeRegistered() {
+        assertEquals(BizFileKinds.DOSSIER_579,
+                BizFileType.PREPARATION.normalizeKind(BizFileKinds.DOSSIER_579));
+        assertEquals(BizFileKinds.REGISTRATION_CERTIFICATE,
+                BizFileType.PREPARATION.normalizeKind(BizFileKinds.REGISTRATION_CERTIFICATE));
+        assertEquals(BizFileKinds.PACKAGING_DESIGN,
+                BizFileType.PREPARATION.normalizeKind(BizFileKinds.PACKAGING_DESIGN));
+        assertEquals(BizFileKinds.VERIFICATION_REPORT,
+                BizFileType.PREPARATION.normalizeKind(BizFileKinds.VERIFICATION_REPORT));
+        assertEquals(BizFileKinds.INBOUND_ORDER,
+                BizFileType.ACCEPTANCE_ORDER.normalizeKind(BizFileKinds.INBOUND_ORDER));
+        assertEquals(BizFileKinds.OUTBOUND_ORDER,
+                BizFileType.WORK_ORDER.normalizeKind(BizFileKinds.OUTBOUND_ORDER));
+        assertEquals(BizFileKinds.INTERMEDIATE_INSPECTION_REQUEST,
+                BizFileType.WORK_ORDER.normalizeKind(BizFileKinds.INTERMEDIATE_INSPECTION_REQUEST));
+        assertEquals(BizFileKinds.FINISHED_PRODUCT_REPORT,
+                BizFileType.INSPECTION_REQUEST.normalizeKind(BizFileKinds.FINISHED_PRODUCT_REPORT));
     }
 
     // endregion

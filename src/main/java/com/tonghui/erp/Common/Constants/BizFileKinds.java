@@ -33,8 +33,33 @@ public final class BizFileKinds {
     /** 发票 */
     public static final String INVOICE = "INVOICE";
 
+    /** 入库单 */
+    public static final String INBOUND_ORDER = "INBOUND_ORDER";
+
     /** 检验报告 */
     public static final String INSPECTION_REPORT = "INSPECTION_REPORT";
+
+    /** 成品检测报告 */
+    public static final String FINISHED_PRODUCT_REPORT = "FINISHED_PRODUCT_REPORT";
+
+    // endregion
+
+    // region 制剂资料
+    // ===================================
+    // 制剂资料
+    // ===================================
+
+    /** 579号资料（注册申报资料） */
+    public static final String DOSSIER_579 = "DOSSIER_579";
+
+    /** 备案凭证 / 注册批件 */
+    public static final String REGISTRATION_CERTIFICATE = "REGISTRATION_CERTIFICATE";
+
+    /** 包装设计稿 */
+    public static final String PACKAGING_DESIGN = "PACKAGING_DESIGN";
+
+    /** 验证报告 */
+    public static final String VERIFICATION_REPORT = "VERIFICATION_REPORT";
 
     // endregion
 
@@ -45,6 +70,12 @@ public final class BizFileKinds {
 
     /** 生产批记录 */
     public static final String BATCH_RECORD = "BATCH_RECORD";
+
+    /** 出库单 */
+    public static final String OUTBOUND_ORDER = "OUTBOUND_ORDER";
+
+    /** 请检单（中间品） */
+    public static final String INTERMEDIATE_INSPECTION_REQUEST = "INTERMEDIATE_INSPECTION_REQUEST";
 
     /** 工序附件 */
     public static final String PROCESS_ATTACHMENT = "PROCESS_ATTACHMENT";

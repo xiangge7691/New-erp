@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
  * 业务附件类型注册表
  * <p>
  * 一表一码：每个业务表只对应一个编码，从根上避免“同一 business_type 被多张表复用”。
+ * 生产领料单使用独立的 production_pick 表，与库存出库单（stock_out）分开编码。
  * 每个类型声明允许的文件槽位及每个槽位的最大数量（-1 表示不限）。
  * 业务表名、主键列名均来自枚举常量，可安全用于服务层拼接校验 SQL。
  * </p>
@@ -27,7 +28,8 @@ public enum BizFileType {
 
     /** 货物验收单 */
     ACCEPTANCE_ORDER("ACCEPTANCE_ORDER", "acceptance_order", "acceptance_id", "货物验收单", "货物验收/验收单",
-            kinds(BizFileKinds.WAYBILL, 10, BizFileKinds.INVOICE, 10, BizFileKinds.INSPECTION_REPORT, 10)),
+            kinds(BizFileKinds.WAYBILL, 10, BizFileKinds.INSPECTION_REPORT, 10,
+                  BizFileKinds.INVOICE, 10, BizFileKinds.INBOUND_ORDER, 10)),
 
     // endregion
 
@@ -46,7 +48,7 @@ public enum BizFileType {
 
     /** 请检单 */
     INSPECTION_REQUEST("INSPECTION_REQUEST", "inspection_request", "id", "请检单", "质量管理/请检单",
-            kinds(BizFileKinds.DEFAULT, 10)),
+            kinds(BizFileKinds.DEFAULT, 10, BizFileKinds.FINISHED_PRODUCT_REPORT, 10)),
 
     /** 检验记录 */
     INSPECTION_RECORD("INSPECTION_RECORD", "inspection_record", "id", "检验记录", "质量管理/检验记录",
@@ -87,7 +89,11 @@ public enum BizFileType {
                   BizFileKinds.BATCH_RECORD_TEMPLATE, 1,
                   BizFileKinds.VERIFICATION_PLAN, 1,
                   BizFileKinds.QUALITY_STANDARD, 1,
-                  BizFileKinds.PROCESS_FLOWCHART, 1)),
+                  BizFileKinds.PROCESS_FLOWCHART, 1,
+                  BizFileKinds.DOSSIER_579, 1,
+                  BizFileKinds.REGISTRATION_CERTIFICATE, 1,
+                  BizFileKinds.PACKAGING_DESIGN, 1,
+                  BizFileKinds.VERIFICATION_REPORT, 1)),
 
     /** 制剂工序模板 */
     PREPARATION_PROCESS_TEMPLATE("PREPARATION_PROCESS_TEMPLATE", "preparation_process_template", "template_id",
@@ -106,7 +112,10 @@ public enum BizFileType {
 
     /** 工单 */
     WORK_ORDER("WORK_ORDER", "work_order", "work_order_id", "生产任务", "生产管理/工单",
-            kinds(BizFileKinds.BATCH_RECORD, 10, BizFileKinds.OTHER, 10)),
+            kinds(BizFileKinds.BATCH_RECORD, 10,
+                  BizFileKinds.OUTBOUND_ORDER, 10,
+                  BizFileKinds.INTERMEDIATE_INSPECTION_REQUEST, 10,
+                  BizFileKinds.OTHER, 10)),
 
     /** 工单工序执行行 */
     WORK_ORDER_PROCESS_EXECUTION("WORK_ORDER_PROCESS_EXECUTION", "work_order_process_execution", "id",
@@ -115,6 +124,25 @@ public enum BizFileType {
     /** 生产单位 */
     PRODUCTION_UNIT("PRODUCTION_UNIT", "production_unit", "prod_unit_id", "生产单位", "生产管理/生产单位",
             kinds(BizFileKinds.DEFAULT, 10)),
+
+    // endregion
+
+    // region 库存出入库
+    // ===================================
+    // 库存出入库
+    // ===================================
+
+    /** 生产领料单 */
+    STOCK_OUT_PRODUCTION("STOCK_OUT_PRODUCTION", "production_pick", "id", "生产领料单",
+            "生产管理/生产领料", kinds(BizFileKinds.DEFAULT, 10)),
+
+    /** 成品入库单（stock_in，in_type=成品入库） */
+    STOCK_IN_PRODUCT("STOCK_IN_PRODUCT", "stock_in", "in_id", "成品入库单",
+            "库存管理/成品入库", kinds(BizFileKinds.DEFAULT, 10)),
+
+    /** 成品出库单（stock_out，out_type=销售出库） */
+    STOCK_OUT_SALES("STOCK_OUT_SALES", "stock_out", "out_id", "成品出库单",
+            "库存管理/成品出库", kinds(BizFileKinds.DEFAULT, 10)),
 
     // endregion
 
