@@ -295,6 +295,8 @@ public final class ProductSummaryDtos {
     public static class DocumentItem {
         /** 单据类型 */
         private String type;
+        /** 被检品属性（检验单据使用：成品/中间产品/生产原料） */
+        private String itemCategory;
         /** 单号 */
         private String code;
         /** 日期 */

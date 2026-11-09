@@ -488,9 +488,10 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         states.add(stageState("production", "生产", stageStateOf(ctx.getExecutions())));
         states.add(stageState("inbound", "入库", ctx.getStockIns().isEmpty() ? "pending" : "done"));
         states.add(stageState("outbound", "出库", ctx.getStockOuts().isEmpty() ? "pending" : "done"));
+        List<InspectionRecord> finished = finishedInspections(ctx);
         String conclusion = inspectionConclusion(ctx);
         String inspectionState = "合格".equals(conclusion) ? "done" : "不合格".equals(conclusion) ? "error"
-                : (!ctx.getInspections().isEmpty() || !ctx.getRequests().isEmpty() ? "active" : "pending");
+                : (finished.isEmpty() ? "pending" : "active");
         states.add(stageState("inspection", "检验", inspectionState));
         states.add(stageState("release", "放行", ctx.getRelease() == null ? "pending"
                 : ("拒绝放行".equals(ctx.getRelease().getReleaseConclusion()) ? "error" : "done")));
@@ -589,12 +590,13 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         dto.setWorkOrderDate(date(wo.getConfigDate()));
         dto.setInboundDate(ctx.getStockIns().isEmpty() ? null : date(ctx.getStockIns().get(0).getInDate()));
         dto.setOutboundDate(ctx.getStockOuts().isEmpty() ? null : date(ctx.getStockOuts().get(0).getOutDate()));
-        dto.setInspectionDate(ctx.getInspections().isEmpty() ? null : date(ctx.getInspections().get(0).getEndTime()));
+        InspectionRecord latestInspection = latestFinishedInspection(ctx);
+        dto.setInspectionDate(latestInspection == null ? null : date(latestInspection.getEndTime()));
         dto.setProductionStart(date(wo.getConfigDate()));
         dto.setProductionEnd(actualEnd(ctx));
         dto.setYieldRate(yieldRate(ctx));
-        dto.setInspectionConclusion(inspectionConclusion(ctx));
-        dto.setLatestInspectionCode(ctx.getInspections().isEmpty() ? null : ctx.getInspections().get(0).getInspectionCode());
+        dto.setInspectionConclusion(latestInspection == null ? null : latestInspection.getConclusion());
+        dto.setLatestInspectionCode(latestInspection == null ? null : latestInspection.getInspectionCode());
         dto.setProcessTotal(ctx.getExecutions().size());
         dto.setProcessCompleted((int) ctx.getExecutions().stream().filter(e -> e.getEndTime() != null).count());
         dto.setStatus(wo.getCurrentStatus());
@@ -676,10 +678,12 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         ctx.getRequests().forEach(r -> inspectionDocs.add(inspectionRequestDoc(r)));
         ctx.getSamplings().forEach(s -> inspectionDocs.add(samplingDoc(s)));
         ctx.getInspections().forEach(i -> inspectionDocs.add(inspectionRecordDoc(i)));
-        stages.add(stage("inspection", "检验", inspectionDocs.isEmpty() ? "pending"
-                        : ("合格".equals(inspectionConclusion(ctx)) ? "done"
-                        : ("不合格".equals(inspectionConclusion(ctx)) ? "error" : "active")),
-                inspectionConclusion(ctx), ctx.getInspections().size() + " 条检验记录", inspectionDocs));
+        List<InspectionRecord> finished = finishedInspections(ctx);
+        String conclusion = inspectionConclusion(ctx);
+        stages.add(stage("inspection", "检验", finished.isEmpty() ? "pending"
+                        : ("合格".equals(conclusion) ? "done" : ("不合格".equals(conclusion) ? "error" : "active")),
+                conclusion == null ? "暂无检验" : conclusion,
+                finished.size() + " 条成品检验记录", inspectionDocs));
 
         stages.add(stage("release", "放行", ctx.getRelease() == null ? "pending"
                         : ("拒绝放行".equals(ctx.getRelease().getReleaseConclusion()) ? "error" : "done"),
@@ -870,6 +874,7 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
     private ProductSummaryDtos.DocumentItem inspectionRecordDoc(InspectionRecord record) {
         ProductSummaryDtos.DocumentItem doc = new ProductSummaryDtos.DocumentItem();
         doc.setType("检验记录");
+        doc.setItemCategory(record.getItemCategory());
         doc.setCode(record.getInspectionCode());
         doc.setTime(record.getEndTime());
         doc.setDate(date(record.getEndTime()));
@@ -1280,7 +1285,7 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         return switch (dateType == null ? "" : dateType) {
             case "workOrderDate" -> date(ctx.getWorkOrder().getConfigDate());
             case "inboundDate" -> ctx.getStockIns().isEmpty() ? null : date(ctx.getStockIns().get(0).getInDate());
-            case "inspectionDate" -> ctx.getInspections().isEmpty() ? null : date(ctx.getInspections().get(0).getEndTime());
+            case "inspectionDate" -> latestFinishedInspection(ctx) == null ? null : date(latestFinishedInspection(ctx).getEndTime());
             default -> planDate(ctx);
         };
     }
@@ -1314,8 +1319,24 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         return safe(String.valueOf(ctx.getPurchases().get(0).getStatus()));
     }
 
+    /**
+     * 产品汇总只认成品检验，中间产品/原料检验不参与成品结论
+     */
+    private List<InspectionRecord> finishedInspections(BatchContext ctx) {
+        if (ctx.getInspections() == null) return Collections.emptyList();
+        return ctx.getInspections().stream()
+                .filter(item -> "成品".equals(item.getItemCategory()))
+                .collect(Collectors.toList());
+    }
+
+    private InspectionRecord latestFinishedInspection(BatchContext ctx) {
+        List<InspectionRecord> list = finishedInspections(ctx);
+        return list.isEmpty() ? null : list.get(0);
+    }
+
     private String inspectionConclusion(BatchContext ctx) {
-        return ctx.getInspections().isEmpty() ? "未检验" : ctx.getInspections().get(0).getConclusion();
+        InspectionRecord inspection = latestFinishedInspection(ctx);
+        return inspection == null ? null : inspection.getConclusion();
     }
 
     private BigDecimal yieldRate(BatchContext ctx) {
