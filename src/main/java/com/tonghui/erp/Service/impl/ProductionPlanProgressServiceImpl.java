@@ -15,6 +15,7 @@ import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
 import com.tonghui.erp.Data.Entity.InspectionRecord;
 import com.tonghui.erp.Data.Entity.InspectionRequest;
+import com.tonghui.erp.Data.Entity.InspectionTask;
 import com.tonghui.erp.Data.Entity.PlanStatusLog;
 import com.tonghui.erp.Data.Entity.ProductionPlan;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
@@ -25,6 +26,7 @@ import com.tonghui.erp.Data.mapper.AcceptanceDetailMapper;
 import com.tonghui.erp.Data.mapper.AcceptanceOrderMapper;
 import com.tonghui.erp.Data.mapper.InspectionRecordMapper;
 import com.tonghui.erp.Data.mapper.InspectionRequestMapper;
+import com.tonghui.erp.Data.mapper.InspectionTaskMapper;
 import com.tonghui.erp.Data.mapper.PlanStatusLogMapper;
 import com.tonghui.erp.Data.mapper.ProductionPlanMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrdersMapper;
@@ -101,6 +103,10 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
     /** 检验记录数据访问层 */
     @Autowired
     private InspectionRecordMapper inspectionRecordMapper;
+
+    /** 检验任务数据访问层 */
+    @Autowired
+    private InspectionTaskMapper inspectionTaskMapper;
 
     /** 计划状态流水数据访问层 */
     @Autowired
@@ -613,6 +619,8 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
                 ? List.of()
                 : inspectionRecordMapper.selectList(new QueryWrapper<InspectionRecord>()
                 .in("work_order_id", workOrderIds));
+        // 请检单表没有状态字段，检验流程状态记录在关联的检验任务上
+        Map<Long, String> inspectionTaskStatusMap = loadInspectionTaskStatuses(inspectionRequests);
         List<PlanStatusLog> statusLogs = planStatusLogMapper.selectList(new QueryWrapper<PlanStatusLog>()
                 .eq("plan_id", planId));
 
@@ -632,7 +640,7 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
         detail.setPurchaseSummary(buildSummary(purchasePlans, orders));
         detail.setChains(chains);
         detail.setRelatedDocuments(buildRelatedDocuments(plan, purchasePlans, orders, acceptances,
-                stockIns, workOrders, inspectionRequests, inspectionRecords, statusLogs));
+                stockIns, workOrders, inspectionRequests, inspectionRecords, inspectionTaskStatusMap, statusLogs));
         return detail;
     }
 
@@ -1529,6 +1537,43 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
     // ===================================
 
     /**
+     * 批量加载请检单对应的检验任务状态
+     * <p>
+     * 请检单表本身没有状态字段，检验流程状态记录在检验任务的 task_status 上，
+     * 通过 inspection_task.request_ref_id 关联请检单。同一请检单存在多条任务时，
+     * 优先取未作废且最近更新的一条。
+     * </p>
+     *
+     * @param requests 请检记录列表
+     * @return 请检单ID -> 检验任务状态
+     */
+    private Map<Long, String> loadInspectionTaskStatuses(List<InspectionRequest> requests) {
+        List<Long> requestIds = requests.stream()
+                .map(InspectionRequest::getId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (requestIds.isEmpty()) {
+            return Map.of();
+        }
+        List<InspectionTask> tasks = inspectionTaskMapper.selectList(new QueryWrapper<InspectionTask>()
+                .in("request_ref_id", requestIds)
+                .orderByDesc("updated_time"));
+        Map<Long, String> statusByRequestId = new HashMap<>();
+        for (InspectionTask task : tasks) {
+            if (task.getRequestRefId() == null) {
+                continue;
+            }
+            String existing = statusByRequestId.get(task.getRequestRefId());
+            // 已作废任务仅在没有其他任务时兜底展示
+            if (existing == null || ("已作废".equals(existing) && !"已作废".equals(task.getTaskStatus()))) {
+                statusByRequestId.put(task.getRequestRefId(), task.getTaskStatus());
+            }
+        }
+        return statusByRequestId;
+    }
+
+    /**
      * 构建五个子页面的关联单据
      *
      * @param plan               生产计划
@@ -1539,6 +1584,7 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
      * @param workOrders         工单列表
      * @param inspectionRequests 请检记录列表
      * @param inspectionRecords  检验记录列表
+     * @param inspectionTaskStatusMap 请检单ID -> 检验任务状态
      * @param statusLogs         计划状态流水
      * @return 关联单据分组
      */
@@ -1550,6 +1596,7 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
                                                                     List<WorkOrder> workOrders,
                                                                     List<InspectionRequest> inspectionRequests,
                                                                     List<InspectionRecord> inspectionRecords,
+                                                                    Map<Long, String> inspectionTaskStatusMap,
                                                                     List<PlanStatusLog> statusLogs) {
         ProductionPlanRelatedDocumentsDto documents = new ProductionPlanRelatedDocumentsDto();
 
@@ -1580,7 +1627,8 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
 
         List<RelatedDocumentDto> inspection = new ArrayList<>();
         for (InspectionRequest request : inspectionRequests) {
-            inspection.add(buildInspectionRequestDoc(request));
+            inspection.add(buildInspectionRequestDoc(request,
+                    inspectionTaskStatusMap.get(request.getId())));
         }
         for (InspectionRecord record : inspectionRecords) {
             inspection.add(buildInspectionRecordDoc(record));
@@ -1744,16 +1792,17 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
     /**
      * 构建请检记录单据
      *
-     * @param request 请检记录
+     * @param request    请检记录
+     * @param taskStatus 关联检验任务的状态，无关联任务时为空
      * @return 单据信息
      */
-    private RelatedDocumentDto buildInspectionRequestDoc(InspectionRequest request) {
+    private RelatedDocumentDto buildInspectionRequestDoc(InspectionRequest request, String taskStatus) {
         RelatedDocumentDto doc = new RelatedDocumentDto();
         doc.setType("INSPECTION_REQUEST");
         doc.setId(request.getId());
         doc.setCode(request.getInspectionCode());
         doc.setTitle(request.getInspectionItemName());
-        doc.setStatus(request.getWorkOrderCode());
+        doc.setStatus(taskStatus);
         doc.setTime(request.getRequestTime());
         doc.setDetailPath("/api/inspection-request/" + request.getId());
         doc.setCategory("INSPECTION");
