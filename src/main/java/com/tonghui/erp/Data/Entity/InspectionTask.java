@@ -36,11 +36,11 @@ public class InspectionTask extends AuditEntity {
     @TableField(value = "task_code")
     private String taskCode;
 
-    /** 工单ID */
+    /** 工单ID，生产原料请检单生成的 task 为空 */
     @TableField(value = "work_order_id")
     private Long workOrderId;
 
-    /** 工单编号 */
+    /** 工单编号，生产原料请检单生成的 task 为空 */
     @TableField(value = "work_order_code")
     private String workOrderCode;
 

@@ -67,8 +67,8 @@
 CREATE TABLE inspection_task (
   id                BIGINT PRIMARY KEY AUTO_INCREMENT,
   task_code         VARCHAR(50)  NOT NULL COMMENT '检验任务号',
-  work_order_id     BIGINT       NOT NULL COMMENT '工单ID',
-  work_order_code   VARCHAR(50)  NOT NULL,
+  work_order_id     BIGINT       NULL COMMENT '工单ID，生产原料请检单生成的 task 为空',
+  work_order_code   VARCHAR(50)  NULL COMMENT '工单编号，生产原料请检单生成的 task 为空',
   plan_id           BIGINT       NULL COMMENT '生产计划ID',
   plan_number       VARCHAR(50)  NULL,
   preparation_id    BIGINT       NULL,

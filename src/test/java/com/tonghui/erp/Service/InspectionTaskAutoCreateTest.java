@@ -107,6 +107,64 @@ public class InspectionTaskAutoCreateTest {
         }
     }
 
+    /**
+     * 生产原料请检单没有工单，也应生成检验任务，且只出现在任务视图
+     */
+    @Test
+    public void createRawMaterialRequestShouldGenerateTaskWithoutWorkOrder() throws Exception {
+        String marker = String.valueOf(System.currentTimeMillis());
+        String materialName = "自动测试原料" + marker;
+        String batchNumber = "MAT" + marker;
+
+        List<Long> requestIds = new ArrayList<>();
+        List<Long> taskIds = new ArrayList<>();
+        try {
+            long requestId = createRawMaterialRequest(materialName, batchNumber);
+            requestIds.add(requestId);
+            long taskId = taskIdOfRequest(requestId);
+            taskIds.add(taskId);
+
+            Map<String, Object> task = jdbcTemplate.queryForMap(
+                    "SELECT work_order_id, work_order_code, item_category, batch_no, object_name, "
+                            + "current_step, task_status, retention_required, destruction_required "
+                            + "FROM inspection_task WHERE id = ?", taskId);
+            Assertions.assertNull(task.get("work_order_id"), "生产原料任务不应关联工单");
+            Assertions.assertNull(task.get("work_order_code"), "生产原料任务不应带工单编号");
+            Assertions.assertEquals("生产原料", task.get("item_category"));
+            Assertions.assertEquals(batchNumber, task.get("batch_no"));
+            Assertions.assertEquals(materialName, task.get("object_name"));
+            Assertions.assertEquals("PLAN", task.get("current_step"), "任务应推进到检验计划环节");
+            Assertions.assertEquals("进行中", task.get("task_status"));
+            Assertions.assertEquals(0, ((Number) task.get("retention_required")).intValue(),
+                    "生产原料任务不要求留样");
+            Assertions.assertEquals(0, ((Number) task.get("destruction_required")).intValue(),
+                    "生产原料任务不要求销毁");
+
+            // 任务视图可以查到
+            JsonNode tasks = get("/api/inspection/tasks?keyword=" + batchNumber + "&pageIndex=0&pageSize=20");
+            boolean foundInTaskView = false;
+            for (JsonNode item : tasks.path("data").path("items")) {
+                if (item.path("id").asLong() == taskId) {
+                    foundInTaskView = true;
+                }
+            }
+            Assertions.assertTrue(foundInTaskView, "任务视图应包含生产原料任务");
+
+            // 批次视图按工单聚合，不包含无工单的生产原料任务
+            JsonNode batches = get("/api/inspection/batches?keyword=" + batchNumber + "&pageIndex=0&pageSize=20");
+            Assertions.assertEquals(0, batches.path("data").path("items").size(),
+                    "批次视图不应包含无工单的生产原料任务");
+        } finally {
+            for (Long taskId : taskIds) {
+                jdbcTemplate.update("DELETE FROM inspection_task_step WHERE task_id = ?", taskId);
+                jdbcTemplate.update("DELETE FROM inspection_task WHERE id = ?", taskId);
+            }
+            for (Long requestId : requestIds) {
+                jdbcTemplate.update("DELETE FROM inspection_request WHERE id = ?", requestId);
+            }
+        }
+    }
+
     // endregion
 
     // region 测试工具
@@ -172,6 +230,36 @@ public class InspectionTaskAutoCreateTest {
                 "SELECT step_status FROM inspection_task_step WHERE task_id = ? AND step_code = 'PLAN'",
                 String.class, taskId);
         Assertions.assertEquals("进行中", planStep, "检验计划环节应进行中");
+    }
+
+    /**
+     * 调用请检单创建接口，返回请检单ID（生产原料，无工单）
+     */
+    private long createRawMaterialRequest(String materialName, String batchNumber) throws Exception {
+        Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("inspectionItemName", materialName);
+        payload.put("itemCategory", "生产原料");
+        payload.put("batchNumber", batchNumber);
+        payload.put("spec", "25kg/袋");
+        payload.put("configQuantity", "100");
+        payload.put("requestDepartment", "自动测试部门");
+        payload.put("requester", "自动测试员");
+        payload.put("requestTime", "2026-11-09T11:00:00");
+        payload.put("inspectionItems", "性状、水分");
+        JsonNode node = exchange(HttpMethod.POST, "/api/inspection-request", mapper.writeValueAsString(payload));
+        Assertions.assertEquals(200, node.path("code").asInt(-1), "创建生产原料请检单失败: " + node);
+        long requestId = node.path("data").path("id").asLong();
+        Assertions.assertTrue(requestId > 0, "请检单未返回ID: " + node);
+        return requestId;
+    }
+
+    /**
+     * 带JWT令牌GET接口
+     */
+    private JsonNode get(String path) throws Exception {
+        JsonNode node = exchange(HttpMethod.GET, path, null);
+        Assertions.assertEquals(200, node.path("code").asInt(-1), "接口失败: " + path + " -> " + node);
+        return node;
     }
 
     /**

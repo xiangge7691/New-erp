@@ -15,6 +15,10 @@
 
 请检单创建后自动生成检验任务（一张请检单对应一张任务），同一工单+品类+批号下允许多条任务；存量库需执行 `src/main/resources/Data/migration/inspection_task_request_unique.sql`（已在测试库执行）。
 
+生产原料请检单不关联工单，同样自动生成任务（任务工单字段为空）；存量库需执行 `src/main/resources/Data/migration/inspection_task_allow_no_work_order.sql`（已在测试库执行）。
+
+存量请检单可用 `./mvnw test -Dtest=InspectionTaskBackfillRunner` 补建任务（幂等，已关联任务的请检单自动跳过；测试库已执行，补出 14 条）。
+
 | 表 | 用途 | 测试库状态 |
 |----|------|-----------|
 | `inspection_task` | 检验任务主表（六步流程索引） | 已建，请检单创建时自动生成任务 |
@@ -79,6 +83,7 @@
 - 六步顺序：`REQUEST → PLAN → SAMPLING → INSPECTION → RETENTION → DESTRUCTION(非必须) → DONE`。
 - 请检单（原请检页面）创建成功后，后端在同一事务内自动生成检验任务：完成 `REQUEST` 环节并推进到 `PLAN`；一张请检单对应一张任务，同一工单+品类+批号下允许多条任务。
 - 请检单填写的检验计划编号若在库中存在，任务自动关联并跳过 `PLAN` 环节。
+- 生产原料请检单不关联工单，直接用请检单自身信息（被检物名称、批号、规格）生成任务，工单字段为空；此类任务只在“按任务”视图展示，批次视图按工单聚合、不包含它们。
 - 检验任务页先行创建且未关联请检单的任务，会被后续同工单+品类+批号的请检单直接关联复用。
 - 不允许跳步；留样/销毁可按任务配置或 `skip` 接口跳过，必须写原因。
 - 每一步在同一事务内写原业务表、更新任务引用、推进 `current_step`、写 `inspection_task_step`。

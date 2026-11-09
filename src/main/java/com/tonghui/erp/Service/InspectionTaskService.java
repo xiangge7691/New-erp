@@ -90,11 +90,12 @@ public interface InspectionTaskService extends IService<InspectionTask> {
      * 根据已保存的请检单自动生成检验任务（一张请检单对应一张任务）
      * <p>
      * 任务生成后直接完成“请检”环节并推进到“检验计划”；若工单下已有未关联请检单的任务，
-     * 则直接关联复用；请检单填写的检验计划编号若已存在，则自动关联并跳过计划环节。
+     * 则直接关联复用；生产原料请检单不关联工单，直接用请检单自身信息生成任务；
+     * 请检单填写的检验计划编号若已存在，则自动关联并跳过计划环节。
      * </p>
      *
      * @param request 已保存的请检单
-     * @return 任务详情；工单信息缺失无法建任务时返回 null
+     * @return 任务详情；既无工单又被检品属性不合法时返回 null
      */
     InspectionTaskDtos.TaskDetail createTaskFromRequest(InspectionRequest request);
 

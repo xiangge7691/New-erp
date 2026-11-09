@@ -201,6 +201,8 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
                                                                      String itemCategory, String step,
                                                                      String status, String keyword) {
         QueryWrapper<InspectionTask> wrapper = buildTaskWrapper(varietyCode, batchNo, itemCategory, step, status, keyword);
+        // 批次视图按工单聚合；生产原料任务不关联工单，只在任务视图展示
+        wrapper.isNotNull("work_order_id");
         List<InspectionTask> tasks = list(wrapper);
         Map<String, List<InspectionTask>> grouped = new LinkedHashMap<>();
         for (InspectionTask task : tasks) {
@@ -1015,11 +1017,12 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
      * <p>
      * 请检单已由请检页面创建，任务生成后直接完成“请检”环节并推进到“检验计划”。
      * 若工单下已存在未关联请检单的任务（检验任务页先行创建），则直接关联复用；
+     * 生产原料请检单不关联工单，直接用请检单自身信息生成任务；
      * 请检单填写的检验计划编号若在库中存在，则自动关联并跳过计划环节。
      * </p>
      *
      * @param request 已保存的请检单
-     * @return 任务详情；工单信息缺失无法建任务时返回 null
+     * @return 任务详情；既无工单又被检品属性不合法时返回 null
      */
     @Override
     @Transactional
@@ -1034,26 +1037,30 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
             return getTaskDetail(linked.getId());
         }
         WorkOrder workOrder = resolveWorkOrder(request);
-        if (workOrder == null) {
-            log.warn("请检单 {} 未关联有效工单，跳过自动生成检验任务", request.getInspectionCode());
+        if (workOrder == null && !ITEM_CATEGORIES.contains(request.getItemCategory())) {
+            // 既无工单又无合法被检品属性，无法建任务
+            log.warn("请检单 {} 未关联工单且被检品属性不合法，跳过自动生成检验任务", request.getInspectionCode());
             return null;
         }
         String itemCategory = ITEM_CATEGORIES.contains(request.getItemCategory())
                 ? request.getItemCategory() : "成品";
         String batchNo = StringUtils.hasText(request.getBatchNumber())
                 ? request.getBatchNumber()
-                : (workOrder.getBatchNumber() == null ? "" : workOrder.getBatchNumber());
+                : (workOrder == null || workOrder.getBatchNumber() == null ? "" : workOrder.getBatchNumber());
 
-        // 复用检验任务页先行创建、尚未关联请检单的任务，避免同一批次重复建任务
-        InspectionTask task = getOne(new QueryWrapper<InspectionTask>()
-                .eq("work_order_id", workOrder.getWorkOrderId())
-                .eq("item_category", itemCategory)
-                .eq("batch_no", batchNo)
-                .isNull("request_ref_id")
-                .eq("current_step", STEP_REQUEST)
-                .ne("task_status", STATUS_CANCELLED)
-                .orderByAsc("id")
-                .last("LIMIT 1"), false);
+        // 复用检验任务页先行创建、尚未关联请检单的任务（任务页创建的任务一定带工单）
+        InspectionTask task = null;
+        if (workOrder != null) {
+            task = getOne(new QueryWrapper<InspectionTask>()
+                    .eq("work_order_id", workOrder.getWorkOrderId())
+                    .eq("item_category", itemCategory)
+                    .eq("batch_no", batchNo)
+                    .isNull("request_ref_id")
+                    .eq("current_step", STEP_REQUEST)
+                    .ne("task_status", STATUS_CANCELLED)
+                    .orderByAsc("id")
+                    .last("LIMIT 1"), false);
+        }
         if (task == null) {
             task = buildTaskFromRequest(request, workOrder, itemCategory, batchNo);
             save(task);
@@ -1075,30 +1082,42 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
 
     /**
      * 用请检单与工单信息组装检验任务（未保存）
+     * <p>
+     * 生产原料请检单不关联工单，工单为空时直接用请检单自身信息组装。
+     * </p>
      */
     private InspectionTask buildTaskFromRequest(InspectionRequest request, WorkOrder workOrder,
                                                 String itemCategory, String batchNo) {
         InspectionTask task = new InspectionTask();
         task.setTaskCode(generateTaskCode());
-        task.setWorkOrderId(workOrder.getWorkOrderId());
-        task.setWorkOrderCode(workOrder.getWorkOrderCode());
-        task.setPlanId(workOrder.getPlanId());
-        ProductionPlan plan = workOrder.getPlanId() == null ? null
-                : productionPlanMapper.selectById(workOrder.getPlanId());
-        if (plan != null) {
-            task.setPlanNumber(plan.getPlanNumber());
+        if (workOrder != null) {
+            task.setWorkOrderId(workOrder.getWorkOrderId());
+            task.setWorkOrderCode(workOrder.getWorkOrderCode());
+            task.setPlanId(workOrder.getPlanId());
+            ProductionPlan plan = workOrder.getPlanId() == null ? null
+                    : productionPlanMapper.selectById(workOrder.getPlanId());
+            if (plan != null) {
+                task.setPlanNumber(plan.getPlanNumber());
+            }
+            task.setPreparationId(workOrder.getPreparationId());
+            task.setPreparationCode(StringUtils.hasText(workOrder.getPreparationCode())
+                    ? workOrder.getPreparationCode() : request.getPreparationCode());
+            task.setPreparationName(StringUtils.hasText(workOrder.getPreparationName())
+                    ? workOrder.getPreparationName() : request.getPreparationName());
+        } else {
+            // 生产原料请检单没有工单，任务字段直接取请检单
+            task.setWorkOrderId(null);
+            task.setWorkOrderCode(StringUtils.hasText(request.getWorkOrderCode())
+                    ? request.getWorkOrderCode() : null);
+            task.setPreparationCode(request.getPreparationCode());
+            task.setPreparationName(request.getPreparationName());
         }
-        task.setPreparationId(workOrder.getPreparationId());
-        task.setPreparationCode(StringUtils.hasText(workOrder.getPreparationCode())
-                ? workOrder.getPreparationCode() : request.getPreparationCode());
-        task.setPreparationName(StringUtils.hasText(workOrder.getPreparationName())
-                ? workOrder.getPreparationName() : request.getPreparationName());
         task.setBatchNo(batchNo);
         task.setItemCategory(itemCategory);
         task.setObjectName(StringUtils.hasText(request.getInspectionItemName())
-                ? request.getInspectionItemName() : workOrder.getPreparationName());
+                ? request.getInspectionItemName() : (workOrder == null ? null : workOrder.getPreparationName()));
         String spec = request.getSpec();
-        if (!StringUtils.hasText(spec) && workOrder.getPreparationId() != null) {
+        if (!StringUtils.hasText(spec) && workOrder != null && workOrder.getPreparationId() != null) {
             spec = java.util.Optional.ofNullable(preparationService.getById(workOrder.getPreparationId()))
                     .map(p -> p.getSpec()).orElse(null);
         }
