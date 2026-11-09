@@ -33,6 +33,8 @@ import com.tonghui.erp.Service.InspectionTaskService;
 import com.tonghui.erp.Service.PreparationService;
 import com.tonghui.erp.Service.RetainedSampleService;
 import com.tonghui.erp.Service.SamplingRecordService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -70,6 +72,9 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
     // ===================================
     // 常量
     // ===================================
+
+    /** 日志记录器 */
+    private static final Logger log = LoggerFactory.getLogger(InspectionTaskServiceImpl.class);
 
     private static final String STEP_PLAN = "PLAN";
     private static final String STEP_REQUEST = "REQUEST";
@@ -288,17 +293,6 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
         stats.setCompletedTasks(completedTasks);
         stats.setStepCounts(new ArrayList<>(stepMap.values()));
         return stats;
-    }
-
-    @Override
-    public List<InspectionTaskDtos.TaskSummary> queryBatchTasks(Long workOrderId) {
-        if (workOrderId == null) {
-            return Collections.emptyList();
-        }
-        List<InspectionTask> tasks = list(new QueryWrapper<InspectionTask>()
-                .eq("work_order_id", workOrderId)
-                .orderByAsc("id"));
-        return buildSummaries(tasks);
     }
 
     /**
@@ -684,10 +678,15 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
             throw new IllegalArgumentException("工单不存在");
         }
         String batchNo = workOrder.getBatchNumber() == null ? "" : workOrder.getBatchNumber();
+        // 同一工单+品类+批号下允许存在多条任务（每张请检单一条），只复用尚未关联请检单的任务
         InspectionTask exist = getOne(new QueryWrapper<InspectionTask>()
                 .eq("work_order_id", workOrder.getWorkOrderId())
                 .eq("item_category", itemCategory)
-                .eq("batch_no", batchNo), false);
+                .eq("batch_no", batchNo)
+                .isNull("request_ref_id")
+                .ne("task_status", STATUS_CANCELLED)
+                .orderByAsc("id")
+                .last("LIMIT 1"), false);
         if (exist != null) {
             return getTaskDetail(exist.getId());
         }
@@ -718,15 +717,7 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
         task.setVersion(1);
         save(task);
 
-        for (String step : STEP_ORDER) {
-            InspectionTaskStep taskStep = new InspectionTaskStep();
-            taskStep.setTaskId(task.getId());
-            taskStep.setStepCode(step);
-            taskStep.setStepStatus(STEP_STATUS_WAIT);
-            taskStep.setIsDeleted(0);
-            taskStep.setVersion(1);
-            stepMapper.insert(taskStep);
-        }
+        createTaskSteps(task.getId());
         markStepRunning(task.getId(), STEP_REQUEST);
         return getTaskDetail(task.getId());
     }
@@ -1014,6 +1005,155 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
 
     // endregion
 
+    // region 由请检单生成任务
+    // ===================================
+    // 由请检单生成任务
+    // ===================================
+
+    /**
+     * 根据已保存的请检单自动生成检验任务（一张请检单对应一张任务）
+     * <p>
+     * 请检单已由请检页面创建，任务生成后直接完成“请检”环节并推进到“检验计划”。
+     * 若工单下已存在未关联请检单的任务（检验任务页先行创建），则直接关联复用；
+     * 请检单填写的检验计划编号若在库中存在，则自动关联并跳过计划环节。
+     * </p>
+     *
+     * @param request 已保存的请检单
+     * @return 任务详情；工单信息缺失无法建任务时返回 null
+     */
+    @Override
+    @Transactional
+    public InspectionTaskDtos.TaskDetail createTaskFromRequest(InspectionRequest request) {
+        if (request == null || request.getId() == null) {
+            throw new IllegalArgumentException("请检单不能为空");
+        }
+        // 幂等：同一张请检单只生成一张任务
+        InspectionTask linked = getOne(new QueryWrapper<InspectionTask>()
+                .eq("request_ref_id", request.getId()), false);
+        if (linked != null) {
+            return getTaskDetail(linked.getId());
+        }
+        WorkOrder workOrder = resolveWorkOrder(request);
+        if (workOrder == null) {
+            log.warn("请检单 {} 未关联有效工单，跳过自动生成检验任务", request.getInspectionCode());
+            return null;
+        }
+        String itemCategory = ITEM_CATEGORIES.contains(request.getItemCategory())
+                ? request.getItemCategory() : "成品";
+        String batchNo = StringUtils.hasText(request.getBatchNumber())
+                ? request.getBatchNumber()
+                : (workOrder.getBatchNumber() == null ? "" : workOrder.getBatchNumber());
+
+        // 复用检验任务页先行创建、尚未关联请检单的任务，避免同一批次重复建任务
+        InspectionTask task = getOne(new QueryWrapper<InspectionTask>()
+                .eq("work_order_id", workOrder.getWorkOrderId())
+                .eq("item_category", itemCategory)
+                .eq("batch_no", batchNo)
+                .isNull("request_ref_id")
+                .eq("current_step", STEP_REQUEST)
+                .ne("task_status", STATUS_CANCELLED)
+                .orderByAsc("id")
+                .last("LIMIT 1"), false);
+        if (task == null) {
+            task = buildTaskFromRequest(request, workOrder, itemCategory, batchNo);
+            save(task);
+            createTaskSteps(task.getId());
+        } else {
+            task.setRequestRefId(request.getId());
+            if (task.getStartTime() == null) {
+                task.setStartTime(request.getRequestTime());
+            }
+            updateById(task);
+        }
+
+        // 请检环节直接完成，任务推进到检验计划
+        completeStepAndAdvance(task, STEP_REQUEST, "inspection_request", request.getId(),
+                "请检单 " + request.getInspectionCode() + " 已创建");
+        linkPlanIfExists(task, request);
+        return getTaskDetail(task.getId());
+    }
+
+    /**
+     * 用请检单与工单信息组装检验任务（未保存）
+     */
+    private InspectionTask buildTaskFromRequest(InspectionRequest request, WorkOrder workOrder,
+                                                String itemCategory, String batchNo) {
+        InspectionTask task = new InspectionTask();
+        task.setTaskCode(generateTaskCode());
+        task.setWorkOrderId(workOrder.getWorkOrderId());
+        task.setWorkOrderCode(workOrder.getWorkOrderCode());
+        task.setPlanId(workOrder.getPlanId());
+        ProductionPlan plan = workOrder.getPlanId() == null ? null
+                : productionPlanMapper.selectById(workOrder.getPlanId());
+        if (plan != null) {
+            task.setPlanNumber(plan.getPlanNumber());
+        }
+        task.setPreparationId(workOrder.getPreparationId());
+        task.setPreparationCode(StringUtils.hasText(workOrder.getPreparationCode())
+                ? workOrder.getPreparationCode() : request.getPreparationCode());
+        task.setPreparationName(StringUtils.hasText(workOrder.getPreparationName())
+                ? workOrder.getPreparationName() : request.getPreparationName());
+        task.setBatchNo(batchNo);
+        task.setItemCategory(itemCategory);
+        task.setObjectName(StringUtils.hasText(request.getInspectionItemName())
+                ? request.getInspectionItemName() : workOrder.getPreparationName());
+        String spec = request.getSpec();
+        if (!StringUtils.hasText(spec) && workOrder.getPreparationId() != null) {
+            spec = java.util.Optional.ofNullable(preparationService.getById(workOrder.getPreparationId()))
+                    .map(p -> p.getSpec()).orElse(null);
+        }
+        task.setSpec(spec);
+        task.setCurrentStep(STEP_REQUEST);
+        task.setTaskStatus(STATUS_WAIT);
+        // 成品需要留样与销毁，中间产品/生产原料不涉及
+        task.setRetentionRequired("成品".equals(itemCategory) ? 1 : 0);
+        task.setDestructionRequired("成品".equals(itemCategory) ? 1 : 0);
+        task.setRequestRefId(request.getId());
+        task.setStartTime(request.getRequestTime());
+        task.setRemark("由请检单 " + request.getInspectionCode() + " 自动生成");
+        task.setIsDeleted(0);
+        task.setVersion(1);
+        return task;
+    }
+
+    /**
+     * 解析请检单关联的工单：优先按ID，其次按工单编号
+     */
+    private WorkOrder resolveWorkOrder(InspectionRequest request) {
+        if (request.getWorkOrderId() != null) {
+            WorkOrder workOrder = workOrderMapper.selectById(request.getWorkOrderId());
+            if (workOrder != null) {
+                return workOrder;
+            }
+        }
+        if (StringUtils.hasText(request.getWorkOrderCode())) {
+            return workOrderMapper.selectOne(new QueryWrapper<WorkOrder>()
+                    .eq("work_order_code", request.getWorkOrderCode())
+                    .last("LIMIT 1"));
+        }
+        return null;
+    }
+
+    /**
+     * 请检单已填写且库中存在的检验计划：直接关联并完成计划环节
+     */
+    private void linkPlanIfExists(InspectionTask task, InspectionRequest request) {
+        if (!StringUtils.hasText(request.getInspectionPlanCode()) || task.getPlanRefId() != null) {
+            return;
+        }
+        InspectionPlan plan = inspectionPlanService.getOne(new QueryWrapper<InspectionPlan>()
+                .eq("plan_code", request.getInspectionPlanCode())
+                .last("LIMIT 1"), false);
+        if (plan == null) {
+            return;
+        }
+        task.setPlanRefId(plan.getId());
+        completeStepAndAdvance(task, STEP_PLAN, "inspection_plan", plan.getId(),
+                "关联检验计划 " + plan.getPlanCode() + " 已完成");
+    }
+
+    // endregion
+
     // region 内部流程工具
     // ===================================
     // 内部流程工具
@@ -1104,6 +1244,21 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
         return stepMapper.selectList(new QueryWrapper<InspectionTaskStep>()
                 .eq("task_id", taskId)
                 .orderByAsc("id"));
+    }
+
+    /**
+     * 初始化任务六步记录（全部待办理）
+     */
+    private void createTaskSteps(Long taskId) {
+        for (String step : STEP_ORDER) {
+            InspectionTaskStep taskStep = new InspectionTaskStep();
+            taskStep.setTaskId(taskId);
+            taskStep.setStepCode(step);
+            taskStep.setStepStatus(STEP_STATUS_WAIT);
+            taskStep.setIsDeleted(0);
+            taskStep.setVersion(1);
+            stepMapper.insert(taskStep);
+        }
     }
 
     private void syncFiles(String stepCode, Long bizId, List<Long> fileIds) {

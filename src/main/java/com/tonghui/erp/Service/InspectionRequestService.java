@@ -32,6 +32,18 @@ public interface InspectionRequestService extends IService<InspectionRequest> {
     boolean isCodeUnique(String code, Long excludeId);
 
     /**
+     * 创建请检记录并自动生成检验任务
+     * <p>
+     * 在同一事务内保存请检单，并由检验任务服务生成对应任务（完成请检环节）。
+     * 请检单未关联工单时不生成任务，请检单本身仍会保存。
+     * </p>
+     *
+     * @param request 请检记录实体
+     * @return 保存后的请检记录（含自增ID与请检编号）
+     */
+    InspectionRequest createWithTask(InspectionRequest request);
+
+    /**
      * 高级查询请检记录（支持多条件 + 分页）
      *
      * @param request       查询条件实体

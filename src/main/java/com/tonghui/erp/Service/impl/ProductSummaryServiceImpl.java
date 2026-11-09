@@ -14,6 +14,7 @@ import com.tonghui.erp.Data.Entity.InspectionRequest;
 import com.tonghui.erp.Data.Entity.ProductionPick;
 import com.tonghui.erp.Data.Entity.ProductionPickDetail;
 import com.tonghui.erp.Data.Entity.ProductionPlan;
+import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.PurchaseOrderItems;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
 import com.tonghui.erp.Data.Entity.ReleaseReview;
@@ -24,11 +25,13 @@ import com.tonghui.erp.Data.Entity.StockOut;
 import com.tonghui.erp.Data.Entity.StockOutDetail;
 import com.tonghui.erp.Data.Entity.WorkOrder;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessExecution;
+import com.tonghui.erp.Data.mapper.ProductionPlanMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderMapper;
 import com.tonghui.erp.Service.BatchQueryService;
 import com.tonghui.erp.Service.BusinessFileService;
 import com.tonghui.erp.Service.FileRequirementService;
 import com.tonghui.erp.Service.FileInfoService;
+import com.tonghui.erp.Service.PreparationService;
 import com.tonghui.erp.Service.ProductSummaryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -48,6 +51,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -65,6 +70,10 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
 
     @Autowired
     private WorkOrderMapper workOrderMapper;
+    @Autowired
+    private ProductionPlanMapper productionPlanMapper;
+    @Autowired
+    private PreparationService preparationService;
     @Autowired
     private BatchQueryService batchQueryService;
     @Autowired
@@ -84,32 +93,8 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
                                                                      String startDate, String endDate,
                                                                      String keyword, boolean onlyMissing,
                                                                      int pageIndex, int pageSize) {
-        QueryWrapper<WorkOrder> wrapper = new QueryWrapper<>();
-        if (StringUtils.hasText(varietyCode)) {
-            wrapper.eq("preparation_code", varietyCode);
-        }
-        if (StringUtils.hasText(keyword)) {
-            wrapper.and(w -> w.like("work_order_code", keyword)
-                    .or().like("batch_number", keyword)
-                    .or().like("preparation_name", keyword));
-        }
-        wrapper.orderByDesc("created_time", "work_order_id");
-        List<WorkOrder> workOrders = workOrderMapper.selectList(wrapper);
-        LocalDate start = parseDate(startDate);
-        LocalDate end = parseDate(endDate);
-
-        List<ProductSummaryDtos.BatchSummary> all = new ArrayList<>();
-        for (BatchContext ctx : batchQueryService.loadAll(workOrders)) {
-            ProductSummaryDtos.BatchSummary dto = toSummary(ctx);
-            LocalDate day = rowDate(ctx, dateType);
-            if (start != null && (day == null || day.isBefore(start))) continue;
-            if (end != null && (day == null || day.isAfter(end))) continue;
-            if (onlyMissing && dto.getMissingCount() == 0) continue;
-            all.add(dto);
-        }
-        all.sort(Comparator.comparing(ProductSummaryDtos.BatchSummary::getPlanDate,
-                Comparator.nullsLast(Comparator.reverseOrder())));
-
+        LoadedData data = loadData(varietyCode, dateType, startDate, endDate, keyword, onlyMissing);
+        List<ProductSummaryDtos.BatchSummary> all = data.summaries;
         int safeSize = Math.max(pageSize, 1);
         int from = Math.min(Math.max(pageIndex, 0) * safeSize, all.size());
         int to = Math.min(from + safeSize, all.size());
@@ -121,12 +106,474 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         return result;
     }
 
+    @Override
+    public java.util.List<ProductSummaryDtos.BatchSummary> queryCards(String varietyCode, String dateType,
+                                                                      String startDate, String endDate,
+                                                                      String keyword, boolean onlyMissing) {
+        return loadData(varietyCode, dateType, startDate, endDate, keyword, onlyMissing).summaries;
+    }
+
+    /**
+     * 加载筛选范围内的批次和未下达计划，列表、卡片、概览共用
+     */
+    private LoadedData loadData(String varietyCode, String dateType, String startDate, String endDate,
+                                String keyword, boolean onlyMissing) {
+        LocalDate start = parseDate(startDate);
+        LocalDate end = parseDate(endDate);
+        LoadedData data = new LoadedData();
+
+        QueryWrapper<WorkOrder> allWrapper = new QueryWrapper<>();
+        if (StringUtils.hasText(varietyCode)) {
+            allWrapper.eq("preparation_code", varietyCode);
+        }
+        List<WorkOrder> allWorkOrders = workOrderMapper.selectList(allWrapper);
+        Set<Long> planIdsWithWorkOrders = allWorkOrders.stream()
+                .map(WorkOrder::getPlanId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        QueryWrapper<WorkOrder> wrapper = new QueryWrapper<>();
+        if (StringUtils.hasText(varietyCode)) {
+            wrapper.eq("preparation_code", varietyCode);
+        }
+        if (StringUtils.hasText(keyword)) {
+            wrapper.and(w -> w.like("work_order_code", keyword)
+                    .or().like("batch_number", keyword)
+                    .or().like("preparation_name", keyword));
+        }
+        wrapper.orderByDesc("created_time", "work_order_id");
+        List<WorkOrder> workOrders = workOrderMapper.selectList(wrapper);
+
+        for (BatchContext ctx : batchQueryService.loadAll(workOrders)) {
+            ProductSummaryDtos.BatchSummary summary = toSummary(ctx);
+            if (!inDateRange(rowDate(ctx, dateType), start, end)) continue;
+            if (onlyMissing && summary.getMissingCount() == 0) continue;
+            data.summaries.add(summary);
+            data.contexts.add(ctx);
+        }
+
+        QueryWrapper<ProductionPlan> planWrapper = new QueryWrapper<>();
+        if (StringUtils.hasText(varietyCode)) {
+            planWrapper.eq("preparation_code", varietyCode);
+        }
+        if (StringUtils.hasText(keyword)) {
+            planWrapper.and(w -> w.like("plan_number", keyword)
+                    .or().like("preparation_name", keyword)
+                    .or().like("preparation_code", keyword));
+        }
+        planWrapper.orderByDesc("plan_production_time", "id");
+        List<ProductionPlan> plans = productionPlanMapper.selectList(planWrapper);
+        for (ProductionPlan plan : plans) {
+            if (plan.getId() == null || planIdsWithWorkOrders.contains(plan.getId().longValue())) {
+                continue;
+            }
+            // 未下达计划只有计划日期；选择工单/入库/检验日期口径时不纳入
+            if (StringUtils.hasText(dateType) && !"planDate".equals(dateType)) {
+                continue;
+            }
+            ProductSummaryDtos.BatchSummary summary = toPlanSummary(plan);
+            if (!inDateRange(planDate(plan), start, end)) continue;
+            if (onlyMissing && summary.getMissingCount() == 0) continue;
+            data.summaries.add(summary);
+            data.planOnlyPlans.add(plan);
+        }
+
+        data.summaries.sort(Comparator.comparing(ProductSummaryDtos.BatchSummary::getPlanDate,
+                Comparator.nullsLast(Comparator.reverseOrder())));
+        return data;
+    }
+
+    @Override
+    public ProductSummaryDtos.Overview getOverview(String varietyCode, String dateType,
+                                                    String startDate, String endDate,
+                                                    String keyword, boolean onlyMissing) {
+        LoadedData data = loadData(varietyCode, dateType, startDate, endDate, keyword, onlyMissing);
+        List<ProductSummaryDtos.BatchSummary> rows = data.summaries;
+
+        ProductSummaryDtos.Overview overview = new ProductSummaryDtos.Overview();
+        overview.setGeneratedAt(LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+
+        int batchCount = (int) rows.stream().filter(r -> r.getWorkOrderId() != null).count();
+        int missingRecords = (int) rows.stream().filter(r -> r.getMissingCount() > 0).count();
+        int missingItems = rows.stream().mapToInt(ProductSummaryDtos.BatchSummary::getMissingCount).sum();
+        int varietyCount = (int) rows.stream().map(ProductSummaryDtos.BatchSummary::getPreparationCode)
+                .filter(StringUtils::hasText).distinct().count();
+
+        List<ProductSummaryDtos.TodoItem> todo = rows.stream()
+                .filter(r -> r.getMissingCount() > 0)
+                .sorted(Comparator.comparingInt(ProductSummaryDtos.BatchSummary::getMissingCount).reversed())
+                .limit(5)
+                .map(this::toTodo)
+                .collect(Collectors.toList());
+
+        ProductSummaryDtos.Verdict verdict = new ProductSummaryDtos.Verdict();
+        verdict.setVarietyCount(varietyCount);
+        verdict.setRecordCount(rows.size());
+        verdict.setBatchCount(batchCount);
+        verdict.setMissingRecords(missingRecords);
+        verdict.setMissingItems(missingItems);
+        verdict.setTopPriority(todo.isEmpty() ? null : todo.get(0));
+        overview.setVerdict(verdict);
+        overview.setTodo(todo);
+
+        List<ProductSummaryDtos.SlotState> slots = new ArrayList<>();
+        for (BatchContext ctx : data.contexts) {
+            slots.addAll(slotStates(ctx));
+        }
+        for (ProductionPlan plan : data.planOnlyPlans) {
+            slots.addAll(planOnlySlots(plan));
+        }
+        slots = slots.stream()
+                .filter(s -> s.getExpected() > 0 && !"OPTIONAL".equals(s.getRequirement()))
+                .collect(Collectors.toList());
+
+        Map<String, ProductSummaryDtos.StageHealth> stageMap = new LinkedHashMap<>();
+        Map<String, ProductSummaryDtos.SlotHealth> slotMap = new LinkedHashMap<>();
+        for (ProductSummaryDtos.SlotState slot : slots) {
+            ProductSummaryDtos.StageHealth stage = stageMap.computeIfAbsent(slot.getStage(), key -> {
+                ProductSummaryDtos.StageHealth item = new ProductSummaryDtos.StageHealth();
+                item.setStage(key);
+                return item;
+            });
+            stage.setExpected(stage.getExpected() + slot.getExpected());
+            stage.setUploaded(stage.getUploaded() + slot.getUploaded());
+            stage.setMissing(stage.getMissing() + slot.getMissing());
+
+            String slotKey = slot.getStage() + "|" + slot.getLabel() + "|" + slot.getRequirement();
+            ProductSummaryDtos.SlotHealth slotHealth = slotMap.computeIfAbsent(slotKey, key -> {
+                ProductSummaryDtos.SlotHealth item = new ProductSummaryDtos.SlotHealth();
+                item.setStage(slot.getStage());
+                item.setLabel(slot.getLabel());
+                item.setRequirement(slot.getRequirement());
+                return item;
+            });
+            slotHealth.setExpected(slotHealth.getExpected() + slot.getExpected());
+            slotHealth.setUploaded(slotHealth.getUploaded() + slot.getUploaded());
+            slotHealth.setMissing(slotHealth.getMissing() + slot.getMissing());
+        }
+
+        List<ProductSummaryDtos.StageHealth> stages = stageMap.values().stream()
+                .sorted(Comparator.comparingInt(s -> stageOrder(s.getStage())))
+                .collect(Collectors.toList());
+        List<ProductSummaryDtos.SlotHealth> allSlots = slotMap.values().stream()
+                .sorted(Comparator.comparingInt((ProductSummaryDtos.SlotHealth s) -> stageOrder(s.getStage()))
+                        .thenComparing(ProductSummaryDtos.SlotHealth::getLabel))
+                .collect(Collectors.toList());
+        List<ProductSummaryDtos.SlotHealth> topSlots = allSlots.stream()
+                .filter(s -> s.getMissing() > 0)
+                .sorted(Comparator.comparingInt(ProductSummaryDtos.SlotHealth::getMissing).reversed())
+                .limit(5)
+                .collect(Collectors.toList());
+
+        ProductSummaryDtos.Health health = new ProductSummaryDtos.Health();
+        health.setStages(stages);
+        health.setTopSlots(topSlots);
+        health.setAllSlots(allSlots);
+        overview.setHealth(health);
+
+        int expected = allSlots.stream().mapToInt(ProductSummaryDtos.SlotHealth::getExpected).sum();
+        int uploaded = allSlots.stream().mapToInt(ProductSummaryDtos.SlotHealth::getUploaded).sum();
+        int qualified = (int) rows.stream().filter(r -> "合格".equals(r.getInspectionConclusion())).count();
+        int inspectionTotal = (int) rows.stream()
+                .filter(r -> StringUtils.hasText(r.getInspectionConclusion())
+                        && !"未检验".equals(r.getInspectionConclusion()))
+                .count();
+        ProductSummaryDtos.Kpi kpi = new ProductSummaryDtos.Kpi();
+        kpi.setTotalBatches(batchCount);
+        kpi.setRunningBatches((int) rows.stream()
+                .filter(r -> r.getWorkOrderId() != null && !isDoneStatus(r.getStatus()))
+                .count());
+        kpi.setMissingItems(missingItems);
+        kpi.setMissingRecords(missingRecords);
+        kpi.setFileExpected(expected);
+        kpi.setFileUploaded(uploaded);
+        kpi.setCompletenessRate(expected == 0 ? 100 : (int) Math.round(uploaded * 100.0 / expected));
+        kpi.setInspectionTotal(inspectionTotal);
+        kpi.setInspectionQualified(qualified);
+        kpi.setInspectionRate(inspectionTotal == 0 ? null : (int) Math.round(qualified * 100.0 / inspectionTotal));
+        overview.setKpis(kpi);
+
+        Map<String, ProductSummaryDtos.PreparationSummary> prepMap = new LinkedHashMap<>();
+        for (ProductSummaryDtos.BatchSummary row : rows) {
+            if (!StringUtils.hasText(row.getPreparationCode())) continue;
+            ProductSummaryDtos.PreparationSummary prep = prepMap.computeIfAbsent(row.getPreparationCode(), key -> {
+                ProductSummaryDtos.PreparationSummary p = new ProductSummaryDtos.PreparationSummary();
+                p.setPreparationCode(key);
+                p.setPreparationName(row.getPreparationName());
+                return p;
+            });
+            if (row.getWorkOrderId() != null) prep.setBatchCount(prep.getBatchCount() + 1);
+            if (row.getMissingCount() > 0) prep.setMissingCount(prep.getMissingCount() + 1);
+        }
+        overview.setPreparations(new ArrayList<>(prepMap.values()));
+        return overview;
+    }
+
+    private ProductSummaryDtos.TodoItem toTodo(ProductSummaryDtos.BatchSummary row) {
+        ProductSummaryDtos.TodoItem item = new ProductSummaryDtos.TodoItem();
+        item.setRecordKey(row.getRecordKey());
+        item.setPlanId(row.getPlanId());
+        item.setWorkOrderId(row.getWorkOrderId());
+        item.setPreparationName(row.getPreparationName());
+        item.setCode(row.getWorkOrderCode() != null ? row.getWorkOrderCode() : row.getPlanNumber());
+        item.setBatchNo(row.getBatchNo());
+        item.setMissingCount(row.getMissingCount());
+        item.setStageBrief(row.getMissingSummary());
+        return item;
+    }
+
+    @Override
+    public ProductSummaryDtos.BatchDetail getPlanDetail(Long planId) {
+        ProductionPlan plan = productionPlanMapper.selectById(planId);
+        if (plan == null) {
+            throw new IllegalArgumentException("生产计划不存在");
+        }
+        ProductSummaryDtos.BatchDetail detail = new ProductSummaryDtos.BatchDetail();
+        detail.setBatch(toPlanSummary(plan));
+        detail.setSlots(planOnlySlots(plan));
+        detail.setFiles(planOnlyFileGroups(plan));
+        detail.setMissingItems(planOnlyMissing(plan));
+        detail.setStages(planOnlyStages(plan));
+        return detail;
+    }
+
+    private List<ProductSummaryDtos.StageItem> planOnlyStages(ProductionPlan plan) {
+        ProductSummaryDtos.DocumentItem doc = planDocument(plan);
+        ProductSummaryDtos.StageItem stage = stage("plan", "计划", "done", plan.getPlanNumber(),
+                safe(plan.getCurrentStatus()) + (planDate(plan) == null ? "" : " · " + planDate(plan)),
+                List.of(doc));
+        return List.of(stage);
+    }
+
+    private ProductSummaryDtos.DocumentItem planDocument(ProductionPlan plan) {
+        ProductSummaryDtos.DocumentItem doc = new ProductSummaryDtos.DocumentItem();
+        doc.setType("生产计划");
+        doc.setCode(plan.getPlanNumber());
+        doc.setDate(planDate(plan));
+        doc.setStatus(plan.getCurrentStatus());
+        doc.setFiles(toFiles(businessFileService.list("PRODUCTION_PLAN", plan.getId().longValue(), null, null)));
+        return doc;
+    }
+
+    private List<ProductSummaryDtos.SlotState> planOnlySlots(ProductionPlan plan) {
+        List<ProductSummaryDtos.SlotState> result = new ArrayList<>();
+        for (FileRequirementConfig config : fileRequirementService.listAll()) {
+            List<Long> ids = planSlotDocumentIds(config, plan);
+            if (ids.isEmpty()) continue;
+            ProductSummaryDtos.SlotState slot = new ProductSummaryDtos.SlotState();
+            slot.setStage(config.getStage());
+            slot.setLabel(StringUtils.hasText(config.getDisplayName())
+                    ? config.getDisplayName() : config.getBizType() + " / " + config.getFileKind());
+            slot.setBizType(config.getBizType());
+            slot.setFileKind(config.getFileKind());
+            slot.setRequirement(config.getRequirement());
+            slot.setExpected(ids.size());
+            slot.setUploaded((int) ids.stream().filter(id -> !files(config.getBizType(), id, config.getFileKind()).isEmpty()).count());
+            slot.setMissing(Math.max(0, slot.getExpected() - slot.getUploaded()));
+            result.add(slot);
+        }
+        return result;
+    }
+
+    private List<ProductSummaryDtos.FileGroup> planOnlyFileGroups(ProductionPlan plan) {
+        List<ProductSummaryDtos.FileGroup> result = new ArrayList<>();
+        for (FileRequirementConfig config : fileRequirementService.listAll()) {
+            List<Long> ids = planSlotDocumentIds(config, plan);
+            if (ids.isEmpty()) continue;
+            List<BusinessFileDto> files = new ArrayList<>();
+            for (Long id : ids) {
+                files.addAll(files(config.getBizType(), id, config.getFileKind()));
+            }
+            if (files.isEmpty()) continue;
+            ProductSummaryDtos.FileGroup group = new ProductSummaryDtos.FileGroup();
+            group.setStage(config.getStage());
+            group.setLabel(StringUtils.hasText(config.getDisplayName())
+                    ? config.getDisplayName() : config.getBizType() + " / " + config.getFileKind());
+            group.setBizType(config.getBizType());
+            group.setFileKind(config.getFileKind());
+            group.setRequirement(config.getRequirement());
+            group.setSlotCode(config.getBizType() + " / " + config.getFileKind());
+            group.setFiles(toFiles(files));
+            result.add(group);
+        }
+        return result;
+    }
+
+    private List<ProductSummaryDtos.MissingItem> planOnlyMissing(ProductionPlan plan) {
+        List<ProductSummaryDtos.MissingItem> result = new ArrayList<>();
+        for (FileRequirementConfig config : fileRequirementService.listAll()) {
+            if ("OPTIONAL".equals(config.getRequirement())) continue;
+            List<Long> ids = planSlotDocumentIds(config, plan);
+            for (Long id : ids) {
+                if (files(config.getBizType(), id, config.getFileKind()).isEmpty()) {
+                    ProductSummaryDtos.MissingItem item = new ProductSummaryDtos.MissingItem();
+                    item.setStage(config.getStage());
+                    item.setLabel(StringUtils.hasText(config.getDisplayName())
+                            ? config.getDisplayName() : config.getBizType());
+                    item.setDoc(plan.getPlanNumber());
+                    item.setSlotCode(config.getBizType() + " / " + config.getFileKind());
+                    result.add(item);
+                }
+            }
+        }
+        return result;
+    }
+
+    private List<Long> planSlotDocumentIds(FileRequirementConfig config, ProductionPlan plan) {
+        return switch (config.getBizType()) {
+            case "PREPARATION", "PREPARATION_PROCESS_TEMPLATE" -> plan.getPreparationId() == null
+                    ? Collections.emptyList() : List.of(plan.getPreparationId());
+            case "PRODUCTION_PLAN" -> plan.getId() == null ? Collections.emptyList() : List.of(plan.getId().longValue());
+            default -> Collections.emptyList();
+        };
+    }
+
+    private ProductSummaryDtos.BatchSummary toPlanSummary(ProductionPlan plan) {
+        Preparation preparation = plan.getPreparationId() == null ? null : preparationService.getById(plan.getPreparationId());
+        ProductSummaryDtos.BatchSummary dto = new ProductSummaryDtos.BatchSummary();
+        dto.setRecordKey(plan.getId() + "__none");
+        dto.setPlanId(plan.getId() == null ? null : plan.getId().longValue());
+        dto.setPlanNumber(plan.getPlanNumber());
+        dto.setPreparationCode(plan.getPreparationCode());
+        dto.setPreparationName(plan.getPreparationName());
+        dto.setSpec(preparation == null ? null : preparation.getSpec());
+        dto.setUnitName(StringUtils.hasText(plan.getUnitName()) ? plan.getUnitName()
+                : (preparation == null ? "" : preparation.getUnitName()));
+        dto.setBatchNo(null);
+        dto.setPlanQty(plan.getPlanQuantity());
+        dto.setFinishedQty(plan.getFinishedQuantity());
+        dto.setInboundQty(BigDecimal.ZERO);
+        dto.setOutboundQty(BigDecimal.ZERO);
+        dto.setPlanDate(planDate(plan));
+        dto.setProductionStart(date(plan.getProductionStartTime()));
+        dto.setProductionEnd(date(plan.getProductionEndTime()));
+        dto.setStatus(plan.getCurrentStatus());
+        dto.setProcessTotal(0);
+        dto.setProcessCompleted(0);
+        dto.setFileCount(planOnlyFileGroups(plan).stream().mapToInt(g -> g.getFiles().size()).sum());
+        List<ProductSummaryDtos.MissingItem> missing = planOnlyMissing(plan);
+        dto.setMissingCount(missing.size());
+        dto.setMissingSummary(missingSummary(missing));
+        List<ProductSummaryDtos.SlotState> slots = planOnlySlots(plan).stream()
+                .filter(s -> !"OPTIONAL".equals(s.getRequirement()))
+                .collect(Collectors.toList());
+        dto.setFileExpected(slots.stream().mapToInt(ProductSummaryDtos.SlotState::getExpected).sum());
+        dto.setFileUploaded(slots.stream().mapToInt(ProductSummaryDtos.SlotState::getUploaded).sum());
+        dto.setStageStates(planOnlyStageStates());
+        return dto;
+    }
+
+    private List<ProductSummaryDtos.StageState> planOnlyStageStates() {
+        List<ProductSummaryDtos.StageState> states = new ArrayList<>();
+        states.add(stageState("plan", "计划", "done"));
+        states.add(stageState("material", "采购", "pending"));
+        states.add(stageState("workOrder", "工单", "pending"));
+        states.add(stageState("production", "生产", "pending"));
+        states.add(stageState("inbound", "入库", "pending"));
+        states.add(stageState("outbound", "出库", "pending"));
+        states.add(stageState("inspection", "检验", "pending"));
+        states.add(stageState("release", "放行", "pending"));
+        return states;
+    }
+
+    private List<ProductSummaryDtos.StageState> stageStates(BatchContext ctx) {
+        List<ProductSummaryDtos.StageState> states = new ArrayList<>();
+        WorkOrder wo = ctx.getWorkOrder();
+        String materialLabel = ctx.getPicks().isEmpty() ? "采购" : "领料";
+        states.add(stageState("plan", "计划", ctx.getPlan() == null ? "pending" : "done"));
+        states.add(stageState("material", materialLabel,
+                !ctx.getPicks().isEmpty() || !ctx.getPurchases().isEmpty() || !ctx.getAcceptances().isEmpty()
+                        ? "done" : "pending"));
+        states.add(stageState("workOrder", "工单", wo.getFinishedQty() == null ? "active" : "done"));
+        states.add(stageState("production", "生产", stageStateOf(ctx.getExecutions())));
+        states.add(stageState("inbound", "入库", ctx.getStockIns().isEmpty() ? "pending" : "done"));
+        states.add(stageState("outbound", "出库", ctx.getStockOuts().isEmpty() ? "pending" : "done"));
+        String conclusion = inspectionConclusion(ctx);
+        String inspectionState = "合格".equals(conclusion) ? "done" : "不合格".equals(conclusion) ? "error"
+                : (!ctx.getInspections().isEmpty() || !ctx.getRequests().isEmpty() ? "active" : "pending");
+        states.add(stageState("inspection", "检验", inspectionState));
+        states.add(stageState("release", "放行", ctx.getRelease() == null ? "pending"
+                : ("拒绝放行".equals(ctx.getRelease().getReleaseConclusion()) ? "error" : "done")));
+        return states;
+    }
+
+    private ProductSummaryDtos.StageState stageState(String key, String label, String state) {
+        ProductSummaryDtos.StageState item = new ProductSummaryDtos.StageState();
+        item.setKey(key);
+        item.setLabel(label);
+        item.setState(state);
+        return item;
+    }
+
+    private String stageStateOf(List<WorkOrderProcessExecution> executions) {
+        if (executions.isEmpty()) return "pending";
+        return executions.stream().allMatch(e -> e.getEndTime() != null) ? "done" : "active";
+    }
+
+    private BigDecimal inboundQty(BatchContext ctx) {
+        return ctx.getStockIns().stream()
+                .flatMap(s -> ctx.getStockInDetails() == null ? java.util.stream.Stream.empty()
+                        : ctx.getStockInDetails().getOrDefault(s.getInId(), Collections.emptyList()).stream())
+                .map(StockInDetail::getQuantity)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal outboundQty(BatchContext ctx) {
+        return ctx.getStockOuts().stream()
+                .flatMap(s -> ctx.getStockOutDetails() == null ? java.util.stream.Stream.empty()
+                        : ctx.getStockOutDetails().getOrDefault(s.getOutId(), Collections.emptyList()).stream())
+                .map(StockOutDetail::getQuantity)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private boolean inDateRange(LocalDate day, LocalDate start, LocalDate end) {
+        if (start != null && (day == null || day.isBefore(start))) return false;
+        return end == null || (day != null && !day.isAfter(end));
+    }
+
+    private boolean isDoneStatus(String status) {
+        return "已完成".equals(status) || "异常".equals(status) || "不合格".equals(status);
+    }
+
+    private int stageOrder(String stage) {
+        return switch (stage == null ? "" : stage) {
+            case "品种资料" -> 0;
+            case "计划" -> 1;
+            case "采购" -> 2;
+            case "验收" -> 3;
+            case "工单" -> 4;
+            case "工序" -> 5;
+            case "领料" -> 6;
+            case "入库" -> 7;
+            case "出库" -> 8;
+            case "检验" -> 9;
+            case "放行" -> 10;
+            default -> 99;
+        };
+    }
+
+    private LocalDate planDate(ProductionPlan plan) {
+        if (plan == null) return null;
+        LocalDateTime time = plan.getPlanProductionTime() != null ? plan.getPlanProductionTime() : plan.getCreatedTime();
+        return date(time);
+    }
+
+    private static class LoadedData {
+        private final List<ProductSummaryDtos.BatchSummary> summaries = new ArrayList<>();
+        private final List<BatchContext> contexts = new ArrayList<>();
+        private final List<ProductionPlan> planOnlyPlans = new ArrayList<>();
+    }
+
     private ProductSummaryDtos.BatchSummary toSummary(BatchContext ctx) {
         WorkOrder wo = ctx.getWorkOrder();
         ProductSummaryDtos.BatchSummary dto = new ProductSummaryDtos.BatchSummary();
+        Long planId = ctx.getPlan() == null ? null : ctx.getPlan().getId().longValue();
+        dto.setRecordKey((planId == null ? "0" : planId) + "__" + wo.getWorkOrderId());
         dto.setWorkOrderId(wo.getWorkOrderId());
         dto.setWorkOrderCode(wo.getWorkOrderCode());
-        dto.setPlanId(ctx.getPlan() == null ? null : ctx.getPlan().getId().longValue());
+        dto.setPlanId(planId);
         dto.setPlanNumber(ctx.getPlan() == null ? wo.getPlanName() : ctx.getPlan().getPlanNumber());
         dto.setPreparationCode(wo.getPreparationCode());
         dto.setPreparationName(wo.getPreparationName());
@@ -135,19 +582,34 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         dto.setBatchNo(wo.getBatchNumber());
         dto.setPlanQty(wo.getBatchQty());
         dto.setFinishedQty(wo.getFinishedQty());
+        dto.setInboundQty(inboundQty(ctx));
+        dto.setOutboundQty(outboundQty(ctx));
         dto.setMaterialSource(materialSource(ctx));
         dto.setPlanDate(planDate(ctx));
+        dto.setWorkOrderDate(date(wo.getConfigDate()));
+        dto.setInboundDate(ctx.getStockIns().isEmpty() ? null : date(ctx.getStockIns().get(0).getInDate()));
+        dto.setOutboundDate(ctx.getStockOuts().isEmpty() ? null : date(ctx.getStockOuts().get(0).getOutDate()));
+        dto.setInspectionDate(ctx.getInspections().isEmpty() ? null : date(ctx.getInspections().get(0).getEndTime()));
         dto.setProductionStart(date(wo.getConfigDate()));
         dto.setProductionEnd(actualEnd(ctx));
         dto.setYieldRate(yieldRate(ctx));
         dto.setInspectionConclusion(inspectionConclusion(ctx));
+        dto.setLatestInspectionCode(ctx.getInspections().isEmpty() ? null : ctx.getInspections().get(0).getInspectionCode());
+        dto.setProcessTotal(ctx.getExecutions().size());
+        dto.setProcessCompleted((int) ctx.getExecutions().stream().filter(e -> e.getEndTime() != null).count());
         dto.setStatus(wo.getCurrentStatus());
 
         List<ProductSummaryDtos.FileGroup> groups = fileGroups(ctx);
         dto.setFileCount(groups.stream().mapToInt(g -> g.getFiles().size()).sum());
+        List<ProductSummaryDtos.SlotState> slots = slotStates(ctx).stream()
+                .filter(s -> !"OPTIONAL".equals(s.getRequirement()))
+                .collect(Collectors.toList());
+        dto.setFileExpected(slots.stream().mapToInt(ProductSummaryDtos.SlotState::getExpected).sum());
+        dto.setFileUploaded(slots.stream().mapToInt(ProductSummaryDtos.SlotState::getUploaded).sum());
         List<ProductSummaryDtos.MissingItem> missing = missingItems(ctx);
         dto.setMissingCount(missing.size());
         dto.setMissingSummary(missingSummary(missing));
+        dto.setStageStates(stageStates(ctx));
         return dto;
     }
 
@@ -473,6 +935,7 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             group.setBizType(config.getBizType());
             group.setFileKind(config.getFileKind());
             group.setRequirement(config.getRequirement());
+            group.setSlotCode(config.getBizType() + " / " + config.getFileKind());
             group.setFiles(toFiles(files));
             result.add(group);
         }
@@ -575,81 +1038,215 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
 
     @Override
     public byte[] export(ProductSummaryDtos.ExportRequest request) {
-        if (request == null) {
-            request = new ProductSummaryDtos.ExportRequest();
-        }
-        List<WorkOrder> workOrders;
-        if (request.getWorkOrderIds() != null && !request.getWorkOrderIds().isEmpty()) {
-            workOrders = workOrderMapper.selectBatchIds(request.getWorkOrderIds());
-        } else {
-            QueryWrapper<WorkOrder> wrapper = new QueryWrapper<>();
-            if (StringUtils.hasText(request.getVarietyCode())) {
-                wrapper.eq("preparation_code", request.getVarietyCode());
-            }
-            workOrders = workOrderMapper.selectList(wrapper);
-        }
-        List<BatchContext> contexts = batchQueryService.loadAll(workOrders);
-        Set<String> requirementFilter = request.getRequirements() == null ? Collections.emptySet()
-                : new HashSet<>(request.getRequirements());
-        boolean includeProduct = !Boolean.FALSE.equals(request.getIncludeProductFiles());
+        ProductSummaryDtos.ExportRequest req = request == null ? new ProductSummaryDtos.ExportRequest() : request;
+        boolean hasSelectedIds = (req.getWorkOrderIds() != null && !req.getWorkOrderIds().isEmpty())
+                || (req.getPlanIds() != null && !req.getPlanIds().isEmpty());
+        String scope = StringUtils.hasText(req.getScope()) ? req.getScope().toUpperCase()
+                : (hasSelectedIds ? "SELECTED" : "FILTERED");
+        String format = StringUtils.hasText(req.getFormat()) ? req.getFormat().toUpperCase() : "ZIP";
+        boolean includeProduct = !Boolean.FALSE.equals(req.getIncludeProductFiles());
+        boolean includeManifest = !Boolean.FALSE.equals(req.getIncludeManifest());
+        Set<String> requirementFilter = req.getRequirements() == null || req.getRequirements().isEmpty()
+                ? new LinkedHashSet<>(List.of("REQUIRED", "CONDITIONAL"))
+                : new LinkedHashSet<>(req.getRequirements());
 
-        try (ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-             ZipOutputStream zip = new ZipOutputStream(bytes, StandardCharsets.UTF_8)) {
-            Set<String> added = new HashSet<>();
-            StringBuilder csv = new StringBuilder("﻿文件夹,环节,文件槽位,级别,文件名,大小,状态\n");
-            for (BatchContext ctx : contexts) {
-                String variety = safe(ctx.getWorkOrder().getPreparationName());
-                String batch = StringUtils.hasText(ctx.getWorkOrder().getBatchNumber())
-                        ? ctx.getWorkOrder().getBatchNumber() : ctx.getWorkOrder().getWorkOrderCode();
-                for (ProductSummaryDtos.FileGroup group : fileGroups(ctx)) {
-                    if (!requirementFilter.isEmpty() && !requirementFilter.contains(group.getRequirement())) {
-                        continue;
-                    }
-                    boolean productGroup = "PREPARATION".equals(group.getBizType())
-                            || "PREPARATION_PROCESS_TEMPLATE".equals(group.getBizType());
-                    String folder;
-                    if (productGroup && !includeProduct) {
-                        folder = "00_产品资料/" + safe(ctx.getWorkOrder().getPreparationCode());
-                    } else {
-                        folder = variety + "/" + batch + "/" + safe(group.getStage()) + "_" + safe(group.getLabel());
-                    }
-                    for (ProductSummaryDtos.FileItem file : group.getFiles()) {
-                        FileInfo info = fileInfoService.getById(file.getFileId());
-                        if (info == null || !StringUtils.hasText(info.getFilePath())) {
-                            csv.append(csv(folder)).append(',').append(csv(group.getStage())).append(',')
-                                    .append(csv(group.getLabel())).append(',').append(csv(group.getRequirement())).append(',')
-                                    .append(csv(file.getName())).append(',')
-                                    .append(csv(String.valueOf(file.getSize()))).append(',').append(csv("文件不存在")).append('\n');
-                            continue;
-                        }
-                        Path path = Paths.get(info.getFilePath());
-                        if (!Files.exists(path)) {
-                            csv.append(csv(folder)).append(',').append(csv(group.getStage())).append(',')
-                                    .append(csv(group.getLabel())).append(',').append(csv(group.getRequirement())).append(',')
-                                    .append(csv(file.getName())).append(',')
-                                    .append(csv(String.valueOf(file.getSize()))).append(',').append(csv("文件缺失")).append('\n');
-                            continue;
-                        }
-                        String entryName = folder + "/" + sanitize(file.getName());
-                        entryName = uniqueName(entryName, added);
-                        zip.putNextEntry(new ZipEntry(entryName));
-                        Files.copy(path, zip);
-                        zip.closeEntry();
-                        csv.append(csv(folder)).append(',').append(csv(group.getStage())).append(',')
-                                .append(csv(group.getLabel())).append(',').append(csv(group.getRequirement())).append(',')
-                                .append(csv(file.getName())).append(',')
-                                .append(csv(String.valueOf(file.getSize()))).append(',').append(csv("已导出")).append('\n');
+        List<BatchContext> contexts = new ArrayList<>();
+        List<ProductionPlan> planOnlyPlans = new ArrayList<>();
+
+        if ("SELECTED".equals(scope)) {
+            if (req.getWorkOrderIds() != null && !req.getWorkOrderIds().isEmpty()) {
+                contexts = batchQueryService.loadAll(workOrderMapper.selectBatchIds(req.getWorkOrderIds()));
+            }
+            Set<Long> selectedPlanIds = new HashSet<>();
+            if (req.getPlanIds() != null) {
+                selectedPlanIds.addAll(req.getPlanIds());
+            }
+            if (!selectedPlanIds.isEmpty()) {
+                Set<Long> planIdsWithWorkOrders = contexts.stream()
+                        .map(ctx -> ctx.getWorkOrder().getPlanId())
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet());
+                for (ProductionPlan plan : productionPlanMapper.selectBatchIds(selectedPlanIds)) {
+                    if (plan.getId() != null && !planIdsWithWorkOrders.contains(plan.getId().longValue())) {
+                        planOnlyPlans.add(plan);
                     }
                 }
             }
-            zip.putNextEntry(new ZipEntry("文件清单.csv"));
-            zip.write(csv.toString().getBytes(StandardCharsets.UTF_8));
-            zip.closeEntry();
+        } else if ("ALL".equals(scope)) {
+            List<WorkOrder> allWorkOrders = workOrderMapper.selectList(null);
+            contexts = batchQueryService.loadAll(allWorkOrders);
+            Set<Long> planIdsWithWorkOrders = allWorkOrders.stream()
+                    .map(WorkOrder::getPlanId).filter(Objects::nonNull).collect(Collectors.toSet());
+            planOnlyPlans = productionPlanMapper.selectList(null).stream()
+                    .filter(p -> p.getId() != null && !planIdsWithWorkOrders.contains(p.getId().longValue()))
+                    .collect(Collectors.toList());
+        } else {
+            ProductSummaryDtos.ExportFilters filters = req.getFilters();
+            String variety = filters == null ? req.getVarietyCode() : filters.getVarietyCode();
+            String dateType = filters == null ? null : filters.getDateType();
+            String start = filters == null ? null : filters.getStartDate();
+            String end = filters == null ? null : filters.getEndDate();
+            String keyword = filters == null ? null : filters.getKeyword();
+            boolean onlyMissing = filters != null && Boolean.TRUE.equals(filters.getOnlyMissing());
+            LoadedData data = loadData(variety, dateType, start, end, keyword, onlyMissing);
+            contexts = data.contexts;
+            planOnlyPlans = data.planOnlyPlans;
+        }
+
+        List<String[]> manifest = new ArrayList<>();
+        manifest.add(new String[]{"品种编码", "品种名称", "规格", "计划编号", "工单号", "批号",
+                "计划日期", "工单日期", "入库日期", "出库日期", "检验日期",
+                "环节", "槽位", "文件名", "大小(字节)", "上传人", "上传时间", "状态", "说明"});
+
+        if ("CSV".equals(format)) {
+            return manifestCsv(manifest);
+        }
+
+        try (ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+             ZipOutputStream zip = new ZipOutputStream(bytes, StandardCharsets.UTF_8)) {
+            Set<String> addedEntries = new HashSet<>();
+            Set<String> addedProductEntries = new HashSet<>();
+            int[] fileCounter = {0};
+            long[] sizeCounter = {0L};
+
+            for (BatchContext ctx : contexts) {
+                ProductSummaryDtos.BatchSummary summary = toSummary(ctx);
+                String varietyFolder = safe(summary.getPreparationCode()) + "_" + safe(summary.getPreparationName());
+                String batchFolder = StringUtils.hasText(summary.getBatchNo())
+                        ? summary.getBatchNo() : safe(summary.getWorkOrderCode());
+                for (ProductSummaryDtos.FileGroup group : fileGroups(ctx)) {
+                    if (!requirementFilter.contains(group.getRequirement())) continue;
+                    boolean productGroup = isProductGroup(group);
+                    if (productGroup && !includeProduct) continue;
+                    String folder = productGroup
+                            ? varietyFolder + "/品种资料/" + sanitize(group.getStage()) + "_" + sanitize(group.getLabel())
+                            : varietyFolder + "/" + sanitize(batchFolder) + "/" + sanitize(group.getStage()) + "_" + sanitize(group.getLabel());
+                    for (ProductSummaryDtos.FileItem file : group.getFiles()) {
+                        writeFile(zip, summary, group, file, folder, addedEntries, addedProductEntries,
+                                productGroup, manifest, fileCounter, sizeCounter);
+                    }
+                }
+                for (ProductSummaryDtos.MissingItem missing : missingItems(ctx)) {
+                    if (!requirementFilter.contains("REQUIRED") && !requirementFilter.contains("CONDITIONAL")) continue;
+                    addManifest(manifest, summary, missing.getStage(), missing.getLabel(), "", "",
+                            "缺失", missing.getDoc());
+                }
+            }
+
+            for (ProductionPlan plan : planOnlyPlans) {
+                ProductSummaryDtos.BatchSummary summary = toPlanSummary(plan);
+                String varietyFolder = safe(summary.getPreparationCode()) + "_" + safe(summary.getPreparationName());
+                String planFolder = safe(summary.getPlanNumber()) + "_未下达工单";
+                for (ProductSummaryDtos.FileGroup group : planOnlyFileGroups(plan)) {
+                    if (!requirementFilter.contains(group.getRequirement())) continue;
+                    boolean productGroup = isProductGroup(group);
+                    if (productGroup && !includeProduct) continue;
+                    String folder = productGroup
+                            ? varietyFolder + "/品种资料/" + sanitize(group.getStage()) + "_" + sanitize(group.getLabel())
+                            : planFolder + "/" + sanitize(group.getStage()) + "_" + sanitize(group.getLabel());
+                    for (ProductSummaryDtos.FileItem file : group.getFiles()) {
+                        writeFile(zip, summary, group, file, folder, addedEntries, addedProductEntries,
+                                productGroup, manifest, fileCounter, sizeCounter);
+                    }
+                }
+                for (ProductSummaryDtos.MissingItem missing : planOnlyMissing(plan)) {
+                    addManifest(manifest, summary, missing.getStage(), missing.getLabel(), "", "",
+                            "缺失", missing.getDoc());
+                }
+            }
+
+            if (includeManifest) {
+                zip.putNextEntry(new ZipEntry("文件清单.csv"));
+                zip.write(manifestCsvBytes(manifest));
+                zip.closeEntry();
+            }
             zip.finish();
             return bytes.toByteArray();
         } catch (IOException e) {
             throw new IllegalStateException("导出文件失败: " + e.getMessage(), e);
         }
+    }
+
+    private boolean isProductGroup(ProductSummaryDtos.FileGroup group) {
+        return "PREPARATION".equals(group.getBizType()) || "PREPARATION_PROCESS_TEMPLATE".equals(group.getBizType());
+    }
+
+    private void writeFile(ZipOutputStream zip, ProductSummaryDtos.BatchSummary summary,
+                           ProductSummaryDtos.FileGroup group, ProductSummaryDtos.FileItem file,
+                           String folder, Set<String> addedEntries, Set<String> addedProductEntries,
+                           boolean productGroup, List<String[]> manifest, int[] fileCounter, long[] sizeCounter)
+            throws IOException {
+        FileInfo info = file.getFileId() == null ? null : fileInfoService.getById(file.getFileId());
+        if (info == null || !StringUtils.hasText(info.getFilePath())) {
+            addManifest(manifest, summary, group.getStage(), group.getLabel(), file.getName(),
+                    String.valueOf(file.getSize()), "文件不存在", "");
+            return;
+        }
+        Path path = Paths.get(info.getFilePath());
+        if (!Files.exists(path)) {
+            addManifest(manifest, summary, group.getStage(), group.getLabel(), file.getName(),
+                    String.valueOf(file.getSize()), "文件缺失", "业务关系存在，磁盘文件不存在");
+            return;
+        }
+        String entryName = folder + "/" + sanitize(file.getName());
+        if (productGroup && !addedProductEntries.add(entryName)) {
+            return;
+        }
+        if (!productGroup) {
+            entryName = uniqueName(entryName, addedEntries);
+        } else if (!addedEntries.add(entryName)) {
+            return;
+        }
+        if (fileCounter[0] >= 300) {
+            throw new IllegalArgumentException("导出文件超过 300 个，请缩小筛选范围");
+        }
+        sizeCounter[0] += Files.size(path);
+        if (sizeCounter[0] > 500L * 1024 * 1024) {
+            throw new IllegalArgumentException("导出文件超过 500MB，请缩小筛选范围");
+        }
+        fileCounter[0]++;
+        zip.putNextEntry(new ZipEntry(entryName));
+        Files.copy(path, zip);
+        zip.closeEntry();
+        addManifest(manifest, summary, group.getStage(), group.getLabel(), file.getName(),
+                String.valueOf(file.getSize()), "已导出", "");
+    }
+
+    private void addManifest(List<String[]> manifest, ProductSummaryDtos.BatchSummary summary,
+                             String stage, String slot, String fileName, String size,
+                             String status, String note) {
+        manifest.add(new String[]{
+                safe(summary.getPreparationCode()), safe(summary.getPreparationName()), safe(summary.getSpec()),
+                safe(summary.getPlanNumber()), safe(summary.getWorkOrderCode()), safe(summary.getBatchNo()),
+                dateText(summary.getPlanDate()), dateText(summary.getWorkOrderDate()),
+                dateText(summary.getInboundDate()), dateText(summary.getOutboundDate()),
+                dateText(summary.getInspectionDate()),
+                safe(stage), safe(slot), safe(fileName), safe(size), "", "", safe(status), safe(note)
+        });
+    }
+
+    private String dateText(java.time.LocalDate date) {
+        return date == null ? "" : date.toString();
+    }
+
+    private byte[] manifestCsv(List<String[]> lines) {
+        StringBuilder csv = new StringBuilder("﻿");
+        for (String[] row : lines) {
+            for (int i = 0; i < row.length; i++) {
+                if (i > 0) csv.append(',');
+                csv.append(csvCell(row[i]));
+            }
+            csv.append('\n');
+        }
+        return csv.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    private byte[] manifestCsvBytes(List<String[]> lines) {
+        return manifestCsv(lines);
+    }
+
+    private String csvCell(String value) {
+        return "\"" + safe(value).replace("\"", "\"\"") + "\"";
     }
 
     private String uniqueName(String name, Set<String> added) {

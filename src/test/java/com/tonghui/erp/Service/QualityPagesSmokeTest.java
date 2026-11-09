@@ -37,14 +37,62 @@ public class QualityPagesSmokeTest {
         JsonNode list = get("/api/product-summary/batches?pageIndex=0&pageSize=10").path("data");
         int count = list.path("items").size();
         Assumptions.assumeTrue(count > 0, "测试库无工单数据，跳过产品汇总冒烟");
-        JsonNode first = list.path("items").get(0);
+        JsonNode first = null;
+        for (JsonNode item : list.path("items")) {
+            if (item.path("workOrderId").asLong() > 0) {
+                first = item;
+                break;
+            }
+        }
+        Assumptions.assumeTrue(first != null, "测试库无已下达工单，跳过产品详情冒烟");
         long workOrderId = first.path("workOrderId").asLong();
-        Assertions.assertTrue(workOrderId > 0, "批次缺少工单ID");
 
         JsonNode detail = get("/api/product-summary/batches/" + workOrderId).path("data");
         Assertions.assertEquals(workOrderId, detail.path("batch").path("workOrderId").asLong());
         Assertions.assertTrue(detail.path("stages").size() >= 6, "全链路节点少于 6 个");
         Assertions.assertTrue(detail.path("slots").size() > 0, "槽位统计为空");
+    }
+
+    @Test
+    public void productSummaryOverviewCardsPlanDetailAndCsvShouldReturn() throws Exception {
+        JsonNode overview = get("/api/product-summary/overview").path("data");
+        Assertions.assertTrue(overview.has("verdict"), "概览缺少结论");
+        Assertions.assertTrue(overview.has("kpis"), "概览缺少 KPI");
+        Assertions.assertTrue(overview.has("health"), "概览缺少文件健康度");
+        Assertions.assertTrue(overview.path("preparations").isArray(), "概览缺少制剂卡片");
+        Assertions.assertTrue(overview.path("verdict").path("recordCount").asInt() > 0, "概览记录数为空");
+        Assertions.assertTrue(overview.path("health").path("allSlots").isArray(), "概览缺少槽位口径");
+
+        JsonNode list = get("/api/product-summary/batches?pageIndex=0&pageSize=20").path("data");
+        JsonNode items = list.path("items");
+        Assumptions.assumeTrue(items.size() > 0, "测试库无产品汇总记录，跳过产品扩展接口冒烟");
+        Assertions.assertTrue(items.get(0).has("recordKey"), "列表缺少记录键");
+        Assertions.assertTrue(items.get(0).path("stageStates").isArray(), "列表缺少环节状态");
+
+        JsonNode cards = get("/api/product-summary/cards").path("data");
+        Assertions.assertTrue(cards.isArray(), "卡片接口未返回数组");
+        Assertions.assertTrue(cards.size() > 0, "卡片接口为空");
+
+        for (JsonNode item : items) {
+            long planId = item.path("planId").asLong();
+            if (item.path("workOrderId").asLong() <= 0 && planId > 0) {
+                JsonNode plan = get("/api/product-summary/plans/" + planId).path("data");
+                Assertions.assertEquals(planId, plan.path("batch").path("planId").asLong());
+                Assertions.assertTrue(plan.path("stages").isArray(), "计划详情缺少链路节点");
+                break;
+            }
+        }
+
+        byte[] csv = postCsv("/api/product-summary/export",
+                "{\"scope\":\"FILTERED\",\"format\":\"CSV\",\"filters\":{\"onlyMissing\":false}}");
+        String csvText = new String(csv, java.nio.charset.StandardCharsets.UTF_8);
+        Assertions.assertTrue(csvText.contains("品种编码"), "导出清单缺少表头");
+        Assertions.assertTrue(csvText.contains("状态"), "导出清单缺少状态列");
+
+        byte[] zip = postCsv("/api/product-summary/export",
+                "{\"scope\":\"FILTERED\",\"format\":\"ZIP\"}");
+        Assertions.assertTrue(zip.length > 4 && zip[0] == 0x50 && zip[1] == 0x4b,
+                "ZIP 导出未返回合法 zip");
     }
 
     @Test
@@ -61,6 +109,34 @@ public class QualityPagesSmokeTest {
         Assertions.assertEquals(workOrderId, detail.path("batch").path("workOrderId").asLong());
         Assertions.assertTrue(detail.path("compliance").has("canRelease"), "详情缺少合规结论");
         Assertions.assertTrue(detail.path("fileChecklist").isArray(), "详情缺少文件完整性清单");
+    }
+
+    @Test
+    public void releaseVarietiesAndDetailFieldsShouldReturn() throws Exception {
+        JsonNode varieties = get("/api/release-review/batches/varieties").path("data");
+        Assertions.assertTrue(varieties.isArray(), "品种下拉不是数组");
+
+        JsonNode list = get("/api/release-review/batches?pageIndex=0&pageSize=10").path("data");
+        JsonNode items = list.path("items");
+        Assumptions.assumeTrue(items.size() > 0, "测试库无批次数据，跳过审核放行字段冒烟");
+        long workOrderId = items.get(0).path("workOrderId").asLong();
+        JsonNode detail = get("/api/release-review/batches/" + workOrderId).path("data");
+        Assertions.assertTrue(detail.path("batch").has("planNumber"), "详情缺少计划号");
+        Assertions.assertTrue(detail.path("batch").has("releaseStatus"), "详情缺少放行状态");
+        Assertions.assertTrue(detail.path("release").isObject(), "详情 release 不是对象");
+        for (JsonNode item : detail.path("fileChecklist")) {
+            Assertions.assertNotEquals("PREPARATION", item.path("bizType").asText(),
+                    "放行清单不应包含品种资料");
+        }
+    }
+
+    @Test
+    public void releaseExportShouldReturnCsv() throws Exception {
+        byte[] csv = postCsv("/api/release-review/batches/export", "{\"status\":\"待审核\"}");
+        Assertions.assertNotNull(csv, "导出内容为空");
+        String text = new String(csv, java.nio.charset.StandardCharsets.UTF_8);
+        Assertions.assertTrue(text.contains("品种编码"), "导出 CSV 缺少表头");
+        Assertions.assertTrue(text.contains("放行状态"), "导出 CSV 缺少放行状态列");
     }
 
     @Test
@@ -83,10 +159,9 @@ public class QualityPagesSmokeTest {
         Assertions.assertTrue(first.path("tasks").isArray(), "批次缺少任务明细");
         long workOrderId = first.path("workOrderId").asLong();
         if (workOrderId > 0) {
-            JsonNode tasks = get("/api/inspection/batches/" + workOrderId + "/tasks").path("data");
-            Assertions.assertTrue(tasks.isArray(), "批次任务接口未返回数组");
             JsonNode batch = get("/api/inspection/batches/" + workOrderId).path("data");
             Assertions.assertEquals(workOrderId, batch.path("workOrderId").asLong());
+            Assertions.assertTrue(batch.path("tasks").isArray(), "批次详情缺少任务明细");
         }
     }
 
@@ -109,6 +184,21 @@ public class QualityPagesSmokeTest {
         if (list.path("items").size() > 0) {
             Assertions.assertTrue(list.path("items").get(0).has("blockers"), "放行列表缺少阻塞项");
         }
+    }
+
+    private byte[] postCsv(String path, String json) {
+        String token = JwtHelper.generateToken("1", "root", new String[] {"admin"},
+            jwtConfig.getSecretKey(), jwtConfig.getIssuer(), jwtConfig.getAudience(), 30);
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + token);
+        headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+        org.springframework.http.ResponseEntity<byte[]> response = rest.exchange(
+            "http://localhost:" + port + path,
+            HttpMethod.POST,
+            new HttpEntity<>(json, headers),
+            byte[].class);
+        Assertions.assertEquals(200, response.getStatusCode().value(), "导出接口失败: " + path);
+        return response.getBody();
     }
 
     private JsonNode get(String path) throws Exception {

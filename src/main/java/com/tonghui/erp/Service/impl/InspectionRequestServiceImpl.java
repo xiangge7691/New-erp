@@ -6,16 +6,19 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Data.Entity.InspectionRequest;
 import com.tonghui.erp.Data.mapper.InspectionRequestMapper;
 import com.tonghui.erp.Service.InspectionRequestService;
+import com.tonghui.erp.Service.InspectionTaskService;
 import com.tonghui.erp.Common.utils.CodeUniqueChecker;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 /**
  * 请检记录业务服务实现类
  * <p>
- * 实现InspectionRequestService接口，请检记录的编号生成、唯一性校验、
- * 高级查询等业务逻辑
+ * 实现InspectionRequestService接口，请检记录的编号生成、唯一性校验、高级查询，
+ * 以及请检单创建后自动生成检验任务
  * </p>
  */
 @Service
@@ -30,6 +33,11 @@ public class InspectionRequestServiceImpl extends ServiceImpl<InspectionRequestM
     /** 序列号生成服务，用于自动生成请检编号 */
     @Autowired
     private SequenceServiceImpl sequenceService;
+
+    /** 检验任务服务（请检单创建后自动生成任务；@Lazy 打破与任务服务的循环依赖） */
+    @Lazy
+    @Autowired
+    private InspectionTaskService inspectionTaskService;
 
     // endregion
 
@@ -58,6 +66,31 @@ public class InspectionRequestServiceImpl extends ServiceImpl<InspectionRequestM
     @Override
     public boolean isCodeUnique(String code, Long excludeId) {
         return CodeUniqueChecker.isCodeUnique(code, excludeId, baseMapper::countByCodeIncludeDeleted);
+    }
+
+    // endregion
+
+    // region 创建并生成任务
+    // ===================================
+    // 创建并生成任务
+    // ===================================
+
+    /**
+     * 创建请检记录并自动生成检验任务
+     * <p>
+     * 请检单与任务在同一事务内落库，任务生成失败时请检单一并回滚，
+     * 避免出现“有请检单、无任务”的中间态。
+     * </p>
+     *
+     * @param request 请检记录实体
+     * @return 保存后的请检记录（含自增ID与请检编号）
+     */
+    @Override
+    @Transactional
+    public InspectionRequest createWithTask(InspectionRequest request) {
+        save(request);
+        inspectionTaskService.createTaskFromRequest(request);
+        return request;
     }
 
     // endregion

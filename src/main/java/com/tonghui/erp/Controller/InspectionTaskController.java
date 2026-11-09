@@ -21,11 +21,11 @@ import org.springframework.web.bind.annotation.*;
  * │ 1  │ /api/inspection/tasks                        │ GET    │ 分页查询任务      │
  * │ 2  │ /api/inspection/tasks/{id}                   │ GET    │ 任务详情          │
  * │ 3  │ /api/inspection/tasks                        │ POST   │ 创建任务          │
- * │ 4  │ /api/inspection/tasks/{id}/plan              │ POST   │ 办理检验计划      │
- * │ 5  │ /api/inspection/tasks/{id}/request           │ POST   │ 办理请检          │
+ * │ 4  │ /api/inspection/tasks/{id}/request           │ POST   │ 办理请检          │
+ * │ 5  │ /api/inspection/tasks/{id}/plan              │ POST   │ 办理检验计划      │
  * │ 6  │ /api/inspection/tasks/{id}/sampling          │ POST   │ 办理取样          │
- * │ 7  │ /api/inspection/tasks/{id}/retention         │ POST   │ 办理留样          │
- * │ 8  │ /api/inspection/tasks/{id}/inspection        │ POST   │ 办理检验          │
+ * │ 7  │ /api/inspection/tasks/{id}/inspection        │ POST   │ 办理检验记录      │
+ * │ 8  │ /api/inspection/tasks/{id}/retention         │ POST   │ 办理留样          │
  * │ 9  │ /api/inspection/tasks/{id}/destruction       │ POST   │ 办理销毁          │
  * │ 10 │ /api/inspection/tasks/{id}/skip              │ POST   │ 跳过留样/销毁     │
  * │ 11 │ /api/inspection/tasks/{id}/cancel            │ POST   │ 作废任务          │
@@ -194,21 +194,21 @@ public class InspectionTaskController extends BaseController {
     }
 
     /**
-     * 办理检验
+     * 办理检验记录
      *
      * 示例请求：
      * POST /api/inspection/tasks/1/inspection
      * {"inspector":"丁圣芳","reviewer":"赵磊","inspectionBasis":"中国药典2025版","conclusion":"合格"}
      *
      * @param id      任务ID
-     * @param request 检验请求
+     * @param request 检验记录请求
      * @return 任务详情
      */
     @PostMapping("/{id}/inspection")
     public ApiResponse<InspectionTaskDtos.TaskDetail> completeInspection(
             @PathVariable Long id, @RequestBody InspectionTaskDtos.InspectionStepRequest request) {
         try {
-            return success(inspectionTaskService.completeInspection(id, request), "检验已办理");
+            return success(inspectionTaskService.completeInspection(id, request), "检验记录已办理");
         } catch (Exception e) {
             return exception(e, "办理检验");
         }

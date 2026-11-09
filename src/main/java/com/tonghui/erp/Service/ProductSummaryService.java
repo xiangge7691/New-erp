@@ -38,6 +38,45 @@ public interface ProductSummaryService {
      */
     ProductSummaryDtos.BatchDetail getBatchDetail(Long workOrderId);
 
+
+    /**
+     * 查询页面聚合概览
+     *
+     * @param varietyCode 品种编码
+     * @param dateType    日期类型
+     * @param startDate   开始日期
+     * @param endDate     结束日期
+     * @param keyword     关键字
+     * @param onlyMissing 只看缺件
+     * @return 结论、KPI、待办、文件健康度、制剂卡片
+     */
+    ProductSummaryDtos.Overview getOverview(String varietyCode, String dateType,
+                                            String startDate, String endDate,
+                                            String keyword, boolean onlyMissing);
+
+    /**
+     * 查询品种卡片视图数据（不分页）
+     *
+     * @param varietyCode 品种编码
+     * @param dateType    日期类型
+     * @param startDate   开始日期
+     * @param endDate     结束日期
+     * @param keyword     关键字
+     * @param onlyMissing 只看缺件
+     * @return 批次汇总列表
+     */
+    java.util.List<ProductSummaryDtos.BatchSummary> queryCards(String varietyCode, String dateType,
+                                                               String startDate, String endDate,
+                                                               String keyword, boolean onlyMissing);
+
+    /**
+     * 查询未下达工单的计划详情
+     *
+     * @param planId 生产计划ID
+     * @return 计划详情
+     */
+    ProductSummaryDtos.BatchDetail getPlanDetail(Long planId);
+
     /**
      * 导出批次文件 zip
      * <p>

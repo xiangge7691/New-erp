@@ -11,8 +11,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
 /**
  * 检验批次控制器
  * <p>
@@ -26,8 +24,7 @@ import java.util.List;
  * ├────┼────────────────────────────────────────────────────┼────────┼──────────────────────┤
  * │ 1  │ /api/inspection/batches                            │ GET    │ 分页查询检验批次      │
  * │ 2  │ /api/inspection/batches/stats                      │ GET    │ 检验看板统计          │
- * │ 3  │ /api/inspection/batches/{workOrderId}              │ GET    │ 批次汇总详情          │
- * │ 4  │ /api/inspection/batches/{workOrderId}/tasks        │ GET    │ 查询批次下全部任务    │
+ * │ 3  │ /api/inspection/batches/{workOrderId}              │ GET    │ 批次汇总详情（含任务）│
  * └────┴────────────────────────────────────────────────────┴────────┴──────────────────────┘
  */
 @RestController
@@ -116,20 +113,4 @@ public class InspectionBatchController extends BaseController {
         }
     }
 
-    /**
-     * 查询指定工单/批次下的全部检验任务
-     *
-     * 示例请求：GET /api/inspection/batches/463/tasks
-     *
-     * @param workOrderId 工单ID
-     * @return 检验任务列表
-     */
-    @GetMapping("/{workOrderId}/tasks")
-    public ApiResponse<List<InspectionTaskDtos.TaskSummary>> tasks(@PathVariable Long workOrderId) {
-        try {
-            return success(inspectionTaskService.queryBatchTasks(workOrderId));
-        } catch (Exception e) {
-            return exception(e, "查询批次检验任务");
-        }
-    }
 }

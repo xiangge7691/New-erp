@@ -7,17 +7,31 @@
 <style>
   :root {
     --primary: #2f6fed;
-    --violet: #7a5af8;
-    --green: #12b76a;
-    --amber: #f79009;
-    --cyan: #06aed4;
-    --rose: #f04438;
-    --other: #667085;
+    --green: #079455;
+    --amber: #dc6803;
+    --rose: #d92d20;
+    --other: #98a2b3;
     --text: #182230;
-    --muted: #6b7787;
-    --line: #e6eaf2;
+    --muted: #667085;
+    --line: #e4e7ec;
     --bg: #f5f7fb;
-    --soft: #fbfcff;
+    --soft: #f9fafb;
+
+    /* ---------- 图表配色：蓝色系为主 + 中性灰，语义色只用于状态 ---------- */
+    --c-raw: #2f6fed;      /* 原料 */
+    --c-aux: #6496e8;      /* 辅料 */
+    --c-pack: #aac5f2;     /* 包材 */
+    --c-water: #344054;    /* 水 */
+    --c-power: #667085;    /* 电 */
+    --c-gas: #98a2b3;      /* 气 */
+    --c-other: #c7cdd6;    /* 其他 */
+    --c-plan: #d0d5dd;     /* 计划量 */
+    --c-revenue: #98a2b3;  /* 预估产值 */
+    --c-estimate: #7aa2f0; /* 预估成本 */
+    --c-actual: #2f6fed;   /* 实际成本 / 交付量 */
+    --c-good: #079455;     /* 节约 / 已交付 */
+    --c-bad: #d92d20;      /* 超支 */
+    --c-warn: #dc6803;     /* 预警 */
   }
 
   * { box-sizing: border-box; }
@@ -109,9 +123,9 @@
     padding: 16px 18px;
     background: #fff;
     border: 1px solid var(--line);
-    border-radius: 14px;
+    border-radius: 12px;
   }
-  .card.is-new { border: 1px dashed #bdb4fe; box-shadow: 0 0 0 3px rgba(122, 90, 248, 0.05); }
+  .card.is-new { border: 1px dashed #bdb4fe; }
 
   .card__head {
     display: flex;
@@ -131,16 +145,12 @@
   .card__desc { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
   .dot {
     display: inline-block;
-    width: 4px;
-    height: 15px;
+    width: 3px;
+    height: 14px;
     background: var(--primary);
     border-radius: 2px;
     flex: none;
   }
-  .dot--green { background: var(--green); }
-  .dot--amber { background: var(--amber); }
-  .dot--cyan { background: var(--cyan); }
-  .dot--rose { background: var(--rose); }
 
   /* ---------- 新增标记 ---------- */
   .new-tag {
@@ -195,10 +205,10 @@
   .compose {
     display: flex;
     width: 100%;
-    height: 9px;
+    height: 8px;
     overflow: hidden;
-    background: #eef1f7;
-    border-radius: 9px;
+    background: #f2f4f7;
+    border-radius: 4px;
   }
   .compose span { display: block; height: 100%; }
   .compose-legend {
@@ -245,8 +255,8 @@
   }
   .ratio__name { display: flex; align-items: center; gap: 6px; font-size: 12.5px; }
   .ratio__name i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; }
-  .ratio__track { height: 8px; overflow: hidden; background: #eef1f7; border-radius: 6px; }
-  .ratio__track i { display: block; height: 100%; border-radius: 6px; }
+  .ratio__track { height: 8px; overflow: hidden; background: #f2f4f7; border-radius: 4px; }
+  .ratio__track i { display: block; height: 100%; border-radius: 4px; }
   .ratio__value { text-align: right; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .ratio__note {
     display: flex;
@@ -281,10 +291,10 @@
   .balance__total { font-size: 12px; font-weight: 600; color: #475467; }
   .balance__bar {
     display: flex;
-    height: 30px;
+    height: 26px;
     overflow: hidden;
-    background: #eef1f7;
-    border-radius: 8px;
+    background: #f2f4f7;
+    border-radius: 4px;
   }
   .balance__bar span {
     display: flex;
@@ -314,7 +324,7 @@
 
   /* ---------- 图例 ---------- */
   .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11.5px; color: var(--muted); }
-  .legend i { display: inline-block; width: 9px; height: 9px; margin-right: 4px; border-radius: 2px; }
+  .legend i { display: inline-block; width: 8px; height: 8px; margin-right: 4px; border-radius: 2px; }
   .chart-unit { font-size: 11px; color: var(--muted); }
 
   /* ---------- 月度趋势柱 ---------- */
@@ -325,7 +335,7 @@
     height: 200px;
     padding: 10px 4px 0;
     border-bottom: 1px solid var(--line);
-    background: repeating-linear-gradient(to top, transparent 0 49px, #f0f3f9 49px 50px);
+    background: none;
   }
   .trend__group {
     display: flex;
@@ -335,12 +345,8 @@
     gap: 6px;
     height: 100%;
   }
-  .trend__bars { display: flex; align-items: flex-end; gap: 4px; height: 170px; }
-  .bar { display: block; width: 14px; background: var(--primary); border-radius: 3px 3px 0 0; }
-  .bar--violet { background: var(--violet); }
-  .bar--green { background: var(--green); }
-  .bar--amber { background: var(--amber); }
-  .bar--cyan { background: var(--cyan); }
+  .trend__bars { display: flex; align-items: flex-end; gap: 6px; height: 170px; }
+  .bar { display: block; width: 12px; background: var(--primary); border-radius: 4px 4px 0 0; }
   .trend__label { font-size: 11px; color: var(--muted); }
 
   /* ---------- 7 段堆叠柱 ---------- */
@@ -363,7 +369,7 @@
   .stack {
     display: flex;
     flex-direction: column-reverse;
-    width: 30px;
+    width: 24px;
     overflow: hidden;
     border-radius: 4px 4px 0 0;
   }
@@ -381,10 +387,10 @@
   .hstack__name { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
   .hstack__track {
     display: flex;
-    height: 18px;
+    height: 14px;
     overflow: hidden;
-    background: #eef1f7;
-    border-radius: 4px;
+    background: #f2f4f7;
+    border-radius: 3px;
   }
   .hstack__track i { display: block; height: 100%; }
   .hstack__total { text-align: right; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -401,9 +407,9 @@
   .rank__track {
     position: relative;
     display: flex;
-    height: 10px;
-    background: #eef1f7;
-    border-radius: 5px;
+    height: 8px;
+    background: #f2f4f7;
+    border-radius: 4px;
   }
   .rank__track::after {
     position: absolute;
@@ -412,11 +418,11 @@
     left: 50%;
     width: 1px;
     content: "";
-    background: #c7d2e5;
+    background: #d0d5dd;
   }
   .rank__left { display: flex; justify-content: flex-end; width: 50%; }
   .rank__right { width: 50%; }
-  .rank__left i, .rank__right i { display: block; height: 10px; border-radius: 5px; }
+  .rank__left i, .rank__right i { display: block; height: 8px; border-radius: 4px; }
   .rank__val { text-align: right; font-size: 11.5px; font-weight: 650; font-variant-numeric: tabular-nums; }
   .rank__val.pos { color: var(--green); }
   .rank__val.neg { color: var(--rose); }
@@ -431,8 +437,8 @@
     align-items: center;
   }
   .top5__name { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-  .top5__track { height: 14px; overflow: hidden; background: #eef1f7; border-radius: 4px; }
-  .top5__track i { display: block; height: 100%; background: var(--cyan); border-radius: 4px; }
+  .top5__track { height: 10px; overflow: hidden; background: #f2f4f7; border-radius: 3px; }
+  .top5__track i { display: block; height: 100%; background: var(--primary); border-radius: 3px; }
   .top5__val { text-align: right; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 
   /* ---------- 明细表 ---------- */
@@ -442,12 +448,12 @@
     padding: 7px;
     text-align: left;
     white-space: nowrap;
-    border-bottom: 1px solid #eef1f7;
+    border-bottom: 1px solid #f2f4f7;
   }
-  table.data th { font-weight: 650; color: #475467; background: #f8faff; }
+  table.data th { font-weight: 650; color: #475467; background: #f9fafb; }
   table.data td.num, table.data th.num { text-align: right; font-variant-numeric: tabular-nums; }
   table.data tr:last-child td { border-bottom: 0; }
-  table.data tr.total td { font-weight: 650; background: #fbfcff; }
+  table.data tr.total td { font-weight: 650; background: #f9fafb; }
   .table-note { margin: 8px 0 0; font-size: 11.5px; color: var(--muted); }
   .table-scroll-hint { margin: 0 0 8px; font-size: 11.5px; color: #6941c6; }
 
@@ -487,9 +493,9 @@
     padding: 7px 8px;
     text-align: right;
     white-space: nowrap;
-    border: 1px solid #eef1f7;
+    border: 1px solid #f2f4f7;
   }
-  table.tree-table th { font-weight: 650; color: #475467; background: #fbfcff; }
+  table.tree-table th { font-weight: 650; color: #475467; background: #f9fafb; }
   table.tree-table th:first-child, table.tree-table td:first-child { text-align: left; }
   .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
   .muted { color: var(--muted); }
@@ -634,18 +640,18 @@
         class="compose"
         title="物料 38.11万（95.0%）/ 水 0.80万 / 电 0.60万 / 气 0.40万 / 其他 0.20万"
       >
-        <span style="width:95%;background:#2f6fed"></span>
-        <span style="width:2%;background:#06aed4"></span>
-        <span style="width:1.5%;background:#7a5af8"></span>
-        <span style="width:1%;background:#f79009"></span>
-        <span style="width:0.5%;background:#667085"></span>
+        <span style="width:95%;background:var(--c-raw)"></span>
+        <span style="width:2%;background:var(--c-water)"></span>
+        <span style="width:1.5%;background:var(--c-power)"></span>
+        <span style="width:1%;background:var(--c-gas)"></span>
+        <span style="width:0.5%;background:var(--c-other)"></span>
       </div>
       <div class="compose-legend">
-        <span><i style="background:#2f6fed"></i>物料 38.11万</span>
-        <span><i style="background:#06aed4"></i>水 0.80万</span>
-        <span><i style="background:#7a5af8"></i>电 0.60万</span>
-        <span><i style="background:#f79009"></i>气 0.40万</span>
-        <span><i style="background:#667085"></i>其他 0.20万 <span class="new-tag">新增</span></span>
+        <span><i style="background:var(--c-raw)"></i>物料 38.11万</span>
+        <span><i style="background:var(--c-water)"></i>水 0.80万</span>
+        <span><i style="background:var(--c-power)"></i>电 0.60万</span>
+        <span><i style="background:var(--c-gas)"></i>气 0.40万</span>
+        <span><i style="background:var(--c-other)"></i>其他 0.20万 <span class="new-tag">新增</span></span>
       </div>
       <div class="metric__foot">
         <span class="pill pill--down">节约 31.8%</span>
@@ -697,18 +703,18 @@
   </div>
 
   <div class="ratio__row">
-    <span class="ratio__name"><i style="background:#2f6fed"></i>预估产值</span>
-    <span class="ratio__track"><i style="width:100%;background:#2f6fed"></i></span>
+    <span class="ratio__name"><i style="background:var(--c-revenue)"></i>预估产值</span>
+    <span class="ratio__track"><i style="width:100%;background:var(--c-revenue)"></i></span>
     <span class="ratio__value">52.26 万元</span>
   </div>
   <div class="ratio__row">
-    <span class="ratio__name"><i style="background:#7a5af8"></i>预估成本</span>
-    <span class="ratio__track"><i style="width:100%;background:#7a5af8"></i></span>
+    <span class="ratio__name"><i style="background:var(--c-estimate)"></i>预估成本</span>
+    <span class="ratio__track"><i style="width:100%;background:var(--c-estimate)"></i></span>
     <span class="ratio__value">112.5%</span>
   </div>
   <div class="ratio__row">
-    <span class="ratio__name"><i style="background:#12b76a"></i>实际成本</span>
-    <span class="ratio__track"><i style="width:76.8%;background:#12b76a"></i></span>
+    <span class="ratio__name"><i style="background:var(--c-actual)"></i>实际成本</span>
+    <span class="ratio__track"><i style="width:76.8%;background:var(--c-actual)"></i></span>
     <span class="ratio__value">76.8%</span>
   </div>
 
@@ -797,13 +803,13 @@
   </div>
 
   <div class="balance__bar">
-    <span style="width:50%;background:#12b76a">已全部交付 4 批（50.0%）</span>
-    <span style="width:50%;background:#f79009">待生产 4 批（50.0%）</span>
+    <span style="width:50%;background:var(--c-good)">已全部交付 4 批（50.0%）</span>
+    <span style="width:50%;background:var(--c-plan);color:#475467">待生产 4 批（50.0%）</span>
   </div>
 
   <div class="balance__legend">
-    <span><i style="background:#12b76a"></i>已全部交付 <b>4 批 · 50.0%</b></span>
-    <span><i style="background:#f79009"></i>待生产（含部分交付）<b>4 批 · 50.0%</b></span>
+    <span><i style="background:var(--c-good)"></i>已全部交付 <b>4 批 · 50.0%</b></span>
+    <span><i style="background:var(--c-plan)"></i>待生产（含部分交付）<b>4 批 · 50.0%</b></span>
     <span class="muted">已全部交付计划量 20,000 件 · 待生产计划量 10,001 件</span>
   </div>
 
@@ -827,33 +833,33 @@
     </div>
 
     <div class="legend" style="margin-bottom:8px">
-      <span><i style="background:#2f6fed"></i>预估产值</span>
-      <span><i style="background:#7a5af8"></i>预估成本</span>
-      <span><i style="background:#12b76a"></i>实际成本</span>
+      <span><i style="background:var(--c-revenue)"></i>预估产值</span>
+      <span><i style="background:var(--c-estimate)"></i>预估成本</span>
+      <span><i style="background:var(--c-actual)"></i>实际成本</span>
     </div>
 
     <div class="trend__plot">
       <div class="trend__group">
         <div class="trend__bars">
-          <i class="bar" style="height:117px" title="预估产值 15.00 万元"></i>
-          <i class="bar bar--violet" style="height:125px" title="预估成本 16.00 万元"></i>
-          <i class="bar bar--green" style="height:82px" title="实际成本 10.50 万元"></i>
+          <i class="bar" style="height:117px;background:var(--c-revenue)" title="预估产值 15.00 万元"></i>
+          <i class="bar" style="height:125px;background:var(--c-estimate)" title="预估成本 16.00 万元"></i>
+          <i class="bar" style="height:82px;background:var(--c-actual)" title="实际成本 10.50 万元"></i>
         </div>
         <span class="trend__label">8月</span>
       </div>
       <div class="trend__group">
         <div class="trend__bars">
-          <i class="bar" style="height:156px" title="预估产值 20.00 万元"></i>
-          <i class="bar bar--violet" style="height:164px" title="预估成本 21.00 万元"></i>
-          <i class="bar bar--green" style="height:113px" title="实际成本 14.50 万元"></i>
+          <i class="bar" style="height:156px;background:var(--c-revenue)" title="预估产值 20.00 万元"></i>
+          <i class="bar" style="height:164px;background:var(--c-estimate)" title="预估成本 21.00 万元"></i>
+          <i class="bar" style="height:113px;background:var(--c-actual)" title="实际成本 14.50 万元"></i>
         </div>
         <span class="trend__label">9月</span>
       </div>
       <div class="trend__group">
         <div class="trend__bars">
-          <i class="bar" style="height:135px" title="预估产值 17.26 万元"></i>
-          <i class="bar bar--violet" style="height:170px" title="预估成本 21.79 万元"></i>
-          <i class="bar bar--green" style="height:118px" title="实际成本 15.11 万元"></i>
+          <i class="bar" style="height:135px;background:var(--c-revenue)" title="预估产值 17.26 万元"></i>
+          <i class="bar" style="height:170px;background:var(--c-estimate)" title="预估成本 21.79 万元"></i>
+          <i class="bar" style="height:118px;background:var(--c-actual)" title="实际成本 15.11 万元"></i>
         </div>
         <span class="trend__label">10月</span>
       </div>
@@ -870,51 +876,51 @@
     </div>
 
     <div class="legend" style="margin-bottom:8px">
-      <span><i style="background:#2f6fed"></i>原料</span>
-      <span><i style="background:#12b76a"></i>辅料</span>
-      <span><i style="background:#ee46bc"></i>包材</span>
-      <span><i style="background:#06aed4"></i>水</span>
-      <span><i style="background:#7a5af8"></i>电</span>
-      <span><i style="background:#f79009"></i>气</span>
-      <span><i style="background:#667085"></i>其他</span>
+      <span><i style="background:var(--c-raw)"></i>原料</span>
+      <span><i style="background:var(--c-aux)"></i>辅料</span>
+      <span><i style="background:var(--c-pack)"></i>包材</span>
+      <span><i style="background:var(--c-water)"></i>水</span>
+      <span><i style="background:var(--c-power)"></i>电</span>
+      <span><i style="background:var(--c-gas)"></i>气</span>
+      <span><i style="background:var(--c-other)"></i>其他</span>
     </div>
 
     <div class="stack-plot">
       <div class="stack-col">
         <div class="stack" style="height:125px">
-          <i style="height:71px;background:#2f6fed" title="原料 6.00 万元"></i>
-          <i style="height:30px;background:#12b76a" title="辅料 2.50 万元"></i>
-          <i style="height:15px;background:#ee46bc" title="包材 1.30 万元"></i>
-          <i style="height:4px;background:#06aed4" title="水 0.30 万元"></i>
-          <i style="height:2px;background:#7a5af8" title="电 0.20 万元"></i>
-          <i style="height:2px;background:#f79009" title="气 0.20 万元"></i>
-          <i style="height:0;background:#667085" title="其他 0"></i>
+          <i style="height:71px;background:var(--c-raw)" title="原料 6.00 万元"></i>
+          <i style="height:30px;background:var(--c-aux)" title="辅料 2.50 万元"></i>
+          <i style="height:15px;background:var(--c-pack)" title="包材 1.30 万元"></i>
+          <i style="height:4px;background:var(--c-water)" title="水 0.30 万元"></i>
+          <i style="height:2px;background:var(--c-power)" title="电 0.20 万元"></i>
+          <i style="height:2px;background:var(--c-gas)" title="气 0.20 万元"></i>
+          <i style="height:0;background:var(--c-other)" title="其他 0"></i>
         </div>
         <b>10.50万</b>
         <span class="trend__label">8月</span>
       </div>
       <div class="stack-col">
         <div class="stack" style="height:173px">
-          <i style="height:105px;background:#2f6fed" title="原料 8.80 万元"></i>
-          <i style="height:38px;background:#12b76a" title="辅料 3.20 万元"></i>
-          <i style="height:21px;background:#ee46bc" title="包材 1.80 万元"></i>
-          <i style="height:4px;background:#06aed4" title="水 0.30 万元"></i>
-          <i style="height:2px;background:#7a5af8" title="电 0.20 万元"></i>
-          <i style="height:1px;background:#f79009" title="气 0.10 万元"></i>
-          <i style="height:1px;background:#667085" title="其他 0.10 万元"></i>
+          <i style="height:105px;background:var(--c-raw)" title="原料 8.80 万元"></i>
+          <i style="height:38px;background:var(--c-aux)" title="辅料 3.20 万元"></i>
+          <i style="height:21px;background:var(--c-pack)" title="包材 1.80 万元"></i>
+          <i style="height:4px;background:var(--c-water)" title="水 0.30 万元"></i>
+          <i style="height:2px;background:var(--c-power)" title="电 0.20 万元"></i>
+          <i style="height:1px;background:var(--c-gas)" title="气 0.10 万元"></i>
+          <i style="height:1px;background:var(--c-other)" title="其他 0.10 万元"></i>
         </div>
         <b>14.50万</b>
         <span class="trend__label">9月</span>
       </div>
       <div class="stack-col">
         <div class="stack" style="height:180px">
-          <i style="height:107px;background:#2f6fed" title="原料 9.00 万元"></i>
-          <i style="height:42px;background:#12b76a" title="辅料 3.50 万元"></i>
-          <i style="height:24px;background:#ee46bc" title="包材 2.01 万元"></i>
-          <i style="height:2px;background:#06aed4" title="水 0.20 万元"></i>
-          <i style="height:2px;background:#7a5af8" title="电 0.20 万元"></i>
-          <i style="height:1px;background:#f79009" title="气 0.10 万元"></i>
-          <i style="height:1px;background:#667085" title="其他 0.10 万元"></i>
+          <i style="height:107px;background:var(--c-raw)" title="原料 9.00 万元"></i>
+          <i style="height:42px;background:var(--c-aux)" title="辅料 3.50 万元"></i>
+          <i style="height:24px;background:var(--c-pack)" title="包材 2.01 万元"></i>
+          <i style="height:2px;background:var(--c-water)" title="水 0.20 万元"></i>
+          <i style="height:2px;background:var(--c-power)" title="电 0.20 万元"></i>
+          <i style="height:1px;background:var(--c-gas)" title="气 0.10 万元"></i>
+          <i style="height:1px;background:var(--c-other)" title="其他 0.10 万元"></i>
         </div>
         <b>15.11万</b>
         <span class="trend__label">10月</span>
@@ -934,22 +940,22 @@
     </div>
 
     <div class="legend" style="margin-bottom:10px">
-      <span><i style="background:#2f6fed"></i>原料</span>
-      <span><i style="background:#12b76a"></i>辅料</span>
-      <span><i style="background:#ee46bc"></i>包材</span>
-      <span><i style="background:#06aed4"></i>水电气</span>
-      <span><i style="background:#667085"></i>其他</span>
+      <span><i style="background:var(--c-raw)"></i>原料</span>
+      <span><i style="background:var(--c-aux)"></i>辅料</span>
+      <span><i style="background:var(--c-pack)"></i>包材</span>
+      <span><i style="background:var(--c-water)"></i>水电气</span>
+      <span><i style="background:var(--c-other)"></i>其他</span>
     </div>
 
     <div class="hstack">
       <div class="hstack__row">
         <span class="hstack__name">壮骨关节丸</span>
         <div class="hstack__track" title="原料 12.00万 / 辅料 4.50万 / 包材 2.60万 / 水电气 0.90万 / 其他 0.10万">
-          <i style="width:59.7%;background:#2f6fed"></i>
-          <i style="width:22.4%;background:#12b76a"></i>
-          <i style="width:12.9%;background:#ee46bc"></i>
-          <i style="width:4.5%;background:#06aed4"></i>
-          <i style="width:0.5%;background:#667085"></i>
+          <i style="width:59.7%;background:var(--c-raw)"></i>
+          <i style="width:22.4%;background:var(--c-aux)"></i>
+          <i style="width:12.9%;background:var(--c-pack)"></i>
+          <i style="width:4.5%;background:var(--c-water)"></i>
+          <i style="width:0.5%;background:var(--c-other)"></i>
         </div>
         <span class="hstack__total">20.10万</span>
       </div>
@@ -957,11 +963,11 @@
       <div class="hstack__row">
         <span class="hstack__name">护肾排毒丸</span>
         <div class="hstack__track" title="原料 9.00万 / 辅料 3.50万 / 包材 2.00万 / 水电气 0.70万 / 其他 0.10万">
-          <i style="width:44.8%;background:#2f6fed"></i>
-          <i style="width:17.4%;background:#12b76a"></i>
-          <i style="width:10%;background:#ee46bc"></i>
-          <i style="width:3.5%;background:#06aed4"></i>
-          <i style="width:0.5%;background:#667085"></i>
+          <i style="width:44.8%;background:var(--c-raw)"></i>
+          <i style="width:17.4%;background:var(--c-aux)"></i>
+          <i style="width:10%;background:var(--c-pack)"></i>
+          <i style="width:3.5%;background:var(--c-water)"></i>
+          <i style="width:0.5%;background:var(--c-other)"></i>
         </div>
         <span class="hstack__total">15.30万</span>
       </div>
@@ -969,10 +975,10 @@
       <div class="hstack__row">
         <span class="hstack__name">活血通络丸</span>
         <div class="hstack__track" title="原料 2.00万 / 辅料 1.00万 / 包材 0.41万 / 水电气 0.10万">
-          <i style="width:10%;background:#2f6fed"></i>
-          <i style="width:5%;background:#12b76a"></i>
-          <i style="width:2.1%;background:#ee46bc"></i>
-          <i style="width:0.5%;background:#06aed4"></i>
+          <i style="width:10%;background:var(--c-raw)"></i>
+          <i style="width:5%;background:var(--c-aux)"></i>
+          <i style="width:2.1%;background:var(--c-pack)"></i>
+          <i style="width:0.5%;background:var(--c-water)"></i>
         </div>
         <span class="hstack__total">3.51万</span>
       </div>
@@ -980,10 +986,10 @@
       <div class="hstack__row">
         <span class="hstack__name">未关联制剂</span>
         <div class="hstack__track" title="原料 0.80万 / 辅料 0.20万 / 包材 0.10万 / 水电气 0.10万">
-          <i style="width:4%;background:#2f6fed"></i>
-          <i style="width:1%;background:#12b76a"></i>
-          <i style="width:0.5%;background:#ee46bc"></i>
-          <i style="width:0.5%;background:#06aed4"></i>
+          <i style="width:4%;background:var(--c-raw)"></i>
+          <i style="width:1%;background:var(--c-aux)"></i>
+          <i style="width:0.5%;background:var(--c-pack)"></i>
+          <i style="width:0.5%;background:var(--c-water)"></i>
         </div>
         <span class="hstack__total">1.20万</span>
       </div>
@@ -994,7 +1000,7 @@
   <div class="card is-new">
     <div class="card__head">
       <div>
-        <h3 class="card__title"><span class="dot dot--rose"></span>批次成本节约排行 <span class="new-tag">新增图表</span></h3>
+        <h3 class="card__title"><span class="dot"></span>批次成本节约排行 <span class="new-tag">新增图表</span></h3>
         <p class="card__desc">
           成本节约率 =（预计成本 − 实际成本）÷ 预计成本 × 100% · 正=节约（绿），负=超支（红）
         </p>
@@ -1006,7 +1012,7 @@
         <span class="rank__name">20261015 · 壮骨关节丸</span>
         <div class="rank__track">
           <div class="rank__left"></div>
-          <div class="rank__right"><i style="width:100%;background:#12b76a"></i></div>
+          <div class="rank__right"><i style="width:100%;background:var(--c-good)"></i></div>
         </div>
         <span class="rank__val pos">45.0%</span>
       </div>
@@ -1015,7 +1021,7 @@
         <span class="rank__name">20261016 · 护肾排毒丸</span>
         <div class="rank__track">
           <div class="rank__left"></div>
-          <div class="rank__right"><i style="width:74%;background:#12b76a"></i></div>
+          <div class="rank__right"><i style="width:74%;background:var(--c-good)"></i></div>
         </div>
         <span class="rank__val pos">33.3%</span>
       </div>
@@ -1024,7 +1030,7 @@
         <span class="rank__name">20261017 · 活血通络丸</span>
         <div class="rank__track">
           <div class="rank__left"></div>
-          <div class="rank__right"><i style="width:37%;background:#12b76a"></i></div>
+          <div class="rank__right"><i style="width:37%;background:var(--c-good)"></i></div>
         </div>
         <span class="rank__val pos">16.7%</span>
       </div>
@@ -1032,7 +1038,7 @@
       <div class="rank__row">
         <span class="rank__name">20261018 · 疏肝养胃丸</span>
         <div class="rank__track">
-          <div class="rank__left"><i style="width:23%;background:#f04438"></i></div>
+          <div class="rank__left"><i style="width:23%;background:var(--c-bad)"></i></div>
           <div class="rank__right"></div>
         </div>
         <span class="rank__val neg">-10.4%</span>
@@ -1054,33 +1060,33 @@
   <div class="card">
     <div class="card__head">
       <div>
-        <h3 class="card__title"><span class="dot dot--green"></span>计划量 vs 交付量</h3>
+        <h3 class="card__title"><span class="dot"></span>计划量 vs 交付量</h3>
         <p class="card__desc">单位：件 · 点击柱体查看当月计划单 / 生产任务明细</p>
       </div>
     </div>
     <div class="legend" style="margin-bottom:8px">
-      <span><i style="background:#c7d2e5"></i>计划量</span>
-      <span><i style="background:#12b76a"></i>交付量</span>
+      <span><i style="background:var(--c-plan)"></i>计划量</span>
+      <span><i style="background:var(--c-actual)"></i>交付量</span>
     </div>
     <div class="trend__plot" style="height:180px">
       <div class="trend__group">
         <div class="trend__bars" style="height:150px">
-          <i class="bar" style="height:113px;background:#c7d2e5" title="计划量 10,000 件"></i>
-          <i class="bar bar--green" style="height:124px" title="交付量 11,000 件"></i>
+          <i class="bar" style="height:113px;background:var(--c-plan)" title="计划量 10,000 件"></i>
+          <i class="bar" style="height:124px;background:var(--c-actual)" title="交付量 11,000 件"></i>
         </div>
         <span class="trend__label">8月</span>
       </div>
       <div class="trend__group">
         <div class="trend__bars" style="height:150px">
-          <i class="bar" style="height:135px;background:#c7d2e5" title="计划量 12,000 件"></i>
-          <i class="bar bar--green" style="height:158px" title="交付量 14,000 件"></i>
+          <i class="bar" style="height:135px;background:var(--c-plan)" title="计划量 12,000 件"></i>
+          <i class="bar" style="height:158px;background:var(--c-actual)" title="交付量 14,000 件"></i>
         </div>
         <span class="trend__label">9月</span>
       </div>
       <div class="trend__group">
         <div class="trend__bars" style="height:150px">
-          <i class="bar" style="height:90px;background:#c7d2e5" title="计划量 8,001 件"></i>
-          <i class="bar bar--green" style="height:160px" title="交付量 14,200 件"></i>
+          <i class="bar" style="height:90px;background:var(--c-plan)" title="计划量 8,001 件"></i>
+          <i class="bar" style="height:160px;background:var(--c-actual)" title="交付量 14,200 件"></i>
         </div>
         <span class="trend__label">10月</span>
       </div>
@@ -1090,29 +1096,33 @@
   <div class="card">
     <div class="card__head">
       <div>
-        <h3 class="card__title"><span class="dot dot--amber"></span>待生产计划量</h3>
+        <h3 class="card__title"><span class="dot"></span>待生产计划量</h3>
         <p class="card__desc">单位：件 · 时点值 · 点击节点查看计划单</p>
       </div>
       <span class="pill pill--warn">当前 10,001</span>
     </div>
     <svg class="line-chart" viewBox="0 0 320 190" role="img" aria-label="待生产趋势">
-      <line x1="36" y1="150" x2="306" y2="150" stroke="#e6eaf2" />
-      <line x1="36" y1="85" x2="306" y2="85" stroke="#f0f3f9" />
-      <line x1="36" y1="20" x2="306" y2="20" stroke="#f0f3f9" />
-      <text x="4" y="154" font-size="10" fill="#6b7787">0</text>
-      <text x="4" y="89" font-size="10" fill="#6b7787">5千</text>
-      <text x="0" y="24" font-size="10" fill="#6b7787">1万</text>
-      <polygon points="60,150 60,137 170,124 280,20 280,150" fill="rgba(247,144,9,0.12)" />
-      <polyline points="60,137 170,124 280,20" fill="none" stroke="#f79009" stroke-width="2.5" />
-      <circle cx="60" cy="137" r="4" fill="#f79009" />
-      <circle cx="170" cy="124" r="4" fill="#f79009" />
-      <circle cx="280" cy="20" r="4" fill="#f79009" />
-      <text x="52" y="128" font-size="10" fill="#475467">1,000</text>
-      <text x="160" y="115" font-size="10" fill="#475467">2,000</text>
-      <text x="252" y="12" font-size="10" fill="#b54708" font-weight="600">10,001</text>
-      <text x="48" y="172" font-size="10" fill="#6b7787">8月</text>
-      <text x="158" y="172" font-size="10" fill="#6b7787">9月</text>
-      <text x="268" y="172" font-size="10" fill="#6b7787">10月</text>
+      <line x1="36" y1="150" x2="306" y2="150" stroke="#e4e7ec" />
+      <line x1="36" y1="85" x2="306" y2="85" stroke="#f2f4f7" />
+      <line x1="36" y1="20" x2="306" y2="20" stroke="#f2f4f7" />
+      <text x="4" y="154" font-size="10" fill="#667085">0</text>
+      <text x="4" y="89" font-size="10" fill="#667085">5千</text>
+      <text x="0" y="24" font-size="10" fill="#667085">1万</text>
+      <polyline
+        points="60,137 170,124 280,20"
+        fill="none"
+        stroke="#475467"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+      <circle cx="280" cy="20" r="4" fill="#dc6803" stroke="#fff" stroke-width="2">
+        <title>2026-10 · 待生产 10,001 件</title>
+      </circle>
+      <text x="248" y="10" font-size="10" fill="#b54708" font-weight="600">10,001</text>
+      <text x="48" y="172" font-size="10" fill="#667085">8月</text>
+      <text x="158" y="172" font-size="10" fill="#667085">9月</text>
+      <text x="268" y="172" font-size="10" fill="#667085">10月</text>
     </svg>
     <p class="table-note">待生产量较上月上升，建议核查排产。</p>
   </div>
@@ -1120,7 +1130,7 @@
   <div class="card">
     <div class="card__head">
       <div>
-        <h3 class="card__title"><span class="dot dot--cyan"></span>品种交付 Top 5</h3>
+        <h3 class="card__title"><span class="dot"></span>品种交付 Top 5</h3>
         <p class="card__desc">单位：件 · 合计 39,200 件 · 点击条形查看生产任务</p>
       </div>
     </div>

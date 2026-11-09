@@ -13,9 +13,11 @@
 
 流程顺序已调整为 **请检 → 检验计划 → 取样 → 检验记录 → 留样 → 销毁（非必须）**；存量库需执行 `src/main/resources/Data/migration/reorder_inspection_steps.sql`。
 
+请检单创建后自动生成检验任务（一张请检单对应一张任务），同一工单+品类+批号下允许多条任务；存量库需执行 `src/main/resources/Data/migration/inspection_task_request_unique.sql`（已在测试库执行）。
+
 | 表 | 用途 | 测试库状态 |
 |----|------|-----------|
-| `inspection_task` | 检验任务主表（六步流程索引） | 已建，0 行（接口创建后产生） |
+| `inspection_task` | 检验任务主表（六步流程索引） | 已建，请检单创建时自动生成任务 |
 | `inspection_task_step` | 检验任务六步记录 | 已建，0 行 |
 | `work_order_process_check` | 审核放行工序符合性检查 | 已建，0 行 |
 | `file_requirement_config` | 必传/条件必传/不必传配置 | 已建，35 条初始化数据 |
@@ -55,7 +57,7 @@
 | `/api/inspection/batches/stats` | GET | 检验看板统计：待办/检验中/已完成、六步环节计数 |
 | `/api/inspection/batches/{workOrderId}` | GET | 批次汇总详情（含任务明细） |
 | `/api/inspection/tasks/{id}` | GET | 任务详情（六步、字段、附件） |
-| `/api/inspection/tasks` | POST | 创建任务（按工单 + 被检品属性，重复创建返回已有任务） |
+| `/api/inspection/tasks` | POST | 创建任务（按工单 + 被检品属性；存在未关联请检单的同批次任务时返回该任务） |
 | `/api/inspection/tasks/{id}/plan` | POST | 办理检验计划 |
 | `/api/inspection/tasks/{id}/request` | POST | 办理请检 |
 | `/api/inspection/tasks/{id}/sampling` | POST | 办理取样 |
@@ -75,9 +77,13 @@
 
 流程规则：
 - 六步顺序：`REQUEST → PLAN → SAMPLING → INSPECTION → RETENTION → DESTRUCTION(非必须) → DONE`。
+- 请检单（原请检页面）创建成功后，后端在同一事务内自动生成检验任务：完成 `REQUEST` 环节并推进到 `PLAN`；一张请检单对应一张任务，同一工单+品类+批号下允许多条任务。
+- 请检单填写的检验计划编号若在库中存在，任务自动关联并跳过 `PLAN` 环节。
+- 检验任务页先行创建且未关联请检单的任务，会被后续同工单+品类+批号的请检单直接关联复用。
 - 不允许跳步；留样/销毁可按任务配置或 `skip` 接口跳过，必须写原因。
 - 每一步在同一事务内写原业务表、更新任务引用、推进 `current_step`、写 `inspection_task_step`。
 - 已实测：创建 → 请检 → 计划 → 取样 → 检验记录 → 留样 → 销毁（可选）全流程通过。
+- 已实测：请检单创建后自动生成任务（`InspectionTaskAutoCreateTest`），两张同批次请检单生成两条独立任务。
 - 已实测：检验批次列表按工单聚合，批次下钻返回该批次全部任务。
 
 ### 2.3 审核放行

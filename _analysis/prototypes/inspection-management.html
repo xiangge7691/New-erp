@@ -243,6 +243,8 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .step-item.active .step-dot { border-color: var(--main); color: var(--main); box-shadow: 0 0 0 4px rgba(93, 135, 255, .12); }
 .step-item.done::after { background: var(--success); }
 .step-item.skip .step-dot { border-style: dashed; color: var(--g500); background: var(--g100); }
+.step-item.external .step-dot { border-color: #d6e2ff; color: #3f6bd6; background: #f5f8ff; }
+.step-item.external .step-name { color: #3f6bd6; }
 .step-item.skip .step-name { color: var(--g500); }
 .step-item .step-name { font-size: 12px; color: var(--g700); }
 .step-item .step-count { font-size: 10.5px; color: var(--g500); margin-top: 1px; }
@@ -262,6 +264,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .tl-item.active .tl-dot { border-color: var(--main); color: var(--main); box-shadow: 0 0 0 4px rgba(93, 135, 255, .1); }
 .tl-item.error .tl-dot { border-color: var(--danger); background: var(--danger); color: #fff; }
 .tl-item.skip .tl-dot { border-style: dashed; color: var(--g500); background: var(--g100); }
+.tl-item.external .tl-dot { border-color: #d6e2ff; color: #3f6bd6; background: #f5f8ff; }
 .tl-card {
   background: #fff; border: 1px solid var(--g200); border-radius: 10px; padding: 10px 12px;
 }
@@ -303,6 +306,36 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 18px 20px 10px; }
 .modal-body { padding: 0 20px 8px; overflow: auto; }
 .modal-foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--g200); }
+.modal.step-modal { width: 820px; }
+.step-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; }
+.step-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.step-field.full { grid-column: 1 / -1; }
+.step-field label { font-size: 11.5px; color: var(--g600); }
+.step-field label em { color: var(--danger); font-style: normal; margin-left: 2px; }
+.step-field input, .step-field select, .step-field textarea {
+  width: 100%; height: 32px; border: 1px solid var(--border2); border-radius: 7px;
+  padding: 0 9px; font-size: 12.5px; color: var(--g800); background: #fff; outline: none;
+}
+.step-field textarea { height: auto; min-height: 62px; padding: 7px 9px; resize: vertical; }
+.step-field input:focus, .step-field select:focus, .step-field textarea:focus {
+  border-color: var(--main); box-shadow: 0 0 0 3px rgba(93, 135, 255, .12);
+}
+.step-field.invalid input, .step-field.invalid select, .step-field.invalid textarea { border-color: var(--danger); }
+.step-field .field-error { display: none; font-size: 10.5px; color: var(--danger); }
+.step-field.invalid .field-error { display: block; }
+.form-section { grid-column: 1 / -1; border-top: 1px solid var(--g200); padding-top: 9px; margin-top: 2px;
+  font-size: 12px; font-weight: 600; color: var(--g900); }
+.form-help { font-size: 10.5px; color: var(--g500); line-height: 1.5; }
+.file-input { width: 100%; font-size: 11.5px; color: var(--g600); }
+.form-file-list { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.form-file-chip { display: inline-flex; align-items: center; height: 22px; padding: 0 7px; border-radius: 5px;
+  background: var(--g100); border: 1px solid var(--g300); color: var(--g600); font-size: 10.5px; }
+.step-view { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 18px; }
+.step-view-item { min-width: 0; padding: 6px 0; border-bottom: 1px solid var(--g100); }
+.step-view-item.full { grid-column: 1 / -1; }
+.step-view-item .k { display: block; font-size: 10.5px; color: var(--g500); margin-bottom: 2px; }
+.step-view-item .v { font-size: 12.5px; color: var(--g800); line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+.step-view-files { grid-column: 1 / -1; padding-top: 8px; }
 .form-row { margin-bottom: 12px; }
 .form-row label { display: block; font-size: 12px; color: var(--g600); margin-bottom: 4px; }
 .form-row .input, .form-row .select, .form-row textarea { width: 100%; }
@@ -371,7 +404,7 @@ textarea.input { height: auto; min-height: 76px; padding: 8px 10px; resize: vert
     <header class="page-head">
       <div>
         <h1>检验管理</h1>
-        <p class="sub">按批次查看检验任务，逐步办理请检 → 检验计划 → 取样 → 检验记录 → 留样 → 销毁（非必）</p>
+        <p class="sub">请检在原请检页面创建，本页办理检验计划 → 取样 → 检验记录 → 留样 → 销毁（非必）</p>
       </div>
       <div class="head-actions">
         <button class="btn" onclick="toast('原型演示：导出检验台账')">导出台账</button>
@@ -441,6 +474,18 @@ textarea.input { height: auto; min-height: 76px; padding: 8px 10px; resize: vert
   <div class="drawer-foot" id="drawerFoot"></div>
 </aside>
 
+<div class="modal step-modal" id="stepModal">
+  <div class="modal-head">
+    <div>
+      <div class="drawer-title" id="stepModalTitle">办理检验步骤</div>
+      <div class="drawer-sub" id="stepModalSub"></div>
+    </div>
+    <button class="icon-btn" onclick="closeModal()" aria-label="关闭">×</button>
+  </div>
+  <div class="modal-body" id="stepModalBody"></div>
+  <div class="modal-foot" id="stepModalFoot"></div>
+</div>
+
 <script>
 /* =========================================================
  * 页面独立脚本：Toast、抽屉、弹窗（无侧边栏）
@@ -507,8 +552,8 @@ textarea.input { height: auto; min-height: 76px; padding: 8px 10px; resize: vert
 /* =========================================================
  * 模拟数据：基于测试库真实批次，补齐取样/留样/销毁
  * =======================================================*/
-const STEPS = ['请检', '检验计划', '取样', '检验记录', '留样', '销毁（非必）'];
-const STEP_ACTION = ['发起请检', '完成检验计划', '登记取样', '录入检验记录', '登记留样', '登记销毁'];
+const STEPS = ['请检（原页面）', '检验计划', '取样', '检验记录', '留样', '销毁（非必）'];
+const STEP_ACTION = ['原页面创建请检', '完成检验计划', '登记取样', '录入检验记录', '登记留样', '登记销毁'];
 
 const TASKS = [
   {
@@ -639,6 +684,7 @@ function batchStatusTag(group) {
   if (s === 5) return '<span class="tag orange">待销毁</span>';
   if (s === 3) return '<span class="tag blue">检验中</span>';
   if (s === 4) return '<span class="tag orange">留样中</span>';
+  if (s === 0) return '<span class="tag orange">待原页面请检</span>';
   return '<span class="tag gray">进行中</span>';
 }
 function taskChip(t) {
@@ -663,12 +709,15 @@ function stepLabel(t) {
   const s = currentStep(t);
   if (s === 6) return '已完成';
   if (s === 5) return t.destructionRequired === 1 ? '销毁' : '销毁（非必）';
+  if (s === 0) return '请检（原页面）';
   return STEPS[s];
 }
 function stepDisplayName(t, i) {
+  if (i === 0) return '请检（原页面）';
   return i === 5 && t.destructionRequired === 1 ? '销毁' : STEPS[i];
 }
 function stepState(t, i) {
+  if (i === 0) return 'external';
   const cur = currentStep(t);
   if (i === 4 && t.retentionRequired === 0) return 'skip';
   if (i === 5 && t.destructionRequired !== 1) return 'skip';
@@ -684,6 +733,7 @@ function statusTag(t) {
   if (s === 3) return '<span class="tag blue">检验中</span>';
   if (s === 4) return '<span class="tag orange">留样中</span>';
   if (s === 5) return '<span class="tag orange">待销毁</span>';
+  if (s === 0) return '<span class="tag orange">待原页面请检</span>';
   return '<span class="tag gray">进行中</span>';
 }
 function baseRows() {
@@ -867,7 +917,7 @@ function renderTable() {
       <td>${t.sampling ? t.sampling.code : '—'}<span class="cell-sub">${t.retention ? t.retention.code : '未留样'}</span></td>
       <td>${t.inspection ? `<span class="st ${t.inspection.conclusion === '合格' ? 'done' : t.inspection.conclusion === '不合格' ? 'bad' : 'run'}">${t.inspection.conclusion}</span><span class="cell-sub">${t.inspection.code}</span>` : '<span class="muted">尚无结论</span>'}</td>
       <td>${statusTag(t)}</td>
-      <td><button class="btn btn-sm ${s === 6 ? '' : 'btn-primary'}" data-open-task="${t.id}">${s === 6 ? '查看' : '办理'}</button></td>
+      <td><button class="btn btn-sm ${s === 6 ? '' : 'btn-primary'}" data-open-task="${t.id}">${s === 6 || s === 0 ? '查看' : '办理'}</button></td>
     </tr>`;
   }).join('') : `<tr><td colspan="9"><div class="empty">当前范围没有符合条件的检验任务</div></td></tr>`;
   document.getElementById('tableFoot').textContent = state.batchKey
@@ -966,13 +1016,14 @@ function renderDrawer() {
         <div><span class="k">状态</span>${statusTag(t)}</div>
       </div>
     </div>
-    <div class="steps mb-2">${STEPS.map((name, i) => `<div class="step-item ${stepState(t, i)}"><div class="step-dot">${stepState(t, i) === 'done' ? '✓' : stepState(t, i) === 'skip' ? '–' : i + 1}</div><div class="step-name">${stepDisplayName(t, i)}</div></div>`).join('')}</div>
+    ${s === 0 ? `<div class="note ${t.request ? 'info' : 'warn'} mb-2">${t.request ? '请检单已由原请检页面创建，本页从检验计划开始办理。' : '请检单需在原请检页面创建，创建后刷新本页继续办理检验计划。'}</div>` : ''}
+    <div class="steps mb-2">${STEPS.map((name, i) => `<div class="step-item ${stepState(t, i)}"><div class="step-dot">${stepState(t, i) === 'done' ? '✓' : stepState(t, i) === 'skip' ? '–' : stepState(t, i) === 'external' ? '外' : i + 1}</div><div class="step-name">${stepDisplayName(t, i)}</div></div>`).join('')}</div>
     <div class="timeline">${STEPS.map((name, i) => {
       const st = stepState(t, i);
-      const tag = st === 'done' ? '<span class="tag green">已完成</span>' : st === 'skip' ? '<span class="tag gray">不必办理</span>' : st === 'active' ? '<span class="tag blue">当前环节</span>' : st === 'error' ? '<span class="tag red">不符合</span>' : '<span class="tag gray">待办理</span>';
+      const tag = st === 'external' ? `<span class="tag ${t.request ? 'gray' : 'orange'}">${t.request ? '原页面已创建' : '待原页面创建'}</span>` : st === 'done' ? '<span class="tag green">已完成</span>' : st === 'skip' ? '<span class="tag gray">不必办理</span>' : st === 'active' ? '<span class="tag blue">当前环节</span>' : st === 'error' ? '<span class="tag red">不符合</span>' : '<span class="tag gray">待办理</span>';
       const files = stepFiles(t, i);
       return `<div class="tl-item ${st}">
-        <div class="tl-dot">${st === 'done' ? '✓' : st === 'skip' ? '–' : i + 1}</div>
+        <div class="tl-dot">${st === 'done' ? '✓' : st === 'skip' ? '–' : st === 'external' ? '外' : i + 1}</div>
         <div class="tl-card">
           <div class="tl-head"><b>${stepDisplayName(t, i)}</b>${tag}</div>
           <div class="tl-meta">${stepKv(t, i).slice(0, 2).map(x => `${x[0]}：${x[1]}`).join(' · ')}</div>
@@ -981,6 +1032,7 @@ function renderDrawer() {
             ${files.length ? `<div class="file-list">${files.map(f => `<span class="file-chip" data-file="${f}">${f}</span>`).join('')}</div>` : (st !== 'active' && st !== '' ? '<div class="small muted" style="margin-top:6px;">暂无附件</div>' : '')}
           </div>
           <div class="tl-actions">
+            ${st === 'external' && t.request ? `<button class="btn btn-sm" data-view="0">查看请检单</button>` : ''}
             ${st === 'active' ? `<button class="btn btn-sm btn-primary" data-advance="${i}">${STEP_ACTION[i]}</button>` : ''}
             ${st === 'done' ? `<button class="btn btn-sm" data-view="${i}">查看</button>` : ''}
           </div>
@@ -990,13 +1042,281 @@ function renderDrawer() {
   const backBtn = state.batchKey ? '<button class="btn btn-sm" id="drawerBackBatch">返回批次</button>' : '';
   document.getElementById('drawerFoot').innerHTML = `
     <span>当前环节：<b>${s === 6 ? '已完成' : stepLabel(t)}</b></span>
-    <span>${backBtn}<button class="btn btn-sm" data-close>关闭</button>${s < 6 ? ` <button class="btn btn-sm btn-primary" data-advance="${s}">${STEP_ACTION[s]}</button>` : ''}</span>`;
-  body.querySelectorAll('[data-advance]').forEach(btn => btn.addEventListener('click', () => advance(Number(btn.dataset.advance))));
-  body.querySelectorAll('[data-view]').forEach(btn => btn.addEventListener('click', () => toast('原型演示：查看已完成的检验资料')));
+    <span>${backBtn}<button class="btn btn-sm" data-close>关闭</button>${s > 0 && s < 6 ? ` <button class="btn btn-sm btn-primary" data-advance="${s}">${STEP_ACTION[s]}</button>` : ''}</span>`;
+  body.querySelectorAll('[data-advance]').forEach(btn => btn.addEventListener('click', () => openStepForm(Number(btn.dataset.advance))));
+  body.querySelectorAll('[data-view]').forEach(btn => btn.addEventListener('click', () => openStepView(Number(btn.dataset.view))));
   body.querySelectorAll('[data-file]').forEach(el => el.addEventListener('click', () => toast('原型演示：预览 ' + el.dataset.file)));
-  document.getElementById('drawerFoot').querySelectorAll('[data-advance]').forEach(btn => btn.addEventListener('click', () => advance(Number(btn.dataset.advance))));
+  document.getElementById('drawerFoot').querySelectorAll('[data-advance]').forEach(btn => btn.addEventListener('click', () => openStepForm(Number(btn.dataset.advance))));
   const back = document.getElementById('drawerBackBatch');
   if (back) back.addEventListener('click', () => { closeDrawer(); backToBatches(); });
+}
+
+/* =========================================================
+ * 六步详细表单
+ * =======================================================*/
+function esc(v) {
+  return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+function pad2(n) { return String(n).padStart(2, '0'); }
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+function nowInput() {
+  const d = new Date();
+  return `${todayStr()}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+function toDateTimeInput(v) {
+  const text = String(v == null ? '' : v);
+  if (!/^\d{4}-\d{2}-\d{2}/.test(text)) return nowInput();
+  return text.replace(' ', 'T').slice(0, 16);
+}
+function toDateInput(v) {
+  const text = String(v == null ? '' : v);
+  if (!/^\d{4}-\d{2}-\d{2}/.test(text)) return todayStr();
+  return text.slice(0, 10);
+}
+function currentMonth() {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
+}
+function objectType(t) {
+  if (t.object === '中间产品') return '中间产品检验';
+  if (t.object === '生产原料') return '生产原料检验';
+  return '成品检验';
+}
+function plusYearsDate(dateStr, years) {
+  const d = new Date(dateStr || todayStr());
+  if (Number.isNaN(d.getTime())) return dateStr || '';
+  d.setFullYear(d.getFullYear() + years);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+function stepFields(t, i) {
+  const r = t.request || {};
+  const p = t.plan || {};
+  const s = t.sampling || {};
+  const ins = t.inspection || {};
+  const ret = t.retention || {};
+  const des = t.destruction || {};
+  if (i === 0) {
+    return [
+      {key: 'inspectionCode', label: '请检单号', value: r.code || 'QJ-' + todayStr().replace(/-/g, '') + '-001', required: true},
+      {key: 'requester', label: '请检人', value: r.requester || '丁圣芳', required: true},
+      {key: 'requestDepartment', label: '请检部门', value: r.dept || '质量部', type: 'select', options: ['质量部', '生产部', '仓储部'], required: true},
+      {key: 'requestTime', label: '请检时间', value: toDateTimeInput(r.time), type: 'datetime-local', required: true},
+      {key: 'processName', label: '工序 / 检验环节', value: r.process || objectType(t), required: true},
+      {key: 'configQuantity', label: '配置数量', value: r.configQuantity || fmtNum(t.qty), required: true},
+      {key: 'inspectionItems', label: '检验项目', value: r.items || p.items || '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', type: 'textarea', full: true, required: true},
+      {key: 'remark', label: '备注', value: r.remark || '', type: 'textarea', full: true},
+      {key: 'files', label: '附件', value: r.files || [], type: 'files', full: true}
+    ];
+  }
+  if (i === 1) {
+    return [
+      {key: 'planCode', label: '计划编号', value: p.code || 'JH-' + todayStr().replace(/-/g, '') + '-001', required: true},
+      {key: 'planPeriod', label: '计划周期', value: p.period || currentMonth(), required: true},
+      {key: 'inspectionType', label: '检验类型', value: p.type || objectType(t), type: 'select', options: ['成品检验', '中间产品检验', '生产原料检验'], required: true},
+      {key: 'objectName', label: '检验对象', value: p.objectName || t.product, required: true},
+      {key: 'batchNo', label: '批号', value: p.batchNo || (t.batch === '—' ? '' : t.batch), required: true},
+      {key: 'spec', label: '规格', value: p.spec || t.spec || ''},
+      {key: 'inspectionSummary', label: '检验项目概要', value: p.items || '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', type: 'textarea', full: true, required: true},
+      {key: 'planTime', label: '计划日期', value: toDateInput(p.date), type: 'date', required: true},
+      {key: 'remark', label: '备注', value: p.remark || '', type: 'textarea', full: true},
+      {key: 'files', label: '附件', value: p.files || [], type: 'files', full: true}
+    ];
+  }
+  if (i === 2) {
+    return [
+      {key: 'samplingCode', label: '取样编号', value: s.code || 'QY-' + todayStr().replace(/-/g, '') + '-001', required: true},
+      {key: 'sampler', label: '取样人', value: s.sampler || '陈静', required: true},
+      {key: 'samplingTime', label: '取样时间', value: toDateTimeInput(s.time), type: 'datetime-local', required: true},
+      {key: 'quantity', label: '取样量', value: s.quantity || '100g×3份', required: true},
+      {key: 'count', label: '取样份数', value: s.count || 3, type: 'number', required: true},
+      {key: 'location', label: '取样地点', value: s.location || '成品库 A 取样间', required: true},
+      {key: 'method', label: '取样方法', value: s.method || '随机', type: 'select', options: ['随机', '系统取样', '分层取样'], required: true},
+      {key: 'remark', label: '备注', value: s.remark || '', type: 'textarea', full: true},
+      {key: 'files', label: '附件', value: s.files || [], type: 'files', full: true}
+    ];
+  }
+  if (i === 3) {
+    return [
+      {key: 'inspectionCode', label: '检验编号', value: ins.code || 'JY-' + todayStr().replace(/-/g, '') + '-001', required: true},
+      {key: 'inspectionBasis', label: '检验依据', value: ins.basis || p.basis || '中国药典2025版', required: true},
+      {key: 'inspectionItem', label: '检验项目', value: ins.items || p.items || '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', type: 'textarea', full: true, required: true},
+      {key: 'inspector', label: '检验人', value: ins.inspector || '丁圣芳', required: true},
+      {key: 'reviewer', label: '复核人', value: ins.reviewer || '赵磊', required: true},
+      {key: 'startTime', label: '开始时间', value: toDateTimeInput(ins.start), type: 'datetime-local', required: true},
+      {key: 'endTime', label: '结束时间', value: toDateTimeInput(ins.end), type: 'datetime-local', required: true},
+      {key: 'conclusion', label: '检验结论', value: ins.conclusion || '合格', type: 'select', options: ['合格', '不合格', '待检'], required: true},
+      {key: 'remark', label: '备注', value: ins.remark || '', type: 'textarea', full: true},
+      {key: 'files', label: '检验记录 / 图谱', value: ins.files || [], type: 'files', full: true}
+    ];
+  }
+  if (i === 4) {
+    return [
+      {key: 'retainedCode', label: '留样编号', value: ret.code || 'LY-' + todayStr().replace(/-/g, '') + '-001', required: true},
+      {key: 'keeper', label: '留样人', value: ret.keeper || '陈静', required: true},
+      {key: 'quantity', label: '留样量', value: ret.quantity || (s.quantity || '100g×3份'), required: true},
+      {key: 'retainedDate', label: '留样日期', value: toDateInput(ret.date || ret.time), type: 'date', required: true},
+      {key: 'expiryDate', label: '留样期限', value: toDateInput(ret.expiry || (ret.period || '').replace('至', '') || plusYearsDate(ret.date || ret.time, 2)), type: 'date', required: true},
+      {key: 'storageLocation', label: '存放位置', value: ret.location || '留样室 A-03', required: true},
+      {key: 'observationRecord', label: '观察记录', value: ret.observation || '外观、包装、标识正常', type: 'textarea', full: true},
+      {key: 'remark', label: '备注', value: ret.remark || '', type: 'textarea', full: true},
+      {key: 'files', label: '附件', value: ret.files || [], type: 'files', full: true}
+    ];
+  }
+  return [
+    {key: 'destructionCode', label: '销毁编号', value: des.code || 'XH-' + todayStr().replace(/-/g, '') + '-001', required: true},
+    {key: 'recordType', label: '销毁类型', value: des.recordType || '留样及稳定性考察产品销毁', required: true},
+    {key: 'destroyReason', label: '销毁原因', value: des.reason || '留样到期', type: 'textarea', full: true, required: true},
+    {key: 'destroyMethod', label: '销毁方式', value: des.method || '委托销毁', required: true},
+    {key: 'destroyLocation', label: '销毁地点', value: des.location || '销毁区', required: true},
+    {key: 'applicantName', label: '申请人', value: des.applicant || '张力', required: true},
+    {key: 'applyDate', label: '申请日期', value: toDateInput(des.applyDate || des.date), type: 'date', required: true},
+    {key: 'approverName', label: '批准人', value: des.approver || '赵磊', required: true},
+    {key: 'approveDate', label: '批准日期', value: toDateInput(des.approveDate || des.date), type: 'date', required: true},
+    {key: 'destroyerName', label: '销毁人', value: des.destroyer || des.handler || '张力', required: true},
+    {key: 'destroyDate', label: '销毁日期', value: toDateInput(des.destroyDate || des.date), type: 'date', required: true},
+    {key: 'supervisorName', label: '监督人', value: des.supervisor || '丁圣芳', required: true},
+    {key: 'superviseDate', label: '监督日期', value: toDateInput(des.superviseDate || des.date), type: 'date', required: true},
+    {key: 'remark', label: '备注', value: des.remark || '', type: 'textarea', full: true},
+    {key: 'files', label: '附件', value: des.files || [], type: 'files', full: true}
+  ];
+}
+function fieldHtml(f) {
+  const id = 'sf_' + f.key;
+  const label = `<label for="${id}">${esc(f.label)}${f.required ? '<em>*</em>' : ''}</label>`;
+  let control = '';
+  if (f.type === 'files') {
+    const files = (f.value || []).map(name => `<span class="form-file-chip">${esc(name)}</span>`).join('');
+    control = `<input class="file-input" id="${id}" type="file" multiple data-file-input="${f.key}" />
+      <div class="form-file-list" data-file-list="${f.key}">${files}</div>
+      <div class="form-help">原型演示：选择文件后只记录文件名，不实际上传。</div>`;
+  } else if (f.type === 'select') {
+    const options = (f.options || []).map(opt => `<option value="${esc(opt)}" ${opt === f.value ? 'selected' : ''}>${esc(opt)}</option>`).join('');
+    control = `<select id="${id}" data-key="${f.key}">${options}</select>`;
+  } else if (f.type === 'textarea') {
+    control = `<textarea id="${id}" data-key="${f.key}" placeholder="${esc(f.placeholder || '')}">${esc(f.value)}</textarea>`;
+  } else {
+    control = `<input id="${id}" data-key="${f.key}" type="${f.type || 'text'}" value="${esc(f.value)}" placeholder="${esc(f.placeholder || '')}" />`;
+  }
+  return `<div class="step-field ${f.full ? 'full' : ''}" data-field="${f.key}">
+    ${label}${control}<span class="field-error">请填写${esc(f.label)}</span>
+  </div>`;
+}
+function openStepForm(i) {
+  const t = activeTask;
+  if (!t) return;
+  const fields = stepFields(t, i);
+  document.getElementById('stepModalTitle').textContent = `${stepDisplayName(t, i)} · ${t.product}`;
+  document.getElementById('stepModalSub').textContent = `批号 ${t.batch} · ${t.wo} · ${t.object}`;
+  document.getElementById('stepModalBody').innerHTML = `<form id="stepForm" class="step-form" onsubmit="return false;">
+    <div class="form-section">${esc(stepDisplayName(t, i))}信息</div>
+    ${fields.map(fieldHtml).join('')}
+  </form>`;
+  document.getElementById('stepModalFoot').innerHTML = `
+    <button class="btn btn-sm" onclick="closeModal()">取消</button>
+    <button class="btn btn-sm btn-primary" id="stepSubmit">保存并推进</button>`;
+  document.getElementById('stepSubmit').addEventListener('click', () => submitStepForm(i, fields));
+  openModal('stepModal');
+}
+function submitStepForm(i, fields) {
+  const form = document.getElementById('stepForm');
+  const values = {};
+  let valid = true;
+  fields.forEach(f => {
+    const box = form.querySelector(`[data-field="${f.key}"]`);
+    if (f.type === 'files') {
+      const input = box.querySelector('input[type=file]');
+      const added = input && input.files ? Array.from(input.files).map(file => file.name) : [];
+      values[f.key] = [...(f.value || []), ...added];
+      return;
+    }
+    const el = box.querySelector('input,select,textarea');
+    const value = el ? String(el.value).trim() : '';
+    if (f.required && !value) {
+      box.classList.add('invalid');
+      valid = false;
+    } else {
+      box.classList.remove('invalid');
+    }
+    values[f.key] = value;
+  });
+  if (!valid) {
+    toast('请填写红色标记的必填项');
+    return;
+  }
+  applyStepValues(i, values);
+  closeModal();
+  renderAll();
+  renderDrawer();
+  toast(`${stepDisplayName(activeTask, i)} 已保存${i === 3 && values.conclusion === '待检' ? '（仍为检验中）' : '，流程已推进'}`);
+}
+function openStepView(i) {
+  const t = activeTask;
+  if (!t) return;
+  const fields = stepFields(t, i);
+  const rows = fields.map(f => {
+    if (f.type === 'files') {
+      return `<div class="step-view-files"><span class="k" style="display:block;font-size:10.5px;color:var(--g500);margin-bottom:4px;">附件</span>
+        <div class="form-file-list">${(f.value && f.value.length) ? f.value.map(name => `<span class="form-file-chip">${esc(name)}</span>`).join('') : '<span class="muted small">暂无附件</span>'}</div></div>`;
+    }
+    return `<div class="step-view-item ${f.full ? 'full' : ''}"><span class="k">${esc(f.label)}</span><span class="v">${esc(f.value) || '—'}</span></div>`;
+  }).join('');
+  document.getElementById('stepModalTitle').textContent = `${stepDisplayName(t, i)} · 已办理详情`;
+  document.getElementById('stepModalSub').textContent = `批号 ${t.batch} · ${t.wo} · ${t.object}`;
+  document.getElementById('stepModalBody').innerHTML = `<div class="step-view">${rows}</div>`;
+  document.getElementById('stepModalFoot').innerHTML = `<button class="btn btn-sm" onclick="closeModal()">关闭</button>`;
+  openModal('stepModal');
+}
+function applyStepValues(i, v) {
+  const t = activeTask;
+  if (!t) return;
+  if (i === 0) {
+    t.request = {
+      code: v.inspectionCode, time: v.requestTime.replace('T', ' '), requester: v.requester,
+      dept: v.requestDepartment, process: v.processName, configQuantity: v.configQuantity,
+      items: v.inspectionItems, remark: v.remark, status: '已请检', files: v.files
+    };
+  } else if (i === 1) {
+    t.plan = {
+      code: v.planCode, date: v.planTime, period: v.planPeriod, type: v.inspectionType,
+      objectName: v.objectName, batchNo: v.batchNo, spec: v.spec,
+      basis: (t.plan && t.plan.basis) || '中国药典2025版', items: v.inspectionSummary,
+      remark: v.remark, status: '已完成', files: v.files
+    };
+  } else if (i === 2) {
+    t.sampling = {
+      code: v.samplingCode, time: v.samplingTime.replace('T', ' '), sampler: v.sampler,
+      quantity: v.quantity, count: v.count, location: v.location, method: v.method,
+      remark: v.remark, status: '已取样', files: v.files
+    };
+  } else if (i === 3) {
+    t.inspection = {
+      code: v.inspectionCode, basis: v.inspectionBasis, items: v.inspectionItem,
+      inspector: v.inspector, reviewer: v.reviewer, start: v.startTime.replace('T', ' '),
+      end: v.endTime.replace('T', ' '), conclusion: v.conclusion,
+      status: v.conclusion === '待检' ? '检验中' : '已检验', remark: v.remark, files: v.files
+    };
+  } else if (i === 4) {
+    t.retention = {
+      code: v.retainedCode, keeper: v.keeper, quantity: v.quantity,
+      date: v.retainedDate, expiry: v.expiryDate, period: '至' + v.expiryDate,
+      location: v.storageLocation, observation: v.observationRecord,
+      remark: v.remark, status: '已留样', files: v.files
+    };
+  } else if (i === 5) {
+    t.destruction = {
+      code: v.destructionCode, recordType: v.recordType, reason: v.destroyReason,
+      method: v.destroyMethod, location: v.destroyLocation, applicant: v.applicantName,
+      applyDate: v.applyDate, approver: v.approverName, approveDate: v.approveDate,
+      destroyer: v.destroyerName, destroyDate: v.destroyDate, supervisor: v.supervisorName,
+      superviseDate: v.superviseDate, date: v.destroyDate, handler: v.destroyerName,
+      remark: v.remark, status: '已销毁', files: v.files
+    };
+  }
 }
 
 /* =========================================================
@@ -1006,7 +1326,8 @@ function advance(step) {
   const t = activeTask;
   if (!t) return;
   if (step === 0) {
-    t.request = { code: 'QJ-20261106-001', time: '2026-11-06 09:00', requester: '丁圣芳', dept: '质量部', process: '成品检验', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已请检', files: ['请检单.pdf'] };
+    toast('请检单需在原请检页面创建，本页不发起请检');
+    return;
   } else if (step === 1) {
     t.plan = { code: 'JH-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-001', date: '2026-11-06', basis: '中国药典2025版', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已完成', files: ['检验计划.pdf'] };
   } else if (step === 2) {

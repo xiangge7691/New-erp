@@ -98,13 +98,14 @@ CREATE TABLE inspection_task (
   updated_by        BIGINT       NULL,
   updated_time      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uk_inspection_task_code (task_code),
-  UNIQUE KEY uk_inspection_task_batch (work_order_id, item_category, batch_no),
+  UNIQUE KEY uk_inspection_task_request (request_ref_id),
+  KEY idx_inspection_task_batch (work_order_id, item_category, batch_no),
   KEY idx_inspection_task_step (current_step, task_status),
   KEY idx_inspection_task_plan (plan_id)
 ) COMMENT='检验任务（六步流程索引）';
 ```
 
-> 说明：`batch_no` 可能为空（未生成批号），MySQL 唯一索引对 NULL 不生效；可在业务层用 `COALESCE(batch_no,'')` 或额外 `batch_key` 字段保证唯一。建议增加 `batch_key VARCHAR(50) GENERATED ALWAYS AS (COALESCE(batch_no,'')) STORED`，唯一键用 `work_order_id,item_category,batch_key`。
+> 说明：请检单创建后自动生成检验任务，一张请检单对应一张任务；同一工单+品类+批号下允许多条任务（同一批次的中间产品在不同工序分别请检），因此不再对该组合建唯一键，改为 `request_ref_id` 唯一（未关联请检单的任务 `request_ref_id` 为 NULL，可存在多条）。存量库需执行 `inspection_task_request_unique.sql`。
 
 ### 2.2 新增：检验任务步骤（`inspection_task_step`）
 
@@ -317,7 +318,6 @@ GET /api/inspection/batches
 GET /api/inspection/batches/stats
   ?varietyCode=&batchNo=&itemCategory=&status=&keyword=
 GET /api/inspection/batches/{workOrderId}
-GET /api/inspection/batches/{workOrderId}/tasks
 ```
 
 批次汇总返回 `taskCount`、`completedCount`、`currentStep`、`batchStatus`、`inspectionConclusion`，并内嵌 `tasks` 明细。

@@ -3,9 +3,8 @@ package com.tonghui.erp.Service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.QualityPages.InspectionTaskDtos;
+import com.tonghui.erp.Data.Entity.InspectionRequest;
 import com.tonghui.erp.Data.Entity.InspectionTask;
-
-import java.util.List;
 
 /**
  * 检验任务服务
@@ -51,14 +50,6 @@ public interface InspectionTaskService extends IService<InspectionTask> {
                                                               int pageIndex, int pageSize);
 
     /**
-     * 查询指定工单/批次下的全部检验任务
-     *
-     * @param workOrderId 工单ID
-     * @return 检验任务列表
-     */
-    List<InspectionTaskDtos.TaskSummary> queryBatchTasks(Long workOrderId);
-
-    /**
      * 查询指定工单/批次的检验汇总
      *
      * @param workOrderId 工单ID
@@ -94,6 +85,18 @@ public interface InspectionTaskService extends IService<InspectionTask> {
      * @return 任务详情
      */
     InspectionTaskDtos.TaskDetail createTask(InspectionTaskDtos.CreateTaskRequest request);
+
+    /**
+     * 根据已保存的请检单自动生成检验任务（一张请检单对应一张任务）
+     * <p>
+     * 任务生成后直接完成“请检”环节并推进到“检验计划”；若工单下已有未关联请检单的任务，
+     * 则直接关联复用；请检单填写的检验计划编号若已存在，则自动关联并跳过计划环节。
+     * </p>
+     *
+     * @param request 已保存的请检单
+     * @return 任务详情；工单信息缺失无法建任务时返回 null
+     */
+    InspectionTaskDtos.TaskDetail createTaskFromRequest(InspectionRequest request);
 
     /**
      * 办理检验计划
