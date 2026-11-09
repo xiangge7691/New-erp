@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>审核放行 · 通惠 ERP</title>
+<title>审核放行</title>
 <style>
 /* =========================================================
  * Art Design Pro 风格原型公共样式
@@ -87,7 +87,7 @@ a { color: var(--main); text-decoration: none; }
 .sidebar-foot { padding: 12px 16px; border-top: 1px solid var(--g200); font-size: 10.5px; color: var(--g500); line-height: 1.6; }
 
 /* ---------- 主区域 ---------- */
-.main { margin-left: var(--sidebar); min-height: 100vh; padding: 22px 26px 48px; }
+.main { max-width: 1280px; margin: 0 auto; min-height: 100vh; padding: 22px 26px 48px; }
 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
 .page-head h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: .2px; }
 .page-head .sub { margin: 4px 0 0; font-size: 12.5px; color: var(--g600); }
@@ -135,7 +135,7 @@ a { color: var(--main); text-decoration: none; }
 .check-label { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--g700); cursor: pointer; }
 
 /* ---------- 统计 ---------- */
-.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.stat-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
 .stat-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
 .stat-card .label { font-size: 12px; color: var(--g600); }
 .stat-card .num { display: flex; align-items: baseline; gap: 6px; margin-top: 2px; }
@@ -336,10 +336,9 @@ textarea.input { height: auto; min-height: 76px; padding: 8px 10px; resize: vert
     <header class="page-head">
       <div>
         <h1>审核放行</h1>
-        <p class="sub">以批次为单位检查全批内容与文件是否合规 · 工序符合性引用“工序要求配置”</p>
+        <p class="sub">按批次查看检验、工序、文件与偏差，直接判断能否放行</p>
       </div>
       <div class="head-actions">
-        <span class="tag gray" style="height:34px;padding:0 12px;font-size:12px;">工序要求来自现有工序页</span>
         <button class="btn" onclick="toast('原型演示：导出待审核批次')">导出待审核</button>
       </div>
     </header>
@@ -376,17 +375,14 @@ textarea.input { height: auto; min-height: 76px; padding: 8px 10px; resize: vert
           <table>
             <thead>
               <tr>
-                <th>品种 / 规格</th>
-                <th>批号 / 工单</th>
-                <th>批量 / 成品</th>
-                <th>计划 / 实际生产</th>
-                <th>检验结论</th>
-                <th>工序符合</th>
-                <th>文件完整</th>
-                <th>偏差</th>
-                <th>放行状态</th>
-                <th>操作</th>
-              </tr>
+              <th>批次 / 品种</th>
+              <th>检验结论</th>
+              <th>工序符合</th>
+              <th>文件完整</th>
+              <th>阻塞项</th>
+              <th>放行状态</th>
+              <th>操作</th>
+            </tr>
             </thead>
             <tbody id="releaseBody"></tbody>
           </table>
@@ -760,32 +756,42 @@ function filtered() {
 function renderStats() {
   const ready = BATCHES.filter(b => compliance(b).canRelease && b.status === '待放行').length;
   const audit = BATCHES.filter(b => b.status === '待审核').length;
-  const released = BATCHES.filter(b => b.status === '已放行').length;
-  const bad = BATCHES.filter(b => compliance(b).p.fail > 0 || b.status === '已拒绝').length;
+  const blocked = BATCHES.filter(b => b.status !== '已放行' && !compliance(b).canRelease).length;
   document.getElementById('statGrid').innerHTML = `
     <div class="stat-card run"><div class="label">待审核</div><div class="num"><b>${audit}</b><span class="unit">个批次</span></div></div>
     <div class="stat-card ok"><div class="label">可放行</div><div class="num"><b>${ready}</b><span class="unit">个批次</span></div></div>
-    <div class="stat-card"><div class="label">已放行</div><div class="num"><b>${released}</b><span class="unit">个批次</span></div></div>
-    <div class="stat-card warn"><div class="label">存在不符合</div><div class="num"><b>${bad}</b><span class="unit">个批次</span></div></div>`;
+    <div class="stat-card ${blocked ? 'warn' : 'ok'}"><div class="label">存在阻塞</div><div class="num"><b>${blocked}</b><span class="unit">个批次</span></div></div>`;
 }
+function blockers(b) {
+  const c = compliance(b);
+  const out = [];
+  if (!c.inspOk) out.push('检验 ' + (b.inspectionConclusion || '未完成'));
+  if (!c.processOk) out.push(`工序 ${c.p.pass}/${c.p.total}`);
+  if (!c.filesOk) out.push(`文件缺 ${c.f.missing.length}`);
+  if (!c.devOk) out.push(`偏差 ${c.d.open} 未关闭`);
+  if (!c.yieldOk) out.push(`收率 ${fmtNum(b.yieldRate)}%`);
+  return out;
+}
+
 function renderTable() {
   const rows = filtered();
   document.getElementById('releaseBody').innerHTML = rows.length ? rows.map(b => {
     const c = compliance(b);
+    const blocks = blockers(b);
+    const blockHtml = blocks.length
+      ? blocks.map(item => `<span class="tag red">${esc(item)}</span>`).join(' ')
+      : '<span class="tag green">无阻塞</span>';
     return `<tr class="clickable" data-id="${b.id}">
-      <td><span class="cell-main">${b.product}</span><span class="cell-sub">${b.code} · ${b.spec}</span></td>
-      <td><span class="cell-main">批号 ${b.batch}</span><span class="cell-sub">${b.wo}</span></td>
-      <td>${fmtNum(b.qty)} / ${fmtNum(b.finished)}<span class="cell-sub">${b.unit}</span></td>
-      <td>${b.planDate}<span class="cell-sub">${b.actualStart} ~ ${b.actualEnd}</span></td>
-      <td><span class="st ${b.inspectionConclusion === '合格' ? 'done' : b.inspectionConclusion === '不合格' ? 'bad' : 'run'}">${b.inspectionConclusion}</span></td>
+      <td><span class="cell-main">${esc(b.product)}</span><span class="cell-sub">批号 ${esc(b.batch)} · ${esc(b.code)}</span></td>
+      <td><span class="st ${b.inspectionConclusion === '合格' ? 'done' : b.inspectionConclusion === '不合格' ? 'bad' : 'run'}">${esc(b.inspectionConclusion)}</span></td>
       <td><span class="st ${c.processOk ? 'done' : 'bad'}">${c.p.pass}/${c.p.total}</span><span class="cell-sub">${c.p.fail ? '不符合 ' + c.p.fail : c.p.pending ? '待查 ' + c.p.pending : '全部符合'}</span></td>
       <td><span class="st ${c.filesOk ? 'done' : 'bad'}">${c.f.uploaded}/${c.f.total}</span><span class="cell-sub">${c.f.missing.length ? '缺 ' + c.f.missing.length + ' 项' : '完整'}</span></td>
-      <td>${c.d.total ? `<span class="st ${c.d.open ? 'bad' : 'done'}">${c.d.total} 条</span><span class="cell-sub">${c.d.open ? '未关闭' : '已关闭'}</span>` : '<span class="muted">无</span>'}</td>
+      <td><div class="flex gap-6 wrap">${blockHtml}</div></td>
       <td>${statusTag(b)}</td>
       <td><button class="btn btn-sm ${b.status === '待放行' ? 'btn-primary' : ''}" data-open="${b.id}">${b.status === '已放行' ? '查看' : '审核'}</button></td>
     </tr>`;
-  }).join('') : `<tr><td colspan="10"><div class="empty">没有符合条件的批次</div></td></tr>`;
-  document.getElementById('tableFoot').textContent = `共 ${rows.length} 个批次 · 点击行进入全批合规审核`;
+  }).join('') : `<tr><td colspan="7"><div class="empty">没有符合条件的批次</div></td></tr>`;
+  document.getElementById('tableFoot').textContent = `共 ${rows.length} 个批次 · 点击行查看合规证据`;
   document.querySelectorAll('#releaseBody [data-id]').forEach(tr => tr.addEventListener('click', () => openDetail(tr.dataset.id)));
   document.querySelectorAll('#releaseBody [data-open]').forEach(btn => btn.addEventListener('click', e => { e.stopPropagation(); openDetail(btn.dataset.open); }));
 }
@@ -928,13 +934,6 @@ function renderDetail() {
         </section>
 
         <section class="card">
-          <div class="card-head"><h2>区域 / 环境</h2><span class="meta">生产区域记录</span></div>
-          <div class="table-wrap"><table><thead><tr><th>区域</th><th>记录</th><th>结果</th></tr></thead><tbody>
-            ${b.rooms.map(r => `<tr><td>${esc(r.name)}</td><td>${esc(r.record)}</td><td>${r.status === '符合' ? '<span class="tag green">符合</span>' : '<span class="tag red">不符合</span>'}</td></tr>`).join('')}
-          </tbody></table></div>
-        </section>
-
-        <section class="card">
           <div class="card-head"><h2>整批收率 / 偏差处理</h2><span class="meta">质量结论依据</span></div>
           <div class="card-body">
             <div class="kv">
@@ -947,18 +946,6 @@ function renderDetail() {
             ${b.deviations.length ? `<div class="table-wrap"><table><thead><tr><th>偏差编号</th><th>标题</th><th>结论</th><th>质量管理员</th><th>日期</th><th>状态</th></tr></thead><tbody>
               ${b.deviations.map(d => `<tr><td>${esc(d.code)}</td><td>${esc(d.title)}</td><td>${esc(d.conclusion)}</td><td>${esc(d.qa)}</td><td>${esc(d.date)}</td><td><span class="tag ${d.status === '已关闭' ? 'green' : 'red'}">${esc(d.status)}</span></td></tr>`).join('')}
             </tbody></table></div>` : '<div class="note ok">无偏差记录</div>'}
-            <div class="divider"></div>
-            <h3 class="section-title">质量结论记录</h3>
-            <div class="kv">
-              <div><span class="k">批配置指令</span>${esc(b.instruction.code)}</div>
-              <div><span class="k">领料单</span>${b.requisitions.map(r => r.code).join('、') || '—'}</div>
-              <div><span class="k">工序记录</span>${c.p.pass}/${c.p.total} 符合</div>
-              <div><span class="k">检验报告</span>${b.inspections.map(i => i.code).join('、') || '—'}</div>
-              <div><span class="k">整批收率</span>${fmtNum(b.yieldRate)}%</div>
-              <div><span class="k">偏差处理</span>${b.deviations.length ? b.deviations[0].conclusion : '无'}</div>
-              <div><span class="k">质量管理员</span>${b.deviations.length ? b.deviations[0].qa : '赵磊'}</div>
-              <div><span class="k">日期</span>${b.deviations.length ? b.deviations[0].date : b.release.date || '—'}</div>
-            </div>
           </div>
         </section>
       </div>

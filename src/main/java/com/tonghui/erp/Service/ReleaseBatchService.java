@@ -28,6 +28,18 @@ public interface ReleaseBatchService {
                                                             int pageIndex, int pageSize);
 
     /**
+     * 查询审核放行看板统计
+     *
+     * @param varietyCode 品种编码
+     * @param batchNo     批号/工单号
+     * @param status      当前列表筛选的放行状态
+     * @param keyword     关键字
+     * @return 看板计数
+     */
+    ReleaseBatchDtos.BoardStats queryBoardStats(String varietyCode, String batchNo,
+                                                String status, String keyword);
+
+    /**
      * 查询批次全批审核详情
      *
      * @param workOrderId 工单ID

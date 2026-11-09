@@ -30,6 +30,7 @@ public final class InspectionTaskDtos {
         private String preparationCode;
         private String preparationName;
         private String batchNo;
+        private String spec;
         private String itemCategory;
         private String objectName;
         private String currentStep;
@@ -42,6 +43,62 @@ public final class InspectionTaskDtos {
         private String destructionCode;
         private String inspectionConclusion;
         private LocalDate retentionExpiryDate;
+    }
+
+    /**
+     * 按批次汇总的检验任务
+     * <p>
+     * 一个工单/批次下可包含成品、中间产品、生产原料等多条检验任务，
+     * 批次状态取未完成任务的当前环节，结论按所有任务汇总。
+     * </p>
+     */
+    @Data
+    public static class BatchSummary {
+        private Long workOrderId;
+        private String workOrderCode;
+        private String planNumber;
+        private String preparationCode;
+        private String preparationName;
+        private String batchNo;
+        private String spec;
+        private Integer taskCount;
+        private Integer completedCount;
+        private String currentStep;
+        private String batchStatus;
+        private String inspectionConclusion;
+        private List<TaskSummary> tasks = new ArrayList<>();
+    }
+
+    /** 检验看板统计 */
+    @Data
+    public static class BoardStats {
+        private int batchTotal;
+        private int todoBatches;
+        private int inspectingBatches;
+        private int completedBatches;
+        private int unqualifiedBatches;
+        private int taskTotal;
+        private int todoTasks;
+        private int inspectingTasks;
+        private int completedTasks;
+        private List<StepCount> stepCounts = new ArrayList<>();
+    }
+
+    /** 环节计数 */
+    @Data
+    public static class StepCount {
+        private String stepCode;
+        private String stepName;
+        private int batchCount;
+        private int taskCount;
+
+        public StepCount() {
+        }
+
+        public StepCount(String stepCode, String stepName) {
+            this.stepCode = stepCode;
+            this.stepName = stepName;
+        }
     }
 
     /** 检验任务详情 */

@@ -48,6 +48,19 @@ public final class ReleaseBatchDtos {
         private int deviationOpen;
         private String releaseStatus;
         private boolean canRelease;
+        /** 列表直接展示的阻塞项，例如：检验未完成、文件缺 3、偏差 1 未关闭 */
+        private List<String> blockers = new ArrayList<>();
+    }
+
+    /** 审核放行看板统计 */
+    @Data
+    public static class BoardStats {
+        private int total;
+        private int pendingReview;
+        private int releasable;
+        private int blocked;
+        private int released;
+        private int rejected;
     }
 
     /** 批次详情 */

@@ -46,6 +46,10 @@
 | 接口 | 方法 | 说明 |
 |------|------|------|
 | `/api/inspection/tasks` | GET | 任务列表，支持品种/批号/被检品属性/环节/状态/关键字/分页 |
+| `/api/inspection/batches` | GET | 批次视图，按工单/批次聚合多条检验任务 |
+| `/api/inspection/batches/stats` | GET | 检验看板统计：待办/检验中/已完成、六步环节计数 |
+| `/api/inspection/batches/{workOrderId}` | GET | 批次汇总详情（含任务明细） |
+| `/api/inspection/batches/{workOrderId}/tasks` | GET | 查询指定批次下的全部检验任务 |
 | `/api/inspection/tasks/{id}` | GET | 任务详情（六步、字段、附件） |
 | `/api/inspection/tasks` | POST | 创建任务（按工单 + 被检品属性，重复创建返回已有任务） |
 | `/api/inspection/tasks/{id}/plan` | POST | 办理检验计划 |
@@ -59,6 +63,7 @@
 
 代码：
 - `Controller/InspectionTaskController.java`
+- `Controller/InspectionBatchController.java`
 - `Service/InspectionTaskService.java`
 - `Service/impl/InspectionTaskServiceImpl.java`
 - `Common/Dto/QualityPages/InspectionTaskDtos.java`
@@ -69,12 +74,14 @@
 - 不允许跳步；留样/销毁可按任务配置或 `skip` 接口跳过，必须写原因。
 - 每一步在同一事务内写原业务表、更新任务引用、推进 `current_step`、写 `inspection_task_step`。
 - 已实测：创建 → 计划 → 请检 → 取样 → 留样 → 检验 → 销毁 全流程通过。
+- 已实测：检验批次列表按工单聚合，批次下钻返回该批次全部任务。
 
 ### 2.3 审核放行
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
-| `/api/release-review/batches` | GET | 批次审核列表（文件/工序/偏差/合规汇总） |
+| `/api/release-review/batches` | GET | 批次审核列表（文件/工序/偏差/合规汇总，返回 `blockers`） |
+| `/api/release-review/batches/stats` | GET | 审核看板统计：待审核/可放行/存在阻塞/已放行/已拒绝 |
 | `/api/release-review/batches/{workOrderId}` | GET | 全批审核详情（采购/验收/指令/领料/退库/工序/检验/区域/收率/偏差/文件） |
 | `/api/release-review/batches/{workOrderId}/process-checks` | POST | 保存工序符合性检查 |
 | `/api/release-review/batches/{workOrderId}/approve` | POST | 通过放行（校验合规） |
@@ -131,10 +138,13 @@
 - 产品汇总批次列表/详情：节点数 ≥ 6、槽位非空。
 - 审核放行批次列表/详情：文件统计、工序统计、合规结论、文件清单存在。
 - 检验任务详情：步骤数为 6。
+- 检验批次视图：批次任务数、任务明细存在，批次任务接口返回数组。
+- 检验看板统计：批次总数、待办数存在，六步环节计数为 6。
+- 审核放行看板：总数/待审核/阻塞数存在，列表项返回 `blockers`。
 
 执行结果：
 ```
-Tests run: 3, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 6, Failures: 0, Errors: 0, Skipped: 0
 ```
 
 另手工验证：
@@ -163,5 +173,6 @@ Tests run: 3, Failures: 0, Errors: 0, Skipped: 0
 
 - 产品汇总列表：`GET /api/product-summary/batches`，字段与原型 `BatchSummary` 对应；详情 `stages` 按 `key` 渲染计划/采购/工单/生产/入库/出库/检验/放行节点。
 - 检验管理：列表 → `GET /api/inspection/tasks`；办理按钮按 `currentStep` 调对应 POST 接口；成功后重新拉详情。
-- 审核放行：列表 → `GET /api/release-review/batches`；详情 → `GET .../{workOrderId}`；工序检查保存 → `POST .../process-checks`；放行/拒绝 → `POST .../approve|reject`。
+- 检验批次视图：`GET /api/inspection/batches` 按工单/批次返回任务汇总（`taskCount`、`completedCount`、`currentStep`、`batchStatus`、`inspectionConclusion`）；顶部统计 → `GET /api/inspection/batches/stats`；批次下钻 → `GET /api/inspection/batches/{workOrderId}` 或 `/{workOrderId}/tasks`。
+- 审核放行：列表 → `GET /api/release-review/batches`（列表项直接含 `blockers`）；顶部统计 → `GET /api/release-review/batches/stats`；详情 → `GET .../{workOrderId}`；工序检查保存 → `POST .../process-checks`；放行/拒绝 → `POST .../approve|reject`。
 - 文件下载：沿用现有 `/api/files/{id}` / `BusinessFileService`。

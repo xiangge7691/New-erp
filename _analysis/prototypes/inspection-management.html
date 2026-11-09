@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>检验管理 · 通惠 ERP</title>
+<title>检验管理</title>
 <style>
 /* =========================================================
  * Art Design Pro 风格原型公共样式
@@ -87,7 +87,7 @@ a { color: var(--main); text-decoration: none; }
 .sidebar-foot { padding: 12px 16px; border-top: 1px solid var(--g200); font-size: 10.5px; color: var(--g500); line-height: 1.6; }
 
 /* ---------- 主区域 ---------- */
-.main { margin-left: var(--sidebar); min-height: 100vh; padding: 22px 26px 48px; }
+.main { max-width: 1280px; margin: 0 auto; min-height: 100vh; padding: 22px 26px 48px; }
 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
 .page-head h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: .2px; }
 .page-head .sub { margin: 4px 0 0; font-size: 12.5px; color: var(--g600); }
@@ -135,7 +135,7 @@ a { color: var(--main); text-decoration: none; }
 .check-label { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--g700); cursor: pointer; }
 
 /* ---------- 统计 ---------- */
-.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.stat-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
 .stat-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
 .stat-card .label { font-size: 12px; color: var(--g600); }
 .stat-card .num { display: flex; align-items: baseline; gap: 6px; margin-top: 2px; }
@@ -220,6 +220,15 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 /* ---------- 步骤条 / 时间轴 ---------- */
 .steps { display: flex; align-items: flex-start; gap: 0; overflow: auto; padding: 4px 2px 10px; }
+.steps.compact { padding: 0; gap: 4px; }
+.steps.compact .step-item { min-width: 78px; }
+.steps.compact .step-item::after { top: 11px; }
+.steps.compact .step-dot { width: 22px; height: 22px; font-size: 10px; margin-bottom: 3px; }
+.steps.compact .step-name { font-size: 10.5px; }
+.steps.compact .step-count { font-size: 9.5px; }
+.step-filter-row { display: flex; align-items: center; gap: 10px; padding: 8px 14px 10px; border-top: 1px solid var(--g200); flex-wrap: wrap; }
+.step-filter-label { font-size: 11.5px; color: var(--g500); white-space: nowrap; }
+.step-filter-row .steps { flex: 1; min-width: 0; }
 .step-item { flex: 1; min-width: 110px; position: relative; text-align: center; }
 .step-item::after {
   content: ""; position: absolute; top: 14px; left: 50%; width: 100%; height: 2px; background: var(--g300); z-index: 0;
@@ -308,6 +317,29 @@ textarea.input { height: auto; min-height: 76px; padding: 8px 10px; resize: vert
 .note.danger { background: #fff1f0; border: 1px solid #ffccc7; color: #a8071a; }
 .note.ok { background: #e8f8f3; border: 1px solid #b7ebd8; color: #0e8f76; }
 
+/* ---------- 按批次 / 按任务视图 ---------- */
+.segmented {
+  display: inline-flex; align-items: center; gap: 2px; padding: 2px;
+  background: var(--g100); border: 1px solid var(--border2); border-radius: 8px;
+}
+.seg-btn {
+  height: 26px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent;
+  color: var(--g600); font-size: 12px; cursor: pointer; white-space: nowrap;
+}
+.seg-btn.active { background: #fff; color: var(--main); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, .08); }
+.batch-scope { padding: 10px 14px; border-bottom: 1px solid var(--g200); background: #f7f9ff; }
+.batch-scope-inner { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.batch-scope-title { font-size: 14px; font-weight: 600; color: var(--g900); }
+.task-chips { display: flex; gap: 4px; flex-wrap: wrap; max-width: 380px; }
+.task-chip {
+  display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 5px;
+  background: var(--g100); border: 1px solid var(--border2); color: var(--g600);
+  font-size: 10.5px; white-space: nowrap;
+}
+.task-chip.done { background: #e8f8f3; border-color: #b7ebd8; color: #0e8f76; }
+.task-chip.active { background: #eef3ff; border-color: #d6e2ff; color: #3f6bd6; }
+.task-chip.wait { color: var(--g500); }
+
 /* ---------- 工具类 ---------- */
 .flex { display: flex; }
 .between { justify-content: space-between; }
@@ -336,7 +368,7 @@ textarea.input { height: auto; min-height: 76px; padding: 8px 10px; resize: vert
     <header class="page-head">
       <div>
         <h1>检验管理</h1>
-        <p class="sub">检验计划 → 请检 → 取样 → 留样 → 检验 → 销毁 · 与批次关联 · 一个页面逐步办理</p>
+        <p class="sub">按批次查看检验任务，逐步办理计划 → 请检 → 取样 → 留样 → 检验 → 销毁</p>
       </div>
       <div class="head-actions">
         <button class="btn" onclick="toast('原型演示：导出检验台账')">导出台账</button>
@@ -345,20 +377,6 @@ textarea.input { height: auto; min-height: 76px; padding: 8px 10px; resize: vert
     </header>
 
     <div class="stat-grid" id="statGrid"></div>
-
-    <section class="card mb-2">
-      <div class="card-head">
-        <h2>检验流程总览</h2>
-        <span class="meta" id="stepHint">点击环节可筛选下方批次</span>
-      </div>
-      <div class="card-body">
-        <div class="steps" id="stepBar"></div>
-        <div class="flex between center" style="margin-top:4px;">
-          <span class="muted small">当前筛选：<b id="stepFilterText">全部任务</b></span>
-          <button class="btn btn-sm btn-ghost" onclick="clearStepFilter()">查看全部</button>
-        </div>
-      </div>
-    </section>
 
     <section class="card mb-2">
       <div class="filters">
@@ -376,28 +394,29 @@ textarea.input { height: auto; min-height: 76px; padding: 8px 10px; resize: vert
         <button class="btn" onclick="resetFilters()">重置</button>
         <button class="btn btn-primary" onclick="applyFilters()">查询</button>
       </div>
+      <div class="step-filter-row">
+        <span class="step-filter-label">环节</span>
+        <div class="steps compact" id="stepBar"></div>
+        <span class="muted small" id="stepFilterText">全部任务</span>
+        <button class="btn btn-sm btn-ghost" onclick="clearStepFilter()">全部环节</button>
+      </div>
     </section>
 
     <section class="card">
       <div class="card-head">
         <h2>检验批次</h2>
-        <span class="meta" id="tableMeta">—</span>
+        <div class="flex center gap-10 wrap">
+          <span class="meta" id="tableMeta">—</span>
+          <div class="segmented" id="viewToggle">
+            <button class="seg-btn active" data-mode="batch">按批次</button>
+            <button class="seg-btn" data-mode="task">按任务</button>
+          </div>
+        </div>
       </div>
+      <div id="batchScope" class="batch-scope hidden"></div>
       <div class="table-wrap">
         <table>
-          <thead>
-            <tr>
-              <th>批号 / 品种</th>
-              <th>检验对象</th>
-              <th>当前环节</th>
-              <th>检验计划</th>
-              <th>请检单</th>
-              <th>取样 / 留样</th>
-              <th>检验结论</th>
-              <th>状态</th>
-              <th>操作</th>
-            </tr>
-          </thead>
+          <thead id="tableHead"></thead>
           <tbody id="taskBody"></tbody>
         </table>
       </div>
@@ -488,7 +507,7 @@ textarea.input { height: auto; min-height: 76px; padding: 8px 10px; resize: vert
 const STEPS = ['检验计划', '请检', '取样', '留样', '检验', '销毁'];
 const STEP_ACTION = ['完成检验计划', '发起请检', '登记取样', '登记留样', '录入检验结果', '登记销毁'];
 
-const BATCHES = [
+const TASKS = [
   {
     id: 'b1', product: '疏肝养胃丸', code: 'Z04-011', spec: '每50丸重6g（每1g相当于饮片约0.83g）', unit: '盒',
     batch: '260901', wo: 'GD202610200001', planNo: 'Plan202610190001', qty: 7000, finished: 7001,
@@ -550,185 +569,397 @@ const BATCHES = [
   }
 ];
 
-const state = { step: null, variety: '', object: '', keyword: '' };
+/* 同一批次下追加中间产品检验任务，用于演示“按批次”汇总 */
+TASKS.push(
+  {
+    id: 'b1m', product: '疏肝养胃丸', code: 'Z04-011', spec: '每50丸重6g（每1g相当于饮片约0.83g）', unit: '盒',
+    batch: '260901', wo: 'GD202610200001', planNo: 'Plan202610190001', qty: 7000, finished: null,
+    planDate: '2026-09-16', actualStart: '2026-09-16', actualEnd: '2026-09-24', object: '中间产品',
+    plan: { code: 'JH-20260916-001-M', date: '2026-09-16', basis: '企业内控标准', items: '性状、水分、含量', status: '已完成', files: ['JH-20260916-001-M_中间品检验计划.pdf'] },
+    request: { code: 'QJ-20260920-001', time: '2026-09-20 14:00', requester: '丁圣芳', dept: '质量部', process: '中间产品检验', items: '性状、水分、含量', status: '已请检', files: ['QJ-20260920-001_中间品请检单.pdf'] },
+    sampling: null, retention: null, inspection: null,
+    destruction: { code: '—', date: '—', handler: '—', reason: '中间产品不涉及留样销毁', status: '未开始' }
+  },
+  {
+    id: 'b3m', product: '护肾排毒丸', code: 'Z04-007', spec: '每50丸重6g（每1g相当于饮片约0.83g）', unit: '盒',
+    batch: '260901', wo: 'GD202610200003', planNo: 'Plan202610190003', qty: 3500, finished: null,
+    planDate: '2026-09-22', actualStart: '2026-09-22', actualEnd: '2026-10-19', object: '中间产品',
+    plan: { code: 'JH-20260922-001-M', date: '2026-09-22', basis: '企业内控标准', items: '性状、水分、含量', status: '已完成', files: ['JH-20260922-001-M_中间品检验计划.pdf'] },
+    request: { code: 'QJ-20260928-001', time: '2026-09-28 09:30', requester: '张力', dept: '质量部', process: '中间产品检验', items: '性状、水分、含量', status: '已请检', files: ['QJ-20260928-001_中间品请检单.pdf'] },
+    sampling: { code: 'QY-20260928-001', time: '2026-09-28 10:20', sampler: '陈静', quantity: '50g×3份', location: '中间站取样间', method: '随机', status: '已取样', files: ['QY-20260928-001_中间品取样记录.pdf'] },
+    retention: null, inspection: null,
+    destruction: { code: '—', date: '—', handler: '—', reason: '中间产品不涉及留样销毁', status: '未开始' }
+  }
+);
+
+const state = { step: null, variety: '', object: '', keyword: '', mode: 'batch', batchKey: null };
 
 /* =========================================================
- * 派生
+ * 批次分组
  * =======================================================*/
-function currentStep(b) {
-  if (!b.plan || b.plan.status !== '已完成') return 0;
-  if (!b.request) return 1;
-  if (!b.sampling) return 2;
-  if (!b.retention) return 3;
-  if (!b.inspection || b.inspection.status === '检验中') return 4;
-  if (b.destruction && b.destruction.status === '待销毁') return 5;
+function batchKey(t) {
+  return t.wo && t.wo !== '未下达工单' ? t.wo : t.planNo;
+}
+function groupTasks(rows) {
+  const map = new Map();
+  rows.forEach(t => {
+    const key = batchKey(t);
+    if (!map.has(key)) map.set(key, { key: key, tasks: [] });
+    map.get(key).tasks.push(t);
+  });
+  return [...map.values()].map(g => {
+    g.sample = g.tasks.find(t => t.batch !== '—') || g.tasks[0];
+    return g;
+  }).sort((a, b) => (b.sample.planDate || '').localeCompare(a.sample.planDate || ''));
+}
+function batchStep(group) {
+  const steps = group.tasks.map(currentStep);
+  if (steps.every(s => s === 6)) return 6;
+  return Math.min(...steps.filter(s => s < 6));
+}
+function batchConclusion(group) {
+  const conclusions = group.tasks.map(t => t.inspection && t.inspection.conclusion).filter(Boolean);
+  if (conclusions.includes('不合格')) return '<span class="tag red">存在不合格</span>';
+  if (conclusions.length === group.tasks.length && conclusions.every(c => c === '合格')) return '<span class="tag green">全部合格</span>';
+  if (conclusions.includes('合格')) return '<span class="tag orange">部分出结果</span>';
+  return '<span class="tag gray">待检</span>';
+}
+function batchStatusTag(group) {
+  if (group.tasks.some(t => t.inspection && t.inspection.conclusion === '不合格')) return '<span class="tag red">不合格</span>';
+  const s = batchStep(group);
+  if (s === 6) return '<span class="tag green">已完成</span>';
+  if (s === 5) return '<span class="tag orange">待销毁</span>';
+  if (s === 4) return '<span class="tag blue">检验中</span>';
+  return '<span class="tag gray">进行中</span>';
+}
+function taskChip(t) {
+  const s = currentStep(t);
+  const cls = s === 6 ? 'done' : s === 4 ? 'active' : 'wait';
+  return `<span class="task-chip ${cls}">${t.object} · ${stepLabel(t)}</span>`;
+}
+
+/* =========================================================
+ * 任务派生
+ * =======================================================*/
+function currentStep(t) {
+  if (!t.plan || t.plan.status !== '已完成') return 0;
+  if (!t.request) return 1;
+  if (!t.sampling) return 2;
+  if (!t.retention) return 3;
+  if (!t.inspection || t.inspection.status === '检验中') return 4;
+  if (t.destruction && t.destruction.status === '待销毁') return 5;
   return 6;
 }
-function stepLabel(b) {
-  const s = currentStep(b);
+function stepLabel(t) {
+  const s = currentStep(t);
   if (s === 6) return '已完成';
   return STEPS[s];
 }
-function stepState(b, i) {
-  const cur = currentStep(b);
+function stepState(t, i) {
+  const cur = currentStep(t);
   if (cur === 6) return 'done';
   if (i < cur) return 'done';
-  if (i === cur) return b.inspection && b.inspection.conclusion === '不合格' ? 'error' : 'active';
+  if (i === cur) return t.inspection && t.inspection.conclusion === '不合格' ? 'error' : 'active';
   return '';
 }
-function statusTag(b) {
-  const s = currentStep(b);
-  if (b.inspection && b.inspection.conclusion === '不合格') return '<span class="tag red">不合格</span>';
+function statusTag(t) {
+  const s = currentStep(t);
+  if (t.inspection && t.inspection.conclusion === '不合格') return '<span class="tag red">不合格</span>';
   if (s === 6) return '<span class="tag green">已完成</span>';
   if (s === 4) return '<span class="tag blue">检验中</span>';
   if (s === 5) return '<span class="tag orange">待销毁</span>';
   return '<span class="tag gray">进行中</span>';
 }
-function filtered() {
-  return BATCHES.filter(b => {
-    if (state.step !== null && currentStep(b) !== state.step) return false;
-    if (state.variety && b.code !== state.variety) return false;
-    if (state.object && b.object !== state.object) return false;
+function baseRows() {
+  return TASKS.filter(t => {
+    if (state.batchKey && batchKey(t) !== state.batchKey) return false;
+    if (state.variety && t.code !== state.variety) return false;
+    if (state.object && t.object !== state.object) return false;
     if (state.keyword) {
-      const hay = [b.product, b.code, b.batch, b.wo, b.planNo, b.request ? b.request.code : '', b.inspection ? b.inspection.code : ''].join(' ').toLowerCase();
+      const hay = [t.product, t.code, t.batch, t.wo, t.planNo, t.object,
+        t.plan ? t.plan.code : '', t.request ? t.request.code : '', t.inspection ? t.inspection.code : ''
+      ].join(' ').toLowerCase();
       if (!hay.includes(state.keyword.trim().toLowerCase())) return false;
     }
     return true;
   });
+}
+function filteredTasks() {
+  return baseRows();
+}
+function filteredGroups() {
+  let groups = groupTasks(filteredTasks());
+  if (state.step !== null) groups = groups.filter(g => batchStep(g) === state.step);
+  return groups;
+}
+function filteredTaskRows() {
+  let rows = filteredTasks();
+  if (state.step !== null) rows = rows.filter(t => currentStep(t) === state.step);
+  return rows;
 }
 
 /* =========================================================
  * 渲染
  * =======================================================*/
 function renderStats() {
+  const unit = state.mode === 'batch' ? '个批次' : '个任务';
   const counts = [0, 0, 0, 0, 0, 0, 0];
-  BATCHES.forEach(b => counts[currentStep(b)]++);
-  const pending = counts[0] + counts[1] + counts[2] + counts[3];
+  const tasks = baseRows();
+  if (state.mode === 'batch') {
+    groupTasks(tasks).forEach(g => counts[batchStep(g)]++);
+  } else {
+    tasks.forEach(t => counts[currentStep(t)]++);
+  }
+  const pending = counts[0] + counts[1] + counts[2] + counts[3] + counts[5];
   document.getElementById('statGrid').innerHTML = `
-    <div class="stat-card run"><div class="label">待检验</div><div class="num"><b>${pending}</b><span class="unit">个批次</span></div></div>
-    <div class="stat-card run"><div class="label">检验中</div><div class="num"><b>${counts[4]}</b><span class="unit">个批次</span></div></div>
-    <div class="stat-card warn"><div class="label">待销毁</div><div class="num"><b>${counts[5]}</b><span class="unit">个批次</span></div></div>
-    <div class="stat-card ok"><div class="label">已完成</div><div class="num"><b>${counts[6]}</b><span class="unit">个批次</span></div></div>`;
+    <div class="stat-card run"><div class="label">待办</div><div class="num"><b>${pending}</b><span class="unit">${unit}</span></div></div>
+    <div class="stat-card run"><div class="label">检验中</div><div class="num"><b>${counts[4]}</b><span class="unit">${unit}</span></div></div>
+    <div class="stat-card ok"><div class="label">已完成</div><div class="num"><b>${counts[6]}</b><span class="unit">${unit}</span></div></div>`;
 }
 function renderSteps() {
+  const unit = state.mode === 'batch' ? '个批次' : '个任务';
   const counts = [0, 0, 0, 0, 0, 0];
-  BATCHES.forEach(b => {
-    const s = currentStep(b);
-    if (s < 6) counts[s]++;
-  });
+  const tasks = baseRows();
+  if (state.mode === 'batch') {
+    groupTasks(tasks).forEach(g => {
+      const s = batchStep(g);
+      if (s < 6) counts[s]++;
+    });
+  } else {
+    tasks.forEach(t => {
+      const s = currentStep(t);
+      if (s < 6) counts[s]++;
+    });
+  }
   document.getElementById('stepBar').innerHTML = STEPS.map((name, i) => {
     const active = state.step === i;
     return `<div class="step-item ${active ? 'active' : ''}" data-step="${i}" style="cursor:pointer;">
       <div class="step-dot">${i + 1}</div>
       <div class="step-name">${name}</div>
-      <div class="step-count">${counts[i]} 个批次</div>
+      <div class="step-count">${counts[i]} ${unit}</div>
     </div>`;
   }).join('');
-  document.getElementById('stepFilterText').textContent = state.step === null ? '全部任务' : STEPS[state.step];
+  document.getElementById('stepFilterText').textContent = state.step === null
+    ? (state.mode === 'batch' ? '全部批次' : '全部任务')
+    : `${STEPS[state.step]} · ${state.mode === 'batch' ? '批次' : '任务'}`;
   document.querySelectorAll('#stepBar [data-step]').forEach(el => {
     el.addEventListener('click', () => { state.step = Number(el.dataset.step); renderAll(); });
   });
 }
-function renderTable() {
-  const rows = filtered();
-  document.getElementById('taskBody').innerHTML = rows.length ? rows.map(b => {
-    const s = currentStep(b);
-    const cur = s === 6 ? '已完成' : STEPS[s];
-    return `<tr class="clickable" data-batch="${b.id}">
-      <td><span class="cell-main">${b.batch === '—' ? '未生成批号' : '批号 ' + b.batch}</span><span class="cell-sub">${b.product} · ${b.code}</span></td>
-      <td>${b.object}<span class="cell-sub">${b.wo}</span></td>
-      <td><span class="tag ${s === 6 ? 'green' : s === 5 ? 'orange' : s === 4 ? 'blue' : 'gray'}">${cur}</span></td>
-      <td>${b.plan ? b.plan.code : '<span class="muted">待制定</span>'}<span class="cell-sub">${b.plan ? b.plan.date : '—'}</span></td>
-      <td>${b.request ? b.request.code : '<span class="muted">未请检</span>'}<span class="cell-sub">${b.request ? b.request.time : '—'}</span></td>
-      <td>${b.sampling ? b.sampling.code : '—'}<span class="cell-sub">${b.retention ? b.retention.code : '未留样'}</span></td>
-      <td>${b.inspection ? `<span class="st ${b.inspection.conclusion === '合格' ? 'done' : b.inspection.conclusion === '不合格' ? 'bad' : 'run'}">${b.inspection.conclusion}</span><span class="cell-sub">${b.inspection.code}</span>` : '<span class="muted">尚无结论</span>'}</td>
-      <td>${statusTag(b)}</td>
-      <td><button class="btn btn-sm ${s === 6 ? '' : 'btn-primary'}" data-open="${b.id}">${s === 6 ? '查看' : '办理'}</button></td>
-    </tr>`;
-  }).join('') : `<tr><td colspan="9"><div class="empty">没有符合条件的检验批次</div></td></tr>`;
-  document.getElementById('tableFoot').textContent = `共 ${rows.length} 个检验批次 · 点击行进入六步检验流程`;
-  document.querySelectorAll('#taskBody [data-batch]').forEach(tr => {
-    tr.addEventListener('click', e => {
-      if (e.target.closest('[data-open]')) e.stopPropagation();
-      openInspection(tr.dataset.batch);
-    });
-  });
-  document.querySelectorAll('#taskBody [data-open]').forEach(btn => {
-    btn.addEventListener('click', e => { e.stopPropagation(); openInspection(btn.dataset.open); });
+function renderToggle() {
+  document.querySelectorAll('#viewToggle [data-mode]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mode === state.mode);
   });
 }
-function renderAll() { renderStats(); renderSteps(); renderTable(); }
+function renderBatchScope() {
+  const el = document.getElementById('batchScope');
+  if (state.mode !== 'task' || !state.batchKey) {
+    el.classList.add('hidden');
+    el.innerHTML = '';
+    return;
+  }
+  const group = groupTasks(TASKS).find(g => g.key === state.batchKey);
+  if (!group) {
+    el.classList.add('hidden');
+    el.innerHTML = '';
+    return;
+  }
+  const sample = group.sample;
+  el.classList.remove('hidden');
+  el.innerHTML = `<div class="batch-scope-inner">
+    <div class="flex center gap-10 wrap">
+      <button class="btn btn-sm" id="backToBatches">← 返回批次视图</button>
+      <span class="batch-scope-title">${sample.batch === '—' ? '未生成批号' : '批号 ' + sample.batch}</span>
+      <span class="muted small">${sample.product} · ${sample.code} · ${sample.wo}</span>
+    </div>
+    <div class="flex center gap-6 wrap">
+      <span class="tag gray">${group.tasks.length} 个检验任务</span>
+      ${batchStatusTag(group)}
+      ${batchConclusion(group)}
+    </div>
+  </div>`;
+  document.getElementById('backToBatches').addEventListener('click', backToBatches);
+}
+function renderTable() {
+  const head = document.getElementById('tableHead');
+  const body = document.getElementById('taskBody');
+  const meta = document.getElementById('tableMeta');
+
+  if (state.mode === 'batch') {
+    const groups = filteredGroups();
+    const taskCount = groups.reduce((n, g) => n + g.tasks.length, 0);
+    meta.textContent = `共 ${groups.length} 个批次 · ${taskCount} 个检验任务`;
+    head.innerHTML = `<tr>
+      <th>批号 / 品种</th>
+      <th>工单 / 计划</th>
+      <th>检验任务</th>
+      <th>当前进度</th>
+      <th>检验结论</th>
+      <th>状态</th>
+      <th>操作</th>
+    </tr>`;
+    body.innerHTML = groups.length ? groups.map(g => {
+      const sample = g.sample;
+      const objCount = {};
+      g.tasks.forEach(t => { objCount[t.object] = (objCount[t.object] || 0) + 1; });
+      const objText = Object.keys(objCount).map(k => `${k} ${objCount[k]}`).join(' · ');
+      return `<tr class="clickable" data-batch-key="${g.key}">
+        <td><span class="cell-main">${sample.batch === '—' ? '未生成批号' : '批号 ' + sample.batch}</span><span class="cell-sub">${sample.product} · ${sample.code}</span></td>
+        <td>${sample.wo}<span class="cell-sub">${sample.planNo}</span></td>
+        <td><b>${g.tasks.length}</b> 个任务<span class="cell-sub">${objText}</span></td>
+        <td><div class="task-chips">${g.tasks.map(taskChip).join('')}</div></td>
+        <td>${batchConclusion(g)}</td>
+        <td>${batchStatusTag(g)}</td>
+        <td><button class="btn btn-sm btn-primary" data-open-batch="${g.key}">查看批次</button></td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="7"><div class="empty">没有符合条件的检验批次</div></td></tr>`;
+    document.getElementById('tableFoot').textContent = `共 ${groups.length} 个批次 · 点击批次查看该批次下的全部检验任务`;
+    body.querySelectorAll('[data-batch-key]').forEach(tr => {
+      tr.addEventListener('click', e => {
+        if (e.target.closest('[data-open-batch]')) e.stopPropagation();
+        openBatch(tr.dataset.batchKey);
+      });
+    });
+    body.querySelectorAll('[data-open-batch]').forEach(btn => {
+      btn.addEventListener('click', e => { e.stopPropagation(); openBatch(btn.dataset.openBatch); });
+    });
+    return;
+  }
+
+  const rows = filteredTaskRows();
+  meta.textContent = `共 ${rows.length} 个检验任务${state.batchKey ? ' · 当前批次' : ''}`;
+  head.innerHTML = `<tr>
+    <th>批号 / 品种</th>
+    <th>检验对象</th>
+    <th>当前环节</th>
+    <th>检验计划</th>
+    <th>请检单</th>
+    <th>取样 / 留样</th>
+    <th>检验结论</th>
+    <th>状态</th>
+    <th>操作</th>
+  </tr>`;
+  body.innerHTML = rows.length ? rows.map(t => {
+    const s = currentStep(t);
+    const cur = s === 6 ? '已完成' : STEPS[s];
+    return `<tr class="clickable" data-task="${t.id}">
+      <td><span class="cell-main">${t.batch === '—' ? '未生成批号' : '批号 ' + t.batch}</span><span class="cell-sub">${t.product} · ${t.code}</span></td>
+      <td>${t.object}<span class="cell-sub">${t.wo}</span></td>
+      <td><span class="tag ${s === 6 ? 'green' : s === 5 ? 'orange' : s === 4 ? 'blue' : 'gray'}">${cur}</span></td>
+      <td>${t.plan ? t.plan.code : '<span class="muted">待制定</span>'}<span class="cell-sub">${t.plan ? t.plan.date : '—'}</span></td>
+      <td>${t.request ? t.request.code : '<span class="muted">未请检</span>'}<span class="cell-sub">${t.request ? t.request.time : '—'}</span></td>
+      <td>${t.sampling ? t.sampling.code : '—'}<span class="cell-sub">${t.retention ? t.retention.code : '未留样'}</span></td>
+      <td>${t.inspection ? `<span class="st ${t.inspection.conclusion === '合格' ? 'done' : t.inspection.conclusion === '不合格' ? 'bad' : 'run'}">${t.inspection.conclusion}</span><span class="cell-sub">${t.inspection.code}</span>` : '<span class="muted">尚无结论</span>'}</td>
+      <td>${statusTag(t)}</td>
+      <td><button class="btn btn-sm ${s === 6 ? '' : 'btn-primary'}" data-open-task="${t.id}">${s === 6 ? '查看' : '办理'}</button></td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="9"><div class="empty">当前范围没有符合条件的检验任务</div></td></tr>`;
+  document.getElementById('tableFoot').textContent = state.batchKey
+    ? `当前批次共 ${rows.length} 个检验任务 · 点击任务进入六步检验流程`
+    : `共 ${rows.length} 个检验任务 · 点击行进入六步检验流程`;
+  body.querySelectorAll('[data-task]').forEach(tr => {
+    tr.addEventListener('click', e => {
+      if (e.target.closest('[data-open-task]')) e.stopPropagation();
+      openInspection(tr.dataset.task);
+    });
+  });
+  body.querySelectorAll('[data-open-task]').forEach(btn => {
+    btn.addEventListener('click', e => { e.stopPropagation(); openInspection(btn.dataset.openTask); });
+  });
+}
+function renderAll() { renderStats(); renderSteps(); renderToggle(); renderTable(); renderBatchScope(); }
+
+function setMode(mode) {
+  state.mode = mode;
+  state.step = null;
+  if (mode === 'batch') state.batchKey = null;
+  renderAll();
+}
+function openBatch(key) {
+  state.mode = 'task';
+  state.batchKey = key;
+  state.step = null;
+  renderAll();
+  const scope = document.getElementById('batchScope');
+  if (scope) scope.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function backToBatches() {
+  state.mode = 'batch';
+  state.batchKey = null;
+  state.step = null;
+  renderAll();
+}
 
 /* =========================================================
  * 抽屉：六步流程
  * =======================================================*/
-let activeBatch = null;
+let activeTask = null;
 
 function openInspection(id) {
-  activeBatch = BATCHES.find(b => b.id === id);
-  if (!activeBatch) return;
+  activeTask = TASKS.find(t => t.id === id);
+  if (!activeTask) return;
   renderDrawer();
   openDrawer('inspectionDrawer');
 }
-function stepFiles(b, i) {
-  const data = [b.plan, b.request, b.sampling, b.retention, b.inspection, b.destruction][i];
+function stepFiles(t, i) {
+  const data = [t.plan, t.request, t.sampling, t.retention, t.inspection, t.destruction][i];
   return data && data.files ? data.files : [];
 }
-function stepKv(b, i) {
+function stepKv(t, i) {
   if (i === 0) {
-    if (!b.plan) return [['计划编号', '待制定'], ['检验依据', '中国药典2025版'], ['检验项目', '成品全检'], ['计划日期', '—']];
-    return [['计划编号', b.plan.code], ['检验依据', b.plan.basis], ['检验项目', b.plan.items], ['计划日期', b.plan.date]];
+    if (!t.plan) return [['计划编号', '待制定'], ['检验依据', '中国药典2025版'], ['检验项目', '成品全检'], ['计划日期', '—']];
+    return [['计划编号', t.plan.code], ['检验依据', t.plan.basis], ['检验项目', t.plan.items], ['计划日期', t.plan.date]];
   }
   if (i === 1) {
-    if (!b.request) return [['请检单号', '未请检'], ['请检人', '—'], ['请检时间', '—'], ['检验项目', '—']];
-    return [['请检单号', b.request.code], ['请检人', b.request.requester + ' · ' + b.request.dept], ['请检时间', b.request.time], ['工序 / 项目', b.request.process + ' · ' + b.request.items]];
+    if (!t.request) return [['请检单号', '未请检'], ['请检人', '—'], ['请检时间', '—'], ['检验项目', '—']];
+    return [['请检单号', t.request.code], ['请检人', t.request.requester + ' · ' + t.request.dept], ['请检时间', t.request.time], ['工序 / 项目', t.request.process + ' · ' + t.request.items]];
   }
   if (i === 2) {
-    if (!b.sampling) return [['取样编号', '未取样'], ['取样人', '—'], ['取样量', '—'], ['取样地点', '—']];
-    return [['取样编号', b.sampling.code], ['取样人 / 时间', b.sampling.sampler + ' · ' + b.sampling.time], ['取样量 / 方法', b.sampling.quantity + ' · ' + b.sampling.method], ['取样地点', b.sampling.location]];
+    if (!t.sampling) return [['取样编号', '未取样'], ['取样人', '—'], ['取样量', '—'], ['取样地点', '—']];
+    return [['取样编号', t.sampling.code], ['取样人 / 时间', t.sampling.sampler + ' · ' + t.sampling.time], ['取样量 / 方法', t.sampling.quantity + ' · ' + t.sampling.method], ['取样地点', t.sampling.location]];
   }
   if (i === 3) {
-    if (!b.retention) return [['留样编号', '未留样'], ['留样人', '—'], ['留样量', '—'], ['留样期限', '—']];
-    return [['留样编号', b.retention.code], ['留样人 / 时间', b.retention.keeper + ' · ' + b.retention.time], ['留样量 / 地点', b.retention.quantity + ' · ' + b.retention.location], ['留样期限', b.retention.period]];
+    if (!t.retention) return [['留样编号', '未留样'], ['留样人', '—'], ['留样量', '—'], ['留样期限', '—']];
+    return [['留样编号', t.retention.code], ['留样人 / 时间', t.retention.keeper + ' · ' + t.retention.time], ['留样量 / 地点', t.retention.quantity + ' · ' + t.retention.location], ['留样期限', t.retention.period]];
   }
   if (i === 4) {
-    if (!b.inspection) return [['检验编号', '未检验'], ['检验人', '—'], ['检验起止', '—'], ['结论', '—']];
-    return [['检验编号', b.inspection.code], ['检验人 / 复核人', b.inspection.inspector + ' / ' + b.inspection.reviewer], ['检验起止', b.inspection.start + ' ~ ' + b.inspection.end], ['检验项目', b.inspection.items], ['结论', b.inspection.conclusion]];
+    if (!t.inspection) return [['检验编号', '未检验'], ['检验人', '—'], ['检验起止', '—'], ['结论', '—']];
+    return [['检验编号', t.inspection.code], ['检验人 / 复核人', t.inspection.inspector + ' / ' + t.inspection.reviewer], ['检验起止', t.inspection.start + ' ~ ' + t.inspection.end], ['检验项目', t.inspection.items], ['结论', t.inspection.conclusion]];
   }
-  if (!b.destruction) return [['销毁编号', '无需销毁'], ['销毁日期', '—'], ['处理人', '—'], ['原因', '—']];
-  return [['销毁编号', b.destruction.code], ['销毁日期', b.destruction.date], ['处理人', b.destruction.handler], ['原因', b.destruction.reason], ['状态', b.destruction.status]];
+  if (!t.destruction) return [['销毁编号', '无需销毁'], ['销毁日期', '—'], ['处理人', '—'], ['原因', '—']];
+  return [['销毁编号', t.destruction.code], ['销毁日期', t.destruction.date], ['处理人', t.destruction.handler], ['原因', t.destruction.reason], ['状态', t.destruction.status]];
 }
 function renderDrawer() {
-  const b = activeBatch;
-  const s = currentStep(b);
-  document.getElementById('drawerTitle').textContent = `${b.product} · 检验办理`;
-  document.getElementById('drawerSub').textContent = `批号 ${b.batch} · ${b.wo} · ${b.planNo}`;
+  const t = activeTask;
+  const s = currentStep(t);
+  document.getElementById('drawerTitle').textContent = `${t.product} · ${t.object}检验办理`;
+  document.getElementById('drawerSub').textContent = `批号 ${t.batch} · ${t.wo} · ${t.planNo}`;
   const body = document.getElementById('drawerBody');
   body.innerHTML = `
     <div class="card card-pad mb-2">
-      <h3 class="section-title">批次信息 <span class="meta">${b.code} · ${b.spec}</span></h3>
+      <h3 class="section-title">批次信息 <span class="meta">${t.code} · ${t.spec}</span></h3>
       <div class="kv">
-        <div><span class="k">品种</span>${b.product}</div>
-        <div><span class="k">规格</span>${b.spec}</div>
-        <div><span class="k">批号</span>${b.batch}</div>
-        <div><span class="k">批量 / 成品量</span>${fmtNum(b.qty)} / ${fmtNum(b.finished)} ${b.unit}</div>
-        <div><span class="k">计划 / 实际生产</span>${b.planDate} / ${b.actualStart} ~ ${b.actualEnd}</div>
-        <div><span class="k">状态</span>${statusTag(b)}</div>
+        <div><span class="k">品种</span>${t.product}</div>
+        <div><span class="k">规格</span>${t.spec}</div>
+        <div><span class="k">批号</span>${t.batch}</div>
+        <div><span class="k">检验对象</span>${t.object}</div>
+        <div><span class="k">批量 / 成品量</span>${fmtNum(t.qty)} / ${fmtNum(t.finished)} ${t.unit}</div>
+        <div><span class="k">计划 / 实际生产</span>${t.planDate} / ${t.actualStart} ~ ${t.actualEnd}</div>
+        <div><span class="k">状态</span>${statusTag(t)}</div>
       </div>
     </div>
-    <div class="steps mb-2">${STEPS.map((name, i) => `<div class="step-item ${stepState(b, i)}"><div class="step-dot">${stepState(b, i) === 'done' ? '✓' : i + 1}</div><div class="step-name">${name}</div></div>`).join('')}</div>
+    <div class="steps mb-2">${STEPS.map((name, i) => `<div class="step-item ${stepState(t, i)}"><div class="step-dot">${stepState(t, i) === 'done' ? '✓' : i + 1}</div><div class="step-name">${name}</div></div>`).join('')}</div>
     <div class="timeline">${STEPS.map((name, i) => {
-      const st = stepState(b, i);
-      const data = [b.plan, b.request, b.sampling, b.retention, b.inspection, b.destruction][i];
+      const st = stepState(t, i);
       const tag = st === 'done' ? '<span class="tag green">已完成</span>' : st === 'active' ? '<span class="tag blue">当前环节</span>' : st === 'error' ? '<span class="tag red">不符合</span>' : '<span class="tag gray">待办理</span>';
-      const files = stepFiles(b, i);
+      const files = stepFiles(t, i);
       return `<div class="tl-item ${st}">
         <div class="tl-dot">${st === 'done' ? '✓' : i + 1}</div>
         <div class="tl-card">
           <div class="tl-head"><b>${name}</b>${tag}</div>
-          <div class="tl-meta">${stepKv(b, i).slice(0, 2).map(x => `${x[0]}：${x[1]}`).join(' · ')}</div>
+          <div class="tl-meta">${stepKv(t, i).slice(0, 2).map(x => `${x[0]}：${x[1]}`).join(' · ')}</div>
           <div class="tl-body">
-            <div class="kv">${stepKv(b, i).map(([k, v]) => `<div><span class="k">${k}</span>${v}</div>`).join('')}</div>
+            <div class="kv">${stepKv(t, i).map(([k, v]) => `<div><span class="k">${k}</span>${v}</div>`).join('')}</div>
             ${files.length ? `<div class="file-list">${files.map(f => `<span class="file-chip" data-file="${f}">${f}</span>`).join('')}</div>` : (st !== 'active' && st !== '' ? '<div class="small muted" style="margin-top:6px;">暂无附件</div>' : '')}
           </div>
           <div class="tl-actions">
@@ -738,34 +969,37 @@ function renderDrawer() {
         </div>
       </div>`;
     }).join('')}</div>`;
+  const backBtn = state.batchKey ? '<button class="btn btn-sm" id="drawerBackBatch">返回批次</button>' : '';
   document.getElementById('drawerFoot').innerHTML = `
     <span>当前环节：<b>${s === 6 ? '已完成' : STEPS[s]}</b></span>
-    <span><button class="btn btn-sm" data-close>关闭</button>${s < 6 ? ` <button class="btn btn-sm btn-primary" data-advance="${s}">${STEP_ACTION[s]}</button>` : ''}</span>`;
+    <span>${backBtn}<button class="btn btn-sm" data-close>关闭</button>${s < 6 ? ` <button class="btn btn-sm btn-primary" data-advance="${s}">${STEP_ACTION[s]}</button>` : ''}</span>`;
   body.querySelectorAll('[data-advance]').forEach(btn => btn.addEventListener('click', () => advance(Number(btn.dataset.advance))));
   body.querySelectorAll('[data-view]').forEach(btn => btn.addEventListener('click', () => toast('原型演示：查看已完成的检验资料')));
   body.querySelectorAll('[data-file]').forEach(el => el.addEventListener('click', () => toast('原型演示：预览 ' + el.dataset.file)));
   document.getElementById('drawerFoot').querySelectorAll('[data-advance]').forEach(btn => btn.addEventListener('click', () => advance(Number(btn.dataset.advance))));
+  const back = document.getElementById('drawerBackBatch');
+  if (back) back.addEventListener('click', () => { closeDrawer(); backToBatches(); });
 }
 
 /* =========================================================
  * 逐步办理
  * =======================================================*/
 function advance(step) {
-  const b = activeBatch;
-  if (!b) return;
+  const t = activeTask;
+  if (!t) return;
   if (step === 0) {
-    b.plan = { code: 'JH-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-001', date: '2026-11-06', basis: '中国药典2025版', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已完成', files: ['检验计划.pdf'] };
+    t.plan = { code: 'JH-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-001', date: '2026-11-06', basis: '中国药典2025版', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已完成', files: ['检验计划.pdf'] };
   } else if (step === 1) {
-    b.request = { code: 'QJ-20261106-001', time: '2026-11-06 09:00', requester: '丁圣芳', dept: '质量部', process: '成品检验', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已请检', files: ['请检单.pdf'] };
+    t.request = { code: 'QJ-20261106-001', time: '2026-11-06 09:00', requester: '丁圣芳', dept: '质量部', process: '成品检验', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已请检', files: ['请检单.pdf'] };
   } else if (step === 2) {
-    b.sampling = { code: 'QY-20261106-001', time: '2026-11-06 10:00', sampler: '陈静', quantity: '100g×3份', location: '成品库 A 取样间', method: '随机', status: '已取样', files: ['取样记录.pdf'] };
+    t.sampling = { code: 'QY-20261106-001', time: '2026-11-06 10:00', sampler: '陈静', quantity: '100g×3份', location: '成品库 A 取样间', method: '随机', status: '已取样', files: ['取样记录.pdf'] };
   } else if (step === 3) {
-    b.retention = { code: 'LY-20261106-001', time: '2026-11-06 10:20', keeper: '陈静', quantity: '100g×3份', location: '留样室 A-08', period: '至2028-11-05', status: '已留样', files: ['留样记录.pdf'] };
+    t.retention = { code: 'LY-20261106-001', time: '2026-11-06 10:20', keeper: '陈静', quantity: '100g×3份', location: '留样室 A-08', period: '至2028-11-05', status: '已留样', files: ['留样记录.pdf'] };
   } else if (step === 4) {
-    if (!b.inspection) b.inspection = { code: 'JY-20261106-001', inspector: '丁圣芳', reviewer: '赵磊', start: '2026-11-06 09:00', end: '2026-11-06 16:00', conclusion: '合格', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已检验', files: ['检验记录.pdf'] };
-    else { b.inspection.status = '已检验'; b.inspection.conclusion = '合格'; b.inspection.end = '2026-11-06 16:00'; }
+    if (!t.inspection) t.inspection = { code: 'JY-20261106-001', inspector: '丁圣芳', reviewer: '赵磊', start: '2026-11-06 09:00', end: '2026-11-06 16:00', conclusion: '合格', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已检验', files: ['检验记录.pdf'] };
+    else { t.inspection.status = '已检验'; t.inspection.conclusion = '合格'; t.inspection.end = '2026-11-06 16:00'; }
   } else if (step === 5) {
-    if (b.destruction) Object.assign(b.destruction, { code: 'XH-20261106-001', date: '2026-11-06', handler: '张力', status: '已销毁', files: ['销毁记录.pdf'] });
+    if (t.destruction) Object.assign(t.destruction, { code: 'XH-20261106-001', date: '2026-11-06', handler: '张力', status: '已销毁', files: ['销毁记录.pdf'] });
   }
   renderAll();
   renderDrawer();
@@ -778,12 +1012,12 @@ function advance(step) {
 function renderVarietyOptions() {
   const sel = document.getElementById('fVariety');
   const seen = new Set();
-  BATCHES.forEach(b => {
-    if (seen.has(b.code)) return;
-    seen.add(b.code);
+  TASKS.forEach(t => {
+    if (seen.has(t.code)) return;
+    seen.add(t.code);
     const opt = document.createElement('option');
-    opt.value = b.code;
-    opt.textContent = `${b.product}（${b.code}）`;
+    opt.value = t.code;
+    opt.textContent = `${t.product}（${t.code}）`;
     sel.appendChild(opt);
   });
 }
@@ -791,17 +1025,21 @@ function applyFilters() {
   state.variety = document.getElementById('fVariety').value;
   state.object = document.getElementById('fObject').value;
   state.keyword = document.getElementById('fKeyword').value;
-  renderTable();
+  renderAll();
 }
 function resetFilters() {
   document.getElementById('fVariety').value = '';
   document.getElementById('fObject').value = '';
   document.getElementById('fKeyword').value = '';
   state.variety = ''; state.object = ''; state.keyword = ''; state.step = null;
+  state.mode = 'batch'; state.batchKey = null;
   renderAll();
 }
 function clearStepFilter() { state.step = null; renderAll(); }
 document.getElementById('fKeyword').addEventListener('keydown', e => { if (e.key === 'Enter') applyFilters(); });
+document.querySelectorAll('#viewToggle [data-mode]').forEach(btn => {
+  btn.addEventListener('click', () => setMode(btn.dataset.mode));
+});
 
 renderVarietyOptions();
 renderAll();

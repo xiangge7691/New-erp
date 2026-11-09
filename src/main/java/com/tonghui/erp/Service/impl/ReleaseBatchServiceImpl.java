@@ -81,6 +81,51 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
     public PagedResult<ReleaseBatchDtos.BatchSummary> queryBatches(String varietyCode, String batchNo,
                                                                    String status, String keyword,
                                                                    int pageIndex, int pageSize) {
+        List<ReleaseBatchDtos.BatchSummary> all = loadSummaries(varietyCode, batchNo, status, keyword);
+        int safePageSize = Math.max(pageSize, 1);
+        int from = Math.min(Math.max(pageIndex, 0) * safePageSize, all.size());
+        int to = Math.min(from + safePageSize, all.size());
+
+        PagedResult<ReleaseBatchDtos.BatchSummary> result = new PagedResult<>();
+        result.setItems(all.subList(from, to));
+        result.setTotalCount(all.size());
+        result.setPageIndex(pageIndex);
+        result.setPageSize(pageSize);
+        return result;
+    }
+
+    @Override
+    public ReleaseBatchDtos.BoardStats queryBoardStats(String varietyCode, String batchNo,
+                                                       String status, String keyword) {
+        List<ReleaseBatchDtos.BatchSummary> all = loadSummaries(varietyCode, batchNo, status, keyword);
+        ReleaseBatchDtos.BoardStats stats = new ReleaseBatchDtos.BoardStats();
+        stats.setTotal(all.size());
+        for (ReleaseBatchDtos.BatchSummary item : all) {
+            String releaseStatus = item.getReleaseStatus();
+            if ("待审核".equals(releaseStatus)) {
+                stats.setPendingReview(stats.getPendingReview() + 1);
+            }
+            if ("待放行".equals(releaseStatus) && item.isCanRelease()) {
+                stats.setReleasable(stats.getReleasable() + 1);
+            }
+            if (!"已放行".equals(releaseStatus) && !item.isCanRelease()) {
+                stats.setBlocked(stats.getBlocked() + 1);
+            }
+            if ("已放行".equals(releaseStatus)) {
+                stats.setReleased(stats.getReleased() + 1);
+            }
+            if ("已拒绝".equals(releaseStatus)) {
+                stats.setRejected(stats.getRejected() + 1);
+            }
+        }
+        return stats;
+    }
+
+    /**
+     * 加载批次审核汇总，列表与看板共用
+     */
+    private List<ReleaseBatchDtos.BatchSummary> loadSummaries(String varietyCode, String batchNo,
+                                                              String status, String keyword) {
         QueryWrapper<WorkOrder> wrapper = new QueryWrapper<>();
         if (StringUtils.hasText(varietyCode)) {
             wrapper.eq("preparation_code", varietyCode);
@@ -103,16 +148,7 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
                 all.add(dto);
             }
         }
-        int safePageSize = Math.max(pageSize, 1);
-        int from = Math.min(Math.max(pageIndex, 0) * safePageSize, all.size());
-        int to = Math.min(from + safePageSize, all.size());
-
-        PagedResult<ReleaseBatchDtos.BatchSummary> result = new PagedResult<>();
-        result.setItems(all.subList(from, to));
-        result.setTotalCount(all.size());
-        result.setPageIndex(pageIndex);
-        result.setPageSize(pageSize);
-        return result;
+        return all;
     }
 
     private ReleaseBatchDtos.BatchSummary toSummary(BatchContext ctx) {
@@ -145,10 +181,36 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
         dto.setFileMissing(file.required - file.uploaded);
 
         dto.setDeviationTotal(ctx.getDeviations().size());
-        dto.setDeviationOpen((int) ctx.getDeviations().stream().filter(this::deviationOpen).count());
+        int openDeviations = (int) ctx.getDeviations().stream().filter(this::deviationOpen).count();
+        dto.setDeviationOpen(openDeviations);
         dto.setReleaseStatus(releaseStatus(ctx));
         dto.setCanRelease(compliance(ctx).isCanRelease());
+        dto.setBlockers(buildBlockers(dto, openDeviations));
         return dto;
+    }
+
+    /**
+     * 生成列表用阻塞项，避免前端为每个批次再查一次详情
+     */
+    private List<String> buildBlockers(ReleaseBatchDtos.BatchSummary dto, int openDeviations) {
+        List<String> blockers = new ArrayList<>();
+        if (!"合格".equals(dto.getInspectionConclusion())) {
+            blockers.add("检验" + (StringUtils.hasText(dto.getInspectionConclusion())
+                    ? " " + dto.getInspectionConclusion() : "未完成"));
+        }
+        if (dto.getProcessFail() > 0 || dto.getProcessPending() > 0) {
+            blockers.add("工序 " + dto.getProcessPass() + "/" + dto.getProcessTotal());
+        }
+        if (dto.getFileMissing() > 0) {
+            blockers.add("文件缺 " + dto.getFileMissing());
+        }
+        if (openDeviations > 0) {
+            blockers.add("偏差 " + openDeviations + " 未关闭");
+        }
+        if (dto.getYieldRate() != null && dto.getYieldRate().compareTo(new BigDecimal("98")) < 0) {
+            blockers.add("收率 " + dto.getYieldRate().stripTrailingZeros().toPlainString() + "%");
+        }
+        return blockers;
     }
 
     // endregion

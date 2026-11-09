@@ -47,6 +47,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -157,6 +158,155 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
                                                                   String status, String keyword,
                                                                   int pageIndex, int pageSize) {
         Page<InspectionTask> pageRequest = new Page<>(pageIndex + 1, pageSize);
+        QueryWrapper<InspectionTask> wrapper = buildTaskWrapper(varietyCode, batchNo, itemCategory, step, status, keyword);
+        Page<InspectionTask> result = page(pageRequest, wrapper);
+        List<InspectionTaskDtos.TaskSummary> items = buildSummaries(result.getRecords());
+
+        PagedResult<InspectionTaskDtos.TaskSummary> paged = new PagedResult<>();
+        paged.setItems(items);
+        paged.setTotalCount(result.getTotal());
+        paged.setPageIndex(pageIndex);
+        paged.setPageSize(pageSize);
+        return paged;
+    }
+
+    @Override
+    public PagedResult<InspectionTaskDtos.BatchSummary> queryBatches(String varietyCode, String batchNo,
+                                                                     String itemCategory, String step,
+                                                                     String status, String keyword,
+                                                                     int pageIndex, int pageSize) {
+        List<InspectionTaskDtos.BatchSummary> all = loadBatchSummaries(
+                varietyCode, batchNo, itemCategory, step, status, keyword);
+        int safePageSize = Math.max(pageSize, 1);
+        int from = Math.min(Math.max(pageIndex, 0) * safePageSize, all.size());
+        int to = Math.min(from + safePageSize, all.size());
+
+        PagedResult<InspectionTaskDtos.BatchSummary> paged = new PagedResult<>();
+        paged.setItems(all.subList(from, to));
+        paged.setTotalCount(all.size());
+        paged.setPageIndex(pageIndex);
+        paged.setPageSize(pageSize);
+        return paged;
+    }
+
+    /**
+     * 加载批次汇总，列表、看板和批次详情共用
+     */
+    private List<InspectionTaskDtos.BatchSummary> loadBatchSummaries(String varietyCode, String batchNo,
+                                                                     String itemCategory, String step,
+                                                                     String status, String keyword) {
+        QueryWrapper<InspectionTask> wrapper = buildTaskWrapper(varietyCode, batchNo, itemCategory, step, status, keyword);
+        List<InspectionTask> tasks = list(wrapper);
+        Map<String, List<InspectionTask>> grouped = new LinkedHashMap<>();
+        for (InspectionTask task : tasks) {
+            grouped.computeIfAbsent(batchGroupKey(task), key -> new ArrayList<>()).add(task);
+        }
+        List<List<InspectionTask>> groups = new ArrayList<>(grouped.values());
+        groups.sort((left, right) -> latestUpdated(right).compareTo(latestUpdated(left)));
+        return groups.stream().map(this::buildBatchSummary).collect(Collectors.toList());
+    }
+
+    @Override
+    public InspectionTaskDtos.BatchSummary queryBatch(Long workOrderId) {
+        if (workOrderId == null) {
+            throw new IllegalArgumentException("工单ID不能为空");
+        }
+        List<InspectionTask> tasks = list(new QueryWrapper<InspectionTask>()
+                .eq("work_order_id", workOrderId)
+                .orderByAsc("id"));
+        if (tasks.isEmpty()) {
+            throw new IllegalArgumentException("检验批次不存在");
+        }
+        return buildBatchSummary(tasks);
+    }
+
+    @Override
+    public InspectionTaskDtos.BoardStats queryBoardStats(String varietyCode, String batchNo,
+                                                         String itemCategory, String status,
+                                                         String keyword) {
+        List<InspectionTaskDtos.BatchSummary> summaries = loadBatchSummaries(
+                varietyCode, batchNo, itemCategory, null, status, keyword);
+
+        InspectionTaskDtos.BoardStats stats = new InspectionTaskDtos.BoardStats();
+        stats.setBatchTotal(summaries.size());
+        Map<String, InspectionTaskDtos.StepCount> stepMap = new LinkedHashMap<>();
+        for (String stepCode : STEP_ORDER) {
+            stepMap.put(stepCode, new InspectionTaskDtos.StepCount(
+                    stepCode, STEP_NAMES.getOrDefault(stepCode, stepCode)));
+        }
+
+        int todoBatches = 0;
+        int inspectingBatches = 0;
+        int completedBatches = 0;
+        int unqualifiedBatches = 0;
+        int taskTotal = 0;
+        int todoTasks = 0;
+        int inspectingTasks = 0;
+        int completedTasks = 0;
+
+        for (InspectionTaskDtos.BatchSummary summary : summaries) {
+            String step = summary.getCurrentStep();
+            if (STEP_DONE.equals(step)) {
+                completedBatches++;
+            } else if (STEP_INSPECTION.equals(step)) {
+                inspectingBatches++;
+            } else {
+                todoBatches++;
+            }
+            if ("不合格".equals(summary.getBatchStatus())) {
+                unqualifiedBatches++;
+            }
+            InspectionTaskDtos.StepCount batchStep = stepMap.get(step);
+            if (batchStep != null) {
+                batchStep.setBatchCount(batchStep.getBatchCount() + 1);
+            }
+
+            for (InspectionTaskDtos.TaskSummary task : summary.getTasks()) {
+                taskTotal++;
+                String taskStep = task.getCurrentStep();
+                if (STEP_DONE.equals(taskStep)) {
+                    completedTasks++;
+                } else if (STEP_INSPECTION.equals(taskStep)) {
+                    inspectingTasks++;
+                } else {
+                    todoTasks++;
+                }
+                InspectionTaskDtos.StepCount taskStepCount = stepMap.get(taskStep);
+                if (taskStepCount != null) {
+                    taskStepCount.setTaskCount(taskStepCount.getTaskCount() + 1);
+                }
+            }
+        }
+
+        stats.setTodoBatches(todoBatches);
+        stats.setInspectingBatches(inspectingBatches);
+        stats.setCompletedBatches(completedBatches);
+        stats.setUnqualifiedBatches(unqualifiedBatches);
+        stats.setTaskTotal(taskTotal);
+        stats.setTodoTasks(todoTasks);
+        stats.setInspectingTasks(inspectingTasks);
+        stats.setCompletedTasks(completedTasks);
+        stats.setStepCounts(new ArrayList<>(stepMap.values()));
+        return stats;
+    }
+
+    @Override
+    public List<InspectionTaskDtos.TaskSummary> queryBatchTasks(Long workOrderId) {
+        if (workOrderId == null) {
+            return Collections.emptyList();
+        }
+        List<InspectionTask> tasks = list(new QueryWrapper<InspectionTask>()
+                .eq("work_order_id", workOrderId)
+                .orderByAsc("id"));
+        return buildSummaries(tasks);
+    }
+
+    /**
+     * 构建任务查询条件，列表与批次汇总共用
+     */
+    private QueryWrapper<InspectionTask> buildTaskWrapper(String varietyCode, String batchNo,
+                                                          String itemCategory, String step,
+                                                          String status, String keyword) {
         QueryWrapper<InspectionTask> wrapper = new QueryWrapper<>();
         if (StringUtils.hasText(varietyCode)) {
             wrapper.eq("preparation_code", varietyCode);
@@ -180,15 +330,115 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
                     .or().like("batch_no", keyword));
         }
         wrapper.orderByDesc("updated_time");
-        Page<InspectionTask> result = page(pageRequest, wrapper);
-        List<InspectionTaskDtos.TaskSummary> items = buildSummaries(result.getRecords());
+        return wrapper;
+    }
 
-        PagedResult<InspectionTaskDtos.TaskSummary> paged = new PagedResult<>();
-        paged.setItems(items);
-        paged.setTotalCount(result.getTotal());
-        paged.setPageIndex(pageIndex);
-        paged.setPageSize(pageSize);
-        return paged;
+    /**
+     * 批次分组键：优先工单ID，其次工单编号，最后任务ID
+     */
+    private String batchGroupKey(InspectionTask task) {
+        if (task.getWorkOrderId() != null) {
+            return "WO:" + task.getWorkOrderId();
+        }
+        if (StringUtils.hasText(task.getWorkOrderCode())) {
+            return "WOC:" + task.getWorkOrderCode();
+        }
+        return "TASK:" + task.getId();
+    }
+
+    /**
+     * 取分组内最近更新时间，用于批次排序
+     */
+    private LocalDateTime latestUpdated(List<InspectionTask> group) {
+        return group.stream()
+                .map(InspectionTask::getUpdatedTime)
+                .filter(Objects::nonNull)
+                .max(LocalDateTime::compareTo)
+                .orElse(LocalDateTime.MIN);
+    }
+
+    /**
+     * 将同一工单/批次下的任务汇总为批次视图
+     */
+    private InspectionTaskDtos.BatchSummary buildBatchSummary(List<InspectionTask> group) {
+        InspectionTask sample = group.stream()
+                .filter(task -> StringUtils.hasText(task.getBatchNo()))
+                .findFirst()
+                .orElse(group.get(0));
+        List<InspectionTaskDtos.TaskSummary> tasks = buildSummaries(group);
+
+        InspectionTaskDtos.BatchSummary dto = new InspectionTaskDtos.BatchSummary();
+        dto.setWorkOrderId(sample.getWorkOrderId());
+        dto.setWorkOrderCode(sample.getWorkOrderCode());
+        dto.setPlanNumber(sample.getPlanNumber());
+        dto.setPreparationCode(sample.getPreparationCode());
+        dto.setPreparationName(sample.getPreparationName());
+        dto.setBatchNo(sample.getBatchNo());
+        dto.setSpec(sample.getSpec());
+        dto.setTaskCount(tasks.size());
+        dto.setCompletedCount((int) tasks.stream()
+                .filter(task -> STEP_DONE.equals(task.getCurrentStep()))
+                .count());
+        dto.setTasks(tasks);
+
+        String currentStep = tasks.stream()
+                .map(InspectionTaskDtos.TaskSummary::getCurrentStep)
+                .filter(StringUtils::hasText)
+                .min(Comparator.comparingInt(this::stepOrder))
+                .orElse(STEP_PLAN);
+        dto.setCurrentStep(currentStep);
+
+        boolean anyUnqualified = tasks.stream()
+                .anyMatch(task -> "不合格".equals(task.getInspectionConclusion()));
+        boolean allQualified = !tasks.isEmpty() && tasks.stream()
+                .allMatch(task -> "合格".equals(task.getInspectionConclusion()));
+        boolean anyQualified = tasks.stream()
+                .anyMatch(task -> "合格".equals(task.getInspectionConclusion()));
+        if (anyUnqualified) {
+            dto.setInspectionConclusion("不合格");
+        } else if (allQualified) {
+            dto.setInspectionConclusion("合格");
+        } else if (anyQualified) {
+            dto.setInspectionConclusion("部分合格");
+        }
+
+        if (anyUnqualified) {
+            dto.setBatchStatus("不合格");
+        } else if (STEP_DONE.equals(currentStep)) {
+            dto.setBatchStatus("已完成");
+        } else if (STEP_DESTRUCTION.equals(currentStep)) {
+            dto.setBatchStatus("待销毁");
+        } else if (STEP_INSPECTION.equals(currentStep)) {
+            dto.setBatchStatus("检验中");
+        } else {
+            dto.setBatchStatus("进行中");
+        }
+        return dto;
+    }
+
+    /**
+     * 环节顺序，用于取批次内最靠前的未完成环节
+     */
+    private int stepOrder(String step) {
+        if (STEP_PLAN.equals(step)) {
+            return 0;
+        }
+        if (STEP_REQUEST.equals(step)) {
+            return 1;
+        }
+        if (STEP_SAMPLING.equals(step)) {
+            return 2;
+        }
+        if (STEP_RETENTION.equals(step)) {
+            return 3;
+        }
+        if (STEP_INSPECTION.equals(step)) {
+            return 4;
+        }
+        if (STEP_DESTRUCTION.equals(step)) {
+            return 5;
+        }
+        return 6;
     }
 
     private List<InspectionTaskDtos.TaskSummary> buildSummaries(List<InspectionTask> tasks) {
@@ -218,6 +468,7 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
             dto.setPreparationCode(t.getPreparationCode());
             dto.setPreparationName(t.getPreparationName());
             dto.setBatchNo(t.getBatchNo());
+            dto.setSpec(t.getSpec());
             dto.setItemCategory(t.getItemCategory());
             dto.setObjectName(t.getObjectName());
             dto.setCurrentStep(t.getCurrentStep());

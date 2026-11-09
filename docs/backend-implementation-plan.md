@@ -309,6 +309,19 @@ SQL 建议：
 - `inspection_task` 主表分页；
 - 批量查 `inspection_plan/request/sampling_record/retained_sample/inspection_record/destruction_record`（按 ref_id），避免 N+1。
 
+批次视图（同一批次下可有多条成品/中间产品/生产原料任务）：
+
+```
+GET /api/inspection/batches
+  ?varietyCode=&batchNo=&itemCategory=&step=&status=&keyword=&pageIndex=0&pageSize=20
+GET /api/inspection/batches/stats
+  ?varietyCode=&batchNo=&itemCategory=&status=&keyword=
+GET /api/inspection/batches/{workOrderId}
+GET /api/inspection/batches/{workOrderId}/tasks
+```
+
+批次汇总返回 `taskCount`、`completedCount`、`currentStep`、`batchStatus`、`inspectionConclusion`，并内嵌 `tasks` 明细。
+
 #### 3.2.2 任务详情
 
 ```
@@ -367,11 +380,13 @@ PLAN → REQUEST → SAMPLING → RETENTION → INSPECTION → DESTRUCTION → D
 
 ```
 GET /api/release-review/batches
+GET /api/release-review/batches/stats
   ?varietyCode=&batchNo=&status=&keyword=&pageIndex=0&pageSize=20
 ```
 
 返回 `PagedResult<ReleaseBatchSummaryDto>`：
-- 品种/规格、批号/工单、批量/成品、计划/实际生产日期、检验结论、工序符合数、文件完整数、偏差数、放行状态、是否可放行。
+- 品种/规格、批号/工单、批量/成品、计划/实际生产日期、检验结论、工序符合数、文件完整数、偏差数、放行状态、是否可放行、阻塞项 `blockers`。
+- 顶部统计单独调用 `/stats`，返回待审核、可放行、存在阻塞、已放行、已拒绝。
 
 实现：
 - 主查询 `work_order`（`batch_number` 非空，按 `work_order_id` 唯一）。

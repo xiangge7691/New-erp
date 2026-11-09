@@ -73,6 +73,44 @@ public class QualityPagesSmokeTest {
         Assertions.assertEquals(6, detail.path("steps").size(), "检验任务步骤不是 6 个");
     }
 
+    @Test
+    public void inspectionBatchesShouldGroupTasks() throws Exception {
+        JsonNode list = get("/api/inspection/batches?pageIndex=0&pageSize=10").path("data");
+        JsonNode items = list.path("items");
+        Assumptions.assumeTrue(items.size() > 0, "测试库无检验任务，跳过检验批次冒烟");
+        JsonNode first = items.get(0);
+        Assertions.assertTrue(first.has("taskCount"), "批次缺少任务数");
+        Assertions.assertTrue(first.path("tasks").isArray(), "批次缺少任务明细");
+        long workOrderId = first.path("workOrderId").asLong();
+        if (workOrderId > 0) {
+            JsonNode tasks = get("/api/inspection/batches/" + workOrderId + "/tasks").path("data");
+            Assertions.assertTrue(tasks.isArray(), "批次任务接口未返回数组");
+            JsonNode batch = get("/api/inspection/batches/" + workOrderId).path("data");
+            Assertions.assertEquals(workOrderId, batch.path("workOrderId").asLong());
+        }
+    }
+
+    @Test
+    public void inspectionBoardStatsShouldReturnStepCounts() throws Exception {
+        JsonNode stats = get("/api/inspection/batches/stats").path("data");
+        Assertions.assertTrue(stats.has("batchTotal"), "检验看板缺少批次总数");
+        Assertions.assertTrue(stats.has("todoBatches"), "检验看板缺少待办数");
+        Assertions.assertEquals(6, stats.path("stepCounts").size(), "检验看板环节数不是 6");
+    }
+
+    @Test
+    public void releaseBoardStatsAndBlockersShouldReturn() throws Exception {
+        JsonNode stats = get("/api/release-review/batches/stats").path("data");
+        Assertions.assertTrue(stats.has("total"), "放行看板缺少总数");
+        Assertions.assertTrue(stats.has("pendingReview"), "放行看板缺少待审核数");
+        Assertions.assertTrue(stats.has("blocked"), "放行看板缺少阻塞数");
+
+        JsonNode list = get("/api/release-review/batches?pageIndex=0&pageSize=10").path("data");
+        if (list.path("items").size() > 0) {
+            Assertions.assertTrue(list.path("items").get(0).has("blockers"), "放行列表缺少阻塞项");
+        }
+    }
+
     private JsonNode get(String path) throws Exception {
         String token = JwtHelper.generateToken("1", "root", new String[] {"admin"},
             jwtConfig.getSecretKey(), jwtConfig.getIssuer(), jwtConfig.getAudience(), 30);

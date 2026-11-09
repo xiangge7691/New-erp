@@ -19,10 +19,11 @@ import org.springframework.web.bind.annotation.*;
  * │ #  │ 接口                                       │ 方法   │ 说明             │
  * ├────┼────────────────────────────────────────────┼────────┼──────────────────┤
  * │ 1  │ /api/release-review/batches                │ GET    │ 批次审核列表      │
- * │ 2  │ /api/release-review/batches/{workOrderId}  │ GET    │ 批次全批详情      │
- * │ 3  │ .../{workOrderId}/process-checks           │ POST   │ 保存工序检查      │
- * │ 4  │ .../{workOrderId}/approve                  │ POST   │ 通过放行          │
- * │ 5  │ .../{workOrderId}/reject                   │ POST   │ 拒绝放行          │
+ * │ 2  │ /api/release-review/batches/stats          │ GET    │ 审核看板统计      │
+ * │ 3  │ /api/release-review/batches/{workOrderId}  │ GET    │ 批次全批详情      │
+ * │ 4  │ .../{workOrderId}/process-checks           │ POST   │ 保存工序检查      │
+ * │ 5  │ .../{workOrderId}/approve                  │ POST   │ 通过放行          │
+ * │ 6  │ .../{workOrderId}/reject                   │ POST   │ 拒绝放行          │
  * └────┴────────────────────────────────────────────┴────────┴──────────────────┘
  */
 @RestController
@@ -59,6 +60,31 @@ public class ReleaseBatchController extends BaseController {
             return success(releaseBatchService.queryBatches(varietyCode, batchNo, status, keyword, pageIndex, pageSize));
         } catch (Exception e) {
             return exception(e, "查询批次审核列表");
+        }
+    }
+
+    /**
+     * 查询审核放行看板统计
+     *
+     * 示例请求：
+     * GET /api/release-review/batches/stats?varietyCode=Z04-011&batchNo=260901
+     *
+     * @param varietyCode 品种编码（可选）
+     * @param batchNo     批号/工单号（可选）
+     * @param status      放行状态（可选）
+     * @param keyword     关键字（可选）
+     * @return 待审核、可放行、存在阻塞等计数
+     */
+    @GetMapping("/stats")
+    public ApiResponse<ReleaseBatchDtos.BoardStats> stats(
+            @RequestParam(required = false) String varietyCode,
+            @RequestParam(required = false) String batchNo,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String keyword) {
+        try {
+            return success(releaseBatchService.queryBoardStats(varietyCode, batchNo, status, keyword));
+        } catch (Exception e) {
+            return exception(e, "查询审核放行看板统计");
         }
     }
 

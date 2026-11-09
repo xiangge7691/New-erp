@@ -5,6 +5,8 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.QualityPages.InspectionTaskDtos;
 import com.tonghui.erp.Data.Entity.InspectionTask;
 
+import java.util.List;
+
 /**
  * 检验任务服务
  * <p>
@@ -30,6 +32,52 @@ public interface InspectionTaskService extends IService<InspectionTask> {
     PagedResult<InspectionTaskDtos.TaskSummary> queryTasks(String varietyCode, String batchNo, String itemCategory,
                                                            String step, String status, String keyword,
                                                            int pageIndex, int pageSize);
+
+    /**
+     * 分页查询检验批次（按工单/批次聚合任务）
+     *
+     * @param varietyCode 品种编码
+     * @param batchNo     批号
+     * @param itemCategory 被检品属性
+     * @param step        当前环节
+     * @param status      任务状态
+     * @param keyword     关键字
+     * @param pageIndex   页码，从0开始
+     * @param pageSize    每页数量
+     * @return 分页批次汇总
+     */
+    PagedResult<InspectionTaskDtos.BatchSummary> queryBatches(String varietyCode, String batchNo, String itemCategory,
+                                                              String step, String status, String keyword,
+                                                              int pageIndex, int pageSize);
+
+    /**
+     * 查询指定工单/批次下的全部检验任务
+     *
+     * @param workOrderId 工单ID
+     * @return 检验任务列表
+     */
+    List<InspectionTaskDtos.TaskSummary> queryBatchTasks(Long workOrderId);
+
+    /**
+     * 查询指定工单/批次的检验汇总
+     *
+     * @param workOrderId 工单ID
+     * @return 批次汇总（含任务明细）
+     */
+    InspectionTaskDtos.BatchSummary queryBatch(Long workOrderId);
+
+    /**
+     * 查询检验看板统计
+     *
+     * @param varietyCode  品种编码
+     * @param batchNo      批号
+     * @param itemCategory 被检品属性
+     * @param status       任务状态
+     * @param keyword      关键字
+     * @return 批次/任务计数与环节计数
+     */
+    InspectionTaskDtos.BoardStats queryBoardStats(String varietyCode, String batchNo, String itemCategory,
+                                                  String status, String keyword);
 
     /**
      * 查询任务详情（含六步）
