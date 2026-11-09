@@ -25,6 +25,8 @@ public final class ReleaseBatchDtos {
     public static class BatchSummary {
         private Long workOrderId;
         private String workOrderCode;
+        /** 生产计划编号 */
+        private String planNumber;
         private String batchNo;
         private String preparationCode;
         private String preparationName;
@@ -89,6 +91,8 @@ public final class ReleaseBatchDtos {
     public static class BatchInfo {
         private Long workOrderId;
         private String workOrderCode;
+        /** 生产计划编号 */
+        private String planNumber;
         private String batchNo;
         private String preparationCode;
         private String preparationName;
@@ -102,6 +106,8 @@ public final class ReleaseBatchDtos {
         private BigDecimal yieldRate;
         private String inspectionConclusion;
         private String workOrderStatus;
+        /** 放行状态：待审核/待放行/已放行/已拒绝 */
+        private String releaseStatus;
     }
 
     /** 采购订单 */
@@ -126,6 +132,10 @@ public final class ReleaseBatchDtos {
         private String purchaseNumber;
         private List<String> uploadedKinds = new ArrayList<>();
         private List<String> missingKinds = new ArrayList<>();
+        /** 已上传文件类型中文名，供页面直接展示 */
+        private List<String> uploadedKindLabels = new ArrayList<>();
+        /** 缺失文件类型中文名，供页面直接展示 */
+        private List<String> missingKindLabels = new ArrayList<>();
         private List<FileItem> files = new ArrayList<>();
     }
 
@@ -215,6 +225,8 @@ public final class ReleaseBatchDtos {
         private int uploaded;
         private int total;
         private String note;
+        /** 缺失明细，例如“验收单 YS-20261019-005 缺 验收检验报告” */
+        private List<String> missingDetails = new ArrayList<>();
     }
 
     /** 合规汇总 */
@@ -254,6 +266,8 @@ public final class ReleaseBatchDtos {
     @Data
     public static class ApproveRequest {
         private String approver;
+        /** 审核日期（HTML 日期框，yyyy-MM-dd） */
+        private LocalDate reviewDate;
         private LocalDateTime reviewTime;
         private String opinion;
     }
@@ -262,8 +276,38 @@ public final class ReleaseBatchDtos {
     @Data
     public static class RejectRequest {
         private String reviewer;
+        /** 审核日期（HTML 日期框，yyyy-MM-dd） */
+        private LocalDate reviewDate;
         private LocalDateTime reviewTime;
         private String reason;
+    }
+
+    /** 保存草稿请求 */
+    @Data
+    public static class DraftRequest {
+        /** 草稿结论，只允许“待补充” */
+        private String conclusion;
+        private String approver;
+        /** 审核日期（HTML 日期框，yyyy-MM-dd） */
+        private LocalDate reviewDate;
+        private LocalDateTime reviewTime;
+        private String opinion;
+    }
+
+    /** 导出请求 */
+    @Data
+    public static class ExportRequest {
+        private String varietyCode;
+        private String batchNo;
+        private String status;
+        private String keyword;
+    }
+
+    /** 品种下拉选项 */
+    @Data
+    public static class VarietyOption {
+        private String preparationCode;
+        private String preparationName;
     }
 
     /** 工序检查保存请求 */

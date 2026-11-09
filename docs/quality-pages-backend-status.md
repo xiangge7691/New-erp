@@ -32,9 +32,12 @@
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
-| `/api/product-summary/batches` | GET | 批次汇总列表，支持品种/日期类型/起止日期/关键字/只看缺件/分页 |
+| `/api/product-summary/overview` | GET | 页面聚合：结论、KPI、待办、文件健康度、制剂卡片 |
+| `/api/product-summary/batches` | GET | 批次汇总列表，支持品种/日期类型/起止日期/关键字/只看缺件/分页；含未下达计划 |
 | `/api/product-summary/batches/{workOrderId}` | GET | 批次全链路详情：槽位、节点、单据明细、文件分组、缺件清单 |
-| `/api/product-summary/export` | POST | 导出 zip（按品种/批次/环节分目录，附 `文件清单.csv`） |
+| `/api/product-summary/plans/{planId}` | GET | 未下达工单的计划详情 |
+| `/api/product-summary/cards` | GET | 品种卡片视图数据（不分页） |
+| `/api/product-summary/export` | POST | 集中导出：`SELECTED`/`FILTERED`/`ALL`，`ZIP`/`CSV`，附 `文件清单.csv` |
 
 代码：
 - `Controller/ProductSummaryController.java`
@@ -51,7 +54,6 @@
 | `/api/inspection/batches` | GET | 批次视图，按工单/批次聚合多条检验任务 |
 | `/api/inspection/batches/stats` | GET | 检验看板统计：待办/检验中/已完成、六步环节计数 |
 | `/api/inspection/batches/{workOrderId}` | GET | 批次汇总详情（含任务明细） |
-| `/api/inspection/batches/{workOrderId}/tasks` | GET | 查询指定批次下的全部检验任务 |
 | `/api/inspection/tasks/{id}` | GET | 任务详情（六步、字段、附件） |
 | `/api/inspection/tasks` | POST | 创建任务（按工单 + 被检品属性，重复创建返回已有任务） |
 | `/api/inspection/tasks/{id}/plan` | POST | 办理检验计划 |
@@ -84,10 +86,13 @@
 |------|------|------|
 | `/api/release-review/batches` | GET | 批次审核列表（文件/工序/偏差/合规汇总，返回 `blockers`） |
 | `/api/release-review/batches/stats` | GET | 审核看板统计：待审核/可放行/存在阻塞/已放行/已拒绝 |
+| `/api/release-review/batches/varieties` | GET | 品种下拉选项（有批次的品种，按编码去重） |
 | `/api/release-review/batches/{workOrderId}` | GET | 全批审核详情（采购/验收/指令/领料/退库/工序/检验/区域/收率/偏差/文件） |
 | `/api/release-review/batches/{workOrderId}/process-checks` | POST | 保存工序符合性检查 |
-| `/api/release-review/batches/{workOrderId}/approve` | POST | 通过放行（校验合规） |
-| `/api/release-review/batches/{workOrderId}/reject` | POST | 拒绝放行（写原因） |
+| `/api/release-review/batches/{workOrderId}/draft` | POST | 保存放行审核草稿（结论“待补充”，不校验合规） |
+| `/api/release-review/batches/{workOrderId}/approve` | POST | 通过放行（校验合规、禁止重复放行） |
+| `/api/release-review/batches/{workOrderId}/reject` | POST | 拒绝放行（原因必填，禁止拒绝已放行批次） |
+| `/api/release-review/batches/export` | POST | 导出待审核批次 CSV（默认 `status=待审核`） |
 
 代码：
 - `Controller/ReleaseBatchController.java`
@@ -97,17 +102,31 @@
 - `WorkOrderProcessCheck` + Mapper
 
 合规规则：
-- 检验结论必须为“合格”。
+- 检验结论必须为“合格”（只取成品检验记录；无记录时按工单状态显示“检验中/已检验/未检验”）。
 - 工序检查必须全部“符合”（无不符合/待查）。
 - 必传文件必须齐全（`file_requirement_config` 中 `REQUIRED` / `CONDITIONAL`）。
 - 偏差必须关闭（`handleTime` 或处理结果存在）。
 - 收率 ≥ 98%。
 - 全部通过才允许 `approve`；否则返回 400，不写放行记录。
 
+放行页文件清单口径：
+- 只统计批次相关业务类型，品种级资料（`PREPARATION` / `PREPARATION_PROCESS_TEMPLATE`）不计入放行缺件。
+- 已补 `SAMPLING_RECORD`、`WORK_ORDER_PROCESS_EXECUTION` 的应传/已传统计。
+- `RELEASE_REVIEW` 在放行记录存在时计 1/1（放行记录本身即放行审核单据），避免放行后自锁。
+- 多级配置按 `bizType + fileKind` 去重，优先级：品种级 > 被检品属性级 > GLOBAL。
+
+放行状态与动作：
+- 状态取值：`待审核 / 待放行 / 已放行 / 已拒绝`。
+- 草稿结论为“待补充”，不校验合规、不写 `audit_release_time`；草稿不会强制把合规批次改成“待审核”。
+- 已放行批次只读：`approve` / `reject` / `draft` / `process-checks` 均返回 400。
+- `approve` 成功后通过 `WorkOrderService.syncWorkOrderTime` 回写放行时间并联动工单/计划状态。
+- `reject` 原因必填；`reviewDate`（`yyyy-MM-dd`）与 `reviewTime` 均兼容，未传审核人时取当前登录用户。
+
 已实测：
 - 批次列表/详情返回正常。
 - 工序检查批量保存正常。
 - 存在缺件时 `approve` 返回“存在不符合项，不能通过放行”。
+- 本次改动已编译通过；`QualityPagesSmokeTest` 已补充品种下拉、详情计划号/放行状态、文件清单排除品种资料、CSV 导出断言，冒烟测试待联调时执行。
 
 ---
 
@@ -146,7 +165,7 @@
 
 执行结果：
 ```
-Tests run: 6, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 7, Failures: 0, Errors: 0, Skipped: 0
 ```
 
 另手工验证：
@@ -175,6 +194,6 @@ Tests run: 6, Failures: 0, Errors: 0, Skipped: 0
 
 - 产品汇总列表：`GET /api/product-summary/batches`，字段与原型 `BatchSummary` 对应；详情 `stages` 按 `key` 渲染计划/采购/工单/生产/入库/出库/检验/放行节点。
 - 检验管理：列表 → `GET /api/inspection/tasks`；办理按钮按 `currentStep` 调对应 POST 接口；成功后重新拉详情。
-- 检验批次视图：`GET /api/inspection/batches` 按工单/批次返回任务汇总（`taskCount`、`completedCount`、`currentStep`、`batchStatus`、`inspectionConclusion`）；顶部统计 → `GET /api/inspection/batches/stats`；批次下钻 → `GET /api/inspection/batches/{workOrderId}` 或 `/{workOrderId}/tasks`。
+- 检验批次视图：`GET /api/inspection/batches` 按工单/批次返回任务汇总（`taskCount`、`completedCount`、`currentStep`、`batchStatus`、`inspectionConclusion`）；顶部统计 → `GET /api/inspection/batches/stats`；批次下钻 → `GET /api/inspection/batches/{workOrderId}`（该接口已包含任务明细）。
 - 审核放行：列表 → `GET /api/release-review/batches`（列表项直接含 `blockers`）；顶部统计 → `GET /api/release-review/batches/stats`；详情 → `GET .../{workOrderId}`；工序检查保存 → `POST .../process-checks`；放行/拒绝 → `POST .../approve|reject`。
 - 文件下载：沿用现有 `/api/files/{id}` / `BusinessFileService`。

@@ -309,13 +309,6 @@ export function fetchInspectionBatch(workOrderId: number) {
   })
 }
 
-/** 批次下全部任务 */
-export function fetchInspectionBatchTasks(workOrderId: number) {
-  return request.get<InspectionTaskSummary[]>({
-    url: `/api/inspection/batches/${workOrderId}/tasks`
-  })
-}
-
 /** 任务详情（六步） */
 export function fetchInspectionTask(id: number) {
   return request.get<InspectionTaskDetail>({
@@ -457,6 +450,12 @@ export function fetchReleaseBoardStats(
   })
 }
 
+export function fetchReleaseVarieties() {
+  return request.get<Array<{ preparationCode: string; preparationName: string }>>({
+    url: '/api/release-review/batches/varieties'
+  })
+}
+
 export function fetchReleaseBatchDetail(workOrderId: number) {
   return request.get<Record<string, any>>({
     url: `/api/release-review/batches/${workOrderId}`
@@ -486,7 +485,7 @@ export function saveReleaseProcessChecks(
 
 export function approveRelease(
   workOrderId: number,
-  data: { approver: string; reviewTime: string; opinion?: string }
+  data: { approver?: string; reviewDate: string; reviewTime?: string; opinion?: string }
 ) {
   return request.post({
     url: `/api/release-review/batches/${workOrderId}/approve`,
@@ -497,7 +496,7 @@ export function approveRelease(
 
 export function rejectRelease(
   workOrderId: number,
-  data: { reviewer: string; reviewTime: string; reason: string }
+  data: { reviewer?: string; reviewDate: string; reviewTime?: string; reason: string }
 ) {
   return request.post({
     url: `/api/release-review/batches/${workOrderId}/reject`,
@@ -505,18 +504,48 @@ export function rejectRelease(
     showSuccessMessage: true
   })
 }
+
+export function saveReleaseDraft(
+  workOrderId: number,
+  data: {
+    conclusion?: string
+    approver?: string
+    reviewDate?: string
+    reviewTime?: string
+    opinion?: string
+  }
+) {
+  return request.post({
+    url: `/api/release-review/batches/${workOrderId}/draft`,
+    data,
+    showSuccessMessage: true
+  })
+}
+
+export function exportReleaseBatches(data: {
+  varietyCode?: string
+  batchNo?: string
+  status?: string
+  keyword?: string
+}) {
+  return request.post({
+    url: '/api/release-review/batches/export',
+    data,
+    responseType: 'blob'
+  })
+}
 ```
 
 详情返回结构见 `ReleaseBatchDtos.BatchDetail`，前端可按以下分组渲染：
 
-- `batch`：批次头信息
+- `batch`：批次头信息（含 `planNumber`、`releaseStatus`）
 - `purchases`、`acceptances`、`instructions`、`requisitions`、`returns`：物料/生产单据
 - `processes`：工序记录与符合性
 - `requests`、`samplings`、`inspections`：检验证据
 - `yieldInfo`、`deviations`：收率与偏差
-- `fileChecklist`：文件完整性清单（只有计数，不直接带文件 ID）
+- `fileChecklist`：文件完整性清单（计数 + `missingDetails`，不直接带文件 ID）
 - `compliance`：`inspectionPass / processPass / filePass / deviationPass / yieldPass / canRelease / summary`
-- `release`：已放行时的放行记录
+- `release`：始终返回对象；无放行记录时字段为空，草稿时 `conclusion = 待补充`
 
 ---
 
@@ -697,15 +726,22 @@ await saveReleaseProcessChecks(workOrderId, detail.processes.map((p) => ({
 
 保存成功后刷新详情、列表和统计，因为 `processPass`、`blockers`、`canRelease` 都会变化。
 
-### 5.5 放行 / 拒绝
+### 5.5 保存草稿 / 放行 / 拒绝
 
+- 保存草稿：
+  - 顶部“保存草稿”或放行结论选“待补充”时调用。
+  - 字段：批准人、审核日期、审核意见；结论固定为 `待补充`。
+  - 调用 `saveReleaseDraft(workOrderId, { conclusion: '待补充', approver, reviewDate, opinion })`。
+  - 草稿不校验合规，不改变批次放行状态，不写工单放行时间。
 - 通过放行：
   - 先校验 `detail.compliance.canRelease === true`，否则禁用按钮并展示阻塞项。
-  - 弹窗字段：批准人、审核时间、审核意见。
-  - 调用 `approveRelease(workOrderId, { approver, reviewTime, opinion })`。
+  - 弹窗字段：批准人、审核日期、审核意见。
+  - 调用 `approveRelease(workOrderId, { approver, reviewDate, opinion })`。
+  - 已放行批次后端会返回 400，前端对 `releaseStatus === '已放行'` 只读展示。
 - 拒绝放行：
-  - 弹窗字段：审核人、审核时间、拒绝原因，原因必填。
-  - 调用 `rejectRelease(workOrderId, { reviewer, reviewTime, reason })`。
+  - 弹窗字段：审核人、审核日期、拒绝原因，原因必填。
+  - 调用 `rejectRelease(workOrderId, { reviewer, reviewDate, reason })`。
+- 审核日期统一用 `yyyy-MM-dd`（对应 HTML `<input type="date">`）；如需精确到时分秒，可改传 `reviewTime`。
 - 成功后刷新详情、列表、统计；关闭抽屉或保留详情显示最新结论。
 
 ---
@@ -831,9 +867,15 @@ const { hasAuth } = useAuth()
 
 - [ ] 顶部待审核/可放行/存在阻塞与列表一致。
 - [ ] 列表阻塞项直接来自 `blockers`，不是前端逐条查详情。
+- [ ] 品种下拉来自 `/varieties`，按“品种名称（编码）”展示。
 - [ ] 详情合规五项与 `compliance` 一致。
 - [ ] 工序检查保存后 `processPass`、`blockers`、`canRelease` 同步变化。
 - [ ] 不满足合规时“通过放行”禁用。
+- [ ] 保存草稿后批次状态不变，不写工单放行时间。
+- [ ] 已放行批次只读，不能再次放行/拒绝/改草稿。
+- [ ] 拒绝原因为空时前端拦截，后端也返回 400。
 - [ ] 通过/拒绝成功后列表和统计刷新。
-- [ ] 文件完整性区分必传/条件必传/不必传，缺件数不含不必传。
+- [ ] 文件完整性区分必传/条件必传/不必传，缺件数不含不必传；清单不出现品种级资料。
+- [ ] 放行后“放行审核”显示 1/1，不因放行记录自身产生缺件。
+- [ ] “导出待审核”下载 CSV，Excel 打开中文不乱码。
 - [ ] 证据区文件可预览/下载。

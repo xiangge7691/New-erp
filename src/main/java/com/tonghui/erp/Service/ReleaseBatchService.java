@@ -3,6 +3,8 @@ package com.tonghui.erp.Service;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.QualityPages.ReleaseBatchDtos;
 
+import java.util.List;
+
 /**
  * 批次审核放行服务
  * <p>
@@ -72,4 +74,29 @@ public interface ReleaseBatchService {
      * @return 批次详情
      */
     ReleaseBatchDtos.BatchDetail reject(Long workOrderId, ReleaseBatchDtos.RejectRequest request);
+
+    /**
+     * 保存放行审核草稿
+     * <p>草稿不校验合规，结论固定为“待补充”，用于记录审核意见和待补资料。</p>
+     *
+     * @param workOrderId 工单ID
+     * @param request     草稿请求
+     * @return 批次详情
+     */
+    ReleaseBatchDtos.BatchDetail saveDraft(Long workOrderId, ReleaseBatchDtos.DraftRequest request);
+
+    /**
+     * 查询品种下拉选项
+     *
+     * @return 有批次的品种编码/名称列表
+     */
+    List<ReleaseBatchDtos.VarietyOption> listVarieties();
+
+    /**
+     * 导出待审核批次 CSV
+     *
+     * @param request 导出筛选条件，status 为空时默认“待审核”
+     * @return CSV 字节内容（UTF-8 BOM）
+     */
+    byte[] exportCsv(ReleaseBatchDtos.ExportRequest request);
 }

@@ -5,7 +5,15 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.QualityPages.ReleaseBatchDtos;
 import com.tonghui.erp.Service.ReleaseBatchService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.util.List;
 
 /**
  * 批次审核放行控制器
@@ -20,10 +28,13 @@ import org.springframework.web.bind.annotation.*;
  * ├────┼────────────────────────────────────────────┼────────┼──────────────────┤
  * │ 1  │ /api/release-review/batches                │ GET    │ 批次审核列表      │
  * │ 2  │ /api/release-review/batches/stats          │ GET    │ 审核看板统计      │
- * │ 3  │ /api/release-review/batches/{workOrderId}  │ GET    │ 批次全批详情      │
- * │ 4  │ .../{workOrderId}/process-checks           │ POST   │ 保存工序检查      │
- * │ 5  │ .../{workOrderId}/approve                  │ POST   │ 通过放行          │
- * │ 6  │ .../{workOrderId}/reject                   │ POST   │ 拒绝放行          │
+ * │ 3  │ /api/release-review/batches/varieties      │ GET    │ 品种下拉选项      │
+ * │ 4  │ /api/release-review/batches/{workOrderId}  │ GET    │ 批次全批详情      │
+ * │ 5  │ .../{workOrderId}/process-checks           │ POST   │ 保存工序检查      │
+ * │ 6  │ .../{workOrderId}/draft                    │ POST   │ 保存放行草稿      │
+ * │ 7  │ .../{workOrderId}/approve                  │ POST   │ 通过放行          │
+ * │ 8  │ .../{workOrderId}/reject                   │ POST   │ 拒绝放行          │
+ * │ 9  │ /api/release-review/batches/export         │ POST   │ 导出待审核批次    │
  * └────┴────────────────────────────────────────────┴────────┴──────────────────┘
  */
 @RestController
@@ -42,7 +53,7 @@ public class ReleaseBatchController extends BaseController {
      *
      * @param varietyCode 品种编码（可选）
      * @param batchNo     批号/工单号（可选）
-     * @param status      放行状态（可选：待审核/待放行/放行/拒绝放行）
+     * @param status      放行状态（可选：待审核/待放行/已放行/已拒绝）
      * @param keyword     关键字（工单号/批号/品种）
      * @param pageIndex   页码，从0开始
      * @param pageSize    每页数量
@@ -89,6 +100,24 @@ public class ReleaseBatchController extends BaseController {
     }
 
     /**
+     * 查询品种下拉选项
+     * <p>取有批号的工单品种，按品种编码去重，供列表筛选栏使用。</p>
+     *
+     * 示例请求：
+     * GET /api/release-review/batches/varieties
+     *
+     * @return 品种编码/名称列表
+     */
+    @GetMapping("/varieties")
+    public ApiResponse<List<ReleaseBatchDtos.VarietyOption>> varieties() {
+        try {
+            return success(releaseBatchService.listVarieties());
+        } catch (Exception e) {
+            return exception(e, "查询品种选项");
+        }
+    }
+
+    /**
      * 查询批次全批审核详情
      *
      * 示例请求：GET /api/release-review/batches/463
@@ -129,11 +158,34 @@ public class ReleaseBatchController extends BaseController {
     }
 
     /**
+     * 保存放行审核草稿
+     * <p>草稿不校验合规，结论固定为“待补充”，用于记录审核意见和待补资料。</p>
+     *
+     * 示例请求：
+     * POST /api/release-review/batches/463/draft
+     * {"conclusion":"待补充","approver":"赵磊","reviewDate":"2026-11-06","opinion":"验收检验报告待补"}
+     *
+     * @param workOrderId 工单ID
+     * @param request     草稿请求
+     * @return 批次详情
+     */
+    @PostMapping("/{workOrderId}/draft")
+    public ApiResponse<ReleaseBatchDtos.BatchDetail> draft(
+            @PathVariable Long workOrderId,
+            @RequestBody(required = false) ReleaseBatchDtos.DraftRequest request) {
+        try {
+            return success(releaseBatchService.saveDraft(workOrderId, request), "草稿已保存");
+        } catch (Exception e) {
+            return exception(e, "保存放行草稿");
+        }
+    }
+
+    /**
      * 通过放行
      *
      * 示例请求：
      * POST /api/release-review/batches/463/approve
-     * {"approver":"赵磊","reviewTime":"2026-11-06T10:00:00","opinion":"合规检查通过，同意放行。"}
+     * {"approver":"赵磊","reviewDate":"2026-11-06","opinion":"合规检查通过，同意放行。"}
      *
      * @param workOrderId 工单ID
      * @param request     放行请求
@@ -155,7 +207,7 @@ public class ReleaseBatchController extends BaseController {
      *
      * 示例请求：
      * POST /api/release-review/batches/463/reject
-     * {"reviewer":"赵磊","reviewTime":"2026-11-06T10:00:00","reason":"工序记录不符合"}
+     * {"reviewer":"赵磊","reviewDate":"2026-11-06","reason":"工序记录不符合"}
      *
      * @param workOrderId 工单ID
      * @param request     拒绝请求
@@ -169,6 +221,32 @@ public class ReleaseBatchController extends BaseController {
             return success(releaseBatchService.reject(workOrderId, request), "已拒绝放行");
         } catch (Exception e) {
             return exception(e, "拒绝放行");
+        }
+    }
+
+    /**
+     * 导出待审核批次 CSV
+     * <p>按当前筛选条件导出列表数据，status 为空时默认“待审核”。</p>
+     *
+     * 示例请求：
+     * POST /api/release-review/batches/export
+     * {"varietyCode":"Z04-011","batchNo":"260901","status":"待审核","keyword":""}
+     *
+     * @param request 导出筛选条件
+     * @return CSV 文件流
+     */
+    @PostMapping("/export")
+    public ResponseEntity<byte[]> export(@RequestBody(required = false) ReleaseBatchDtos.ExportRequest request) {
+        try {
+            byte[] data = releaseBatchService.exportCsv(request);
+            String filename = "审核放行_" + LocalDate.now() + ".csv";
+            String encoded = URLEncoder.encode(filename, StandardCharsets.UTF_8).replace("+", "%20");
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + encoded)
+                    .contentType(MediaType.parseMediaType("text/csv;charset=UTF-8"))
+                    .body(data);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
         }
     }
 }

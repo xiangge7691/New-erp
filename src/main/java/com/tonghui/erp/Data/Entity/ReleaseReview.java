@@ -102,7 +102,7 @@ public class ReleaseReview extends AuditEntity {
     // ===================================
 
     /**
-     * 放行结论：放行/拒绝放行
+     * 放行结论：放行/拒绝放行/待补充（草稿）
      */
     @TableField(value = "release_conclusion")
     private String releaseConclusion;
