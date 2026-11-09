@@ -36,6 +36,9 @@ public class PurchaseChainDto {
     /** 采购计划 */
     private PurchasePlan purchasePlan;
 
+    /** 采购计划名称（选项卡展示；无采购计划时回退采购订单标题） */
+    private String purchasePlanTitle;
+
     /** 采购订单 */
     private PurchaseOrders purchaseOrder;
 
@@ -60,6 +63,9 @@ public class PurchaseChainDto {
 
     /** 当前阶段状态：CURRENT/DONE/ABNORMAL */
     private String currentStageState;
+
+    /** 链路展示状态：待审批/待下单/运输中/待验收/待入库/已完成/异常 */
+    private String displayStatus;
 
     /** 链路进度百分比 */
     private Integer progressPercent;

@@ -28,7 +28,7 @@ public interface ProductionPlanProgressService {
      * 查询生产计划采购流程详情
      *
      * @param planId 生产计划ID
-     * @return 采购流程详情（链路、节点、耗时、关联单据）
+     * @return 采购流程详情（链路、节点、节点耗时、节点单据）
      */
     ProductionPlanPurchaseProgressDto getPurchaseProgress(Integer planId);
 

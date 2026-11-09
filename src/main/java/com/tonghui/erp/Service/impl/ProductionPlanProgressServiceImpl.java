@@ -5,7 +5,6 @@ import com.tonghui.erp.Common.Constants.PurchaseProcessNode;
 import com.tonghui.erp.Common.Dto.ProductionPlanOverdueDto;
 import com.tonghui.erp.Common.Dto.ProductionPlanPurchaseProgressDto;
 import com.tonghui.erp.Common.Dto.ProductionPlanPurchaseSummaryDto;
-import com.tonghui.erp.Common.Dto.ProductionPlanRelatedDocumentsDto;
 import com.tonghui.erp.Common.Dto.ProductionPlanWithRecordsDto;
 import com.tonghui.erp.Common.Dto.PurchaseChainDto;
 import com.tonghui.erp.Common.Dto.PurchaseNodeDto;
@@ -13,10 +12,6 @@ import com.tonghui.erp.Common.Dto.RelatedDocumentDto;
 import com.tonghui.erp.Common.utils.AcceptanceStatusPolicy;
 import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
-import com.tonghui.erp.Data.Entity.InspectionRecord;
-import com.tonghui.erp.Data.Entity.InspectionRequest;
-import com.tonghui.erp.Data.Entity.InspectionTask;
-import com.tonghui.erp.Data.Entity.PlanStatusLog;
 import com.tonghui.erp.Data.Entity.ProductionPlan;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
 import com.tonghui.erp.Data.Entity.PurchasePlan;
@@ -24,10 +19,6 @@ import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.Entity.WorkOrder;
 import com.tonghui.erp.Data.mapper.AcceptanceDetailMapper;
 import com.tonghui.erp.Data.mapper.AcceptanceOrderMapper;
-import com.tonghui.erp.Data.mapper.InspectionRecordMapper;
-import com.tonghui.erp.Data.mapper.InspectionRequestMapper;
-import com.tonghui.erp.Data.mapper.InspectionTaskMapper;
-import com.tonghui.erp.Data.mapper.PlanStatusLogMapper;
 import com.tonghui.erp.Data.mapper.ProductionPlanMapper;
 import com.tonghui.erp.Data.mapper.PurchaseOrdersMapper;
 import com.tonghui.erp.Data.mapper.PurchasePlanMapper;
@@ -57,7 +48,7 @@ import java.util.stream.Collectors;
  * <p>
  * 基于采购计划、采购订单、验收单、入库单上的业务时间字段，实时组装生产计划关联采购的
  * 六节点流程进度。一个生产计划可关联多条采购计划/采购订单，列表摘要按“最慢链路”计算，
- * 详情接口返回每条链路的节点时间、节点间耗时以及采购/计划/生产/检验/入库关联单据。
+ * 详情接口返回每条链路的节点时间、节点间耗时以及节点可跳转的单据。
  * </p>
  */
 @Service
@@ -95,22 +86,6 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
     /** 工单数据访问层 */
     @Autowired
     private WorkOrderMapper workOrderMapper;
-
-    /** 请检记录数据访问层 */
-    @Autowired
-    private InspectionRequestMapper inspectionRequestMapper;
-
-    /** 检验记录数据访问层 */
-    @Autowired
-    private InspectionRecordMapper inspectionRecordMapper;
-
-    /** 检验任务数据访问层 */
-    @Autowired
-    private InspectionTaskMapper inspectionTaskMapper;
-
-    /** 计划状态流水数据访问层 */
-    @Autowired
-    private PlanStatusLogMapper planStatusLogMapper;
 
     // endregion
 
@@ -312,6 +287,8 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
             summary.setDataInconsistent(false);
             summary.setLatestNodeTime(null);
             summary.setSummaryText("未采购");
+            summary.setDisplayStatus("未采购");
+            summary.setBottleneckChainId(null);
             return summary;
         }
 
@@ -321,6 +298,7 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
             PurchasePlan purchasePlan = findPurchasePlan(order, plans);
             ChainStage stage = resolveStage(purchasePlan, order);
             if (stage != null) {
+                stage.setChainId(order.getId() == null ? null : "ORDER-" + order.getId());
                 stages.add(stage);
             }
             matchedOrderIds.add(order.getId());
@@ -335,6 +313,7 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
             if (!hasOrder && !matchedOrderIds.contains(purchasePlan.getPurchaseOrderId())) {
                 ChainStage stage = resolveStage(purchasePlan, null);
                 if (stage != null) {
+                    stage.setChainId("PLAN-" + purchasePlan.getId());
                     stages.add(stage);
                 }
             }
@@ -355,6 +334,8 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
             summary.setCurrentStageName(PurchaseProcessNode.ABNORMAL.getName());
             summary.setCurrentStageState("ABNORMAL");
             summary.setProgressPercent(0);
+            summary.setDisplayStatus("异常");
+            summary.setBottleneckChainId(stages.isEmpty() ? null : stages.get(0).chainId);
         } else {
             // 瓶颈取“未完成链路”中阶段最靠前的一条；全部完成时统一展示已完成
             List<ChainStage> unfinished = activeStages.stream()
@@ -365,9 +346,12 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
                 summary.setCurrentStageName("已完成");
                 summary.setCurrentStageState("DONE");
                 summary.setProgressPercent(100);
+                summary.setDisplayStatus("已完成");
+                summary.setBottleneckChainId(null);
             } else {
                 ChainStage bottleneck = unfinished.stream()
-                        .min(Comparator.comparingInt(stage -> stage.node.getIndex()))
+                        .min(Comparator.comparingInt((ChainStage stage) -> stage.node.getIndex())
+                                .thenComparing(stage -> stage.chainId == null ? "" : stage.chainId))
                         .orElse(unfinished.get(0));
                 summary.setCurrentStageCode(bottleneck.node.getCode());
                 summary.setCurrentStageName(bottleneck.node.getName());
@@ -376,6 +360,8 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
                         .mapToInt(this::stageProgressPercent)
                         .min()
                         .orElse(0));
+                summary.setDisplayStatus(resolveDisplayStatus(bottleneck));
+                summary.setBottleneckChainId(bottleneck.chainId);
             }
         }
 
@@ -502,6 +488,43 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
     }
 
     /**
+     * 解析链路展示状态
+     * <p>
+     * 列表“采购进度”列与详情选项卡共用同一套文案，避免前端各自映射节点名。
+     * 待审批、待验收等“待”字口径与业务流程图保持一致。
+     * </p>
+     *
+     * @param stage 链路阶段
+     * @return 展示状态，阶段为空时返回 null
+     */
+    private String resolveDisplayStatus(ChainStage stage) {
+        if (stage == null) {
+            return null;
+        }
+        if ("ABNORMAL".equals(stage.state)) {
+            return "异常";
+        }
+        if ("DONE".equals(stage.state)) {
+            return "已完成";
+        }
+        switch (stage.node) {
+            case APPLY:
+            case APPROVE:
+                return "待审批";
+            case ORDER:
+                return "待下单";
+            case ARRIVE:
+                return "运输中";
+            case ACCEPT:
+                return "待验收";
+            case INBOUND:
+                return "待入库";
+            default:
+                return stage.node.getName();
+        }
+    }
+
+    /**
      * 构建采购进度展示文案
      *
      * @param summary        摘要
@@ -606,23 +629,6 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
         List<StockIn> stockIns = loadStockInsForDetail(plan, acceptances);
         List<WorkOrder> workOrders = workOrderMapper.selectList(new QueryWrapper<WorkOrder>()
                 .eq("plan_id", planId));
-        List<Long> workOrderIds = workOrders.stream()
-                .map(WorkOrder::getWorkOrderId)
-                .filter(Objects::nonNull)
-                .distinct()
-                .collect(Collectors.toList());
-        List<InspectionRequest> inspectionRequests = workOrderIds.isEmpty()
-                ? List.of()
-                : inspectionRequestMapper.selectList(new QueryWrapper<InspectionRequest>()
-                .in("work_order_id", workOrderIds));
-        List<InspectionRecord> inspectionRecords = workOrderIds.isEmpty()
-                ? List.of()
-                : inspectionRecordMapper.selectList(new QueryWrapper<InspectionRecord>()
-                .in("work_order_id", workOrderIds));
-        // 请检单表没有状态字段，检验流程状态记录在关联的检验任务上
-        Map<Long, String> inspectionTaskStatusMap = loadInspectionTaskStatuses(inspectionRequests);
-        List<PlanStatusLog> statusLogs = planStatusLogMapper.selectList(new QueryWrapper<PlanStatusLog>()
-                .eq("plan_id", planId));
 
         Map<Long, List<AcceptanceDetail>> acceptanceDetailsMap = loadAcceptanceDetails(acceptances);
         List<PurchaseChainDto> chains = buildChains(plan, purchasePlans, orders, acceptances,
@@ -639,8 +645,6 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
         detail.setOverdue(calculateOverdue(plan, earliestWorkOrderStart(workOrders)));
         detail.setPurchaseSummary(buildSummary(purchasePlans, orders));
         detail.setChains(chains);
-        detail.setRelatedDocuments(buildRelatedDocuments(plan, purchasePlans, orders, acceptances,
-                stockIns, workOrders, inspectionRequests, inspectionRecords, inspectionTaskStatusMap, statusLogs));
         return detail;
     }
 
@@ -841,12 +845,16 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
         chain.setChainId(order != null ? "ORDER-" + order.getId()
                 : (purchasePlan != null ? "PLAN-" + purchasePlan.getId() : "PLAN-" + plan.getId()));
         chain.setPurchasePlan(purchasePlan);
+        // 选项卡展示采购计划名称；无采购计划的手工订单回退采购订单标题
+        chain.setPurchasePlanTitle(purchasePlan != null ? purchasePlan.getTitle()
+                : (order == null ? null : order.getTitle()));
         chain.setPurchaseOrder(order);
         chain.setAcceptances(acceptances);
         chain.setStockIns(stockIns);
         chain.setCurrentStageCode(stage == null ? null : stage.node.getCode());
         chain.setCurrentStageName(stage == null ? null : stage.node.getName());
         chain.setCurrentStageState(stage == null ? null : stage.state);
+        chain.setDisplayStatus(resolveDisplayStatus(stage));
         chain.setProgressPercent(stage == null ? 0 : stageProgressPercent(stage));
         chain.setAbnormal(stage != null && "ABNORMAL".equals(stage.state));
         chain.setAbnormalReason(stage == null ? null : stage.abnormalReason);
@@ -1019,10 +1027,10 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
             String state = resolveNodeState(node, stage);
             RelatedDocumentDto doc = buildNodeDoc(node, purchasePlan, order, acceptances,
                     currentAcceptance, currentStockIn);
-            // 未开始/跳过的节点不返回时间和单据，避免历史兜底时间造成误导
+            // 未开始/跳过的节点不返回时间，避免历史兜底时间造成误导；
+            // 单据仍保留，便于在节点上直接打开采购计划/物料验收详情
             if ("PENDING".equals(state) || "SKIPPED".equals(state)) {
                 nodeTime = NodeTime.empty();
-                doc = null;
             }
             PurchaseNodeDto dto = new PurchaseNodeDto();
             dto.setCode(node.getCode());
@@ -1206,7 +1214,8 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
             case APPROVE:
                 return buildPurchasePlanDoc(purchasePlan);
             case ORDER:
-                return buildPurchaseOrderDoc(order);
+                // 下单节点同样打开采购计划详情；无采购计划的手工订单回退采购订单详情
+                return purchasePlan != null ? buildPurchasePlanDoc(purchasePlan) : buildPurchaseOrderDoc(order);
             case ARRIVE:
                 AcceptanceOrder arrivalAcceptance = acceptances.stream()
                         .filter(acceptance -> acceptance.getArrivalTime() != null)
@@ -1531,117 +1540,10 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
 
     // endregion
 
-    // region 关联单据
+    // region 节点单据
     // ===================================
-    // 关联单据
+    // 节点单据
     // ===================================
-
-    /**
-     * 批量加载请检单对应的检验任务状态
-     * <p>
-     * 请检单表本身没有状态字段，检验流程状态记录在检验任务的 task_status 上，
-     * 通过 inspection_task.request_ref_id 关联请检单。同一请检单存在多条任务时，
-     * 优先取未作废且最近更新的一条。
-     * </p>
-     *
-     * @param requests 请检记录列表
-     * @return 请检单ID -> 检验任务状态
-     */
-    private Map<Long, String> loadInspectionTaskStatuses(List<InspectionRequest> requests) {
-        List<Long> requestIds = requests.stream()
-                .map(InspectionRequest::getId)
-                .filter(Objects::nonNull)
-                .distinct()
-                .collect(Collectors.toList());
-        if (requestIds.isEmpty()) {
-            return Map.of();
-        }
-        List<InspectionTask> tasks = inspectionTaskMapper.selectList(new QueryWrapper<InspectionTask>()
-                .in("request_ref_id", requestIds)
-                .orderByDesc("updated_time"));
-        Map<Long, String> statusByRequestId = new HashMap<>();
-        for (InspectionTask task : tasks) {
-            if (task.getRequestRefId() == null) {
-                continue;
-            }
-            String existing = statusByRequestId.get(task.getRequestRefId());
-            // 已作废任务仅在没有其他任务时兜底展示
-            if (existing == null || ("已作废".equals(existing) && !"已作废".equals(task.getTaskStatus()))) {
-                statusByRequestId.put(task.getRequestRefId(), task.getTaskStatus());
-            }
-        }
-        return statusByRequestId;
-    }
-
-    /**
-     * 构建五个子页面的关联单据
-     *
-     * @param plan               生产计划
-     * @param purchasePlans      采购计划列表
-     * @param orders             采购订单列表
-     * @param acceptances        验收单列表
-     * @param stockIns           入库单列表
-     * @param workOrders         工单列表
-     * @param inspectionRequests 请检记录列表
-     * @param inspectionRecords  检验记录列表
-     * @param inspectionTaskStatusMap 请检单ID -> 检验任务状态
-     * @param statusLogs         计划状态流水
-     * @return 关联单据分组
-     */
-    private ProductionPlanRelatedDocumentsDto buildRelatedDocuments(ProductionPlan plan,
-                                                                    List<PurchasePlan> purchasePlans,
-                                                                    List<PurchaseOrders> orders,
-                                                                    List<AcceptanceOrder> acceptances,
-                                                                    List<StockIn> stockIns,
-                                                                    List<WorkOrder> workOrders,
-                                                                    List<InspectionRequest> inspectionRequests,
-                                                                    List<InspectionRecord> inspectionRecords,
-                                                                    Map<Long, String> inspectionTaskStatusMap,
-                                                                    List<PlanStatusLog> statusLogs) {
-        ProductionPlanRelatedDocumentsDto documents = new ProductionPlanRelatedDocumentsDto();
-
-        List<RelatedDocumentDto> purchase = new ArrayList<>();
-        for (PurchasePlan purchasePlan : purchasePlans) {
-            purchase.add(buildPurchasePlanDoc(purchasePlan));
-        }
-        for (PurchaseOrders order : orders) {
-            purchase.add(buildPurchaseOrderDoc(order));
-        }
-        for (AcceptanceOrder acceptance : acceptances) {
-            purchase.add(buildAcceptanceDoc(acceptance));
-        }
-        documents.setPurchase(sortDocuments(purchase));
-
-        List<RelatedDocumentDto> planDocs = new ArrayList<>();
-        planDocs.add(buildProductionPlanDoc(plan));
-        for (PlanStatusLog statusLog : statusLogs) {
-            planDocs.add(buildPlanStatusLogDoc(statusLog));
-        }
-        documents.setPlan(sortDocuments(planDocs));
-
-        List<RelatedDocumentDto> production = new ArrayList<>();
-        for (WorkOrder workOrder : workOrders) {
-            production.add(buildWorkOrderDoc(workOrder));
-        }
-        documents.setProduction(sortDocuments(production));
-
-        List<RelatedDocumentDto> inspection = new ArrayList<>();
-        for (InspectionRequest request : inspectionRequests) {
-            inspection.add(buildInspectionRequestDoc(request,
-                    inspectionTaskStatusMap.get(request.getId())));
-        }
-        for (InspectionRecord record : inspectionRecords) {
-            inspection.add(buildInspectionRecordDoc(record));
-        }
-        documents.setInspection(sortDocuments(inspection));
-
-        List<RelatedDocumentDto> inbound = new ArrayList<>();
-        for (StockIn stockIn : stockIns) {
-            inbound.add(buildStockInDoc(stockIn));
-        }
-        documents.setInbound(sortDocuments(inbound));
-        return documents;
-    }
 
     /**
      * 构建采购计划单据
@@ -1730,116 +1632,6 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
         doc.setDetailPath("/api/stockin/" + stockIn.getInId());
         doc.setCategory("INBOUND");
         return doc;
-    }
-
-    /**
-     * 构建生产计划单据
-     *
-     * @param plan 生产计划
-     * @return 单据信息
-     */
-    private RelatedDocumentDto buildProductionPlanDoc(ProductionPlan plan) {
-        RelatedDocumentDto doc = new RelatedDocumentDto();
-        doc.setType("PRODUCTION_PLAN");
-        doc.setId(plan.getId() == null ? null : plan.getId().longValue());
-        doc.setCode(plan.getPlanNumber());
-        doc.setTitle(plan.getPlanName());
-        doc.setStatus(plan.getCurrentStatus());
-        doc.setTime(plan.getCreatedTime());
-        doc.setDetailPath("/api/production-plans/" + plan.getId());
-        doc.setCategory("PLAN");
-        return doc;
-    }
-
-    /**
-     * 构建计划状态流水单据
-     *
-     * @param statusLog 计划状态流水
-     * @return 单据信息
-     */
-    private RelatedDocumentDto buildPlanStatusLogDoc(PlanStatusLog statusLog) {
-        RelatedDocumentDto doc = new RelatedDocumentDto();
-        doc.setType("PLAN_STATUS_LOG");
-        doc.setId(statusLog.getId() == null ? null : statusLog.getId().longValue());
-        doc.setCode(statusLog.getFromStatus() + " → " + statusLog.getToStatus());
-        doc.setTitle(statusLog.getRemark());
-        doc.setStatus(statusLog.getToStatus());
-        doc.setTime(statusLog.getChangeTime());
-        doc.setDetailPath("/api/plan-status-logs/" + statusLog.getId());
-        doc.setCategory("PLAN");
-        return doc;
-    }
-
-    /**
-     * 构建工单单据
-     *
-     * @param workOrder 工单
-     * @return 单据信息
-     */
-    private RelatedDocumentDto buildWorkOrderDoc(WorkOrder workOrder) {
-        RelatedDocumentDto doc = new RelatedDocumentDto();
-        doc.setType("WORK_ORDER");
-        doc.setId(workOrder.getWorkOrderId());
-        doc.setCode(workOrder.getWorkOrderCode());
-        doc.setTitle(workOrder.getWorkOrderName());
-        doc.setStatus(workOrder.getCurrentStatus());
-        doc.setTime(workOrder.getConfigDate());
-        doc.setDetailPath("/api/work-orders/" + workOrder.getWorkOrderId());
-        doc.setCategory("PRODUCTION");
-        return doc;
-    }
-
-    /**
-     * 构建请检记录单据
-     *
-     * @param request    请检记录
-     * @param taskStatus 关联检验任务的状态，无关联任务时为空
-     * @return 单据信息
-     */
-    private RelatedDocumentDto buildInspectionRequestDoc(InspectionRequest request, String taskStatus) {
-        RelatedDocumentDto doc = new RelatedDocumentDto();
-        doc.setType("INSPECTION_REQUEST");
-        doc.setId(request.getId());
-        doc.setCode(request.getInspectionCode());
-        doc.setTitle(request.getInspectionItemName());
-        doc.setStatus(taskStatus);
-        doc.setTime(request.getRequestTime());
-        doc.setDetailPath("/api/inspection-request/" + request.getId());
-        doc.setCategory("INSPECTION");
-        return doc;
-    }
-
-    /**
-     * 构建检验记录单据
-     *
-     * @param record 检验记录
-     * @return 单据信息
-     */
-    private RelatedDocumentDto buildInspectionRecordDoc(InspectionRecord record) {
-        RelatedDocumentDto doc = new RelatedDocumentDto();
-        doc.setType("INSPECTION_RECORD");
-        doc.setId(record.getId());
-        doc.setCode(record.getInspectionCode());
-        doc.setTitle(record.getObjectName());
-        doc.setStatus(record.getConclusion());
-        doc.setTime(record.getEndTime() != null ? record.getEndTime() : record.getStartTime());
-        doc.setDetailPath("/api/inspectionRecord/" + record.getId());
-        doc.setCategory("INSPECTION");
-        return doc;
-    }
-
-    /**
-     * 按时间倒序排列单据
-     *
-     * @param documents 单据列表
-     * @return 排序后的列表
-     */
-    private List<RelatedDocumentDto> sortDocuments(List<RelatedDocumentDto> documents) {
-        return documents.stream()
-                .filter(Objects::nonNull)
-                .sorted(Comparator.comparing(RelatedDocumentDto::getTime,
-                        Comparator.nullsLast(Comparator.reverseOrder())))
-                .collect(Collectors.toList());
     }
 
     // endregion
@@ -1961,6 +1753,9 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
         /** 异常原因 */
         private final String abnormalReason;
 
+        /** 所属链路ID（摘要定位最慢链路用） */
+        private String chainId;
+
         private ChainStage(PurchaseProcessNode node, String state, int completedCount,
                            boolean dataInconsistent, String abnormalReason) {
             this.node = node;
@@ -1968,6 +1763,15 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
             this.completedCount = completedCount;
             this.dataInconsistent = dataInconsistent;
             this.abnormalReason = abnormalReason;
+        }
+
+        /**
+         * 设置所属链路ID
+         *
+         * @param chainId 链路ID
+         */
+        private void setChainId(String chainId) {
+            this.chainId = chainId;
         }
 
         private static ChainStage current(PurchaseProcessNode node) {

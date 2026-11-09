@@ -52,7 +52,8 @@ public class ProductionPlanProgressSmokeTest {
         assertNotNull(detail);
         assertNotNull(detail.getPurchaseSummary());
         assertNotNull(detail.getChains());
-        assertNotNull(detail.getRelatedDocuments());
+        // 每条链路都应有展示状态，供详情选项卡使用
+        detail.getChains().forEach(chain -> assertNotNull(chain.getDisplayStatus()));
     }
 
     /**
@@ -80,6 +81,8 @@ public class ProductionPlanProgressSmokeTest {
         result.getItems().forEach(item -> {
             assertNotNull(item.getPurchaseProgress());
             assertNotNull(item.getOverdue());
+            // 列表“采购进度”列直接展示最慢链路状态
+            assertNotNull(item.getPurchaseProgress().getDisplayStatus());
         });
     }
 }

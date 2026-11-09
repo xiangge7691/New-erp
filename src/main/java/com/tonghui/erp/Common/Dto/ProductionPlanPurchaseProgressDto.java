@@ -8,7 +8,7 @@ import java.util.List;
 /**
  * 生产计划采购流程详情传输对象
  * <p>
- * 返回生产计划下所有采购链路、六个流程节点、节点间耗时以及五个子页面的关联单据。
+ * 返回生产计划下所有采购链路、六个流程节点以及节点间耗时。
  * 列表接口只返回采购摘要，本对象用于点击后的详情抽屉/子页面。
  * </p>
  */
@@ -53,16 +53,13 @@ public class ProductionPlanPurchaseProgressDto {
 
     // endregion
 
-    // region 链路与关联单据
+    // region 链路
     // ===================================
-    // 链路与关联单据
+    // 链路
     // ===================================
 
     /** 采购链路列表，一个采购订单一条链路 */
     private List<PurchaseChainDto> chains;
-
-    /** 关联单据分组 */
-    private ProductionPlanRelatedDocumentsDto relatedDocuments;
 
     // endregion
 }

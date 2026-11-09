@@ -54,6 +54,12 @@ public class ProductionPlanPurchaseSummaryDto {
     /** 当前阶段状态：CURRENT/DONE/ABNORMAL */
     private String currentStageState;
 
+    /** 最慢链路展示状态：待审批/待下单/运输中/待验收/待入库/已完成/异常/未采购 */
+    private String displayStatus;
+
+    /** 最慢链路ID，便于列表直接定位到对应选项卡 */
+    private String bottleneckChainId;
+
     /** 整体进度百分比（取最慢链路） */
     private Integer progressPercent;
 
