@@ -334,12 +334,12 @@ GET /api/inspection/tasks/{id}
 {
   "task": { "id": 1, "taskCode": "JY-RW-...", "batchNo": "260901", "workOrderCode": "...", "itemCategory": "成品", "currentStep": "INSPECTION", "taskStatus": "进行中" },
   "steps": [
-    { "step": "PLAN", "status": "已完成", "refId": 1, "code": "JH-...", "operator": "...", "time": "...", "files": [...] },
-    { "step": "REQUEST", "status": "已完成", "refId": 2, "code": "QJ-...", "files": [...] },
+    { "step": "REQUEST", "status": "已完成", "refId": 1, "code": "QJ-...", "files": [...] },
+    { "step": "PLAN", "status": "已完成", "refId": 2, "code": "JH-...", "operator": "...", "time": "...", "files": [...] },
     { "step": "SAMPLING", "status": "已完成", "refId": 3, "code": "QY-...", "files": [...] },
-    { "step": "RETENTION", "status": "已完成", "refId": 4, "code": "LY-...", "files": [...] },
     { "step": "INSPECTION", "status": "进行中", "refId": 5, "code": "JY-...", "files": [...] },
-    { "step": "DESTRUCTION", "status": "待办理", "refId": null, "files": [] }
+    { "step": "RETENTION", "status": "待办理", "refId": null, "files": [] },
+    { "step": "DESTRUCTION", "status": "不必办理", "refId": null, "files": [] }
   ]
 }
 ```
@@ -348,12 +348,12 @@ GET /api/inspection/tasks/{id}
 
 | 步骤 | 接口 | 说明 |
 |------|------|------|
-| 检验计划 | `POST /api/inspection/tasks/{id}/plan` | 新建/关联 `inspection_plan`；写入 `plan_ref_id`、步骤完成 |
-| 请检 | `POST /api/inspection/tasks/{id}/request` | 创建 `inspection_request`；校验计划完成 |
-| 取样 | `POST /api/inspection/tasks/{id}/sampling` | 创建 `sampling_record`；校验请检完成 |
-| 留样 | `POST /api/inspection/tasks/{id}/retention` | 创建 `retained_sample`；校验取样完成 |
-| 检验 | `POST /api/inspection/tasks/{id}/inspection` | 创建/更新 `inspection_record`；校验取样完成；可跳过留样（需权限+原因） |
-| 销毁 | `POST /api/inspection/tasks/{id}/destruction` | 创建 `destruction_record`；校验留样到期/可销毁 |
+| 请检 | `POST /api/inspection/tasks/{id}/request` | 创建 `inspection_request`；任务第一步 |
+| 检验计划 | `POST /api/inspection/tasks/{id}/plan` | 新建/关联 `inspection_plan`；校验请检完成 |
+| 取样 | `POST /api/inspection/tasks/{id}/sampling` | 创建 `sampling_record`；校验计划完成 |
+| 检验记录 | `POST /api/inspection/tasks/{id}/inspection` | 创建/更新 `inspection_record`；校验取样完成 |
+| 留样 | `POST /api/inspection/tasks/{id}/retention` | 创建/更新 `retained_sample`；校验检验记录完成 |
+| 销毁 | `POST /api/inspection/tasks/{id}/destruction` | 创建 `destruction_record`；校验留样完成；非必须 |
 | 跳过 | `POST /api/inspection/tasks/{id}/skip` | `{step, reason}`；仅允许留样/销毁，记录审计 |
 | 作废 | `POST /api/inspection/tasks/{id}/cancel` | 状态改为已作废，保留记录 |
 
@@ -364,13 +364,13 @@ GET /api/inspection/tasks/{id}
 #### 3.2.4 状态机
 
 ```
-PLAN → REQUEST → SAMPLING → RETENTION → INSPECTION → DESTRUCTION → DONE
+REQUEST → PLAN → SAMPLING → INSPECTION → RETENTION → DESTRUCTION(非必须) → DONE
 ```
 
 规则：
 - 不允许跳步（留样/销毁可按配置跳过）。
-- `retention_required=0` 时允许 SAMPLING 后直接 INSPECTION。
-- `destruction_required=0` 或留样未到期时，INSPECTION 后可标记 DONE，销毁步骤显示“未到期/无需销毁”。
+- `retention_required=0` 时允许 INSPECTION 后跳过 RETENTION。
+- `destruction_required=0` 时允许 RETENTION 后跳过 DESTRUCTION，任务直接 DONE。
 - 检验结论 `不合格` 时任务状态标红；是否允许销毁/放行由质量规则决定。
 - 作废需权限，已产生下游放行的任务不允许作废。
 

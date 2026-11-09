@@ -11,6 +11,8 @@
 
 迁移脚本：`src/main/resources/Data/migration/create_quality_pages_tables.sql`（已在测试库执行）。
 
+流程顺序已调整为 **请检 → 检验计划 → 取样 → 检验记录 → 留样 → 销毁（非必须）**；存量库需执行 `src/main/resources/Data/migration/reorder_inspection_steps.sql`。
+
 | 表 | 用途 | 测试库状态 |
 |----|------|-----------|
 | `inspection_task` | 检验任务主表（六步流程索引） | 已建，0 行（接口创建后产生） |
@@ -70,10 +72,10 @@
 - 实体/Mapper：`InspectionTask`、`InspectionTaskStep` + Mapper
 
 流程规则：
-- 六步顺序：`PLAN → REQUEST → SAMPLING → RETENTION → INSPECTION → DESTRUCTION → DONE`。
+- 六步顺序：`REQUEST → PLAN → SAMPLING → INSPECTION → RETENTION → DESTRUCTION(非必须) → DONE`。
 - 不允许跳步；留样/销毁可按任务配置或 `skip` 接口跳过，必须写原因。
 - 每一步在同一事务内写原业务表、更新任务引用、推进 `current_step`、写 `inspection_task_step`。
-- 已实测：创建 → 计划 → 请检 → 取样 → 留样 → 检验 → 销毁 全流程通过。
+- 已实测：创建 → 请检 → 计划 → 取样 → 检验记录 → 留样 → 销毁（可选）全流程通过。
 - 已实测：检验批次列表按工单聚合，批次下钻返回该批次全部任务。
 
 ### 2.3 审核放行

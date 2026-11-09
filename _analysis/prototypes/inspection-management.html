@@ -242,6 +242,8 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .step-item.done .step-dot { border-color: var(--success); background: var(--success); color: #fff; }
 .step-item.active .step-dot { border-color: var(--main); color: var(--main); box-shadow: 0 0 0 4px rgba(93, 135, 255, .12); }
 .step-item.done::after { background: var(--success); }
+.step-item.skip .step-dot { border-style: dashed; color: var(--g500); background: var(--g100); }
+.step-item.skip .step-name { color: var(--g500); }
 .step-item .step-name { font-size: 12px; color: var(--g700); }
 .step-item .step-count { font-size: 10.5px; color: var(--g500); margin-top: 1px; }
 .step-item.active .step-name { color: var(--main); font-weight: 600; }
@@ -259,6 +261,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .tl-item.done .tl-dot { border-color: var(--success); background: var(--success); color: #fff; }
 .tl-item.active .tl-dot { border-color: var(--main); color: var(--main); box-shadow: 0 0 0 4px rgba(93, 135, 255, .1); }
 .tl-item.error .tl-dot { border-color: var(--danger); background: var(--danger); color: #fff; }
+.tl-item.skip .tl-dot { border-style: dashed; color: var(--g500); background: var(--g100); }
 .tl-card {
   background: #fff; border: 1px solid var(--g200); border-radius: 10px; padding: 10px 12px;
 }
@@ -368,7 +371,7 @@ textarea.input { height: auto; min-height: 76px; padding: 8px 10px; resize: vert
     <header class="page-head">
       <div>
         <h1>检验管理</h1>
-        <p class="sub">按批次查看检验任务，逐步办理计划 → 请检 → 取样 → 留样 → 检验 → 销毁</p>
+        <p class="sub">按批次查看检验任务，逐步办理请检 → 检验计划 → 取样 → 检验记录 → 留样 → 销毁（非必）</p>
       </div>
       <div class="head-actions">
         <button class="btn" onclick="toast('原型演示：导出检验台账')">导出台账</button>
@@ -504,14 +507,15 @@ textarea.input { height: auto; min-height: 76px; padding: 8px 10px; resize: vert
 /* =========================================================
  * 模拟数据：基于测试库真实批次，补齐取样/留样/销毁
  * =======================================================*/
-const STEPS = ['检验计划', '请检', '取样', '留样', '检验', '销毁'];
-const STEP_ACTION = ['完成检验计划', '发起请检', '登记取样', '登记留样', '录入检验结果', '登记销毁'];
+const STEPS = ['请检', '检验计划', '取样', '检验记录', '留样', '销毁（非必）'];
+const STEP_ACTION = ['发起请检', '完成检验计划', '登记取样', '录入检验记录', '登记留样', '登记销毁'];
 
 const TASKS = [
   {
     id: 'b1', product: '疏肝养胃丸', code: 'Z04-011', spec: '每50丸重6g（每1g相当于饮片约0.83g）', unit: '盒',
     batch: '260901', wo: 'GD202610200001', planNo: 'Plan202610190001', qty: 7000, finished: 7001,
     planDate: '2026-09-16', actualStart: '2026-09-16', actualEnd: '2026-09-24', object: '成品',
+    retentionRequired: 1, destructionRequired: 0,
     plan: { code: 'JH-20260916-001', date: '2026-09-16', basis: '中国药典2025版', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已完成', files: ['JH-20260916-001_检验计划.pdf'] },
     request: { code: 'QJ-20261020-003', time: '2026-09-24 09:20', requester: '丁圣芳', dept: '质量部', process: '成品检验', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已请检', files: ['QJ-20261020-003_请检单.pdf'] },
     sampling: { code: 'QY-20260924-001', time: '2026-09-24 10:10', sampler: '陈静', quantity: '100g×3份', location: '成品库 A 取样间', method: '随机', status: '已取样', files: ['QY-20260924-001_取样记录.pdf'] },
@@ -523,6 +527,7 @@ const TASKS = [
     id: 'b2', product: '活血通络丸', code: 'Z04-009', spec: '每50丸重6g（每1g相当于饮片约0.83g）', unit: '盒',
     batch: '260901', wo: 'GD202610190001', planNo: 'Plan202610190002', qty: 7000, finished: 6998,
     planDate: '2026-09-08', actualStart: '2026-09-08', actualEnd: '2026-09-24', object: '成品',
+    retentionRequired: 1, destructionRequired: 1,
     plan: { code: 'JH-20260908-001', date: '2026-09-08', basis: '中国药典2025版', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已完成', files: ['JH-20260908-001_检验计划.pdf'] },
     request: { code: 'QJ-20261019-003', time: '2026-09-15 17:20', requester: '丁圣芳', dept: '质量部', process: '成品检验', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已请检', files: ['QJ-20261019-003_请检单.pdf'] },
     sampling: { code: 'QY-20260916-001', time: '2026-09-16 08:40', sampler: '陈静', quantity: '100g×3份', location: '成品库 A 取样间', method: '随机', status: '已取样', files: ['QY-20260916-001_取样记录.pdf'] },
@@ -534,6 +539,7 @@ const TASKS = [
     id: 'b3', product: '护肾排毒丸', code: 'Z04-007', spec: '每50丸重6g（每1g相当于饮片约0.83g）', unit: '盒',
     batch: '260901', wo: 'GD202610200003', planNo: 'Plan202610190003', qty: 3500, finished: 3502,
     planDate: '2026-09-22', actualStart: '2026-09-22', actualEnd: '2026-10-19', object: '成品',
+    retentionRequired: 1, destructionRequired: 1,
     plan: { code: 'JH-20260922-001', date: '2026-09-22', basis: '中国药典2025版', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已完成', files: ['JH-20260922-001_检验计划.pdf'] },
     request: { code: 'QJ-20261020-006', time: '2026-09-30 10:00', requester: '张力', dept: '质量部', process: '成品检验', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已请检', files: ['QJ-20261020-006_请检单.pdf'] },
     sampling: { code: 'QY-20260930-001', time: '2026-09-30 11:00', sampler: '陈静', quantity: '100g×3份', location: '成品库 A 取样间', method: '随机', status: '已取样', files: ['QY-20260930-001_取样记录.pdf'] },
@@ -575,6 +581,7 @@ TASKS.push(
     id: 'b1m', product: '疏肝养胃丸', code: 'Z04-011', spec: '每50丸重6g（每1g相当于饮片约0.83g）', unit: '盒',
     batch: '260901', wo: 'GD202610200001', planNo: 'Plan202610190001', qty: 7000, finished: null,
     planDate: '2026-09-16', actualStart: '2026-09-16', actualEnd: '2026-09-24', object: '中间产品',
+    retentionRequired: 0, destructionRequired: 0,
     plan: { code: 'JH-20260916-001-M', date: '2026-09-16', basis: '企业内控标准', items: '性状、水分、含量', status: '已完成', files: ['JH-20260916-001-M_中间品检验计划.pdf'] },
     request: { code: 'QJ-20260920-001', time: '2026-09-20 14:00', requester: '丁圣芳', dept: '质量部', process: '中间产品检验', items: '性状、水分、含量', status: '已请检', files: ['QJ-20260920-001_中间品请检单.pdf'] },
     sampling: null, retention: null, inspection: null,
@@ -584,6 +591,7 @@ TASKS.push(
     id: 'b3m', product: '护肾排毒丸', code: 'Z04-007', spec: '每50丸重6g（每1g相当于饮片约0.83g）', unit: '盒',
     batch: '260901', wo: 'GD202610200003', planNo: 'Plan202610190003', qty: 3500, finished: null,
     planDate: '2026-09-22', actualStart: '2026-09-22', actualEnd: '2026-10-19', object: '中间产品',
+    retentionRequired: 0, destructionRequired: 0,
     plan: { code: 'JH-20260922-001-M', date: '2026-09-22', basis: '企业内控标准', items: '性状、水分、含量', status: '已完成', files: ['JH-20260922-001-M_中间品检验计划.pdf'] },
     request: { code: 'QJ-20260928-001', time: '2026-09-28 09:30', requester: '张力', dept: '质量部', process: '中间产品检验', items: '性状、水分、含量', status: '已请检', files: ['QJ-20260928-001_中间品请检单.pdf'] },
     sampling: { code: 'QY-20260928-001', time: '2026-09-28 10:20', sampler: '陈静', quantity: '50g×3份', location: '中间站取样间', method: '随机', status: '已取样', files: ['QY-20260928-001_中间品取样记录.pdf'] },
@@ -629,12 +637,13 @@ function batchStatusTag(group) {
   const s = batchStep(group);
   if (s === 6) return '<span class="tag green">已完成</span>';
   if (s === 5) return '<span class="tag orange">待销毁</span>';
-  if (s === 4) return '<span class="tag blue">检验中</span>';
+  if (s === 3) return '<span class="tag blue">检验中</span>';
+  if (s === 4) return '<span class="tag orange">留样中</span>';
   return '<span class="tag gray">进行中</span>';
 }
 function taskChip(t) {
   const s = currentStep(t);
-  const cls = s === 6 ? 'done' : s === 4 ? 'active' : 'wait';
+  const cls = s === 6 ? 'done' : s === 0 ? 'wait' : 'active';
   return `<span class="task-chip ${cls}">${t.object} · ${stepLabel(t)}</span>`;
 }
 
@@ -642,21 +651,27 @@ function taskChip(t) {
  * 任务派生
  * =======================================================*/
 function currentStep(t) {
-  if (!t.plan || t.plan.status !== '已完成') return 0;
-  if (!t.request) return 1;
+  if (!t.request) return 0;
+  if (!t.plan || t.plan.status !== '已完成') return 1;
   if (!t.sampling) return 2;
-  if (!t.retention) return 3;
-  if (!t.inspection || t.inspection.status === '检验中') return 4;
-  if (t.destruction && t.destruction.status === '待销毁') return 5;
+  if (!t.inspection || t.inspection.status === '检验中') return 3;
+  if (t.retentionRequired !== 0 && !t.retention) return 4;
+  if (t.destructionRequired === 1 && (!t.destruction || t.destruction.status === '待销毁')) return 5;
   return 6;
 }
 function stepLabel(t) {
   const s = currentStep(t);
   if (s === 6) return '已完成';
+  if (s === 5) return t.destructionRequired === 1 ? '销毁' : '销毁（非必）';
   return STEPS[s];
+}
+function stepDisplayName(t, i) {
+  return i === 5 && t.destructionRequired === 1 ? '销毁' : STEPS[i];
 }
 function stepState(t, i) {
   const cur = currentStep(t);
+  if (i === 4 && t.retentionRequired === 0) return 'skip';
+  if (i === 5 && t.destructionRequired !== 1) return 'skip';
   if (cur === 6) return 'done';
   if (i < cur) return 'done';
   if (i === cur) return t.inspection && t.inspection.conclusion === '不合格' ? 'error' : 'active';
@@ -666,7 +681,8 @@ function statusTag(t) {
   const s = currentStep(t);
   if (t.inspection && t.inspection.conclusion === '不合格') return '<span class="tag red">不合格</span>';
   if (s === 6) return '<span class="tag green">已完成</span>';
-  if (s === 4) return '<span class="tag blue">检验中</span>';
+  if (s === 3) return '<span class="tag blue">检验中</span>';
+  if (s === 4) return '<span class="tag orange">留样中</span>';
   if (s === 5) return '<span class="tag orange">待销毁</span>';
   return '<span class="tag gray">进行中</span>';
 }
@@ -710,10 +726,10 @@ function renderStats() {
   } else {
     tasks.forEach(t => counts[currentStep(t)]++);
   }
-  const pending = counts[0] + counts[1] + counts[2] + counts[3] + counts[5];
+  const pending = counts[0] + counts[1] + counts[2] + counts[4] + counts[5];
   document.getElementById('statGrid').innerHTML = `
     <div class="stat-card run"><div class="label">待办</div><div class="num"><b>${pending}</b><span class="unit">${unit}</span></div></div>
-    <div class="stat-card run"><div class="label">检验中</div><div class="num"><b>${counts[4]}</b><span class="unit">${unit}</span></div></div>
+    <div class="stat-card run"><div class="label">检验中</div><div class="num"><b>${counts[3]}</b><span class="unit">${unit}</span></div></div>
     <div class="stat-card ok"><div class="label">已完成</div><div class="num"><b>${counts[6]}</b><span class="unit">${unit}</span></div></div>`;
 }
 function renderSteps() {
@@ -845,7 +861,7 @@ function renderTable() {
     return `<tr class="clickable" data-task="${t.id}">
       <td><span class="cell-main">${t.batch === '—' ? '未生成批号' : '批号 ' + t.batch}</span><span class="cell-sub">${t.product} · ${t.code}</span></td>
       <td>${t.object}<span class="cell-sub">${t.wo}</span></td>
-      <td><span class="tag ${s === 6 ? 'green' : s === 5 ? 'orange' : s === 4 ? 'blue' : 'gray'}">${cur}</span></td>
+      <td><span class="tag ${s === 6 ? 'green' : s === 5 ? 'orange' : s === 4 ? 'orange' : s === 3 ? 'blue' : 'gray'}">${cur}</span></td>
       <td>${t.plan ? t.plan.code : '<span class="muted">待制定</span>'}<span class="cell-sub">${t.plan ? t.plan.date : '—'}</span></td>
       <td>${t.request ? t.request.code : '<span class="muted">未请检</span>'}<span class="cell-sub">${t.request ? t.request.time : '—'}</span></td>
       <td>${t.sampling ? t.sampling.code : '—'}<span class="cell-sub">${t.retention ? t.retention.code : '未留样'}</span></td>
@@ -902,30 +918,32 @@ function openInspection(id) {
   openDrawer('inspectionDrawer');
 }
 function stepFiles(t, i) {
-  const data = [t.plan, t.request, t.sampling, t.retention, t.inspection, t.destruction][i];
+  const data = [t.request, t.plan, t.sampling, t.inspection, t.retention, t.destruction][i];
   return data && data.files ? data.files : [];
 }
 function stepKv(t, i) {
   if (i === 0) {
-    if (!t.plan) return [['计划编号', '待制定'], ['检验依据', '中国药典2025版'], ['检验项目', '成品全检'], ['计划日期', '—']];
-    return [['计划编号', t.plan.code], ['检验依据', t.plan.basis], ['检验项目', t.plan.items], ['计划日期', t.plan.date]];
-  }
-  if (i === 1) {
     if (!t.request) return [['请检单号', '未请检'], ['请检人', '—'], ['请检时间', '—'], ['检验项目', '—']];
     return [['请检单号', t.request.code], ['请检人', t.request.requester + ' · ' + t.request.dept], ['请检时间', t.request.time], ['工序 / 项目', t.request.process + ' · ' + t.request.items]];
+  }
+  if (i === 1) {
+    if (!t.plan) return [['计划编号', '待制定'], ['检验依据', '中国药典2025版'], ['检验项目', '成品全检'], ['计划日期', '—']];
+    return [['计划编号', t.plan.code], ['检验依据', t.plan.basis], ['检验项目', t.plan.items], ['计划日期', t.plan.date]];
   }
   if (i === 2) {
     if (!t.sampling) return [['取样编号', '未取样'], ['取样人', '—'], ['取样量', '—'], ['取样地点', '—']];
     return [['取样编号', t.sampling.code], ['取样人 / 时间', t.sampling.sampler + ' · ' + t.sampling.time], ['取样量 / 方法', t.sampling.quantity + ' · ' + t.sampling.method], ['取样地点', t.sampling.location]];
   }
   if (i === 3) {
-    if (!t.retention) return [['留样编号', '未留样'], ['留样人', '—'], ['留样量', '—'], ['留样期限', '—']];
-    return [['留样编号', t.retention.code], ['留样人 / 时间', t.retention.keeper + ' · ' + t.retention.time], ['留样量 / 地点', t.retention.quantity + ' · ' + t.retention.location], ['留样期限', t.retention.period]];
-  }
-  if (i === 4) {
     if (!t.inspection) return [['检验编号', '未检验'], ['检验人', '—'], ['检验起止', '—'], ['结论', '—']];
     return [['检验编号', t.inspection.code], ['检验人 / 复核人', t.inspection.inspector + ' / ' + t.inspection.reviewer], ['检验起止', t.inspection.start + ' ~ ' + t.inspection.end], ['检验项目', t.inspection.items], ['结论', t.inspection.conclusion]];
   }
+  if (i === 4) {
+    if (t.retentionRequired === 0) return [['留样', '该任务不要求留样'], ['状态', '已跳过']];
+    if (!t.retention) return [['留样编号', '未留样'], ['留样人', '—'], ['留样量', '—'], ['留样期限', '—']];
+    return [['留样编号', t.retention.code], ['留样人 / 时间', t.retention.keeper + ' · ' + t.retention.time], ['留样量 / 地点', t.retention.quantity + ' · ' + t.retention.location], ['留样期限', t.retention.period]];
+  }
+  if (t.destructionRequired !== 1) return [['销毁', '非必须，已跳过'], ['状态', '已完成']];
   if (!t.destruction) return [['销毁编号', '无需销毁'], ['销毁日期', '—'], ['处理人', '—'], ['原因', '—']];
   return [['销毁编号', t.destruction.code], ['销毁日期', t.destruction.date], ['处理人', t.destruction.handler], ['原因', t.destruction.reason], ['状态', t.destruction.status]];
 }
@@ -948,15 +966,15 @@ function renderDrawer() {
         <div><span class="k">状态</span>${statusTag(t)}</div>
       </div>
     </div>
-    <div class="steps mb-2">${STEPS.map((name, i) => `<div class="step-item ${stepState(t, i)}"><div class="step-dot">${stepState(t, i) === 'done' ? '✓' : i + 1}</div><div class="step-name">${name}</div></div>`).join('')}</div>
+    <div class="steps mb-2">${STEPS.map((name, i) => `<div class="step-item ${stepState(t, i)}"><div class="step-dot">${stepState(t, i) === 'done' ? '✓' : stepState(t, i) === 'skip' ? '–' : i + 1}</div><div class="step-name">${stepDisplayName(t, i)}</div></div>`).join('')}</div>
     <div class="timeline">${STEPS.map((name, i) => {
       const st = stepState(t, i);
-      const tag = st === 'done' ? '<span class="tag green">已完成</span>' : st === 'active' ? '<span class="tag blue">当前环节</span>' : st === 'error' ? '<span class="tag red">不符合</span>' : '<span class="tag gray">待办理</span>';
+      const tag = st === 'done' ? '<span class="tag green">已完成</span>' : st === 'skip' ? '<span class="tag gray">不必办理</span>' : st === 'active' ? '<span class="tag blue">当前环节</span>' : st === 'error' ? '<span class="tag red">不符合</span>' : '<span class="tag gray">待办理</span>';
       const files = stepFiles(t, i);
       return `<div class="tl-item ${st}">
-        <div class="tl-dot">${st === 'done' ? '✓' : i + 1}</div>
+        <div class="tl-dot">${st === 'done' ? '✓' : st === 'skip' ? '–' : i + 1}</div>
         <div class="tl-card">
-          <div class="tl-head"><b>${name}</b>${tag}</div>
+          <div class="tl-head"><b>${stepDisplayName(t, i)}</b>${tag}</div>
           <div class="tl-meta">${stepKv(t, i).slice(0, 2).map(x => `${x[0]}：${x[1]}`).join(' · ')}</div>
           <div class="tl-body">
             <div class="kv">${stepKv(t, i).map(([k, v]) => `<div><span class="k">${k}</span>${v}</div>`).join('')}</div>
@@ -971,7 +989,7 @@ function renderDrawer() {
     }).join('')}</div>`;
   const backBtn = state.batchKey ? '<button class="btn btn-sm" id="drawerBackBatch">返回批次</button>' : '';
   document.getElementById('drawerFoot').innerHTML = `
-    <span>当前环节：<b>${s === 6 ? '已完成' : STEPS[s]}</b></span>
+    <span>当前环节：<b>${s === 6 ? '已完成' : stepLabel(t)}</b></span>
     <span>${backBtn}<button class="btn btn-sm" data-close>关闭</button>${s < 6 ? ` <button class="btn btn-sm btn-primary" data-advance="${s}">${STEP_ACTION[s]}</button>` : ''}</span>`;
   body.querySelectorAll('[data-advance]').forEach(btn => btn.addEventListener('click', () => advance(Number(btn.dataset.advance))));
   body.querySelectorAll('[data-view]').forEach(btn => btn.addEventListener('click', () => toast('原型演示：查看已完成的检验资料')));
@@ -988,16 +1006,16 @@ function advance(step) {
   const t = activeTask;
   if (!t) return;
   if (step === 0) {
-    t.plan = { code: 'JH-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-001', date: '2026-11-06', basis: '中国药典2025版', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已完成', files: ['检验计划.pdf'] };
-  } else if (step === 1) {
     t.request = { code: 'QJ-20261106-001', time: '2026-11-06 09:00', requester: '丁圣芳', dept: '质量部', process: '成品检验', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已请检', files: ['请检单.pdf'] };
+  } else if (step === 1) {
+    t.plan = { code: 'JH-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-001', date: '2026-11-06', basis: '中国药典2025版', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已完成', files: ['检验计划.pdf'] };
   } else if (step === 2) {
     t.sampling = { code: 'QY-20261106-001', time: '2026-11-06 10:00', sampler: '陈静', quantity: '100g×3份', location: '成品库 A 取样间', method: '随机', status: '已取样', files: ['取样记录.pdf'] };
   } else if (step === 3) {
-    t.retention = { code: 'LY-20261106-001', time: '2026-11-06 10:20', keeper: '陈静', quantity: '100g×3份', location: '留样室 A-08', period: '至2028-11-05', status: '已留样', files: ['留样记录.pdf'] };
-  } else if (step === 4) {
     if (!t.inspection) t.inspection = { code: 'JY-20261106-001', inspector: '丁圣芳', reviewer: '赵磊', start: '2026-11-06 09:00', end: '2026-11-06 16:00', conclusion: '合格', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', status: '已检验', files: ['检验记录.pdf'] };
     else { t.inspection.status = '已检验'; t.inspection.conclusion = '合格'; t.inspection.end = '2026-11-06 16:00'; }
+  } else if (step === 4) {
+    t.retention = { code: 'LY-20261106-001', time: '2026-11-06 10:20', keeper: '陈静', quantity: '100g×3份', location: '留样室 A-08', period: '至2028-11-05', status: '已留样', files: ['留样记录.pdf'] };
   } else if (step === 5) {
     if (t.destruction) Object.assign(t.destruction, { code: 'XH-20261106-001', date: '2026-11-06', handler: '张力', status: '已销毁', files: ['销毁记录.pdf'] });
   }

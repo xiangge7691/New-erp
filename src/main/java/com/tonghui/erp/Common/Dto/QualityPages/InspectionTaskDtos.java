@@ -178,7 +178,7 @@ public final class InspectionTaskDtos {
         private String itemCategory;
         private String objectName;
         private Integer retentionRequired = 1;
-        private Integer destructionRequired = 1;
+        private Integer destructionRequired = 0;
         private String remark;
     }
 

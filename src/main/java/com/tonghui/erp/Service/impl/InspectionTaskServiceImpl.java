@@ -58,7 +58,7 @@ import java.util.stream.Collectors;
 /**
  * 检验任务服务实现
  * <p>
- * 六步流程：PLAN → REQUEST → SAMPLING → RETENTION → INSPECTION → DESTRUCTION → DONE。
+ * 六步流程：REQUEST → PLAN → SAMPLING → INSPECTION → RETENTION → DESTRUCTION(非必须) → DONE。
  * 任务只保存流程索引，具体单据仍写入原有业务表，保证与现有检验页面兼容。
  * </p>
  */
@@ -90,15 +90,15 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
     private static final String STEP_STATUS_SKIP = "已跳过";
 
     private static final List<String> STEP_ORDER = List.of(
-            STEP_PLAN, STEP_REQUEST, STEP_SAMPLING, STEP_RETENTION, STEP_INSPECTION, STEP_DESTRUCTION
+            STEP_REQUEST, STEP_PLAN, STEP_SAMPLING, STEP_INSPECTION, STEP_RETENTION, STEP_DESTRUCTION
     );
 
     private static final Map<String, String> STEP_NAMES = Map.of(
-            STEP_PLAN, "检验计划",
             STEP_REQUEST, "请检",
+            STEP_PLAN, "检验计划",
             STEP_SAMPLING, "取样",
+            STEP_INSPECTION, "检验记录",
             STEP_RETENTION, "留样",
-            STEP_INSPECTION, "检验",
             STEP_DESTRUCTION, "销毁"
     );
 
@@ -385,7 +385,7 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
                 .map(InspectionTaskDtos.TaskSummary::getCurrentStep)
                 .filter(StringUtils::hasText)
                 .min(Comparator.comparingInt(this::stepOrder))
-                .orElse(STEP_PLAN);
+                .orElse(STEP_REQUEST);
         dto.setCurrentStep(currentStep);
 
         boolean anyUnqualified = tasks.stream()
@@ -408,6 +408,8 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
             dto.setBatchStatus("已完成");
         } else if (STEP_DESTRUCTION.equals(currentStep)) {
             dto.setBatchStatus("待销毁");
+        } else if (STEP_RETENTION.equals(currentStep)) {
+            dto.setBatchStatus("留样中");
         } else if (STEP_INSPECTION.equals(currentStep)) {
             dto.setBatchStatus("检验中");
         } else {
@@ -420,19 +422,19 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
      * 环节顺序，用于取批次内最靠前的未完成环节
      */
     private int stepOrder(String step) {
-        if (STEP_PLAN.equals(step)) {
+        if (STEP_REQUEST.equals(step)) {
             return 0;
         }
-        if (STEP_REQUEST.equals(step)) {
+        if (STEP_PLAN.equals(step)) {
             return 1;
         }
         if (STEP_SAMPLING.equals(step)) {
             return 2;
         }
-        if (STEP_RETENTION.equals(step)) {
+        if (STEP_INSPECTION.equals(step)) {
             return 3;
         }
-        if (STEP_INSPECTION.equals(step)) {
+        if (STEP_RETENTION.equals(step)) {
             return 4;
         }
         if (STEP_DESTRUCTION.equals(step)) {
@@ -707,10 +709,10 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
         task.setSpec(workOrder.getPreparationId() == null ? null
                 : java.util.Optional.ofNullable(preparationService.getById(workOrder.getPreparationId()))
                 .map(p -> p.getSpec()).orElse(null));
-        task.setCurrentStep(STEP_PLAN);
+        task.setCurrentStep(STEP_REQUEST);
         task.setTaskStatus(STATUS_WAIT);
         task.setRetentionRequired(request.getRetentionRequired() == null ? 1 : request.getRetentionRequired());
-        task.setDestructionRequired(request.getDestructionRequired() == null ? 1 : request.getDestructionRequired());
+        task.setDestructionRequired(request.getDestructionRequired() == null ? 0 : request.getDestructionRequired());
         task.setRemark(request.getRemark());
         task.setIsDeleted(0);
         task.setVersion(1);
@@ -725,7 +727,7 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
             taskStep.setVersion(1);
             stepMapper.insert(taskStep);
         }
-        markStepRunning(task.getId(), STEP_PLAN);
+        markStepRunning(task.getId(), STEP_REQUEST);
         return getTaskDetail(task.getId());
     }
 
@@ -734,12 +736,15 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
     public InspectionTaskDtos.TaskDetail completePlan(Long id, InspectionTaskDtos.PlanStepRequest request) {
         InspectionTask task = getTaskOrThrow(id);
         ensureStep(task, STEP_PLAN);
+        if (task.getRequestRefId() == null) {
+            throw new IllegalArgumentException("请先完成请检");
+        }
         InspectionPlan plan = task.getPlanRefId() == null ? new InspectionPlan() : inspectionPlanService.getById(task.getPlanRefId());
         if (plan == null) plan = new InspectionPlan();
         if (!StringUtils.hasText(plan.getPlanCode())) {
             plan.setPlanCode(StringUtils.hasText(request.getPlanCode()) ? request.getPlanCode() : inspectionPlanService.generateCode());
         }
-        plan.setPlanPeriod(request.getPlanPeriod());
+        plan.setPlanPeriod(StringUtils.hasText(request.getPlanPeriod()) ? request.getPlanPeriod() : "");
         plan.setInspectionType(StringUtils.hasText(request.getInspectionType()) ? request.getInspectionType() : "成品检验");
         plan.setObjectName(StringUtils.hasText(request.getObjectName()) ? request.getObjectName() : task.getObjectName());
         plan.setBatchNo(StringUtils.hasText(request.getBatchNo()) ? request.getBatchNo() : task.getBatchNo());
@@ -766,15 +771,11 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
     public InspectionTaskDtos.TaskDetail completeRequest(Long id, InspectionTaskDtos.RequestStepRequest request) {
         InspectionTask task = getTaskOrThrow(id);
         ensureStep(task, STEP_REQUEST);
-        if (task.getPlanRefId() == null) {
-            throw new IllegalArgumentException("请先完成检验计划");
-        }
-        InspectionPlan plan = inspectionPlanService.getById(task.getPlanRefId());
         InspectionRequest entity = new InspectionRequest();
         entity.setInspectionCode(StringUtils.hasText(request.getInspectionCode()) ? request.getInspectionCode() : inspectionRequestService.generateCode());
         entity.setWorkOrderId(task.getWorkOrderId());
         entity.setWorkOrderCode(task.getWorkOrderCode());
-        entity.setInspectionPlanCode(plan == null ? null : plan.getPlanCode());
+        entity.setInspectionPlanCode(null);
         entity.setPreparationCode(task.getPreparationCode());
         entity.setPreparationName(task.getPreparationName());
         entity.setItemCategory(StringUtils.hasText(request.getItemCategory()) ? request.getItemCategory() : task.getItemCategory());
@@ -802,13 +803,13 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
     public InspectionTaskDtos.TaskDetail completeSampling(Long id, InspectionTaskDtos.SamplingStepRequest request) {
         InspectionTask task = getTaskOrThrow(id);
         ensureStep(task, STEP_SAMPLING);
-        if (task.getRequestRefId() == null) {
-            throw new IllegalArgumentException("请先完成请检");
+        if (task.getPlanRefId() == null) {
+            throw new IllegalArgumentException("请先完成检验计划");
         }
-        InspectionRequest requestEntity = inspectionRequestService.getById(task.getRequestRefId());
+        InspectionPlan plan = inspectionPlanService.getById(task.getPlanRefId());
         SamplingRecord entity = new SamplingRecord();
         entity.setSamplingCode(StringUtils.hasText(request.getSamplingCode()) ? request.getSamplingCode() : samplingRecordService.generateCode());
-        entity.setRelatedPlanCode(requestEntity == null ? null : requestEntity.getInspectionCode());
+        entity.setRelatedPlanCode(plan == null ? null : plan.getPlanCode());
         entity.setObjectName(task.getObjectName());
         entity.setItemCategory(task.getItemCategory());
         entity.setBatchNo(task.getBatchNo());
@@ -825,11 +826,6 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
         task.setSamplingRefId(entity.getId());
         completeStepAndAdvance(task, STEP_SAMPLING, "sampling_record", entity.getId(),
                 "取样记录 " + entity.getSamplingCode() + " 已创建");
-        if (task.getRetentionRequired() != null && task.getRetentionRequired() == 0) {
-            markStepSkipped(task.getId(), STEP_RETENTION, "该任务不要求留样");
-            advanceTo(task, STEP_INSPECTION);
-            markStepRunning(task.getId(), STEP_INSPECTION);
-        }
         syncFiles(STEP_SAMPLING, entity.getId(), request.getFileIds());
         return getTaskDetail(task.getId());
     }
@@ -839,13 +835,20 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
     public InspectionTaskDtos.TaskDetail completeRetention(Long id, InspectionTaskDtos.RetentionStepRequest request) {
         InspectionTask task = getTaskOrThrow(id);
         ensureStep(task, STEP_RETENTION);
-        if (task.getSamplingRefId() == null) {
-            throw new IllegalArgumentException("请先完成取样");
+        if (task.getInspectionRefId() == null) {
+            throw new IllegalArgumentException("请先完成检验记录");
         }
         InspectionRequest requestEntity = task.getRequestRefId() == null ? null
                 : inspectionRequestService.getById(task.getRequestRefId());
-        RetainedSample entity = new RetainedSample();
-        entity.setRetainedCode(StringUtils.hasText(request.getRetainedCode()) ? request.getRetainedCode() : retainedSampleService.generateCode());
+        RetainedSample entity = task.getRetentionRefId() == null ? new RetainedSample()
+                : retainedSampleService.getById(task.getRetentionRefId());
+        if (entity == null) {
+            entity = new RetainedSample();
+        }
+        if (!StringUtils.hasText(entity.getRetainedCode())) {
+            entity.setRetainedCode(StringUtils.hasText(request.getRetainedCode())
+                    ? request.getRetainedCode() : retainedSampleService.generateCode());
+        }
         entity.setRelatedInspectionCode(requestEntity == null ? null : requestEntity.getInspectionCode());
         entity.setMaterialName(task.getObjectName());
         entity.setItemCategory(task.getItemCategory());
@@ -860,10 +863,18 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
         entity.setStatus("留样中");
         entity.setRemark(request.getRemark());
         entity.setIsDeleted(0);
-        retainedSampleService.save(entity);
+        if (entity.getId() == null) {
+            retainedSampleService.save(entity);
+        } else {
+            retainedSampleService.updateById(entity);
+        }
         task.setRetentionRefId(entity.getId());
         completeStepAndAdvance(task, STEP_RETENTION, "retained_sample", entity.getId(),
                 "留样记录 " + entity.getRetainedCode() + " 已创建");
+        if (task.getDestructionRequired() != null && task.getDestructionRequired() == 0) {
+            markStepSkipped(task.getId(), STEP_DESTRUCTION, "该任务不要求销毁");
+            advanceTo(task, STEP_DONE);
+        }
         syncFiles(STEP_RETENTION, entity.getId(), request.getFileIds());
         return getTaskDetail(task.getId());
     }
@@ -912,9 +923,15 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
         task.setInspectionRefId(entity.getId());
         completeStepAndAdvance(task, STEP_INSPECTION, "inspection_record", entity.getId(),
                 "检验记录 " + entity.getInspectionCode() + " 已保存");
-        if (task.getDestructionRequired() != null && task.getDestructionRequired() == 0) {
-            markStepSkipped(task.getId(), STEP_DESTRUCTION, "该任务不要求销毁");
-            advanceTo(task, STEP_DONE);
+        if (task.getRetentionRequired() != null && task.getRetentionRequired() == 0) {
+            markStepSkipped(task.getId(), STEP_RETENTION, "该任务不要求留样");
+            if (task.getDestructionRequired() != null && task.getDestructionRequired() == 0) {
+                markStepSkipped(task.getId(), STEP_DESTRUCTION, "该任务不要求销毁");
+                advanceTo(task, STEP_DONE);
+            } else {
+                advanceTo(task, STEP_DESTRUCTION);
+                markStepRunning(task.getId(), STEP_DESTRUCTION);
+            }
         }
         syncFiles(STEP_INSPECTION, entity.getId(), request.getFileIds());
         return getTaskDetail(task.getId());
@@ -925,6 +942,9 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
     public InspectionTaskDtos.TaskDetail completeDestruction(Long id, InspectionTaskDtos.DestructionStepRequest request) {
         InspectionTask task = getTaskOrThrow(id);
         ensureStep(task, STEP_DESTRUCTION);
+        if (task.getRetentionRefId() == null) {
+            throw new IllegalArgumentException("请先完成留样");
+        }
         DestructionRecordSaveDto dto = new DestructionRecordSaveDto();
         dto.setRecordType(StringUtils.hasText(request.getRecordType()) ? request.getRecordType() : "留样及稳定性考察产品销毁");
         dto.setDestroyReason(request.getDestroyReason());
@@ -962,8 +982,13 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
         if (STEP_RETENTION.equals(request.getStepCode())) {
             ensureStep(task, STEP_RETENTION);
             markStepSkipped(task.getId(), STEP_RETENTION, request.getReason());
-            advanceTo(task, STEP_INSPECTION);
-            markStepRunning(task.getId(), STEP_INSPECTION);
+            if (task.getDestructionRequired() != null && task.getDestructionRequired() == 0) {
+                markStepSkipped(task.getId(), STEP_DESTRUCTION, "该任务不要求销毁");
+                advanceTo(task, STEP_DONE);
+            } else {
+                advanceTo(task, STEP_DESTRUCTION);
+                markStepRunning(task.getId(), STEP_DESTRUCTION);
+            }
         } else if (STEP_DESTRUCTION.equals(request.getStepCode())) {
             ensureStep(task, STEP_DESTRUCTION);
             markStepSkipped(task.getId(), STEP_DESTRUCTION, request.getReason());
