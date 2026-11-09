@@ -39,3 +39,7 @@ uploaded-files/
 .DS_Store
 .trae/
 .mimocode/
+
+# 临时分析文件（仅保留已确认的原型）
+_analysis/*
+!_analysis/prototypes/
