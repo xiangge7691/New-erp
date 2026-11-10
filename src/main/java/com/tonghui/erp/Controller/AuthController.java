@@ -5,7 +5,10 @@ import com.tonghui.erp.Common.Dto.Auth.AuthLoginResponse;
 import com.tonghui.erp.Common.Dto.Auth.LoginRequest;
 import com.tonghui.erp.Common.Dto.Auth.LoginResponse;
 import com.tonghui.erp.Common.Dto.Log.LoginLogContext;
+import com.tonghui.erp.Common.Dto.System.PermissionDto;
+import com.tonghui.erp.Common.Dto.System.RoleDto;
 import com.tonghui.erp.Common.Dto.System.UserDto;
+import com.tonghui.erp.Common.utils.LoginPermissionSnapshotUtils;
 import com.tonghui.erp.Service.LoginLogService;
 import com.tonghui.erp.Service.LoginService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -101,6 +105,21 @@ public class AuthController {
             if (user != null) {
                 logContext.markSuccess(user.getId(), user.getUserName(), user.getName());
             }
+            // 记录登录当时的角色、可访问菜单与接口权限快照
+            List<RoleDto> roles = loginResponse.getData().getRoles();
+            if (roles != null) {
+                logContext.setRoleIds(roles.stream().map(RoleDto::getRoleId).toList());
+                logContext.setRoleNames(roles.stream()
+                        .map(RoleDto::getRoleName)
+                        .filter(name -> name != null && !name.trim().isEmpty())
+                        .toList());
+            }
+            LoginPermissionSnapshotUtils.Snapshot accessSnapshot =
+                    LoginPermissionSnapshotUtils.flatten(loginResponse.getData().getPermissionTree());
+            logContext.setMenuKeys(accessSnapshot.getMenuKeys());
+            logContext.setMenuNames(accessSnapshot.getMenuNames());
+            logContext.setPermissionKeys(accessSnapshot.getPermissionKeys());
+            logContext.setPermissionNames(accessSnapshot.getPermissionNames());
             loginLogService.recordAsync(logContext);
 
             // 构造符合 OpenAPI 规范的响应格式

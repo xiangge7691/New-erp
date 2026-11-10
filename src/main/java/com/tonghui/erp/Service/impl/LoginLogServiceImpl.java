@@ -4,12 +4,14 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Config.LogProperties;
 import com.tonghui.erp.Common.Dto.Log.LoginLogContext;
+import com.tonghui.erp.Common.Dto.Log.LoginLogDetailDto;
 import com.tonghui.erp.Common.Dto.Log.LoginLogDto;
 import com.tonghui.erp.Common.Dto.Log.LoginLogSummaryDto;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.utils.IpLocationService;
 import com.tonghui.erp.Common.utils.IpUtils;
+import com.tonghui.erp.Common.utils.LoginPermissionSnapshotUtils;
 import com.tonghui.erp.Data.Entity.SysLoginLog;
 import com.tonghui.erp.Data.mapper.SysLoginLogMapper;
 import com.tonghui.erp.Service.LoginLogService;
@@ -21,6 +23,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 登录日志服务实现类
@@ -43,6 +46,12 @@ public class LoginLogServiceImpl implements LoginLogService {
 
     /** 失败原因最大长度 */
     private static final int MAX_FAIL_REASON_LENGTH = 255;
+
+    /** 角色快照最大长度 */
+    private static final int MAX_ROLE_LENGTH = 500;
+
+    /** 权限快照最大长度（TEXT 字段，预留足够空间） */
+    private static final int MAX_PERMISSION_TEXT_LENGTH = 60000;
 
     /** 单次清理最大循环次数，避免异常情况下无限删除 */
     private static final int MAX_CLEANUP_ROUNDS = 1000;
@@ -124,6 +133,21 @@ public class LoginLogServiceImpl implements LoginLogService {
             // user_account 为 NOT NULL，登录参数为空时落空串，避免丢失失败记录
             entity.setUserAccount(context.getUserAccount() == null ? "" : truncate(context.getUserAccount(), 64));
             entity.setUserName(truncate(context.getUserName(), 64));
+            // 登录当时的角色与权限快照，便于回溯账号实际拥有的操作范围
+            entity.setRoleIds(truncate(LoginPermissionSnapshotUtils.join(
+                    context.getRoleIds(), LoginPermissionSnapshotUtils.KEY_SEPARATOR), MAX_ROLE_LENGTH));
+            entity.setRoleNames(truncate(LoginPermissionSnapshotUtils.joinNames(
+                    context.getRoleNames()), MAX_ROLE_LENGTH));
+            entity.setMenuCount(sizeOf(context.getMenuKeys()));
+            entity.setMenuKeys(truncate(LoginPermissionSnapshotUtils.joinKeys(
+                    context.getMenuKeys()), MAX_PERMISSION_TEXT_LENGTH));
+            entity.setMenuNames(truncate(LoginPermissionSnapshotUtils.joinNames(
+                    context.getMenuNames()), MAX_PERMISSION_TEXT_LENGTH));
+            entity.setPermissionCount(sizeOf(context.getPermissionKeys()));
+            entity.setPermissionKeys(truncate(LoginPermissionSnapshotUtils.joinKeys(
+                    context.getPermissionKeys()), MAX_PERMISSION_TEXT_LENGTH));
+            entity.setPermissionNames(truncate(LoginPermissionSnapshotUtils.joinNames(
+                    context.getPermissionNames()), MAX_PERMISSION_TEXT_LENGTH));
             entity.setLoginType(context.getLoginType() == null ? "LOGIN" : context.getLoginType());
             entity.setLoginResult(success ? 1 : 0);
             entity.setFailReason(truncate(context.getFailReason(), MAX_FAIL_REASON_LENGTH));
@@ -160,7 +184,8 @@ public class LoginLogServiceImpl implements LoginLogService {
      */
     @Override
     public PagedResult<LoginLogDto> search(String userAccount, Long userId, String userName, Integer loginResult,
-                                           String loginIp, LocalDateTime startTime, LocalDateTime endTime,
+                                           String loginIp, String roleName, String permissionKey,
+                                           LocalDateTime startTime, LocalDateTime endTime,
                                            PageRequestDto pageRequest) {
         QueryWrapper<SysLoginLog> wrapper = new QueryWrapper<>();
         wrapper.eq(hasText(userAccount), "user_account", userAccount);
@@ -168,6 +193,8 @@ public class LoginLogServiceImpl implements LoginLogService {
         wrapper.like(hasText(userName), "user_name", userName);
         wrapper.eq(loginResult != null, "login_result", loginResult);
         wrapper.eq(hasText(loginIp), "login_ip", loginIp);
+        wrapper.like(hasText(roleName), "role_names", roleName);
+        wrapper.like(hasText(permissionKey), "permission_keys", permissionKey);
         wrapper.ge(startTime != null, "login_time", startTime);
         wrapper.le(endTime != null, "login_time", endTime);
         wrapper.orderByDesc("login_time").orderByDesc("id");
@@ -182,6 +209,31 @@ public class LoginLogServiceImpl implements LoginLogService {
         result.setPageIndex(entityResult.getPageIndex());
         result.setPageSize(entityResult.getPageSize());
         return result;
+    }
+
+    /**
+     * 查询登录日志详情
+     *
+     * @param id 日志ID
+     * @return 登录日志详情；不存在返回 null
+     */
+    @Override
+    public LoginLogDetailDto detail(Long id) {
+        if (id == null) {
+            return null;
+        }
+        SysLoginLog entity = sysLoginLogMapper.selectById(id);
+        if (entity == null) {
+            return null;
+        }
+        LoginLogDetailDto dto = new LoginLogDetailDto();
+        BeanUtils.copyProperties(entity, dto);
+        fillSnapshot(dto, entity);
+        dto.setMenuKeys(LoginPermissionSnapshotUtils.splitKeys(entity.getMenuKeys()));
+        dto.setMenuNames(LoginPermissionSnapshotUtils.splitNames(entity.getMenuNames()));
+        dto.setPermissionKeys(LoginPermissionSnapshotUtils.splitKeys(entity.getPermissionKeys()));
+        dto.setPermissionNames(LoginPermissionSnapshotUtils.splitNames(entity.getPermissionNames()));
+        return dto;
     }
 
     /**
@@ -269,7 +321,21 @@ public class LoginLogServiceImpl implements LoginLogService {
     private LoginLogDto toDto(SysLoginLog entity) {
         LoginLogDto dto = new LoginLogDto();
         BeanUtils.copyProperties(entity, dto);
+        fillSnapshot(dto, entity);
         return dto;
+    }
+
+    /**
+     * 填充角色与权限数量快照
+     *
+     * @param dto    查询结果
+     * @param entity 登录日志实体
+     */
+    private void fillSnapshot(LoginLogDto dto, SysLoginLog entity) {
+        dto.setRoleIds(LoginPermissionSnapshotUtils.splitIds(entity.getRoleIds()));
+        dto.setRoleNames(LoginPermissionSnapshotUtils.splitNames(entity.getRoleNames()));
+        dto.setMenuCount(entity.getMenuCount() == null ? 0 : entity.getMenuCount());
+        dto.setPermissionCount(entity.getPermissionCount() == null ? 0 : entity.getPermissionCount());
     }
 
     /**
@@ -290,6 +356,16 @@ public class LoginLogServiceImpl implements LoginLogService {
      */
     private Long defaultZero(Long value) {
         return value == null ? 0L : value;
+    }
+
+    /**
+     * 计算列表大小
+     *
+     * @param values 列表
+     * @return 元素数量
+     */
+    private int sizeOf(List<?> values) {
+        return values == null ? 0 : values.size();
     }
 
     /**

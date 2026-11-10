@@ -3,6 +3,7 @@ package com.tonghui.erp.Service;
 import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.Log.LoginLogContext;
+import com.tonghui.erp.Common.Dto.Log.LoginLogDetailDto;
 import com.tonghui.erp.Common.Dto.Log.LoginLogDto;
 import com.tonghui.erp.Common.Dto.Log.OperationLogContext;
 import com.tonghui.erp.Common.Dto.Log.OperationLogDetailDto;
@@ -28,6 +29,7 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 
 import javax.sql.DataSource;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
@@ -82,6 +84,7 @@ public class LogModuleIntegrationTest {
     public void initTables() {
         ResourceDatabasePopulator populator = new ResourceDatabasePopulator(
                 new ClassPathResource("Data/migration/create_login_log_table.sql"),
+                new ClassPathResource("Data/migration/add_login_log_role_permission_fields.sql"),
                 new ClassPathResource("Data/migration/create_operation_log_table.sql"),
                 new ClassPathResource("Data/migration/init_log_config_data.sql"));
         populator.execute(dataSource);
@@ -108,6 +111,12 @@ public class LogModuleIntegrationTest {
             context.setIpLocation("中国广东省深圳市");
             context.setUserAgent("JUnit-Test");
             context.setLoginTime(LocalDateTime.now());
+            context.setRoleIds(List.of(1L, 25L));
+            context.setRoleNames(List.of("超级管理员", "系统管理员"));
+            context.setMenuKeys(List.of("user_management", "role_management"));
+            context.setMenuNames(List.of("用户管理", "角色管理"));
+            context.setPermissionKeys(List.of("user:create", "user:update"));
+            context.setPermissionNames(List.of("新增用户", "修改用户"));
             context.markSuccess(999999L, account, "日志测试");
             loginLogService.recordAsync(context);
 
@@ -117,13 +126,31 @@ public class LogModuleIntegrationTest {
             pageRequest.setPageIndex(0);
             pageRequest.setPageSize(10);
             PagedResult<LoginLogDto> result = loginLogService.search(
-                    account, null, null, 1, null, null, null, pageRequest);
+                    account, null, null, 1, null, null, null, null, null, pageRequest);
 
             assertEquals(1, result.getTotalCount());
             LoginLogDto dto = result.getItems().get(0);
             assertEquals("240e:3b7:3272:d8d0:db09:c067:8d59:539e", dto.getLoginIp());
             assertEquals("中国广东省深圳市", dto.getIpLocation());
             assertEquals(1, dto.getLoginResult());
+            assertEquals(List.of(1L, 25L), dto.getRoleIds());
+            assertEquals(List.of("超级管理员", "系统管理员"), dto.getRoleNames());
+            assertEquals(2, dto.getMenuCount());
+            assertEquals(2, dto.getPermissionCount());
+
+            LoginLogDetailDto detail = loginLogService.detail(dto.getId());
+            assertNotNull(detail);
+            assertEquals(List.of("用户管理", "角色管理"), detail.getMenuNames());
+            assertEquals(List.of("user:create", "user:update"), detail.getPermissionKeys());
+            assertEquals(List.of("新增用户", "修改用户"), detail.getPermissionNames());
+
+            // 角色与权限条件筛选（带账号限定，避免命中其他测试数据）
+            PagedResult<LoginLogDto> byRole = loginLogService.search(
+                    account, null, null, 1, null, "系统管理员", null, null, null, pageRequest);
+            assertEquals(1, byRole.getTotalCount());
+            PagedResult<LoginLogDto> byPermission = loginLogService.search(
+                    account, null, null, 1, null, null, "user:create", null, null, pageRequest);
+            assertEquals(1, byPermission.getTotalCount());
 
             LoginLogDto latest = loginLogService.latestByUserId(999999L);
             assertNotNull(latest);

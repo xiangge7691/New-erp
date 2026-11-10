@@ -50,7 +50,60 @@ public class SysLoginLog {
     @TableField(value = "user_name")
     private String userName;
 
+    /**
+     * 角色ID快照，逗号分隔
+     */
+    @TableField(value = "role_ids")
+    private String roleIds;
+
+    /**
+     * 角色名称快照，顿号分隔
+     */
+    @TableField(value = "role_names")
+    private String roleNames;
+
     // endregion
+
+    // region 权限范围字段
+    // ===================================
+    // 权限范围字段
+    // ===================================
+
+    /**
+     * 可访问菜单数
+     */
+    @TableField(value = "menu_count")
+    private Integer menuCount;
+
+    /**
+     * 菜单权限键快照，逗号分隔
+     */
+    @TableField(value = "menu_keys")
+    private String menuKeys;
+
+    /**
+     * 菜单名称快照，顿号分隔
+     */
+    @TableField(value = "menu_names")
+    private String menuNames;
+
+    /**
+     * 接口权限数
+     */
+    @TableField(value = "permission_count")
+    private Integer permissionCount;
+
+    /**
+     * 接口权限键快照，逗号分隔
+     */
+    @TableField(value = "permission_keys")
+    private String permissionKeys;
+
+    /**
+     * 接口权限名称快照，顿号分隔
+     */
+    @TableField(value = "permission_names")
+    private String permissionNames;
 
     // region 登录结果字段
     // ===================================

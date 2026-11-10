@@ -1,6 +1,7 @@
 package com.tonghui.erp.Service;
 
 import com.tonghui.erp.Common.Dto.Log.LoginLogContext;
+import com.tonghui.erp.Common.Dto.Log.LoginLogDetailDto;
 import com.tonghui.erp.Common.Dto.Log.LoginLogDto;
 import com.tonghui.erp.Common.Dto.Log.LoginLogSummaryDto;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
@@ -55,14 +56,25 @@ public interface LoginLogService {
      * @param userName    用户姓名（模糊匹配，可为空）
      * @param loginResult 登录结果：1成功/0失败（可为空）
      * @param loginIp     登录IP（精确匹配，可为空）
+     * @param roleName    角色名称（模糊匹配，可为空）
+     * @param permissionKey 接口权限键（模糊匹配，可为空）
      * @param startTime   起始时间（含，可为空）
      * @param endTime     截止时间（含，可为空）
      * @param pageRequest 分页参数
      * @return 分页登录日志
      */
     PagedResult<LoginLogDto> search(String userAccount, Long userId, String userName, Integer loginResult,
-                                    String loginIp, LocalDateTime startTime, LocalDateTime endTime,
+                                    String loginIp, String roleName, String permissionKey,
+                                    LocalDateTime startTime, LocalDateTime endTime,
                                     PageRequestDto pageRequest);
+
+    /**
+     * 查询登录日志详情
+     *
+     * @param id 日志ID
+     * @return 登录日志详情（含菜单与接口权限明细）；不存在返回 null
+     */
+    LoginLogDetailDto detail(Long id);
 
     /**
      * 查询指定用户最近一次成功登录记录

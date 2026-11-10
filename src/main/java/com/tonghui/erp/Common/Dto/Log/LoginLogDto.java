@@ -3,6 +3,8 @@ package com.tonghui.erp.Common.Dto.Log;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 登录日志查询结果
@@ -37,6 +39,26 @@ public class LoginLogDto {
      * 用户姓名
      */
     private String userName;
+
+    /**
+     * 角色ID快照
+     */
+    private List<Long> roleIds = new ArrayList<>();
+
+    /**
+     * 角色名称快照
+     */
+    private List<String> roleNames = new ArrayList<>();
+
+    /**
+     * 可访问菜单数
+     */
+    private Integer menuCount;
+
+    /**
+     * 接口权限数
+     */
+    private Integer permissionCount;
 
     // endregion
 

@@ -95,6 +95,14 @@ CREATE TABLE IF NOT EXISTS `sys_login_log` (
   `user_id`       BIGINT       DEFAULT NULL COMMENT '用户ID（登录失败可能为空）',
   `user_account`  VARCHAR(64)  NOT NULL COMMENT '登录账号（失败时记录尝试的账号）',
   `user_name`     VARCHAR(64)  DEFAULT NULL COMMENT '用户姓名（成功时快照）',
+  `role_ids`      VARCHAR(500) DEFAULT NULL COMMENT '角色ID快照，逗号分隔',
+  `role_names`    VARCHAR(500) DEFAULT NULL COMMENT '角色名称快照，顿号分隔',
+  `menu_count`    INT          NOT NULL DEFAULT 0 COMMENT '可访问菜单数',
+  `menu_keys`     TEXT         DEFAULT NULL COMMENT '菜单权限键快照，逗号分隔',
+  `menu_names`    TEXT         DEFAULT NULL COMMENT '菜单名称快照，顿号分隔',
+  `permission_count`  INT      NOT NULL DEFAULT 0 COMMENT '接口权限数',
+  `permission_keys`   TEXT     DEFAULT NULL COMMENT '接口权限键快照，逗号分隔',
+  `permission_names`  TEXT     DEFAULT NULL COMMENT '接口权限名称快照，顿号分隔',
   `login_type`    VARCHAR(20)  NOT NULL DEFAULT 'LOGIN' COMMENT '类型：LOGIN/LOGOUT',
   `login_result`  TINYINT      NOT NULL DEFAULT 1 COMMENT '结果：1成功/0失败',
   `fail_reason`   VARCHAR(255) DEFAULT NULL COMMENT '失败原因',
@@ -116,6 +124,10 @@ CREATE TABLE IF NOT EXISTS `sys_login_log` (
 |------|------|
 | `user_id` | 登录失败时可能查不到用户，允许为空 |
 | `user_account` | **按账号查询的核心字段**；失败时记录用户输入的那个账号，便于发现撞库/暴力破解 |
+| `role_ids` / `role_names` | 登录时**生效**的角色快照（禁用角色不参与），角色后来改名或删除不影响历史日志 |
+| `menu_keys` / `menu_names` | 当前角色可访问的菜单范围（`permission.perm_type = menu`） |
+| `permission_keys` / `permission_names` | 当前角色拥有的接口权限（`permission.perm_type = api`） |
+| `menu_count` / `permission_count` | 菜单数与接口权限数，列表页可直接展示，避免加载大字段 |
 | `login_result` | 1 成功 / 0 失败；失败原因如“用户名或密码错误”“用户账户已被禁用”“用户名或密码不能为空” |
 | `login_ip` | 真实客户端 IP，IPv6 原样保存 |
 | `ip_location` | 离线库解析结果；内网 IP 直接写“内网” |
@@ -203,6 +215,8 @@ CREATE TABLE IF NOT EXISTS `sys_operation_log` (
 | 参数为空 | null | 用户输入的账号（可能为空串） | 0 | 用户名或密码不能为空 |
 
 > 登录失败时如果能在校验过程中拿到用户对象（如账号被禁用），可以补上 `user_id`，其余失败场景允许为空。
+
+**登录成功时额外记录角色与权限快照**：由 `AuthController` 从登录响应中读取角色列表和权限树，`LoginPermissionSnapshotUtils` 将权限树按 `perm_type` 拍平为“菜单范围（menu）”和“接口权限（api）”两组，随登录日志一起落库。这样即使后续角色、权限被修改，也能回溯该账号在登录当时实际能操作的内容。
 
 ### 4.3 代码骨架
 
@@ -515,6 +529,8 @@ GET /api/system/login-log/search?pageIndex=0&pageSize=20
     &userName=张三
     &loginResult=0
     &loginIp=192.168.1.10
+    &roleName=管理员
+    &permissionKey=user:create
     &startTime=2026-11-01 00:00:00
     &endTime=2026-11-09 23:59:59
 ```
@@ -527,6 +543,8 @@ GET /api/system/login-log/search?pageIndex=0&pageSize=20
 | `userName` | 否 | 姓名，模糊匹配 |
 | `loginResult` | 否 | 1 成功 / 0 失败 |
 | `loginIp` | 否 | IP，精确匹配 |
+| `roleName` | 否 | 角色名称，模糊匹配（匹配角色名称快照） |
+| `permissionKey` | 否 | 接口权限键，模糊匹配（如 `user:create`） |
 | `startTime` / `endTime` | 否 | 支持 `yyyy-MM-dd HH:mm:ss` 或 `yyyy-MM-dd`；只传日期时自动补 `00:00:00` / `23:59:59` |
 
 返回：
@@ -542,6 +560,10 @@ GET /api/system/login-log/search?pageIndex=0&pageSize=20
         "userId": 1,
         "userAccount": "root",
         "userName": "系统管理员",
+        "roleIds": [1, 25],
+        "roleNames": ["超级管理员", "系统管理员"],
+        "menuCount": 91,
+        "permissionCount": 100,
         "loginType": "LOGIN",
         "loginResult": 1,
         "failReason": null,
@@ -556,6 +578,34 @@ GET /api/system/login-log/search?pageIndex=0&pageSize=20
     "pageSize": 20
   },
   "timestamp": 1762650000000
+}
+```
+
+### 8.1.1 登录日志详情
+
+```http
+GET /api/system/login-log/1001
+```
+
+返回登录当时的完整角色、菜单范围和接口权限明细：
+
+```json
+{
+  "code": 200,
+  "data": {
+    "id": 1001,
+    "userAccount": "root",
+    "roleNames": ["超级管理员", "系统管理员"],
+    "menuCount": 2,
+    "permissionCount": 2,
+    "menuKeys": ["user_management", "role_management"],
+    "menuNames": ["用户管理", "角色管理"],
+    "permissionKeys": ["user:create", "user:update"],
+    "permissionNames": ["新增用户", "修改用户"],
+    "loginIp": "218.94.12.34",
+    "ipLocation": "江苏省南京市",
+    "loginTime": "2026-11-09 09:12:33"
+  }
 }
 ```
 
@@ -691,6 +741,7 @@ int deleteBefore(@Param("before") LocalDateTime before, @Param("limit") int limi
 |------|------|
 | `pom.xml` | 增加 `spring-boot-starter-aop`、`ip2region` |
 | `src/main/resources/Data/migration/create_login_log_table.sql` | 登录日志建表 |
+| `src/main/resources/Data/migration/add_login_log_role_permission_fields.sql` | 登录日志角色/权限字段补充（幂等） |
 | `src/main/resources/Data/migration/create_operation_log_table.sql` | 操作日志建表 |
 | `src/main/resources/ip2region/ip2region_v4.xdb` | IPv4 归属地离线库 |
 | `src/main/resources/ip2region/ip2region_v6.xdb` | IPv6 归属地离线库 |
@@ -701,13 +752,15 @@ int deleteBefore(@Param("before") LocalDateTime before, @Param("limit") int limi
 | `Common/annotation/OperationLog.java` | 操作日志注解 |
 | `Common/Constants/OperationType.java` | 操作类型枚举 |
 | `Common/Config/LogAsyncConfig.java` | 日志线程池 + `@EnableAsync` |
-| `Common/Config/IpLocationConfig.java`（可选） | 启动时加载 xdb |
+| `Common/Config/LogProperties.java` | 日志配置绑定（IP、归属地库、截断长度） |
 | `Common/utils/IpUtils.java` | 获取真实客户端 IP |
 | `Common/utils/IpLocationService.java` | IP 归属地解析 |
+| `Common/utils/LoginPermissionSnapshotUtils.java` | 登录角色/菜单/接口权限快照拍平 |
 | `Common/utils/LogParamUtils.java` | 参数序列化、脱敏、截断 |
-| `Common/Dto/System/LoginLogDto.java` | 登录日志查询 DTO |
-| `Common/Dto/System/OperationLogDto.java` | 操作日志列表 DTO |
-| `Common/Dto/System/OperationLogDetailDto.java` | 操作日志详情 DTO |
+| `Common/Dto/Log/LoginLogDto.java` | 登录日志列表 DTO |
+| `Common/Dto/Log/LoginLogDetailDto.java` | 登录日志详情 DTO（菜单/权限明细） |
+| `Common/Dto/Log/OperationLogDto.java` | 操作日志列表 DTO |
+| `Common/Dto/Log/OperationLogDetailDto.java` | 操作日志详情 DTO |
 | `Service/LoginLogService.java` + `impl/LoginLogServiceImpl.java` | 登录日志记录与查询 |
 | `Service/OperationLogService.java` + `impl/OperationLogServiceImpl.java` | 操作日志记录与查询 |
 | `Common/aspect/OperationLogAspect.java` | 操作日志切面 |
@@ -770,21 +823,22 @@ int deleteBefore(@Param("before") LocalDateTime before, @Param("limit") int limi
 
 **已完成（后端）**
 
-- 建表脚本：`create_login_log_table.sql`、`create_operation_log_table.sql`、`init_log_config_data.sql`；
+- 建表脚本：`create_login_log_table.sql`、`add_login_log_role_permission_fields.sql`、`create_operation_log_table.sql`、`init_log_config_data.sql`；
 - 实体与 Mapper：`SysLoginLog`、`SysOperationLog` 及清理/统计 SQL；
 - 登录日志：`AuthController` 登录成功/失败埋点，记录账号、IP、归属地、时间、结果、失败原因；
+- 角色与权限快照：登录成功时记录角色ID/名称、可访问菜单（`menu`）范围、接口权限（`api`）键与名称，支持按角色名、权限键筛选，详情接口返回完整权限明细；
 - 操作日志：`@OperationLog` 注解、`OperationLogAspect` 切面、参数脱敏、结果判定、业务 ID SpEL；
 - IP：`IpUtils` + `IpLocationService`，离线 ip2region 3.3.7 双库，IPv4/IPv6 均原样记录并解析归属地；
 - 异步：`LogAsyncConfig` 独立日志线程池，`CallerRunsPolicy` 不丢日志；
-- 查询接口：登录日志分页/最近登录/统计，操作日志分页/详情，单页上限 200 条；
+- 查询接口：登录日志分页/最近登录/统计/详情（含角色与权限快照），操作日志分页/详情，单页上限 200 条；
 - 清理：`LogCleanupTask` 每天 03:10 按保留天数分批物理删除；
 - 首批注解：用户、角色、权限、部门、用户角色/部门关联、角色权限关联、系统配置、审批流程、审批实例、审核放行；
 - 第二批、第三批注解：客户、剂型、设备、物料、制剂及配方/工序模板/文件、生产计划/工单/工序执行/领料、采购计划/订单/供应商/审核、入库/出库、验收、请检/检验/取样/留样/销毁、清洁/消毒/温湿度/压差、偏差、维保、人员档案/证书、机构/证照、岗位/职务、调拨/退货、检验单、产品汇总导出等；
 - 文件模块（`FileController`、`FileManagerController`、`BusinessFileController`）继续使用已有的 `file_operation_log`，不重复记录；登录/刷新接口由登录日志覆盖；
-- 测试：`IpUtilsTest`、`IpLocationServiceTest`、`LogParamUtilsTest`、`LogModuleIntegrationTest`，其中集成测试已覆盖写入、查询、详情、切面、路由注册与敏感参数脱敏。
+- 测试：`IpUtilsTest`、`IpLocationServiceTest`、`LogParamUtilsTest`、`LoginPermissionSnapshotUtilsTest`、`AuthControllerLoginLogTest`、`LogModuleIntegrationTest`，其中集成测试已覆盖写入、角色/权限快照、筛选、详情、切面、路由注册与敏感参数脱敏。
 
 **尚未完成**
 
 - 前端“登录日志 / 操作日志”两个页面；
 - 可选的退出登录接口与日志导出接口（各业务模块已有的导出接口已按 `EXPORT` 类型记录）；
-- 生产库需手动执行三个迁移脚本（测试库已由集成测试自动建表）。
+- 生产库需手动执行四个迁移脚本（新建表时直接使用含角色/权限字段的 `create_login_log_table.sql`；已建表则执行 `add_login_log_role_permission_fields.sql`）。
