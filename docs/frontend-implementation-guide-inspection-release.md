@@ -369,11 +369,13 @@ export function cancelInspectionTask(id: number, data: { reason: string }) {
 | 步骤 | 接口后缀 | 主要字段 |
 |---|---|---|
 | 请检 | `/request` | `inspectionCode`、`planCode`、`inspectionItemName`、`itemCategory`、`batchNumber`、`spec`、`processName`、`configQuantity`、`requestDepartment`、`requester`、`requestTime`、`inspectionItems`、`remark`、`fileIds` |
-| 检验计划 | `/plan` | `planCode`、`planPeriod`、`inspectionType`、`objectName`、`batchNo`、`spec`、`inspectionSummary`、`planTime`、`remark`、`fileIds` |
+| 检验计划 | `/plan` | `planCode`、`planPeriod`、`objectName`、`batchNo`、`spec`、`inspectionSummary`、`planTime`、`remark`、`fileIds`；`inspectionType` 由后端按任务被检品属性推导，传值不生效 |
 | 取样 | `/sampling` | `samplingCode`、`location`、`quantity`、`count`、`method`、`sampler`、`samplingTime`、`remark`、`fileIds` |
 | 检验记录 | `/inspection` | `inspectionCode`、`inspectionBasis`、`inspectionItem`、`inspector`、`reviewer`、`startTime`、`endTime`、`conclusion`、`remark`、`fileIds` |
 | 留样 | `/retention` | `retainedCode`、`quantity`、`retainedDate`、`expiryDate`、`storageLocation`、`observationRecord`、`remark`、`fileIds` |
 | 销毁（非必） | `/destruction` | `destructionCode`、`recordType`、`destroyReason`、`destroyMethod`、`destroyLocation`、`applicantName`、`applyDate`、`approverName`、`approveDate`、`destroyerName`、`destroyDate`、`supervisorName`、`superviseDate`、`remark`、`fileIds` |
+
+> 检验计划表单的“被检品属性”取任务 `itemCategory`（成品/中间产品/生产原料），只读展示；检验类型由后端推导为成品检验/中间产品检验/生产原料检验，不要做成可手选的下拉。
 
 ### 3.2 `src/api/releaseBatch.ts`
 
@@ -616,6 +618,7 @@ export function exportReleaseBatches(data: {
   - 如果 `destructionRequired === 1`，当前环节进入销毁后仍允许“跳过销毁”，调用 `skipInspectionStep(id, { stepCode: 'DESTRUCTION', reason })`；
   - 跳过必须填写原因。
 - 作废：单独入口，调用 `cancelInspectionTask`，填写原因并二次确认。
+- 归档：仅“待开始/进行中”任务显示，调用 `archiveInspectionTask`，二次确认后刷新列表和统计；归档为终态、不可解除，归档后隐藏办理、跳过、作废按钮。
 
 ### 4.5 新建检验任务
 
@@ -629,7 +632,7 @@ export function exportReleaseBatches(data: {
 
 ### 4.6 刷新规则
 
-每次办理成功、跳过、作废、创建后：
+每次办理成功、跳过、作废、归档、创建后：
 
 ```ts
 await Promise.all([
@@ -788,6 +791,7 @@ await Promise.all([loadStats(), getData()])
 | 检验中 / 待放行 | primary |
 | 待销毁 | warning |
 | 已完成 / 已放行 | success |
+| 已归档 | info |
 | 不合格 / 已拒绝 / 存在阻塞 | danger |
 
 检验当前环节映射：
@@ -824,7 +828,7 @@ const STEP_LABEL: Record<string, string> = {
 const { hasAuth } = useAuth()
 ```
 
-- 检验管理：`inspection_task_create`、`inspection_task_execute`、`inspection_task_cancel`。
+- 检验管理：`inspection_task_create`、`inspection_task_execute`、`inspection_task_cancel`、`inspection_task_archive`。
 - 审核放行：`release_batch_check`、`release_batch_approve`、`release_batch_reject`。
 - 没权限的按钮不渲染；不要只依赖后端 403。
 - 如果项目使用 `v-auth` 指令，也可在模板上使用对应标识，但同一页面统一一种方式。
@@ -833,7 +837,7 @@ const { hasAuth } = useAuth()
 
 - `request` 已统一抛错并提示；业务代码只在需要补充上下文时再 `ElMessage.error`，避免重复弹窗。
 - 抽屉打开时显示 `v-loading`；空数据用 `ElEmpty`。
-- 放行/拒绝、作废、跳过必须二次确认。
+- 放行/拒绝、作废、跳过、归档必须二次确认。
 - 保存工序检查、办理步骤时按钮加 `loading`，防止重复提交。
 - 刷新后保留当前筛选条件和批次抽屉；不要每次回列表页。
 

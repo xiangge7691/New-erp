@@ -22,7 +22,7 @@ SET `current_step` = CASE
   ELSE 'DONE'
 END
 WHERE `is_deleted` = 0
-  AND `task_status` <> '已作废';
+  AND `task_status` NOT IN ('已作废', '已归档');
 
 -- 2. 同步任务状态
 UPDATE `inspection_task`
@@ -37,7 +37,7 @@ SET `task_status` = CASE
   ELSE '进行中'
 END
 WHERE `is_deleted` = 0
-  AND `task_status` <> '已作废';
+  AND `task_status` NOT IN ('已作废', '已归档');
 
 -- 3. 让六步记录状态与新顺序一致
 UPDATE `inspection_task_step` s
@@ -55,4 +55,4 @@ SET s.`step_status` = CASE
   ELSE '待办理'
 END
 WHERE t.`is_deleted` = 0
-  AND t.`task_status` <> '已作废';
+  AND t.`task_status` NOT IN ('已作废', '已归档');

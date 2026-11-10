@@ -46,7 +46,8 @@ public class InspectionPlan extends AuditEntity {
     private String planPeriod;
 
     /**
-     * 检验类型：原料检验/过程检验/成品检验/环境监测
+     * 检验类型：生产原料检验/中间产品检验/成品检验/环境监测
+     * <p>任务流程办理检验计划时按任务被检品属性自动推导。</p>
      */
     @TableField(value = "inspection_type")
     private String inspectionType;

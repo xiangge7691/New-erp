@@ -49,6 +49,7 @@
 | `/api/inspection/tasks/{id}/destruction` | POST | 办理销毁 | 按需使用，销毁默认非必须 |
 | `/api/inspection/tasks/{id}/skip` | POST | 跳过留样/销毁 | 按配置使用 |
 | `/api/inspection/tasks/{id}/cancel` | POST | 作废任务 | 按权限使用 |
+| `/api/inspection/tasks/{id}/archive` | POST | 归档任务（终态，不可解除） | 按权限使用 |
 
 ### 2.3 已删除的冗余接口
 
@@ -168,6 +169,8 @@ export interface InspectionTaskSummary {
   objectName?: string
   currentStep?: string
   taskStatus?: string
+  archiveTime?: string
+  archiveBy?: number
   planCode?: string
   requestCode?: string
   samplingCode?: string
@@ -208,6 +211,8 @@ export interface InspectionTaskDetail {
   spec?: string
   currentStep?: string
   taskStatus?: string
+  archiveTime?: string
+  archiveBy?: number
   retentionRequired?: number
   destructionRequired?: number
   steps: InspectionStepDetail[]
@@ -280,6 +285,13 @@ export function fetchInspectionTask(id: number) {
   })
 }
 
+export function archiveInspectionTask(id: number) {
+  return request.post<InspectionTaskDetail>({
+    url: `/api/inspection/tasks/${id}/archive`,
+    showSuccessMessage: true
+  })
+}
+
 export function completeInspectionStep(
   id: number,
   step: 'plan' | 'request' | 'sampling' | 'inspection' | 'retention' | 'destruction',
@@ -305,6 +317,19 @@ export function completeInspectionStep(
 | 检验中 | `stats.inspectingBatches` |
 | 已完成 | `stats.completedBatches` |
 
+统计口径（任务与批次一致）：
+
+| 指标 | 判定 |
+|---|---|
+| 待办 | 任务当前环节为 `REQUEST` 请检 / `PLAN` 检验计划 |
+| 检验中 | 任务当前环节为 `SAMPLING` 取样 / `INSPECTION` 检验记录 / `RETENTION` 留样 / `DESTRUCTION` 销毁 |
+| 已完成 | 任务当前环节为 `DONE`（六步全部办结） |
+
+- 任务级指标（`taskTotal`、`todoTasks`、`inspectingTasks`、`completedTasks`）包含无工单的生产原料任务，已作废、已归档任务不计入。
+- 批次级指标只统计挂工单的批次：批次内全部任务 `DONE` 为已完成；未全部完成且任一任务处于取样及以后环节为检验中；其余为待办。
+- `stepCounts[].taskCount` 为该环节的任务数；`stepCounts[].batchCount` 为“批次内至少一条任务处于该环节”的批次数，与按环节筛选列表的结果一致。
+- 六步环节计数不含 `DONE`，六步 `taskCount` 之和加 `completedTasks` 等于 `taskTotal`。
+
 ### 5.2 批次列表
 
 | 列 | 字段 |
@@ -316,6 +341,8 @@ export function completeInspectionStep(
 | 检验结论 | `inspectionConclusion` |
 | 状态 | `batchStatus` |
 | 操作 | 打开批次详情 |
+
+- 批次列表和批次详情默认不包含已归档任务；归档任务只在“按任务”视图按状态查看。
 
 ### 5.3 任务抽屉
 
@@ -329,6 +356,29 @@ export function completeInspectionStep(
   - `DESTRUCTION` 销毁（非必须）
 - 已完成步骤：展示 `fields[]` 与 `files[]`。
 - 当前步骤：按 `stepCode` 打开对应表单。
+- 检验计划步骤的 `fields[]` 包含 `itemCategory`（被检品属性，取任务值）和 `inspectionType`（检验类型，后端按被检品属性推导）。前端不要把 `inspectionType` 当作被检品属性，也不要自行传入。
+
+### 5.4 任务状态与归档
+
+任务状态：
+
+| 状态 | 含义 | 是否可办理 |
+|---|---|---|
+| 待开始 | 已创建，尚未办结任何环节 | 是 |
+| 进行中 | 已办结至少一个环节，未全部办结 | 是 |
+| 已完成 | 六步全部办结 | 否 |
+| 已作废 | 人工作废 | 否 |
+| 已归档 | 不必需执行，已收档（终态） | 否 |
+
+归档规则：
+
+- 只有 `待开始`、`进行中` 的任务可以归档；`已完成`、`已作废`、`已归档` 任务不可归档。
+- 调用 `POST /api/inspection/tasks/{id}/archive`，无请求体；归档后返回任务详情，`taskStatus='已归档'`，并带 `archiveTime`、`archiveBy`。
+- 归档是终态，不提供解除归档；前端必须二次确认。
+- 归档后任务只读：隐藏办理、跳过、作废入口。
+- 默认任务列表不返回已归档任务；按状态筛选 `status=已归档` 可查看。
+- 批次列表和批次详情不展示已归档任务；全归档批次在批次视图中不可见，归档任务请在“按任务”视图查看。
+- 顶部 KPI 不计入已归档任务。
 
 ---
 
@@ -366,3 +416,4 @@ export function completeInspectionStep(
 - [ ] 办理检验计划、取样、检验记录、留样、销毁后，批次详情、任务详情、列表、统计同时刷新。
 - [ ] 销毁默认非必须时，留样完成后任务直接完成。
 - [ ] 附件通过 `steps[].files[].fileId` 预览/下载，不额外拼业务查询。
+- [ ] 归档按钮仅对待开始/进行中任务显示，二次确认后任务变为已归档并从默认列表/看板消失；按状态“已归档”可查到且只读。

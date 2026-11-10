@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 /**
  * 检验任务控制器
  * <p>
- * 提供检验任务列表、详情、六步办理、跳过和作废接口。
+ * 提供检验任务列表、详情、六步办理、跳过、作废和归档接口。
  * 一个任务对应一个工单/批次/被检品属性，六步顺序由服务层校验。
  * </p>
  *
@@ -31,6 +31,7 @@ import org.springframework.web.bind.annotation.*;
  * │ 9  │ /api/inspection/tasks/{id}/destruction       │ POST   │ 办理销毁          │
  * │ 10 │ /api/inspection/tasks/{id}/skip              │ POST   │ 跳过留样/销毁     │
  * │ 11 │ /api/inspection/tasks/{id}/cancel            │ POST   │ 作废任务          │
+ * │ 12 │ /api/inspection/tasks/{id}/archive           │ POST   │ 归档任务          │
  * └────┴──────────────────────────────────────────────┴────────┴──────────────────┘
  */
 @RestController
@@ -51,7 +52,7 @@ public class InspectionTaskController extends BaseController {
      * @param batchNo      批号（可选，模糊匹配）
      * @param itemCategory 被检品属性（可选）
      * @param step         当前环节（可选）
-     * @param status       任务状态（可选）
+     * @param status       任务状态（可选；为空时默认不包含已归档任务，可选值：待开始/进行中/已完成/已作废/已归档）
      * @param keyword      关键字（任务号/工单号/品种/批号）
      * @param pageIndex    页码，从0开始
      * @param pageSize     每页数量
@@ -118,7 +119,10 @@ public class InspectionTaskController extends BaseController {
      *
      * 示例请求：
      * POST /api/inspection/tasks/1/plan
-     * {"planPeriod":"2026-11-第1周","inspectionType":"成品检验","inspectionSummary":"全检","planTime":"2026-11-06"}
+     * {"planPeriod":"2026-11-第1周","inspectionSummary":"全检","planTime":"2026-11-06"}
+     *
+     * 说明：检验类型由任务的被检品属性自动推导（生产原料→生产原料检验，
+     * 中间产品→中间产品检验，成品→成品检验），无需传 inspectionType。
      *
      * @param id      任务ID
      * @param request 计划请求
@@ -292,6 +296,28 @@ public class InspectionTaskController extends BaseController {
             return success(inspectionTaskService.cancelTask(id, request), "任务已作废");
         } catch (Exception e) {
             return exception(e, "作废检验任务");
+        }
+    }
+
+    /**
+     * 归档检验任务
+     * <p>
+     * 仅“待开始/进行中”的任务可归档；归档后任务只读，默认不在列表和看板中展示，且不可解除归档。
+     * </p>
+     *
+     * 示例请求：POST /api/inspection/tasks/1/archive
+     *
+     * @param id 任务ID
+     * @return 任务详情
+     */
+    @OperationLog(module = "检验任务", type = OperationType.UPDATE, desc = "归档检验任务",
+            businessType = "INSPECTION_TASK", businessId = "#id")
+    @PostMapping("/{id}/archive")
+    public ApiResponse<InspectionTaskDtos.TaskDetail> archive(@PathVariable Long id) {
+        try {
+            return success(inspectionTaskService.archiveTask(id), "检验任务已归档");
+        } catch (Exception e) {
+            return exception(e, "归档检验任务");
         }
     }
 }

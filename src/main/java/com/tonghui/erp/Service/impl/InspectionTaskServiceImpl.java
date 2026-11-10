@@ -10,6 +10,7 @@ import com.tonghui.erp.Common.Dto.Quality.DestructionRecordDetailSaveDto;
 import com.tonghui.erp.Common.Dto.Quality.DestructionRecordSaveDto;
 import com.tonghui.erp.Common.Dto.QualityPages.InspectionTaskDtos;
 import com.tonghui.erp.Common.utils.EntityUtils;
+import com.tonghui.erp.Common.utils.InspectionItemCategoryPolicy;
 import com.tonghui.erp.Data.Entity.DestructionRecord;
 import com.tonghui.erp.Data.Entity.InspectionPlan;
 import com.tonghui.erp.Data.Entity.InspectionRecord;
@@ -88,6 +89,7 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
     private static final String STATUS_RUN = "进行中";
     private static final String STATUS_DONE = "已完成";
     private static final String STATUS_CANCELLED = "已作废";
+    private static final String STATUS_ARCHIVED = "已归档";
 
     private static final String STEP_STATUS_WAIT = "待办理";
     private static final String STEP_STATUS_RUN = "进行中";
@@ -97,6 +99,13 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
     private static final List<String> STEP_ORDER = List.of(
             STEP_REQUEST, STEP_PLAN, STEP_SAMPLING, STEP_INSPECTION, STEP_RETENTION, STEP_DESTRUCTION
     );
+
+    /**
+     * 检验中阶段：已进入取样及后续环节，但尚未全部办结
+     * <p>看板口径：待办 = 其余（请检/检验计划），已完成 = DONE。</p>
+     */
+    private static final Set<String> INSPECTING_STEPS = Set.of(
+            STEP_SAMPLING, STEP_INSPECTION, STEP_RETENTION, STEP_DESTRUCTION);
 
     private static final Map<String, String> STEP_NAMES = Map.of(
             STEP_REQUEST, "请检",
@@ -164,6 +173,10 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
                                                                   int pageIndex, int pageSize) {
         Page<InspectionTask> pageRequest = new Page<>(pageIndex + 1, pageSize);
         QueryWrapper<InspectionTask> wrapper = buildTaskWrapper(varietyCode, batchNo, itemCategory, step, status, keyword);
+        // 默认不展示已归档任务；显式按状态查询时按状态精确匹配
+        if (!StringUtils.hasText(status)) {
+            wrapper.ne("task_status", STATUS_ARCHIVED);
+        }
         Page<InspectionTask> result = page(pageRequest, wrapper);
         List<InspectionTaskDtos.TaskSummary> items = buildSummaries(result.getRecords());
 
@@ -201,6 +214,8 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
                                                                      String itemCategory, String step,
                                                                      String status, String keyword) {
         QueryWrapper<InspectionTask> wrapper = buildTaskWrapper(varietyCode, batchNo, itemCategory, step, status, keyword);
+        // 批次视图不展示已归档任务
+        wrapper.ne("task_status", STATUS_ARCHIVED);
         // 批次视图按工单聚合；生产原料任务不关联工单，只在任务视图展示
         wrapper.isNotNull("work_order_id");
         List<InspectionTask> tasks = list(wrapper);
@@ -220,6 +235,7 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
         }
         List<InspectionTask> tasks = list(new QueryWrapper<InspectionTask>()
                 .eq("work_order_id", workOrderId)
+                .ne("task_status", STATUS_ARCHIVED)
                 .orderByAsc("id"));
         if (tasks.isEmpty()) {
             throw new IllegalArgumentException("检验批次不存在");
@@ -227,69 +243,103 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
         return buildBatchSummary(tasks);
     }
 
+    /**
+     * 查询检验看板统计
+     * <p>
+     * 统计口径：
+     * <ul>
+     *   <li>任务维度统计全部未删除、未作废、未归档的检验任务，包含无工单的生产原料任务；</li>
+     *   <li>批次维度只统计挂工单的任务，按工单/批次聚合；</li>
+     *   <li>待办 = 请检/检验计划，检验中 = 取样至销毁（尚未办结），已完成 = 全部办结（DONE）；</li>
+     *   <li>环节批次数按“批次内至少一条任务处于该环节”统计，与按环节筛选列表一致。</li>
+     * </ul>
+     * </p>
+     */
     @Override
     public InspectionTaskDtos.BoardStats queryBoardStats(String varietyCode, String batchNo,
                                                          String itemCategory, String status,
                                                          String keyword) {
-        List<InspectionTaskDtos.BatchSummary> summaries = loadBatchSummaries(
+        // 统计范围：全部任务（含无工单任务），已作废、已归档任务不计入
+        QueryWrapper<InspectionTask> wrapper = buildTaskWrapper(
                 varietyCode, batchNo, itemCategory, null, status, keyword);
+        wrapper.ne("task_status", STATUS_CANCELLED);
+        wrapper.ne("task_status", STATUS_ARCHIVED);
+        List<InspectionTask> tasks = list(wrapper);
 
         InspectionTaskDtos.BoardStats stats = new InspectionTaskDtos.BoardStats();
-        stats.setBatchTotal(summaries.size());
+        stats.setTaskTotal(tasks.size());
+
+        // 六步环节计数：任务数按全部任务统计
         Map<String, InspectionTaskDtos.StepCount> stepMap = new LinkedHashMap<>();
         for (String stepCode : STEP_ORDER) {
             stepMap.put(stepCode, new InspectionTaskDtos.StepCount(
                     stepCode, STEP_NAMES.getOrDefault(stepCode, stepCode)));
         }
 
+        int todoTasks = 0;
+        int inspectingTasks = 0;
+        int completedTasks = 0;
+        for (InspectionTask task : tasks) {
+            String step = task.getCurrentStep();
+            if (STEP_DONE.equals(step)) {
+                completedTasks++;
+            } else if (step != null && INSPECTING_STEPS.contains(step)) {
+                inspectingTasks++;
+            } else {
+                // 请检/检验计划及历史空值均视为待办
+                todoTasks++;
+            }
+            InspectionTaskDtos.StepCount stepCount = stepMap.get(step);
+            if (stepCount != null) {
+                stepCount.setTaskCount(stepCount.getTaskCount() + 1);
+            }
+        }
+
+        // 批次维度：只统计挂工单的任务，按工单/批次聚合
+        Map<String, List<InspectionTask>> grouped = new LinkedHashMap<>();
+        for (InspectionTask task : tasks) {
+            if (task.getWorkOrderId() == null) {
+                continue;
+            }
+            grouped.computeIfAbsent(batchGroupKey(task), key -> new ArrayList<>()).add(task);
+        }
+
         int todoBatches = 0;
         int inspectingBatches = 0;
         int completedBatches = 0;
         int unqualifiedBatches = 0;
-        int taskTotal = 0;
-        int todoTasks = 0;
-        int inspectingTasks = 0;
-        int completedTasks = 0;
-
-        for (InspectionTaskDtos.BatchSummary summary : summaries) {
-            String step = summary.getCurrentStep();
-            if (STEP_DONE.equals(step)) {
+        for (List<InspectionTask> group : grouped.values()) {
+            boolean allCompleted = group.stream()
+                    .allMatch(task -> STEP_DONE.equals(task.getCurrentStep()));
+            boolean anyInspecting = group.stream()
+                    .anyMatch(task -> task.getCurrentStep() != null
+                            && INSPECTING_STEPS.contains(task.getCurrentStep()));
+            if (allCompleted) {
                 completedBatches++;
-            } else if (STEP_INSPECTION.equals(step)) {
+            } else if (anyInspecting) {
                 inspectingBatches++;
             } else {
                 todoBatches++;
             }
-            if ("不合格".equals(summary.getBatchStatus())) {
+            // 批次内每个任务所处环节都计入对应批次数，保证与按环节筛选列表一致
+            Set<String> batchSteps = group.stream()
+                    .map(InspectionTask::getCurrentStep)
+                    .filter(stepMap::containsKey)
+                    .collect(Collectors.toSet());
+            for (String step : batchSteps) {
+                stepMap.get(step).setBatchCount(stepMap.get(step).getBatchCount() + 1);
+            }
+            // 检验结论来自检验记录，复用批次汇总的结论判定
+            if ("不合格".equals(buildBatchSummary(group).getBatchStatus())) {
                 unqualifiedBatches++;
-            }
-            InspectionTaskDtos.StepCount batchStep = stepMap.get(step);
-            if (batchStep != null) {
-                batchStep.setBatchCount(batchStep.getBatchCount() + 1);
-            }
-
-            for (InspectionTaskDtos.TaskSummary task : summary.getTasks()) {
-                taskTotal++;
-                String taskStep = task.getCurrentStep();
-                if (STEP_DONE.equals(taskStep)) {
-                    completedTasks++;
-                } else if (STEP_INSPECTION.equals(taskStep)) {
-                    inspectingTasks++;
-                } else {
-                    todoTasks++;
-                }
-                InspectionTaskDtos.StepCount taskStepCount = stepMap.get(taskStep);
-                if (taskStepCount != null) {
-                    taskStepCount.setTaskCount(taskStepCount.getTaskCount() + 1);
-                }
             }
         }
 
+        stats.setBatchTotal(grouped.size());
         stats.setTodoBatches(todoBatches);
         stats.setInspectingBatches(inspectingBatches);
         stats.setCompletedBatches(completedBatches);
         stats.setUnqualifiedBatches(unqualifiedBatches);
-        stats.setTaskTotal(taskTotal);
         stats.setTodoTasks(todoTasks);
         stats.setInspectingTasks(inspectingTasks);
         stats.setCompletedTasks(completedTasks);
@@ -471,6 +521,8 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
             dto.setObjectName(t.getObjectName());
             dto.setCurrentStep(t.getCurrentStep());
             dto.setTaskStatus(t.getTaskStatus());
+            dto.setArchiveTime(t.getArchiveTime());
+            dto.setArchiveBy(t.getArchiveBy());
             if (t.getPlanRefId() != null && plans.get(t.getPlanRefId()) != null) {
                 dto.setPlanCode(plans.get(t.getPlanRefId()).getPlanCode());
             }
@@ -514,7 +566,7 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
 
     @Override
     public InspectionTaskDtos.TaskDetail getTaskDetail(Long id) {
-        InspectionTask task = getTaskOrThrow(id);
+        InspectionTask task = getTaskForView(id);
         InspectionTaskDtos.TaskDetail detail = new InspectionTaskDtos.TaskDetail();
         detail.setId(task.getId());
         detail.setTaskCode(task.getTaskCode());
@@ -529,6 +581,8 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
         detail.setSpec(task.getSpec());
         detail.setCurrentStep(task.getCurrentStep());
         detail.setTaskStatus(task.getTaskStatus());
+        detail.setArchiveTime(task.getArchiveTime());
+        detail.setArchiveBy(task.getArchiveBy());
         detail.setRetentionRequired(task.getRetentionRequired());
         detail.setDestructionRequired(task.getDestructionRequired());
         detail.setStartTime(task.getStartTime());
@@ -568,6 +622,7 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
                 dto.setCode(plan.getPlanCode());
                 dto.getFields().add(new InspectionTaskDtos.FieldItem("planCode", "计划编号", plan.getPlanCode()));
                 dto.getFields().add(new InspectionTaskDtos.FieldItem("planPeriod", "计划周期", plan.getPlanPeriod()));
+                dto.getFields().add(new InspectionTaskDtos.FieldItem("itemCategory", "被检品属性", task.getItemCategory()));
                 dto.getFields().add(new InspectionTaskDtos.FieldItem("inspectionType", "检验类型", plan.getInspectionType()));
                 dto.getFields().add(new InspectionTaskDtos.FieldItem("objectName", "检验对象", plan.getObjectName()));
                 dto.getFields().add(new InspectionTaskDtos.FieldItem("batchNo", "批号", plan.getBatchNo()));
@@ -687,6 +742,7 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
                 .eq("batch_no", batchNo)
                 .isNull("request_ref_id")
                 .ne("task_status", STATUS_CANCELLED)
+                .ne("task_status", STATUS_ARCHIVED)
                 .orderByAsc("id")
                 .last("LIMIT 1"), false);
         if (exist != null) {
@@ -738,7 +794,14 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
             plan.setPlanCode(StringUtils.hasText(request.getPlanCode()) ? request.getPlanCode() : inspectionPlanService.generateCode());
         }
         plan.setPlanPeriod(StringUtils.hasText(request.getPlanPeriod()) ? request.getPlanPeriod() : "");
-        plan.setInspectionType(StringUtils.hasText(request.getInspectionType()) ? request.getInspectionType() : "成品检验");
+        // 检验类型以任务被检品属性为准，避免前端传错或默认值造成计划类型与请检口径不一致
+        String inspectionType = InspectionItemCategoryPolicy.inspectionTypeOf(task.getItemCategory());
+        if (StringUtils.hasText(request.getInspectionType())
+                && !inspectionType.equals(request.getInspectionType())) {
+            log.warn("检验任务 {} 的检验类型 {} 与被检品属性 {} 不一致，已按被检品属性修正为 {}",
+                    task.getTaskCode(), request.getInspectionType(), task.getItemCategory(), inspectionType);
+        }
+        plan.setInspectionType(inspectionType);
         plan.setObjectName(StringUtils.hasText(request.getObjectName()) ? request.getObjectName() : task.getObjectName());
         plan.setBatchNo(StringUtils.hasText(request.getBatchNo()) ? request.getBatchNo() : task.getBatchNo());
         plan.setSpec(StringUtils.hasText(request.getSpec()) ? request.getSpec() : task.getSpec());
@@ -1005,6 +1068,58 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
         return getTaskDetail(task.getId());
     }
 
+    /**
+     * 归档检验任务
+     * <p>
+     * 仅“待开始/进行中”的任务可归档；归档后任务只读，默认不在任务列表、批次视图和看板中展示，
+     * 且不可解除归档。使用条件更新避免与办理操作并发互相覆盖。
+     * </p>
+     *
+     * @param id 任务ID
+     * @return 任务详情
+     */
+    @Override
+    @Transactional
+    public InspectionTaskDtos.TaskDetail archiveTask(Long id) {
+        InspectionTask task = getTaskForView(id);
+        String status = task.getTaskStatus();
+        if (STATUS_ARCHIVED.equals(status)) {
+            throw new IllegalArgumentException("检验任务已归档，不能重复归档");
+        }
+        if (STATUS_CANCELLED.equals(status)) {
+            throw new IllegalArgumentException("已作废的检验任务不能归档");
+        }
+        if (STATUS_DONE.equals(status)) {
+            throw new IllegalArgumentException("已完成的任务不能归档");
+        }
+        if (!STATUS_WAIT.equals(status) && !STATUS_RUN.equals(status)) {
+            throw new IllegalArgumentException("当前任务状态不支持归档");
+        }
+        // 条件更新：只有仍处于待开始/进行中时才归档，避免与办理操作并发覆盖
+        InspectionTask patch = new InspectionTask();
+        patch.setTaskStatus(STATUS_ARCHIVED);
+        patch.setArchiveTime(LocalDateTime.now());
+        patch.setArchiveBy(EntityUtils.getCurrentUserId());
+        boolean updated = update(patch, new QueryWrapper<InspectionTask>()
+                .eq("id", id)
+                .in("task_status", List.of(STATUS_WAIT, STATUS_RUN)));
+        if (!updated) {
+            // 并发下状态已变化，重新读取后给出准确提示
+            InspectionTask latest = getTaskForView(id);
+            if (STATUS_ARCHIVED.equals(latest.getTaskStatus())) {
+                throw new IllegalArgumentException("检验任务已归档，不能重复归档");
+            }
+            if (STATUS_DONE.equals(latest.getTaskStatus())) {
+                throw new IllegalArgumentException("已完成的任务不能归档");
+            }
+            if (STATUS_CANCELLED.equals(latest.getTaskStatus())) {
+                throw new IllegalArgumentException("已作废的检验任务不能归档");
+            }
+            throw new IllegalArgumentException("任务状态已变化，请刷新后重试");
+        }
+        return getTaskDetail(id);
+    }
+
     // endregion
 
     // region 由请检单生成任务
@@ -1058,6 +1173,7 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
                     .isNull("request_ref_id")
                     .eq("current_step", STEP_REQUEST)
                     .ne("task_status", STATUS_CANCELLED)
+                    .ne("task_status", STATUS_ARCHIVED)
                     .orderByAsc("id")
                     .last("LIMIT 1"), false);
         }
@@ -1166,6 +1282,15 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
         if (plan == null) {
             return;
         }
+        // 关联存量计划时同步修正检验类型，保证与任务被检品属性一致
+        String inspectionType = InspectionItemCategoryPolicy.inspectionTypeOf(task.getItemCategory());
+        if (!inspectionType.equals(plan.getInspectionType())) {
+            log.warn("检验计划 {} 的检验类型 {} 与任务 {} 的被检品属性 {} 不一致，已修正为 {}",
+                    plan.getPlanCode(), plan.getInspectionType(), task.getTaskCode(),
+                    task.getItemCategory(), inspectionType);
+            plan.setInspectionType(inspectionType);
+            inspectionPlanService.updateById(plan);
+        }
         task.setPlanRefId(plan.getId());
         completeStepAndAdvance(task, STEP_PLAN, "inspection_plan", plan.getId(),
                 "关联检验计划 " + plan.getPlanCode() + " 已完成");
@@ -1178,13 +1303,27 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
     // 内部流程工具
     // ===================================
 
-    private InspectionTask getTaskOrThrow(Long id) {
+    /**
+     * 查询任务用于查看：允许已作废、已归档等所有状态
+     */
+    private InspectionTask getTaskForView(Long id) {
         InspectionTask task = getById(id);
         if (task == null) {
             throw new IllegalArgumentException("检验任务不存在");
         }
+        return task;
+    }
+
+    /**
+     * 查询任务用于办理：已作废、已归档任务不可再办理
+     */
+    private InspectionTask getTaskOrThrow(Long id) {
+        InspectionTask task = getTaskForView(id);
         if (STATUS_CANCELLED.equals(task.getTaskStatus())) {
             throw new IllegalArgumentException("检验任务已作废");
+        }
+        if (STATUS_ARCHIVED.equals(task.getTaskStatus())) {
+            throw new IllegalArgumentException("检验任务已归档，不能办理");
         }
         return task;
     }

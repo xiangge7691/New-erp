@@ -46,8 +46,12 @@ public final class InspectionTaskDtos {
         private String objectName;
         /** 当前环节：REQUEST/PLAN/SAMPLING/INSPECTION/RETENTION/DESTRUCTION/DONE */
         private String currentStep;
-        /** 任务状态：待开始/进行中/已完成/已跳过/已作废 */
+        /** 任务状态：待开始/进行中/已完成/已作废/已归档 */
         private String taskStatus;
+        /** 归档时间 */
+        private LocalDateTime archiveTime;
+        /** 归档人ID */
+        private Long archiveBy;
         /** 检验计划编号 */
         private String planCode;
         /** 请检单号 */
@@ -103,28 +107,34 @@ public final class InspectionTaskDtos {
         private List<TaskSummary> tasks = new ArrayList<>();
     }
 
-    /** 检验看板统计 */
+    /**
+     * 检验看板统计
+     * <p>
+     * 三态口径：待办 = 请检/检验计划，检验中 = 取样至销毁（尚未办结），已完成 = 全部办结（DONE）。
+     * 任务维度包含无工单的生产原料任务，已作废任务不计入；批次维度只统计挂工单的任务。
+     * </p>
+     */
     @Data
     public static class BoardStats {
-        /** 批次总数 */
+        /** 批次总数（只统计挂工单的批次） */
         private int batchTotal;
-        /** 待办批次数 */
+        /** 待办批次数：所有未完成任务都停留在请检/检验计划 */
         private int todoBatches;
-        /** 检验中批次数 */
+        /** 检验中批次数：未全部完成，且至少一条任务处于取样及以后环节 */
         private int inspectingBatches;
-        /** 已完成批次数 */
+        /** 已完成批次数：批次内所有任务均已全部办结 */
         private int completedBatches;
-        /** 不合格批次数 */
+        /** 不合格批次数（任一任务检验结论为不合格） */
         private int unqualifiedBatches;
-        /** 任务总数 */
+        /** 任务总数（含无工单的生产原料任务，不含已作废任务） */
         private int taskTotal;
-        /** 待办任务数 */
+        /** 待办任务数：当前环节为请检/检验计划 */
         private int todoTasks;
-        /** 检验中任务数 */
+        /** 检验中任务数：当前环节为取样/检验记录/留样/销毁 */
         private int inspectingTasks;
-        /** 已完成任务数 */
+        /** 已完成任务数：当前环节为 DONE */
         private int completedTasks;
-        /** 六步环节计数 */
+        /** 六步环节计数（不含已完成环节） */
         private List<StepCount> stepCounts = new ArrayList<>();
     }
 
@@ -135,9 +145,9 @@ public final class InspectionTaskDtos {
         private String stepCode;
         /** 环节名称 */
         private String stepName;
-        /** 环节批次数量 */
+        /** 环节批次数：至少一条任务处于该环节的批次数 */
         private int batchCount;
-        /** 任务数量 */
+        /** 环节任务数 */
         private int taskCount;
 
         public StepCount() {
@@ -176,8 +186,12 @@ public final class InspectionTaskDtos {
         private String spec;
         /** 当前环节：REQUEST/PLAN/SAMPLING/INSPECTION/RETENTION/DESTRUCTION/DONE */
         private String currentStep;
-        /** 任务状态：待开始/进行中/已完成/已跳过/已作废 */
+        /** 任务状态：待开始/进行中/已完成/已作废/已归档 */
         private String taskStatus;
+        /** 归档时间 */
+        private LocalDateTime archiveTime;
+        /** 归档人ID */
+        private Long archiveBy;
         /** 是否要求留样：1是/0否 */
         private Integer retentionRequired;
         /** 是否要求销毁：1是/0否，默认非必须 */
@@ -282,7 +296,7 @@ public final class InspectionTaskDtos {
         private String planCode;
         /** 计划周期 */
         private String planPeriod;
-        /** 检验类型 */
+        /** 检验类型（历史字段：后端按任务被检品属性自动推导，传入值不再生效） */
         private String inspectionType;
         /** 检验对象名称 */
         private String objectName;

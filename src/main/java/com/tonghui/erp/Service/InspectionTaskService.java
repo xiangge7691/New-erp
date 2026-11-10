@@ -9,7 +9,7 @@ import com.tonghui.erp.Data.Entity.InspectionTask;
 /**
  * 检验任务服务
  * <p>
- * 负责检验任务列表/详情、六步办理、跳过与作废。
+ * 负责检验任务列表/详情、六步办理、跳过、作废与归档。
  * 每个步骤成功后在同一事务内推进任务状态并写步骤记录。
  * </p>
  */
@@ -22,7 +22,7 @@ public interface InspectionTaskService extends IService<InspectionTask> {
      * @param batchNo     批号
      * @param itemCategory 被检品属性
      * @param step        当前环节
-     * @param status      任务状态
+     * @param status      任务状态；为空时默认不包含已归档任务
      * @param keyword     关键字
      * @param pageIndex   页码，从0开始
      * @param pageSize    每页数量
@@ -59,6 +59,10 @@ public interface InspectionTaskService extends IService<InspectionTask> {
 
     /**
      * 查询检验看板统计
+     * <p>
+     * 三态口径：待办 = 请检/检验计划，检验中 = 取样至销毁（尚未办结），已完成 = 全部办结（DONE）。
+     * 任务维度包含无工单的生产原料任务，已作废、已归档任务不计入；批次维度只统计挂工单的任务。
+     * </p>
      *
      * @param varietyCode  品种编码
      * @param batchNo      批号
@@ -170,4 +174,16 @@ public interface InspectionTaskService extends IService<InspectionTask> {
      * @return 任务详情
      */
     InspectionTaskDtos.TaskDetail cancelTask(Long id, InspectionTaskDtos.CancelRequest request);
+
+    /**
+     * 归档检验任务
+     * <p>
+     * 仅“待开始/进行中”的任务可归档；归档后任务只读，默认不在任务列表、批次视图和看板中展示，
+     * 且不可解除归档。
+     * </p>
+     *
+     * @param id 任务ID
+     * @return 任务详情
+     */
+    InspectionTaskDtos.TaskDetail archiveTask(Long id);
 }

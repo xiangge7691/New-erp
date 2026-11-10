@@ -70,6 +70,7 @@
 | `/api/inspection/tasks/{id}/destruction` | POST | 办理销毁 |
 | `/api/inspection/tasks/{id}/skip` | POST | 跳过留样/销毁（带原因） |
 | `/api/inspection/tasks/{id}/cancel` | POST | 作废任务 |
+| `/api/inspection/tasks/{id}/archive` | POST | 归档任务（仅待开始/进行中；终态不可解除） |
 
 代码：
 - `Controller/InspectionTaskController.java`
@@ -78,6 +79,8 @@
 - `Service/impl/InspectionTaskServiceImpl.java`
 - `Common/Dto/QualityPages/InspectionTaskDtos.java`
 - 实体/Mapper：`InspectionTask`、`InspectionTaskStep` + Mapper
+- 归档字段迁移：`Data/migration/add_inspection_task_archive_fields.sql`（`archive_time`、`archive_by`）
+- 数据修正：`Data/migration/fix_inspection_plan_type_by_task_category.sql`（按任务被检品属性修正检验计划类型）
 
 流程规则：
 - 六步顺序：`REQUEST → PLAN → SAMPLING → INSPECTION → RETENTION → DESTRUCTION(非必须) → DONE`。

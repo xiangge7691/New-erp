@@ -102,16 +102,59 @@ public class InspectionFlowOrderTest {
         Assertions.assertEquals("已完成", task.getTaskStatus(), "任务状态应为已完成");
     }
 
+    @Test
+    public void planTypeShouldFollowItemCategory() {
+        WorkOrder workOrder = findFreeWorkOrder();
+        Assumptions.assumeTrue(workOrder != null, "测试库没有可用的空闲工单，跳过检验类型推导测试");
+
+        InspectionTaskDtos.CreateTaskRequest create = new InspectionTaskDtos.CreateTaskRequest();
+        create.setWorkOrderId(workOrder.getWorkOrderId());
+        create.setItemCategory("成品");
+        create.setRetentionRequired(0);
+        create.setDestructionRequired(0);
+
+        InspectionTaskDtos.TaskDetail task = inspectionTaskService.createTask(create);
+        Long id = task.getId();
+        inspectionTaskService.completeRequest(id, requestStep());
+
+        // 模拟前端传错检验类型，后端应按被检品属性强制修正
+        InspectionTaskDtos.PlanStepRequest plan = planStep();
+        plan.setInspectionType("生产原料检验");
+        inspectionTaskService.completePlan(id, plan);
+
+        InspectionTaskDtos.TaskDetail detail = inspectionTaskService.getTaskDetail(id);
+        InspectionTaskDtos.StepDetail planStep = detail.getSteps().stream()
+                .filter(step -> "PLAN".equals(step.getStepCode()))
+                .findFirst()
+                .orElseThrow();
+        String type = null;
+        String category = null;
+        for (InspectionTaskDtos.FieldItem field : planStep.getFields()) {
+            if ("inspectionType".equals(field.getKey())) {
+                type = field.getValue();
+            }
+            if ("itemCategory".equals(field.getKey())) {
+                category = field.getValue();
+            }
+        }
+        Assertions.assertEquals("成品", category, "检验计划应展示任务被检品属性");
+        Assertions.assertEquals("成品检验", type, "检验类型应按被检品属性自动推导");
+    }
+
     /**
-     * 优先找没有成品检验任务的工单，避免唯一键冲突
+     * 优先找没有指定被检品属性任务的工单，避免建任务时命中已有任务
      */
     private WorkOrder findFreeWorkOrder() {
+        return findFreeWorkOrder("成品");
+    }
+
+    private WorkOrder findFreeWorkOrder(String itemCategory) {
         List<WorkOrder> orders = workOrderMapper.selectList(new QueryWrapper<WorkOrder>().last("LIMIT 100"));
         for (WorkOrder order : orders) {
             String batchNo = order.getBatchNumber() == null ? "" : order.getBatchNumber();
             Long count = inspectionTaskMapper.selectCount(new QueryWrapper<InspectionTask>()
                     .eq("work_order_id", order.getWorkOrderId())
-                    .eq("item_category", "成品")
+                    .eq("item_category", itemCategory)
                     .eq("batch_no", batchNo));
             if (count == null || count == 0) {
                 return order;

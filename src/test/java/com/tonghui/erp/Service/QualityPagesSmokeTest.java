@@ -213,7 +213,8 @@ public class QualityPagesSmokeTest {
         int expectedCompleted = 0;
         java.util.Map<String, Integer> expectedStepCounts = new java.util.HashMap<>();
         for (JsonNode task : tasks.path("items")) {
-            if ("已作废".equals(task.path("taskStatus").asText())) {
+            String taskStatus = task.path("taskStatus").asText();
+            if ("已作废".equals(taskStatus) || "已归档".equals(taskStatus)) {
                 continue;
             }
             String step = task.path("currentStep").asText();

@@ -91,7 +91,7 @@ public class InspectionTask extends AuditEntity {
     @TableField(value = "current_step")
     private String currentStep;
 
-    /** 任务状态：待开始/进行中/已完成/已跳过/已作废 */
+    /** 任务状态：待开始/进行中/已完成/已作废/已归档 */
     @TableField(value = "task_status")
     private String taskStatus;
 
@@ -134,6 +134,14 @@ public class InspectionTask extends AuditEntity {
     /** 任务完成时间 */
     @TableField(value = "complete_time")
     private LocalDateTime completeTime;
+
+    /** 归档时间 */
+    @TableField(value = "archive_time")
+    private LocalDateTime archiveTime;
+
+    /** 归档人ID */
+    @TableField(value = "archive_by")
+    private Long archiveBy;
 
     /** 备注 */
     @TableField(value = "remark")

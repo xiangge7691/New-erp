@@ -71,6 +71,10 @@ public class InspectionBatchController extends BaseController {
 
     /**
      * 查询检验看板统计
+     * <p>
+     * 三态口径：待办 = 请检/检验计划，检验中 = 取样至销毁（尚未办结），已完成 = 全部办结（DONE）。
+     * 任务维度包含无工单的生产原料任务，已作废任务不计入；批次维度只统计挂工单的任务。
+     * </p>
      *
      * 示例请求：
      * GET /api/inspection/batches/stats?varietyCode=Z04-011&batchNo=260901&itemCategory=成品
