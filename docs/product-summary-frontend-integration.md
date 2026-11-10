@@ -139,6 +139,7 @@ export interface ProductSummaryBatch {
   processTotal?: number
   processCompleted?: number
   status?: string
+  productionDone: boolean
   fileCount: number
   fileExpected: number
   fileUploaded: number
@@ -159,6 +160,7 @@ export interface ProductSummaryOverview {
   }
   kpis: {
     runningBatches: number
+    completedBatches: number
     totalBatches: number
     missingItems: number
     missingRecords: number
@@ -175,6 +177,7 @@ export interface ProductSummaryOverview {
     topSlots: Array<{ stage: string; label: string; requirement: string; expected: number; uploaded: number; missing: number }>
     allSlots: Array<{ stage: string; label: string; requirement: string; expected: number; uploaded: number; missing: number }>
   }
+  fileChecklist: ProductSummaryFileChecklistItem[]
   preparations: Array<{
     preparationCode: string
     preparationName: string
@@ -210,6 +213,34 @@ export interface ProductSummaryFileGroup {
   fileKind?: string
   requirement?: string
   slotCode?: string
+  files: ProductSummaryFile[]
+}
+
+/** 文件完整性清单：按环节/槽位返回应传、已传、缺失及单号对应文件 */
+export interface ProductSummaryFileChecklistItem {
+  nodeKey?: string
+  stage?: string
+  label?: string
+  bizType?: string
+  fileKind?: string
+  slotCode?: string
+  requirement?: 'REQUIRED' | 'CONDITIONAL' | 'OPTIONAL' | string
+  total: number
+  uploaded: number
+  missing: number
+  note?: string
+  missingDetails: string[]
+  documents: ProductSummaryFileChecklistDocument[]
+}
+
+/** 清单中的单据及该槽位下的文件 */
+export interface ProductSummaryFileChecklistDocument {
+  recordKey?: string
+  workOrderCode?: string
+  batchNo?: string | null
+  docId?: number
+  docCode?: string
+  uploaded: boolean
   files: ProductSummaryFile[]
 }
 
@@ -278,6 +309,7 @@ export interface ProductSummaryDetail {
     doc?: string
     slotCode?: string
   }>
+  fileChecklist: ProductSummaryFileChecklistItem[]
 }
 
 export interface ProductSummaryExportRequest {
@@ -422,10 +454,19 @@ await Promise.all([loadOverview(), getData()])
 
 | 卡片 | 字段 |
 |---|---|
-| 在产批次 | `kpis.runningBatches` / `kpis.totalBatches` |
+| 在产批次 | `kpis.runningBatches` / `kpis.completedBatches` / `kpis.totalBatches` |
 | 待处理缺件 | `kpis.missingItems` / `kpis.missingRecords` |
 | 附件完整度 | `kpis.completenessRate` / `fileUploaded` / `fileExpected` |
 | 检验合格率 | `kpis.inspectionRate` / `inspectionQualified` / `inspectionTotal` |
+
+在产/完成口径：
+
+- 工单状态流转为 待生产 → 生产中 → 已生产 → 检验中 → 已检验 → 已放行 → 已入库 → 已归档；
+- **成品入库即视为生产完成**：`已入库`、`已归档` 计入 `completedBatches`，不计入 `runningBatches`；
+- `异常`、`不合格`、`作废` 为终止状态，既不计入在产也不计入完成；
+- 审核放行、成品出库属于入库后的后续环节，不影响“在产/完成”判定；
+- 列表/卡片行可用 `batch.productionDone` 判断是否展示为“已完成”；`status` 仍保留真实状态值（如 `已入库`），便于区分进度；
+- 卡片副标题建议显示为「在产 {runningBatches} · 已入库 {completedBatches} · 共 {totalBatches} 批」。
 
 ### 5.3 优先处理
 
@@ -449,6 +490,28 @@ await Promise.all([loadOverview(), getData()])
 - `allSlots`：底部“查看全部槽位口径”折叠区。
 
 注意：`health` 只包含必传/条件必传；`OPTIONAL` 已在后端过滤。
+
+#### 5.4.1 按节点查看单号与文件
+
+输入：`overview.fileChecklist`（跨记录按 环节 + 槽位 合并）或批次详情的 `fileChecklist`（单批次）。
+
+| 字段 | 说明 |
+|---|---|
+| `nodeKey` / `stage` | 链路节点编码与环节名，用于按节点分组 |
+| `label` | 槽位显示名，如「验收检验报告」 |
+| `slotCode` | 槽位编码：`bizType / fileKind`，与 `missingItems.slotCode` 对应 |
+| `requirement` | `REQUIRED` / `CONDITIONAL` / `OPTIONAL` |
+| `total` / `uploaded` / `missing` | 应传单据数 / 已传单据数 / 缺件数 |
+| `note` | 缺失提示，可直接展示 |
+| `missingDetails[]` | 缺失明细，如「验收单 YS-20261019-005 缺 验收检验报告」 |
+| `documents[]` | 该槽位下的单据，每条带 `docCode`（单号）与该槽位已上传的 `files[]` |
+
+展示建议：
+
+- 按 10 个节点分组，节点行显示应传/已传/缺 N；
+- 展开节点后按 `label` 展示槽位，槽位下列出 `documents[]`：单号 + 已传文件（`files[]`，用 `fileId` 预览/下载）+ 缺失标记（`uploaded=false`）；
+- `OPTIONAL` 行标「可空缺」，不计入缺件数；
+- 点单号可打开对应批次详情抽屉；`recordKey` 用于定位 `planId` / `workOrderId`。
 
 ### 5.5 制剂卡片
 

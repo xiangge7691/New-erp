@@ -5,6 +5,7 @@ import com.tonghui.erp.Common.Dto.BusinessFile.BusinessFileDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.QualityPages.BatchContext;
 import com.tonghui.erp.Common.Dto.QualityPages.ProductSummaryDtos;
+import com.tonghui.erp.Common.utils.WorkOrderStatusPolicy;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
 import com.tonghui.erp.Data.Entity.DeviationRecord;
 import com.tonghui.erp.Data.Entity.FileInfo;
@@ -50,7 +51,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.HashSet;
@@ -217,26 +217,35 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         overview.setVerdict(verdict);
         overview.setTodo(todo);
 
-        List<ProductSummaryDtos.SlotState> slots = new ArrayList<>();
+        // 按节点输出文件清单，带单号及对应文件，供页面定位具体缺失；健康度与 KPI 同源计算
+        List<FileRequirementConfig> fileConfigs = fileRequirementService.listAll();
+        Map<String, ProductSummaryDtos.FileChecklistItem> checklistMap = new LinkedHashMap<>();
         for (BatchContext ctx : data.contexts) {
-            slots.addAll(slotStates(ctx));
+            mergeFileChecklist(checklistMap, fileChecklist(ctx, recordKey(ctx), fileConfigs));
         }
         for (ProductionPlan plan : data.planOnlyPlans) {
-            slots.addAll(planOnlySlots(plan));
+            mergeFileChecklist(checklistMap, planOnlyFileChecklist(plan, fileConfigs));
         }
-        slots = slots.stream()
-                .filter(s -> s.getExpected() > 0 && !"OPTIONAL".equals(s.getRequirement()))
+        List<ProductSummaryDtos.FileChecklistItem> checklist = checklistMap.values().stream()
+                .sorted(Comparator.comparingInt(
+                                (ProductSummaryDtos.FileChecklistItem s) -> stageOrder(s.getStage()))
+                        .thenComparing(ProductSummaryDtos.FileChecklistItem::getLabel))
+                .collect(Collectors.toList());
+        overview.setFileChecklist(checklist);
+
+        List<ProductSummaryDtos.FileChecklistItem> countedSlots = checklist.stream()
+                .filter(s -> s.getTotal() > 0 && !"OPTIONAL".equals(s.getRequirement()))
                 .collect(Collectors.toList());
 
         Map<String, ProductSummaryDtos.StageHealth> stageMap = new LinkedHashMap<>();
         Map<String, ProductSummaryDtos.SlotHealth> slotMap = new LinkedHashMap<>();
-        for (ProductSummaryDtos.SlotState slot : slots) {
+        for (ProductSummaryDtos.FileChecklistItem slot : countedSlots) {
             ProductSummaryDtos.StageHealth stage = stageMap.computeIfAbsent(slot.getStage(), key -> {
                 ProductSummaryDtos.StageHealth item = new ProductSummaryDtos.StageHealth();
                 item.setStage(key);
                 return item;
             });
-            stage.setExpected(stage.getExpected() + slot.getExpected());
+            stage.setExpected(stage.getExpected() + slot.getTotal());
             stage.setUploaded(stage.getUploaded() + slot.getUploaded());
             stage.setMissing(stage.getMissing() + slot.getMissing());
 
@@ -248,7 +257,7 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
                 item.setRequirement(slot.getRequirement());
                 return item;
             });
-            slotHealth.setExpected(slotHealth.getExpected() + slot.getExpected());
+            slotHealth.setExpected(slotHealth.getExpected() + slot.getTotal());
             slotHealth.setUploaded(slotHealth.getUploaded() + slot.getUploaded());
             slotHealth.setMissing(slotHealth.getMissing() + slot.getMissing());
         }
@@ -282,7 +291,10 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         ProductSummaryDtos.Kpi kpi = new ProductSummaryDtos.Kpi();
         kpi.setTotalBatches(batchCount);
         kpi.setRunningBatches((int) rows.stream()
-                .filter(r -> r.getWorkOrderId() != null && !isDoneStatus(r.getStatus()))
+                .filter(r -> r.getWorkOrderId() != null && WorkOrderStatusPolicy.isRunning(r.getStatus()))
+                .count());
+        kpi.setCompletedBatches((int) rows.stream()
+                .filter(r -> r.getWorkOrderId() != null && WorkOrderStatusPolicy.isProductionDone(r.getStatus()))
                 .count());
         kpi.setMissingItems(missingItems);
         kpi.setMissingRecords(missingRecords);
@@ -336,6 +348,7 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         detail.setFiles(planOnlyFileGroups(plan));
         detail.setMissingItems(planOnlyMissing(plan));
         detail.setStages(planOnlyStages(ctx));
+        detail.setFileChecklist(planOnlyFileChecklist(plan));
         return detail;
     }
 
@@ -377,6 +390,8 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         for (FileRequirementConfig config : fileRequirementService.listAll()) {
             List<Long> ids = planSlotDocumentIds(config, plan);
             if (ids.isEmpty()) continue;
+            Map<Long, List<BusinessFileDto>> fileMap =
+                    businessFileService.listBatch(config.getBizType(), ids, config.getFileKind());
             ProductSummaryDtos.SlotState slot = new ProductSummaryDtos.SlotState();
             slot.setStage(config.getStage());
             slot.setNodeKey(nodeKeyOfStage(config.getStage()));
@@ -386,7 +401,7 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             slot.setFileKind(config.getFileKind());
             slot.setRequirement(config.getRequirement());
             slot.setExpected(ids.size());
-            slot.setUploaded((int) ids.stream().filter(id -> !files(config.getBizType(), id, config.getFileKind()).isEmpty()).count());
+            slot.setUploaded(countUploaded(fileMap, ids));
             slot.setMissing(Math.max(0, slot.getExpected() - slot.getUploaded()));
             result.add(slot);
         }
@@ -398,10 +413,12 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         for (FileRequirementConfig config : fileRequirementService.listAll()) {
             List<Long> ids = planSlotDocumentIds(config, plan);
             if (ids.isEmpty()) continue;
-            List<BusinessFileDto> files = new ArrayList<>();
-            for (Long id : ids) {
-                files.addAll(files(config.getBizType(), id, config.getFileKind()));
-            }
+            Map<Long, List<BusinessFileDto>> fileMap =
+                    businessFileService.listBatch(config.getBizType(), ids, config.getFileKind());
+            List<BusinessFileDto> files = ids.stream()
+                    .flatMap(id -> fileMap == null ? java.util.stream.Stream.empty()
+                            : fileMap.getOrDefault(id, Collections.emptyList()).stream())
+                    .collect(Collectors.toList());
             if (files.isEmpty()) continue;
             ProductSummaryDtos.FileGroup group = new ProductSummaryDtos.FileGroup();
             group.setStage(config.getStage());
@@ -423,8 +440,12 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         for (FileRequirementConfig config : fileRequirementService.listAll()) {
             if ("OPTIONAL".equals(config.getRequirement())) continue;
             List<Long> ids = planSlotDocumentIds(config, plan);
+            if (ids.isEmpty()) continue;
+            Map<Long, List<BusinessFileDto>> fileMap =
+                    businessFileService.listBatch(config.getBizType(), ids, config.getFileKind());
             for (Long id : ids) {
-                if (files(config.getBizType(), id, config.getFileKind()).isEmpty()) {
+                List<BusinessFileDto> fileList = fileMap == null ? null : fileMap.get(id);
+                if (fileList == null || fileList.isEmpty()) {
                     ProductSummaryDtos.MissingItem item = new ProductSummaryDtos.MissingItem();
                     item.setStage(config.getStage());
                     item.setNodeKey(nodeKeyOfStage(config.getStage()));
@@ -471,15 +492,18 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         dto.setStatus(plan.getCurrentStatus());
         dto.setProcessTotal(0);
         dto.setProcessCompleted(0);
-        dto.setFileCount(planOnlyFileGroups(plan).stream().mapToInt(g -> g.getFiles().size()).sum());
-        List<ProductSummaryDtos.MissingItem> missing = planOnlyMissing(plan);
-        dto.setMissingCount(missing.size());
-        dto.setMissingSummary(missingSummary(missing));
-        List<ProductSummaryDtos.SlotState> slots = planOnlySlots(plan).stream()
-                .filter(s -> !"OPTIONAL".equals(s.getRequirement()))
+        List<ProductSummaryDtos.FileChecklistItem> checklist = planOnlyFileChecklist(plan);
+        dto.setFileCount(checklist.stream()
+                .flatMap(item -> item.getDocuments().stream())
+                .mapToInt(doc -> doc.getFiles().size())
+                .sum());
+        List<ProductSummaryDtos.FileChecklistItem> required = checklist.stream()
+                .filter(item -> !"OPTIONAL".equals(item.getRequirement()))
                 .collect(Collectors.toList());
-        dto.setFileExpected(slots.stream().mapToInt(ProductSummaryDtos.SlotState::getExpected).sum());
-        dto.setFileUploaded(slots.stream().mapToInt(ProductSummaryDtos.SlotState::getUploaded).sum());
+        dto.setMissingCount(required.stream().mapToInt(ProductSummaryDtos.FileChecklistItem::getMissing).sum());
+        dto.setMissingSummary(checklistMissingSummary(required));
+        dto.setFileExpected(required.stream().mapToInt(ProductSummaryDtos.FileChecklistItem::getTotal).sum());
+        dto.setFileUploaded(required.stream().mapToInt(ProductSummaryDtos.FileChecklistItem::getUploaded).sum());
         dto.setStageStates(planOnlyStageStates(ctx));
         return dto;
     }
@@ -698,10 +722,6 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         return end == null || (day != null && !day.isAfter(end));
     }
 
-    private boolean isDoneStatus(String status) {
-        return "已完成".equals(status) || "异常".equals(status) || "不合格".equals(status);
-    }
-
     private int stageOrder(String stage) {
         return switch (stage == null ? "" : stage) {
             case "品种资料" -> 0;
@@ -788,17 +808,20 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         dto.setProcessTotal(ctx.getExecutions().size());
         dto.setProcessCompleted((int) ctx.getExecutions().stream().filter(e -> e.getEndTime() != null).count());
         dto.setStatus(wo.getCurrentStatus());
+        dto.setProductionDone(WorkOrderStatusPolicy.isProductionDone(wo.getCurrentStatus()));
 
-        List<ProductSummaryDtos.FileGroup> groups = fileGroups(ctx);
-        dto.setFileCount(groups.stream().mapToInt(g -> g.getFiles().size()).sum());
-        List<ProductSummaryDtos.SlotState> slots = slotStates(ctx).stream()
-                .filter(s -> !"OPTIONAL".equals(s.getRequirement()))
+        List<ProductSummaryDtos.FileChecklistItem> checklist = fileChecklist(ctx, dto.getRecordKey());
+        dto.setFileCount(checklist.stream()
+                .flatMap(item -> item.getDocuments().stream())
+                .mapToInt(doc -> doc.getFiles().size())
+                .sum());
+        List<ProductSummaryDtos.FileChecklistItem> required = checklist.stream()
+                .filter(item -> !"OPTIONAL".equals(item.getRequirement()))
                 .collect(Collectors.toList());
-        dto.setFileExpected(slots.stream().mapToInt(ProductSummaryDtos.SlotState::getExpected).sum());
-        dto.setFileUploaded(slots.stream().mapToInt(ProductSummaryDtos.SlotState::getUploaded).sum());
-        List<ProductSummaryDtos.MissingItem> missing = missingItems(ctx);
-        dto.setMissingCount(missing.size());
-        dto.setMissingSummary(missingSummary(missing));
+        dto.setFileExpected(required.stream().mapToInt(ProductSummaryDtos.FileChecklistItem::getTotal).sum());
+        dto.setFileUploaded(required.stream().mapToInt(ProductSummaryDtos.FileChecklistItem::getUploaded).sum());
+        dto.setMissingCount(required.stream().mapToInt(ProductSummaryDtos.FileChecklistItem::getMissing).sum());
+        dto.setMissingSummary(checklistMissingSummary(required));
         dto.setStageStates(stageStates(ctx));
         return dto;
     }
@@ -823,6 +846,7 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         detail.setFiles(fileGroups(ctx));
         detail.setMissingItems(missingItems(ctx));
         detail.setStages(stages(ctx));
+        detail.setFileChecklist(fileChecklist(ctx, recordKey(ctx)));
         return detail;
     }
 
@@ -1387,6 +1411,8 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         for (FileRequirementConfig config : fileRequirementService.listAll()) {
             List<Long> ids = slotDocumentIds(config, ctx);
             if (ids.isEmpty()) continue;
+            Map<Long, List<BusinessFileDto>> fileMap =
+                    businessFileService.listBatch(config.getBizType(), ids, config.getFileKind());
             ProductSummaryDtos.SlotState slot = new ProductSummaryDtos.SlotState();
             slot.setStage(config.getStage());
             slot.setNodeKey(nodeKeyOfStage(config.getStage()));
@@ -1396,7 +1422,7 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             slot.setFileKind(config.getFileKind());
             slot.setRequirement(config.getRequirement());
             slot.setExpected(ids.size());
-            slot.setUploaded(uploadedDocCount(config, ctx, ids));
+            slot.setUploaded(countUploaded(fileMap, ids));
             slot.setMissing(Math.max(0, slot.getExpected() - slot.getUploaded()));
             result.add(slot);
         }
@@ -1408,10 +1434,12 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         for (FileRequirementConfig config : fileRequirementService.listAll()) {
             List<Long> ids = slotDocumentIds(config, ctx);
             if (ids.isEmpty()) continue;
-            List<BusinessFileDto> files = new ArrayList<>();
-            for (Long id : ids) {
-                files.addAll(files(config.getBizType(), id, config.getFileKind()));
-            }
+            Map<Long, List<BusinessFileDto>> fileMap =
+                    businessFileService.listBatch(config.getBizType(), ids, config.getFileKind());
+            List<BusinessFileDto> files = ids.stream()
+                    .flatMap(id -> fileMap == null ? java.util.stream.Stream.empty()
+                            : fileMap.getOrDefault(id, Collections.emptyList()).stream())
+                    .collect(Collectors.toList());
             if (files.isEmpty()) continue;
             ProductSummaryDtos.FileGroup group = new ProductSummaryDtos.FileGroup();
             group.setStage(config.getStage());
@@ -1433,8 +1461,12 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         for (FileRequirementConfig config : fileRequirementService.listAll()) {
             if ("OPTIONAL".equals(config.getRequirement())) continue;
             List<Long> ids = slotDocumentIds(config, ctx);
+            if (ids.isEmpty()) continue;
+            Map<Long, List<BusinessFileDto>> fileMap =
+                    businessFileService.listBatch(config.getBizType(), ids, config.getFileKind());
             for (Long id : ids) {
-                if (files(config.getBizType(), id, config.getFileKind()).isEmpty()) {
+                List<BusinessFileDto> fileList = fileMap == null ? null : fileMap.get(id);
+                if (fileList == null || fileList.isEmpty()) {
                     ProductSummaryDtos.MissingItem item = new ProductSummaryDtos.MissingItem();
                     item.setStage(config.getStage());
                     item.setNodeKey(nodeKeyOfStage(config.getStage()));
@@ -1447,6 +1479,25 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             }
         }
         return result;
+    }
+
+    /**
+     * 统计已上传文件的单据数
+     *
+     * @param fileMap 单据ID -> 文件列表
+     * @param ids     单据ID列表
+     * @return 已上传单据数
+     */
+    private int countUploaded(Map<Long, List<BusinessFileDto>> fileMap, List<Long> ids) {
+        if (fileMap == null) {
+            return 0;
+        }
+        return (int) ids.stream()
+                .filter(id -> {
+                    List<BusinessFileDto> files = fileMap.get(id);
+                    return files != null && !files.isEmpty();
+                })
+                .count();
     }
 
     private List<Long> slotDocumentIds(FileRequirementConfig config, BatchContext ctx) {
@@ -1472,14 +1523,288 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         };
     }
 
-    private int uploadedDocCount(FileRequirementConfig config, BatchContext ctx, List<Long> ids) {
-        return (int) ids.stream().filter(id -> !files(config.getBizType(), id, config.getFileKind()).isEmpty()).count();
-    }
-
     private List<BusinessFileDto> files(String bizType, Long bizId, String kind) {
         if (bizId == null) return Collections.emptyList();
         List<BusinessFileDto> list = businessFileService.list(bizType, bizId, null, kind);
         return list == null ? Collections.emptyList() : list;
+    }
+
+    /**
+     * 构建批次按节点的文件完整性清单
+     * <p>每个槽位返回应传/已传/缺失数，并带出单号及该单号在槽位下已上传的文件，供前端按节点查看缺失。</p>
+     *
+     * @param ctx       批次上下文
+     * @param recordKey 记录键
+     * @return 文件完整性清单
+     */
+    private List<ProductSummaryDtos.FileChecklistItem> fileChecklist(BatchContext ctx, String recordKey) {
+        return fileChecklist(ctx, recordKey, fileRequirementService.listAll());
+    }
+
+    /**
+     * 构建批次按节点的文件完整性清单（复用已加载配置）
+     *
+     * @param ctx       批次上下文
+     * @param recordKey 记录键
+     * @param configs   文件要求配置
+     * @return 文件完整性清单
+     */
+    private List<ProductSummaryDtos.FileChecklistItem> fileChecklist(BatchContext ctx, String recordKey,
+                                                                     List<FileRequirementConfig> configs) {
+        List<ProductSummaryDtos.FileChecklistItem> result = new ArrayList<>();
+        for (FileRequirementConfig config : configs) {
+            List<Long> ids = slotDocumentIds(config, ctx);
+            if (ids.isEmpty()) continue;
+            // 按业务类型 + 单据ID批量取附件，避免逐单查询
+            Map<Long, List<BusinessFileDto>> fileMap =
+                    businessFileService.listBatch(config.getBizType(), ids, config.getFileKind());
+            ProductSummaryDtos.FileChecklistItem item = newFileChecklistItem(config, ids.size());
+            for (Long id : ids) {
+                List<BusinessFileDto> fileList = fileMap == null ? null : fileMap.get(id);
+                if (fileList == null) {
+                    fileList = Collections.emptyList();
+                }
+                ProductSummaryDtos.FileChecklistDocument doc = new ProductSummaryDtos.FileChecklistDocument();
+                doc.setRecordKey(recordKey);
+                if (ctx.getWorkOrder() != null) {
+                    doc.setWorkOrderCode(ctx.getWorkOrder().getWorkOrderCode());
+                    doc.setBatchNo(ctx.getWorkOrder().getBatchNumber());
+                }
+                doc.setDocId(id);
+                doc.setDocCode(docCode(config.getBizType(), id, ctx));
+                doc.setUploaded(!fileList.isEmpty());
+                doc.setFiles(toFiles(fileList));
+                item.getDocuments().add(doc);
+                if (doc.isUploaded()) {
+                    item.setUploaded(item.getUploaded() + 1);
+                } else {
+                    item.getMissingDetails().add(missingDetailText(config, doc.getDocCode()));
+                }
+            }
+            item.setMissing(Math.max(0, item.getTotal() - item.getUploaded()));
+            item.setNote(checklistNote(item));
+            result.add(item);
+        }
+        return result;
+    }
+
+    /**
+     * 构建未下达计划的文件完整性清单
+     *
+     * @param plan 生产计划
+     * @return 文件完整性清单
+     */
+    private List<ProductSummaryDtos.FileChecklistItem> planOnlyFileChecklist(ProductionPlan plan) {
+        return planOnlyFileChecklist(plan, fileRequirementService.listAll());
+    }
+
+    /**
+     * 构建未下达计划的文件完整性清单（复用已加载配置）
+     *
+     * @param plan    生产计划
+     * @param configs 文件要求配置
+     * @return 文件完整性清单
+     */
+    private List<ProductSummaryDtos.FileChecklistItem> planOnlyFileChecklist(ProductionPlan plan,
+                                                                             List<FileRequirementConfig> configs) {
+        List<ProductSummaryDtos.FileChecklistItem> result = new ArrayList<>();
+        String recordKey = plan.getId() + "__none";
+        for (FileRequirementConfig config : configs) {
+            List<Long> ids = planSlotDocumentIds(config, plan);
+            if (ids.isEmpty()) continue;
+            // 按业务类型 + 单据ID批量取附件，避免逐单查询
+            Map<Long, List<BusinessFileDto>> fileMap =
+                    businessFileService.listBatch(config.getBizType(), ids, config.getFileKind());
+            ProductSummaryDtos.FileChecklistItem item = newFileChecklistItem(config, ids.size());
+            for (Long id : ids) {
+                List<BusinessFileDto> fileList = fileMap == null ? null : fileMap.get(id);
+                if (fileList == null) {
+                    fileList = Collections.emptyList();
+                }
+                ProductSummaryDtos.FileChecklistDocument doc = new ProductSummaryDtos.FileChecklistDocument();
+                doc.setRecordKey(recordKey);
+                doc.setDocId(id);
+                doc.setDocCode(switch (config.getBizType()) {
+                    case "PREPARATION", "PREPARATION_PROCESS_TEMPLATE" -> plan.getPreparationCode();
+                    case "PRODUCTION_PLAN" -> plan.getPlanNumber();
+                    default -> "";
+                });
+                doc.setUploaded(!fileList.isEmpty());
+                doc.setFiles(toFiles(fileList));
+                item.getDocuments().add(doc);
+                if (doc.isUploaded()) {
+                    item.setUploaded(item.getUploaded() + 1);
+                } else {
+                    item.getMissingDetails().add(missingDetailText(config, doc.getDocCode()));
+                }
+            }
+            item.setMissing(Math.max(0, item.getTotal() - item.getUploaded()));
+            item.setNote(checklistNote(item));
+            result.add(item);
+        }
+        return result;
+    }
+
+    /**
+     * 创建文件清单行，填充配置与环节信息
+     *
+     * @param config 文件要求配置
+     * @param total  应传单据数
+     * @return 清单行
+     */
+    private ProductSummaryDtos.FileChecklistItem newFileChecklistItem(FileRequirementConfig config, int total) {
+        ProductSummaryDtos.FileChecklistItem item = new ProductSummaryDtos.FileChecklistItem();
+        item.setStage(config.getStage());
+        item.setNodeKey(nodeKeyOfStage(config.getStage()));
+        item.setLabel(StringUtils.hasText(config.getDisplayName())
+                ? config.getDisplayName() : config.getBizType() + " / " + config.getFileKind());
+        item.setBizType(config.getBizType());
+        item.setFileKind(config.getFileKind());
+        item.setSlotCode(config.getBizType() + " / " + config.getFileKind());
+        item.setRequirement(config.getRequirement());
+        item.setTotal(total);
+        return item;
+    }
+
+    /**
+     * 生成缺失明细文本，如“验收单 YS-20261019-005 缺 验收检验报告”
+     *
+     * @param config  文件要求配置
+     * @param docCode 单号
+     * @return 缺失明细
+     */
+    private String missingDetailText(FileRequirementConfig config, String docCode) {
+        String code = StringUtils.hasText(docCode) ? " " + docCode : "";
+        return docTypeLabel(config.getBizType()) + code + " 缺 " + checklistLabel(config);
+    }
+
+    /**
+     * 文件清单缺失提示
+     *
+     * @param item 清单行
+     * @return 提示文本
+     */
+    private String checklistNote(ProductSummaryDtos.FileChecklistItem item) {
+        if ("OPTIONAL".equals(item.getRequirement())) {
+            return "可空缺";
+        }
+        if (item.getMissing() <= 0 || item.getMissingDetails().isEmpty()) {
+            return "";
+        }
+        String detailText = item.getMissingDetails().stream().limit(3).collect(Collectors.joining("、"));
+        return "缺 " + detailText
+                + (item.getMissingDetails().size() > 3 ? " 等 " + item.getMissingDetails().size() + " 项" : "");
+    }
+
+    /**
+     * 按环节汇总清单缺件数，用于列表/卡片的一句话提示
+     *
+     * @param items 文件清单
+     * @return 缺件摘要
+     */
+    private String checklistMissingSummary(List<ProductSummaryDtos.FileChecklistItem> items) {
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        for (ProductSummaryDtos.FileChecklistItem item : items) {
+            if (item.getMissing() <= 0) continue;
+            counts.merge(item.getStage() == null ? "其他" : item.getStage(), item.getMissing(), Integer::sum);
+        }
+        if (counts.isEmpty()) {
+            return "";
+        }
+        return counts.entrySet().stream().limit(3)
+                .map(e -> e.getKey() + " " + e.getValue())
+                .collect(Collectors.joining("、"))
+                + (counts.size() > 3 ? " 等 " + counts.size() + " 个环节" : "");
+    }
+
+    /**
+     * 合并跨记录的文件清单行（按环节、槽位、要求），并汇总单号与缺失明细
+     *
+     * @param merged 合并结果
+     * @param rows   单条记录的清单行
+     */
+    private void mergeFileChecklist(Map<String, ProductSummaryDtos.FileChecklistItem> merged,
+                                    List<ProductSummaryDtos.FileChecklistItem> rows) {
+        for (ProductSummaryDtos.FileChecklistItem row : rows) {
+            String key = safe(row.getStage()) + "|" + safe(row.getLabel()) + "|" + safe(row.getBizType())
+                    + "|" + safe(row.getFileKind()) + "|" + safe(row.getRequirement());
+            ProductSummaryDtos.FileChecklistItem target = merged.get(key);
+            if (target == null) {
+                merged.put(key, row);
+                continue;
+            }
+            target.setTotal(target.getTotal() + row.getTotal());
+            target.setUploaded(target.getUploaded() + row.getUploaded());
+            target.setMissing(target.getMissing() + row.getMissing());
+            target.getDocuments().addAll(row.getDocuments());
+            for (String detail : row.getMissingDetails()) {
+                if (!target.getMissingDetails().contains(detail)) {
+                    target.getMissingDetails().add(detail);
+                }
+            }
+            target.setNote(checklistNote(target));
+        }
+    }
+
+    /**
+     * 文件清单槽位显示名称
+     *
+     * @param config 文件要求配置
+     * @return 显示名称
+     */
+    private String checklistLabel(FileRequirementConfig config) {
+        return StringUtils.hasText(config.getDisplayName())
+                ? config.getDisplayName() : config.getBizType() + " / " + config.getFileKind();
+    }
+
+    /**
+     * 业务类型的中文单据名
+     *
+     * @param bizType 业务类型
+     * @return 单据名
+     */
+    private String docTypeLabel(String bizType) {
+        return switch (bizType) {
+            case "PREPARATION", "PREPARATION_PROCESS_TEMPLATE" -> "品种资料";
+            case "PRODUCTION_PLAN" -> "生产计划";
+            case "PURCHASE_ORDER" -> "采购单";
+            case "ACCEPTANCE_ORDER" -> "验收单";
+            case "WORK_ORDER" -> "生产任务";
+            case "WORK_ORDER_PROCESS_EXECUTION" -> "工序记录";
+            case "INSPECTION_REQUEST" -> "请检单";
+            case "SAMPLING_RECORD" -> "取样记录";
+            case "INSPECTION_RECORD" -> "检验记录";
+            case "RELEASE_REVIEW" -> "放行审核记录";
+            case "STOCK_OUT_PRODUCTION" -> "领料出库单";
+            case "STOCK_IN_PRODUCT" -> "成品入库单";
+            case "STOCK_OUT_SALES" -> "成品出库单";
+            case "DEVIATION_RECORD" -> "偏差记录";
+            default -> bizType == null ? "" : bizType;
+        };
+    }
+
+    /**
+     * 工序名称：优先取工序类型名称，缺失时回退“工序N”
+     *
+     * @param ctx       批次上下文
+     * @param execution 工序执行记录
+     * @return 工序名称
+     */
+    private String processName(BatchContext ctx, WorkOrderProcessExecution execution) {
+        String name = ctx.getProcessNames() == null ? null : ctx.getProcessNames().get(execution.getProcessTypeId());
+        return StringUtils.hasText(name) ? name : "工序" + execution.getStepOrder();
+    }
+
+    /**
+     * 批次记录键：planId + "__" + workOrderId；无计划时为 0__工单ID
+     *
+     * @param ctx 批次上下文
+     * @return 记录键
+     */
+    private String recordKey(BatchContext ctx) {
+        Long planId = ctx.getPlan() == null || ctx.getPlan().getId() == null
+                ? null : ctx.getPlan().getId().longValue();
+        return (planId == null ? "0" : planId) + "__" + ctx.getWorkOrder().getWorkOrderId();
     }
 
     private String docCode(String bizType, Long id, BatchContext ctx) {
@@ -1491,6 +1816,18 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             case "ACCEPTANCE_ORDER" -> ctx.getAcceptances().stream().filter(a -> Objects.equals(a.getAcceptanceId(), id))
                     .map(AcceptanceOrder::getAcceptanceCode).findFirst().orElse("");
             case "WORK_ORDER" -> ctx.getWorkOrder().getWorkOrderCode();
+            case "WORK_ORDER_PROCESS_EXECUTION" -> ctx.getExecutions().stream()
+                    .filter(e -> Objects.equals(e.getId(), id))
+                    .map(e -> processName(ctx, e)).findFirst().orElse("");
+            case "STOCK_OUT_PRODUCTION" -> ctx.getMaterialStockOuts().stream()
+                    .filter(s -> Objects.equals(s.getOutId(), id))
+                    .map(StockOut::getOutCode).findFirst().orElse("");
+            case "STOCK_IN_PRODUCT" -> ctx.getStockIns().stream()
+                    .filter(s -> Objects.equals(s.getInId(), id))
+                    .map(StockIn::getInCode).findFirst().orElse("");
+            case "STOCK_OUT_SALES" -> ctx.getStockOuts().stream()
+                    .filter(s -> Objects.equals(s.getOutId(), id))
+                    .map(StockOut::getOutCode).findFirst().orElse("");
             case "INSPECTION_REQUEST" -> ctx.getRequests().stream().filter(r -> Objects.equals(r.getId(), id))
                     .map(InspectionRequest::getInspectionCode).findFirst().orElse("");
             case "SAMPLING_RECORD" -> ctx.getSamplings().stream().filter(s -> Objects.equals(s.getId(), id))
@@ -1502,18 +1839,6 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
                     .map(DeviationRecord::getDeviationCode).findFirst().orElse("");
             default -> "";
         };
-    }
-
-    private String missingSummary(List<ProductSummaryDtos.MissingItem> missing) {
-        if (missing.isEmpty()) return "";
-        Map<String, Integer> counts = new HashMap<>();
-        for (ProductSummaryDtos.MissingItem item : missing) {
-            counts.merge(item.getStage() == null ? "其他" : item.getStage(), 1, Integer::sum);
-        }
-        return counts.entrySet().stream().limit(3)
-                .map(e -> e.getKey() + " " + e.getValue())
-                .collect(Collectors.joining("、"))
-                + (counts.size() > 3 ? " 等 " + counts.size() + " 个环节" : "");
     }
 
     // endregion

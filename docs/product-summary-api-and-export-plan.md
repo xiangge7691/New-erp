@@ -70,6 +70,7 @@ GET /api/product-summary/overview
   },
   "kpis": {
     "runningBatches": 4,
+    "completedBatches": 1,
     "totalBatches": 5,
     "missingItems": 45,
     "missingRecords": 7,

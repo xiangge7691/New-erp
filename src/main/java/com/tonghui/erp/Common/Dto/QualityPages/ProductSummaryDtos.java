@@ -78,6 +78,8 @@ public final class ProductSummaryDtos {
         private Integer processCompleted;
         /** 批次/计划状态 */
         private String status;
+        /** 生产是否已完成（成品已入库/已归档）；未下达计划为 false */
+        private boolean productionDone;
         /** 附件总数 */
         private int fileCount;
         /** 必传/条件必传应传数 */
@@ -118,6 +120,8 @@ public final class ProductSummaryDtos {
         private List<TodoItem> todo = new ArrayList<>();
         /** 文件完整度 */
         private Health health;
+        /** 按节点的文件完整性清单（跨记录聚合，含单号对应文件） */
+        private List<FileChecklistItem> fileChecklist = new ArrayList<>();
         /** 制剂卡片列表 */
         private List<PreparationSummary> preparations = new ArrayList<>();
     }
@@ -142,8 +146,10 @@ public final class ProductSummaryDtos {
     /** 顶部 KPI */
     @Data
     public static class Kpi {
-        /** 在产批次数 */
+        /** 在产批次数（未成品入库，且非异常/不合格/作废） */
         private int runningBatches;
+        /** 生产已完成批次数（成品已入库/已归档） */
+        private int completedBatches;
         /** 已下达批次总数 */
         private int totalBatches;
         /** 缺件项总数 */
@@ -252,6 +258,8 @@ public final class ProductSummaryDtos {
         private List<FileGroup> files = new ArrayList<>();
         /** 缺件项总数 */
         private List<MissingItem> missingItems = new ArrayList<>();
+        /** 按节点的文件完整性清单（含单号对应文件） */
+        private List<FileChecklistItem> fileChecklist = new ArrayList<>();
     }
 
     /** 槽位统计 */
@@ -388,6 +396,56 @@ public final class ProductSummaryDtos {
         private String doc;
         /** 槽位编码 */
         private String slotCode;
+    }
+
+    /** 文件完整性清单（按节点/槽位） */
+    @Data
+    public static class FileChecklistItem {
+        /** 链路节点编码 */
+        private String nodeKey;
+        /** 环节 */
+        private String stage;
+        /** 显示名称 */
+        private String label;
+        /** 业务类型编码 */
+        private String bizType;
+        /** 文件槽位编码 */
+        private String fileKind;
+        /** 槽位编码：bizType / fileKind */
+        private String slotCode;
+        /** 要求：REQUIRED/CONDITIONAL/OPTIONAL */
+        private String requirement;
+        /** 应传数（单据数） */
+        private int total;
+        /** 已传数（已传文件的单据数） */
+        private int uploaded;
+        /** 缺失数 */
+        private int missing;
+        /** 缺失提示，如“缺 验收单 YS-20261019-005 缺 验收检验报告” */
+        private String note;
+        /** 缺失明细，如“验收单 YS-20261019-005 缺 验收检验报告” */
+        private List<String> missingDetails = new ArrayList<>();
+        /** 单号及对应文件，用于按节点查看每张单据的文件是否齐全 */
+        private List<FileChecklistDocument> documents = new ArrayList<>();
+    }
+
+    /** 文件完整性清单中的单据及附件 */
+    @Data
+    public static class FileChecklistDocument {
+        /** 记录键：planId__workOrderId；未下达计划为 planId__none */
+        private String recordKey;
+        /** 工单号 */
+        private String workOrderCode;
+        /** 批号 */
+        private String batchNo;
+        /** 单据ID */
+        private Long docId;
+        /** 单号 */
+        private String docCode;
+        /** 该槽位文件是否已上传 */
+        private boolean uploaded;
+        /** 该槽位文件列表 */
+        private List<FileItem> files = new ArrayList<>();
     }
 
     /** 文件项 */

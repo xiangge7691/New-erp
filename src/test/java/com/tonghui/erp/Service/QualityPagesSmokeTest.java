@@ -59,6 +59,18 @@ public class QualityPagesSmokeTest {
         }
         Assertions.assertEquals(10, first.path("stageStates").size(), "列表环节状态数量应为 10");
         Assertions.assertTrue(detail.path("slots").size() > 0, "槽位统计为空");
+        JsonNode checklist = detail.path("fileChecklist");
+        Assertions.assertTrue(checklist.isArray(), "详情缺少按节点的文件清单");
+        if (!checklist.isEmpty()) {
+            JsonNode firstItem = checklist.get(0);
+            Assertions.assertTrue(firstItem.has("nodeKey"), "文件清单缺少节点编码");
+            Assertions.assertTrue(firstItem.path("documents").isArray(), "文件清单缺少单号文件明细");
+            if (!firstItem.path("documents").isEmpty()) {
+                JsonNode firstDoc = firstItem.path("documents").get(0);
+                Assertions.assertTrue(firstDoc.has("docCode"), "文件清单单据缺少单号");
+                Assertions.assertTrue(firstDoc.path("files").isArray(), "文件清单单据缺少文件列表");
+            }
+        }
     }
 
     @Test
@@ -70,12 +82,15 @@ public class QualityPagesSmokeTest {
         Assertions.assertTrue(overview.path("preparations").isArray(), "概览缺少制剂卡片");
         Assertions.assertTrue(overview.path("verdict").path("recordCount").asInt() > 0, "概览记录数为空");
         Assertions.assertTrue(overview.path("health").path("allSlots").isArray(), "概览缺少槽位口径");
+        Assertions.assertTrue(overview.path("fileChecklist").isArray(), "概览缺少按节点的文件清单");
+        Assertions.assertTrue(overview.path("kpis").has("completedBatches"), "概览 KPI 缺少生产完成批次数");
 
         JsonNode list = get("/api/product-summary/batches?pageIndex=0&pageSize=20").path("data");
         JsonNode items = list.path("items");
         Assumptions.assumeTrue(items.size() > 0, "测试库无产品汇总记录，跳过产品扩展接口冒烟");
         Assertions.assertTrue(items.get(0).has("recordKey"), "列表缺少记录键");
         Assertions.assertTrue(items.get(0).path("stageStates").isArray(), "列表缺少环节状态");
+        Assertions.assertTrue(items.get(0).has("productionDone"), "列表缺少生产完成标记");
 
         JsonNode cards = get("/api/product-summary/cards").path("data");
         Assertions.assertTrue(cards.isArray(), "卡片接口未返回数组");
