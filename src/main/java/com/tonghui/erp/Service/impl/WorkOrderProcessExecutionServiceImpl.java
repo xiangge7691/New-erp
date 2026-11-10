@@ -2,6 +2,7 @@ package com.tonghui.erp.Service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.tonghui.erp.Common.Constants.ProcessExecutionStatus;
 import com.tonghui.erp.Common.utils.EquipmentUsageConflictValidator;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessExecution;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessExecutionMapper;
@@ -43,9 +44,22 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
     // 查询操作
     // ===================================
 
+    /**
+     * 根据工单ID查询工序执行记录
+     * <p>
+     * 查询结果中的状态按开始/结束时间重新推导，覆盖历史数据中未回写的状态值，
+     * 保证页面与设备使用记录、审核放行的状态口径一致。
+     * </p>
+     *
+     * @param workOrderId 工单ID
+     * @return 工序执行记录列表（按工序顺序排序）
+     */
     @Override
     public List<WorkOrderProcessExecution> getByWorkOrderId(Long workOrderId) {
-        return baseMapper.selectByWorkOrderIdWithDetails(workOrderId);
+        List<WorkOrderProcessExecution> executions = baseMapper.selectByWorkOrderIdWithDetails(workOrderId);
+        executions.forEach(execution -> execution.setStatus(ProcessExecutionStatus.resolve(
+                execution.getStartTime(), execution.getEndTime())));
+        return executions;
     }
 
     // endregion
@@ -65,6 +79,10 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
      * <p>
      * 保存前先做设备使用校验（设备状态、使用时间冲突、维保日期冲突），
      * 校验使用 READ_COMMITTED 隔离级别，配合设备行锁保证并发场景下的正确性。
+     * </p>
+     * <p>
+     * 工序状态统一由开始/结束时间推导并落库（开始+结束=已完成，仅开始=执行中，均无=待执行），
+     * 前端传入的 status 不生效。
      * </p>
      *
      * @param workOrderId 工单ID
@@ -89,6 +107,9 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
             for (WorkOrderProcessExecution execution : executions) {
                 execution.setWorkOrderId(workOrderId);
                 execution.setIsDeleted(0);
+                // 状态统一由时间推导，忽略前端传值：开始+结束=已完成，仅开始=执行中，均无=待执行
+                execution.setStatus(ProcessExecutionStatus.resolve(
+                        execution.getStartTime(), execution.getEndTime()));
                 // 已有行：按 ID 原地更新，保留 id（按行附件可继续定位）
                 if (execution.getId() != null && existingMap.containsKey(execution.getId())) {
                     incomingIds.add(execution.getId());

@@ -1,11 +1,14 @@
 package com.tonghui.erp.Service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.tonghui.erp.Common.Constants.ProcessExecutionStatus;
 import com.tonghui.erp.Common.Dto.QualityPages.BatchContext;
+import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
 import com.tonghui.erp.Data.Entity.DeviationRecord;
 import com.tonghui.erp.Data.Entity.InspectionRecord;
 import com.tonghui.erp.Data.Entity.InspectionRequest;
+import com.tonghui.erp.Data.Entity.InspectionTask;
 import com.tonghui.erp.Data.Entity.Material;
 import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.PreparationProcessTemplate;
@@ -17,6 +20,7 @@ import com.tonghui.erp.Data.Entity.PurchaseOrderItems;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
 import com.tonghui.erp.Data.Entity.ReleaseReview;
 import com.tonghui.erp.Data.Entity.ReturnOrder;
+import com.tonghui.erp.Data.Entity.ReturnOrderDetail;
 import com.tonghui.erp.Data.Entity.RoomInfo;
 import com.tonghui.erp.Data.Entity.SalesOrder;
 import com.tonghui.erp.Data.Entity.SamplingRecord;
@@ -27,8 +31,10 @@ import com.tonghui.erp.Data.Entity.StockOutDetail;
 import com.tonghui.erp.Data.Entity.WorkOrder;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessCheck;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessExecution;
+import com.tonghui.erp.Data.mapper.AcceptanceDetailMapper;
 import com.tonghui.erp.Data.mapper.MaterialMapper;
 import com.tonghui.erp.Data.mapper.ProductionPickDetailMapper;
+import com.tonghui.erp.Data.mapper.ReturnOrderDetailMapper;
 import com.tonghui.erp.Data.mapper.StockInDetailMapper;
 import com.tonghui.erp.Data.mapper.StockOutDetailMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessCheckMapper;
@@ -37,6 +43,7 @@ import com.tonghui.erp.Service.BatchQueryService;
 import com.tonghui.erp.Service.DeviationRecordService;
 import com.tonghui.erp.Service.InspectionRecordService;
 import com.tonghui.erp.Service.InspectionRequestService;
+import com.tonghui.erp.Service.InspectionTaskService;
 import com.tonghui.erp.Service.PreparationProcessTemplateService;
 import com.tonghui.erp.Service.PreparationService;
 import com.tonghui.erp.Service.ProcessTypeService;
@@ -89,6 +96,8 @@ public class BatchQueryServiceImpl implements BatchQueryService {
     @Autowired
     private AcceptanceOrderService acceptanceOrderService;
     @Autowired
+    private AcceptanceDetailMapper acceptanceDetailMapper;
+    @Autowired
     private ProductionPickService productionPickService;
     @Autowired
     private ProductionPickDetailMapper productionPickDetailMapper;
@@ -96,6 +105,8 @@ public class BatchQueryServiceImpl implements BatchQueryService {
     private MaterialMapper materialMapper;
     @Autowired
     private ReturnOrderService returnOrderService;
+    @Autowired
+    private ReturnOrderDetailMapper returnOrderDetailMapper;
     @Autowired
     private StockInService stockInService;
     @Autowired
@@ -106,6 +117,8 @@ public class BatchQueryServiceImpl implements BatchQueryService {
     private StockOutDetailMapper stockOutDetailMapper;
     @Autowired
     private InspectionRequestService inspectionRequestService;
+    @Autowired
+    private InspectionTaskService inspectionTaskService;
     @Autowired
     private SamplingRecordService samplingRecordService;
     @Autowired
@@ -237,11 +250,13 @@ public class BatchQueryServiceImpl implements BatchQueryService {
         ctx.setDeviations(deviationRecordService.list(new QueryWrapper<DeviationRecord>()
                 .eq("work_order_id", workOrder.getWorkOrderId())));
 
-        // 工序执行
+        // 工序执行（状态按开始/结束时间重算，避免历史数据状态未回写导致审核放行显示错误）
         List<WorkOrderProcessExecution> executions = workOrderProcessExecutionService.list(
                 new QueryWrapper<WorkOrderProcessExecution>()
                         .eq("work_order_id", workOrder.getWorkOrderId())
                         .orderByAsc("step_order", "id"));
+        executions.forEach(execution -> execution.setStatus(ProcessExecutionStatus.resolve(
+                execution.getStartTime(), execution.getEndTime())));
         ctx.setExecutions(executions);
         ctx.setProcessChecks(workOrderProcessCheckMapper.selectList(new QueryWrapper<WorkOrderProcessCheck>()
                 .eq("work_order_id", workOrder.getWorkOrderId())));
@@ -334,12 +349,14 @@ public class BatchQueryServiceImpl implements BatchQueryService {
         if (materialIds.isEmpty()) {
             return;
         }
-        Map<Long, String> names = materialMapper.selectList(new QueryWrapper<Material>()
-                        .in("material_id", materialIds))
-                .stream()
+        List<Material> materials = materialMapper.selectList(new QueryWrapper<Material>()
+                .in("material_id", materialIds));
+        ctx.setPurchaseMaterialNames(materials.stream()
                 .filter(material -> StringUtils.hasText(material.getMaterialName()))
-                .collect(Collectors.toMap(Material::getMaterialId, Material::getMaterialName, (a, b) -> a));
-        ctx.setPurchaseMaterialNames(names);
+                .collect(Collectors.toMap(Material::getMaterialId, Material::getMaterialName, (a, b) -> a)));
+        ctx.setPurchaseMaterialCategories(materials.stream()
+                .filter(material -> StringUtils.hasText(material.getCategoryName()))
+                .collect(Collectors.toMap(Material::getMaterialId, Material::getCategoryName, (a, b) -> a)));
     }
 
     /**
@@ -378,6 +395,72 @@ public class BatchQueryServiceImpl implements BatchQueryService {
             }
         }
         ctx.setAcceptances(acceptances);
+    }
+
+    /**
+     * 加载验收单明细
+     * <p>按验收单ID批量查询，供审核放行页「验收单表单」展示物料、批号、数量与检查结论。</p>
+     *
+     * @param ctx 批次上下文
+     */
+    private void loadAcceptanceDetails(BatchContext ctx) {
+        if (ctx.getAcceptances().isEmpty()) {
+            return;
+        }
+        List<Long> acceptanceIds = ctx.getAcceptances().stream()
+                .map(AcceptanceOrder::getAcceptanceId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+        if (acceptanceIds.isEmpty()) {
+            return;
+        }
+        ctx.setAcceptanceDetails(acceptanceDetailMapper.selectList(new QueryWrapper<AcceptanceDetail>()
+                        .in("acceptance_id", acceptanceIds))
+                .stream().collect(Collectors.groupingBy(AcceptanceDetail::getAcceptanceId)));
+    }
+
+    /**
+     * 加载批次表单详情补充数据
+     * <p>仅在打开批次详情时调用，避免列表场景为每个批次增加明细查询。</p>
+     *
+     * @param ctx 批次上下文
+     */
+    @Override
+    public void loadDetail(BatchContext ctx) {
+        if (ctx == null) {
+            return;
+        }
+        if (ctx.getAcceptanceDetails() == null) {
+            loadAcceptanceDetails(ctx);
+        }
+        if (ctx.getReturnDetails() == null) {
+            loadReturnDetails(ctx);
+        }
+        if (ctx.getWorkOrder() != null) {
+            ctx.setInspectionTasks(inspectionTaskService.list(new QueryWrapper<InspectionTask>()
+                    .eq("work_order_id", ctx.getWorkOrder().getWorkOrderId())));
+        }
+    }
+
+    /**
+     * 加载退库单明细
+     *
+     * @param ctx 批次上下文
+     */
+    private void loadReturnDetails(BatchContext ctx) {
+        if (ctx.getReturns() == null || ctx.getReturns().isEmpty()) {
+            ctx.setReturnDetails(Collections.emptyMap());
+            return;
+        }
+        List<Long> returnIds = ctx.getReturns().stream()
+                .map(ReturnOrder::getId).filter(Objects::nonNull).collect(Collectors.toList());
+        if (returnIds.isEmpty()) {
+            ctx.setReturnDetails(Collections.emptyMap());
+            return;
+        }
+        ctx.setReturnDetails(returnOrderDetailMapper.selectList(new QueryWrapper<ReturnOrderDetail>()
+                        .in("return_order_id", returnIds))
+                .stream().collect(Collectors.groupingBy(ReturnOrderDetail::getReturnOrderId)));
     }
 
     /**
@@ -435,10 +518,39 @@ public class BatchQueryServiceImpl implements BatchQueryService {
         ctx.setStockIns(stockIns);
         if (!stockIns.isEmpty()) {
             List<Long> ids = stockIns.stream().map(StockIn::getInId).collect(Collectors.toList());
-            ctx.setStockInDetails(stockInDetailMapper.selectList(new QueryWrapper<StockInDetail>()
-                            .in("in_id", ids))
-                    .stream().collect(Collectors.groupingBy(StockInDetail::getInId)));
+            List<StockInDetail> details = stockInDetailMapper.selectList(new QueryWrapper<StockInDetail>()
+                    .in("in_id", ids));
+            ctx.setStockInDetails(details.stream().collect(Collectors.groupingBy(StockInDetail::getInId)));
+            loadPreparationSpecs(ctx, details.stream()
+                    .map(StockInDetail::getItemId)
+                    .collect(Collectors.toList()));
         }
+    }
+
+    /**
+     * 加载成品出入库明细对应的制剂规格
+     * <p>
+     * 成品入库/出库明细的 item_id 指向制剂主数据，按制剂ID批量查询规格，
+     * 避免产品信息汇总逐行查询；已有结果只补充不覆盖。
+     * </p>
+     *
+     * @param ctx     批次上下文
+     * @param itemIds 明细物品ID（制剂ID）
+     */
+    private void loadPreparationSpecs(BatchContext ctx, List<Long> itemIds) {
+        List<Long> preparationIds = itemIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (preparationIds.isEmpty()) {
+            return;
+        }
+        Map<Long, String> specs = ctx.getPreparationSpecs() == null
+                ? new HashMap<>() : new HashMap<>(ctx.getPreparationSpecs());
+        preparationService.listByIds(preparationIds).stream()
+                .filter(preparation -> StringUtils.hasText(preparation.getSpec()))
+                .forEach(preparation -> specs.putIfAbsent(preparation.getPreparationId(), preparation.getSpec()));
+        ctx.setPreparationSpecs(specs);
     }
 
     /**
@@ -550,9 +662,12 @@ public class BatchQueryServiceImpl implements BatchQueryService {
         ctx.setStockOuts(stockOuts);
         if (!stockOuts.isEmpty()) {
             List<Long> ids = stockOuts.stream().map(StockOut::getOutId).collect(Collectors.toList());
-            ctx.setStockOutDetails(stockOutDetailMapper.selectList(new QueryWrapper<StockOutDetail>()
-                            .in("out_id", ids))
-                    .stream().collect(Collectors.groupingBy(StockOutDetail::getOutId)));
+            List<StockOutDetail> details = stockOutDetailMapper.selectList(new QueryWrapper<StockOutDetail>()
+                    .in("out_id", ids));
+            ctx.setStockOutDetails(details.stream().collect(Collectors.groupingBy(StockOutDetail::getOutId)));
+            loadPreparationSpecs(ctx, details.stream()
+                    .map(StockOutDetail::getItemId)
+                    .collect(Collectors.toList()));
         }
     }
 

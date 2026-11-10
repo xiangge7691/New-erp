@@ -6,18 +6,22 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.QualityPages.BatchContext;
 import com.tonghui.erp.Common.Dto.QualityPages.ReleaseBatchDtos;
 import com.tonghui.erp.Common.utils.EntityUtils;
+import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
 import com.tonghui.erp.Data.Entity.DeviationRecord;
 import com.tonghui.erp.Data.Entity.FileRequirementConfig;
 import com.tonghui.erp.Data.Entity.InspectionRecord;
 import com.tonghui.erp.Data.Entity.InspectionRequest;
+import com.tonghui.erp.Data.Entity.InspectionTask;
 import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.ProductionPick;
+import com.tonghui.erp.Data.Entity.ProductionPickDetail;
 import com.tonghui.erp.Data.Entity.ProductionPlan;
 import com.tonghui.erp.Data.Entity.PurchaseOrderItems;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
 import com.tonghui.erp.Data.Entity.ReleaseReview;
 import com.tonghui.erp.Data.Entity.ReturnOrder;
+import com.tonghui.erp.Data.Entity.ReturnOrderDetail;
 import com.tonghui.erp.Data.Entity.SamplingRecord;
 import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.Entity.StockOut;
@@ -245,6 +249,8 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
         int openDeviations = (int) ctx.getDeviations().stream().filter(this::deviationOpen).count();
         dto.setDeviationOpen(openDeviations);
         dto.setReleaseStatus(releaseStatus(ctx));
+        dto.setReleaseApprover(releaseApprover(ctx));
+        dto.setReleaseDate(releaseDate(ctx));
         dto.setCanRelease(compliance(ctx).isCanRelease());
         dto.setBlockers(buildBlockers(dto, openDeviations));
         return dto;
@@ -294,6 +300,7 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
     }
 
     private ReleaseBatchDtos.BatchDetail toDetail(BatchContext ctx) {
+        batchQueryService.loadDetail(ctx);
         WorkOrder wo = ctx.getWorkOrder();
         ReleaseBatchDtos.BatchDetail detail = new ReleaseBatchDtos.BatchDetail();
 
@@ -318,14 +325,14 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
         detail.setBatch(batch);
 
         detail.setPurchases(ctx.getPurchases().stream().map(p -> toPurchase(p, ctx)).collect(Collectors.toList()));
-        detail.setAcceptances(ctx.getAcceptances().stream().map(this::toAcceptance).collect(Collectors.toList()));
+        detail.setAcceptances(ctx.getAcceptances().stream().map(a -> toAcceptance(a, ctx)).collect(Collectors.toList()));
         detail.setInstructions(instruction(ctx));
-        detail.setRequisitions(ctx.getPicks().stream().map(this::toRequisition).collect(Collectors.toList()));
-        detail.setReturns(ctx.getReturns().stream().map(this::toReturn).collect(Collectors.toList()));
+        detail.setRequisitions(ctx.getPicks().stream().map(p -> toRequisition(p, ctx)).collect(Collectors.toList()));
+        detail.setReturns(ctx.getReturns().stream().map(r -> toReturn(r, ctx)).collect(Collectors.toList()));
         detail.setProcesses(processItems(ctx));
-        detail.setRequests(ctx.getRequests().stream().map(r -> toInspectionItem(r, "请检单", "INSPECTION_REQUEST")).collect(Collectors.toList()));
-        detail.setSamplings(ctx.getSamplings().stream().map(s -> toInspectionItem(s, "取样记录", "SAMPLING_RECORD")).collect(Collectors.toList()));
-        detail.setInspections(ctx.getInspections().stream().map(i -> toInspectionItem(i, "检验记录", "INSPECTION_RECORD")).collect(Collectors.toList()));
+        detail.setRequests(ctx.getRequests().stream().map(r -> toInspectionItem(r, "请检单", "INSPECTION_REQUEST", ctx)).collect(Collectors.toList()));
+        detail.setSamplings(ctx.getSamplings().stream().map(s -> toInspectionItem(s, "取样记录", "SAMPLING_RECORD", ctx)).collect(Collectors.toList()));
+        detail.setInspections(ctx.getInspections().stream().map(i -> toInspectionItem(i, "检验记录", "INSPECTION_RECORD", ctx)).collect(Collectors.toList()));
         detail.setRooms(roomItems(ctx));
         detail.setYieldInfo(yieldInfo(ctx));
         detail.setDeviations(ctx.getDeviations().stream().map(this::toDeviation).collect(Collectors.toList()));
@@ -342,24 +349,66 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
         item.setMaterialType(po.getMaterialType());
         item.setStatus(po.getStatus() == null ? null : String.valueOf(po.getStatus()));
         item.setDate(po.getOrderTime() == null ? null : po.getOrderTime().toLocalDate());
+        item.setOrderTime(po.getOrderTime());
+        item.setInvoiceNo(po.getInvoiceInfo());
+        item.setRemark(po.getRemark());
         List<PurchaseOrderItems> lines = ctx.getPurchaseItems() == null ? Collections.emptyList()
                 : ctx.getPurchaseItems().getOrDefault(po.getId(), Collections.emptyList());
         if (!lines.isEmpty()) {
             item.setSupplier(lines.stream().map(PurchaseOrderItems::getSupplier)
                     .filter(StringUtils::hasText).findFirst().orElse(null));
         }
+        item.setLines(lines.stream().map(line -> toPurchaseLine(line, ctx)).collect(Collectors.toList()));
         List<BusinessFileDto> files = businessFileService.list("PURCHASE_ORDER", po.getId(), null, null);
         item.setFileCount(files == null ? 0 : files.size());
         item.setFiles(toFiles(files));
         return item;
     }
 
-    private ReleaseBatchDtos.AcceptanceItem toAcceptance(AcceptanceOrder acceptance) {
+    /**
+     * 组装采购明细行
+     *
+     * @param line 采购明细实体
+     * @param ctx  批次上下文
+     * @return 采购明细 DTO
+     */
+    private ReleaseBatchDtos.PurchaseLineItem toPurchaseLine(PurchaseOrderItems line, BatchContext ctx) {
+        ReleaseBatchDtos.PurchaseLineItem item = new ReleaseBatchDtos.PurchaseLineItem();
+        item.setMaterialCode(line.getMaterialCode());
+        String materialName = line.getMaterialId() != null && ctx.getPurchaseMaterialNames() != null
+                ? ctx.getPurchaseMaterialNames().get(line.getMaterialId()) : null;
+        if (!StringUtils.hasText(materialName)) {
+            materialName = StringUtils.hasText(line.getRawMaterialName())
+                    ? line.getRawMaterialName() : line.getProductName();
+        }
+        item.setMaterialName(materialName);
+        item.setSpec(line.getProcessingProperty());
+        item.setQuantity(line.getPurchaseQuantity());
+        item.setUnit(line.getUnit());
+        item.setUnitPrice(line.getUnitPrice());
+        item.setAmount(line.getAmount());
+        item.setActualArrivalQty(line.getActualArrivalQty());
+        item.setInvoiceNo(line.getInvoiceNo());
+        item.setSupplier(line.getSupplier());
+        return item;
+    }
+
+    private ReleaseBatchDtos.AcceptanceItem toAcceptance(AcceptanceOrder acceptance, BatchContext ctx) {
         ReleaseBatchDtos.AcceptanceItem item = new ReleaseBatchDtos.AcceptanceItem();
         item.setId(acceptance.getAcceptanceId());
         item.setCode(acceptance.getAcceptanceCode());
         item.setStatus(acceptance.getStatus());
         item.setPurchaseNumber(acceptance.getPurchaseNumber());
+        item.setSourceType(acceptance.getSourceType());
+        item.setArrivalTime(acceptance.getArrivalTime());
+        item.setAcceptanceTime(acceptance.getAcceptanceTime());
+        item.setAcceptor(acceptance.getAcceptorName());
+        item.setReviewer(acceptance.getReviewerName());
+        item.setRemark(acceptance.getRemark());
+        List<AcceptanceDetail> details = ctx.getAcceptanceDetails() == null
+                ? Collections.emptyList()
+                : ctx.getAcceptanceDetails().getOrDefault(acceptance.getAcceptanceId(), Collections.emptyList());
+        item.setDetails(details.stream().map(this::toAcceptanceLine).collect(Collectors.toList()));
         List<BusinessFileDto> all = new ArrayList<>();
         for (String kind : List.of("WAYBILL", "INSPECTION_REPORT", "INVOICE")) {
             List<BusinessFileDto> files = businessFileService.list("ACCEPTANCE_ORDER", acceptance.getAcceptanceId(), null, kind);
@@ -373,6 +422,29 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
             }
         }
         item.setFiles(toFiles(all));
+        return item;
+    }
+
+    /**
+     * 组装验收明细行
+     *
+     * @param detail 验收明细实体
+     * @return 验收明细 DTO
+     */
+    private ReleaseBatchDtos.AcceptanceLineItem toAcceptanceLine(AcceptanceDetail detail) {
+        ReleaseBatchDtos.AcceptanceLineItem item = new ReleaseBatchDtos.AcceptanceLineItem();
+        item.setMaterialCode(detail.getMaterialCode());
+        item.setMaterialName(detail.getMaterialName());
+        item.setSpec(detail.getMaterialCategory());
+        item.setQuantity(detail.getQuantity());
+        item.setUnit(detail.getUnitName());
+        item.setBatchNumber(detail.getBatchNumber());
+        item.setExpiryDate(detail.getExpiryDate());
+        item.setAppearanceCheck(detail.getAppearanceCheck());
+        item.setOuterPackageCheck(detail.getOuterPackageCheck());
+        item.setConclusion(detail.getStatus());
+        item.setSupplier(detail.getSupplier());
+        item.setDiffQuantity(detail.getDiffQuantity());
         return item;
     }
 
@@ -395,17 +467,61 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
         if (ctx.getPlan() == null) {
             return Collections.emptyList();
         }
+        ProductionPlan plan = ctx.getPlan();
         ReleaseBatchDtos.DocumentItem item = new ReleaseBatchDtos.DocumentItem();
-        item.setId(ctx.getPlan().getId().longValue());
-        item.setCode(ctx.getPlan().getPlanNumber());
+        item.setId(plan.getId().longValue());
+        item.setCode(plan.getPlanNumber());
         item.setType("生产指令");
         item.setDate(planDate(ctx));
-        item.setStatus(ctx.getPlan().getCurrentStatus());
-        item.setFiles(toFiles(businessFileService.list("PRODUCTION_PLAN", ctx.getPlan().getId().longValue(), null, null)));
+        item.setStatus(plan.getCurrentStatus());
+        item.setPreparation(plan.getPreparationName());
+        item.setPreparationCode(plan.getPreparationCode());
+        item.setSpec(ctx.getPreparation() == null ? null : ctx.getPreparation().getSpec());
+        item.setBatchNo(ctx.getWorkOrder() == null ? null : ctx.getWorkOrder().getBatchNumber());
+        item.setQty(plan.getPlanQuantity() != null ? plan.getPlanQuantity()
+                : ctx.getWorkOrder() == null ? null : ctx.getWorkOrder().getBatchQty());
+        item.setPlanStart(plan.getProductionStartTime());
+        item.setPlanEnd(plan.getProductionEndTime());
+        item.setProcessRoute(processRoute(ctx));
+        item.setRemark(plan.getRemark());
+        item.setFiles(toFiles(businessFileService.list("PRODUCTION_PLAN", plan.getId().longValue(), null, null)));
         return List.of(item);
     }
 
-    private ReleaseBatchDtos.DocumentItem toRequisition(ProductionPick pick) {
+    /**
+     * 生成工序路线文案
+     *
+     * @param ctx 批次上下文
+     * @return 形如「粉碎 → 干燥（丸） → 总混」的工序路线
+     */
+    private String processRoute(BatchContext ctx) {
+        if (ctx.getExecutions() == null || ctx.getExecutions().isEmpty()) {
+            return null;
+        }
+        Map<Long, String> names = ctx.getProcessNames() == null ? Collections.emptyMap() : ctx.getProcessNames();
+        return ctx.getExecutions().stream()
+                .map(execution -> processName(ctx, execution, names))
+                .filter(StringUtils::hasText)
+                .collect(Collectors.joining(" → "));
+    }
+
+    /**
+     * 获取工序显示名称（可传入已加载的名称映射）
+     *
+     * @param ctx   批次上下文
+     * @param execution 工序执行记录
+     * @param names 工序类型名称映射
+     * @return 工序名称
+     */
+    private String processName(BatchContext ctx, WorkOrderProcessExecution execution, Map<Long, String> names) {
+        String name = names.get(execution.getProcessTypeId());
+        if (!StringUtils.hasText(name)) {
+            name = processName(ctx, execution);
+        }
+        return name;
+    }
+
+    private ReleaseBatchDtos.DocumentItem toRequisition(ProductionPick pick, BatchContext ctx) {
         ReleaseBatchDtos.DocumentItem item = new ReleaseBatchDtos.DocumentItem();
         item.setId(pick.getId());
         item.setCode(pick.getPickCode());
@@ -413,13 +529,21 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
         item.setDate(date(pick.getPickTime()));
         item.setStatus(pick.getStatus());
         item.setOperator(pick.getApplicant());
+        item.setPurpose(pick.getPurpose());
+        item.setWarehouse(pick.getWorkshop());
+        item.setStockOutCode(pick.getStockOutCode());
+        item.setRemark(pick.getRemark());
+        List<ProductionPickDetail> details = ctx.getPickDetails() == null
+                ? Collections.emptyList()
+                : ctx.getPickDetails().getOrDefault(pick.getId(), Collections.emptyList());
+        item.setLines(details.stream().map(this::toDocumentLine).collect(Collectors.toList()));
         if (pick.getStockOutId() != null) {
             item.setFiles(toFiles(businessFileService.list("STOCK_OUT_PRODUCTION", pick.getStockOutId(), null, null)));
         }
         return item;
     }
 
-    private ReleaseBatchDtos.DocumentItem toReturn(ReturnOrder returnOrder) {
+    private ReleaseBatchDtos.DocumentItem toReturn(ReturnOrder returnOrder, BatchContext ctx) {
         ReleaseBatchDtos.DocumentItem item = new ReleaseBatchDtos.DocumentItem();
         item.setId(returnOrder.getId());
         item.setCode(returnOrder.getReturnNo());
@@ -427,6 +551,42 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
         item.setDate(date(returnOrder.getReturnTime()));
         item.setOperator(returnOrder.getReturnPersonName());
         item.setStatus(returnOrder.getReturnTime() != null ? "已退库" : "待退库");
+        item.setStockOutCode(returnOrder.getOutOrderNo());
+        item.setRemark(returnOrder.getRemark());
+        List<ReturnOrderDetail> details = ctx.getReturnDetails() == null
+                ? Collections.emptyList()
+                : ctx.getReturnDetails().getOrDefault(returnOrder.getId(), Collections.emptyList());
+        item.setLines(details.stream().map(this::toDocumentLine).collect(Collectors.toList()));
+        item.setFiles(toFiles(businessFileService.list("RETURN_ORDER", returnOrder.getId(), null, null)));
+        return item;
+    }
+
+    /**
+     * 组装领料/退库明细行
+     *
+     * @param detail 明细实体
+     * @return 明细 DTO
+     */
+    private ReleaseBatchDtos.DocumentLineItem toDocumentLine(Object detail) {
+        ReleaseBatchDtos.DocumentLineItem item = new ReleaseBatchDtos.DocumentLineItem();
+        if (detail instanceof ProductionPickDetail pick) {
+            item.setMaterialCode(pick.getMaterialCode());
+            item.setMaterialName(pick.getMaterialName());
+            item.setSpec(pick.getCategoryName());
+            item.setQuantity(pick.getActualQty() != null ? pick.getActualQty() : pick.getApplyQty());
+            item.setUnit(pick.getUnitName());
+            item.setBatchNumber(pick.getBatchNumber());
+            item.setUnitPrice(pick.getUnitPrice());
+        } else if (detail instanceof ReturnOrderDetail returned) {
+            item.setMaterialCode(returned.getMaterialCode());
+            item.setMaterialName(returned.getMaterialName());
+            item.setSpec(returned.getCategory());
+            item.setQuantity(returned.getReturnQuantity());
+            item.setUnit(returned.getUnit());
+            item.setBatchNumber(returned.getBatchNo());
+            item.setUnitPrice(returned.getUnitPrice());
+            item.setAmount(returned.getAmount());
+        }
         return item;
     }
 
@@ -451,6 +611,11 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
             item.setEndTime(execution.getEndTime());
             item.setOperator(execution.getOperatorName());
             item.setStatus(execution.getStatus());
+            if (execution.getRoomId() != null && ctx.getRooms() != null && ctx.getRooms().get(execution.getRoomId()) != null) {
+                item.setRoomName(ctx.getRooms().get(execution.getRoomId()).getRoomName());
+            }
+            item.setEquipmentName(execution.getEquipmentName());
+            item.setRemark(execution.getRemark());
             item.setFiles(toFiles(businessFileService.list("WORK_ORDER_PROCESS_EXECUTION",
                     execution.getId(), null, null)));
             items.add(item);
@@ -479,31 +644,126 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
         return "工序" + execution.getStepOrder();
     }
 
-    private ReleaseBatchDtos.InspectionItem toInspectionItem(Object entity, String type, String bizType) {
+    private ReleaseBatchDtos.InspectionItem toInspectionItem(Object entity, String type, String bizType, BatchContext ctx) {
         ReleaseBatchDtos.InspectionItem item = new ReleaseBatchDtos.InspectionItem();
         item.setType(type);
         Long id = null;
+        InspectionTask task = null;
         if (entity instanceof InspectionRequest r) {
             id = r.getId();
             item.setCode(r.getInspectionCode());
             item.setProcess(r.getProcessName());
             item.setTime(r.getRequestTime());
             item.setOperator(r.getRequester());
+            item.setRequester(r.getRequester());
+            item.setRequestDepartment(r.getRequestDepartment());
+            item.setRequestTime(r.getRequestTime());
+            item.setInspectionItems(r.getInspectionItems());
+            item.setConfigQuantity(r.getConfigQuantity());
+            item.setRemark(r.getRemark());
+            item.setRelatedPlanCode(r.getInspectionPlanCode());
+            task = findInspectionTask(ctx, "request", id);
+            item.setStatus(requestStatus(task));
         } else if (entity instanceof SamplingRecord s) {
             id = s.getId();
             item.setCode(s.getSamplingCode());
             item.setTime(s.getSamplingTime());
             item.setOperator(s.getSampler());
+            item.setSampler(s.getSampler());
+            item.setSamplingTime(s.getSamplingTime());
+            item.setSamplingQuantity(s.getSamplingQuantity());
+            item.setSamplingCount(s.getSamplingCount());
+            item.setSamplingMethod(s.getSamplingMethod());
+            item.setSamplingLocation(s.getSamplingLocation());
+            item.setRemark(s.getRemark());
+            item.setRelatedPlanCode(s.getRelatedPlanCode());
+            task = findInspectionTask(ctx, "sampling", id);
+            item.setStatus("已取样");
+            if (task != null) {
+                item.setRelatedInspectionRequestCode(requestCodeById(ctx, task.getRequestRefId()));
+            }
         } else if (entity instanceof InspectionRecord r) {
             id = r.getId();
             item.setCode(r.getInspectionCode());
             item.setConclusion(r.getConclusion());
             item.setTime(r.getEndTime());
             item.setOperator(r.getInspector());
+            item.setInspectionBasis(r.getInspectionBasis());
+            item.setInspectionItem(r.getInspectionItem());
+            item.setInspector(r.getInspector());
+            item.setReviewer(r.getReviewer());
+            item.setStartTime(r.getStartTime());
+            item.setEndTime(r.getEndTime());
+            item.setRemark(r.getRemark());
+            item.setRelatedInspectionRequestCode(r.getRelatedInspectionRequestCode());
+            item.setRelatedSamplingCode(r.getRelatedSamplingCode());
+            task = findInspectionTask(ctx, "inspection", id);
+            item.setStatus(StringUtils.hasText(r.getConclusion()) && r.getEndTime() != null ? "已检验" : "检验中");
         }
         item.setId(id);
+        if (task != null) {
+            item.setRelatedTaskCode(task.getTaskCode());
+            if (!StringUtils.hasText(item.getRelatedPlanCode())) {
+                item.setRelatedPlanCode(task.getPlanNumber());
+            }
+        }
         item.setFiles(id == null ? Collections.emptyList() : toFiles(businessFileService.list(bizType, id, null, null)));
         return item;
+    }
+
+    /**
+     * 按类型和单据ID查找检验任务
+     *
+     * @param ctx   批次上下文
+     * @param kind  单据类型：request/sampling/inspection
+     * @param refId 单据ID
+     * @return 检验任务，未找到时返回 null
+     */
+    private InspectionTask findInspectionTask(BatchContext ctx, String kind, Long refId) {
+        if (refId == null || ctx.getInspectionTasks() == null) {
+            return null;
+        }
+        return ctx.getInspectionTasks().stream()
+                .filter(task -> switch (kind) {
+                    case "request" -> refId.equals(task.getRequestRefId());
+                    case "sampling" -> refId.equals(task.getSamplingRefId());
+                    case "inspection" -> refId.equals(task.getInspectionRefId());
+                    default -> false;
+                })
+                .findFirst().orElse(null);
+    }
+
+    /**
+     * 推导请检单状态
+     *
+     * @param task 检验任务
+     * @return 待取样/检验中/已检验
+     */
+    private String requestStatus(InspectionTask task) {
+        if (task == null) {
+            return "待检验";
+        }
+        if (task.getInspectionRefId() != null) {
+            return "已检验";
+        }
+        return task.getSamplingRefId() != null ? "检验中" : "待取样";
+    }
+
+    /**
+     * 按请检单ID获取请检单号
+     *
+     * @param ctx 批次上下文
+     * @param id  请检单ID
+     * @return 请检单号
+     */
+    private String requestCodeById(BatchContext ctx, Long id) {
+        if (id == null || ctx.getRequests() == null) {
+            return null;
+        }
+        return ctx.getRequests().stream()
+                .filter(request -> id.equals(request.getId()))
+                .map(InspectionRequest::getInspectionCode)
+                .findFirst().orElse(null);
     }
 
     private List<ReleaseBatchDtos.RoomItem> roomItems(BatchContext ctx) {
@@ -548,6 +808,11 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
         item.setHandler(d.getHandlerName());
         item.setHandleDate(date(d.getHandleTime()));
         item.setStatus(deviationOpen(d) ? "未关闭" : "已关闭");
+        item.setOccurTime(d.getOccurTime());
+        item.setProcessName(d.getProcessName());
+        item.setDescription(d.getDescription());
+        item.setAction(d.getActionDesc());
+        item.setRemark(d.getRemark());
         item.setFiles(toFiles(businessFileService.list("DEVIATION_RECORD", d.getId(), null, null)));
         return item;
     }
@@ -900,6 +1165,27 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
         }
         // 草稿（待补充）不强制“待审核”，是否可放行只看合规五项
         return compliance(ctx).isCanRelease() ? "待放行" : "待审核";
+    }
+
+    /**
+     * 放行批准人：取放行审核记录的审核人
+     * <p>草稿（待补充）也会记录审核人，列表与详情页口径保持一致，未生成放行记录时返回 null。</p>
+     *
+     * @param ctx 批次上下文
+     * @return 审核人姓名
+     */
+    private String releaseApprover(BatchContext ctx) {
+        return ctx.getRelease() == null ? null : ctx.getRelease().getReviewer();
+    }
+
+    /**
+     * 放行日期：取放行审核记录的审核时间所在日期
+     *
+     * @param ctx 批次上下文
+     * @return 审核日期，未生成放行记录时返回 null
+     */
+    private LocalDate releaseDate(BatchContext ctx) {
+        return ctx.getRelease() == null ? null : date(ctx.getRelease().getReviewTime());
     }
 
     private ReleaseBatchDtos.ReleaseInfo releaseInfo(BatchContext ctx) {

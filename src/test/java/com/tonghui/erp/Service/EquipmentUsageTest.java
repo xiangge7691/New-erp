@@ -1,5 +1,6 @@
 package com.tonghui.erp.Service;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.tonghui.erp.Common.Dto.Equipment.EquipmentUsageRecordDto;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
@@ -23,6 +24,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -170,9 +172,47 @@ public class EquipmentUsageTest {
         assertTrue(exception.getMessage().contains("结束时间必须晚于开始时间"), "应提示结束时间必须晚于开始时间");
     }
 
-    // endregion
+    /**
+     * 只填结束时间未填开始时间 → 拦截
+     */
+    @Test
+    public void testEndTimeWithoutStartTimeRejected() {
+        Equipment equipment = createEquipment("正常");
+        long workOrderId = nextWorkOrderId();
 
-    // region 设备状态与维保冲突
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> workOrderProcessExecutionService.batchSave(workOrderId,
+                        List.of(buildExecution(workOrderId, equipment.getEquipmentId(),
+                                null, LocalDateTime.of(2026, 10, 15, 12, 0)))));
+        assertTrue(exception.getMessage().contains("必须同时填写开始时间"),
+                "应提示只填结束时间不合法");
+    }
+
+    /**
+     * 执行中工序（只有开始时间）按开放区间占用设备 → 其他工单后续排产被拦截
+     */
+    @Test
+    public void testOngoingUsageBlocksLaterBooking() {
+        Equipment equipment = createEquipment("正常");
+        long firstWorkOrderId = nextWorkOrderId();
+        long secondWorkOrderId = nextWorkOrderId();
+
+        // 第一张工单的工序从 8:00 开始执行、尚未结束
+        workOrderProcessExecutionService.batchSave(firstWorkOrderId,
+                List.of(buildExecution(firstWorkOrderId, equipment.getEquipmentId(),
+                        LocalDateTime.of(2026, 10, 15, 8, 0), null)));
+
+        // 第二张工单计划 9:00~10:00 使用同一设备，应判定为冲突
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> workOrderProcessExecutionService.batchSave(secondWorkOrderId,
+                        List.of(buildExecution(secondWorkOrderId, equipment.getEquipmentId(),
+                                LocalDateTime.of(2026, 10, 15, 9, 0),
+                                LocalDateTime.of(2026, 10, 15, 10, 0)))));
+        assertTrue(exception.getMessage().contains("使用时间冲突"),
+                "执行中的工序应按开放区间占用设备");
+    }
+
+    // endregion
     // ===================================
     // 设备状态与维保冲突
     // ===================================
@@ -241,6 +281,29 @@ public class EquipmentUsageTest {
     }
 
     /**
+     * 工序执行中（只有开始时间）登记维保 → 按持续占用拦截
+     */
+    @Test
+    public void testOngoingUsageBlocksMaintenance() {
+        Equipment equipment = createEquipment("正常");
+        long workOrderId = nextWorkOrderId();
+        workOrderProcessExecutionService.batchSave(workOrderId,
+                List.of(buildExecution(workOrderId, equipment.getEquipmentId(),
+                        LocalDateTime.of(2026, 10, 15, 8, 0), null)));
+
+        EquipmentMaintenance maintenance = new EquipmentMaintenance();
+        maintenance.setEquipmentId(equipment.getEquipmentId().longValue());
+        maintenance.setMaintenanceType("定期检修");
+        maintenance.setMaintenanceStartTime(LocalDateTime.of(2026, 10, 15, 9, 0));
+        maintenance.setMaintenanceEndTime(LocalDateTime.of(2026, 10, 15, 10, 0));
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> equipmentMaintenanceService.saveWithAutoCalc(maintenance));
+        assertTrue(exception.getMessage().contains("占用"),
+                "执行中的工序应按开放区间阻止维保安排");
+    }
+
+    /**
      * 维保时间与使用时间首尾相接（使用 12:00 结束、维保 12:00 开始）→ 允许
      */
     @Test
@@ -291,15 +354,22 @@ public class EquipmentUsageTest {
     }
 
     /**
-     * 仅有开始时间 → 状态为执行中
+     * 仅有开始时间 → 允许保存，状态推导为执行中
      */
     @Test
     public void testInProgressStatusWhenOnlyStartTime() {
         Equipment equipment = createEquipment("正常");
         long workOrderId = nextWorkOrderId();
-        // 直接落库（batchSave 会拦截"只填开始时间"，此处仅验证状态推导规则）
-        workOrderProcessExecutionService.save(buildExecution(workOrderId, equipment.getEquipmentId(),
-                LocalDateTime.of(2026, 10, 15, 8, 0), null));
+        // 只填开始时间表示工序执行中，允许保存
+        workOrderProcessExecutionService.batchSave(workOrderId,
+                List.of(buildExecution(workOrderId, equipment.getEquipmentId(),
+                        LocalDateTime.of(2026, 10, 15, 8, 0), null)));
+
+        // 落库状态应为执行中（前端传入的"待执行"不生效）
+        WorkOrderProcessExecution saved = workOrderProcessExecutionService.list(
+                        new QueryWrapper<WorkOrderProcessExecution>().eq("work_order_id", workOrderId))
+                .get(0);
+        assertEquals("执行中", saved.getStatus(), "仅有开始时间保存后状态应为执行中");
 
         PageRequestDto pageRequest = new PageRequestDto();
         pageRequest.setPageIndex(0);
@@ -341,7 +411,11 @@ public class EquipmentUsageTest {
                         .anyMatch(item -> equipment.getEquipmentId().equals(item.getEquipmentId())
                                 && Long.valueOf(240L).equals(item.getDurationMinutes())),
                 "使用时长应为 240 分钟");
-        // 库中 status 恒为"待执行"，导出应按使用时间推导为"已完成"
+        // 保存后落库状态应为已完成（与展示口径一致）
+        WorkOrderProcessExecution saved = workOrderProcessExecutionService.list(
+                        new QueryWrapper<WorkOrderProcessExecution>().eq("work_order_id", workOrderId))
+                .get(0);
+        assertEquals("已完成", saved.getStatus(), "开始与结束时间齐全时落库状态应为已完成");
         assertTrue(page.getItems().stream()
                         .allMatch(item -> "已完成".equals(item.getStatus())), "已填写完整使用时间的记录状态应为已完成");
 

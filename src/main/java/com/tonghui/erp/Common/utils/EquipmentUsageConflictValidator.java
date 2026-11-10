@@ -30,12 +30,14 @@ import java.util.stream.Collectors;
  * <p>
  * 在保存工单工序执行记录前校验设备使用是否合法，校验项包括：
  * <ol>
- *   <li>时间合法性：结束时间必须晚于开始时间；填写时间时设备必选</li>
+ *   <li>时间合法性：结束时间必须晚于开始时间；填写时间时设备必选；不允许只填结束时间</li>
  *   <li>设备状态：仅"正常"设备可安排生产使用（停用/报废/已删除均拦截）</li>
  *   <li>使用冲突：同一设备的时间区间不得重叠（跨工单、跨计划、同批内）</li>
  *   <li>维保冲突：使用时间区间不得与设备的维保时间区间重叠</li>
  * </ol>
- * 校验只针对"已填写开始/结束时间"的行；仅选设备未排时间（工单按模板初始化）的行放行。
+ * 校验只针对"已填写开始时间"的行；仅选设备未排时间（工单按模板初始化）的行放行。
+ * 只填开始时间表示工序执行中，结束时间未知，按 [开始时间, +∞) 参与占用与维保冲突判断，
+ * 防止正在使用的设备被其他工单重复排产。
  * </p>
  * <p>
  * 并发控制：按 equipment_id 升序对设备行加 {@code SELECT ... FOR UPDATE} 行锁，
@@ -93,6 +95,12 @@ public class EquipmentUsageConflictValidator {
      */
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
+    /**
+     * 执行中工序的开放区间上界
+     * <p>未填写结束时间表示工序仍在执行，按持续占用设备处理。</p>
+     */
+    private static final LocalDateTime OPEN_END = LocalDateTime.of(9999, 12, 31, 23, 59, 59);
+
     // endregion
 
     // region 校验入口
@@ -118,22 +126,23 @@ public class EquipmentUsageConflictValidator {
 
         // 1. 基础校验：时间先后、设备必填、部分填写时间
         Set<String> errors = new LinkedHashSet<>();
-        List<WorkOrderProcessExecution> timedRows = new ArrayList<>();
+        List<WorkOrderProcessExecution> activeRows = new ArrayList<>();
         for (WorkOrderProcessExecution execution : executions) {
             Integer equipmentId = normalizeEquipmentId(execution);
             String processLabel = describeProcess(execution);
             boolean hasStart = execution.getStartTime() != null;
             boolean hasEnd = execution.getEndTime() != null;
 
-            if (hasStart != hasEnd) {
-                errors.add("工序【" + processLabel + "】请同时填写开始时间和结束时间");
+            if (!hasStart && hasEnd) {
+                errors.add("工序【" + processLabel + "】填写结束时间时必须同时填写开始时间");
                 continue;
             }
             // 未排时间的行不参与设备校验（工单按工艺模板初始化时只有设备、没有时间）
             if (!hasStart) {
                 continue;
             }
-            if (!execution.getStartTime().isBefore(execution.getEndTime())) {
+            // 只填开始时间表示工序执行中，允许结束时间为空；两者都有时结束时间必须晚于开始时间
+            if (hasEnd && !execution.getStartTime().isBefore(execution.getEndTime())) {
                 errors.add("工序【" + processLabel + "】结束时间必须晚于开始时间");
                 continue;
             }
@@ -141,15 +150,15 @@ public class EquipmentUsageConflictValidator {
                 errors.add("工序【" + processLabel + "】填写使用时间时必须选择设备");
                 continue;
             }
-            timedRows.add(execution);
+            activeRows.add(execution);
         }
         throwIfAny(errors);
-        if (timedRows.isEmpty()) {
+        if (activeRows.isEmpty()) {
             return;
         }
 
         // 2. 收集本批涉及设备，按ID升序加锁并校验状态
-        List<Integer> equipmentIds = timedRows.stream()
+        List<Integer> equipmentIds = activeRows.stream()
                 .map(WorkOrderProcessExecution::getEquipmentId)
                 .filter(Objects::nonNull)
                 .distinct()
@@ -159,13 +168,13 @@ public class EquipmentUsageConflictValidator {
         throwIfAny(errors);
 
         // 3. 同一批内两两时间重叠校验
-        checkInBatchConflicts(timedRows, equipmentMap, errors);
+        checkInBatchConflicts(activeRows, equipmentMap, errors);
 
         // 4. 与其他工单既有记录的时间冲突校验
-        checkDatabaseConflicts(workOrderId, timedRows, equipmentIds, equipmentMap, errors);
+        checkDatabaseConflicts(workOrderId, activeRows, equipmentIds, equipmentMap, errors);
 
         // 5. 与设备维保日期的冲突校验
-        checkMaintenanceConflicts(timedRows, equipmentIds, equipmentMap, errors);
+        checkMaintenanceConflicts(activeRows, equipmentIds, equipmentMap, errors);
 
         throwIfAny(errors);
     }
@@ -212,17 +221,18 @@ public class EquipmentUsageConflictValidator {
      * 校验同一批提交记录内部的设备时间重叠
      * <p>
      * 按设备分组、开始时间升序后扫描；由于已按开始时间排序，
-     * 后续行开始时间不早于当前行结束时间时即可停止比较。
+     * 后续行开始时间不早于当前行等效结束时间时即可停止比较。
+     * 未填写结束时间的行按开放区间 [开始时间, +∞) 参与比较。
      * </p>
      *
-     * @param timedRows    已填写时间的记录
+     * @param activeRows    已填写开始时间的记录
      * @param equipmentMap 设备信息
      * @param errors       错误收集容器
      */
-    private void checkInBatchConflicts(List<WorkOrderProcessExecution> timedRows,
+    private void checkInBatchConflicts(List<WorkOrderProcessExecution> activeRows,
                                        Map<Integer, Equipment> equipmentMap,
                                        Set<String> errors) {
-        Map<Integer, List<WorkOrderProcessExecution>> grouped = timedRows.stream()
+        Map<Integer, List<WorkOrderProcessExecution>> grouped = activeRows.stream()
                 .collect(Collectors.groupingBy(WorkOrderProcessExecution::getEquipmentId));
         for (Map.Entry<Integer, List<WorkOrderProcessExecution>> entry : grouped.entrySet()) {
             List<WorkOrderProcessExecution> rows = entry.getValue();
@@ -232,7 +242,7 @@ public class EquipmentUsageConflictValidator {
                 WorkOrderProcessExecution current = rows.get(i);
                 for (int j = i + 1; j < rows.size(); j++) {
                     WorkOrderProcessExecution next = rows.get(j);
-                    if (!next.getStartTime().isBefore(current.getEndTime())) {
+                    if (!next.getStartTime().isBefore(effectiveEnd(current))) {
                         break;
                     }
                     errors.add("同一工单内工序【" + describeProcess(current) + "】与工序【"
@@ -255,22 +265,22 @@ public class EquipmentUsageConflictValidator {
      * 校验与其他工单/计划已登记的设备使用时间是否重叠
      *
      * @param workOrderId  当前工单ID
-     * @param timedRows    已填写时间的记录
+     * @param activeRows    已填写开始时间的记录
      * @param equipmentIds 设备ID列表
      * @param equipmentMap 设备信息
      * @param errors       错误收集容器
      */
     private void checkDatabaseConflicts(Long workOrderId,
-                                        List<WorkOrderProcessExecution> timedRows,
+                                        List<WorkOrderProcessExecution> activeRows,
                                         List<Integer> equipmentIds,
                                         Map<Integer, Equipment> equipmentMap,
                                         Set<String> errors) {
-        LocalDateTime minStart = timedRows.stream()
+        LocalDateTime minStart = activeRows.stream()
                 .map(WorkOrderProcessExecution::getStartTime)
                 .min(LocalDateTime::compareTo)
                 .orElse(null);
-        LocalDateTime maxEnd = timedRows.stream()
-                .map(WorkOrderProcessExecution::getEndTime)
+        LocalDateTime maxEnd = activeRows.stream()
+                .map(this::effectiveEnd)
                 .max(LocalDateTime::compareTo)
                 .orElse(null);
         if (minStart == null || maxEnd == null) {
@@ -285,15 +295,19 @@ public class EquipmentUsageConflictValidator {
             return;
         }
 
-        for (WorkOrderProcessExecution row : timedRows) {
+        for (WorkOrderProcessExecution row : activeRows) {
             for (EquipmentUsageConflictDto conflict : conflicts) {
                 if (!Objects.equals(row.getEquipmentId(), conflict.getEquipmentId())) {
                     continue;
                 }
-                // 半开区间重叠：[start, end)
-                boolean overlap = conflict.getStartTime() != null && conflict.getEndTime() != null
-                        && row.getStartTime().isBefore(conflict.getEndTime())
-                        && row.getEndTime().isAfter(conflict.getStartTime());
+                if (conflict.getStartTime() == null) {
+                    continue;
+                }
+                // 半开区间重叠：[start, end)；未填结束时间视为持续占用
+                LocalDateTime conflictEnd = conflict.getEndTime() == null
+                        ? OPEN_END : conflict.getEndTime();
+                boolean overlap = row.getStartTime().isBefore(conflictEnd)
+                        && effectiveEnd(row).isAfter(conflict.getStartTime());
                 if (!overlap) {
                     continue;
                 }
@@ -320,21 +334,21 @@ public class EquipmentUsageConflictValidator {
      * 使用结束时间恰好等于维保开始时间（或反之）视为不冲突。
      * </p>
      *
-     * @param timedRows    已填写时间的记录
+     * @param activeRows    已填写开始时间的记录
      * @param equipmentIds 设备ID列表
      * @param equipmentMap 设备信息
      * @param errors       错误收集容器
      */
-    private void checkMaintenanceConflicts(List<WorkOrderProcessExecution> timedRows,
+    private void checkMaintenanceConflicts(List<WorkOrderProcessExecution> activeRows,
                                            List<Integer> equipmentIds,
                                            Map<Integer, Equipment> equipmentMap,
                                            Set<String> errors) {
-        LocalDateTime minStart = timedRows.stream()
+        LocalDateTime minStart = activeRows.stream()
                 .map(WorkOrderProcessExecution::getStartTime)
                 .min(LocalDateTime::compareTo)
                 .orElse(null);
-        LocalDateTime maxEnd = timedRows.stream()
-                .map(WorkOrderProcessExecution::getEndTime)
+        LocalDateTime maxEnd = activeRows.stream()
+                .map(this::effectiveEnd)
                 .max(LocalDateTime::compareTo)
                 .orElse(null);
         if (minStart == null || maxEnd == null) {
@@ -347,16 +361,19 @@ public class EquipmentUsageConflictValidator {
             return;
         }
 
-        for (WorkOrderProcessExecution row : timedRows) {
+        for (WorkOrderProcessExecution row : activeRows) {
             for (EquipmentMaintenanceConflictDto maintenance : maintenances) {
                 if (!Objects.equals(row.getEquipmentId(), maintenance.getEquipmentId())) {
                     continue;
                 }
-                // 半开区间重叠：[start, end)
-                boolean overlap = maintenance.getMaintenanceStartTime() != null
-                        && maintenance.getMaintenanceEndTime() != null
-                        && row.getStartTime().isBefore(maintenance.getMaintenanceEndTime())
-                        && row.getEndTime().isAfter(maintenance.getMaintenanceStartTime());
+                if (maintenance.getMaintenanceStartTime() == null) {
+                    continue;
+                }
+                // 半开区间重叠：[start, end)；未填结束时间视为持续占用
+                LocalDateTime maintenanceEnd = maintenance.getMaintenanceEndTime() == null
+                        ? OPEN_END : maintenance.getMaintenanceEndTime();
+                boolean overlap = row.getStartTime().isBefore(maintenanceEnd)
+                        && effectiveEnd(row).isAfter(maintenance.getMaintenanceStartTime());
                 if (!overlap) {
                     continue;
                 }
@@ -389,6 +406,17 @@ public class EquipmentUsageConflictValidator {
             return null;
         }
         return equipmentId;
+    }
+
+    /**
+     * 取工序的等效结束时间
+     * <p>未填写结束时间表示工序仍在执行，按开放区间 [开始时间, +∞) 持续占用设备处理。</p>
+     *
+     * @param execution 工序执行记录
+     * @return 结束时间；未填写时返回开放区间上界
+     */
+    private LocalDateTime effectiveEnd(WorkOrderProcessExecution execution) {
+        return execution.getEndTime() == null ? OPEN_END : execution.getEndTime();
     }
 
     /**
@@ -484,11 +512,14 @@ public class EquipmentUsageConflictValidator {
      *
      * @param start 开始时间
      * @param end   结束时间
-     * @return 形如 2026-10-15 08:00~12:00 的文本
+     * @return 形如 2026-10-15 08:00~12:00 的文本；未填结束时间时显示“~进行中”
      */
     private String formatRange(LocalDateTime start, LocalDateTime end) {
-        if (start == null || end == null) {
+        if (start == null) {
             return "未填写时间";
+        }
+        if (end == null) {
+            return TIME_FORMATTER.format(start) + "~进行中";
         }
         return TIME_FORMATTER.format(start) + "~" + TIME_FORMATTER.format(end);
     }

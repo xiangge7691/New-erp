@@ -1,15 +1,18 @@
 package com.tonghui.erp.Common.Dto.QualityPages;
 
+import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
 import com.tonghui.erp.Data.Entity.DeviationRecord;
 import com.tonghui.erp.Data.Entity.InspectionRecord;
 import com.tonghui.erp.Data.Entity.InspectionRequest;
+import com.tonghui.erp.Data.Entity.InspectionTask;
 import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.ProductionPick;
 import com.tonghui.erp.Data.Entity.ProductionPlan;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
 import com.tonghui.erp.Data.Entity.ReleaseReview;
 import com.tonghui.erp.Data.Entity.ReturnOrder;
+import com.tonghui.erp.Data.Entity.ReturnOrderDetail;
 import com.tonghui.erp.Data.Entity.RoomInfo;
 import com.tonghui.erp.Data.Entity.SalesOrder;
 import com.tonghui.erp.Data.Entity.SamplingRecord;
@@ -55,6 +58,8 @@ public class BatchContext {
     private List<InspectionRequest> requests = new ArrayList<>();
     private List<SamplingRecord> samplings = new ArrayList<>();
     private List<InspectionRecord> inspections = new ArrayList<>();
+    /** 检验任务（用于推导请检/取样/检验记录状态及关联关系） */
+    private List<InspectionTask> inspectionTasks = new ArrayList<>();
     private ReleaseReview release;
     private List<DeviationRecord> deviations = new ArrayList<>();
     private List<WorkOrderProcessExecution> executions = new ArrayList<>();
@@ -69,12 +74,20 @@ public class BatchContext {
 
     /** 采购订单ID -> 明细 */
     private Map<Long, List<com.tonghui.erp.Data.Entity.PurchaseOrderItems>> purchaseItems;
+    /** 验收单ID -> 明细 */
+    private Map<Long, List<AcceptanceDetail>> acceptanceDetails;
+    /** 退库单ID -> 明细 */
+    private Map<Long, List<ReturnOrderDetail>> returnDetails;
     /** 采购明细物料ID -> 物料主数据名称 */
     private Map<Long, String> purchaseMaterialNames;
+    /** 采购明细物料ID -> 物料主数据分类名称 */
+    private Map<Long, String> purchaseMaterialCategories;
     /** 领料单ID -> 明细 */
     private Map<Long, List<com.tonghui.erp.Data.Entity.ProductionPickDetail>> pickDetails;
     /** 成品入库单ID -> 明细 */
     private Map<Long, List<com.tonghui.erp.Data.Entity.StockInDetail>> stockInDetails;
+    /** 成品出入库明细制剂ID -> 制剂规格 */
+    private Map<Long, String> preparationSpecs;
     /** 成品出库单ID -> 明细 */
     private Map<Long, List<com.tonghui.erp.Data.Entity.StockOutDetail>> stockOutDetails;
     /** 物料入库单ID -> 明细 */

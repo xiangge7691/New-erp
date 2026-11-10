@@ -564,7 +564,7 @@ public class ProductionModuleTest {
         workOrderService.addWorkOrder(workOrder);
         Long workOrderId = workOrder.getWorkOrderId();
 
-        // 批量保存执行记录
+        // 批量保存执行记录（状态由开始/结束时间推导，前端传值不生效）
         WorkOrderProcessExecution execution = new WorkOrderProcessExecution();
         execution.setWorkOrderId(workOrderId);
         execution.setStepOrder(1);
@@ -576,6 +576,7 @@ public class ProductionModuleTest {
         // 按工单查询
         List<WorkOrderProcessExecution> executions = workOrderProcessExecutionService.getByWorkOrderId(workOrderId);
         assertEquals(1, executions.size(), "应查到1条执行记录");
+        assertEquals("待执行", executions.get(0).getStatus(), "未填写起止时间时状态应为待执行");
 
         // 二次保存（携带原 id）：应保留原ID，确保按行关联可定位
         WorkOrderProcessExecution execution2 = new WorkOrderProcessExecution();
@@ -588,7 +589,7 @@ public class ProductionModuleTest {
         List<WorkOrderProcessExecution> after = workOrderProcessExecutionService.getByWorkOrderId(workOrderId);
         assertEquals(1, after.size(), "二次保存后应仍为1条执行记录");
         assertEquals(executions.get(0).getId(), after.get(0).getId(), "二次保存应保留原id");
-        assertEquals("已完成", after.get(0).getStatus(), "二次保存应更新状态");
+        assertEquals("待执行", after.get(0).getStatus(), "状态由时间推导，前端传入的状态不生效");
 
         // 创建生产计划（状态日志外键依赖生产计划）
         ProductionPlan plan = new ProductionPlan();

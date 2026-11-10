@@ -233,6 +233,11 @@ public class InspectionTaskArchiveTest {
         inspectionTaskService.completeSampling(id, samplingStep());
         inspectionTaskService.completeInspection(id, inspectionStep());
         inspectionTaskService.completeRetention(id, retentionStep());
+        // 留样完成后固定进入销毁，销毁不要求时需显式跳过
+        InspectionTaskDtos.SkipStepRequest skip = new InspectionTaskDtos.SkipStepRequest();
+        skip.setStepCode("DESTRUCTION");
+        skip.setReason("归档测试不要求销毁");
+        inspectionTaskService.skipStep(id, skip);
     }
 
     private InspectionTaskDtos.RequestStepRequest requestStep() {

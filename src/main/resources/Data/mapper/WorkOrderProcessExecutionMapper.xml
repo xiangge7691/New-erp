@@ -70,7 +70,8 @@
           AND e.is_deleted = 0
     </select>
 
-    <!-- 设备使用时间冲突粗筛：按设备集合与全局时间窗过滤，调用方再做精确区间判断 -->
+    <!-- 设备使用时间冲突粗筛：按设备集合与全局时间窗过滤，调用方再做精确区间判断
+         结束时间为空表示工序执行中，按开放区间参与冲突判断 -->
     <select id="selectConflictRecords"
             resultType="com.tonghui.erp.Common.Dto.Equipment.EquipmentUsageConflictDto">
         SELECT e.id            AS record_id,
@@ -92,9 +93,8 @@
           AND e.equipment_id IN
           <foreach collection="equipmentIds" item="eqId" open="(" separator="," close=")">#{eqId}</foreach>
           AND e.start_time IS NOT NULL
-          AND e.end_time IS NOT NULL
+          AND (e.end_time IS NULL OR e.end_time &gt; #{minStart})
           AND e.start_time &lt; #{maxEnd}
-          AND e.end_time &gt; #{minStart}
           <if test="excludeIds != null and excludeIds.size() > 0">
               AND e.id NOT IN
               <foreach collection="excludeIds" item="excludeId" open="(" separator="," close=")">#{excludeId}</foreach>

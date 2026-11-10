@@ -11,7 +11,8 @@ import java.util.List;
  * 检验管理页 DTO 集合
  * <p>
  * 包含检验任务列表、任务详情、六步步骤以及各步骤办理请求。
- * 所有步骤请求只承载该步骤单据的业务字段，任务流转由服务层统一推进。
+ * 所有步骤请求承载该步骤单据的业务字段，并可通过 nextStep 指定办理后的目标环节；
+ * 未指定时由服务层按固定顺序推进到下一环节。
  * </p>
  */
 public final class InspectionTaskDtos {
@@ -312,6 +313,8 @@ public final class InspectionTaskDtos {
         private String remark;
         /** 附件文件ID列表 */
         private List<Long> fileIds = new ArrayList<>();
+        /** 办理完成后的目标环节：REQUEST/PLAN/SAMPLING/INSPECTION/RETENTION/DESTRUCTION/DONE；为空时按固定顺序进入下一环节 */
+        private String nextStep;
     }
 
     /** 请检步骤请求 */
@@ -345,6 +348,8 @@ public final class InspectionTaskDtos {
         private String remark;
         /** 附件文件ID列表 */
         private List<Long> fileIds = new ArrayList<>();
+        /** 办理完成后的目标环节：REQUEST/PLAN/SAMPLING/INSPECTION/RETENTION/DESTRUCTION/DONE；为空时按固定顺序进入下一环节 */
+        private String nextStep;
     }
 
     /** 取样步骤请求 */
@@ -368,6 +373,8 @@ public final class InspectionTaskDtos {
         private String remark;
         /** 附件文件ID列表 */
         private List<Long> fileIds = new ArrayList<>();
+        /** 办理完成后的目标环节：REQUEST/PLAN/SAMPLING/INSPECTION/RETENTION/DESTRUCTION/DONE；为空时按固定顺序进入下一环节 */
+        private String nextStep;
     }
 
     /** 留样步骤请求 */
@@ -389,6 +396,8 @@ public final class InspectionTaskDtos {
         private String remark;
         /** 附件文件ID列表 */
         private List<Long> fileIds = new ArrayList<>();
+        /** 办理完成后的目标环节：REQUEST/PLAN/SAMPLING/INSPECTION/RETENTION/DESTRUCTION/DONE；为空时按固定顺序进入下一环节 */
+        private String nextStep;
     }
 
     /** 检验步骤请求 */
@@ -414,6 +423,8 @@ public final class InspectionTaskDtos {
         private String remark;
         /** 附件文件ID列表 */
         private List<Long> fileIds = new ArrayList<>();
+        /** 办理完成后的目标环节：REQUEST/PLAN/SAMPLING/INSPECTION/RETENTION/DESTRUCTION/DONE；为空时按固定顺序进入下一环节 */
+        private String nextStep;
     }
 
     /** 销毁步骤请求 */
@@ -449,6 +460,8 @@ public final class InspectionTaskDtos {
         private String remark;
         /** 附件文件ID列表 */
         private List<Long> fileIds = new ArrayList<>();
+        /** 办理完成后的目标环节：REQUEST/PLAN/SAMPLING/INSPECTION/RETENTION/DESTRUCTION/DONE；为空时按固定顺序进入下一环节 */
+        private String nextStep;
     }
 
     /** 跳过步骤请求 */
@@ -458,6 +471,8 @@ public final class InspectionTaskDtos {
         private String stepCode;
         /** 原因 */
         private String reason;
+        /** 跳过后进入的目标环节：REQUEST/PLAN/SAMPLING/INSPECTION/RETENTION/DESTRUCTION/DONE；为空时按固定顺序进入下一环节 */
+        private String nextStep;
     }
 
     /** 作废任务请求 */

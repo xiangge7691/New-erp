@@ -610,11 +610,12 @@ export function exportReleaseBatches(data: {
 `InspectionStepFormDialog.vue` 根据 `stepCode` 渲染不同表单：
 
 - `REQUEST` / `PLAN` / `SAMPLING` / `INSPECTION` / `RETENTION` / `DESTRUCTION` 分别对应 3.1 的请求字段；销毁步骤非必须。
+- 每个步骤提交时可传 `nextStep` 指定办理后的目标环节；不传时按固定顺序进入下一环节。
 - 已完成的步骤只读展示 `steps[].fields`；不要重新提交。
 - 附件：步骤提交前如果业务单据尚未创建，使用 `uploadTempBusinessFile` 获取 `fileId`，把 ID 收集到表单的 `fileIds`；提交步骤时一并传给后端。
 - 留样/销毁：
   - `task.retentionRequired === 0` 时，检验记录完成后显示“跳过留样”，调用 `skipInspectionStep(id, { stepCode: 'RETENTION', reason })`；
-  - `task.destructionRequired === 0` 时，后端在留样完成后自动跳过销毁，前端步骤显示“不必办理”，不需要用户再点按钮；
+  - 留样完成后固定进入销毁；`task.destructionRequired === 0` 时，前端在销毁环节显示“跳过销毁”按钮（或在留样提交时传 `nextStep: 'DONE'` 直接完成），不再由后端自动跳过；
   - 如果 `destructionRequired === 1`，当前环节进入销毁后仍允许“跳过销毁”，调用 `skipInspectionStep(id, { stepCode: 'DESTRUCTION', reason })`；
   - 跳过必须填写原因。
 - 作废：单独入口，调用 `cancelInspectionTask`，填写原因并二次确认。

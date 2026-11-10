@@ -1078,6 +1078,7 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             ProductSummaryDtos.DocumentLine line = new ProductSummaryDtos.DocumentLine();
             line.setCode(item.getMaterialCode());
             line.setName(resolvePurchaseLineName(item, ctx));
+            line.setCategory(resolvePurchaseLineCategory(item, ctx));
             line.setQty(item.getPurchaseQuantity());
             line.setUnit(item.getUnit());
             line.setPrice(item.getUnitPrice());
@@ -1112,6 +1113,30 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             return item.getRawMaterialName();
         }
         return item.getProductName();
+    }
+
+    /**
+     * 解析采购明细展示分类
+     * <p>
+     * 优先取加工性质（原料/辅料/包材，验收模块同口径），
+     * 其次取计划带入的物料分类，最后回退物料主数据分类。
+     * </p>
+     *
+     * @param item 采购明细
+     * @param ctx  批次上下文
+     * @return 分类名称
+     */
+    private String resolvePurchaseLineCategory(PurchaseOrderItems item, BatchContext ctx) {
+        if (StringUtils.hasText(item.getProcessingProperty())) {
+            return item.getProcessingProperty();
+        }
+        if (StringUtils.hasText(item.getProductName())) {
+            return item.getProductName();
+        }
+        if (item.getMaterialId() != null && ctx.getPurchaseMaterialCategories() != null) {
+            return ctx.getPurchaseMaterialCategories().get(item.getMaterialId());
+        }
+        return null;
     }
 
     private ProductSummaryDtos.DocumentItem acceptanceDoc(AcceptanceOrder acceptance) {
@@ -1183,6 +1208,7 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             ProductSummaryDtos.DocumentLine line = new ProductSummaryDtos.DocumentLine();
             line.setCode(d.getItemCode());
             line.setName(d.getItemName());
+            line.setSpec(resolvePreparationSpec(d.getItemId(), ctx));
             line.setCategory(d.getCategoryName());
             line.setQty(d.getQuantity());
             line.setUnit(d.getUnitName());
@@ -1192,6 +1218,26 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         }
         doc.setFiles(toFiles(businessFileService.list("STOCK_IN_PRODUCT", stockIn.getInId(), null, null)));
         return doc;
+    }
+
+    /**
+     * 解析成品出入库明细的规格
+     * <p>
+     * 明细 item_id 指向制剂主数据时取制剂规格；未关联时回退当前批次的制剂规格。
+     * </p>
+     *
+     * @param itemId 明细物品ID（制剂ID）
+     * @param ctx    批次上下文
+     * @return 规格
+     */
+    private String resolvePreparationSpec(Long itemId, BatchContext ctx) {
+        if (itemId != null && ctx.getPreparationSpecs() != null) {
+            String spec = ctx.getPreparationSpecs().get(itemId);
+            if (StringUtils.hasText(spec)) {
+                return spec;
+            }
+        }
+        return ctx.getPreparation() == null ? null : ctx.getPreparation().getSpec();
     }
 
     /**
@@ -1237,6 +1283,7 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             ProductSummaryDtos.DocumentLine line = new ProductSummaryDtos.DocumentLine();
             line.setCode(d.getItemCode());
             line.setName(d.getItemName());
+            line.setSpec(resolvePreparationSpec(d.getItemId(), ctx));
             line.setCategory(d.getCategoryName());
             line.setQty(d.getQuantity());
             line.setUnit(d.getUnitName());

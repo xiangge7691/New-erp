@@ -58,6 +58,8 @@ class BizFileTypeTest {
                 BizFileType.resolve("STOCK_IN_PRODUCT"));
         assertEquals(BizFileType.STOCK_OUT_SALES,
                 BizFileType.resolve("STOCK_OUT_SALES"));
+        assertEquals(BizFileType.RETURN_ORDER,
+                BizFileType.resolve("RETURN_ORDER"));
     }
 
     /**

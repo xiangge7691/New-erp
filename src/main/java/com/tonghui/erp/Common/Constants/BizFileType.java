@@ -148,6 +148,10 @@ public enum BizFileType {
     STOCK_OUT_SALES("STOCK_OUT_SALES", "stock_out", "out_id", "成品出库单",
             "库存管理/成品出库", kinds(BizFileKinds.DEFAULT, 10)),
 
+    /** 退库单 */
+    RETURN_ORDER("RETURN_ORDER", "return_order", "id", "退库单",
+            "库存管理/退库单", kinds(BizFileKinds.DEFAULT, 10)),
+
     // endregion
 
     // region 设备与能耗

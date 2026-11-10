@@ -24,6 +24,17 @@ public interface BatchQueryService {
     BatchContext load(WorkOrder workOrder);
 
     /**
+     * 加载批次表单详情所需的补充数据
+     * <p>
+     * 包括验收明细、退库明细和检验任务，仅在打开批次详情/表单时调用，
+     * 列表和汇总场景不要调用，避免为每个批次增加明细查询。
+     * </p>
+     *
+     * @param ctx 已加载的批次上下文
+     */
+    void loadDetail(BatchContext ctx);
+
+    /**
      * 批量加载批次上下文
      *
      * @param workOrders 工单列表

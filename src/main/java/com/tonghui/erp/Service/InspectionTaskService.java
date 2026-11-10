@@ -11,6 +11,7 @@ import com.tonghui.erp.Data.Entity.InspectionTask;
  * <p>
  * 负责检验任务列表/详情、六步办理、跳过、作废与归档。
  * 每个步骤成功后在同一事务内推进任务状态并写步骤记录。
+ * 步骤办理请求可通过 nextStep 指定目标环节；未指定时按固定顺序进入下一环节。
  * </p>
  */
 public interface InspectionTaskService extends IService<InspectionTask> {

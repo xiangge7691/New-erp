@@ -52,6 +52,11 @@ public class WorkOrderProcessExecutionController extends BaseController {
      * 保存前会校验设备使用合法性：设备必须为"正常"状态、同一设备的开始/结束时间不得重叠、
      * 使用日期不得与设备维保日期重叠。校验不通过返回 400，message 为具体冲突明细。
      * </p>
+     * <p>
+     * 工序状态由后端按时间推导并落库，前端无需传 status：
+     * 开始与结束时间齐全=已完成，仅有开始时间=执行中，均未填写=待执行。
+     * 只填开始时间表示工序执行中，此时该工序按开放区间持续占用设备。
+     * </p>
      *
      * 示例请求：
      * POST /api/work-order-process-execution/batch?workOrderId=1
@@ -62,18 +67,20 @@ public class WorkOrderProcessExecutionController extends BaseController {
      *     "processTypeId": 1,
      *     "stepOrder": 1,
      *     "operatorName": "张三",
-     *     "status": "已完成"
+     *     "startTime": "2026-11-10T08:00:00",
+     *     "endTime": "2026-11-10T12:00:00"
      *   },
      *   {
      *     "processTypeId": 2,
      *     "stepOrder": 2,
-     *     "status": "待执行"
+     *     "operatorName": "李四",
+     *     "startTime": "2026-11-10T13:00:00"
      *   }
      * ]
      *
      * @param workOrderId 工单ID（请求参数）
      * @param executions  工序执行记录列表（已有行带 id，新增行不带）
-     * @return ApiResponse&lt;List&lt;WorkOrderProcessExecution&gt;&gt; 保存后的工序执行记录列表（含自增ID）
+     * @return ApiResponse&lt;List&lt;WorkOrderProcessExecution&gt;&gt; 保存后的工序执行记录列表（含自增ID与推导后的状态）
      */
     @OperationLog(module = "工单工序执行", type = OperationType.UPDATE, desc = "批量保存工单工序执行",
             businessType = "WORK_ORDER_PROCESS_EXECUTION", businessId = "#workOrderId")

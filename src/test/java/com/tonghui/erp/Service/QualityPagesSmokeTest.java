@@ -117,6 +117,47 @@ public class QualityPagesSmokeTest {
         Assertions.assertEquals(workOrderId, detail.path("batch").path("workOrderId").asLong());
         Assertions.assertTrue(detail.path("compliance").has("canRelease"), "详情缺少合规结论");
         Assertions.assertTrue(detail.path("fileChecklist").isArray(), "详情缺少文件完整性清单");
+
+        // 方案 A：批次详情一次返回各单据表单字段
+        if (detail.path("purchases").size() > 0) {
+            JsonNode purchase = detail.path("purchases").get(0);
+            Assertions.assertTrue(purchase.has("orderTime"), "采购表单缺少下单时间");
+            Assertions.assertTrue(purchase.path("lines").isArray(), "采购表单缺少明细数组");
+        }
+        if (detail.path("acceptances").size() > 0) {
+            JsonNode acceptance = detail.path("acceptances").get(0);
+            Assertions.assertTrue(acceptance.has("acceptor"), "验收表单缺少验收人");
+            Assertions.assertTrue(acceptance.path("details").isArray(), "验收表单缺少明细数组");
+        }
+        if (detail.path("instructions").size() > 0) {
+            JsonNode instruction = detail.path("instructions").get(0);
+            Assertions.assertTrue(instruction.has("preparation"), "生产指令缺少品种");
+            Assertions.assertTrue(instruction.has("processRoute"), "生产指令缺少工艺路线");
+        }
+        if (detail.path("requisitions").size() > 0) {
+            Assertions.assertTrue(detail.path("requisitions").get(0).path("lines").isArray(),
+                    "领料单缺少明细数组");
+        }
+        if (detail.path("returns").size() > 0) {
+            JsonNode returned = detail.path("returns").get(0);
+            Assertions.assertTrue(returned.path("lines").isArray(), "退库单缺少明细数组");
+            Assertions.assertTrue(returned.has("stockOutCode"), "退库单缺少关联出库单号");
+        }
+        if (detail.path("processes").size() > 0) {
+            Assertions.assertTrue(detail.path("processes").get(0).has("roomName"), "工序表单缺少房间");
+        }
+        if (detail.path("deviations").size() > 0) {
+            JsonNode deviation = detail.path("deviations").get(0);
+            Assertions.assertTrue(deviation.has("occurTime"), "偏差表单缺少发生时间");
+            Assertions.assertTrue(deviation.has("description"), "偏差表单缺少描述");
+        }
+        for (String group : java.util.List.of("requests", "samplings", "inspections")) {
+            if (detail.path(group).size() > 0) {
+                JsonNode item = detail.path(group).get(0);
+                Assertions.assertTrue(item.hasNonNull("status"), group + " 单据状态为空");
+                Assertions.assertTrue(item.has("relatedPlanCode"), group + " 缺少关联计划号字段");
+            }
+        }
     }
 
     @Test

@@ -51,6 +51,8 @@
 | `/api/inspection/tasks/{id}/cancel` | POST | 作废任务 | 按权限使用 |
 | `/api/inspection/tasks/{id}/archive` | POST | 归档任务（终态，不可解除） | 按权限使用 |
 
+> 步骤办理请求可携带可选字段 `nextStep`（`REQUEST/PLAN/SAMPLING/INSPECTION/RETENTION/DESTRUCTION/DONE`）指定办理后的目标环节；不传时按固定顺序进入下一环节。留样、销毁不再根据 `retentionRequired` / `destructionRequired` 自动跳过。
+
 ### 2.3 已删除的冗余接口
 
 以下接口已删除：
@@ -414,6 +416,6 @@ export function completeInspectionStep(
 - [ ] 任务详情六步顺序为：请检（原页面）→ 检验计划 → 取样 → 检验记录 → 留样 → 销毁（非必）。
 - [ ] 本页没有“发起请检”入口。
 - [ ] 办理检验计划、取样、检验记录、留样、销毁后，批次详情、任务详情、列表、统计同时刷新。
-- [ ] 销毁默认非必须时，留样完成后任务直接完成。
+- [ ] 留样完成后任务进入销毁；销毁非必须时需显式跳过或传 `nextStep=DONE` 才会完成任务。
 - [ ] 附件通过 `steps[].files[].fileId` 预览/下载，不额外拼业务查询。
 - [ ] 归档按钮仅对待开始/进行中任务显示，二次确认后任务变为已归档并从默认列表/看板消失；按状态“已归档”可查到且只读。

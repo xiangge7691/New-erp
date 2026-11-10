@@ -27,6 +27,7 @@ import java.util.Set;
  *   <li>使用冲突：维保时间区间不得与工单工序执行记录中该设备的使用时间重叠</li>
  * </ol>
  * 时间区间按半开区间 [开始时间, 结束时间) 处理，首尾相接视为不冲突。
+ * 工序执行记录未填结束时间表示执行中，按 [开始时间, +∞) 持续占用设备参与冲突判断。
  * </p>
  * <p>
  * 并发控制：按 equipment_id 对设备行加 {@code SELECT ... FOR UPDATE} 行锁，
@@ -76,6 +77,12 @@ public class EquipmentMaintenanceConflictValidator {
      * 错误提示中的时间格式
      */
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+
+    /**
+     * 执行中工序的开放区间上界
+     * <p>工序执行记录未填结束时间时，按持续占用设备处理。</p>
+     */
+    private static final LocalDateTime OPEN_END = LocalDateTime.of(9999, 12, 31, 23, 59, 59);
 
     // endregion
 
@@ -128,9 +135,13 @@ public class EquipmentMaintenanceConflictValidator {
             if (!Objects.equals(equipmentIdValue, conflict.getEquipmentId())) {
                 continue;
             }
-            // 半开区间重叠：[start, end)
-            boolean overlap = conflict.getStartTime() != null && conflict.getEndTime() != null
-                    && startTime.isBefore(conflict.getEndTime())
+            if (conflict.getStartTime() == null) {
+                continue;
+            }
+            // 半开区间重叠：[start, end)；工序未填结束时间视为持续占用
+            LocalDateTime conflictEnd = conflict.getEndTime() == null
+                    ? OPEN_END : conflict.getEndTime();
+            boolean overlap = startTime.isBefore(conflictEnd)
                     && endTime.isAfter(conflict.getStartTime());
             if (!overlap) {
                 continue;
@@ -173,11 +184,14 @@ public class EquipmentMaintenanceConflictValidator {
      *
      * @param start 开始时间
      * @param end   结束时间
-     * @return 形如 2026-10-15 08:00~12:00 的文本
+     * @return 形如 2026-10-15 08:00~12:00 的文本；未填结束时间时显示“~进行中”
      */
     private String formatRange(LocalDateTime start, LocalDateTime end) {
-        if (start == null || end == null) {
+        if (start == null) {
             return "未填写时间";
+        }
+        if (end == null) {
+            return TIME_FORMATTER.format(start) + "~进行中";
         }
         return TIME_FORMATTER.format(start) + "~" + TIME_FORMATTER.format(end);
     }

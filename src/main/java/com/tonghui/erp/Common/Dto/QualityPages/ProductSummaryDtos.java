@@ -334,6 +334,8 @@ public final class ProductSummaryDtos {
         private String code;
         /** 名称/文件名 */
         private String name;
+        /** 规格（成品出入库明细取制剂主数据规格） */
+        private String spec;
         /** 分类 */
         private String category;
         /** 数量 */

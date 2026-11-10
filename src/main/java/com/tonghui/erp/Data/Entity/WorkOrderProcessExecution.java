@@ -104,6 +104,10 @@ public class WorkOrderProcessExecution extends AuditEntity {
 
     /**
      * 状态（待执行/执行中/已完成）
+     * <p>
+     * 由开始/结束时间推导并落库：开始与结束时间齐全=已完成，仅有开始时间=执行中，
+     * 均未填写=待执行。前端传入值不生效。
+     * </p>
      */
     @TableField(value = "status")
     private String status;

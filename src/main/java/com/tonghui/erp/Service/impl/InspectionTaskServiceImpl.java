@@ -62,6 +62,8 @@ import java.util.stream.Collectors;
  * 检验任务服务实现
  * <p>
  * 六步流程：REQUEST → PLAN → SAMPLING → INSPECTION → RETENTION → DESTRUCTION(非必须) → DONE。
+ * 每个环节办理完成后默认按固定顺序进入下一环节；前端可通过请求中的 nextStep 指定目标环节，
+ * 后端不再根据 retentionRequired / destructionRequired 自动跳过留样或销毁。
  * 任务只保存流程索引，具体单据仍写入原有业务表，保证与现有检验页面兼容。
  * </p>
  */
@@ -817,7 +819,7 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
         }
         task.setPlanRefId(plan.getId());
         completeStepAndAdvance(task, STEP_PLAN, "inspection_plan", plan.getId(),
-                "检验计划 " + plan.getPlanCode() + " 已完成");
+                "检验计划 " + plan.getPlanCode() + " 已完成", request.getNextStep());
         syncFiles(STEP_PLAN, plan.getId(), request.getFileIds());
         return getTaskDetail(task.getId());
     }
@@ -849,7 +851,7 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
         inspectionRequestService.save(entity);
         task.setRequestRefId(entity.getId());
         completeStepAndAdvance(task, STEP_REQUEST, "inspection_request", entity.getId(),
-                "请检单 " + entity.getInspectionCode() + " 已创建");
+                "请检单 " + entity.getInspectionCode() + " 已创建", request.getNextStep());
         syncFiles(STEP_REQUEST, entity.getId(), request.getFileIds());
         return getTaskDetail(task.getId());
     }
@@ -881,7 +883,7 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
         samplingRecordService.save(entity);
         task.setSamplingRefId(entity.getId());
         completeStepAndAdvance(task, STEP_SAMPLING, "sampling_record", entity.getId(),
-                "取样记录 " + entity.getSamplingCode() + " 已创建");
+                "取样记录 " + entity.getSamplingCode() + " 已创建", request.getNextStep());
         syncFiles(STEP_SAMPLING, entity.getId(), request.getFileIds());
         return getTaskDetail(task.getId());
     }
@@ -926,11 +928,7 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
         }
         task.setRetentionRefId(entity.getId());
         completeStepAndAdvance(task, STEP_RETENTION, "retained_sample", entity.getId(),
-                "留样记录 " + entity.getRetainedCode() + " 已创建");
-        if (task.getDestructionRequired() != null && task.getDestructionRequired() == 0) {
-            markStepSkipped(task.getId(), STEP_DESTRUCTION, "该任务不要求销毁");
-            advanceTo(task, STEP_DONE);
-        }
+                "留样记录 " + entity.getRetainedCode() + " 已创建", request.getNextStep());
         syncFiles(STEP_RETENTION, entity.getId(), request.getFileIds());
         return getTaskDetail(task.getId());
     }
@@ -978,17 +976,7 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
         }
         task.setInspectionRefId(entity.getId());
         completeStepAndAdvance(task, STEP_INSPECTION, "inspection_record", entity.getId(),
-                "检验记录 " + entity.getInspectionCode() + " 已保存");
-        if (task.getRetentionRequired() != null && task.getRetentionRequired() == 0) {
-            markStepSkipped(task.getId(), STEP_RETENTION, "该任务不要求留样");
-            if (task.getDestructionRequired() != null && task.getDestructionRequired() == 0) {
-                markStepSkipped(task.getId(), STEP_DESTRUCTION, "该任务不要求销毁");
-                advanceTo(task, STEP_DONE);
-            } else {
-                advanceTo(task, STEP_DESTRUCTION);
-                markStepRunning(task.getId(), STEP_DESTRUCTION);
-            }
-        }
+                "检验记录 " + entity.getInspectionCode() + " 已保存", request.getNextStep());
         syncFiles(STEP_INSPECTION, entity.getId(), request.getFileIds());
         return getTaskDetail(task.getId());
     }
@@ -999,7 +987,13 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
         InspectionTask task = getTaskOrThrow(id);
         ensureStep(task, STEP_DESTRUCTION);
         if (task.getRetentionRefId() == null) {
-            throw new IllegalArgumentException("请先完成留样");
+            // 留样被显式跳过时允许直接销毁；要求留样的任务仍需先完成留样
+            InspectionTaskStep retentionStep = getStep(task.getId(), STEP_RETENTION);
+            boolean retentionSkipped = retentionStep != null
+                    && STEP_STATUS_SKIP.equals(retentionStep.getStepStatus());
+            if (!retentionSkipped) {
+                throw new IllegalArgumentException("请先完成留样");
+            }
         }
         DestructionRecordSaveDto dto = new DestructionRecordSaveDto();
         dto.setRecordType(StringUtils.hasText(request.getRecordType()) ? request.getRecordType() : "留样及稳定性考察产品销毁");
@@ -1026,8 +1020,7 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
         DestructionRecord entity = destructionRecordService.create(dto);
         task.setDestructionRefId(entity.getId());
         completeStepAndAdvance(task, STEP_DESTRUCTION, "destruction_record", entity.getId(),
-                "销毁记录 " + entity.getDestructionCode() + " 已创建");
-        advanceTo(task, STEP_DONE);
+                "销毁记录 " + entity.getDestructionCode() + " 已创建", request.getNextStep());
         return getTaskDetail(task.getId());
     }
 
@@ -1037,18 +1030,10 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
         InspectionTask task = getTaskOrThrow(id);
         if (STEP_RETENTION.equals(request.getStepCode())) {
             ensureStep(task, STEP_RETENTION);
-            markStepSkipped(task.getId(), STEP_RETENTION, request.getReason());
-            if (task.getDestructionRequired() != null && task.getDestructionRequired() == 0) {
-                markStepSkipped(task.getId(), STEP_DESTRUCTION, "该任务不要求销毁");
-                advanceTo(task, STEP_DONE);
-            } else {
-                advanceTo(task, STEP_DESTRUCTION);
-                markStepRunning(task.getId(), STEP_DESTRUCTION);
-            }
+            skipStepAndMove(task, STEP_RETENTION, request.getReason(), request.getNextStep());
         } else if (STEP_DESTRUCTION.equals(request.getStepCode())) {
             ensureStep(task, STEP_DESTRUCTION);
-            markStepSkipped(task.getId(), STEP_DESTRUCTION, request.getReason());
-            advanceTo(task, STEP_DONE);
+            skipStepAndMove(task, STEP_DESTRUCTION, request.getReason(), request.getNextStep());
         } else {
             throw new IllegalArgumentException("只允许跳过留样或销毁");
         }
@@ -1191,7 +1176,7 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
 
         // 请检环节直接完成，任务推进到检验计划
         completeStepAndAdvance(task, STEP_REQUEST, "inspection_request", request.getId(),
-                "请检单 " + request.getInspectionCode() + " 已创建");
+                "请检单 " + request.getInspectionCode() + " 已创建", STEP_PLAN);
         linkPlanIfExists(task, request);
         return getTaskDetail(task.getId());
     }
@@ -1293,7 +1278,7 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
         }
         task.setPlanRefId(plan.getId());
         completeStepAndAdvance(task, STEP_PLAN, "inspection_plan", plan.getId(),
-                "关联检验计划 " + plan.getPlanCode() + " 已完成");
+                "关联检验计划 " + plan.getPlanCode() + " 已完成", STEP_SAMPLING);
     }
 
     // endregion
@@ -1335,7 +1320,18 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
         }
     }
 
-    private void completeStepAndAdvance(InspectionTask task, String stepCode, String refTable, Long refId, String remark) {
+    /**
+     * 完成指定环节并按前端目标或固定顺序流转
+     *
+     * @param task     当前任务
+     * @param stepCode 本次办理的环节
+     * @param refTable 业务表名
+     * @param refId    业务记录ID
+     * @param remark   步骤备注
+     * @param nextStep 前端指定的目标环节；为空时按固定顺序进入下一环节
+     */
+    private void completeStepAndAdvance(InspectionTask task, String stepCode, String refTable,
+                                        Long refId, String remark, String nextStep) {
         InspectionTaskStep step = getStep(task.getId(), stepCode);
         if (step != null) {
             step.setStepStatus(STEP_STATUS_DONE);
@@ -1350,16 +1346,118 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
             task.setStartTime(LocalDateTime.now());
         }
         task.setTaskStatus(STATUS_RUN);
-        String next = nextStep(stepCode);
-        advanceTo(task, next);
-        if (!STEP_DONE.equals(next)) {
-            markStepRunning(task.getId(), next);
+        String target = resolveTargetStep(task, stepCode, nextStep);
+        if (target.equals(stepCode)) {
+            // 前端要求停留在当前环节：只更新任务状态，避免把刚完成的步骤改回进行中
+            task.setCurrentStep(stepCode);
+            task.setCompleteTime(null);
+            updateById(task);
+            return;
+        }
+        advanceTo(task, target);
+        if (!STEP_DONE.equals(target)) {
+            markStepRunning(task.getId(), target);
+        }
+    }
+
+    /**
+     * 跳过指定环节并按前端目标或固定顺序流转
+     *
+     * @param task     当前任务
+     * @param stepCode 本次跳过的环节
+     * @param reason   跳过原因
+     * @param nextStep 前端指定的目标环节；为空时按固定顺序进入下一环节
+     */
+    private void skipStepAndMove(InspectionTask task, String stepCode, String reason, String nextStep) {
+        markStepSkipped(task.getId(), stepCode, reason);
+        String target = StringUtils.hasText(nextStep)
+                ? resolveTargetStep(task, stepCode, nextStep)
+                : nextStep(stepCode);
+        if (target.equals(stepCode)) {
+            // 前端要求停留在当前环节：只更新任务状态，避免把已跳过步骤改回进行中
+            task.setTaskStatus(STATUS_RUN);
+            task.setCompleteTime(null);
+            updateById(task);
+            return;
+        }
+        advanceTo(task, target);
+        if (!STEP_DONE.equals(target)) {
+            markStepRunning(task.getId(), target);
         }
     }
 
     private String nextStep(String stepCode) {
         int index = STEP_ORDER.indexOf(stepCode);
         return index < 0 || index == STEP_ORDER.size() - 1 ? STEP_DONE : STEP_ORDER.get(index + 1);
+    }
+
+    /**
+     * 解析办理后的目标环节
+     * <p>
+     * 前端未指定 nextStep 时按固定顺序进入下一环节；指定时校验环节合法性、禁止回退，
+     * 并阻止跨过尚未办理的必办环节。返回当前环节表示前端要求停留在原环节。
+     * </p>
+     *
+     * @param task     当前任务
+     * @param stepCode 本次办理或跳过的环节
+     * @param nextStep 前端指定的目标环节
+     * @return 目标环节
+     */
+    private String resolveTargetStep(InspectionTask task, String stepCode, String nextStep) {
+        if (!StringUtils.hasText(nextStep)) {
+            return nextStep(stepCode);
+        }
+        String target = nextStep.trim().toUpperCase();
+        if (!STEP_DONE.equals(target) && !STEP_ORDER.contains(target)) {
+            throw new IllegalArgumentException("目标环节不合法：" + nextStep);
+        }
+        int currentIndex = STEP_ORDER.indexOf(task.getCurrentStep());
+        if (currentIndex < 0) {
+            currentIndex = Math.max(STEP_ORDER.indexOf(stepCode), 0);
+        }
+        int targetIndex = STEP_DONE.equals(target) ? STEP_ORDER.size() : STEP_ORDER.indexOf(target);
+        if (targetIndex < currentIndex) {
+            throw new IllegalArgumentException("不能回退到已完成环节："
+                    + STEP_NAMES.getOrDefault(target, target));
+        }
+        if (targetIndex == currentIndex) {
+            return target;
+        }
+        // 跨环节时不允许跨过必办但尚未办理的环节
+        for (int i = currentIndex; i < targetIndex; i++) {
+            String step = STEP_ORDER.get(i);
+            if (step.equals(stepCode)) {
+                continue;
+            }
+            InspectionTaskStep stepEntity = getStep(task.getId(), step);
+            boolean terminal = stepEntity != null
+                    && (STEP_STATUS_DONE.equals(stepEntity.getStepStatus())
+                    || STEP_STATUS_SKIP.equals(stepEntity.getStepStatus()));
+            if (!terminal && isRequiredStep(task, step)) {
+                throw new IllegalArgumentException("环节 " + STEP_NAMES.get(step) + " 尚未办理，不能跳过");
+            }
+        }
+        if (!STEP_DONE.equals(target)) {
+            InspectionTaskStep targetStep = getStep(task.getId(), target);
+            if (targetStep != null && (STEP_STATUS_DONE.equals(targetStep.getStepStatus())
+                    || STEP_STATUS_SKIP.equals(targetStep.getStepStatus()))) {
+                throw new IllegalArgumentException("环节 " + STEP_NAMES.get(target) + " 已办结，不能再次进入");
+            }
+        }
+        return target;
+    }
+
+    /**
+     * 判断环节是否为任务要求的必办环节
+     */
+    private boolean isRequiredStep(InspectionTask task, String stepCode) {
+        if (STEP_RETENTION.equals(stepCode)) {
+            return task.getRetentionRequired() != null && task.getRetentionRequired() == 1;
+        }
+        if (STEP_DESTRUCTION.equals(stepCode)) {
+            return task.getDestructionRequired() != null && task.getDestructionRequired() == 1;
+        }
+        return true;
     }
 
     private void advanceTo(InspectionTask task, String stepCode) {
@@ -1369,7 +1467,10 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
             task.setCompleteTime(LocalDateTime.now());
         } else {
             task.setTaskStatus(STATUS_RUN);
+            task.setCompleteTime(null);
         }
+        // 目标环节之前的待办理环节记为已跳过，保证详情六步状态一致
+        markPendingStepsSkipped(task.getId(), stepCode, "流程推进，未办理环节自动跳过");
         updateById(task);
     }
 
@@ -1389,6 +1490,24 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
         step.setSkipReason(reason);
         step.setCompleteTime(LocalDateTime.now());
         stepMapper.updateById(step);
+    }
+
+    /**
+     * 将目标环节之前仍为待办理的环节标记为已跳过
+     *
+     * @param taskId     任务ID
+     * @param targetStep 目标环节
+     * @param reason     跳过原因
+     */
+    private void markPendingStepsSkipped(Long taskId, String targetStep, String reason) {
+        int targetIndex = STEP_DONE.equals(targetStep)
+                ? STEP_ORDER.size() : STEP_ORDER.indexOf(targetStep);
+        for (InspectionTaskStep step : listSteps(taskId)) {
+            int index = STEP_ORDER.indexOf(step.getStepCode());
+            if (index >= 0 && index < targetIndex && STEP_STATUS_WAIT.equals(step.getStepStatus())) {
+                markStepSkipped(taskId, step.getStepCode(), reason);
+            }
+        }
     }
 
     private InspectionTaskStep getStep(Long taskId, String stepCode) {

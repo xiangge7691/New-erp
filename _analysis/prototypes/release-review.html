@@ -419,6 +419,15 @@ textarea.input { height: auto; min-height: 76px; padding: 8px 10px; resize: vert
   <div class="drawer-foot"><span class="muted small">原型演示 · 文件来自业务文件表</span><button class="btn btn-sm" data-close>关闭</button></div>
 </aside>
 
+<aside class="drawer" id="formDrawer">
+  <div class="drawer-head">
+    <div><div class="drawer-title" id="formTitle">表单详情</div><div class="drawer-sub" id="formSub"></div></div>
+    <button class="icon-btn" data-close>×</button>
+  </div>
+  <div class="drawer-body" id="formBody"></div>
+  <div class="drawer-foot"><span class="muted small">原型演示 · 表单来自业务单据</span><button class="btn btn-sm" data-close>关闭</button></div>
+</aside>
+
 <div class="modal" id="rejectModal">
   <div class="modal-head">
     <div><div class="drawer-title">拒绝放行</div><div class="drawer-sub">请填写拒绝原因，记录会写入放行审核意见</div></div>
@@ -514,13 +523,54 @@ const PROCESS_REQ = {
 };
 const PROCESS_NAMES = Object.keys(PROCESS_REQ);
 function processRows(overrides = {}) {
-  return PROCESS_NAMES.map((name, i) => ({
-    name, req: PROCESS_REQ[name],
-    result: overrides[name] || '符合',
-    inspector: ['丁圣芳', '廖晟璋', '谭秀凤'][i % 3],
-    date: '2026-09-' + String(16 + i).padStart(2, '0'),
-    files: i % 3 === 0 ? 1 : 0
-  }));
+  const ROOMS = ['粉碎间', '干燥间', '总混间', '炼蜜间', '制软材间', '制丸间', '内包装间', '外包装间'];
+  const EQUIPS = ['WF-180 万能粉碎机', 'DW-2 热风循环烘箱', 'ZH-500 混合机', 'LM-50 炼蜜锅', 'SC-200 制软材机', 'ZW-120 制丸机', 'NP-6 内包装机', 'WP-3 外包装线'];
+  return PROCESS_NAMES.map((name, i) => {
+    const result = overrides[name] || '符合';
+    const date = '2026-09-' + String(16 + i).padStart(2, '0');
+    return {
+      name, req: PROCESS_REQ[name], result,
+      inspector: ['丁圣芳', '廖晟璋', '谭秀凤'][i % 3],
+      date,
+      room: ROOMS[i], equipment: EQUIPS[i],
+      start: result === '待查' ? '' : date + ' 08:30',
+      end: result === '待查' ? '' : date + ' 11:20',
+      operator: ['张伟', '李强', '王敏'][i % 3],
+      status: result === '待查' ? '待执行' : '已完成',
+      remark: result === '不符合' ? '过程参数超出内控标准，已按偏差流程处理。'
+        : result === '待查' ? '尚未完成查证。' : '',
+      files: i % 3 === 0 ? [name + '工序记录.pdf'] : []
+    };
+  });
+}
+
+/* =========================================================
+ * 单据明细模拟数据：采购/验收/领料/退库共用
+ * =======================================================*/
+const MATERIAL_POOL = [
+  { code: 'YL-1001', name: '柴胡', spec: '统货', unit: 'kg', price: 85 },
+  { code: 'YL-1002', name: '白芍', spec: '统货', unit: 'kg', price: 62 },
+  { code: 'YL-1003', name: '陈皮', spec: '统货', unit: 'kg', price: 38 },
+  { code: 'YL-1004', name: '炼蜜', spec: '药用级', unit: 'kg', price: 24 },
+  { code: 'FL-2001', name: '药用铝箔', spec: '0.02mm×250mm', unit: 'kg', price: 26 }
+];
+function buildLines(seed, count) {
+  const lines = [];
+  for (let i = 0; i < count; i++) {
+    const m = MATERIAL_POOL[(seed + i) % MATERIAL_POOL.length];
+    const qty = [120, 80, 60, 45, 30][(seed + i) % 5];
+    lines.push({
+      materialCode: m.code, materialName: m.name, spec: m.spec, unit: m.unit,
+      quantity: qty, actualArrivalQty: qty, unitPrice: m.price,
+      amount: Number((qty * m.price).toFixed(2)),
+      batchNumber: 'YP' + (260900 + (seed % 80) + i),
+      conclusion: '合格', appearanceCheck: '符合', outerPackageCheck: '符合'
+    });
+  }
+  return lines;
+}
+function fileNames(prefix, count, suffix) {
+  return Array.from({ length: count }, (_, i) => prefix + (suffix || '附件') + (i + 1) + '.pdf');
 }
 
 /* =========================================================
@@ -545,12 +595,12 @@ const BATCHES = [
     returns: [],
     processes: processRows(),
     requests: [
-      { code: 'QJ-20261020-001', process: '粉碎', status: '已检验', files: 1 },
-      { code: 'QJ-20261020-002', process: '干燥（丸）', status: '已检验', files: 1 },
-      { code: 'QJ-20261020-003', process: '成品检验', status: '已检验', files: 1 }
+      { code: 'QJ-20261020-001', process: '粉碎', status: '已检验', requester: '丁圣芳', dept: '质量部', time: '2026-10-20 09:10', items: '性状、鉴别、水分、粒度', configQuantity: '7000 盒', remark: '粉碎后中间产品请检', files: ['QJ-20261020-001_请检单.pdf'] },
+      { code: 'QJ-20261020-002', process: '干燥（丸）', status: '已检验', requester: '丁圣芳', dept: '质量部', time: '2026-10-20 09:40', items: '水分、外观', configQuantity: '7000 盒', remark: '', files: ['QJ-20261020-002_请检单.pdf'] },
+      { code: 'QJ-20261020-003', process: '成品检验', status: '已检验', requester: '谭秀凤', dept: '质量部', time: '2026-10-20 15:20', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', configQuantity: '7001 盒', remark: '成品全检', files: ['QJ-20261020-003_请检单.pdf'] }
     ],
-    samplings: [{ code: 'QY-20260924-001', status: '已取样', files: 1 }],
-    inspections: [{ code: 'JY-20261020-005', conclusion: '合格', files: 2 }],
+    samplings: [{ code: 'QY-20260924-001', status: '已取样', sampler: '陈静', time: '2026-09-24 10:20', quantity: '100g×3份', count: 3, method: '随机', location: '成品库 A 取样间', requestCode: 'QJ-20261020-003', remark: '按取样规程随机抽取', files: ['QY-20260924-001_取样记录.pdf'] }],
+    inspections: [{ code: 'JY-20261020-005', status: '已检验', basis: '中国药典2025版', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', inspector: '丁圣芳', reviewer: '赵磊', start: '2026-10-09 09:00', end: '2026-10-19 16:30', conclusion: '合格', requestCode: 'QJ-20261020-003', samplingCode: 'QY-20260924-001', remark: '全部检验项目符合规定', files: ['JY-20261020-005_检验记录.pdf', 'JY-20261020-005_检验图谱.pdf'] }],
     rooms: [
       { name: '粉碎间', record: '清洁合格', status: '符合' },
       { name: '制丸间', record: '温湿度合格', status: '符合' },
@@ -583,9 +633,9 @@ const BATCHES = [
     requisitions: [{ code: 'SCLL-20260908-001', date: '2026-09-08', status: '已发料', files: 1 }],
     returns: [{ code: 'TK-20260925-001', date: '2026-09-25', status: '已退库', files: 1 }],
     processes: processRows(),
-    requests: [{ code: 'QJ-20261019-003', process: '成品检验', status: '已检验', files: 1 }],
-    samplings: [{ code: 'QY-20260916-001', status: '已取样', files: 1 }],
-    inspections: [{ code: 'JY-20261019-003', conclusion: '合格', files: 1 }],
+    requests: [{ code: 'QJ-20261019-003', process: '成品检验', status: '已检验', requester: '丁圣芳', dept: '质量部', time: '2026-10-19 09:00', items: '性状、鉴别、水分、重量差异、装量、溶散时限', configQuantity: '7000 盒', remark: '', files: ['QJ-20261019-003_请检单.pdf'] }],
+    samplings: [{ code: 'QY-20260916-001', status: '已取样', sampler: '陈静', time: '2026-09-16 10:00', quantity: '100g×3份', count: 3, method: '随机', location: '成品库 B 取样间', requestCode: 'QJ-20261019-003', remark: '', files: ['QY-20260916-001_取样记录.pdf'] }],
+    inspections: [{ code: 'JY-20261019-003', status: '已检验', basis: '中国药典2025版', items: '性状、鉴别、水分、重量差异、装量、溶散时限', inspector: '丁圣芳', reviewer: '赵磊', start: '2026-09-16 09:30', end: '2026-09-24 11:20', conclusion: '合格', requestCode: 'QJ-20261019-003', samplingCode: 'QY-20260916-001', remark: '检验结果符合规定', files: ['JY-20261019-003_检验记录.pdf'] }],
     rooms: [{ name: '粉碎间', record: '清洁合格', status: '符合' }],
     deviations: [],
     fileChecklist: [
@@ -613,9 +663,9 @@ const BATCHES = [
     requisitions: [{ code: 'SCLL-20260922-001', date: '2026-09-22', status: '已发料', files: 1 }],
     returns: [],
     processes: processRows({ '干燥（丸）': '不符合' }),
-    requests: [{ code: 'QJ-20261020-006', process: '成品检验', status: '已检验', files: 1 }],
-    samplings: [{ code: 'QY-20260930-001', status: '已取样', files: 1 }],
-    inspections: [{ code: 'JY-20261020-006', conclusion: '合格', files: 1 }],
+    requests: [{ code: 'QJ-20261020-006', process: '成品检验', status: '已检验', requester: '谭秀凤', dept: '质量部', time: '2026-10-20 10:05', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', configQuantity: '3500 盒', remark: '干燥工序偏差已评估，附偏差结论', files: ['QJ-20261020-006_请检单.pdf'] }],
+    samplings: [{ code: 'QY-20260930-001', status: '已取样', sampler: '陈静', time: '2026-09-30 09:30', quantity: '100g×3份', count: 3, method: '随机', location: '成品库 A 取样间', requestCode: 'QJ-20261020-006', remark: '', files: ['QY-20260930-001_取样记录.pdf'] }],
+    inspections: [{ code: 'JY-20261020-006', status: '已检验', basis: '中国药典2025版', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', inspector: '丁圣芳', reviewer: '赵磊', start: '2026-10-09 09:00', end: '2026-10-19 14:00', conclusion: '合格', requestCode: 'QJ-20261020-006', samplingCode: 'QY-20260930-001', remark: '水分项目复检合格', files: ['JY-20261020-006_检验记录.pdf'] }],
     rooms: [{ name: '干燥间', record: '温湿度记录缺失 1 条', status: '不符合' }],
     deviations: [{
       code: 'PC-20260928-001', title: '干燥工序水分超出内控标准',
@@ -646,9 +696,9 @@ const BATCHES = [
     requisitions: [{ code: 'SCLL-20261017-001', date: '2026-10-17', status: '已发料', files: 1 }],
     returns: [],
     processes: processRows({ '总混': '待查', '制丸': '待查' }),
-    requests: [{ code: 'QJ-20261027-003', process: '成品检验', status: '检验中', files: 1 }],
-    samplings: [{ code: 'QY-20261021-001', status: '已取样', files: 1 }],
-    inspections: [{ code: 'JY-20261027-002', conclusion: '待检', files: 0 }],
+    requests: [{ code: 'QJ-20261027-003', process: '成品检验', status: '检验中', requester: '谭秀凤', dept: '质量部', time: '2026-10-27 08:50', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', configQuantity: '7004 盒', remark: '微生物限度检验进行中', files: ['QJ-20261027-003_请检单.pdf'] }],
+    samplings: [{ code: 'QY-20261021-001', status: '已取样', sampler: '陈静', time: '2026-10-21 09:10', quantity: '100g×3份', count: 3, method: '随机', location: '成品库 A 取样间', requestCode: 'QJ-20261027-003', remark: '', files: ['QY-20261021-001_取样记录.pdf'] }],
+    inspections: [{ code: 'JY-20261027-002', status: '检验中', basis: '中国药典2025版', items: '性状、鉴别、水分、重量差异、装量、溶散时限、微生物限度', inspector: '丁圣芳', reviewer: '', start: '2026-10-19 09:00', end: '', conclusion: '待检', requestCode: 'QJ-20261027-003', samplingCode: 'QY-20261021-001', remark: '微生物限度培养中，预计 5 天后出结果', files: ['JY-20261027-002_检验记录（草稿）.pdf'] }],
     rooms: [{ name: '总混间', record: '清洁合格', status: '符合' }],
     deviations: [],
     fileChecklist: [
@@ -698,6 +748,93 @@ const BATCHES = [
 ];
 
 BATCHES.forEach(b => { b.unit = b.unit || '盒'; });
+
+/* =========================================================
+ * 补齐各单据的表单详情字段（原型模拟）
+ * =======================================================*/
+function enrichDocDetails() {
+  BATCHES.forEach((b, bi) => {
+    // 采购订单：表头 + 采购明细行
+    b.purchases.forEach((p, pi) => {
+      p.materialType = p.materialType || (pi % 2 ? '包材' : '中药材');
+      p.date = p.date || b.planDate;
+      p.orderTime = p.orderTime || p.date;
+      p.invoiceNo = p.invoiceNo || 'FP-' + p.code.slice(-6);
+      p.remark = p.remark || '按采购计划下单，到货后转验收。';
+      p.lines = p.lines || buildLines(bi * 3 + pi, pi % 2 ? 2 : 3);
+      if (typeof p.files === 'number') p.files = fileNames(p.code + '_', p.files, '采购附件');
+    });
+
+    // 验收单：表头 + 验收明细行 + 实际文件名
+    b.acceptances.forEach((a, ai) => {
+      a.purchaseNumber = a.purchaseNumber || (b.purchases[ai] || b.purchases[0] || {}).code || '';
+      a.sourceType = a.sourceType || '采购到货';
+      a.deliveryDate = a.deliveryDate || b.planDate;
+      a.arrivalTime = a.arrivalTime || b.planDate + ' 09:30';
+      a.acceptanceTime = a.acceptanceTime || b.planDate + ' 14:00';
+      a.acceptor = a.acceptor || '陶新文';
+      a.reviewer = a.reviewer || '赵磊';
+      a.title = a.title || b.product;
+      a.remark = a.remark || (a.missing.length ? '缺失资料待补齐后再复核。' : '资料齐全，验收合格。');
+      a.details = a.details || buildLines(bi * 4 + ai, 2);
+      a.fileNames = a.fileNames || a.files.map(label => a.code + '_' + label + '.pdf');
+    });
+
+    // 生产指令：表头 + 工艺路线
+    if (b.instruction) {
+      const ins = b.instruction;
+      ins.type = '生产指令';
+      ins.status = ins.status || (b.status === '已放行' ? '已完成' : '执行中');
+      ins.preparation = b.product;
+      ins.preparationCode = b.code;
+      ins.spec = b.spec;
+      ins.batch = b.batch;
+      ins.qty = b.qty + ' ' + b.unit;
+      ins.planStart = b.planDate;
+      ins.planEnd = b.actualEnd;
+      ins.processRoute = b.processes.map(p => p.name).join(' → ');
+      ins.remark = '按批准工艺规程组织生产，关键工序参数按工艺要求执行。';
+      if (typeof ins.files === 'number') ins.files = fileNames(ins.code + '_', ins.files, '生产指令附件');
+    }
+
+    // 领料单：表头 + 领料明细行
+    b.requisitions.forEach((r, ri) => {
+      r.operator = r.operator || '谭秀凤';
+      r.purpose = r.purpose || '批生产领料';
+      r.warehouse = r.warehouse || '原辅料库';
+      r.stockOutCode = r.stockOutCode || 'CK-' + r.code.replace(/\D/g, '').slice(-8);
+      r.lines = r.lines || buildLines(bi + ri, 2);
+      r.remark = r.remark || '按批生产指令定额领料。';
+      if (typeof r.files === 'number') r.files = fileNames(r.code + '_', r.files, '领料附件');
+    });
+
+    // 退库单：表头 + 退库明细行
+    b.returns.forEach((r, ri) => {
+      r.operator = r.operator || '谭秀凤';
+      r.stockOutCode = r.stockOutCode || 'CK-20260925-001';
+      r.lines = r.lines || buildLines(bi + ri + 2, 2);
+      r.remark = r.remark || '批生产结余物料退库，包装完好，经仓储复核后回库。';
+      if (typeof r.files === 'number') r.files = fileNames(r.code + '_', r.files, '退库附件');
+    });
+
+    // 偏差：补充处理过程字段
+    b.deviations.forEach(d => {
+      d.occurTime = d.occurTime || (d.date + ' 10:20');
+      d.processName = d.processName || '干燥（丸）';
+      d.description = d.description || (d.title + '，复检水分 9.8%，超出内控标准 9.0%。');
+      d.action = d.action || '暂停干燥工序，调整温度后重新干燥并复检；对已生产中间产品进行质量评估。';
+      d.remark = d.remark || '评估结论：不影响最终产品质量，继续后续工序。';
+      d.files = d.files || [d.code + '_偏差处理记录.pdf'];
+    });
+
+    // 放行审核记录：补充编号与审核时间
+    if (b.release && b.release.conclusion) {
+      b.release.code = b.release.code || 'FX-' + (b.batch === '—' ? b.wo.slice(-8) : b.batch) + '-001';
+      b.release.reviewTime = b.release.reviewTime || (b.release.date + ' 16:00');
+    }
+  });
+}
+enrichDocDetails();
 
 const state = { variety: '', batch: '', status: '' };
 let activeBatch = null;
@@ -821,6 +958,204 @@ function filesCell(files) {
 }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
+/* =========================================================
+ * 检验记录：列表行 + 表单详情
+ * =======================================================*/
+const FORM_TYPES = {
+  request: { label: '请检单', list: 'requests' },
+  sampling: { label: '取样记录', list: 'samplings' },
+  inspection: { label: '检验记录', list: 'inspections' },
+  purchase: { label: '采购订单', list: 'purchases' },
+  acceptance: { label: '验收单', list: 'acceptances' },
+  instruction: { label: '生产指令', list: 'instruction' },
+  requisition: { label: '领料单', list: 'requisitions' },
+  return: { label: '退库单', list: 'returns' },
+  process: { label: '工序执行记录', list: 'processes' },
+  deviation: { label: '偏差记录', list: 'deviations' }
+};
+function recordStateTag(text) {
+  const t = String(text == null || text === '' ? '—' : text);
+  const cls = (t === '已检验' || t === '合格' || t === '已取样') ? 'green'
+    : (t === '检验中' || t === '待检') ? 'blue'
+      : t === '不合格' ? 'red' : 'gray';
+  return `<span class="tag ${cls}">${esc(t)}</span>`;
+}
+function inspectionRows(b) {
+  const rows = [];
+  b.requests.forEach((r, i) => {
+    rows.push(`<tr class="clickable" data-form-kind="request" data-form-idx="${i}">
+      <td><span class="tag blue">请检单</span><span class="cell-sub">${esc(r.code)}</span></td>
+      <td><span class="cell-main">${esc(r.process || '—')}</span><span class="cell-sub">${esc(r.items || '')}</span></td>
+      <td>${esc(r.requester || '—')}<span class="cell-sub">${esc(r.dept || '')}</span></td>
+      <td class="nowrap">${esc(r.time || '—')}</td>
+      <td>${recordStateTag(r.status)}</td>
+      <td>${recordFilesCell(r.files)}</td>
+      <td><button class="btn btn-sm">查看表单</button></td>
+    </tr>`);
+  });
+  b.samplings.forEach((r, i) => {
+    rows.push(`<tr class="clickable" data-form-kind="sampling" data-form-idx="${i}">
+      <td><span class="tag gray">取样记录</span><span class="cell-sub">${esc(r.code)}</span></td>
+      <td><span class="cell-main">${esc(r.quantity || '—')}</span><span class="cell-sub">共 ${esc(r.count || '—')} 份 · ${esc(r.method || '—')}</span></td>
+      <td>${esc(r.sampler || '—')}<span class="cell-sub">${esc(r.location || '')}</span></td>
+      <td class="nowrap">${esc(r.time || '—')}</td>
+      <td>${recordStateTag(r.status)}</td>
+      <td>${recordFilesCell(r.files)}</td>
+      <td><button class="btn btn-sm">查看表单</button></td>
+    </tr>`);
+  });
+  b.inspections.forEach((r, i) => {
+    rows.push(`<tr class="clickable" data-form-kind="inspection" data-form-idx="${i}">
+      <td><span class="tag green">检验记录</span><span class="cell-sub">${esc(r.code)}</span></td>
+      <td><div class="req-text">${esc(r.items || '—')}</div><span class="cell-sub">${esc(r.basis || '')}</span></td>
+      <td>${esc(r.inspector || '—')}<span class="cell-sub">复核 ${esc(r.reviewer || '—')}</span></td>
+      <td class="nowrap">${esc(r.start || '—')}<span class="cell-sub">~ ${esc(r.end || '进行中')}</span></td>
+      <td><div class="flex gap-6 wrap">${recordStateTag(r.status)}${r.conclusion ? recordStateTag(r.conclusion) : ''}</div></td>
+      <td>${recordFilesCell(r.files)}</td>
+      <td><button class="btn btn-sm">查看表单</button></td>
+    </tr>`);
+  });
+  return rows.length ? rows.join('')
+    : '<tr><td colspan="7"><div class="empty">该批次还没有请检、取样或检验记录</div></td></tr>';
+}
+function recordFilesCell(files) {
+  const count = (files || []).length;
+  return count ? `<span class="file-chip">${count} 个文件</span>` : '<span class="muted small">无附件</span>';
+}
+function formKv(kind, r) {
+  if (kind === 'request') {
+    return [
+      ['单据编号', r.code], ['单据类型', '请检单'], ['单据状态', r.status],
+      ['工序 / 检验环节', r.process], ['请检人', r.requester], ['请检部门', r.dept],
+      ['请检时间', r.time], ['配置数量', r.configQuantity], ['检验项目', r.items],
+      ['备注', r.remark]
+    ];
+  }
+  if (kind === 'sampling') {
+    return [
+      ['单据编号', r.code], ['单据类型', '取样记录'], ['单据状态', r.status],
+      ['取样人', r.sampler], ['取样时间', r.time], ['取样量', r.quantity],
+      ['取样份数', r.count], ['取样方法', r.method], ['取样地点', r.location],
+      ['关联请检单', r.requestCode], ['备注', r.remark]
+    ];
+  }
+  if (kind === 'purchase') {
+    return [
+      ['采购单号', r.code], ['物料类型', r.materialType], ['供应商', r.supplier],
+      ['下单日期', r.orderTime], ['采购状态', r.status], ['发票号', r.invoiceNo],
+      ['备注', r.remark]
+    ];
+  }
+  if (kind === 'acceptance') {
+    return [
+      ['验收单号', r.code], ['关联采购单', r.purchaseNumber], ['来源类型', r.sourceType],
+      ['验收状态', r.status], ['到货时间', r.arrivalTime], ['验收时间', r.acceptanceTime],
+      ['验收人', r.acceptor], ['复核人', r.reviewer],
+      ['已上传资料', r.files.join('、')], ['缺失资料', r.missing.join('、')],
+      ['备注', r.remark]
+    ];
+  }
+  if (kind === 'instruction') {
+    return [
+      ['指令编号', r.code], ['指令类型', r.type], ['品种', r.preparation],
+      ['制剂编码', r.preparationCode], ['规格', r.spec], ['批号', r.batch],
+      ['批量', r.qty], ['计划开始', r.planStart], ['计划结束', r.planEnd],
+      ['状态', r.status], ['工艺路线', r.processRoute],
+      ['备注', r.remark]
+    ];
+  }
+  if (kind === 'requisition') {
+    return [
+      ['领料单号', r.code], ['关联出库单', r.stockOutCode], ['状态', r.status],
+      ['申请人', r.operator], ['领料时间', r.date], ['用途', r.purpose],
+      ['仓库', r.warehouse], ['备注', r.remark]
+    ];
+  }
+  if (kind === 'return') {
+    return [
+      ['退库单号', r.code], ['关联出库单', r.stockOutCode], ['状态', r.status],
+      ['退库人', r.operator], ['退库时间', r.date], ['关联出库单', r.stockOutCode],
+      ['备注', r.remark]
+    ];
+  }
+  if (kind === 'process') {
+    return [
+      ['工序名称', r.name], ['房间', r.room], ['设备', r.equipment],
+      ['操作人', r.operator], ['执行状态', r.status], ['开始时间', r.start],
+      ['结束时间', r.end], ['关键工艺要求', r.req], ['查证结果', r.result],
+      ['查证人', r.inspector], ['查证日期', r.date], ['备注', r.remark]
+    ];
+  }
+  if (kind === 'deviation') {
+    return [
+      ['偏差编号', r.code], ['偏差标题', r.title], ['发生时间', r.occurTime],
+      ['发生工序', r.processName], ['偏差描述', r.description], ['处理措施', r.action],
+      ['处理结论', r.conclusion], ['处理人', r.handler || r.qa], ['处理日期', r.date],
+      ['状态', r.status], ['备注', r.remark]
+    ];
+  }
+  return [
+    ['单据编号', r.code], ['单据类型', '检验记录'], ['单据状态', r.status],
+    ['检验依据', r.basis], ['检验项目', r.items], ['检验人', r.inspector],
+    ['复核人', r.reviewer], ['开始时间', r.start], ['结束时间', r.end || '进行中'],
+    ['检验结论', r.conclusion], ['关联请检单', r.requestCode],
+    ['关联取样记录', r.samplingCode], ['备注', r.remark]
+  ];
+}
+function linesBlock(title, headers, lines, keys) {
+  const body = (lines && lines.length)
+    ? `<div class="table-wrap"><table><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${lines.map(line => `<tr>${keys.map(k => {
+      const v = line[k];
+      return `<td>${esc(v == null || v === '' ? '—' : v)}</td>`;
+    }).join('')}</tr>`).join('')}</tbody></table></div>`
+    : '<div class="muted small">无明细</div>';
+  return `<div class="divider"></div><h3 class="section-title">${esc(title)}</h3>${body}`;
+}
+function formLines(kind, r) {
+  if (kind === 'purchase') {
+    return linesBlock('采购明细', ['物料编码', '物料名称', '规格', '数量', '单位', '单价', '金额', '到货量', '批号'],
+      r.lines, ['materialCode', 'materialName', 'spec', 'quantity', 'unit', 'unitPrice', 'amount', 'actualArrivalQty', 'batchNumber']);
+  }
+  if (kind === 'acceptance') {
+    return linesBlock('验收明细', ['物料编码', '物料名称', '数量', '单位', '批号', '外观检查', '外包装检查', '验收结论'],
+      r.details, ['materialCode', 'materialName', 'quantity', 'unit', 'batchNumber', 'appearanceCheck', 'outerPackageCheck', 'conclusion']);
+  }
+  if (kind === 'requisition' || kind === 'return') {
+    return linesBlock(kind === 'requisition' ? '领料明细' : '退库明细', ['物料编码', '物料名称', '规格', '数量', '单位', '批号'],
+      r.lines, ['materialCode', 'materialName', 'spec', 'quantity', 'unit', 'batchNumber']);
+  }
+  return '';
+}
+function formFiles(kind, r) {
+  if (kind === 'acceptance') return r.fileNames || [];
+  return r.files || [];
+}
+function openFormDrawer(kind, idx) {
+  const conf = FORM_TYPES[kind];
+  if (!activeBatch || !conf) return;
+  const list = activeBatch[conf.list];
+  const r = Array.isArray(list) ? list[idx] : list;
+  if (!r) return;
+  const files = formFiles(kind, r);
+  document.getElementById('formTitle').textContent = `${conf.label} · ${r.code || r.name || ''}`;
+  document.getElementById('formSub').textContent = `${activeBatch.product} · 批号 ${activeBatch.batch} · ${activeBatch.wo}`;
+  document.getElementById('formBody').innerHTML = `
+    <div class="card card-pad mb-2">
+      <h3 class="section-title">${conf.label}表单</h3>
+      <div class="kv">
+        ${formKv(kind, r).map(([k, v]) => `<div><span class="k">${esc(k)}</span>${esc(v == null || v === '' ? '—' : v)}</div>`).join('')}
+      </div>
+      ${formLines(kind, r)}
+    </div>
+    <section class="card">
+      <div class="card-head"><h2>附件</h2><span class="meta">${files.length} 个文件</span></div>
+      <div class="card-body">${filesCell(files)}</div>
+    </section>`;
+  document.getElementById('formBody').querySelectorAll('[data-file]').forEach(el =>
+    el.addEventListener('click', () => toast('原型演示：预览 ' + el.dataset.file)));
+  openDrawer('formDrawer');
+}
+
 function renderDetail() {
   const b = activeBatch;
   const c = compliance(b);
@@ -860,37 +1195,37 @@ function renderDetail() {
     <div class="detail-layout">
       <div class="detail-main">
         <section class="card">
-          <div class="card-head"><h2>物料 / 采购 / 验收</h2><span class="meta">可查看采购订单、验收记录与对应文件</span></div>
+          <div class="card-head"><h2>物料 / 采购 / 验收</h2><span class="meta">点击行查看采购订单、验收单表单详情</span></div>
           <div class="card-body">
             <h3 class="section-title">采购订单</h3>
             <div class="table-wrap"><table><thead><tr><th>采购单号</th><th>供应商</th><th>状态</th><th>文件</th></tr></thead><tbody>
-              ${b.purchases.map(p => `<tr><td>${esc(p.code)}</td><td>${esc(p.supplier)}</td><td>${esc(p.status)}</td><td>${filesCell(Array.from({ length: p.files }, (_, i) => '采购订单文件' + (i + 1)))}</td></tr>`).join('')}
+              ${b.purchases.map((p, pi) => `<tr class="clickable" data-doc="purchase" data-idx="${pi}"><td><span class="cell-main">${esc(p.code)}</span><span class="cell-sub">${esc(p.materialType || '')}</span></td><td>${esc(p.supplier)}</td><td>${esc(p.status)}</td><td>${filesCell(p.files)}</td></tr>`).join('')}
             </tbody></table></div>
             <div class="divider"></div>
             <h3 class="section-title">货物验收</h3>
             <div class="table-wrap"><table><thead><tr><th>验收单号</th><th>状态</th><th>已上传</th><th>缺失</th><th>文件</th></tr></thead><tbody>
-              ${b.acceptances.map(a => `<tr><td>${esc(a.code)}</td><td>${esc(a.status)}</td><td>${a.files.join('、') || '—'}</td><td>${a.missing.length ? `<span class="tag red">${a.missing.join('、')}</span>` : '<span class="tag green">齐全</span>'}</td><td>${filesCell(a.files)}</td></tr>`).join('')}
+              ${b.acceptances.map((a, ai) => `<tr class="clickable" data-doc="acceptance" data-idx="${ai}"><td><span class="cell-main">${esc(a.code)}</span><span class="cell-sub">${esc(a.purchaseNumber || '')}</span></td><td>${esc(a.status)}</td><td>${a.files.join('、') || '—'}</td><td>${a.missing.length ? `<span class="tag red">${a.missing.join('、')}</span>` : '<span class="tag green">齐全</span>'}</td><td>${filesCell(a.fileNames)}</td></tr>`).join('')}
             </tbody></table></div>
           </div>
         </section>
 
         <section class="card">
-          <div class="card-head"><h2>生产指令 / 领料 / 退库</h2><span class="meta">批生产指令与物料流转</span></div>
+          <div class="card-head"><h2>生产指令 / 领料 / 退库</h2><span class="meta">点击单据查看表单详情</span></div>
           <div class="card-body">
             <h3 class="section-title">批配置 / 生产指令</h3>
-            <div class="flex between center wrap gap-10">
-              <div><b>${esc(b.instruction.code)}</b><span class="muted small"> · ${esc(b.instruction.date)}</span></div>
-              ${filesCell(b.instruction.files)}
+            <div class="flex between center wrap gap-10 clickable" data-doc="instruction" data-idx="0">
+              <div><b>${esc(b.instruction.code)}</b><span class="muted small"> · ${esc(b.instruction.date)}</span><span class="cell-sub">${esc(b.instruction.preparation)} · 批号 ${esc(b.instruction.batch)} · ${esc(b.instruction.qty)}</span></div>
+              <div class="flex center gap-6">${filesCell(b.instruction.files)}<button class="btn btn-sm">查看表单</button></div>
             </div>
             <div class="divider"></div>
             <h3 class="section-title">领料单</h3>
             <div class="table-wrap"><table><thead><tr><th>领料单号</th><th>日期</th><th>状态</th><th>文件</th></tr></thead><tbody>
-              ${b.requisitions.length ? b.requisitions.map(r => `<tr><td>${esc(r.code)}</td><td>${esc(r.date)}</td><td>${esc(r.status)}</td><td>${filesCell(Array.from({ length: r.files }, (_, i) => '领料单文件' + (i + 1)))}</td></tr>`).join('') : '<tr><td colspan="4" class="muted">无领料单</td></tr>'}
+              ${b.requisitions.length ? b.requisitions.map((r, ri) => `<tr class="clickable" data-doc="requisition" data-idx="${ri}"><td><span class="cell-main">${esc(r.code)}</span><span class="cell-sub">${esc(r.purpose || '')}</span></td><td>${esc(r.date)}</td><td>${esc(r.status)}</td><td>${filesCell(r.files)}</td></tr>`).join('') : '<tr><td colspan="4" class="muted">无领料单</td></tr>'}
             </tbody></table></div>
             <div class="divider"></div>
             <h3 class="section-title">退库单</h3>
             <div class="table-wrap"><table><thead><tr><th>退库单号</th><th>日期</th><th>状态</th><th>文件</th></tr></thead><tbody>
-              ${b.returns.length ? b.returns.map(r => `<tr><td>${esc(r.code)}</td><td>${esc(r.date)}</td><td>${esc(r.status)}</td><td>${filesCell(Array.from({ length: r.files }, (_, i) => '退库单文件' + (i + 1)))}</td></tr>`).join('') : '<tr><td colspan="4" class="muted">无退库记录</td></tr>'}
+              ${b.returns.length ? b.returns.map((r, ri) => `<tr class="clickable" data-doc="return" data-idx="${ri}"><td><span class="cell-main">${esc(r.code)}</span><span class="cell-sub">${esc(r.remark || '')}</span></td><td>${esc(r.date)}</td><td>${esc(r.status)}</td><td>${filesCell(r.files)}</td></tr>`).join('') : '<tr><td colspan="4" class="muted">无退库记录</td></tr>'}
             </tbody></table></div>
           </div>
         </section>
@@ -898,18 +1233,18 @@ function renderDetail() {
         <section class="card">
           <div class="card-head">
             <h2>工序记录与符合性</h2>
-            <span class="meta">要求来自现有工序页配置 · 通过 ${c.p.pass}/${c.p.total}</span>
+            <span class="meta">点击行查看工序执行记录 · 通过 ${c.p.pass}/${c.p.total}</span>
           </div>
           <div class="table-wrap">
             <table>
               <thead><tr><th>工序</th><th>配置要求</th><th>结果</th><th>工艺查证人</th><th>日期</th><th>文件</th></tr></thead>
               <tbody>
-                ${b.processes.map(p => `<tr>
-                  <td><span class="cell-main">${esc(p.name)}</span></td>
+                ${b.processes.map((p, pi) => `<tr class="clickable" data-doc="process" data-idx="${pi}">
+                  <td><span class="cell-main">${esc(p.name)}</span><span class="cell-sub">${esc(p.room || '')} · ${esc(p.equipment || '')}</span></td>
                   <td><div class="req-text">${esc(p.req)}</div></td>
                   <td>${p.result === '符合' ? '<span class="tag green">符合</span>' : p.result === '不符合' ? '<span class="tag red">不符合</span>' : '<span class="tag orange">待查</span>'}</td>
                   <td>${esc(p.inspector)}</td><td>${esc(p.date)}</td>
-                  <td>${p.files ? '<span class="file-chip" data-file="' + esc(p.name) + '工序记录.pdf">工序记录</span>' : '<span class="muted small">无附件</span>'}</td>
+                  <td>${filesCell(p.files)}</td>
                 </tr>`).join('')}
               </tbody>
             </table>
@@ -917,18 +1252,24 @@ function renderDetail() {
         </section>
 
         <section class="card">
-          <div class="card-head"><h2>检验记录</h2><span class="meta">请检 / 取样 / 检验报告</span></div>
+          <div class="card-head"><h2>检验记录</h2><span class="meta">请检 / 取样 / 检验报告 · 点击行查看表单详情</span></div>
           <div class="card-body">
             <div class="kv">
-              <div><span class="k">请检单</span>${b.requests.map(r => r.code).join('、') || '—'}</div>
-              <div><span class="k">取样记录</span>${b.samplings.map(s => s.code).join('、') || '—'}</div>
-              <div><span class="k">检验报告</span>${b.inspections.map(i => i.code).join('、') || '—'}</div>
-              <div><span class="k">检验结论</span><span class="st ${b.inspectionConclusion === '合格' ? 'done' : b.inspectionConclusion === '不合格' ? 'bad' : 'run'}">${b.inspectionConclusion}</span></div>
+              <div><span class="k">请检单</span>${b.requests.length} 张</div>
+              <div><span class="k">取样记录</span>${b.samplings.length} 份</div>
+              <div><span class="k">检验记录</span>${b.inspections.length} 份</div>
+              <div><span class="k">检验结论</span><span class="st ${b.inspectionConclusion === '合格' ? 'done' : b.inspectionConclusion === '不合格' ? 'bad' : 'run'}">${esc(b.inspectionConclusion)}</span></div>
             </div>
-            <div class="file-list" style="margin-top:10px;">
-              ${b.requests.map(r => `<span class="file-chip" data-file="${esc(r.code)}_请检单.pdf">${esc(r.code)} 请检单</span>`).join('')}
-              ${b.samplings.map(s => `<span class="file-chip" data-file="${esc(s.code)}_取样记录.pdf">${esc(s.code)} 取样记录</span>`).join('')}
-              ${b.inspections.map(i => `<span class="file-chip ${i.files ? '' : 'missing'}" data-file="${esc(i.code)}_检验报告.pdf">${esc(i.code)} 检验报告</span>`).join('')}
+            <div class="divider"></div>
+            <div class="table-wrap">
+              <table style="min-width:840px;table-layout:fixed;">
+                <colgroup>
+                  <col style="width:150px" /><col /><col style="width:96px" /><col style="width:130px" />
+                  <col style="width:100px" /><col style="width:72px" /><col style="width:88px" />
+                </colgroup>
+                <thead><tr><th>单据</th><th>检验项目 / 环节</th><th>经办人</th><th>时间</th><th>状态 / 结论</th><th>附件</th><th>操作</th></tr></thead>
+                <tbody>${inspectionRows(b)}</tbody>
+              </table>
             </div>
           </div>
         </section>
@@ -944,7 +1285,7 @@ function renderDetail() {
             </div>
             <div class="divider"></div>
             ${b.deviations.length ? `<div class="table-wrap"><table><thead><tr><th>偏差编号</th><th>标题</th><th>结论</th><th>质量管理员</th><th>日期</th><th>状态</th></tr></thead><tbody>
-              ${b.deviations.map(d => `<tr><td>${esc(d.code)}</td><td>${esc(d.title)}</td><td>${esc(d.conclusion)}</td><td>${esc(d.qa)}</td><td>${esc(d.date)}</td><td><span class="tag ${d.status === '已关闭' ? 'green' : 'red'}">${esc(d.status)}</span></td></tr>`).join('')}
+              ${b.deviations.map((d, di) => `<tr class="clickable" data-doc="deviation" data-idx="${di}"><td>${esc(d.code)}</td><td>${esc(d.title)}<span class="cell-sub">点击查看偏差表单</span></td><td>${esc(d.conclusion)}</td><td>${esc(d.qa || d.handler)}</td><td>${esc(d.date)}</td><td><span class="tag ${d.status === '已关闭' ? 'green' : 'red'}">${esc(d.status)}</span></td></tr>`).join('')}
             </tbody></table></div>` : '<div class="note ok">无偏差记录</div>'}
           </div>
         </section>
@@ -997,7 +1338,12 @@ function renderDetail() {
       </aside>
     </div>`;
 
-  detail.querySelectorAll('[data-file]').forEach(el => el.addEventListener('click', () => openFileDrawer(el.dataset.file)));
+  detail.querySelectorAll('[data-file]').forEach(el =>
+    el.addEventListener('click', e => { e.stopPropagation(); openFileDrawer(el.dataset.file); }));
+  detail.querySelectorAll('[data-form-kind]').forEach(el =>
+    el.addEventListener('click', () => openFormDrawer(el.dataset.formKind, Number(el.dataset.formIdx))));
+  detail.querySelectorAll('[data-doc]').forEach(el =>
+    el.addEventListener('click', () => openFormDrawer(el.dataset.doc, Number(el.dataset.idx || 0))));
 }
 
 /* =========================================================

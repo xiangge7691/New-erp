@@ -28,6 +28,8 @@
 | 筛选栏 + 批次列表 | `GET /api/release-review/batches` | 分页，`pageIndex` 从 0 开始 |
 | 点击行进入详情 | `GET /api/release-review/batches/{workOrderId}` | 一次返回全批证据 |
 | 详情「工序记录与符合性」保存 | `POST .../{workOrderId}/process-checks` | 批量保存，整单事务 |
+| 详情「检验记录」查看表单 | `GET .../batches/{workOrderId}` 的 `requests/samplings/inspections` | 需后端补充字段，见第 9 节 |
+| 详情其他单据「查看表单」 | 同批次详情接口的分组字段 | 采购/验收/指令/领料/退库/工序/偏差，见第 10 节 |
 | 详情「保存草稿」 | `POST .../{workOrderId}/draft` | 结论固定「待补充」 |
 | 详情「通过放行」 | `POST .../{workOrderId}/approve` | 需 `compliance.canRelease = true` |
 | 详情「拒绝放行」 | `POST .../{workOrderId}/reject` | 拒绝原因必填 |
@@ -147,6 +149,8 @@ GET /api/release-review/batches?varietyCode=Z04-011&batchNo=260901&status=待审
       "deviationTotal": 0,
       "deviationOpen": 0,
       "releaseStatus": "待放行",
+      "releaseApprover": null,
+      "releaseDate": null,
       "canRelease": true,
       "blockers": []
     }
@@ -403,6 +407,8 @@ Content-Type: application/json
 | 文件完整 | `fileUploaded` / `fileRequired` | 副行：`fileMissing > 0` 显示「缺 N 项」，否则「完整」 |
 | 阻塞项 | `blockers[]` | 有值逐项红色 `ElTag`；空数组显示绿色「无阻塞」 |
 | 放行状态 | `releaseStatus` | 见 4.1 颜色映射 |
+| 放行批准人 | `releaseApprover` | 取放行审核记录的审核人；未生成放行记录时为空（草稿也会记录审核人） |
+| 日期 | `releaseDate` | 取放行审核记录的审核日期（yyyy-MM-dd）；未生成放行记录时为空 |
 | 操作 | `releaseStatus` | 已放行显示「查看」，其余显示「审核」 |
 
 ### 3.2 详情头部（`batch` + `release`）
@@ -438,6 +444,10 @@ Content-Type: application/json
 | `materialType` | 物料类型 |
 | `status` | 采购订单状态。后端字段是 `Object`，可能返回中文或数字编码，前端按现有采购页字典展示，未知值原样显示 |
 | `date` | 下单日期 |
+| `orderTime` | 下单时间（当前 `date` 为其日期部分） |
+| `invoiceNo` | 发票号 |
+| `remark` | 备注 |
+| `lines[]` | 采购明细行（字段见第 10.2 节） |
 | `fileCount` | 附件数 |
 | `files[]` | 附件，见 3.9 |
 
@@ -451,6 +461,12 @@ Content-Type: application/json
 | `purchaseNumber` | 关联采购单号 |
 | `uploadedKindLabels[]` | 已上传文件类型中文名 |
 | `missingKindLabels[]` | 缺失文件类型中文名 |
+| `sourceType` | 来源类型 |
+| `arrivalTime` | 到货时间 |
+| `acceptanceTime` | 验收时间 |
+| `acceptor` / `reviewer` | 验收人 / 复核人 |
+| `remark` | 备注 |
+| `details[]` | 验收明细行（字段见第 10.2 节） |
 | `files[]` | 已上传附件 |
 
 验收单固定检查三个槽位：`随货清单`、`验收检验报告`、`发票`。原型里的「检验报告」实际返回文案是「验收检验报告」，以接口为准。
@@ -466,6 +482,11 @@ Content-Type: application/json
 | `type` | 固定「生产指令」 |
 | `date` | 计划生产日期 |
 | `status` | 生产计划状态 |
+| `preparation` / `preparationCode` | 品种名称 / 制剂编码 |
+| `spec` / `batch` / `qty` | 规格 / 批号 / 批量 |
+| `planStart` / `planEnd` | 计划开始 / 结束日期 |
+| `processRoute` | 工艺路线 |
+| `remark` | 备注 |
 | `files[]` | 生产计划附件 |
 
 **`requisitions[]`**
@@ -476,6 +497,11 @@ Content-Type: application/json
 | `date` | 领料日期 |
 | `status` | 领料状态 |
 | `operator` | 申请人 |
+| `purpose` | 领料用途 |
+| `warehouse` | 领料仓库 |
+| `stockOutCode` | 关联出库单号 |
+| `remark` | 备注 |
+| `lines[]` | 领料明细行（字段见第 10.2 节） |
 | `files[]` | 关联出库单附件；无出库单时为空数组 |
 
 **`returns[]`**
@@ -486,7 +512,10 @@ Content-Type: application/json
 | `date` | 退库时间 |
 | `status` | `returnTime` 有值时为「已退库」，否则「待退库」 |
 | `operator` | 退库人 |
-| `files[]` | 当前后端未填充，固定空数组；页面显示「无附件」即可 |
+| `stockOutCode` | 关联出库单号 |
+| `remark` | 备注 |
+| `lines[]` | 退库明细行（字段见第 10.2 节） |
+| `files[]` | 已按 `RETURN_ORDER` 返回；无附件时为空数组 |
 
 ### 3.5 工序记录与符合性（`processes[]`）
 
@@ -502,25 +531,66 @@ Content-Type: application/json
 | `startTime` / `endTime` | 工序执行起止时间 |
 | `operator` | 操作人 |
 | `status` | 工序执行状态 |
+| `room` / `equipment` | 房间 / 设备名称 |
+| `remark` | 备注 |
 | `files[]` | 工序记录附件 |
 
 页面上的下拉值必须使用 `符合` / `不符合` / `待查` 三个中文枚举，不要传 `PASS` / `FAIL`。
 
 ### 3.6 检验记录（`requests[]` / `samplings[]` / `inspections[]`）
 
-三个数组结构相同：
+原型已从「只列单号」调整为明细表 + 表单详情抽屉，三类单据结构不同，不要再按同一套字段渲染。本节只讲检验记录的字段；采购、验收、生产指令、领料、退库、工序、偏差等其他单据的「查看表单」支持方式见第 10 节。
+
+**请检单 `requests[]`**
 
 | 字段 | 说明 |
 |---|---|
-| `id` | 单据 ID |
-| `code` | 单据编号 |
-| `type` | `请检单` / `取样记录` / `检验记录` |
-| `process` | 工序名称（仅请检单可能有值） |
-| `status` | 单据状态 |
-| `conclusion` | 检验结论（仅检验记录有值） |
-| `time` | 请检时间 / 取样时间 / 检验结束时间 |
-| `operator` | 请检人 / 取样人 / 检验人 |
+| `id` | 请检单 ID |
+| `code` | 请检单号 |
+| `type` | 固定 `请检单` |
+| `process` | 工序 / 检验环节 |
+| `status` | 单据状态（当前后端未赋值，见第 9 节） |
+| `requester` | 请检人（当前字段名是 `operator`） |
+| `requestDepartment` | 请检部门 |
+| `time` | 请检时间 |
+| `inspectionItems` | 检验项目 |
+| `configQuantity` | 配置数量 |
+| `remark` | 备注 |
 | `files[]` | 对应业务附件 |
+
+**取样记录 `samplings[]`**
+
+| 字段 | 说明 |
+|---|---|
+| `id` | 取样记录 ID |
+| `code` | 取样编号 |
+| `type` | 固定 `取样记录` |
+| `status` | 单据状态（当前后端未赋值） |
+| `sampler` | 取样人（当前字段名是 `operator`） |
+| `time` | 取样时间 |
+| `samplingQuantity` / `samplingCount` / `samplingMethod` / `samplingLocation` | 取样量 / 份数 / 方法 / 地点 |
+| `remark` | 备注 |
+| `files[]` | 对应业务附件 |
+
+**检验记录 `inspections[]`**
+
+| 字段 | 说明 |
+|---|---|
+| `id` | 检验记录 ID |
+| `code` | 检验编号 |
+| `type` | 固定 `检验记录` |
+| `status` | 单据状态（当前后端未赋值） |
+| `conclusion` | 检验结论 |
+| `inspectionBasis` | 检验依据 |
+| `inspectionItem` | 检验项目 |
+| `inspector` / `reviewer` | 检验人 / 复核人（当前只回传检验人 `operator`） |
+| `startTime` / `endTime` | 检验起止时间（当前只回传结束时间 `time`） |
+| `relatedInspectionRequestCode` / `relatedSamplingCode` | 关联请检单 / 取样记录 |
+| `remark` | 备注 |
+| `files[]` | 检验记录、图谱等附件 |
+
+> 当前后端 `InspectionItem` 只回传 `id/code/type/process/status/conclusion/time/operator/files`，且 `status` 从未赋值。前端要做「查看表单」必须等第 9 节的字段扩展，或点击时改调各单据详情接口。
+
 
 ### 3.7 区域记录（`rooms[]`）
 
@@ -555,6 +625,11 @@ Content-Type: application/json
 | `handler` | 处理人 |
 | `handleDate` | 处理日期 |
 | `status` | `未关闭` / `已关闭` |
+| `occurTime` | 发生时间 |
+| `processName` | 发生工序 |
+| `description` | 偏差描述 |
+| `action` | 处理措施 |
+| `remark` | 备注 |
 | `files[]` | 偏差附件 |
 
 判定规则：`handleTime == null && resultDesc 为空` 视为「未关闭」，否则「已关闭」。
@@ -865,6 +940,29 @@ export interface ReleaseInspectionItem {
   time?: string
   operator?: string
   files: ReleaseFileItem[]
+  // 请检单扩展字段
+  requester?: string
+  requestDepartment?: string
+  requestTime?: string
+  inspectionItems?: string
+  configQuantity?: string
+  // 取样记录扩展字段
+  sampler?: string
+  samplingTime?: string
+  samplingQuantity?: string
+  samplingCount?: number
+  samplingMethod?: string
+  samplingLocation?: string
+  // 检验记录扩展字段
+  inspectionBasis?: string
+  inspectionItem?: string
+  inspector?: string
+  reviewer?: string
+  startTime?: string
+  endTime?: string
+  relatedInspectionRequestCode?: string
+  relatedSamplingCode?: string
+  remark?: string
 }
 
 export interface ReleaseRoomItem {
@@ -1177,6 +1275,7 @@ async function downloadFile(fileId: number, fileName: string) {
 | 列表统计随筛选联动 | `/stats` 忽略 `status` | 顶部数字不随状态筛选变化属正常 |
 | 放行结论是下拉框 | 通过/拒绝/草稿是三个独立接口 | 不要提交「结论」参数到统一接口 |
 | 草稿保存后状态不变 | 草稿不改变推导状态 | 刷新后仍可能是「待审核」或「待放行」 |
+| 检验记录可点开表单详情 | 聚合接口目前只回传单号、结论、时间、经办人 | 等第 9 节字段扩展；过渡期点开时改调单据详情接口 |
 | 已放行后仍可看详情 | 写操作全部返回 400 | 已放行批次所有操作按钮置灰 |
 
 ---
@@ -1202,6 +1301,8 @@ async function downloadFile(fileId: number, fileName: string) {
 - [ ] 顶部三个数字来自 `/stats`，不随「放行状态」筛选变化。
 - [ ] 详情头部字段与 `batch` / `release` 对应，无放行记录时显示「待审核」。
 - [ ] 采购、验收、生产指令、领料、退库、工序、检验、偏差各分组能正常渲染空数组。
+- [ ] 检验记录明细表按类型展示项目/环节、经办人、时间、状态与结论，空数据有占位。
+- [ ] 点击检验相关行能打开表单详情抽屉，字段与第 9 节一致。
 - [ ] 验收单缺失类型使用 `missingKindLabels`，不是前端硬编码。
 - [ ] 工序结果只提交「符合 / 不符合 / 待查」。
 - [ ] 保存工序检查后，详情、列表、统计同时刷新。
@@ -1218,8 +1319,256 @@ async function downloadFile(fileId: number, fileName: string) {
 
 ## 8. 已知限制
 
-1. `returns[].files` 目前没有聚合退库单附件；如产品要求，需在后端补充 `ReturnOrder` 的业务文件查询。
-2. `files[].uploader` 固定为空；需要上传人时需后端补充 `BusinessFileDto` 的创建人信息。
-3. `rooms[]` 只聚合工序执行区域，不含清洁、温湿度等 GMP 区域记录；原型中的对应文案暂未落库。
-4. `fileChecklist` 只提供计数和缺失明细，不提供 `fileId` 列表；如需清单行直接预览，需要后端扩展 DTO。
-5. 列表为先聚合后分页，批次量很大时首屏耗时高于普通单表分页；如成为性能问题，需后端改为数据库分页。
+1. `files[].uploader` 固定为空；需要上传人时需后端补充 `BusinessFileDto` 的创建人信息。
+2. `rooms[]` 只聚合工序执行区域，不含清洁、温湿度等 GMP 区域记录；原型中的对应文案暂未落库。
+3. `fileChecklist` 只提供计数和缺失明细，不提供 `fileId` 列表；如需清单行直接预览，需要后端扩展 DTO。
+4. 列表为先聚合后分页，批次量很大时首屏耗时高于普通单表分页；如成为性能问题，需后端改为数据库分页。
+5. 采购单、生产指令不提供制单人/编制人，退库单不提供退库原因；原型与页面均不展示这些字段。
+
+---
+
+## 9. 检验记录表单详情（已按方案 A 实现）
+
+### 9.1 前端原型改了什么
+
+`_analysis/prototypes/release-review.html` 的「检验记录」区块由「单号一行文本」调整为：
+
+1. 顶部汇总：请检单张数、取样记录份数、检验记录份数、批次检验结论。
+2. 明细表：类型 / 单据编号 / 检验项目（或环节）/ 经办人 / 时间 / 状态与结论 / 附件 / 操作。
+3. 点击任意行或「查看表单」，右侧抽屉展示该单据的完整表单字段与附件。
+
+### 9.2 字段扩展结果
+
+`GET /api/release-review/batches/{workOrderId}` 返回的 `requests[] / samplings[] / inspections[]` 共用 `ReleaseBatchDtos.InspectionItem`，已按类型补齐以下字段：
+
+| 单据 | 已返回字段 |
+|---|---|
+| 通用 | `id`、`code`、`type`、`status`、`remark`、`relatedTaskCode`、`relatedPlanCode`、`files[]` |
+| 请检单 | `process`、`requester`、`requestDepartment`、`requestTime`、`inspectionItems`、`configQuantity` |
+| 取样记录 | `sampler`、`samplingTime`、`samplingQuantity`、`samplingCount`、`samplingMethod`、`samplingLocation`、`relatedInspectionRequestCode` |
+| 检验记录 | `conclusion`、`inspectionBasis`、`inspectionItem`、`inspector`、`reviewer`、`startTime`、`endTime`、`relatedInspectionRequestCode`、`relatedSamplingCode` |
+
+`status` 的推导规则：
+
+- 请检单：按 `inspection_task` 的 `requestRefId / samplingRefId / inspectionRefId` 推导，返回 `待取样` / `检验中` / `已检验`；没有任务记录时返回 `待检验`。
+- 取样记录：固定 `已取样`。
+- 检验记录：有结论且 `endTime` 非空为 `已检验`，否则 `检验中`。
+
+`relatedTaskCode` 来自检验任务编号；`relatedPlanCode` 优先取单据自身字段，缺失时回退任务上的计划编号。
+
+### 9.3 实现方式（已完成）
+
+在 `ReleaseBatchDtos.InspectionItem` 上追加字段，保持原有字段不变，`ReleaseBatchServiceImpl.toInspectionItem` 按类型填充。页面仍然只调一次详情接口，点开表单不需要再发请求。
+
+```java
+/** 检验相关单据 */
+@Data
+public static class InspectionItem {
+    // 现有字段保持不变
+    private Long id;
+    private String code;
+    private String type;
+    private String process;
+    private String status;
+    private String conclusion;
+    private LocalDateTime time;
+    private String operator;
+    private List<FileItem> files = new ArrayList<>();
+
+    // region 通用扩展
+    /** 备注 */
+    private String remark;
+    /** 关联检验任务编号 */
+    private String relatedTaskCode;
+    /** 关联检验计划编号 */
+    private String relatedPlanCode;
+    // endregion
+
+    // region 请检单扩展（InspectionRequest）
+    /** 请检人 */
+    private String requester;
+    /** 请检部门 */
+    private String requestDepartment;
+    /** 请检时间 */
+    private LocalDateTime requestTime;
+    /** 检验项目 */
+    private String inspectionItems;
+    /** 配置数量 */
+    private String configQuantity;
+    // endregion
+
+    // region 取样记录扩展（SamplingRecord）
+    /** 取样人 */
+    private String sampler;
+    /** 取样时间 */
+    private LocalDateTime samplingTime;
+    /** 取样量 */
+    private String samplingQuantity;
+    /** 取样份数 */
+    private Integer samplingCount;
+    /** 取样方法 */
+    private String samplingMethod;
+    /** 取样地点 */
+    private String samplingLocation;
+    // endregion
+
+    // region 检验记录扩展（InspectionRecord）
+    /** 检验依据 */
+    private String inspectionBasis;
+    /** 检验项目 */
+    private String inspectionItem;
+    /** 检验人 */
+    private String inspector;
+    /** 复核人 */
+    private String reviewer;
+    /** 检验开始时间 */
+    private LocalDateTime startTime;
+    /** 检验结束时间 */
+    private LocalDateTime endTime;
+    /** 关联请检编号 */
+    private String relatedInspectionRequestCode;
+    /** 关联取样编号 */
+    private String relatedSamplingCode;
+    // endregion
+}
+```
+
+字段来源：
+
+| 单据 | 表 | 字段映射 |
+|---|---|---|
+| 请检单 | `inspection_request` | `inspection_code`、`process_name`、`requester`、`request_department`、`request_time`、`inspection_items`、`config_quantity`、`remark` |
+| 取样记录 | `sampling_record` | `sampling_code`、`sampler`、`sampling_time`、`sampling_quantity`、`sampling_count`、`sampling_method`、`sampling_location`、`remark` |
+| 检验记录 | `inspection_record` | `inspection_code`、`inspection_basis`、`inspection_item`、`inspector`、`reviewer`、`start_time`、`end_time`、`conclusion`、`remark`、`related_inspection_request_code`、`related_sampling_code` |
+
+### 9.4 必须明确的三个口径
+
+1. **`status` 怎么来**
+   - `inspection_request`、`sampling_record` 实体本身没有 `status` 列，不能直接透传。
+   - 建议由后端通过 `inspection_task`（`requestRefId` / `samplingRefId` / `inspectionRefId`）找到任务，用 `taskStatus` 或 `currentStep` 推导，例如：
+     - 请检单：任务已到「检验记录」及之后 → `已检验`，否则 `待检验`；
+     - 取样记录：`samplingRefId` 有值 → `已取样`；
+     - 检验记录：`end_time` 非空且有 `conclusion` → `已检验`，否则 `检验中`。
+   - 如果业务上不需要单据状态，前端可以只显示 `conclusion`，但**不要返回 `status: null` 让前端猜**。
+
+2. **取样记录与请检单的关联**
+   - `sampling_record` 只有 `related_plan_code`，没有请检单号。
+   - 需要「取样 → 请检」关系时，用 `inspection_task` 的 `requestRefId` / `samplingRefId` 反查，一并放进 `relatedInspectionRequestCode`。
+   - 检验记录的 `related_inspection_request_code` / `related_sampling_code` 可直接透传。
+
+3. **附件业务类型**
+   - 请检单：`INSPECTION_REQUEST`，按 `inspection_request.id` 查。
+   - 取样记录：`SAMPLING_RECORD`，按 `sampling_record.id` 查。
+   - 检验记录：`INSPECTION_RECORD`，按 `inspection_record.id` 查。
+   - 当前 `toInspectionItem` 已经按这三种 `bizType` 取附件，扩展字段时不要改动这段逻辑。
+
+### 9.5 备选方案：点击时调用单据详情接口（不改聚合接口）
+
+如果后端暂时不扩展 `InspectionItem`，前端可以在「查看表单」时按类型调用现有详情接口：
+
+| 类型 | 接口 | 返回 |
+|---|---|---|
+| 请检单 | `GET /api/inspection-request/{id}` | `InspectionRequest` 全字段 |
+| 取样记录 | `GET /api/samplingRecord/{id}` | `SamplingRecord` 全字段 |
+| 检验记录 | `GET /api/inspectionRecord/{id}` | `InspectionRecord` 全字段（含工单信息填充） |
+
+这三个接口已经存在，无需后端开发，但存在两个问题：
+
+- 每次点开表单多一次请求，弱网下抽屉会有加载态。
+- `status` 和「关联请检单」仍拿不到，需要前端自己推导或隐藏。
+
+因此**优先做 9.3，9.5 只作为过渡**。
+
+### 9.6 前端落地建议
+
+- 明细表优先使用显式字段：`requester`、`sampler`、`inspector`，只有在字段为空时才回退到 `operator`。
+- 时间列同理：请检单用 `requestTime`，取样用 `samplingTime`，检验用 `startTime ~ endTime`，回退到 `time`。
+- 「查看表单」抽屉里的空值统一显示 `—`，不要展示 `null` / `undefined`。
+- 已归档批次也允许查看表单，表单抽屉只读；写操作仍然只在检验管理页办理。
+- 附件预览/下载继续使用 `fileId`，不要用单据编号拼文件名。
+
+### 9.7 验收清单
+
+- [ ] 三类单据的 `status` 均不为 `null`，且与检验任务当前环节一致。
+- [ ] 请检单能返回请检部门、检验项目、配置数量、备注。
+- [ ] 取样记录能返回取样量、份数、方法、地点、备注。
+- [ ] 检验记录能返回检验依据、检验项目、复核人、开始时间、备注。
+- [ ] 检验记录能返回关联请检单号、关联取样编号。
+- [ ] 三类单据的 `files[]` 仍按原 `bizType` 正确返回，不串单。
+- [ ] 批次详情接口响应体增量在可接受范围内（单批次通常不超过十余条单据）。
+
+---
+
+## 10. 所有单据「查看表单」的后端支持方式（已按方案 A 实现）
+
+### 10.1 结论
+
+**没有为每个表单新增接口。** 审核放行页的所有单据都挂在同一个批次下，后端已扩展 `GET /api/release-review/batches/{workOrderId}` 的返回字段，采购、验收、生产指令、领料、退库、工序、检验、偏差、放行的表单详情一次返回。
+
+`BatchContext` 原本已加载采购主表和明细、领料主表和明细、验收/退库/工序/检验/偏差主表；本次补充了两类明细的批量查询：
+
+- 验收明细 `AcceptanceDetail`：按 `acceptance_id IN (...)` 一次查询。
+- 退库明细 `ReturnOrderDetail`：按 `return_order_id IN (...)` 一次查询。
+
+退库单附件也按 `RETURN_ORDER` + `returnOrder.id` 一并返回。
+
+方案 B（表头随聚合、明细按需查）保留在 10.3 作为备选，仅在响应体明显偏大时启用。
+
+### 10.2 字段与接口矩阵（当前实现）
+
+| 原型区块 | 表单详情 | 数据来源 | 当前实现 |
+|---|---|---|---|
+| 采购订单 | 表头 + 采购明细行 | `PurchaseOrders` + `PurchaseOrderItems` | `PurchaseItem` 已含 `orderTime/invoiceNo/remark/lines[]`，不新增接口 |
+| 验收单 | 表头 + 验收明细行 | `AcceptanceOrder` + `AcceptanceDetail` | `AcceptanceItem` 已含来源、到货/验收时间、验收/复核人、`details[]` |
+| 生产指令 | 表头 + 工艺路线 | `ProductionPlan` | `DocumentItem` 已含品种、规格、批号、批量、计划起止、工艺路线、备注 |
+| 领料单 | 表头 + 领料明细行 | `ProductionPick` + `ProductionPickDetail` | `DocumentItem` 已含用途、仓库、出库单号、`lines[]` |
+| 退库单 | 表头 + 退库明细行 + 附件 | `ReturnOrder` + `ReturnOrderDetail` | `DocumentItem` 已含关联出库单、`lines[]`，附件按 `RETURN_ORDER` 返回 |
+| 工序记录 | 工序执行表头 + 参数 | `WorkOrderProcessExecution` | `ProcessItem` 已含房间、设备、备注 |
+| 检验记录 | 见第 9 节 | `InspectionRequest/SamplingRecord/InspectionRecord` | `InspectionItem` 已补齐状态和表单字段 |
+| 偏差记录 | 表头 + 处理过程 | `DeviationRecord` | `DeviationItem` 已含发生时间、工序、描述、措施、备注 |
+| 放行审核 | 表头 | `ReleaseReview` | `release` 原本已完整，无需改动 |
+
+采购单和退库单的两个字段说明：
+
+- 采购制单人、生产指令编制人、退库原因均不在接口返回中，页面不展示；退库说明使用 `remark`。
+
+### 10.3 如果选择「表头随聚合、明细按需查」
+
+已有可复用的详情接口：
+
+| 单据 | 现有接口 | 是否含明细 |
+|---|---|---|
+| 验收单 | `GET /api/acceptance/{id}` + `GET /api/acceptance/{id}/details` | 是 |
+| 领料单 | `GET /api/material-requisition-slip/{id}` | 是 |
+| 退库单 | `GET /api/warehouse/return-orders/{id}` | 是 |
+| 工序记录 | `GET /api/work-order-process-execution/by-work-order/{workOrderId}` | 工序执行列表 |
+| 请检单 | `GET /api/inspection-request/{id}` | 表头 |
+| 取样记录 | `GET /api/samplingRecord/{id}` | 表头 |
+| 检验记录 | `GET /api/inspectionRecord/{id}` | 表头 |
+| 偏差记录 | `GET /api/deviation/{id}` | 表头 |
+| 采购订单 | **无按 ID 详情接口** | 需新增 `GET /api/purchase-orders/{id}`，返回主表 + 明细 |
+| 生产指令 | **无按 ID 详情接口** | 仅表头时随聚合返回即可；需要计划明细时再加 `GET /api/production-plans/{id}` |
+
+### 10.4 不建议的做法
+
+1. **不要做一个通用的 `/api/release-review/documents/{type}/{id}` 转发接口**：会把各业务的 DTO、权限、校验再复制一遍，后续每个模块改字段都要同步维护。
+2. **不要把附件 `fileId` 列表塞进文件完整性清单**：附件已经按单据返回，前端直接按 `fileId` 预览即可。
+3. **不要为「查看表单」再查一次列表接口**：例如用 `search-with-details` 按 ID 过滤，返回结构是分页列表，解析成本高于新增一个详情接口或直接扩展聚合字段。
+
+### 10.5 实施记录（已完成）
+
+1. 已扩展 `ReleaseBatchDtos` 各分组的表头、明细与附件字段。
+2. `BatchQueryServiceImpl` 已补查验收明细、退库明细和检验任务，并补退库单附件。
+3. `ReleaseBatchServiceImpl` 已按单据类型填充明细和状态。
+4. 前端按第 10.2 节字段渲染各表单抽屉。
+5. 上线后观察单批次详情响应体；若明显偏大（例如超过 300KB），再按 10.3 把明细行改为按需接口，表头字段仍保留在聚合接口中。
+
+### 10.6 验收口径
+
+- [ ] 采购、验收、生产指令、领料、退库、工序、检验、偏差、放行九类表单均可点开查看。
+- [ ] 每类表单的表头字段与业务单据详情页一致，空值显示 `—`。
+- [ ] 采购、验收、领料、退库表单能看到明细行；无明细时显示「无明细」。
+- [ ] 退库单能返回附件；没有附件时显示「无附件」。
+- [ ] 点开表单不产生 N+1 请求（方案 A），或每个表单最多一次详情请求（方案 B）。
+- [ ] 已放行、已拒绝批次的表单抽屉保持只读，不出现编辑按钮。
+

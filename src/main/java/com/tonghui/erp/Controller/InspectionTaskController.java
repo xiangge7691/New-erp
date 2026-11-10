@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
  * <p>
  * 提供检验任务列表、详情、六步办理、跳过、作废和归档接口。
  * 一个任务对应一个工单/批次/被检品属性，六步顺序由服务层校验。
+ * 步骤办理请求可选 nextStep 指定办理后的目标环节，未传时按固定顺序进入下一环节。
  * </p>
  *
  * 接口清单：
@@ -191,7 +192,7 @@ public class InspectionTaskController extends BaseController {
      *
      * 示例请求：
      * POST /api/inspection/tasks/1/retention
-     * {"quantity":"100g×3份","retainedDate":"2026-11-06","expiryDate":"2028-11-05","storageLocation":"留样室 A-03"}
+     * {"quantity":"100g×3份","retainedDate":"2026-11-06","expiryDate":"2028-11-05","storageLocation":"留样室 A-03","nextStep":"DESTRUCTION"}
      *
      * @param id      任务ID
      * @param request 留样请求
@@ -214,7 +215,10 @@ public class InspectionTaskController extends BaseController {
      *
      * 示例请求：
      * POST /api/inspection/tasks/1/inspection
-     * {"inspector":"丁圣芳","reviewer":"赵磊","inspectionBasis":"中国药典2025版","conclusion":"合格"}
+     * {"inspector":"丁圣芳","reviewer":"赵磊","inspectionBasis":"中国药典2025版","conclusion":"合格","nextStep":"RETENTION"}
+     *
+     * 说明：nextStep 可省略，省略时按固定顺序进入留样；留样、销毁不再根据
+     * retentionRequired/destructionRequired 自动跳过。
      *
      * @param id      任务ID
      * @param request 检验记录请求
@@ -237,7 +241,7 @@ public class InspectionTaskController extends BaseController {
      *
      * 示例请求：
      * POST /api/inspection/tasks/1/destruction
-     * {"destroyReason":"留样到期","destroyMethod":"焚烧","destroyerName":"张力","destroyDate":"2026-11-06"}
+     * {"destroyReason":"留样到期","destroyMethod":"焚烧","destroyerName":"张力","destroyDate":"2026-11-06","nextStep":"DONE"}
      *
      * @param id      任务ID
      * @param request 销毁请求
