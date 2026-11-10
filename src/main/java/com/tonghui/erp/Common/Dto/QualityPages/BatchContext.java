@@ -69,6 +69,8 @@ public class BatchContext {
 
     /** 采购订单ID -> 明细 */
     private Map<Long, List<com.tonghui.erp.Data.Entity.PurchaseOrderItems>> purchaseItems;
+    /** 采购明细物料ID -> 物料主数据名称 */
+    private Map<Long, String> purchaseMaterialNames;
     /** 领料单ID -> 明细 */
     private Map<Long, List<com.tonghui.erp.Data.Entity.ProductionPickDetail>> pickDetails;
     /** 成品入库单ID -> 明细 */

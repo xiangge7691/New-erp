@@ -1077,7 +1077,7 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         for (PurchaseOrderItems item : items) {
             ProductSummaryDtos.DocumentLine line = new ProductSummaryDtos.DocumentLine();
             line.setCode(item.getMaterialCode());
-            line.setName(StringUtils.hasText(item.getProductName()) ? item.getProductName() : item.getRawMaterialName());
+            line.setName(resolvePurchaseLineName(item, ctx));
             line.setQty(item.getPurchaseQuantity());
             line.setUnit(item.getUnit());
             line.setPrice(item.getUnitPrice());
@@ -1088,6 +1088,30 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         }
         doc.setFiles(toFiles(businessFileService.list("PURCHASE_ORDER", po.getId(), null, null)));
         return doc;
+    }
+
+    /**
+     * 解析采购明细展示名称
+     * <p>
+     * 优先级与采购/验收一致：物料主数据名称 &gt; 原药材品名 &gt; 制剂名称。
+     * 采购明细的 product_name 可能存的是物料分类，不能作为首选。
+     * </p>
+     *
+     * @param item 采购明细
+     * @param ctx  批次上下文
+     * @return 物料名称
+     */
+    private String resolvePurchaseLineName(PurchaseOrderItems item, BatchContext ctx) {
+        if (item.getMaterialId() != null && ctx.getPurchaseMaterialNames() != null) {
+            String materialName = ctx.getPurchaseMaterialNames().get(item.getMaterialId());
+            if (StringUtils.hasText(materialName)) {
+                return materialName;
+            }
+        }
+        if (StringUtils.hasText(item.getRawMaterialName())) {
+            return item.getRawMaterialName();
+        }
+        return item.getProductName();
     }
 
     private ProductSummaryDtos.DocumentItem acceptanceDoc(AcceptanceOrder acceptance) {

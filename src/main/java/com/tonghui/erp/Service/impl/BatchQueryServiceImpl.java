@@ -6,6 +6,7 @@ import com.tonghui.erp.Data.Entity.AcceptanceOrder;
 import com.tonghui.erp.Data.Entity.DeviationRecord;
 import com.tonghui.erp.Data.Entity.InspectionRecord;
 import com.tonghui.erp.Data.Entity.InspectionRequest;
+import com.tonghui.erp.Data.Entity.Material;
 import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.PreparationProcessTemplate;
 import com.tonghui.erp.Data.Entity.ProcessType;
@@ -26,6 +27,7 @@ import com.tonghui.erp.Data.Entity.StockOutDetail;
 import com.tonghui.erp.Data.Entity.WorkOrder;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessCheck;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessExecution;
+import com.tonghui.erp.Data.mapper.MaterialMapper;
 import com.tonghui.erp.Data.mapper.ProductionPickDetailMapper;
 import com.tonghui.erp.Data.mapper.StockInDetailMapper;
 import com.tonghui.erp.Data.mapper.StockOutDetailMapper;
@@ -90,6 +92,8 @@ public class BatchQueryServiceImpl implements BatchQueryService {
     private ProductionPickService productionPickService;
     @Autowired
     private ProductionPickDetailMapper productionPickDetailMapper;
+    @Autowired
+    private MaterialMapper materialMapper;
     @Autowired
     private ReturnOrderService returnOrderService;
     @Autowired
@@ -305,9 +309,37 @@ public class BatchQueryServiceImpl implements BatchQueryService {
             return;
         }
         List<Long> ids = purchases.stream().map(PurchaseOrders::getId).collect(Collectors.toList());
-        ctx.setPurchaseItems(purchaseOrderItemsService.list(
-                        new QueryWrapper<PurchaseOrderItems>().in("order_id", ids))
-                .stream().collect(Collectors.groupingBy(PurchaseOrderItems::getOrderId)));
+        List<PurchaseOrderItems> items = purchaseOrderItemsService.list(
+                new QueryWrapper<PurchaseOrderItems>().in("order_id", ids));
+        ctx.setPurchaseItems(items.stream().collect(Collectors.groupingBy(PurchaseOrderItems::getOrderId)));
+        loadPurchaseMaterialNames(ctx, items);
+    }
+
+    /**
+     * 加载采购明细的物料主数据名称
+     * <p>
+     * 采购明细的 product_name 可能存的是物料分类，真实名称以物料主数据为准，
+     * 缺失时再回退 raw_material_name / product_name。
+     * </p>
+     *
+     * @param ctx   批次上下文
+     * @param items 采购明细
+     */
+    private void loadPurchaseMaterialNames(BatchContext ctx, List<PurchaseOrderItems> items) {
+        List<Long> materialIds = items.stream()
+                .map(PurchaseOrderItems::getMaterialId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (materialIds.isEmpty()) {
+            return;
+        }
+        Map<Long, String> names = materialMapper.selectList(new QueryWrapper<Material>()
+                        .in("material_id", materialIds))
+                .stream()
+                .filter(material -> StringUtils.hasText(material.getMaterialName()))
+                .collect(Collectors.toMap(Material::getMaterialId, Material::getMaterialName, (a, b) -> a));
+        ctx.setPurchaseMaterialNames(names);
     }
 
     /**
