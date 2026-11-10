@@ -1,9 +1,11 @@
 package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Data.Entity.PurchaseOrderItems;
 import com.tonghui.erp.Service.PurchaseOrderItemsService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -73,6 +75,8 @@ public class PurchaseOrderItemsController extends BaseController {
      * @param purchaseOrderItems 采购订单明细实体
      * @return ApiResponse&lt;PurchaseOrderItems&gt; 新增的采购订单明细（含ID）
      */
+    @OperationLog(module = "采购订单明细", type = OperationType.CREATE, desc = "新增采购订单明细",
+            businessType = "PURCHASE_ORDER_ITEM", businessId = "#result.data.id")
     @PostMapping
     public ApiResponse<PurchaseOrderItems> addPurchaseOrderItem(@RequestBody PurchaseOrderItems purchaseOrderItems) {
         try {
@@ -102,6 +106,8 @@ public class PurchaseOrderItemsController extends BaseController {
      * @param purchaseOrderItems 采购订单明细实体
      * @return ApiResponse&lt;Boolean&gt; 操作结果
      */
+    @OperationLog(module = "采购订单明细", type = OperationType.UPDATE, desc = "修改采购订单明细",
+            businessType = "PURCHASE_ORDER_ITEM", businessId = "#purchaseOrderItems.id")
     @PutMapping
     public ApiResponse<Boolean> updatePurchaseOrderItem(@RequestBody PurchaseOrderItems purchaseOrderItems) {
         try {
@@ -126,6 +132,8 @@ public class PurchaseOrderItemsController extends BaseController {
      * @param items 采购订单明细列表（每条必须包含 id，仅需携带要修改的字段；amount 为 null 时后端按 数量×单价 重算）
      * @return ApiResponse&lt;Boolean&gt; 操作结果
      */
+    @OperationLog(module = "采购订单明细", type = OperationType.UPDATE, desc = "批量修改采购订单明细",
+            businessType = "PURCHASE_ORDER_ITEM")
     @PutMapping("/batch")
     public ApiResponse<Boolean> batchUpdatePurchaseOrderItems(@RequestBody List<PurchaseOrderItems> items) {
         try {
@@ -145,6 +153,8 @@ public class PurchaseOrderItemsController extends BaseController {
      * @param itemId 采购订单明细ID（路径参数）
      * @return ApiResponse&lt;Boolean&gt; 操作结果
      */
+    @OperationLog(module = "采购订单明细", type = OperationType.DELETE, desc = "删除采购订单明细",
+            businessType = "PURCHASE_ORDER_ITEM", businessId = "#itemId")
     @DeleteMapping("/{itemId}")
     public ApiResponse<Boolean> deletePurchaseOrderItem(@PathVariable("itemId") Long itemId) {
         try {

@@ -1,6 +1,8 @@
 package com.tonghui.erp.Controller;
 
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessExecution;
 import com.tonghui.erp.Service.WorkOrderProcessExecutionService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -73,6 +75,8 @@ public class WorkOrderProcessExecutionController extends BaseController {
      * @param executions  工序执行记录列表（已有行带 id，新增行不带）
      * @return ApiResponse&lt;List&lt;WorkOrderProcessExecution&gt;&gt; 保存后的工序执行记录列表（含自增ID）
      */
+    @OperationLog(module = "工单工序执行", type = OperationType.UPDATE, desc = "批量保存工单工序执行",
+            businessType = "WORK_ORDER_PROCESS_EXECUTION", businessId = "#workOrderId")
     @PostMapping("/batch")
     public ApiResponse<List<WorkOrderProcessExecution>> batchSave(@RequestParam Long workOrderId,
                                                                   @RequestBody List<WorkOrderProcessExecution> executions) {

@@ -1,10 +1,12 @@
 package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Purchase.PurchasePlanWithDetailsDto;
 import com.tonghui.erp.Common.Dto.PurchasePlanStatusDto;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Data.Entity.PurchasePlan;
 import com.tonghui.erp.Data.Entity.PurchasePlanDetail;
 import com.tonghui.erp.Data.mapper.PurchasePlanDetailMapper;
@@ -31,6 +33,8 @@ public class PurchasePlanController extends BaseController {
     /**
      * 创建采购计划
      */
+    @OperationLog(module = "采购计划", type = OperationType.CREATE, desc = "新增采购计划",
+            businessType = "PURCHASE_PLAN", businessId = "#result.data.id")
     @PostMapping
     public ApiResponse<PurchasePlan> create(@RequestBody PurchasePlan purchasePlan) {
         try {
@@ -78,6 +82,8 @@ public class PurchasePlanController extends BaseController {
      * @param dto 采购计划主表信息（含明细列表details，明细可为空）
      * @return ApiResponse&lt;PurchasePlan&gt; 保存后的采购计划（含主键ID）
      */
+    @OperationLog(module = "采购计划", type = OperationType.CREATE, desc = "新增采购计划（含明细）",
+            businessType = "PURCHASE_PLAN", businessId = "#result.data.id")
     @PostMapping("/with-details")
     public ApiResponse<PurchasePlan> createWithDetails(@RequestBody PurchasePlanWithDetailsDto dto) {
         try {
@@ -158,6 +164,8 @@ public class PurchasePlanController extends BaseController {
     /**
      * 删除采购计划
      */
+    @OperationLog(module = "采购计划", type = OperationType.DELETE, desc = "删除采购计划",
+            businessType = "PURCHASE_PLAN", businessId = "#id")
     @DeleteMapping("/{id}")
     public ApiResponse<Boolean> delete(@PathVariable Long id) {
         try {
@@ -187,6 +195,8 @@ public class PurchasePlanController extends BaseController {
      *             </ul>
      * @return 操作结果
      */
+    @OperationLog(module = "采购计划", type = OperationType.UPDATE, desc = "修改采购计划状态",
+            businessType = "PURCHASE_PLAN", businessId = "#id")
     @PutMapping("/{id}/status")
     public ApiResponse<Boolean> updateStatus(@PathVariable Long id, @RequestBody PurchasePlanStatusDto body) {
         try {
@@ -217,6 +227,8 @@ public class PurchasePlanController extends BaseController {
     /**
      * 批量保存采购计划明细
      */
+    @OperationLog(module = "采购计划", type = OperationType.UPDATE, desc = "批量保存采购计划明细",
+            businessType = "PURCHASE_PLAN_DETAIL", businessId = "#id")
     @PostMapping("/{id}/details/batch")
     public ApiResponse<Boolean> batchSaveDetails(@PathVariable Long id,
                                                   @RequestBody List<PurchasePlanDetail> details) {

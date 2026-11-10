@@ -1,11 +1,13 @@
 package com.tonghui.erp.Controller;
 
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.RoleCreateDto;
 import com.tonghui.erp.Common.Dto.System.RoleDto;
 import com.tonghui.erp.Common.Dto.System.RoleWithDetailsDto;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Data.Entity.Role;
 import com.tonghui.erp.Service.RoleService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -266,5 +268,55 @@ public class RoleController extends BaseCrudController<RoleCreateDto, RoleDto, L
             return exception(ex, "searchWithDetails");
         }
     }
+    // endregion
+
+    // region 操作日志标注
+    // ===================================
+    // 操作日志标注
+    // ===================================
+
+    /**
+     * 新增角色（记录操作日志）
+     *
+     * @param entity 角色创建参数
+     * @return 创建的角色
+     */
+    @Override
+    @OperationLog(module = "角色管理", type = OperationType.CREATE, desc = "新增角色",
+            businessType = "ROLE", businessId = "#result.data.id")
+    @PostMapping
+    public ApiResponse<RoleDto> create(@RequestBody RoleCreateDto entity) {
+        return super.create(entity);
+    }
+
+    /**
+     * 修改角色（记录操作日志）
+     *
+     * @param id     角色ID
+     * @param entity 角色修改参数
+     * @return 修改后的角色
+     */
+    @Override
+    @OperationLog(module = "角色管理", type = OperationType.UPDATE, desc = "修改角色",
+            businessType = "ROLE", businessId = "#id")
+    @PutMapping("/{id}")
+    public ApiResponse<RoleDto> update(@PathVariable Long id, @RequestBody RoleCreateDto entity) {
+        return super.update(id, entity);
+    }
+
+    /**
+     * 删除角色（记录操作日志）
+     *
+     * @param id 角色ID
+     * @return 删除结果
+     */
+    @Override
+    @OperationLog(module = "角色管理", type = OperationType.DELETE, desc = "删除角色",
+            businessType = "ROLE", businessId = "#id")
+    @DeleteMapping("/{id}")
+    public ApiResponse<Boolean> delete(@PathVariable Long id) {
+        return super.delete(id);
+    }
+
     // endregion
 }

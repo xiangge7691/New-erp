@@ -3,7 +3,9 @@ package com.tonghui.erp.Controller;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Constants.CleaningType;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.CleaningRecord;
 import com.tonghui.erp.Data.Entity.RoomInfo;
@@ -140,6 +142,8 @@ public class CleaningRecordController extends BaseRoomRecordController<CleaningR
      * @param record 清洁记录实体
      * @return 新增后的清洁记录
      */
+    @OperationLog(module = "清洁记录", type = OperationType.CREATE, desc = "新增清洁记录",
+            businessType = "CLEANING_RECORD", businessId = "#result.data.id")
     @PostMapping
     public ApiResponse<CleaningRecord> create(@RequestBody CleaningRecord record) {
         validateCleaningType(record);
@@ -166,6 +170,8 @@ public class CleaningRecordController extends BaseRoomRecordController<CleaningR
      * @param record 清洁记录实体
      * @return 修改后的清洁记录
      */
+    @OperationLog(module = "清洁记录", type = OperationType.UPDATE, desc = "修改清洁记录",
+            businessType = "CLEANING_RECORD", businessId = "#id")
     @PutMapping("/{id}")
     public ApiResponse<CleaningRecord> update(@PathVariable Long id, @RequestBody CleaningRecord record) {
         CleaningRecord existing = cleaningRecordService.getById(id);
@@ -176,6 +182,8 @@ public class CleaningRecordController extends BaseRoomRecordController<CleaningR
         return success(record, "修改成功");
     }
 
+    @OperationLog(module = "清洁记录", type = OperationType.DELETE, desc = "删除清洁记录",
+            businessType = "CLEANING_RECORD", businessId = "#id")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         CleaningRecord existing = cleaningRecordService.getById(id);

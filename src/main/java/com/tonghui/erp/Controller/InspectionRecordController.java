@@ -2,7 +2,9 @@ package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.InspectionRecord;
 import com.tonghui.erp.Data.Entity.InspectionRequest;
@@ -261,6 +263,8 @@ public class InspectionRecordController extends BaseController {
      * @param record 检验记录信息（编号为空时系统自动生成）
      * @return ApiResponse&lt;InspectionRecord&gt; 新增的检验记录
      */
+    @OperationLog(module = "检验记录", type = OperationType.CREATE, desc = "新增检验记录",
+            businessType = "INSPECTION_RECORD", businessId = "#result.data.id")
     @PostMapping
     public ApiResponse<InspectionRecord> create(@RequestBody InspectionRecord record) {
         try {
@@ -324,6 +328,8 @@ public class InspectionRecordController extends BaseController {
      * @param record 更新的检验记录信息
      * @return ApiResponse&lt;InspectionRecord&gt; 修改后的检验记录
      */
+    @OperationLog(module = "检验记录", type = OperationType.UPDATE, desc = "修改检验记录",
+            businessType = "INSPECTION_RECORD", businessId = "#id")
     @PutMapping("/{id}")
     public ApiResponse<InspectionRecord> update(
             @PathVariable Long id,
@@ -361,6 +367,8 @@ public class InspectionRecordController extends BaseController {
      * @param id 检验记录ID（路径参数）
      * @return ApiResponse&lt;Void&gt; 删除结果
      */
+    @OperationLog(module = "检验记录", type = OperationType.DELETE, desc = "删除检验记录",
+            businessType = "INSPECTION_RECORD", businessId = "#id")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         try {

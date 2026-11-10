@@ -1,9 +1,11 @@
 package com.tonghui.erp.Controller;
 
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.Approval.ApprovalNodeWithRecordsDto;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Data.Entity.ApprovalNode;
 import com.tonghui.erp.Service.ApprovalNodeService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -136,6 +138,8 @@ public class ApprovalNodeController extends BaseController {
      * @param node 审批节点信息
      * @return ApiResponse&lt;ApprovalNode&gt; 创建的审批节点
      */
+    @OperationLog(module = "审批节点", type = OperationType.CREATE, desc = "新增审批节点",
+            businessType = "APPROVAL_NODE", businessId = "#result.data.id")
     @PostMapping
     public ApiResponse<ApprovalNode> createNode(@RequestBody ApprovalNode node) {
         try {
@@ -172,6 +176,8 @@ public class ApprovalNodeController extends BaseController {
      * @param node 更新的审批节点信息
      * @return ApiResponse&lt;ApprovalNode&gt; 更新后的审批节点
      */
+    @OperationLog(module = "审批节点", type = OperationType.UPDATE, desc = "修改审批节点",
+            businessType = "APPROVAL_NODE", businessId = "#id")
     @PutMapping("/{id}")
     public ApiResponse<ApprovalNode> updateNode(@PathVariable Long id, @RequestBody ApprovalNode node) {
         try {
@@ -196,6 +202,8 @@ public class ApprovalNodeController extends BaseController {
      * @param id 审批节点ID（路径参数）
      * @return ApiResponse&lt;Void&gt; 删除结果
      */
+    @OperationLog(module = "审批节点", type = OperationType.DELETE, desc = "删除审批节点",
+            businessType = "APPROVAL_NODE", businessId = "#id")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deleteNode(@PathVariable Long id) {
         try {

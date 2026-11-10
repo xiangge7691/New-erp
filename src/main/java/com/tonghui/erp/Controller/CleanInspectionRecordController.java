@@ -2,7 +2,9 @@ package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.CleanInspectionRecord;
 import com.tonghui.erp.Data.Entity.RoomInfo;
@@ -179,6 +181,8 @@ public class CleanInspectionRecordController extends BaseRoomRecordController<Cl
      * @param record 洁净检测记录信息
      * @return ApiResponse&lt;CleanInspectionRecord&gt; 新增的检测记录
      */
+    @OperationLog(module = "洁净检查记录", type = OperationType.CREATE, desc = "新增洁净检查记录",
+            businessType = "CLEAN_INSPECTION_RECORD", businessId = "#result.data.id")
     @PostMapping
     public ApiResponse<CleanInspectionRecord> create(
             @RequestParam Integer roomId,
@@ -217,6 +221,8 @@ public class CleanInspectionRecordController extends BaseRoomRecordController<Cl
      * @param record 更新的检测记录信息
      * @return ApiResponse&lt;CleanInspectionRecord&gt; 修改后的检测记录
      */
+    @OperationLog(module = "洁净检查记录", type = OperationType.UPDATE, desc = "修改洁净检查记录",
+            businessType = "CLEAN_INSPECTION_RECORD", businessId = "#id")
     @PutMapping("/{id}")
     public ApiResponse<CleanInspectionRecord> update(
             @RequestParam(required = false) Integer roomId,
@@ -250,6 +256,8 @@ public class CleanInspectionRecordController extends BaseRoomRecordController<Cl
      * @param id     记录ID（路径参数）
      * @return ApiResponse&lt;Void&gt; 删除结果
      */
+    @OperationLog(module = "洁净检查记录", type = OperationType.DELETE, desc = "删除洁净检查记录",
+            businessType = "CLEAN_INSPECTION_RECORD", businessId = "#id")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(
             @RequestParam(required = false) Integer roomId,

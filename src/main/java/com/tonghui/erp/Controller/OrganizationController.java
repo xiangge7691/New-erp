@@ -1,6 +1,8 @@
 package com.tonghui.erp.Controller;
 
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.Organization.OrganizationWithDetailsDto;
 import com.tonghui.erp.Data.Entity.FileInfo;
 import com.tonghui.erp.Data.Entity.Organization;
@@ -94,6 +96,8 @@ public class OrganizationController extends BaseController {
      * @param organization 机构信息实体对象
      * @return ApiResponse&lt;Organization&gt; 新增的机构信息
      */
+    @OperationLog(module = "机构管理", type = OperationType.CREATE, desc = "新增机构",
+            businessType = "ORGANIZATION", businessId = "#result.data.id")
     @PostMapping
     public ApiResponse<Organization> createOrganization(@RequestBody Organization organization) {
         try {
@@ -165,6 +169,8 @@ public class OrganizationController extends BaseController {
      * @param organization 机构信息实体对象
      * @return ApiResponse&lt;Organization&gt; 更新后的机构信息
      */
+    @OperationLog(module = "机构管理", type = OperationType.UPDATE, desc = "修改机构",
+            businessType = "ORGANIZATION", businessId = "#organization.id")
     @PutMapping
     public ApiResponse<Organization> updateOrganization(@RequestBody Organization organization) {
         try {
@@ -196,6 +202,8 @@ public class OrganizationController extends BaseController {
      * @param description 文件描述（可选）
      * @return ApiResponse&lt;FileInfo&gt; 上传的文件信息
      */
+    @OperationLog(module = "机构管理", type = OperationType.UPLOAD, desc = "上传机构证照扫描件",
+            businessType = "ORGANIZATION")
     @PostMapping("/scan-file")
     public ApiResponse<FileInfo> uploadScanFile(
             @RequestParam("file") MultipartFile file,
@@ -220,6 +228,8 @@ public class OrganizationController extends BaseController {
      * @param fileId 文件ID（路径参数）
      * @return ApiResponse&lt;Void&gt; 删除结果
      */
+    @OperationLog(module = "机构管理", type = OperationType.DELETE, desc = "删除机构证照扫描件",
+            businessType = "ORGANIZATION_FILE", businessId = "#fileId")
     @DeleteMapping("/scan-file/{fileId}")
     public ApiResponse<Void> deleteScanFile(@PathVariable Long fileId) {
         fileInfoService.deleteFile(fileId);

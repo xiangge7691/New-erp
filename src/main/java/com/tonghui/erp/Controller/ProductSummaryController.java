@@ -1,6 +1,8 @@
 package com.tonghui.erp.Controller;
 
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.QualityPages.ProductSummaryDtos;
 import com.tonghui.erp.Service.ProductSummaryService;
@@ -185,6 +187,8 @@ public class ProductSummaryController extends BaseController {
      * @param request 导出范围（SELECTED/FILTERED/ALL）、批次/计划 ID、筛选条件、文件开关、ZIP/CSV 格式
      * @return ZIP 文件（application/zip）或 CSV 清单（text/csv）
      */
+    @OperationLog(module = "产品信息汇总", type = OperationType.EXPORT, desc = "导出产品信息汇总",
+            businessType = "PRODUCT_SUMMARY")
     @PostMapping("/export")
     public ResponseEntity<byte[]> export(@RequestBody(required = false) ProductSummaryDtos.ExportRequest request) {
         try {

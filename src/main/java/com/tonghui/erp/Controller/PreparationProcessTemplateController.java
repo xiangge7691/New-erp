@@ -2,8 +2,10 @@ package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.utils.PreparationTemplateValidator;
 import com.tonghui.erp.Data.Entity.Equipment;
 import com.tonghui.erp.Data.Entity.Preparation;
@@ -178,6 +180,8 @@ public class PreparationProcessTemplateController extends BaseController {
      * @param template 工序模版实体对象
      * @return ApiResponse&lt;PreparationProcessTemplate&gt; 新增的工序模版
      */
+    @OperationLog(module = "制剂工序模板", type = OperationType.CREATE, desc = "新增制剂工序模板",
+            businessType = "PREPARATION_PROCESS_TEMPLATE", businessId = "#result.data.templateId")
     @PostMapping
     public ApiResponse<PreparationProcessTemplate> create(@RequestBody PreparationProcessTemplate template) {
         // 校验配置室/设备关联：设备必填，未传房间时由设备所在房间自动带出
@@ -204,6 +208,8 @@ public class PreparationProcessTemplateController extends BaseController {
      * @param template 工序模版实体对象
      * @return ApiResponse&lt;PreparationProcessTemplate&gt; 修改后的工序模版
      */
+    @OperationLog(module = "制剂工序模板", type = OperationType.UPDATE, desc = "修改制剂工序模板",
+            businessType = "PREPARATION_PROCESS_TEMPLATE", businessId = "#id")
     @PutMapping("/{id}")
     public ApiResponse<PreparationProcessTemplate> update(@PathVariable Long id, @RequestBody PreparationProcessTemplate template) {
         PreparationProcessTemplate existing = templateService.getById(id);
@@ -235,6 +241,8 @@ public class PreparationProcessTemplateController extends BaseController {
      * @param id 工序模版ID（路径参数）
      * @return ApiResponse&lt;Void&gt; 删除结果
      */
+    @OperationLog(module = "制剂工序模板", type = OperationType.DELETE, desc = "删除制剂工序模板",
+            businessType = "PREPARATION_PROCESS_TEMPLATE", businessId = "#id")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         templateService.removeById(id);
@@ -304,6 +312,8 @@ public class PreparationProcessTemplateController extends BaseController {
      * @param templates 工序模版列表（已有行带 templateId，新增行不带）
      * @return ApiResponse&lt;List&lt;PreparationProcessTemplate&gt;&gt; 保存后的工序模版列表（含自增ID）
      */
+    @OperationLog(module = "制剂工序模板", type = OperationType.UPDATE, desc = "批量保存制剂工序模板",
+            businessType = "PREPARATION_PROCESS_TEMPLATE", businessId = "#preparationId")
     @PostMapping("/batch")
     public ApiResponse<List<PreparationProcessTemplate>> batchSave(
             @RequestParam Long preparationId,

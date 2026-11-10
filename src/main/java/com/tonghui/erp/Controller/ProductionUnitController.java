@@ -1,7 +1,9 @@
 package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.ProductionUnitWithDetailsDto;
 import com.tonghui.erp.Data.Entity.ProdUnitInvoice;
@@ -216,6 +218,8 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
      * @param prodInvoiceInfo 发票信息
      * @return ApiResponse&lt;ProdUnitInvoice&gt; 添加的发票信息
      */
+    @OperationLog(module = "生产单位", type = OperationType.CREATE, desc = "新增生产单位发票",
+            businessType = "PRODUCTION_UNIT_INVOICE", businessId = "#result.data.prodInvoiceId")
     @PostMapping("/{id}/invoice")
     public ApiResponse<ProdUnitInvoice> addProdUnitInvoice(@PathVariable("id")Long prodUnitId, @RequestBody String prodInvoiceInfo) {
         try {
@@ -238,6 +242,8 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
      * @param prodInvoiceInfos 发票信息列表
      * @return ApiResponse&lt;List&lt;ProdUnitInvoice&gt;&gt; 添加的发票列表
      */
+    @OperationLog(module = "生产单位", type = OperationType.UPDATE, desc = "批量保存生产单位发票",
+            businessType = "PRODUCTION_UNIT", businessId = "#prodUnitId")
     @PostMapping("/{id}/invoices")
     public ApiResponse<List<ProdUnitInvoice>> addProdUnitInvoices(@PathVariable("id")Long prodUnitId, @RequestBody List<String> prodInvoiceInfos) {
         try {
@@ -276,6 +282,8 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
      * @param prodInvoiceId 发票信息ID
      * @return ApiResponse&lt;Boolean&gt; 操作结果
      */
+    @OperationLog(module = "生产单位", type = OperationType.DELETE, desc = "删除生产单位发票",
+            businessType = "PRODUCTION_UNIT_INVOICE", businessId = "#prodInvoiceId")
     @DeleteMapping("/invoice/{invoiceId}")
     public ApiResponse<Boolean> deleteProdUnitInvoice(@PathVariable("invoiceId")Long prodInvoiceId) {
         try {
@@ -370,4 +378,55 @@ public class ProductionUnitController extends BaseCrudController<ProductionUnit,
     }
 
     // endregion
+
+    // region 操作日志标注
+    // ===================================
+    // 操作日志标注
+    // ===================================
+
+    /**
+     * 新增生产单位（记录操作日志）
+     *
+     * @param entity 新增参数
+     * @return 新增结果
+     */
+    @Override
+    @OperationLog(module = "生产单位", type = OperationType.CREATE, desc = "新增生产单位",
+            businessType = "PRODUCTION_UNIT", businessId = "#result.data.prodUnitId")
+    @PostMapping
+    public ApiResponse<ProductionUnit> create(@RequestBody ProductionUnit entity) {
+        return super.create(entity);
+    }
+
+    /**
+     * 修改生产单位（记录操作日志）
+     *
+     * @param id     生产单位ID
+     * @param entity 修改参数
+     * @return 修改结果
+     */
+    @Override
+    @OperationLog(module = "生产单位", type = OperationType.UPDATE, desc = "修改生产单位",
+            businessType = "PRODUCTION_UNIT", businessId = "#id")
+    @PutMapping("/{id}")
+    public ApiResponse<ProductionUnit> update(@PathVariable Long id, @RequestBody ProductionUnit entity) {
+        return super.update(id, entity);
+    }
+
+    /**
+     * 删除生产单位（记录操作日志）
+     *
+     * @param id 生产单位ID
+     * @return 删除结果
+     */
+    @Override
+    @OperationLog(module = "生产单位", type = OperationType.DELETE, desc = "删除生产单位",
+            businessType = "PRODUCTION_UNIT", businessId = "#id")
+    @DeleteMapping("/{id}")
+    public ApiResponse<Boolean> delete(@PathVariable Long id) {
+        return super.delete(id);
+    }
+
+    // endregion
+
 }

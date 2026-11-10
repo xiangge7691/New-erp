@@ -1,7 +1,9 @@
 package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Data.Entity.Unit;
 import com.tonghui.erp.Service.UnitService;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
@@ -185,4 +187,55 @@ public class UnitController extends BaseCrudController<Unit, Unit, Long> {
     }
     
     // endregion
+
+    // region 操作日志标注
+    // ===================================
+    // 操作日志标注
+    // ===================================
+
+    /**
+     * 新增单位（记录操作日志）
+     *
+     * @param entity 新增参数
+     * @return 新增结果
+     */
+    @Override
+    @OperationLog(module = "单位管理", type = OperationType.CREATE, desc = "新增单位",
+            businessType = "UNIT", businessId = "#result.data.unitId")
+    @PostMapping
+    public ApiResponse<Unit> create(@RequestBody Unit entity) {
+        return super.create(entity);
+    }
+
+    /**
+     * 修改单位（记录操作日志）
+     *
+     * @param id     单位ID
+     * @param entity 修改参数
+     * @return 修改结果
+     */
+    @Override
+    @OperationLog(module = "单位管理", type = OperationType.UPDATE, desc = "修改单位",
+            businessType = "UNIT", businessId = "#id")
+    @PutMapping("/{id}")
+    public ApiResponse<Unit> update(@PathVariable Long id, @RequestBody Unit entity) {
+        return super.update(id, entity);
+    }
+
+    /**
+     * 删除单位（记录操作日志）
+     *
+     * @param id 单位ID
+     * @return 删除结果
+     */
+    @Override
+    @OperationLog(module = "单位管理", type = OperationType.DELETE, desc = "删除单位",
+            businessType = "UNIT", businessId = "#id")
+    @DeleteMapping("/{id}")
+    public ApiResponse<Boolean> delete(@PathVariable Long id) {
+        return super.delete(id);
+    }
+
+    // endregion
+
 }

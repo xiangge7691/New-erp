@@ -2,7 +2,9 @@ package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.DisinfectionRecord;
 import com.tonghui.erp.Data.Entity.RoomInfo;
@@ -207,6 +209,8 @@ public class DisinfectionRecordController extends BaseRoomRecordController<Disin
      * @param record 消毒记录信息
      * @return ApiResponse&lt;DisinfectionRecord&gt; 新增的消毒记录
      */
+    @OperationLog(module = "消毒记录", type = OperationType.CREATE, desc = "新增消毒记录",
+            businessType = "DISINFECTION_RECORD", businessId = "#result.data.id")
     @PostMapping
     public ApiResponse<DisinfectionRecord> create(
             @RequestParam Integer roomId,
@@ -252,6 +256,8 @@ public class DisinfectionRecordController extends BaseRoomRecordController<Disin
      * @param record 更新的消毒记录信息
      * @return ApiResponse&lt;DisinfectionRecord&gt; 修改后的消毒记录
      */
+    @OperationLog(module = "消毒记录", type = OperationType.UPDATE, desc = "修改消毒记录",
+            businessType = "DISINFECTION_RECORD", businessId = "#id")
     @PutMapping("/{id}")
     public ApiResponse<DisinfectionRecord> update(
             @RequestParam(required = false) Integer roomId,
@@ -285,6 +291,8 @@ public class DisinfectionRecordController extends BaseRoomRecordController<Disin
      * @param id     记录ID（路径参数）
      * @return ApiResponse&lt;Void&gt; 删除结果
      */
+    @OperationLog(module = "消毒记录", type = OperationType.DELETE, desc = "删除消毒记录",
+            businessType = "DISINFECTION_RECORD", businessId = "#id")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(
             @RequestParam(required = false) Integer roomId,

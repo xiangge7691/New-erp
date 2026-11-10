@@ -2,8 +2,10 @@ package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Data.Entity.InspectionRecord;
 import com.tonghui.erp.Data.Entity.ReleaseReview;
 import com.tonghui.erp.Data.mapper.InspectionRecordMapper;
@@ -349,6 +351,8 @@ public class ReleaseReviewController extends BaseController {
      * @param record 审核放行信息（编号为空时系统自动生成，拒绝放行时审核意见必填）
      * @return ApiResponse&lt;ReleaseReview&gt; 新增的审核放行
      */
+    @OperationLog(module = "审核放行", type = OperationType.APPROVE, desc = "新增审核放行",
+            businessType = "RELEASE_REVIEW", businessId = "#result.data.id")
     @PostMapping
     public ApiResponse<ReleaseReview> create(@RequestBody ReleaseReview record) {
         try {
@@ -454,6 +458,8 @@ public class ReleaseReviewController extends BaseController {
      * @param record 更新的审核放行信息
      * @return ApiResponse&lt;ReleaseReview&gt; 修改后的审核放行
      */
+    @OperationLog(module = "审核放行", type = OperationType.APPROVE, desc = "修改审核放行",
+            businessType = "RELEASE_REVIEW", businessId = "#id")
     @PutMapping("/{id}")
     public ApiResponse<ReleaseReview> update(
             @PathVariable Long id,
@@ -523,6 +529,8 @@ public class ReleaseReviewController extends BaseController {
      * @param id 审核放行ID（路径参数）
      * @return ApiResponse&lt;Void&gt; 删除结果
      */
+    @OperationLog(module = "审核放行", type = OperationType.DELETE, desc = "删除审核放行",
+            businessType = "RELEASE_REVIEW", businessId = "#id")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         try {

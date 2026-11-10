@@ -1,6 +1,8 @@
 package com.tonghui.erp.Controller;
 
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Data.Entity.FileInfo;
 import com.tonghui.erp.Data.Entity.Organization;
 import com.tonghui.erp.Data.Entity.OrganizationCertificate;
@@ -108,6 +110,8 @@ public class OrganizationCertificateController extends BaseController {
      * @param certificate 证书实体对象
      * @return ApiResponse&lt;OrganizationCertificate&gt; 新增的证书
      */
+    @OperationLog(module = "机构证照", type = OperationType.CREATE, desc = "新增机构证照",
+            businessType = "ORGANIZATION_CERTIFICATE", businessId = "#result.data.id")
     @PostMapping
     public ApiResponse<OrganizationCertificate> create(@RequestBody OrganizationCertificate certificate) {
         try {
@@ -140,6 +144,8 @@ public class OrganizationCertificateController extends BaseController {
      * @param certificate 证书实体对象
      * @return ApiResponse&lt;OrganizationCertificate&gt; 修改后的证书
      */
+    @OperationLog(module = "机构证照", type = OperationType.UPDATE, desc = "修改机构证照",
+            businessType = "ORGANIZATION_CERTIFICATE", businessId = "#id")
     @PutMapping("/{id}")
     public ApiResponse<OrganizationCertificate> update(@PathVariable Long id,
                                                        @RequestBody OrganizationCertificate certificate) {
@@ -165,6 +171,8 @@ public class OrganizationCertificateController extends BaseController {
      * @param id 证书ID（路径参数）
      * @return ApiResponse&lt;Void&gt; 删除结果
      */
+    @OperationLog(module = "机构证照", type = OperationType.DELETE, desc = "删除机构证照",
+            businessType = "ORGANIZATION_CERTIFICATE", businessId = "#id")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         try {
@@ -201,6 +209,8 @@ public class OrganizationCertificateController extends BaseController {
      * @param description 文件描述（可选）
      * @return ApiResponse&lt;FileInfo&gt; 上传的文件信息
      */
+    @OperationLog(module = "机构证照", type = OperationType.UPLOAD, desc = "上传机构证照文件",
+            businessType = "ORGANIZATION_CERTIFICATE", businessId = "#id")
     @PostMapping("/{id}/file")
     public ApiResponse<FileInfo> uploadFile(@PathVariable Long id,
                                             @RequestParam("file") MultipartFile file,
@@ -241,6 +251,8 @@ public class OrganizationCertificateController extends BaseController {
      * @param fileId 文件ID（路径参数）
      * @return ApiResponse&lt;Void&gt; 删除结果
      */
+    @OperationLog(module = "机构证照", type = OperationType.DELETE, desc = "删除机构证照文件",
+            businessType = "ORGANIZATION_CERTIFICATE_FILE", businessId = "#fileId")
     @DeleteMapping("/{id}/file/{fileId}")
     public ApiResponse<Void> deleteFile(@PathVariable Long id, @PathVariable Long fileId) {
         fileInfoService.deleteFile(fileId);

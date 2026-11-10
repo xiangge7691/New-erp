@@ -1,8 +1,10 @@
 package com.tonghui.erp.Controller;
 
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.System.DashboardExpiryConfigDto;
 import com.tonghui.erp.Common.Dto.System.SystemConfigDto;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Data.Entity.SystemConfig;
 import com.tonghui.erp.Service.SystemConfigService;
 import org.springframework.beans.BeanUtils;
@@ -173,6 +175,8 @@ public class SystemConfigController extends BaseController {
      * @param body 配置项（使用 configValue 字段）
      * @return ApiResponse&lt;Void&gt; 操作结果
      */
+    @OperationLog(module = "系统配置", type = OperationType.UPDATE, desc = "修改系统配置",
+            businessType = "SYSTEM_CONFIG", businessId = "#key")
     @PutMapping("/{key}")
     public ApiResponse<Void> updateValue(@PathVariable String key, @RequestBody SystemConfigDto body) {
         try {
@@ -200,6 +204,8 @@ public class SystemConfigController extends BaseController {
      * @param items 配置项列表（每项使用 configKey 与 configValue）
      * @return ApiResponse&lt;Void&gt; 操作结果
      */
+    @OperationLog(module = "系统配置", type = OperationType.UPDATE, desc = "批量修改系统配置",
+            businessType = "SYSTEM_CONFIG")
     @PutMapping("/batch")
     public ApiResponse<Void> batchUpdate(@RequestBody List<SystemConfigDto> items) {
         try {

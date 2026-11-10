@@ -1,6 +1,7 @@
 package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
@@ -8,6 +9,7 @@ import com.tonghui.erp.Common.Dto.System.UserCreateDto;
 import com.tonghui.erp.Common.Dto.System.UserDto;
 import com.tonghui.erp.Common.Dto.System.UserUpdateDto;
 import com.tonghui.erp.Common.Dto.System.UserWithDetailsDto;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Data.Entity.User;
 import com.tonghui.erp.Service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -302,5 +304,55 @@ public class UserController extends BaseCrudController<UserCreateDto, UserDto, L
             return exception(ex, "searchWithDetails");
         }
     }
+    // endregion
+
+    // region 操作日志标注
+    // ===================================
+    // 操作日志标注
+    // ===================================
+
+    /**
+     * 新增用户（记录操作日志）
+     *
+     * @param entity 用户创建参数
+     * @return 创建的用户
+     */
+    @Override
+    @OperationLog(module = "用户管理", type = OperationType.CREATE, desc = "新增用户",
+            businessType = "USER", businessId = "#result.data.id")
+    @PostMapping
+    public ApiResponse<UserDto> create(@RequestBody UserCreateDto entity) {
+        return super.create(entity);
+    }
+
+    /**
+     * 修改用户（记录操作日志）
+     *
+     * @param id     用户ID
+     * @param entity 用户修改参数
+     * @return 修改后的用户
+     */
+    @Override
+    @OperationLog(module = "用户管理", type = OperationType.UPDATE, desc = "修改用户",
+            businessType = "USER", businessId = "#id")
+    @PutMapping("/{id}")
+    public ApiResponse<UserDto> update(@PathVariable Long id, @RequestBody UserCreateDto entity) {
+        return super.update(id, entity);
+    }
+
+    /**
+     * 删除用户（记录操作日志）
+     *
+     * @param id 用户ID
+     * @return 删除结果
+     */
+    @Override
+    @OperationLog(module = "用户管理", type = OperationType.DELETE, desc = "删除用户",
+            businessType = "USER", businessId = "#id")
+    @DeleteMapping("/{id}")
+    public ApiResponse<Boolean> delete(@PathVariable Long id) {
+        return super.delete(id);
+    }
+
     // endregion
 }

@@ -1,7 +1,10 @@
 package com.tonghui.erp.Controller;
 
+import com.tonghui.erp.Common.Constants.OperationType;
+import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Data.Entity.RolePerm;
 import com.tonghui.erp.Service.RolePermService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -186,6 +189,56 @@ public class RolePermController extends BaseCrudController<RolePerm, RolePerm, L
             pageRequest.getPageIndex(), 
             pageRequest.getPageSize());
     }
-    
+
+    // endregion
+
+    // region 操作日志标注
+    // ===================================
+    // 操作日志标注
+    // ===================================
+
+    /**
+     * 新增角色权限关联（记录操作日志）
+     *
+     * @param entity 关联实体
+     * @return 创建的关联
+     */
+    @Override
+    @OperationLog(module = "角色权限关联", type = OperationType.CREATE, desc = "新增角色权限关联",
+            businessType = "ROLE_PERM", businessId = "#result.data.id")
+    @PostMapping
+    public ApiResponse<RolePerm> create(@RequestBody RolePerm entity) {
+        return super.create(entity);
+    }
+
+    /**
+     * 修改角色权限关联（记录操作日志）
+     *
+     * @param id     关联ID
+     * @param entity 关联实体
+     * @return 修改后的关联
+     */
+    @Override
+    @OperationLog(module = "角色权限关联", type = OperationType.UPDATE, desc = "修改角色权限关联",
+            businessType = "ROLE_PERM", businessId = "#id")
+    @PutMapping("/{id}")
+    public ApiResponse<RolePerm> update(@PathVariable Long id, @RequestBody RolePerm entity) {
+        return super.update(id, entity);
+    }
+
+    /**
+     * 删除角色权限关联（记录操作日志）
+     *
+     * @param id 关联ID
+     * @return 删除结果
+     */
+    @Override
+    @OperationLog(module = "角色权限关联", type = OperationType.DELETE, desc = "删除角色权限关联",
+            businessType = "ROLE_PERM", businessId = "#id")
+    @DeleteMapping("/{id}")
+    public ApiResponse<Boolean> delete(@PathVariable Long id) {
+        return super.delete(id);
+    }
+
     // endregion
 }

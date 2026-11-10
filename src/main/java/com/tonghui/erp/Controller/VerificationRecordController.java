@@ -1,7 +1,9 @@
 package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.VerificationRecord;
 import com.tonghui.erp.Service.VerificationRecordService;
@@ -256,4 +258,55 @@ public class VerificationRecordController extends BaseCrudController<Verificatio
     }
 
     // endregion
+
+    // region 操作日志标注
+    // ===================================
+    // 操作日志标注
+    // ===================================
+
+    /**
+     * 新增验证记录（记录操作日志）
+     *
+     * @param entity 新增参数
+     * @return 新增结果
+     */
+    @Override
+    @OperationLog(module = "验证记录", type = OperationType.CREATE, desc = "新增验证记录",
+            businessType = "VERIFICATION_RECORD", businessId = "#result.data.id")
+    @PostMapping
+    public ApiResponse<VerificationRecord> create(@RequestBody VerificationRecord entity) {
+        return super.create(entity);
+    }
+
+    /**
+     * 修改验证记录（记录操作日志）
+     *
+     * @param id     验证记录ID
+     * @param entity 修改参数
+     * @return 修改结果
+     */
+    @Override
+    @OperationLog(module = "验证记录", type = OperationType.UPDATE, desc = "修改验证记录",
+            businessType = "VERIFICATION_RECORD", businessId = "#id")
+    @PutMapping("/{id}")
+    public ApiResponse<VerificationRecord> update(@PathVariable Long id, @RequestBody VerificationRecord entity) {
+        return super.update(id, entity);
+    }
+
+    /**
+     * 删除验证记录（记录操作日志）
+     *
+     * @param id 验证记录ID
+     * @return 删除结果
+     */
+    @Override
+    @OperationLog(module = "验证记录", type = OperationType.DELETE, desc = "删除验证记录",
+            businessType = "VERIFICATION_RECORD", businessId = "#id")
+    @DeleteMapping("/{id}")
+    public ApiResponse<Boolean> delete(@PathVariable Long id) {
+        return super.delete(id);
+    }
+
+    // endregion
+
 }

@@ -2,7 +2,9 @@ package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.RetainedSample;
 import com.tonghui.erp.Service.RetainedSampleService;
@@ -223,6 +225,8 @@ public class RetainedSampleController extends BaseController {
      * @param record 留样记录信息（编号为空时系统自动生成）
      * @return ApiResponse&lt;RetainedSample&gt; 新增的留样记录
      */
+    @OperationLog(module = "留样记录", type = OperationType.CREATE, desc = "新增留样记录",
+            businessType = "RETAINED_SAMPLE", businessId = "#result.data.id")
     @PostMapping
     public ApiResponse<RetainedSample> create(@RequestBody RetainedSample record) {
         try {
@@ -285,6 +289,8 @@ public class RetainedSampleController extends BaseController {
      * @param record 更新的留样记录信息
      * @return ApiResponse&lt;RetainedSample&gt; 修改后的留样记录
      */
+    @OperationLog(module = "留样记录", type = OperationType.UPDATE, desc = "修改留样记录",
+            businessType = "RETAINED_SAMPLE", businessId = "#id")
     @PutMapping("/{id}")
     public ApiResponse<RetainedSample> update(
             @PathVariable Long id,
@@ -320,6 +326,8 @@ public class RetainedSampleController extends BaseController {
      * @param id 留样记录ID（路径参数）
      * @return ApiResponse&lt;Void&gt; 删除结果
      */
+    @OperationLog(module = "留样记录", type = OperationType.DELETE, desc = "删除留样记录",
+            businessType = "RETAINED_SAMPLE", businessId = "#id")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         try {

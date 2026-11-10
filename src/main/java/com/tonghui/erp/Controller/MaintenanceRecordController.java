@@ -1,7 +1,9 @@
 package com.tonghui.erp.Controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.Maintenance.MaintenancePendingDto;
 import com.tonghui.erp.Common.Dto.Maintenance.MaintenancePendingSummaryDto;
 import com.tonghui.erp.Common.Dto.Maintenance.MaintenanceRecordListItemDto;
@@ -318,6 +320,8 @@ public class MaintenanceRecordController extends BaseController {
      * @param dto 保存请求体（主单字段+明细列表）
      * @return ApiResponse&lt;MaintenanceRecord&gt; 新增的养护记录（含自动生成的编号）
      */
+    @OperationLog(module = "维保记录", type = OperationType.CREATE, desc = "新增维保记录",
+            businessType = "MAINTENANCE_RECORD", businessId = "#result.data.id")
     @PostMapping
     public ApiResponse<MaintenanceRecord> create(@RequestBody MaintenanceRecordSaveDto dto) {
         try {
@@ -354,6 +358,8 @@ public class MaintenanceRecordController extends BaseController {
      * @param dto 更新的养护记录信息（主单字段+明细列表）
      * @return ApiResponse&lt;MaintenanceRecord&gt; 修改后的养护记录
      */
+    @OperationLog(module = "维保记录", type = OperationType.UPDATE, desc = "修改维保记录",
+            businessType = "MAINTENANCE_RECORD", businessId = "#id")
     @PutMapping("/{id}")
     public ApiResponse<MaintenanceRecord> update(@PathVariable Long id, @RequestBody MaintenanceRecordSaveDto dto) {
         try {
@@ -372,6 +378,8 @@ public class MaintenanceRecordController extends BaseController {
      * @param id 养护记录ID（路径参数）
      * @return ApiResponse&lt;Void&gt; 删除结果
      */
+    @OperationLog(module = "维保记录", type = OperationType.DELETE, desc = "删除维保记录",
+            businessType = "MAINTENANCE_RECORD", businessId = "#id")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         try {

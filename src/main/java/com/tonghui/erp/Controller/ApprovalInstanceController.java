@@ -1,11 +1,13 @@
 package com.tonghui.erp.Controller;
 
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.Approval.ApprovalInstanceWithRecordsDto;
 import com.tonghui.erp.Common.Dto.Approval.CancelRequest;
 import com.tonghui.erp.Common.Dto.Approval.CurrentHandlerRoleDto;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.ApprovalInstance;
 import com.tonghui.erp.Service.ApprovalInstanceService;
@@ -258,6 +260,8 @@ public class ApprovalInstanceController extends BaseController {
      * @param instance 审批实例信息
      * @return ApiResponse&lt;ApprovalInstance&gt; 创建的审批实例
      */
+    @OperationLog(module = "审批实例", type = OperationType.CREATE, desc = "发起审批",
+            businessType = "APPROVAL_INSTANCE", businessId = "#result.data.id")
     @PostMapping
     public ApiResponse<ApprovalInstance> createInstance(@RequestBody ApprovalInstance instance) {
         try {
@@ -323,6 +327,8 @@ public class ApprovalInstanceController extends BaseController {
      * @param instance 更新的审批实例信息
      * @return ApiResponse&lt;ApprovalInstance&gt; 更新后的审批实例
      */
+    @OperationLog(module = "审批实例", type = OperationType.UPDATE, desc = "修改审批实例",
+            businessType = "APPROVAL_INSTANCE", businessId = "#id")
     @PutMapping("/{id}")
     public ApiResponse<ApprovalInstance> updateInstance(@PathVariable Long id, @RequestBody ApprovalInstance instance) {
         try {
@@ -347,6 +353,8 @@ public class ApprovalInstanceController extends BaseController {
      * @param id 审批实例ID（路径参数）
      * @return ApiResponse&lt;Void&gt; 删除结果
      */
+    @OperationLog(module = "审批实例", type = OperationType.DELETE, desc = "删除审批实例",
+            businessType = "APPROVAL_INSTANCE", businessId = "#id")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deleteInstance(@PathVariable Long id) {
         try {
@@ -386,6 +394,8 @@ public class ApprovalInstanceController extends BaseController {
      * @param request 作废请求（包含作废人ID和作废原因）
      * @return ApiResponse&lt;Void&gt; 操作结果
      */
+    @OperationLog(module = "审批实例", type = OperationType.APPROVE, desc = "作废审批实例",
+            businessType = "APPROVAL_INSTANCE", businessId = "#id")
     @PostMapping("/{id}/cancel")
     public ApiResponse<Void> cancelInstance(@PathVariable Long id,
                                             @RequestBody CancelRequest request) {

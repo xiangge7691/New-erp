@@ -1,6 +1,7 @@
 package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
@@ -10,6 +11,7 @@ import com.tonghui.erp.Common.Dto.Stock.AcceptancePartialRequest;
 import com.tonghui.erp.Common.Dto.Stock.AcceptanceWithDetailsDto;
 import com.tonghui.erp.Common.Dto.Stock.AcceptanceWithDetailsRequest;
 import com.tonghui.erp.Common.Dto.Stock.StockInWithNamesDto;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
 import com.tonghui.erp.Service.AcceptanceOrderService;
@@ -215,6 +217,8 @@ public class AcceptanceOrderController extends BaseController {
      * @param request 保存请求（acceptance-验收单信息，details-明细列表）
      * @return 验收单信息
      */
+    @OperationLog(module = "货物验收", type = OperationType.CREATE, desc = "新增验收单（含明细）",
+            businessType = "ACCEPTANCE_ORDER", businessId = "#result.data.acceptanceId")
     @PostMapping("/withDetails")
     public ApiResponse<AcceptanceOrder> createWithDetails(@RequestBody AcceptanceWithDetailsRequest request) {
         try {
@@ -287,6 +291,8 @@ public class AcceptanceOrderController extends BaseController {
      *                   outerPackageCheck-外包装检查、appearanceCheck-性状检查、remark-备注）
      * @return 更新后的验收单信息
      */
+    @OperationLog(module = "货物验收", type = OperationType.UPDATE, desc = "修改验收单",
+            businessType = "ACCEPTANCE_ORDER", businessId = "#id")
     @PutMapping("/{id}")
     public ApiResponse<AcceptanceOrder> updateMain(@PathVariable Long id,
                                                    @RequestBody AcceptanceOrder acceptance) {
@@ -315,6 +321,8 @@ public class AcceptanceOrderController extends BaseController {
      * @param id 验收单ID
      * @return 是否删除成功
      */
+    @OperationLog(module = "货物验收", type = OperationType.DELETE, desc = "删除验收单",
+            businessType = "ACCEPTANCE_ORDER", businessId = "#id")
     @DeleteMapping("/{id}")
     public ApiResponse<Boolean> delete(@PathVariable Long id) {
         try {
@@ -371,6 +379,8 @@ public class AcceptanceOrderController extends BaseController {
      * @param details 验收明细列表（每条必须包含 detailId）
      * @return 更新后的明细列表
      */
+    @OperationLog(module = "货物验收", type = OperationType.UPDATE, desc = "修改验收明细",
+            businessType = "ACCEPTANCE_DETAIL")
     @PutMapping("/detail")
     public ApiResponse<List<AcceptanceDetail>> updateDetails(@RequestBody List<AcceptanceDetail> details) {
         try {
@@ -444,6 +454,8 @@ public class AcceptanceOrderController extends BaseController {
      * @param id 验收单ID
      * @return 操作结果
      */
+    @OperationLog(module = "货物验收", type = OperationType.APPROVE, desc = "确认到货",
+            businessType = "ACCEPTANCE_ORDER", businessId = "#id")
     @PostMapping("/{id}/confirm-arrival")
     public ApiResponse<Boolean> confirmArrival(@PathVariable Long id) {
         try {
@@ -467,6 +479,8 @@ public class AcceptanceOrderController extends BaseController {
      * @param request 初验请求（pass-是否合格，detailIds-目标明细行ID列表（空=全部待初验行），remark-备注说明）
      * @return 操作结果
      */
+    @OperationLog(module = "货物验收", type = OperationType.APPROVE, desc = "验收初验",
+            businessType = "ACCEPTANCE_ORDER", businessId = "#id")
     @PostMapping("/{id}/inspect")
     public ApiResponse<Boolean> inspect(@PathVariable Long id, @RequestBody(required = false) AcceptanceActionRequest request) {
         try {
@@ -493,6 +507,8 @@ public class AcceptanceOrderController extends BaseController {
      * @param request 检验请求（pass-是否合格，detailIds-目标明细行ID列表（空=全部待检验行），remark-备注说明）
      * @return 操作结果
      */
+    @OperationLog(module = "货物验收", type = OperationType.APPROVE, desc = "验收质量检查",
+            businessType = "ACCEPTANCE_ORDER", businessId = "#id")
     @PostMapping("/{id}/quality-check")
     public ApiResponse<Boolean> qualityCheck(@PathVariable Long id, @RequestBody(required = false) AcceptanceActionRequest request) {
         try {
@@ -520,6 +536,8 @@ public class AcceptanceOrderController extends BaseController {
      * @param request 入库请求（items-每条待入库明细的仓库指定列表）
      * @return 自动生成的入库单（含 planNumber/totalAmount/prodUnitId/createdBy/createdByName/warehouseName）
      */
+    @OperationLog(module = "货物验收", type = OperationType.APPROVE, desc = "验收入库",
+            businessType = "ACCEPTANCE_ORDER", businessId = "#id")
     @PostMapping("/{id}/inbound")
     public ApiResponse<StockInWithNamesDto> inbound(@PathVariable Long id,
                                                     @RequestBody(required = false) AcceptanceInboundRequest request) {
@@ -549,6 +567,8 @@ public class AcceptanceOrderController extends BaseController {
      *                acceptQty-验收数量，returnQty-退货数量，remark-备注说明）
      * @return 操作结果
      */
+    @OperationLog(module = "货物验收", type = OperationType.APPROVE, desc = "部分验收",
+            businessType = "ACCEPTANCE_ORDER", businessId = "#id")
     @PostMapping("/{id}/partial-acceptance")
     public ApiResponse<Boolean> partialAcceptance(@PathVariable Long id,
                                                   @RequestBody AcceptancePartialRequest request) {

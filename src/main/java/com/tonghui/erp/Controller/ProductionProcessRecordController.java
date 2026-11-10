@@ -1,6 +1,8 @@
 package com.tonghui.erp.Controller;
 
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.utils.EntityUtils;
@@ -329,6 +331,8 @@ public class ProductionProcessRecordController extends BaseCrudController<Produc
      * @param records 工序记录列表
      * @return 保存结果
      */
+    @OperationLog(module = "生产工序记录", type = OperationType.UPDATE, desc = "批量保存工序记录",
+            businessType = "PRODUCTION_PROCESS_RECORD", businessId = "#planId")
     @PostMapping("/batch/plan/{planId}")
     public ApiResponse<List<ProductionProcessRecord>> batchSaveByPlanId(
             @PathVariable Integer planId,
@@ -342,4 +346,55 @@ public class ProductionProcessRecordController extends BaseCrudController<Produc
     }
 
     // endregion
+
+    // region 操作日志标注
+    // ===================================
+    // 操作日志标注
+    // ===================================
+
+    /**
+     * 新增生产工序记录（记录操作日志）
+     *
+     * @param entity 新增参数
+     * @return 新增结果
+     */
+    @Override
+    @OperationLog(module = "生产工序记录", type = OperationType.CREATE, desc = "新增生产工序记录",
+            businessType = "PRODUCTION_PROCESS_RECORD", businessId = "#result.data.recordId")
+    @PostMapping
+    public ApiResponse<ProductionProcessRecord> create(@RequestBody ProductionProcessRecord entity) {
+        return super.create(entity);
+    }
+
+    /**
+     * 修改生产工序记录（记录操作日志）
+     *
+     * @param id     生产工序记录ID
+     * @param entity 修改参数
+     * @return 修改结果
+     */
+    @Override
+    @OperationLog(module = "生产工序记录", type = OperationType.UPDATE, desc = "修改生产工序记录",
+            businessType = "PRODUCTION_PROCESS_RECORD", businessId = "#id")
+    @PutMapping("/{id}")
+    public ApiResponse<ProductionProcessRecord> update(@PathVariable Long id, @RequestBody ProductionProcessRecord entity) {
+        return super.update(id, entity);
+    }
+
+    /**
+     * 删除生产工序记录（记录操作日志）
+     *
+     * @param id 生产工序记录ID
+     * @return 删除结果
+     */
+    @Override
+    @OperationLog(module = "生产工序记录", type = OperationType.DELETE, desc = "删除生产工序记录",
+            businessType = "PRODUCTION_PROCESS_RECORD", businessId = "#id")
+    @DeleteMapping("/{id}")
+    public ApiResponse<Boolean> delete(@PathVariable Long id) {
+        return super.delete(id);
+    }
+
+    // endregion
+
 }

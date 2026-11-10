@@ -2,7 +2,9 @@ package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.InspectionRequest;
 import com.tonghui.erp.Data.Entity.Preparation;
@@ -180,6 +182,8 @@ public class InspectionRequestController extends BaseController {
      * @param request 请检记录实体
      * @return 创建后的请检记录
      */
+    @OperationLog(module = "请检单", type = OperationType.CREATE, desc = "新增请检单",
+            businessType = "INSPECTION_REQUEST", businessId = "#result.data.id")
     @PostMapping
     public ApiResponse<InspectionRequest> create(@RequestBody InspectionRequest request) {
         try {
@@ -265,6 +269,8 @@ public class InspectionRequestController extends BaseController {
      * @param request 请检记录实体
      * @return 更新后的请检记录
      */
+    @OperationLog(module = "请检单", type = OperationType.UPDATE, desc = "修改请检单",
+            businessType = "INSPECTION_REQUEST", businessId = "#id")
     @PutMapping("/{id}")
     public ApiResponse<InspectionRequest> update(@PathVariable Long id, @RequestBody InspectionRequest request) {
         try {
@@ -302,6 +308,8 @@ public class InspectionRequestController extends BaseController {
      * @param id 请检记录ID
      * @return 操作结果
      */
+    @OperationLog(module = "请检单", type = OperationType.DELETE, desc = "删除请检单",
+            businessType = "INSPECTION_REQUEST", businessId = "#id")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         try {

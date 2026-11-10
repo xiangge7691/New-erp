@@ -1,6 +1,8 @@
 package com.tonghui.erp.Controller;
 
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Preparation.PreparationFormulaStockDto;
 import com.tonghui.erp.Data.Entity.PreparationFormula;
@@ -260,6 +262,8 @@ public class PreparationFormulaController extends BaseCrudController<Preparation
      * @param formulas 处方明细列表
      * @return ApiResponse&lt;List&lt;PreparationFormula&gt;&gt; 保存后的处方明细列表
      */
+    @OperationLog(module = "制剂配方", type = OperationType.UPDATE, desc = "批量保存制剂配方",
+            businessType = "PREPARATION_FORMULA", businessId = "#preparationId")
     @PostMapping("/batch")
     public ApiResponse<List<PreparationFormula>> batchSave(
             @RequestParam Long preparationId,
@@ -273,4 +277,55 @@ public class PreparationFormulaController extends BaseCrudController<Preparation
     }
 
     // endregion
+
+    // region 操作日志标注
+    // ===================================
+    // 操作日志标注
+    // ===================================
+
+    /**
+     * 新增制剂配方（记录操作日志）
+     *
+     * @param entity 新增参数
+     * @return 新增结果
+     */
+    @Override
+    @OperationLog(module = "制剂配方", type = OperationType.CREATE, desc = "新增制剂配方",
+            businessType = "PREPARATION_FORMULA", businessId = "#result.data.formulaId")
+    @PostMapping
+    public ApiResponse<PreparationFormula> create(@RequestBody PreparationFormula entity) {
+        return super.create(entity);
+    }
+
+    /**
+     * 修改制剂配方（记录操作日志）
+     *
+     * @param id     制剂配方ID
+     * @param entity 修改参数
+     * @return 修改结果
+     */
+    @Override
+    @OperationLog(module = "制剂配方", type = OperationType.UPDATE, desc = "修改制剂配方",
+            businessType = "PREPARATION_FORMULA", businessId = "#id")
+    @PutMapping("/{id}")
+    public ApiResponse<PreparationFormula> update(@PathVariable Long id, @RequestBody PreparationFormula entity) {
+        return super.update(id, entity);
+    }
+
+    /**
+     * 删除制剂配方（记录操作日志）
+     *
+     * @param id 制剂配方ID
+     * @return 删除结果
+     */
+    @Override
+    @OperationLog(module = "制剂配方", type = OperationType.DELETE, desc = "删除制剂配方",
+            businessType = "PREPARATION_FORMULA", businessId = "#id")
+    @DeleteMapping("/{id}")
+    public ApiResponse<Boolean> delete(@PathVariable Long id) {
+        return super.delete(id);
+    }
+
+    // endregion
+
 }

@@ -84,3 +84,23 @@ file:
   permanent-dir: permanent
   image-dir: images
   document-dir: documents
+
+# ===================================
+# 日志模块配置
+# ===================================
+log:
+  # IP获取：只有确认请求经过自家Nginx时才信任代理头，Nginx必须覆盖X-Forwarded-For
+  ip:
+    trust-proxy-headers: true
+  # IP归属地离线库（支持IPv4/IPv6），支持classpath:前缀或服务器绝对路径
+  location:
+    v4-xdb-path: classpath:ip2region/ip2region_v4.xdb
+    v6-xdb-path: classpath:ip2region/ip2region_v6.xdb
+  # 操作日志
+  operation:
+    enabled: true
+    max-param-length: 2000
+  # 登录日志
+  login:
+    record-success: true
+    record-failures: true

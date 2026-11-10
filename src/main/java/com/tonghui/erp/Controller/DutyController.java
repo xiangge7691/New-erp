@@ -2,8 +2,10 @@ package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Data.Entity.Duty;
 import com.tonghui.erp.Service.DutyService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -121,6 +123,8 @@ public class DutyController extends BaseController {
      * @param duty 职务实体对象
      * @return ApiResponse&lt;Duty&gt; 新增的职务
      */
+    @OperationLog(module = "职务管理", type = OperationType.CREATE, desc = "新增职务",
+            businessType = "DUTY", businessId = "#result.data.dutyId")
     @PostMapping
     public ApiResponse<Duty> create(@RequestBody Duty duty) {
         // 职务编码唯一性校验（绕过软删除）
@@ -151,6 +155,8 @@ public class DutyController extends BaseController {
      * @param duty 职务实体对象
      * @return ApiResponse&lt;Duty&gt; 修改后的职务
      */
+    @OperationLog(module = "职务管理", type = OperationType.UPDATE, desc = "修改职务",
+            businessType = "DUTY", businessId = "#id")
     @PutMapping("/{id}")
     public ApiResponse<Duty> update(@PathVariable Long id, @RequestBody Duty duty) {
         Duty existing = dutyService.getById(id);
@@ -178,6 +184,8 @@ public class DutyController extends BaseController {
      * @param id 职务ID（路径参数）
      * @return ApiResponse&lt;Void&gt; 删除结果
      */
+    @OperationLog(module = "职务管理", type = OperationType.DELETE, desc = "删除职务",
+            businessType = "DUTY", businessId = "#id")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         dutyService.removeById(id);

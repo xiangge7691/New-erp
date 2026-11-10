@@ -2,10 +2,12 @@ package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.PersonnelFileWithDetailsDto;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Data.Entity.FileInfo;
 import com.tonghui.erp.Data.Entity.PersonnelFile;
 import com.tonghui.erp.Data.Entity.PersonnelCertificate;
@@ -250,6 +252,8 @@ public class PersonnelFileController extends BaseController {
      * @param personnelFile 人员档案实体对象
      * @return ApiResponse&lt;PersonnelFile&gt; 新增的人员档案
      */
+    @OperationLog(module = "人员档案", type = OperationType.CREATE, desc = "新增人员档案",
+            businessType = "PERSONNEL_FILE", businessId = "#result.data.personnelFileId")
     @PostMapping
     public ApiResponse<PersonnelFile> create(@RequestBody PersonnelFile personnelFile) {
         // 员工工号/用户ID唯一性校验（含软删除记录清理）
@@ -280,6 +284,8 @@ public class PersonnelFileController extends BaseController {
      * @param personnelFile 人员档案实体对象
      * @return ApiResponse&lt;PersonnelFile&gt; 修改后的人员档案
      */
+    @OperationLog(module = "人员档案", type = OperationType.UPDATE, desc = "修改人员档案",
+            businessType = "PERSONNEL_FILE", businessId = "#id")
     @PutMapping("/{id}")
     public ApiResponse<PersonnelFile> update(@PathVariable Long id, @RequestBody PersonnelFile personnelFile) {
         PersonnelFile existing = personnelFileService.getById(id);
@@ -304,6 +310,8 @@ public class PersonnelFileController extends BaseController {
      * @param id 人员档案ID（路径参数）
      * @return ApiResponse&lt;Void&gt; 删除结果
      */
+    @OperationLog(module = "人员档案", type = OperationType.DELETE, desc = "删除人员档案",
+            businessType = "PERSONNEL_FILE", businessId = "#id")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         personnelFileService.removeById(id);

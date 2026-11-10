@@ -1,6 +1,8 @@
 package com.tonghui.erp.Controller;
 
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Data.Entity.FileInfo;
 import com.tonghui.erp.Data.Entity.PersonnelCertificate;
 import com.tonghui.erp.Service.FileInfoService;
@@ -102,6 +104,8 @@ public class PersonnelCertificateController extends BaseController {
      * @param certificates 证书列表
      * @return ApiResponse&lt;Void&gt; 操作结果
      */
+    @OperationLog(module = "人员证书", type = OperationType.UPDATE, desc = "批量保存人员证书",
+            businessType = "PERSONNEL_CERTIFICATE", businessId = "#personnelFileId")
     @PostMapping("/personnel/{personnelFileId}")
     public ApiResponse<Void> saveCertificates(@PathVariable Long personnelFileId,
                                               @RequestBody List<PersonnelCertificate> certificates) {
@@ -126,6 +130,8 @@ public class PersonnelCertificateController extends BaseController {
      * @param certificate 证书实体对象
      * @return ApiResponse&lt;PersonnelCertificate&gt; 新增的证书
      */
+    @OperationLog(module = "人员证书", type = OperationType.CREATE, desc = "新增人员证书",
+            businessType = "PERSONNEL_CERTIFICATE", businessId = "#result.data.certificateId")
     @PostMapping
     public ApiResponse<PersonnelCertificate> create(@RequestBody PersonnelCertificate certificate) {
         certificate.setIsDeleted(0);
@@ -149,6 +155,8 @@ public class PersonnelCertificateController extends BaseController {
      * @param certificate 证书实体对象
      * @return ApiResponse&lt;PersonnelCertificate&gt; 修改后的证书
      */
+    @OperationLog(module = "人员证书", type = OperationType.UPDATE, desc = "修改人员证书",
+            businessType = "PERSONNEL_CERTIFICATE", businessId = "#id")
     @PutMapping("/{id}")
     public ApiResponse<PersonnelCertificate> update(@PathVariable Long id,
                                                      @RequestBody PersonnelCertificate certificate) {
@@ -170,6 +178,8 @@ public class PersonnelCertificateController extends BaseController {
      * @param id 证书ID（路径参数）
      * @return ApiResponse&lt;Void&gt; 删除结果
      */
+    @OperationLog(module = "人员证书", type = OperationType.DELETE, desc = "删除人员证书",
+            businessType = "PERSONNEL_CERTIFICATE", businessId = "#id")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         personnelCertificateService.removeById(id);

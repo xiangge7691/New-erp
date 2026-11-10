@@ -1,7 +1,9 @@
 package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Purchase.PurchaseSuppliersWithDetailsDto;
 import com.tonghui.erp.Data.Entity.PurchaseSuppliers;
@@ -313,4 +315,55 @@ public class PurchaseSuppliersController extends BaseCrudController<PurchaseSupp
     }
 
     // endregion
+
+    // region 操作日志标注
+    // ===================================
+    // 操作日志标注
+    // ===================================
+
+    /**
+     * 新增供应商（记录操作日志）
+     *
+     * @param entity 新增参数
+     * @return 新增结果
+     */
+    @Override
+    @OperationLog(module = "供应商管理", type = OperationType.CREATE, desc = "新增供应商",
+            businessType = "SUPPLIER", businessId = "#result.data.id")
+    @PostMapping
+    public ApiResponse<PurchaseSuppliers> create(@RequestBody PurchaseSuppliers entity) {
+        return super.create(entity);
+    }
+
+    /**
+     * 修改供应商（记录操作日志）
+     *
+     * @param id     供应商ID
+     * @param entity 修改参数
+     * @return 修改结果
+     */
+    @Override
+    @OperationLog(module = "供应商管理", type = OperationType.UPDATE, desc = "修改供应商",
+            businessType = "SUPPLIER", businessId = "#id")
+    @PutMapping("/{id}")
+    public ApiResponse<PurchaseSuppliers> update(@PathVariable Long id, @RequestBody PurchaseSuppliers entity) {
+        return super.update(id, entity);
+    }
+
+    /**
+     * 删除供应商（记录操作日志）
+     *
+     * @param id 供应商ID
+     * @return 删除结果
+     */
+    @Override
+    @OperationLog(module = "供应商管理", type = OperationType.DELETE, desc = "删除供应商",
+            businessType = "SUPPLIER", businessId = "#id")
+    @DeleteMapping("/{id}")
+    public ApiResponse<Boolean> delete(@PathVariable Long id) {
+        return super.delete(id);
+    }
+
+    // endregion
+
 }

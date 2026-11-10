@@ -1,11 +1,13 @@
 package com.tonghui.erp.Controller;
 
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.ProductionPick.ProductionPickBatchViewDto;
 import com.tonghui.erp.Common.Dto.ProductionPick.ProductionPickIssueRequest;
 import com.tonghui.erp.Common.Dto.ProductionPick.ProductionPickSaveRequest;
 import com.tonghui.erp.Common.Dto.ProductionPick.ProductionPickWithDetailsDto;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Data.Entity.ProductionPick;
 import com.tonghui.erp.Service.ProductionPickService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -197,6 +199,8 @@ public class ProductionPickController extends BaseController {
      * @param request 保存请求（pick-主表，details-明细）
      * @return 保存后的领料单
      */
+    @OperationLog(module = "生产领料", type = OperationType.CREATE, desc = "新增生产领料",
+            businessType = "PRODUCTION_PICK", businessId = "#result.data.id")
     @PostMapping
     public ApiResponse<ProductionPick> create(@RequestBody ProductionPickSaveRequest request) {
         try {
@@ -230,6 +234,8 @@ public class ProductionPickController extends BaseController {
      * @param request 保存请求
      * @return 操作结果
      */
+    @OperationLog(module = "生产领料", type = OperationType.UPDATE, desc = "修改生产领料",
+            businessType = "PRODUCTION_PICK", businessId = "#id")
     @PutMapping("/{id}")
     public ApiResponse<Boolean> update(@PathVariable Long id, @RequestBody ProductionPickSaveRequest request) {
         try {
@@ -262,6 +268,8 @@ public class ProductionPickController extends BaseController {
      * @param request 发料请求
      * @return 发料后的领料单
      */
+    @OperationLog(module = "生产领料", type = OperationType.APPROVE, desc = "生产领料出库",
+            businessType = "PRODUCTION_PICK", businessId = "#id")
     @PostMapping("/{id}/issue")
     public ApiResponse<ProductionPick> issue(@PathVariable Long id, @RequestBody ProductionPickIssueRequest request) {
         try {
@@ -284,6 +292,8 @@ public class ProductionPickController extends BaseController {
      * @param id 领料单ID
      * @return 操作结果
      */
+    @OperationLog(module = "生产领料", type = OperationType.UPDATE, desc = "取消生产领料",
+            businessType = "PRODUCTION_PICK", businessId = "#id")
     @PostMapping("/{id}/cancel")
     public ApiResponse<Boolean> cancel(@PathVariable Long id) {
         try {
@@ -303,6 +313,8 @@ public class ProductionPickController extends BaseController {
      * @param id 领料单ID
      * @return 操作结果
      */
+    @OperationLog(module = "生产领料", type = OperationType.DELETE, desc = "删除生产领料",
+            businessType = "PRODUCTION_PICK", businessId = "#id")
     @DeleteMapping("/{id}")
     public ApiResponse<Boolean> delete(@PathVariable Long id) {
         try {

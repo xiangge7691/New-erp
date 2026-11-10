@@ -1,8 +1,10 @@
 package com.tonghui.erp.Controller;
 
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Data.Entity.ApprovalRecord;
 import com.tonghui.erp.Service.ApprovalRecordService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -154,6 +156,8 @@ public class ApprovalRecordController extends BaseController {
      * @param record 审批记录信息
      * @return ApiResponse&lt;ApprovalRecord&gt; 创建的审批记录
      */
+    @OperationLog(module = "审批记录", type = OperationType.APPROVE, desc = "审批处理",
+            businessType = "APPROVAL_RECORD", businessId = "#result.data.id")
     @PostMapping
     public ApiResponse<ApprovalRecord> createRecord(@RequestBody ApprovalRecord record) {
         try {

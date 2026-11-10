@@ -1,6 +1,8 @@
 package com.tonghui.erp.Controller;
 
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.MaterialReturn.MaterialResendRequestDto;
 import com.tonghui.erp.Common.Dto.MaterialReturn.MaterialReturnItemDto;
 import com.tonghui.erp.Common.Dto.MaterialReturn.MaterialReturnQueryDto;
@@ -92,6 +94,8 @@ public class MaterialReturnController extends BaseController {
      * @param detailId 验收明细ID
      * @return 操作结果
      */
+    @OperationLog(module = "物料退库", type = OperationType.UPDATE, desc = "物料退库",
+            businessType = "MATERIAL_RETURN", businessId = "#detailId")
     @PostMapping("/{detailId}/return")
     public ApiResponse<Boolean> returnDetail(@PathVariable Long detailId) {
         try {
@@ -111,6 +115,8 @@ public class MaterialReturnController extends BaseController {
      * @param detailId 验收明细ID
      * @return 操作结果
      */
+    @OperationLog(module = "物料退库", type = OperationType.UPDATE, desc = "取消物料退库",
+            businessType = "MATERIAL_RETURN", businessId = "#detailId")
     @PostMapping("/{detailId}/cancel")
     public ApiResponse<Boolean> cancelDetail(@PathVariable Long detailId) {
         try {
@@ -133,6 +139,8 @@ public class MaterialReturnController extends BaseController {
      * @param request 重新发货请求（acceptanceId-来源验收单ID，items-明细ID与重新发货数量列表）
      * @return 新生成的验收单
      */
+    @OperationLog(module = "物料退库", type = OperationType.CREATE, desc = "重新发货生成验收单",
+            businessType = "ACCEPTANCE_ORDER", businessId = "#result.data.acceptanceId")
     @PostMapping("/resend")
     public ApiResponse<AcceptanceOrder> resend(@RequestBody MaterialResendRequestDto request) {
         try {

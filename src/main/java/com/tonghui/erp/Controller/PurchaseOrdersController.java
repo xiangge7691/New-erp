@@ -2,7 +2,9 @@ package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Purchase.PurchaseOrdersWithItemsDto;
@@ -271,6 +273,8 @@ public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders,
      * @param id 采购订单ID
      * @return ApiResponse&lt;Boolean&gt; 操作结果
      */
+    @OperationLog(module = "采购订单", type = OperationType.UPDATE, desc = "确认采购",
+            businessType = "PURCHASE_ORDER", businessId = "#id")
     @PostMapping("/{id}/confirm")
     public ApiResponse<Boolean> confirmPurchase(@PathVariable Long id) {
         try {
@@ -290,6 +294,8 @@ public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders,
      * @param id 采购订单ID
      * @return ApiResponse&lt;Boolean&gt; 操作结果
      */
+    @OperationLog(module = "采购订单", type = OperationType.UPDATE, desc = "作废采购订单",
+            businessType = "PURCHASE_ORDER", businessId = "#id")
     @PostMapping("/{id}/void")
     public ApiResponse<Boolean> voidPurchase(@PathVariable Long id) {
         try {
@@ -313,6 +319,8 @@ public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders,
      * @param id 采购订单ID
      * @return ApiResponse&lt;Boolean&gt; 操作结果
      */
+    @OperationLog(module = "采购订单", type = OperationType.UPDATE, desc = "归档采购订单",
+            businessType = "PURCHASE_ORDER", businessId = "#id")
     @PostMapping("/{id}/archive")
     public ApiResponse<Boolean> archivePurchase(@PathVariable Long id) {
         try {
@@ -333,6 +341,8 @@ public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders,
      * @param status 状态：1启用，0停用
      * @return ApiResponse&lt;Boolean&gt; 操作结果
      */
+    @OperationLog(module = "采购订单", type = OperationType.UPDATE, desc = "启停用采购订单",
+            businessType = "PURCHASE_ORDER", businessId = "#id")
     @PostMapping("/{id}/status/{status}")
     public ApiResponse<Boolean> togglePurchaseOrderStatus(@PathVariable Long id, @PathVariable Object status) {
         try {
@@ -422,4 +432,55 @@ public class PurchaseOrdersController extends BaseCrudController<PurchaseOrders,
     }
 
     // endregion
+
+    // region 操作日志标注
+    // ===================================
+    // 操作日志标注
+    // ===================================
+
+    /**
+     * 新增采购订单（记录操作日志）
+     *
+     * @param entity 新增参数
+     * @return 新增结果
+     */
+    @Override
+    @OperationLog(module = "采购订单", type = OperationType.CREATE, desc = "新增采购订单",
+            businessType = "PURCHASE_ORDER", businessId = "#result.data.id")
+    @PostMapping
+    public ApiResponse<PurchaseOrders> create(@RequestBody PurchaseOrders entity) {
+        return super.create(entity);
+    }
+
+    /**
+     * 修改采购订单（记录操作日志）
+     *
+     * @param id     采购订单ID
+     * @param entity 修改参数
+     * @return 修改结果
+     */
+    @Override
+    @OperationLog(module = "采购订单", type = OperationType.UPDATE, desc = "修改采购订单",
+            businessType = "PURCHASE_ORDER", businessId = "#id")
+    @PutMapping("/{id}")
+    public ApiResponse<PurchaseOrders> update(@PathVariable Long id, @RequestBody PurchaseOrders entity) {
+        return super.update(id, entity);
+    }
+
+    /**
+     * 删除采购订单（记录操作日志）
+     *
+     * @param id 采购订单ID
+     * @return 删除结果
+     */
+    @Override
+    @OperationLog(module = "采购订单", type = OperationType.DELETE, desc = "删除采购订单",
+            businessType = "PURCHASE_ORDER", businessId = "#id")
+    @DeleteMapping("/{id}")
+    public ApiResponse<Boolean> delete(@PathVariable Long id) {
+        return super.delete(id);
+    }
+
+    // endregion
+
 }

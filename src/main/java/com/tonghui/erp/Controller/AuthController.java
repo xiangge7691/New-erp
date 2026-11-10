@@ -4,10 +4,15 @@ import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.Auth.AuthLoginResponse;
 import com.tonghui.erp.Common.Dto.Auth.LoginRequest;
 import com.tonghui.erp.Common.Dto.Auth.LoginResponse;
+import com.tonghui.erp.Common.Dto.Log.LoginLogContext;
+import com.tonghui.erp.Common.Dto.System.UserDto;
+import com.tonghui.erp.Service.LoginLogService;
 import com.tonghui.erp.Service.LoginService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -37,9 +42,12 @@ public class AuthController {
 
     private final LoginService loginService;
 
+    private final LoginLogService loginLogService;
+
     @Autowired
-    public AuthController(LoginService loginService) {
+    public AuthController(LoginService loginService, LoginLogService loginLogService) {
         this.loginService = loginService;
+        this.loginLogService = loginLogService;
     }
 
     // endregion
@@ -64,10 +72,15 @@ public class AuthController {
      * }
      *
      * @param loginRequest 登录请求参数，包含用户名和密码
+     * @param request      当前 HTTP 请求，用于采集登录 IP、归属地与 User-Agent
      * @return 登录响应，包含访问令牌和刷新令牌
      */
     @PostMapping("/login")
-    public ApiResponse<AuthLoginResponse> login(@RequestBody LoginRequest loginRequest) {
+    public ApiResponse<AuthLoginResponse> login(@RequestBody LoginRequest loginRequest,
+                                                HttpServletRequest request) {
+        // 在请求线程中先采集 IP/UA/时间，异步登录线程拿不到请求上下文
+        LoginLogContext logContext = loginLogService.buildContext(
+                request, loginRequest.getUserName(), LocalDateTime.now());
         try {
             // 调用登录服务进行身份验证
             CompletableFuture<LoginResponse> futureResponse = loginService.loginWithFullResponseAsync(
@@ -78,16 +91,27 @@ public class AuthController {
 
             // 检查登录是否成功
             if (!loginResponse.isSuccess()) {
+                logContext.markFail(null, loginResponse.getMessage());
+                loginLogService.recordAsync(logContext);
                 return ApiResponse.errorResponse(loginResponse.getMessage());
             }
+
+            // 记录登录成功日志（UserDto.userName 为登录账号，name 为真实姓名）
+            UserDto user = loginResponse.getData().getUser();
+            if (user != null) {
+                logContext.markSuccess(user.getId(), user.getUserName(), user.getName());
+            }
+            loginLogService.recordAsync(logContext);
 
             // 构造符合 OpenAPI 规范的响应格式
             AuthLoginResponse authLoginResponse = new AuthLoginResponse();
             authLoginResponse.setToken(loginResponse.getData().getToken());
             authLoginResponse.setRefreshToken(loginResponse.getData().getRefreshToken());
-            
+
             return ApiResponse.successResponse(authLoginResponse);
         } catch (Exception e) {
+            logContext.markFail(null, e.getMessage());
+            loginLogService.recordAsync(logContext);
             return ApiResponse.errorResponse("登录过程中发生错误：" + e.getMessage());
         }
     }

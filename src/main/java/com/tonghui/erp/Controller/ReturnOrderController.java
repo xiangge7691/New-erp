@@ -1,6 +1,8 @@
 package com.tonghui.erp.Controller;
 
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Warehouse.AvailableOutOrderDto;
 import com.tonghui.erp.Common.Dto.Warehouse.OutOrderMaterialDto;
@@ -210,6 +212,8 @@ public class ReturnOrderController extends BaseController {
      *            </ul>
      * @return ApiResponse&lt;ReturnOrder&gt; 创建后的退库单（含单号与汇总数据）
      */
+    @OperationLog(module = "退货单", type = OperationType.CREATE, desc = "新增退货单",
+            businessType = "RETURN_ORDER", businessId = "#result.data.id")
     @PostMapping
     public ApiResponse<ReturnOrder> create(@RequestBody ReturnOrderCreateDto dto) {
         try {

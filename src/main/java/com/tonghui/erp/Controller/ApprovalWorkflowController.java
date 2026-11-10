@@ -1,9 +1,11 @@
 package com.tonghui.erp.Controller;
 
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.Approval.ApprovalWorkflowWithNodesDto;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Data.Entity.ApprovalWorkflow;
 import com.tonghui.erp.Service.ApprovalWorkflowService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -165,6 +167,8 @@ public class ApprovalWorkflowController extends BaseController {
      *   "timestamp": 时间戳
      * }
      */
+    @OperationLog(module = "审批流程", type = OperationType.CREATE, desc = "新增审批流程",
+            businessType = "APPROVAL_WORKFLOW", businessId = "#result.data.id")
     @PostMapping
     public ApiResponse<ApprovalWorkflow> createWorkflow(@RequestBody ApprovalWorkflow workflow) {
         try {
@@ -206,6 +210,8 @@ public class ApprovalWorkflowController extends BaseController {
      *   "timestamp": 时间戳
      * }
      */
+    @OperationLog(module = "审批流程", type = OperationType.UPDATE, desc = "修改审批流程",
+            businessType = "APPROVAL_WORKFLOW", businessId = "#id")
     @PutMapping("/{id}")
     public ApiResponse<ApprovalWorkflow> updateWorkflow(@PathVariable Long id, @RequestBody ApprovalWorkflow workflow) {
         try {
@@ -237,6 +243,8 @@ public class ApprovalWorkflowController extends BaseController {
      *   "timestamp": 时间戳
      * }
      */
+    @OperationLog(module = "审批流程", type = OperationType.DELETE, desc = "删除审批流程",
+            businessType = "APPROVAL_WORKFLOW", businessId = "#id")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deleteWorkflow(@PathVariable Long id) {
         try {

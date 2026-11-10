@@ -1,10 +1,12 @@
 package com.tonghui.erp.Controller;
 
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.DepartmentDto;
 import com.tonghui.erp.Common.Dto.System.DepartmentWithDetailsDto;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Data.Entity.Department;
 import com.tonghui.erp.Service.DepartmentService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -202,5 +204,55 @@ public class DepartmentController extends BaseCrudController<Department, Departm
             return exception(ex, "searchWithDetails");
         }
     }
+    // endregion
+
+    // region 操作日志标注
+    // ===================================
+    // 操作日志标注
+    // ===================================
+
+    /**
+     * 新增部门（记录操作日志）
+     *
+     * @param entity 部门实体
+     * @return 创建的部门
+     */
+    @Override
+    @OperationLog(module = "部门管理", type = OperationType.CREATE, desc = "新增部门",
+            businessType = "DEPARTMENT", businessId = "#result.data.id")
+    @PostMapping
+    public ApiResponse<DepartmentDto> create(@RequestBody Department entity) {
+        return super.create(entity);
+    }
+
+    /**
+     * 修改部门（记录操作日志）
+     *
+     * @param id     部门ID
+     * @param entity 部门实体
+     * @return 修改后的部门
+     */
+    @Override
+    @OperationLog(module = "部门管理", type = OperationType.UPDATE, desc = "修改部门",
+            businessType = "DEPARTMENT", businessId = "#id")
+    @PutMapping("/{id}")
+    public ApiResponse<DepartmentDto> update(@PathVariable Long id, @RequestBody Department entity) {
+        return super.update(id, entity);
+    }
+
+    /**
+     * 删除部门（记录操作日志）
+     *
+     * @param id 部门ID
+     * @return 删除结果
+     */
+    @Override
+    @OperationLog(module = "部门管理", type = OperationType.DELETE, desc = "删除部门",
+            businessType = "DEPARTMENT", businessId = "#id")
+    @DeleteMapping("/{id}")
+    public ApiResponse<Boolean> delete(@PathVariable Long id) {
+        return super.delete(id);
+    }
+
     // endregion
 }

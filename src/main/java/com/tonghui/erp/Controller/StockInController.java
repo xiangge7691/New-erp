@@ -1,7 +1,9 @@
 package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Stock.StockInWithDetailsDto;
@@ -302,6 +304,8 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
      * @param dto 入库单信息（planNumber 为关联生产计划编号，人工填写，可选；含明细列表 details）
      * @return 入库单信息（successCount 为本次入库成功的明细条数）
      */
+    @OperationLog(module = "入库管理", type = OperationType.CREATE, desc = "入库（含明细）",
+            businessType = "STOCK_IN", businessId = "#result.data.inId")
     @PostMapping("/withDetails")
     public ApiResponse<StockInWithDetailsDto> createStockInWithDetails(@RequestBody StockInWithDetailsDto dto) {
         stockInService.addStockIn(dto, dto.getDetails());
@@ -334,6 +338,8 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
      * @param dto 入库单信息（planNumber 为关联生产计划编号，人工填写，可选；含明细列表 details）
      * @return 更新后的入库单信息（successCount 为本次保存的明细条数）
      */
+    @OperationLog(module = "入库管理", type = OperationType.UPDATE, desc = "修改入库单（含明细）",
+            businessType = "STOCK_IN", businessId = "#id")
     @PutMapping("/{id}/withDetails")
     public ApiResponse<StockInWithDetailsDto> updateStockInWithDetails(@PathVariable Long id,
                                                                        @RequestBody StockInWithDetailsDto dto) {
@@ -433,6 +439,8 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
      * @param detail 入库明细
      * @return 入库明细
      */
+    @OperationLog(module = "入库管理", type = OperationType.CREATE, desc = "添加入库明细",
+            businessType = "STOCK_IN_DETAIL", businessId = "#result.data.inDetailId")
     @PostMapping("/detail")
     public ApiResponse<StockInDetail> addStockInDetail(@RequestBody StockInDetail detail) {
         try {
@@ -457,6 +465,8 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
      * @param details 入库明细列表
      * @return 入库明细列表
      */
+    @OperationLog(module = "入库管理", type = OperationType.CREATE, desc = "批量添加入库明细",
+            businessType = "STOCK_IN_DETAIL")
     @PostMapping("/details")
     public ApiResponse<List<StockInDetail>> addStockInDetails(@RequestBody List<StockInDetail> details) {
         try {
@@ -483,6 +493,8 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
      * @param detail 入库明细
      * @return 入库明细
      */
+    @OperationLog(module = "入库管理", type = OperationType.UPDATE, desc = "修改入库明细",
+            businessType = "STOCK_IN_DETAIL", businessId = "#detail.inDetailId")
     @PutMapping("/detail")
     public ApiResponse<StockInDetail> updateStockInDetail(@RequestBody StockInDetail detail) {
         try {
@@ -502,6 +514,8 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
      * @param detailId 明细ID
      * @return 是否删除成功
      */
+    @OperationLog(module = "入库管理", type = OperationType.DELETE, desc = "删除入库明细",
+            businessType = "STOCK_IN_DETAIL", businessId = "#detailId")
     @DeleteMapping("/detail/{id}")
     public ApiResponse<Boolean> deleteStockInDetail(@PathVariable("id") Long detailId) {
         try {
@@ -538,4 +552,55 @@ public class StockInController extends BaseCrudController<StockIn, StockIn, Long
     }
 
     // endregion
+
+    // region 操作日志标注
+    // ===================================
+    // 操作日志标注
+    // ===================================
+
+    /**
+     * 新增入库单（记录操作日志）
+     *
+     * @param entity 新增参数
+     * @return 新增结果
+     */
+    @Override
+    @OperationLog(module = "入库管理", type = OperationType.CREATE, desc = "新增入库单",
+            businessType = "STOCK_IN", businessId = "#result.data.inId")
+    @PostMapping
+    public ApiResponse<StockIn> create(@RequestBody StockIn entity) {
+        return super.create(entity);
+    }
+
+    /**
+     * 修改入库单（记录操作日志）
+     *
+     * @param id     入库单ID
+     * @param entity 修改参数
+     * @return 修改结果
+     */
+    @Override
+    @OperationLog(module = "入库管理", type = OperationType.UPDATE, desc = "修改入库单",
+            businessType = "STOCK_IN", businessId = "#id")
+    @PutMapping("/{id}")
+    public ApiResponse<StockIn> update(@PathVariable Long id, @RequestBody StockIn entity) {
+        return super.update(id, entity);
+    }
+
+    /**
+     * 删除入库单（记录操作日志）
+     *
+     * @param id 入库单ID
+     * @return 删除结果
+     */
+    @Override
+    @OperationLog(module = "入库管理", type = OperationType.DELETE, desc = "删除入库单",
+            businessType = "STOCK_IN", businessId = "#id")
+    @DeleteMapping("/{id}")
+    public ApiResponse<Boolean> delete(@PathVariable Long id) {
+        return super.delete(id);
+    }
+
+    // endregion
+
 }

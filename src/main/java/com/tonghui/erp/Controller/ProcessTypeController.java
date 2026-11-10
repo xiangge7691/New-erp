@@ -1,6 +1,8 @@
 package com.tonghui.erp.Controller;
 
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.ProcessTypeWithDetailsDto;
@@ -286,4 +288,55 @@ public class ProcessTypeController extends BaseCrudController<ProcessType, Proce
     }
 
     // endregion
+
+    // region 操作日志标注
+    // ===================================
+    // 操作日志标注
+    // ===================================
+
+    /**
+     * 新增工序类型（记录操作日志）
+     *
+     * @param entity 新增参数
+     * @return 新增结果
+     */
+    @Override
+    @OperationLog(module = "工序类型", type = OperationType.CREATE, desc = "新增工序类型",
+            businessType = "PROCESS_TYPE", businessId = "#result.data.processId")
+    @PostMapping
+    public ApiResponse<ProcessType> create(@RequestBody ProcessType entity) {
+        return super.create(entity);
+    }
+
+    /**
+     * 修改工序类型（记录操作日志）
+     *
+     * @param id     工序类型ID
+     * @param entity 修改参数
+     * @return 修改结果
+     */
+    @Override
+    @OperationLog(module = "工序类型", type = OperationType.UPDATE, desc = "修改工序类型",
+            businessType = "PROCESS_TYPE", businessId = "#id")
+    @PutMapping("/{id}")
+    public ApiResponse<ProcessType> update(@PathVariable Integer id, @RequestBody ProcessType entity) {
+        return super.update(id, entity);
+    }
+
+    /**
+     * 删除工序类型（记录操作日志）
+     *
+     * @param id 工序类型ID
+     * @return 删除结果
+     */
+    @Override
+    @OperationLog(module = "工序类型", type = OperationType.DELETE, desc = "删除工序类型",
+            businessType = "PROCESS_TYPE", businessId = "#id")
+    @DeleteMapping("/{id}")
+    public ApiResponse<Boolean> delete(@PathVariable Integer id) {
+        return super.delete(id);
+    }
+
+    // endregion
+
 }

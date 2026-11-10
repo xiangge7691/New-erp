@@ -1,7 +1,9 @@
 package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.MaterialRequisition;
 import com.tonghui.erp.Data.Entity.MaterialRequisitionDetail;
@@ -28,6 +30,8 @@ public class MaterialRequisitionController extends BaseController {
     /**
      * 新增领料申请
      */
+    @OperationLog(module = "领料管理", type = OperationType.CREATE, desc = "新增领料单",
+            businessType = "MATERIAL_REQUISITION", businessId = "#result.data.id")
     @PostMapping
     public ApiResponse<MaterialRequisition> create(@RequestBody MaterialRequisition requisition) {
         try {
@@ -70,6 +74,8 @@ public class MaterialRequisitionController extends BaseController {
     /**
      * 删除领料申请
      */
+    @OperationLog(module = "领料管理", type = OperationType.DELETE, desc = "删除领料单",
+            businessType = "MATERIAL_REQUISITION", businessId = "#id")
     @DeleteMapping("/{id}")
     public ApiResponse<Boolean> delete(@PathVariable Long id) {
         try {
@@ -96,6 +102,8 @@ public class MaterialRequisitionController extends BaseController {
     /**
      * 批量保存领料明细
      */
+    @OperationLog(module = "领料管理", type = OperationType.UPDATE, desc = "批量保存领料单明细",
+            businessType = "MATERIAL_REQUISITION_DETAIL", businessId = "#id")
     @PostMapping("/{id}/details/batch")
     public ApiResponse<Boolean> batchSaveDetails(@PathVariable Long id,
                                                   @RequestBody List<MaterialRequisitionDetail> details) {

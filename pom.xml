@@ -156,6 +156,23 @@
 		</dependency>
 
 		<!-- =================================== -->
+		<!-- AOP依赖（操作日志切面） -->
+		<!-- =================================== -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-aop</artifactId>
+		</dependency>
+
+		<!-- =================================== -->
+		<!-- IP归属地离线库（支持IPv4/IPv6） -->
+		<!-- =================================== -->
+		<dependency>
+			<groupId>org.lionsoul</groupId>
+			<artifactId>ip2region</artifactId>
+			<version>3.3.7</version>
+		</dependency>
+
+		<!-- =================================== -->
 		<!-- Jakarta 注解支持 -->
 		<!-- =================================== -->
 		<dependency>

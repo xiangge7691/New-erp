@@ -1,8 +1,10 @@
 package com.tonghui.erp.Controller;
 
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.QualityPages.ReleaseBatchDtos;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Service.ReleaseBatchService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
@@ -145,6 +147,8 @@ public class ReleaseBatchController extends BaseController {
      * @param request     检查项
      * @return 操作结果
      */
+    @OperationLog(module = "审核放行", type = OperationType.UPDATE, desc = "保存工序检查",
+            businessType = "WORK_ORDER", businessId = "#workOrderId")
     @PostMapping("/{workOrderId}/process-checks")
     public ApiResponse<Void> saveProcessChecks(
             @PathVariable Long workOrderId,
@@ -169,6 +173,8 @@ public class ReleaseBatchController extends BaseController {
      * @param request     草稿请求
      * @return 批次详情
      */
+    @OperationLog(module = "审核放行", type = OperationType.UPDATE, desc = "保存审核放行草稿",
+            businessType = "WORK_ORDER", businessId = "#workOrderId")
     @PostMapping("/{workOrderId}/draft")
     public ApiResponse<ReleaseBatchDtos.BatchDetail> draft(
             @PathVariable Long workOrderId,
@@ -191,6 +197,8 @@ public class ReleaseBatchController extends BaseController {
      * @param request     放行请求
      * @return 放行后的批次详情
      */
+    @OperationLog(module = "审核放行", type = OperationType.APPROVE, desc = "审核放行",
+            businessType = "WORK_ORDER", businessId = "#workOrderId")
     @PostMapping("/{workOrderId}/approve")
     public ApiResponse<ReleaseBatchDtos.BatchDetail> approve(
             @PathVariable Long workOrderId,
@@ -213,6 +221,8 @@ public class ReleaseBatchController extends BaseController {
      * @param request     拒绝请求
      * @return 拒绝后的批次详情
      */
+    @OperationLog(module = "审核放行", type = OperationType.APPROVE, desc = "审核拒绝放行",
+            businessType = "WORK_ORDER", businessId = "#workOrderId")
     @PostMapping("/{workOrderId}/reject")
     public ApiResponse<ReleaseBatchDtos.BatchDetail> reject(
             @PathVariable Long workOrderId,
@@ -235,6 +245,8 @@ public class ReleaseBatchController extends BaseController {
      * @param request 导出筛选条件
      * @return CSV 文件流
      */
+    @OperationLog(module = "审核放行", type = OperationType.EXPORT, desc = "导出审核放行",
+            businessType = "RELEASE_BATCH")
     @PostMapping("/export")
     public ResponseEntity<byte[]> export(@RequestBody(required = false) ReleaseBatchDtos.ExportRequest request) {
         try {

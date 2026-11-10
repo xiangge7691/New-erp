@@ -1,7 +1,9 @@
 package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.Material.MaterialWithDetailsDto;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
@@ -205,4 +207,55 @@ public class MaterialController extends BaseCrudController<Material, Material, L
     }
 
     // endregion
+
+    // region 操作日志标注
+    // ===================================
+    // 操作日志标注
+    // ===================================
+
+    /**
+     * 新增物料（记录操作日志）
+     *
+     * @param entity 新增参数
+     * @return 新增结果
+     */
+    @Override
+    @OperationLog(module = "物料管理", type = OperationType.CREATE, desc = "新增物料",
+            businessType = "MATERIAL", businessId = "#result.data.materialId")
+    @PostMapping
+    public ApiResponse<Material> create(@RequestBody Material entity) {
+        return super.create(entity);
+    }
+
+    /**
+     * 修改物料（记录操作日志）
+     *
+     * @param id     物料ID
+     * @param entity 修改参数
+     * @return 修改结果
+     */
+    @Override
+    @OperationLog(module = "物料管理", type = OperationType.UPDATE, desc = "修改物料",
+            businessType = "MATERIAL", businessId = "#id")
+    @PutMapping("/{id}")
+    public ApiResponse<Material> update(@PathVariable Long id, @RequestBody Material entity) {
+        return super.update(id, entity);
+    }
+
+    /**
+     * 删除物料（记录操作日志）
+     *
+     * @param id 物料ID
+     * @return 删除结果
+     */
+    @Override
+    @OperationLog(module = "物料管理", type = OperationType.DELETE, desc = "删除物料",
+            businessType = "MATERIAL", businessId = "#id")
+    @DeleteMapping("/{id}")
+    public ApiResponse<Boolean> delete(@PathVariable Long id) {
+        return super.delete(id);
+    }
+
+    // endregion
+
 }

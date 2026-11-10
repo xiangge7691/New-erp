@@ -13,7 +13,7 @@
 | 数据表 | 新增 `sys_login_log`（登录日志）、`sys_operation_log`（操作日志）两张表 |
 | 登录采集 | 在 `AuthController` 同步捕获 IP / User-Agent / 时间，成功后由 `LoginLogService` 异步落库；**成功和失败都记** |
 | 操作采集 | 新增 `@OperationLog` 注解 + AOP 切面，只标注写操作和导出类接口，避免把查询也记进来 |
-| IP 归属地 | 离线 `ip2region`（xdb 文件随包发布），内网 IP 标记为“内网”，解析失败标记为“未知”，不依赖外网接口 |
+| IP 归属地 | 离线 `ip2region` 双库（IPv4 + IPv6），内网 IP 标记为“内网”，解析失败标记为“未知”，不依赖外网接口 |
 | 写入方式 | 自定义日志线程池异步写入，业务线程不等待；写日志异常只打应用日志，绝不影响业务 |
 | 查询 | 提供按账号、时间、模块、结果等条件的分页查询接口，沿用 `PagedResult` + `ApiResponse` |
 | 保留策略 | 定时任务按天物理删除过期日志，保留天数放在 `system_config` 里可调 |
@@ -24,7 +24,7 @@
 1. 操作日志只记 **新增/修改/删除/审批/导入/导出/上传下载**，普通查询和下拉列表不记。
 2. 登录日志记录 **登录成功、登录失败**；刷新令牌暂不记录；如需“退出登录”留痕，建议补一个 `/api/auth/logout` 接口。
 3. 登录日志保留 **180 天**，操作日志保留 **365 天**。
-4. IP 归属地使用离线库，不调用第三方在线接口（线上环境更稳定，也不泄露登录 IP 给外部服务）。
+4. IP 归属地使用离线双库，**IPv4 和 IPv6 地址均原样记录并解析归属地**，不调用第三方在线接口（线上环境更稳定，也不泄露登录 IP 给外部服务）。
 
 ---
 
@@ -51,7 +51,7 @@
 | 缺口 | 补充 |
 |------|------|
 | 无 AOP | `pom.xml` 增加 `spring-boot-starter-aop` |
-| 无 IP 归属地 | `org.lionsoul:ip2region:2.7.0` + `ip2region.xdb` |
+| 无 IP 归属地 | `org.lionsoul:ip2region:3.3.7` + `ip2region_v4.xdb` + `ip2region_v6.xdb` |
 | 无异步线程池 | 新增 `LogAsyncConfig`，`@EnableAsync` |
 | 无真实 IP 获取 | 新增 `IpUtils`，兼容 Nginx 反向代理 |
 | 无清理任务 | 新增 `LogCleanupTask`，每天凌晨物理删除过期数据 |
@@ -382,7 +382,7 @@ public class OperationLogAspect {
 - 文件模块（已有 `file_operation_log`）；
 - 高频轮询接口（如首页统计、消息未读数）。
 
-**与 `file_operation_log` 的边界**：文件上传/下载继续由文件服务记录到 `file_operation_log`；业务接口上的 `@OperationLog` 只描述业务动作，例如“新增客户”，不重复记录附件明细。
+**与 `file_operation_log` 的边界**：文件上传/下载继续由文件服务记录到 `file_operation_log`（包含 `FileController`、`FileManagerController`、`BusinessFileController`）；业务接口上的 `@OperationLog` 只描述业务动作，例如“新增客户”，不重复记录附件明细。
 
 ### 5.6 分阶段覆盖建议
 
@@ -420,24 +420,25 @@ public class OperationLogAspect {
 
 ### 6.2 归属地解析
 
-推荐离线库 **ip2region**：
+使用离线库 **ip2region 3.3.7**，该版本提供双协议兼容、并发安全的 `Ip2Region` 查询服务，IPv4 与 IPv6 分别加载自己的 xdb：
 
 ```xml
 <dependency>
     <groupId>org.lionsoul</groupId>
     <artifactId>ip2region</artifactId>
-    <version>2.7.0</version>
+    <version>3.3.7</version>
 </dependency>
 ```
 
-- 数据文件放到 `src/main/resources/ip2region/ip2region.xdb`（IPv4，约 11MB）；
-- 启动时用 `Searcher.newWithBuffer(...)` 全量载入内存，单次查询微秒级，不需要额外缓存；
-- `ip2region` 返回格式为 `国家|区域|省份|城市|ISP`，转换为“江苏省南京市”这种展示值；
-- 内网地址（`10.`、`172.16.`～`172.31.`、`192.168.`、`127.`）直接返回“内网”；
-- IPv6 地址 2.7.0 不支持解析，`ip_location` 写“IPv6地址”；
-- xdb 文件缺失或解析异常时返回“未知”，并在启动时打一条 `warn`，不影响业务。
-
-> 备选方案：调用在线 IP 归属地接口。但存在限流、外网依赖、把用户 IP 发给第三方的问题，本项目不建议。
+- 数据文件放到 `src/main/resources/ip2region/`：
+  - `ip2region_v4.xdb`（IPv4，约 11MB）
+  - `ip2region_v6.xdb`（IPv6，约 37MB）
+- 启动时通过 `Config.custom().setXdbInputStream(...).asV4()/asV6()` + `Ip2Region.create(v4, v6)` 全量载入内存（`BufferCache`），单次查询微秒级，服务本身并发安全；
+- 返回格式为 `国家|省份|城市|ISP|国家代码`（如 `中国|广东省|深圳市|电信|CN`），转换为“广东省深圳市”这种展示值；境外地址展示“国家+省州+城市”；
+- 内网地址（`10.`、`172.16.`～`172.31.`、`192.168.`、`127.`，以及 IPv6 的 `::1`、`fe80::/10`、`fc00::/7`）直接返回“内网”；
+- IPv4 映射的 IPv6（`::ffff:192.168.1.10`）先还原成 IPv4 再判断和解析；
+- xdb 文件缺失或解析异常时返回“未知”，启动时打一条 `warn`，不影响业务；
+- 路径可通过 `log.location.v4-xdb-path` / `log.location.v6-xdb-path` 指向服务器绝对路径，避免 jar 体积过大。
 
 ### 6.3 Nginx 配置示例
 
@@ -600,7 +601,9 @@ GET /api/system/operation-log/{id}
 | `GET /api/system/login-log/summary?startTime=&endTime=` | 登录统计：成功数、失败数、去重账号数（首页或日志页顶部卡片） |
 | `GET /api/system/operation-log/export?...` | 导出当前筛选结果为 Excel，复用项目已有 POI 依赖 |
 
-### 8.5 权限说明
+### 8.5 分页限制与权限说明
+
+日志表数据量大，查询接口**不支持 `-1` 全量查询**：缺省为第 0 页、每页 20 条，单页最多 200 条。需要导出时单独走导出接口。
 
 现状：`SecurityConfig` 对所有请求放行，`JwtInterceptor` 只校验 token 是否有效，没有后端方法级权限校验。日志查询属于敏感功能，建议：
 
@@ -689,7 +692,8 @@ int deleteBefore(@Param("before") LocalDateTime before, @Param("limit") int limi
 | `pom.xml` | 增加 `spring-boot-starter-aop`、`ip2region` |
 | `src/main/resources/Data/migration/create_login_log_table.sql` | 登录日志建表 |
 | `src/main/resources/Data/migration/create_operation_log_table.sql` | 操作日志建表 |
-| `src/main/resources/ip2region/ip2region.xdb` | IP 归属地离线库 |
+| `src/main/resources/ip2region/ip2region_v4.xdb` | IPv4 归属地离线库 |
+| `src/main/resources/ip2region/ip2region_v6.xdb` | IPv6 归属地离线库 |
 | `Data/Entity/SysLoginLog.java` | 登录日志实体 |
 | `Data/Entity/SysOperationLog.java` | 操作日志实体 |
 | `Data/mapper/SysLoginLogMapper.java` | 登录日志 Mapper（含清理删除方法） |
@@ -741,10 +745,10 @@ int deleteBefore(@Param("before") LocalDateTime before, @Param("limit") int limi
 4. **日志量失控**：`@OperationLog` 只加在写操作和导出上，禁止加到列表/轮询接口；上线后观察日增量，必要时调整保留天数。
 5. **AOP 自调用失效**：注解加在 Controller 入口方法，不要加在 Service 内部被同类调用的方法上。
 6. **日志失败不能影响业务**：异步方法必须整体捕获异常；线程池队列满时用 `CallerRunsPolicy`，不要静默丢弃。
-7. **ip2region 数据文件体积**：约 11MB，打进 jar 会增加包体；如果运维不接受，可改为放到服务器目录，通过配置路径加载。
-8. **IPv6**：2.7.0 只支持 IPv4，IPv6 只记录原始地址，归属地显示“IPv6地址”。
-9. **时区**：全链路使用 `LocalDateTime`，项目已配置 `Asia/Shanghai`，不要混用 `Date`。
-10. **不要软删除**：日志表不建 `is_deleted`，清理用原生 `DELETE ... LIMIT`，避免全局逻辑删除改写。
+7. **ip2region 数据文件体积与内存**：v4 约 11MB、v6 约 37MB，一起打进 jar 会增加约 48MB 包体；`BufferCache` 全量载入还会占用约 50MB 堆内存。如果运维不接受，可通过 `log.location.*-xdb-path` 指向服务器目录从外部加载，并按需调整缓存策略。
+8. **时区**：全链路使用 `LocalDateTime`，项目已配置 `Asia/Shanghai`，不要混用 `Date`。
+9. **不要软删除**：日志表不建 `is_deleted`，清理用原生 `DELETE ... LIMIT`，避免全局逻辑删除改写。
+10. **登录账号非空**：`user_account` 为 `NOT NULL`，登录参数为空时落空串，保证失败尝试也能留痕。
 
 ---
 
@@ -754,8 +758,33 @@ int deleteBefore(@Param("before") LocalDateTime before, @Param("limit") int limi
 |---|--------|----------|
 | 1 | 操作日志记录范围 | 只记写操作 + 审批 + 导入导出；查询不记 |
 | 2 | 登录失败是否记录 | 记录，便于发现撞库和暴力破解 |
-| 3 | 归属地数据源 | 离线 ip2region，不调用外网接口 |
+| 3 | 归属地数据源 | 离线 ip2region 双库（IPv4 + IPv6），不调用外网接口 |
 | 4 | 保留天数 | 登录 180 天 / 操作 365 天，可在系统配置中修改 |
 | 5 | 是否新增退出登录接口 | 建议新增 `/api/auth/logout` 用于留痕，不做服务端会话 |
 | 6 | 是否需要导出 | 建议操作日志支持 Excel 导出，登录日志可后补 |
 | 7 | 前端是否本期一起做 | 后端接口先完成，前端可并行开发 |
+
+---
+
+## 15. 实现状态（2026-11-10）
+
+**已完成（后端）**
+
+- 建表脚本：`create_login_log_table.sql`、`create_operation_log_table.sql`、`init_log_config_data.sql`；
+- 实体与 Mapper：`SysLoginLog`、`SysOperationLog` 及清理/统计 SQL；
+- 登录日志：`AuthController` 登录成功/失败埋点，记录账号、IP、归属地、时间、结果、失败原因；
+- 操作日志：`@OperationLog` 注解、`OperationLogAspect` 切面、参数脱敏、结果判定、业务 ID SpEL；
+- IP：`IpUtils` + `IpLocationService`，离线 ip2region 3.3.7 双库，IPv4/IPv6 均原样记录并解析归属地；
+- 异步：`LogAsyncConfig` 独立日志线程池，`CallerRunsPolicy` 不丢日志；
+- 查询接口：登录日志分页/最近登录/统计，操作日志分页/详情，单页上限 200 条；
+- 清理：`LogCleanupTask` 每天 03:10 按保留天数分批物理删除；
+- 首批注解：用户、角色、权限、部门、用户角色/部门关联、角色权限关联、系统配置、审批流程、审批实例、审核放行；
+- 第二批、第三批注解：客户、剂型、设备、物料、制剂及配方/工序模板/文件、生产计划/工单/工序执行/领料、采购计划/订单/供应商/审核、入库/出库、验收、请检/检验/取样/留样/销毁、清洁/消毒/温湿度/压差、偏差、维保、人员档案/证书、机构/证照、岗位/职务、调拨/退货、检验单、产品汇总导出等；
+- 文件模块（`FileController`、`FileManagerController`、`BusinessFileController`）继续使用已有的 `file_operation_log`，不重复记录；登录/刷新接口由登录日志覆盖；
+- 测试：`IpUtilsTest`、`IpLocationServiceTest`、`LogParamUtilsTest`、`LogModuleIntegrationTest`，其中集成测试已覆盖写入、查询、详情、切面、路由注册与敏感参数脱敏。
+
+**尚未完成**
+
+- 前端“登录日志 / 操作日志”两个页面；
+- 可选的退出登录接口与日志导出接口（各业务模块已有的导出接口已按 `EXPORT` 类型记录）；
+- 生产库需手动执行三个迁移脚本（测试库已由集成测试自动建表）。

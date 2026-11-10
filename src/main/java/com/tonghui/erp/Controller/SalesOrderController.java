@@ -1,7 +1,9 @@
 package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.SalesOrder;
@@ -317,6 +319,8 @@ public class SalesOrderController extends BaseCrudController<SalesOrder, SalesOr
      * @param id 台账ID
      * @return ApiResponse&lt;Boolean&gt; 作废结果
      */
+    @OperationLog(module = "销售订单", type = OperationType.UPDATE, desc = "作废销售订单",
+            businessType = "SALES_ORDER", businessId = "#id")
     @PutMapping("/{id}/void")
     public ApiResponse<Boolean> voidSalesOrder(@PathVariable Long id) {
         try {
@@ -332,4 +336,55 @@ public class SalesOrderController extends BaseCrudController<SalesOrder, SalesOr
     }
 
     // endregion
+
+    // region 操作日志标注
+    // ===================================
+    // 操作日志标注
+    // ===================================
+
+    /**
+     * 新增销售订单（记录操作日志）
+     *
+     * @param entity 新增参数
+     * @return 新增结果
+     */
+    @Override
+    @OperationLog(module = "销售订单", type = OperationType.CREATE, desc = "新增销售订单",
+            businessType = "SALES_ORDER", businessId = "#result.data.salesOrderId")
+    @PostMapping
+    public ApiResponse<SalesOrder> create(@RequestBody SalesOrder entity) {
+        return super.create(entity);
+    }
+
+    /**
+     * 修改销售订单（记录操作日志）
+     *
+     * @param id     销售订单ID
+     * @param entity 修改参数
+     * @return 修改结果
+     */
+    @Override
+    @OperationLog(module = "销售订单", type = OperationType.UPDATE, desc = "修改销售订单",
+            businessType = "SALES_ORDER", businessId = "#id")
+    @PutMapping("/{id}")
+    public ApiResponse<SalesOrder> update(@PathVariable Long id, @RequestBody SalesOrder entity) {
+        return super.update(id, entity);
+    }
+
+    /**
+     * 删除销售订单（记录操作日志）
+     *
+     * @param id 销售订单ID
+     * @return 删除结果
+     */
+    @Override
+    @OperationLog(module = "销售订单", type = OperationType.DELETE, desc = "删除销售订单",
+            businessType = "SALES_ORDER", businessId = "#id")
+    @DeleteMapping("/{id}")
+    public ApiResponse<Boolean> delete(@PathVariable Long id) {
+        return super.delete(id);
+    }
+
+    // endregion
+
 }

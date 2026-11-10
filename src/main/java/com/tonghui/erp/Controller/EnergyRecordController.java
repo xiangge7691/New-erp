@@ -1,6 +1,8 @@
 package com.tonghui.erp.Controller;
 
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.Energy.EnergyRecordPageResult;
 import com.tonghui.erp.Data.Entity.EnergyRecord;
 import com.tonghui.erp.Data.Entity.FileInfo;
@@ -100,6 +102,8 @@ public class EnergyRecordController extends BaseController {
      * @param attachmentFileId 凭证附件文件ID（可选，前端先调 /api/file-manager/upload 获取）
      * @return 保存后的能耗记录
      */
+    @OperationLog(module = "能源记录", type = OperationType.CREATE, desc = "新增能源记录",
+            businessType = "ENERGY_RECORD", businessId = "#result.data.recordId")
     @PostMapping
     public ApiResponse<EnergyRecord> create(@RequestBody EnergyRecord record,
                                             @RequestParam(required = false) Long attachmentFileId) {
@@ -137,6 +141,8 @@ public class EnergyRecordController extends BaseController {
      * @param attachmentFileId 凭证附件文件ID（可选）
      * @return 更新后的能耗记录
      */
+    @OperationLog(module = "能源记录", type = OperationType.UPDATE, desc = "修改能源记录",
+            businessType = "ENERGY_RECORD", businessId = "#id")
     @PutMapping("/{id}")
     public ApiResponse<EnergyRecord> update(@PathVariable Long id,
                                             @RequestBody EnergyRecord record,
@@ -156,6 +162,8 @@ public class EnergyRecordController extends BaseController {
      * @param id 能耗记录ID
      * @return 操作结果
      */
+    @OperationLog(module = "能源记录", type = OperationType.DELETE, desc = "删除能源记录",
+            businessType = "ENERGY_RECORD", businessId = "#id")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         try {

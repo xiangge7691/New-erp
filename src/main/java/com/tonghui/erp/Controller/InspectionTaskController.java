@@ -1,8 +1,10 @@
 package com.tonghui.erp.Controller;
 
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.QualityPages.InspectionTaskDtos;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Service.InspectionTaskService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -100,6 +102,8 @@ public class InspectionTaskController extends BaseController {
      * @param request 创建请求
      * @return 任务详情
      */
+    @OperationLog(module = "检验任务", type = OperationType.CREATE, desc = "创建检验任务",
+            businessType = "INSPECTION_TASK", businessId = "#result.data.id")
     @PostMapping
     public ApiResponse<InspectionTaskDtos.TaskDetail> create(@RequestBody InspectionTaskDtos.CreateTaskRequest request) {
         try {
@@ -120,6 +124,8 @@ public class InspectionTaskController extends BaseController {
      * @param request 计划请求
      * @return 任务详情
      */
+    @OperationLog(module = "检验任务", type = OperationType.UPDATE, desc = "办理检验计划",
+            businessType = "INSPECTION_TASK", businessId = "#id")
     @PostMapping("/{id}/plan")
     public ApiResponse<InspectionTaskDtos.TaskDetail> completePlan(
             @PathVariable Long id, @RequestBody InspectionTaskDtos.PlanStepRequest request) {
@@ -141,6 +147,8 @@ public class InspectionTaskController extends BaseController {
      * @param request 请检请求
      * @return 任务详情
      */
+    @OperationLog(module = "检验任务", type = OperationType.UPDATE, desc = "办理请检",
+            businessType = "INSPECTION_TASK", businessId = "#id")
     @PostMapping("/{id}/request")
     public ApiResponse<InspectionTaskDtos.TaskDetail> completeRequest(
             @PathVariable Long id, @RequestBody InspectionTaskDtos.RequestStepRequest request) {
@@ -162,6 +170,8 @@ public class InspectionTaskController extends BaseController {
      * @param request 取样请求
      * @return 任务详情
      */
+    @OperationLog(module = "检验任务", type = OperationType.UPDATE, desc = "办理取样",
+            businessType = "INSPECTION_TASK", businessId = "#id")
     @PostMapping("/{id}/sampling")
     public ApiResponse<InspectionTaskDtos.TaskDetail> completeSampling(
             @PathVariable Long id, @RequestBody InspectionTaskDtos.SamplingStepRequest request) {
@@ -183,6 +193,8 @@ public class InspectionTaskController extends BaseController {
      * @param request 留样请求
      * @return 任务详情
      */
+    @OperationLog(module = "检验任务", type = OperationType.UPDATE, desc = "办理留样",
+            businessType = "INSPECTION_TASK", businessId = "#id")
     @PostMapping("/{id}/retention")
     public ApiResponse<InspectionTaskDtos.TaskDetail> completeRetention(
             @PathVariable Long id, @RequestBody InspectionTaskDtos.RetentionStepRequest request) {
@@ -204,6 +216,8 @@ public class InspectionTaskController extends BaseController {
      * @param request 检验记录请求
      * @return 任务详情
      */
+    @OperationLog(module = "检验任务", type = OperationType.UPDATE, desc = "办理检验",
+            businessType = "INSPECTION_TASK", businessId = "#id")
     @PostMapping("/{id}/inspection")
     public ApiResponse<InspectionTaskDtos.TaskDetail> completeInspection(
             @PathVariable Long id, @RequestBody InspectionTaskDtos.InspectionStepRequest request) {
@@ -225,6 +239,8 @@ public class InspectionTaskController extends BaseController {
      * @param request 销毁请求
      * @return 任务详情
      */
+    @OperationLog(module = "检验任务", type = OperationType.UPDATE, desc = "办理销毁",
+            businessType = "INSPECTION_TASK", businessId = "#id")
     @PostMapping("/{id}/destruction")
     public ApiResponse<InspectionTaskDtos.TaskDetail> completeDestruction(
             @PathVariable Long id, @RequestBody InspectionTaskDtos.DestructionStepRequest request) {
@@ -246,6 +262,8 @@ public class InspectionTaskController extends BaseController {
      * @param request 跳过请求
      * @return 任务详情
      */
+    @OperationLog(module = "检验任务", type = OperationType.UPDATE, desc = "跳过检验步骤",
+            businessType = "INSPECTION_TASK", businessId = "#id")
     @PostMapping("/{id}/skip")
     public ApiResponse<InspectionTaskDtos.TaskDetail> skip(
             @PathVariable Long id, @RequestBody InspectionTaskDtos.SkipStepRequest request) {
@@ -265,6 +283,8 @@ public class InspectionTaskController extends BaseController {
      * @param request 作废请求
      * @return 任务详情
      */
+    @OperationLog(module = "检验任务", type = OperationType.UPDATE, desc = "作废检验任务",
+            businessType = "INSPECTION_TASK", businessId = "#id")
     @PostMapping("/{id}/cancel")
     public ApiResponse<InspectionTaskDtos.TaskDetail> cancel(
             @PathVariable Long id, @RequestBody(required = false) InspectionTaskDtos.CancelRequest request) {

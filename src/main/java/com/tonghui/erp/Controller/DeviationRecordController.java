@@ -1,6 +1,8 @@
 package com.tonghui.erp.Controller;
 
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Quality.DeviationRecordSaveDto;
@@ -213,6 +215,8 @@ public class DeviationRecordController extends BaseController {
      * @param dto 保存请求体
      * @return ApiResponse&lt;DeviationRecord&gt; 新增的偏差记录（含自动生成的编号）
      */
+    @OperationLog(module = "偏差记录", type = OperationType.CREATE, desc = "新增偏差记录",
+            businessType = "DEVIATION_RECORD", businessId = "#result.data.id")
     @PostMapping
     public ApiResponse<DeviationRecord> create(@RequestBody DeviationRecordSaveDto dto) {
         try {
@@ -254,6 +258,8 @@ public class DeviationRecordController extends BaseController {
      * @param dto 更新的偏差记录信息
      * @return ApiResponse&lt;DeviationRecord&gt; 修改后的偏差记录
      */
+    @OperationLog(module = "偏差记录", type = OperationType.UPDATE, desc = "修改偏差记录",
+            businessType = "DEVIATION_RECORD", businessId = "#id")
     @PutMapping("/{id}")
     public ApiResponse<DeviationRecord> update(@PathVariable Long id, @RequestBody DeviationRecordSaveDto dto) {
         try {
@@ -272,6 +278,8 @@ public class DeviationRecordController extends BaseController {
      * @param id 偏差记录ID（路径参数）
      * @return ApiResponse&lt;Void&gt; 删除结果
      */
+    @OperationLog(module = "偏差记录", type = OperationType.DELETE, desc = "删除偏差记录",
+            businessType = "DEVIATION_RECORD", businessId = "#id")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         try {

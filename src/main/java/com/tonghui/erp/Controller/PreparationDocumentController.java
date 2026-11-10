@@ -2,8 +2,10 @@ package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Data.Entity.PreparationDocument;
 import com.tonghui.erp.Service.PreparationDocumentService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -128,6 +130,8 @@ public class PreparationDocumentController extends BaseController {
      * @param document 制剂文档实体对象
      * @return ApiResponse&lt;PreparationDocument&gt; 新增的制剂文档
      */
+    @OperationLog(module = "制剂文件", type = OperationType.CREATE, desc = "新增制剂文件",
+            businessType = "PREPARATION_DOCUMENT", businessId = "#result.data.docId")
     @PostMapping
     public ApiResponse<PreparationDocument> create(@RequestBody PreparationDocument document) {
         document.setIsDeleted(0);
@@ -151,6 +155,8 @@ public class PreparationDocumentController extends BaseController {
      * @param document 制剂文档实体对象
      * @return ApiResponse&lt;PreparationDocument&gt; 修改后的制剂文档
      */
+    @OperationLog(module = "制剂文件", type = OperationType.UPDATE, desc = "修改制剂文件",
+            businessType = "PREPARATION_DOCUMENT", businessId = "#id")
     @PutMapping("/{id}")
     public ApiResponse<PreparationDocument> update(@PathVariable Long id, @RequestBody PreparationDocument document) {
         PreparationDocument existing = documentService.getById(id);
@@ -171,6 +177,8 @@ public class PreparationDocumentController extends BaseController {
      * @param id 文档ID（路径参数）
      * @return ApiResponse&lt;Void&gt; 删除结果
      */
+    @OperationLog(module = "制剂文件", type = OperationType.DELETE, desc = "删除制剂文件",
+            businessType = "PREPARATION_DOCUMENT", businessId = "#id")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         documentService.removeById(id);

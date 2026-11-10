@@ -1,7 +1,9 @@
 package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Stock.BatchOutboundRequest;
@@ -472,6 +474,8 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
      * @param request 出库单主表单+物料明细列表（明细须携带 stockId 定位库存批次）
      * @return ApiResponse&lt;StockOutWithDetailsDto&gt; 直接出库后的出库单（含明细与成功条数）
      */
+    @OperationLog(module = "出库管理", type = OperationType.CREATE, desc = "直接批量出库",
+            businessType = "STOCK_OUT", businessId = "#result.data.outId")
     @PostMapping("/direct-outbound")
     public ApiResponse<StockOutWithDetailsDto> directOutbound(@RequestBody StockOutWithDetailsDto request) {
         try {
@@ -536,6 +540,8 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
      * @param detail 出库明细信息
      * @return ApiResponse&lt;StockOutDetail&gt; 添加的出库明细
      */
+    @OperationLog(module = "出库管理", type = OperationType.CREATE, desc = "添加出库明细",
+            businessType = "STOCK_OUT_DETAIL", businessId = "#result.data.outDetailId")
     @PostMapping("/detail")
     public ApiResponse<StockOutDetail> addStockOutDetail(@RequestBody StockOutDetail detail) {
         try {
@@ -560,6 +566,8 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
      * @param details 出库明细列表
      * @return ApiResponse&lt;List&lt;StockOutDetail&gt;&gt; 添加的出库明细列表
      */
+    @OperationLog(module = "出库管理", type = OperationType.CREATE, desc = "批量添加出库明细",
+            businessType = "STOCK_OUT_DETAIL")
     @PostMapping("/details")
     public ApiResponse<List<StockOutDetail>> addStockOutDetails(@RequestBody List<StockOutDetail> details) {
         try {
@@ -584,6 +592,8 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
      * @param detail 出库明细信息
      * @return ApiResponse&lt;StockOutDetail&gt; 更新后的出库明细
      */
+    @OperationLog(module = "出库管理", type = OperationType.UPDATE, desc = "修改出库明细",
+            businessType = "STOCK_OUT_DETAIL", businessId = "#detail.outDetailId")
     @PutMapping("/detail")
     public ApiResponse<StockOutDetail> updateStockOutDetail(@RequestBody StockOutDetail detail) {
         try {
@@ -603,6 +613,8 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
      * @param detailId 明细ID（路径参数）
      * @return ApiResponse&lt;Boolean&gt; 是否删除成功
      */
+    @OperationLog(module = "出库管理", type = OperationType.DELETE, desc = "删除出库明细",
+            businessType = "STOCK_OUT_DETAIL", businessId = "#detailId")
     @DeleteMapping("/detail/{id}")
     public ApiResponse<Boolean> deleteStockOutDetail(@PathVariable("id") Long detailId) {
         try {
@@ -642,4 +654,55 @@ public class StockOutController extends BaseCrudController<StockOut, StockOut, L
     }
 
     // endregion
+
+    // region 操作日志标注
+    // ===================================
+    // 操作日志标注
+    // ===================================
+
+    /**
+     * 新增出库单（记录操作日志）
+     *
+     * @param entity 新增参数
+     * @return 新增结果
+     */
+    @Override
+    @OperationLog(module = "出库管理", type = OperationType.CREATE, desc = "新增出库单",
+            businessType = "STOCK_OUT", businessId = "#result.data.outId")
+    @PostMapping
+    public ApiResponse<StockOut> create(@RequestBody StockOut entity) {
+        return super.create(entity);
+    }
+
+    /**
+     * 修改出库单（记录操作日志）
+     *
+     * @param id     出库单ID
+     * @param entity 修改参数
+     * @return 修改结果
+     */
+    @Override
+    @OperationLog(module = "出库管理", type = OperationType.UPDATE, desc = "修改出库单",
+            businessType = "STOCK_OUT", businessId = "#id")
+    @PutMapping("/{id}")
+    public ApiResponse<StockOut> update(@PathVariable Long id, @RequestBody StockOut entity) {
+        return super.update(id, entity);
+    }
+
+    /**
+     * 删除出库单（记录操作日志）
+     *
+     * @param id 出库单ID
+     * @return 删除结果
+     */
+    @Override
+    @OperationLog(module = "出库管理", type = OperationType.DELETE, desc = "删除出库单",
+            businessType = "STOCK_OUT", businessId = "#id")
+    @DeleteMapping("/{id}")
+    public ApiResponse<Boolean> delete(@PathVariable Long id) {
+        return super.delete(id);
+    }
+
+    // endregion
+
 }

@@ -1,7 +1,9 @@
 package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.MaterialRequisitionSlip.MaterialRequisitionSlipWithDetailsDto;
 import com.tonghui.erp.Common.Dto.MaterialRequisitionSlip.MaterialRequisitionSlipWithDetailsRequest;
 import com.tonghui.erp.Common.Dto.PagedResult;
@@ -155,6 +157,8 @@ public class MaterialRequisitionSlipController extends BaseController {
      * @param request 保存请求（slip-领料单信息，details-明细列表）
      * @return 领料单信息
      */
+    @OperationLog(module = "领料单", type = OperationType.CREATE, desc = "新增领料单（含明细）",
+            businessType = "MATERIAL_REQUISITION_SLIP", businessId = "#result.data.id")
     @PostMapping("/withDetails")
     public ApiResponse<MaterialRequisitionSlip> createWithDetails(
             @RequestBody MaterialRequisitionSlipWithDetailsRequest request) {
@@ -198,6 +202,8 @@ public class MaterialRequisitionSlipController extends BaseController {
      * @param request 保存请求（slip-领料单信息，details-明细列表）
      * @return 操作结果
      */
+    @OperationLog(module = "领料单", type = OperationType.UPDATE, desc = "修改领料单（含明细）",
+            businessType = "MATERIAL_REQUISITION_SLIP", businessId = "#id")
     @PutMapping("/{id}/withDetails")
     public ApiResponse<Boolean> updateWithDetails(@PathVariable Long id,
                                                    @RequestBody MaterialRequisitionSlipWithDetailsRequest request) {
@@ -221,6 +227,8 @@ public class MaterialRequisitionSlipController extends BaseController {
      * @param id 领料单ID
      * @return 操作结果
      */
+    @OperationLog(module = "领料单", type = OperationType.DELETE, desc = "删除领料单",
+            businessType = "MATERIAL_REQUISITION_SLIP", businessId = "#id")
     @DeleteMapping("/{id}")
     public ApiResponse<Boolean> delete(@PathVariable Long id) {
         try {
@@ -247,6 +255,8 @@ public class MaterialRequisitionSlipController extends BaseController {
      * @param id 领料单ID
      * @return 操作结果
      */
+    @OperationLog(module = "领料单", type = OperationType.UPDATE, desc = "作废领料单",
+            businessType = "MATERIAL_REQUISITION_SLIP", businessId = "#id")
     @PostMapping("/{id}/void")
     public ApiResponse<Boolean> voidSlip(@PathVariable Long id) {
         try {

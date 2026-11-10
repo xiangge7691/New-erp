@@ -2,7 +2,9 @@ package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.PressureDifferenceRecord;
 import com.tonghui.erp.Data.Entity.RoomInfo;
@@ -177,6 +179,8 @@ public class PressureDifferenceRecordController extends BaseRoomRecordController
      * @param record 压差记录信息
      * @return ApiResponse&lt;PressureDifferenceRecord&gt; 新增的压差记录
      */
+    @OperationLog(module = "压差记录", type = OperationType.CREATE, desc = "新增压差记录",
+            businessType = "PRESSURE_DIFFERENCE_RECORD", businessId = "#result.data.id")
     @PostMapping
     public ApiResponse<PressureDifferenceRecord> create(
             @RequestParam Integer roomId,
@@ -215,6 +219,8 @@ public class PressureDifferenceRecordController extends BaseRoomRecordController
      * @param record 更新的压差记录信息
      * @return ApiResponse&lt;PressureDifferenceRecord&gt; 修改后的压差记录
      */
+    @OperationLog(module = "压差记录", type = OperationType.UPDATE, desc = "修改压差记录",
+            businessType = "PRESSURE_DIFFERENCE_RECORD", businessId = "#id")
     @PutMapping("/{id}")
     public ApiResponse<PressureDifferenceRecord> update(
             @RequestParam(required = false) Integer roomId,
@@ -247,6 +253,8 @@ public class PressureDifferenceRecordController extends BaseRoomRecordController
      * @param id     记录ID（路径参数）
      * @return ApiResponse&lt;Void&gt; 删除结果
      */
+    @OperationLog(module = "压差记录", type = OperationType.DELETE, desc = "删除压差记录",
+            businessType = "PRESSURE_DIFFERENCE_RECORD", businessId = "#id")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(
             @RequestParam(required = false) Integer roomId,

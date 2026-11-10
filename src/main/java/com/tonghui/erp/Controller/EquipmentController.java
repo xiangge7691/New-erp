@@ -1,6 +1,8 @@
 package com.tonghui.erp.Controller;
 
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Equipment.EquipmentWithDetailsDto;
@@ -414,4 +416,55 @@ public class EquipmentController extends BaseCrudController<Equipment, Equipment
     }
 
     // endregion
+
+    // region 操作日志标注
+    // ===================================
+    // 操作日志标注
+    // ===================================
+
+    /**
+     * 新增设备（记录操作日志）
+     *
+     * @param entity 新增参数
+     * @return 新增结果
+     */
+    @Override
+    @OperationLog(module = "设备管理", type = OperationType.CREATE, desc = "新增设备",
+            businessType = "EQUIPMENT", businessId = "#result.data.equipmentId")
+    @PostMapping
+    public ApiResponse<Equipment> create(@RequestBody Equipment entity) {
+        return super.create(entity);
+    }
+
+    /**
+     * 修改设备（记录操作日志）
+     *
+     * @param id     设备ID
+     * @param entity 修改参数
+     * @return 修改结果
+     */
+    @Override
+    @OperationLog(module = "设备管理", type = OperationType.UPDATE, desc = "修改设备",
+            businessType = "EQUIPMENT", businessId = "#id")
+    @PutMapping("/{id}")
+    public ApiResponse<Equipment> update(@PathVariable Integer id, @RequestBody Equipment entity) {
+        return super.update(id, entity);
+    }
+
+    /**
+     * 删除设备（记录操作日志）
+     *
+     * @param id 设备ID
+     * @return 删除结果
+     */
+    @Override
+    @OperationLog(module = "设备管理", type = OperationType.DELETE, desc = "删除设备",
+            businessType = "EQUIPMENT", businessId = "#id")
+    @DeleteMapping("/{id}")
+    public ApiResponse<Boolean> delete(@PathVariable Integer id) {
+        return super.delete(id);
+    }
+
+    // endregion
+
 }

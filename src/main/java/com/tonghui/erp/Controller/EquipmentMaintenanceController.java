@@ -2,10 +2,12 @@ package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.Equipment;
 import com.tonghui.erp.Data.Entity.EquipmentMaintenance;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Data.Entity.FileInfo;
 import com.tonghui.erp.Data.Entity.PersonnelFile;
 import com.tonghui.erp.Data.Entity.RoomInfo;
@@ -242,6 +244,8 @@ public class EquipmentMaintenanceController extends BaseController {
      * @param maintenance 维保记录实体对象
      * @return ApiResponse&lt;EquipmentMaintenance&gt; 新增的维保记录，包含自动生成的ID
      */
+    @OperationLog(module = "设备维保", type = OperationType.CREATE, desc = "新增设备维保",
+            businessType = "EQUIPMENT_MAINTENANCE", businessId = "#result.data.maintenanceId")
     @PostMapping
     public ApiResponse<EquipmentMaintenance> create(@RequestBody EquipmentMaintenance maintenance) {
         maintenance.setIsDeleted(0);
@@ -269,6 +273,8 @@ public class EquipmentMaintenanceController extends BaseController {
      * @param maintenance 维保记录实体对象（包含需要更新的字段）
      * @return ApiResponse&lt;EquipmentMaintenance&gt; 修改后的维保记录
      */
+    @OperationLog(module = "设备维保", type = OperationType.UPDATE, desc = "修改设备维保",
+            businessType = "EQUIPMENT_MAINTENANCE", businessId = "#id")
     @PutMapping("/{id}")
     public ApiResponse<EquipmentMaintenance> update(@PathVariable Long id, @RequestBody EquipmentMaintenance maintenance) {
         maintenance.setMaintenanceId(id);
@@ -285,6 +291,8 @@ public class EquipmentMaintenanceController extends BaseController {
      * @param id 维保记录ID（路径参数）
      * @return ApiResponse&lt;Void&gt; 删除结果
      */
+    @OperationLog(module = "设备维保", type = OperationType.DELETE, desc = "删除设备维保",
+            businessType = "EQUIPMENT_MAINTENANCE", businessId = "#id")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         List<FileInfo> attachments = fileInfoService.getFilesByBusiness(id, "EQUIPMENT_MAINTENANCE", null);

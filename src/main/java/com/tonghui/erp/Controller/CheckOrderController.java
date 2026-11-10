@@ -1,6 +1,8 @@
 package com.tonghui.erp.Controller;
 
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Warehouse.CheckOrderCreateDto;
 import com.tonghui.erp.Common.Dto.Warehouse.CheckOrderDetailDto;
@@ -185,6 +187,8 @@ public class CheckOrderController extends BaseController {
      *            </ul>
      * @return ApiResponse&lt;CheckOrder&gt; 创建后的盘点单（含单号与统计结果）
      */
+    @OperationLog(module = "检验单", type = OperationType.CREATE, desc = "新增检验单",
+            businessType = "CHECK_ORDER", businessId = "#result.data.id")
     @PostMapping
     public ApiResponse<CheckOrder> create(@RequestBody CheckOrderCreateDto dto) {
         try {

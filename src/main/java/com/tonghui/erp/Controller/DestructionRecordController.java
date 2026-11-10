@@ -1,6 +1,8 @@
 package com.tonghui.erp.Controller;
 
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Quality.DestructionRecordSaveDto;
@@ -232,6 +234,8 @@ public class DestructionRecordController extends BaseController {
      * @param dto 保存请求体（主表字段+明细列表）
      * @return ApiResponse&lt;DestructionRecord&gt; 新增的销毁记录（含自动生成的单号与合计数量）
      */
+    @OperationLog(module = "销毁记录", type = OperationType.CREATE, desc = "新增销毁记录",
+            businessType = "DESTRUCTION_RECORD", businessId = "#result.data.id")
     @PostMapping
     public ApiResponse<DestructionRecord> create(@RequestBody DestructionRecordSaveDto dto) {
         try {
@@ -278,6 +282,8 @@ public class DestructionRecordController extends BaseController {
      * @param dto 更新的销毁记录信息（主表字段+明细列表）
      * @return ApiResponse&lt;DestructionRecord&gt; 修改后的销毁记录
      */
+    @OperationLog(module = "销毁记录", type = OperationType.UPDATE, desc = "修改销毁记录",
+            businessType = "DESTRUCTION_RECORD", businessId = "#id")
     @PutMapping("/{id}")
     public ApiResponse<DestructionRecord> update(@PathVariable Long id, @RequestBody DestructionRecordSaveDto dto) {
         try {
@@ -302,6 +308,8 @@ public class DestructionRecordController extends BaseController {
      * @param voidRemark 作废原因（可选，最长500字符；请求体为纯文本字符串）
      * @return ApiResponse&lt;Void&gt; 作废结果
      */
+    @OperationLog(module = "销毁记录", type = OperationType.UPDATE, desc = "作废销毁记录",
+            businessType = "DESTRUCTION_RECORD", businessId = "#id")
     @PutMapping("/{id}/void")
     public ApiResponse<Void> voidRecord(@PathVariable Long id,
                                         @RequestBody(required = false) String voidRemark) {

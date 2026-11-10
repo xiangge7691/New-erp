@@ -1,6 +1,8 @@
 package com.tonghui.erp.Controller;
 
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Warehouse.MaterialBatchDto;
 import com.tonghui.erp.Common.Dto.Warehouse.TransferOrderCreateDto;
@@ -215,6 +217,8 @@ public class TransferOrderController extends BaseController {
      *            </ul>
      * @return ApiResponse&lt;TransferOrder&gt; 创建后的调拨单（含单号与汇总数据）
      */
+    @OperationLog(module = "调拨单", type = OperationType.CREATE, desc = "新增调拨单",
+            businessType = "TRANSFER_ORDER", businessId = "#result.data.id")
     @PostMapping
     public ApiResponse<TransferOrder> create(@RequestBody TransferOrderCreateDto dto) {
         try {

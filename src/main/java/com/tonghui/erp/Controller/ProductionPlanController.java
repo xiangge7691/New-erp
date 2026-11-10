@@ -2,7 +2,9 @@ package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.PagedResultWithSummary;
 import com.tonghui.erp.Common.Dto.ProductionPlanPurchaseProgressDto;
@@ -443,6 +445,8 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
      * @param id 生产计划ID
      * @return ApiResponse&lt;Boolean&gt; 作废结果
      */
+    @OperationLog(module = "生产计划", type = OperationType.UPDATE, desc = "作废生产计划",
+            businessType = "PRODUCTION_PLAN", businessId = "#id")
     @PutMapping("/{id}/void")
     public ApiResponse<Boolean> voidProductionPlan(@PathVariable Integer id) {
         try {
@@ -458,4 +462,55 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
     }
 
     // endregion
+
+    // region 操作日志标注
+    // ===================================
+    // 操作日志标注
+    // ===================================
+
+    /**
+     * 新增生产计划（记录操作日志）
+     *
+     * @param entity 新增参数
+     * @return 新增结果
+     */
+    @Override
+    @OperationLog(module = "生产计划", type = OperationType.CREATE, desc = "新增生产计划",
+            businessType = "PRODUCTION_PLAN", businessId = "#result.data.id")
+    @PostMapping
+    public ApiResponse<ProductionPlan> create(@RequestBody ProductionPlan entity) {
+        return super.create(entity);
+    }
+
+    /**
+     * 修改生产计划（记录操作日志）
+     *
+     * @param id     生产计划ID
+     * @param entity 修改参数
+     * @return 修改结果
+     */
+    @Override
+    @OperationLog(module = "生产计划", type = OperationType.UPDATE, desc = "修改生产计划",
+            businessType = "PRODUCTION_PLAN", businessId = "#id")
+    @PutMapping("/{id}")
+    public ApiResponse<ProductionPlan> update(@PathVariable Integer id, @RequestBody ProductionPlan entity) {
+        return super.update(id, entity);
+    }
+
+    /**
+     * 删除生产计划（记录操作日志）
+     *
+     * @param id 生产计划ID
+     * @return 删除结果
+     */
+    @Override
+    @OperationLog(module = "生产计划", type = OperationType.DELETE, desc = "删除生产计划",
+            businessType = "PRODUCTION_PLAN", businessId = "#id")
+    @DeleteMapping("/{id}")
+    public ApiResponse<Boolean> delete(@PathVariable Integer id) {
+        return super.delete(id);
+    }
+
+    // endregion
+
 }

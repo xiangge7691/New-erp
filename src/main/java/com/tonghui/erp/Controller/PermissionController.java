@@ -1,9 +1,11 @@
 package com.tonghui.erp.Controller;
 
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.PermissionDto;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Data.Entity.Permission;
 import com.tonghui.erp.Service.PermissionService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -188,6 +190,56 @@ public class PermissionController extends BaseCrudController<Permission, Permiss
             return exception(ex, "搜索权限");
         }
     }
-    
+
+    // endregion
+
+    // region 操作日志标注
+    // ===================================
+    // 操作日志标注
+    // ===================================
+
+    /**
+     * 新增权限（记录操作日志）
+     *
+     * @param entity 权限实体
+     * @return 创建的权限
+     */
+    @Override
+    @OperationLog(module = "权限管理", type = OperationType.CREATE, desc = "新增权限",
+            businessType = "PERMISSION", businessId = "#result.data.id")
+    @PostMapping
+    public ApiResponse<PermissionDto> create(@RequestBody Permission entity) {
+        return super.create(entity);
+    }
+
+    /**
+     * 修改权限（记录操作日志）
+     *
+     * @param id     权限ID
+     * @param entity 权限实体
+     * @return 修改后的权限
+     */
+    @Override
+    @OperationLog(module = "权限管理", type = OperationType.UPDATE, desc = "修改权限",
+            businessType = "PERMISSION", businessId = "#id")
+    @PutMapping("/{id}")
+    public ApiResponse<PermissionDto> update(@PathVariable Long id, @RequestBody Permission entity) {
+        return super.update(id, entity);
+    }
+
+    /**
+     * 删除权限（记录操作日志）
+     *
+     * @param id 权限ID
+     * @return 删除结果
+     */
+    @Override
+    @OperationLog(module = "权限管理", type = OperationType.DELETE, desc = "删除权限",
+            businessType = "PERMISSION", businessId = "#id")
+    @DeleteMapping("/{id}")
+    public ApiResponse<Boolean> delete(@PathVariable Long id) {
+        return super.delete(id);
+    }
+
     // endregion
 }

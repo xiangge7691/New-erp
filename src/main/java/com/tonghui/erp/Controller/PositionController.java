@@ -2,10 +2,12 @@ package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.System.PositionWithDetailsDto;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Data.Entity.Position;
 import com.tonghui.erp.Service.PositionService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -136,6 +138,8 @@ public class PositionController extends BaseController {
      * @param position 岗位实体对象
      * @return ApiResponse&lt;Position&gt; 新增的岗位
      */
+    @OperationLog(module = "岗位管理", type = OperationType.CREATE, desc = "新增岗位",
+            businessType = "POSITION", businessId = "#result.data.positionId")
     @PostMapping
     public ApiResponse<Position> create(@RequestBody Position position) {
         // 岗位编码唯一性校验（含软删除记录清理）
@@ -166,6 +170,8 @@ public class PositionController extends BaseController {
      * @param position 岗位实体对象
      * @return ApiResponse&lt;Position&gt; 修改后的岗位
      */
+    @OperationLog(module = "岗位管理", type = OperationType.UPDATE, desc = "修改岗位",
+            businessType = "POSITION", businessId = "#id")
     @PutMapping("/{id}")
     public ApiResponse<Position> update(@PathVariable Long id, @RequestBody Position position) {
         Position existing = positionService.getById(id);
@@ -190,6 +196,8 @@ public class PositionController extends BaseController {
      * @param id 岗位ID（路径参数）
      * @return ApiResponse&lt;Void&gt; 删除结果
      */
+    @OperationLog(module = "岗位管理", type = OperationType.DELETE, desc = "删除岗位",
+            businessType = "POSITION", businessId = "#id")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         positionService.removeById(id);

@@ -2,7 +2,9 @@ package com.tonghui.erp.Controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.SamplingRecord;
 import com.tonghui.erp.Service.SamplingRecordService;
@@ -224,6 +226,8 @@ public class SamplingRecordController extends BaseController {
      * @param record 取样记录信息（编号为空时系统自动生成）
      * @return ApiResponse&lt;SamplingRecord&gt; 新增的取样记录
      */
+    @OperationLog(module = "取样记录", type = OperationType.CREATE, desc = "新增取样记录",
+            businessType = "SAMPLING_RECORD", businessId = "#result.data.id")
     @PostMapping
     public ApiResponse<SamplingRecord> create(@RequestBody SamplingRecord record) {
         try {
@@ -282,6 +286,8 @@ public class SamplingRecordController extends BaseController {
      * @param record 更新的取样记录信息
      * @return ApiResponse&lt;SamplingRecord&gt; 修改后的取样记录
      */
+    @OperationLog(module = "取样记录", type = OperationType.UPDATE, desc = "修改取样记录",
+            businessType = "SAMPLING_RECORD", businessId = "#id")
     @PutMapping("/{id}")
     public ApiResponse<SamplingRecord> update(
             @PathVariable Long id,
@@ -314,6 +320,8 @@ public class SamplingRecordController extends BaseController {
      * @param id 取样记录ID（路径参数）
      * @return ApiResponse&lt;Void&gt; 删除结果
      */
+    @OperationLog(module = "取样记录", type = OperationType.DELETE, desc = "删除取样记录",
+            businessType = "SAMPLING_RECORD", businessId = "#id")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         try {
