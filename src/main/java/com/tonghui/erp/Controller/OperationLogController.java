@@ -1,11 +1,13 @@
 package com.tonghui.erp.Controller;
 
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.Dto.Log.DataChangeLogDto;
 import com.tonghui.erp.Common.Dto.Log.OperationLogDetailDto;
 import com.tonghui.erp.Common.Dto.Log.OperationLogDto;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.utils.LogQueryTimeUtils;
+import com.tonghui.erp.Service.DataChangeLogService;
 import com.tonghui.erp.Service.OperationLogService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,6 +16,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 /**
  * 操作日志控制器
@@ -40,6 +44,12 @@ public class OperationLogController extends BaseController {
      */
     @Autowired
     private OperationLogService operationLogService;
+
+    /**
+     * 数据变更日志服务
+     */
+    @Autowired
+    private DataChangeLogService dataChangeLogService;
 
     // endregion
 
@@ -144,6 +154,26 @@ public class OperationLogController extends BaseController {
             pageRequest.setPageSize(20);
         }
         return pageRequest;
+    }
+
+    /**
+     * 查询操作日志对应的数据变更
+     *
+     * 返回本次操作产生的全部数据变更（主记录与级联记录），按执行顺序排列。
+     *
+     * 示例请求：
+     * GET /api/system/operation-log/1001/changes
+     *
+     * @param id 操作日志ID
+     * @return ApiResponse&lt;List&lt;DataChangeLogDto&gt;&gt; 数据变更列表
+     */
+    @GetMapping("/{id}/changes")
+    public ApiResponse<List<DataChangeLogDto>> changes(@PathVariable Long id) {
+        try {
+            return success(dataChangeLogService.listByOperationLogId(id));
+        } catch (Exception ex) {
+            return exception(ex, "查询数据变更日志");
+        }
     }
 
     // endregion

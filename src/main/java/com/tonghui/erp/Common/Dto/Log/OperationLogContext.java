@@ -3,6 +3,8 @@ package com.tonghui.erp.Common.Dto.Log;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 操作日志上下文
@@ -139,6 +141,28 @@ public class OperationLogContext {
      * 操作时间（请求进入时间）
      */
     private LocalDateTime createdTime;
+
+    // endregion
+
+    // region 数据变更字段
+    // ===================================
+    // 数据变更字段
+    // ===================================
+
+    /**
+     * 变更TraceID
+     */
+    private String traceId;
+
+    /**
+     * 本次操作产生的数据变更
+     */
+    private List<DataChangeRecord> changes = new ArrayList<>();
+
+    /**
+     * 变更是否因为超过上限被截断
+     */
+    private boolean changeTruncated;
 
     // endregion
 }

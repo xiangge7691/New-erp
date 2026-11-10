@@ -1,5 +1,7 @@
 package com.tonghui.erp.Common.Scheduled;
 
+import com.tonghui.erp.Common.Config.LogProperties;
+import com.tonghui.erp.Service.DataChangeLogService;
 import com.tonghui.erp.Service.LoginLogService;
 import com.tonghui.erp.Service.OperationLogService;
 import com.tonghui.erp.Service.SystemConfigService;
@@ -32,6 +34,9 @@ public class LogCleanupTask {
     /** 操作日志保留天数配置键 */
     private static final String KEY_OPERATION_RETENTION = "log.operation.retention.days";
 
+    /** 数据变更日志保留天数配置键 */
+    private static final String KEY_CHANGE_RETENTION = "log.change.retention.days";
+
     /** 登录日志默认保留天数 */
     private static final int DEFAULT_LOGIN_RETENTION_DAYS = 180;
 
@@ -48,7 +53,13 @@ public class LogCleanupTask {
     private OperationLogService operationLogService;
 
     @Autowired
+    private DataChangeLogService dataChangeLogService;
+
+    @Autowired
     private SystemConfigService systemConfigService;
+
+    @Autowired
+    private LogProperties logProperties;
 
     // endregion
 
@@ -64,6 +75,7 @@ public class LogCleanupTask {
     public void cleanupExpiredLogs() {
         cleanupLoginLogs();
         cleanupOperationLogs();
+        cleanupChangeLogs();
     }
 
     /**
@@ -93,6 +105,23 @@ public class LogCleanupTask {
             }
         } catch (Exception e) {
             log.error("操作日志清理失败：{}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 清理过期数据变更日志
+     */
+    private void cleanupChangeLogs() {
+        try {
+            int defaultDays = logProperties.getChange().getRetentionDays();
+            int days = systemConfigService.getInt(KEY_CHANGE_RETENTION,
+                    defaultDays > 0 ? defaultDays : 180);
+            int deleted = dataChangeLogService.cleanup(days, BATCH_SIZE);
+            if (deleted > 0) {
+                log.info("数据变更日志清理完成：保留{}天，删除{}条", days, deleted);
+            }
+        } catch (Exception e) {
+            log.error("数据变更日志清理失败：{}", e.getMessage(), e);
         }
     }
 

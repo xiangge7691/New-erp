@@ -2,6 +2,10 @@ package com.tonghui.erp.Service;
 
 import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.Dto.Log.DataChangeLogDetailDto;
+import com.tonghui.erp.Common.Dto.Log.DataChangeLogDto;
+import com.tonghui.erp.Common.Dto.Log.DataChangeRecord;
+import com.tonghui.erp.Common.Dto.Log.FieldChange;
 import com.tonghui.erp.Common.Dto.Log.LoginLogContext;
 import com.tonghui.erp.Common.Dto.Log.LoginLogDetailDto;
 import com.tonghui.erp.Common.Dto.Log.LoginLogDto;
@@ -13,6 +17,8 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Data.mapper.SysLoginLogMapper;
 import com.tonghui.erp.Data.mapper.SysOperationLogMapper;
+import com.tonghui.erp.Data.mapper.SystemConfigMapper;
+import com.tonghui.erp.Data.Entity.SystemConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -66,6 +72,9 @@ public class LogModuleIntegrationTest {
     private OperationLogService operationLogService;
 
     @Autowired
+    private DataChangeLogService dataChangeLogService;
+
+    @Autowired
     private LogTestService logTestService;
 
     @Autowired
@@ -77,6 +86,9 @@ public class LogModuleIntegrationTest {
     @Autowired
     private SysOperationLogMapper sysOperationLogMapper;
 
+    @Autowired
+    private SystemConfigMapper systemConfigMapper;
+
     /**
      * 每个用例前确保日志表与默认配置存在（幂等）
      */
@@ -86,6 +98,8 @@ public class LogModuleIntegrationTest {
                 new ClassPathResource("Data/migration/create_login_log_table.sql"),
                 new ClassPathResource("Data/migration/add_login_log_role_permission_fields.sql"),
                 new ClassPathResource("Data/migration/create_operation_log_table.sql"),
+                new ClassPathResource("Data/migration/add_operation_log_change_fields.sql"),
+                new ClassPathResource("Data/migration/create_data_change_log_table.sql"),
                 new ClassPathResource("Data/migration/init_log_config_data.sql"));
         populator.execute(dataSource);
     }
@@ -285,6 +299,32 @@ public class LogModuleIntegrationTest {
     }
 
     /**
+     * 验证数据变更日志相关路由已注册
+     *
+     * @throws Exception 获取路由失败
+     */
+    @Test
+    public void testDataChangeLogMappingsExist() throws Exception {
+        assertMappingExists("GET", "/api/system/data-change-log/search");
+        assertMappingExists("GET", "/api/system/data-change-log/1");
+        assertMappingExists("GET", "/api/system/operation-log/1/changes");
+    }
+
+    /**
+     * 断言指定路由存在
+     *
+     * @param method HTTP方法
+     * @param url    请求地址
+     * @throws Exception 获取路由失败
+     */
+    private void assertMappingExists(String method, String url) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest(method, url);
+        HandlerExecutionChain chain = requestMappingHandlerMapping.getHandler(request);
+        assertNotNull(chain, "未找到路由：" + method + " " + url);
+        assertTrue(chain.getHandler() instanceof HandlerMethod);
+    }
+
+    /**
      * 断言指定路由的处理方法带有操作日志注解
      *
      * @param method  HTTP方法
@@ -335,6 +375,125 @@ public class LogModuleIntegrationTest {
         } finally {
             jdbcTemplate.update("DELETE FROM sys_login_log WHERE user_account = ?", account);
             jdbcTemplate.update("DELETE FROM sys_operation_log WHERE user_account = ?", account);
+        }
+    }
+
+    // endregion
+
+    // region 数据变更日志用例
+    // ===================================
+    // 数据变更日志用例
+    // ===================================
+
+    /**
+     * 操作日志与数据变更日志能正确关联并回填 operation_log_id
+     */
+    @Test
+    public void testDataChangeLogPersistence() {
+        String traceId = "test_trace_" + System.nanoTime();
+        String account = "logtest_change_" + System.nanoTime();
+        try {
+            DataChangeRecord record = new DataChangeRecord();
+            record.setTableName("system_config");
+            record.setEntityClass("com.tonghui.erp.Data.Entity.SystemConfig");
+            record.setBusinessId("999");
+            record.setChangeType("UPDATE");
+            record.setChangeSource("PRIMARY");
+            record.setBeforeJson("{\"config_value\":\"v1\"}");
+            record.setAfterJson("{\"config_value\":\"v2\"}");
+            record.setChangedFields(List.of(new FieldChange("config_value", "配置值", "v1", "v2")));
+            record.setFieldCount(1);
+
+            OperationLogContext context = new OperationLogContext();
+            context.setUserAccount(account);
+            context.setModule("测试模块");
+            context.setOperationType("UPDATE");
+            context.setOperationDesc("变更日志持久化测试");
+            context.setCreatedTime(LocalDateTime.now());
+            context.setResultStatus(1);
+            context.setTraceId(traceId);
+            context.setChanges(List.of(record));
+            operationLogService.recordAsync(context);
+
+            await(() -> countChangeLog(traceId) > 0, "数据变更日志写入超时");
+
+            Long operationLogId = jdbcTemplate.queryForObject(
+                    "SELECT id FROM sys_operation_log WHERE trace_id = ? LIMIT 1", Long.class, traceId);
+            assertNotNull(operationLogId);
+            Integer changeCount = jdbcTemplate.queryForObject(
+                    "SELECT change_count FROM sys_operation_log WHERE id = ?", Integer.class, operationLogId);
+            assertEquals(1, changeCount);
+
+            List<DataChangeLogDto> changes = dataChangeLogService.listByOperationLogId(operationLogId);
+            assertEquals(1, changes.size());
+            DataChangeLogDto change = changes.get(0);
+            assertEquals("system_config", change.getTableName());
+            assertEquals("PRIMARY", change.getChangeSource());
+            assertEquals(1, change.getFieldCount());
+            assertEquals("config_value", change.getChangedFields().get(0).getField());
+            assertEquals("v1", change.getChangedFields().get(0).getBefore());
+            assertEquals("v2", change.getChangedFields().get(0).getAfter());
+
+            DataChangeLogDetailDto detail = dataChangeLogService.detail(change.getId());
+            assertNotNull(detail);
+            assertEquals("{\"config_value\":\"v1\"}", detail.getBeforeJson());
+            assertEquals("{\"config_value\":\"v2\"}", detail.getAfterJson());
+        } finally {
+            jdbcTemplate.update("DELETE FROM sys_data_change_log WHERE trace_id = ?", traceId);
+            jdbcTemplate.update("DELETE FROM sys_operation_log WHERE trace_id = ?", traceId);
+        }
+    }
+
+    // endregion
+
+    // region 切面 + 数据变更联动用例
+    // ===================================
+    // 切面 + 数据变更联动用例
+    // ===================================
+
+    /**
+     * 标注 @OperationLog 的方法修改数据时，变更日志会自动关联操作日志并标记主记录
+     */
+    @Test
+    public void testOperationLogAspectWithDataChange() {
+        String key = "__aspect_change_" + System.nanoTime();
+        SystemConfig config = new SystemConfig();
+        config.setConfigKey(key);
+        config.setConfigValue("v1");
+        config.setConfigName("切面变更测试");
+        config.setConfigGroup("测试");
+        config.setValueType("string");
+        config.setStatus(1);
+        config.setIsDeleted(0);
+        config.setVersion(0);
+        systemConfigMapper.insert(config);
+        Long configId = config.getConfigId();
+        String businessId = String.valueOf(configId);
+        try {
+            ApiResponse<String> response = logTestService.updateConfig(configId, "v2");
+            assertEquals(ApiResponse.SUCCESS, response.getCode());
+
+            await(() -> countChangeLogByBusinessId("system_config", businessId) > 0,
+                    "数据变更日志写入超时");
+
+            Map<String, Object> operationLog = jdbcTemplate.queryForMap(
+                    "SELECT id, trace_id, change_count FROM sys_operation_log "
+                            + "WHERE operation_desc = '变更日志切面测试' AND business_id = ? "
+                            + "ORDER BY id DESC LIMIT 1", businessId);
+            Long operationLogId = ((Number) operationLog.get("id")).longValue();
+            assertEquals(1, ((Number) operationLog.get("change_count")).intValue());
+
+            List<DataChangeLogDto> changes = dataChangeLogService.listByOperationLogId(operationLogId);
+            assertEquals(1, changes.size());
+            DataChangeLogDto change = changes.get(0);
+            assertEquals("system_config", change.getTableName());
+            assertEquals("PRIMARY", change.getChangeSource());
+            assertTrue(change.getChangedFields().stream()
+                    .anyMatch(field -> "config_value".equals(field.getField())));
+        } finally {
+            jdbcTemplate.update("DELETE FROM sys_data_change_log WHERE table_name = 'system_config' AND business_id = ?", businessId);
+            jdbcTemplate.update("DELETE FROM sys_operation_log WHERE operation_desc = '变更日志切面测试' AND business_id = ?", businessId);
+            jdbcTemplate.update("DELETE FROM system_config WHERE config_id = ?", configId);
         }
     }
 
@@ -400,6 +559,30 @@ public class LogModuleIntegrationTest {
                 "SELECT COUNT(*) FROM sys_operation_log WHERE business_id = ?", Integer.class, businessId);
     }
 
+    /**
+     * 统计指定 TraceID 的数据变更日志数量
+     *
+     * @param traceId TraceID
+     * @return 数量
+     */
+    private Integer countChangeLog(String traceId) {
+        return jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM sys_data_change_log WHERE trace_id = ?", Integer.class, traceId);
+    }
+
+    /**
+     * 统计指定表与业务ID的变更日志数量
+     *
+     * @param tableName  表名
+     * @param businessId 业务ID
+     * @return 数量
+     */
+    private Integer countChangeLogByBusinessId(String tableName, String businessId) {
+        return jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM sys_data_change_log WHERE table_name = ? AND business_id = ?",
+                Integer.class, tableName, businessId);
+    }
+
     // endregion
 
     // region 测试用切面服务
@@ -419,8 +602,8 @@ public class LogModuleIntegrationTest {
          * @return 测试服务
          */
         @Bean
-        public LogTestService logTestService() {
-            return new LogTestService();
+        public LogTestService logTestService(SystemConfigMapper systemConfigMapper) {
+            return new LogTestService(systemConfigMapper);
         }
     }
 
@@ -428,6 +611,17 @@ public class LogModuleIntegrationTest {
      * 用于验证操作日志切面的测试服务
      */
     public static class LogTestService {
+
+        private final SystemConfigMapper systemConfigMapper;
+
+        /**
+         * 构造测试服务
+         *
+         * @param systemConfigMapper 系统配置Mapper
+         */
+        public LogTestService(SystemConfigMapper systemConfigMapper) {
+            this.systemConfigMapper = systemConfigMapper;
+        }
 
         /**
          * 执行一次被切面拦截的操作
@@ -439,6 +633,23 @@ public class LogModuleIntegrationTest {
         @OperationLog(module = "日志测试模块", type = OperationType.CREATE, desc = "切面测试",
                 businessType = "LOG_TEST", businessId = "#businessId")
         public ApiResponse<String> run(String businessId, Map<String, Object> params) {
+            return ApiResponse.successResponse("ok");
+        }
+
+        /**
+         * 修改配置项并触发数据变更采集
+         *
+         * @param configId 配置项ID
+         * @param value    新配置值
+         * @return 成功响应
+         */
+        @OperationLog(module = "日志测试模块", type = OperationType.UPDATE, desc = "变更日志切面测试",
+                businessType = "SYSTEM_CONFIG", businessId = "#configId")
+        public ApiResponse<String> updateConfig(Long configId, String value) {
+            SystemConfig config = new SystemConfig();
+            config.setConfigId(configId);
+            config.setConfigValue(value);
+            systemConfigMapper.updateById(config);
             return ApiResponse.successResponse("ok");
         }
     }

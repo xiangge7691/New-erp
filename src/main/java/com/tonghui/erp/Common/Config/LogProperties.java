@@ -4,6 +4,9 @@ import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * 日志配置
  * <p>
@@ -35,6 +38,11 @@ public class LogProperties {
      * 操作日志配置
      */
     private Operation operation = new Operation();
+
+    /**
+     * 数据变更日志配置
+     */
+    private Change change = new Change();
 
     /**
      * 登录日志配置
@@ -107,6 +115,59 @@ public class LogProperties {
          * 请求参数摘要最大长度，超出部分截断
          */
         private int maxParamLength = 2000;
+    }
+
+    // endregion
+
+    // region 数据变更日志配置
+    // ===================================
+    // 数据变更日志配置
+    // ===================================
+
+    /**
+     * 数据变更日志配置
+     */
+    @Data
+    public static class Change {
+
+        /**
+         * 是否记录数据变更日志
+         */
+        private boolean enabled = true;
+
+        /**
+         * 数据变更日志默认保留天数（数据库配置优先）
+         */
+        private int retentionDays = 180;
+
+        /**
+         * 单次操作最多记录多少条变更
+         */
+        private int maxChanges = 100;
+
+        /**
+         * wrapper 批量更新时最多抓取多少行快照
+         */
+        private int maxRows = 1000;
+
+        /**
+         * 单个字段值最大字符数
+         */
+        private int maxValueLength = 2000;
+
+        /**
+         * 不记录变更的表
+         */
+        private List<String> excludeTables = new ArrayList<>(List.of(
+                "sys_login_log",
+                "sys_operation_log",
+                "sys_data_change_log",
+                "file_operation_log",
+                "file_info",
+                "business_file",
+                "plan_status_log",
+                "acceptance_resend_log"
+        ));
     }
 
     // endregion

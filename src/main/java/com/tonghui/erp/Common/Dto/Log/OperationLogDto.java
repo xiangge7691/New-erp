@@ -93,6 +93,16 @@ public class OperationLogDto {
     private Integer costTime;
 
     /**
+     * 数据变更记录数
+     */
+    private Integer changeCount;
+
+    /**
+     * 数据变更是否截断：0否/1是
+     */
+    private Integer changeTruncated;
+
+    /**
      * 客户端IP
      */
     private String clientIp;

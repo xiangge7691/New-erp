@@ -100,6 +100,22 @@ log:
   operation:
     enabled: true
     max-param-length: 2000
+  # 数据变更日志
+  change:
+    enabled: true
+    retention-days: 180
+    max-changes: 100
+    max-rows: 1000
+    max-value-length: 2000
+    exclude-tables:
+      - sys_login_log
+      - sys_operation_log
+      - sys_data_change_log
+      - file_operation_log
+      - file_info
+      - business_file
+      - plan_status_log
+      - acceptance_resend_log
   # 登录日志
   login:
     record-success: true

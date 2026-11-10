@@ -2,14 +2,18 @@ package com.tonghui.erp.Service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tonghui.erp.Common.Config.LogProperties;
+import com.tonghui.erp.Common.Dto.Log.DataChangeRecord;
 import com.tonghui.erp.Common.Dto.Log.OperationLogContext;
 import com.tonghui.erp.Common.Dto.Log.OperationLogDetailDto;
 import com.tonghui.erp.Common.Dto.Log.OperationLogDto;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Data.Entity.SysDataChangeLog;
 import com.tonghui.erp.Data.Entity.SysOperationLog;
 import com.tonghui.erp.Data.Entity.User;
+import com.tonghui.erp.Data.mapper.SysDataChangeLogMapper;
 import com.tonghui.erp.Data.mapper.SysOperationLogMapper;
 import com.tonghui.erp.Data.mapper.UserMapper;
 import com.tonghui.erp.Service.OperationLogService;
@@ -21,6 +25,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * 操作日志服务实现类
@@ -57,30 +63,47 @@ public class OperationLogServiceImpl implements OperationLogService {
     private static final int MAX_LOCATION_LENGTH = 120;
     private static final int MAX_USER_AGENT_LENGTH = 500;
 
+    /** 数据变更日志字段长度 */
+    private static final int MAX_TABLE_NAME_LENGTH = 64;
+    private static final int MAX_ENTITY_CLASS_LENGTH = 255;
+    private static final int MAX_CHANGE_TYPE_LENGTH = 10;
+    private static final int MAX_CHANGE_SOURCE_LENGTH = 10;
+    private static final int MAX_CHANGE_JSON_LENGTH = 60000;
+    private static final int MAX_CHANGED_FIELDS_LENGTH = 200000;
+    private static final int MAX_TRACE_ID_LENGTH = 64;
+
     /** 单次清理最大循环次数，避免异常情况下无限删除 */
     private static final int MAX_CLEANUP_ROUNDS = 1000;
 
     private final SysOperationLogMapper sysOperationLogMapper;
+    private final SysDataChangeLogMapper sysDataChangeLogMapper;
     private final UserMapper userMapper;
     private final LogProperties logProperties;
     private final SystemConfigService systemConfigService;
+    private final ObjectMapper objectMapper;
 
     /**
      * 构造操作日志服务
      *
-     * @param sysOperationLogMapper 操作日志Mapper
-     * @param userMapper            用户Mapper
-     * @param logProperties         日志配置
-     * @param systemConfigService   系统配置服务
+     * @param sysOperationLogMapper  操作日志Mapper
+     * @param sysDataChangeLogMapper 数据变更日志Mapper
+     * @param userMapper             用户Mapper
+     * @param logProperties          日志配置
+     * @param systemConfigService    系统配置服务
+     * @param objectMapper           Jackson对象映射器
      */
     public OperationLogServiceImpl(SysOperationLogMapper sysOperationLogMapper,
+                                   SysDataChangeLogMapper sysDataChangeLogMapper,
                                    UserMapper userMapper,
                                    LogProperties logProperties,
-                                   SystemConfigService systemConfigService) {
+                                   SystemConfigService systemConfigService,
+                                   ObjectMapper objectMapper) {
         this.sysOperationLogMapper = sysOperationLogMapper;
+        this.sysDataChangeLogMapper = sysDataChangeLogMapper;
         this.userMapper = userMapper;
         this.logProperties = logProperties;
         this.systemConfigService = systemConfigService;
+        this.objectMapper = objectMapper;
     }
 
     // endregion
@@ -129,11 +152,81 @@ public class OperationLogServiceImpl implements OperationLogService {
             entity.setIpLocation(truncate(context.getIpLocation(), MAX_LOCATION_LENGTH));
             entity.setUserAgent(truncate(context.getUserAgent(), MAX_USER_AGENT_LENGTH));
             entity.setCreatedTime(context.getCreatedTime() == null ? LocalDateTime.now() : context.getCreatedTime());
+            entity.setTraceId(truncate(context.getTraceId(), MAX_TRACE_ID_LENGTH));
+
+            // 只有成功的操作才记录数据变更，失败/回滚的变更不落库
+            List<DataChangeRecord> changes = context.getResultStatus() != null && context.getResultStatus() == 1
+                    ? context.getChanges()
+                    : Collections.emptyList();
+            if (changes == null) {
+                changes = Collections.emptyList();
+            }
+            entity.setChangeCount(changes.size());
+            entity.setChangeTruncated(context.isChangeTruncated() ? 1 : 0);
+
             sysOperationLogMapper.insert(entity);
+
+            if (!changes.isEmpty() && hasText(context.getTraceId())) {
+                persistChanges(context, entity.getId(), changes);
+            }
         } catch (Exception e) {
             // 日志失败绝不影响业务，仅记录应用日志
             log.error("写入操作日志失败：模块={}，类型={}，原因={}",
                     context.getModule(), context.getOperationType(), e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 写入数据变更日志
+     *
+     * @param context        操作日志上下文
+     * @param operationLogId 操作日志ID
+     * @param changes        变更记录
+     */
+    private void persistChanges(OperationLogContext context, Long operationLogId,
+                                List<DataChangeRecord> changes) {
+        for (DataChangeRecord change : changes) {
+            try {
+                SysDataChangeLog entity = new SysDataChangeLog();
+                entity.setTraceId(truncate(context.getTraceId(), MAX_TRACE_ID_LENGTH));
+                entity.setOperationLogId(operationLogId);
+                entity.setTableName(truncate(change.getTableName(), MAX_TABLE_NAME_LENGTH));
+                entity.setEntityClass(truncate(change.getEntityClass(), MAX_ENTITY_CLASS_LENGTH));
+                entity.setBusinessId(truncate(change.getBusinessId(), MAX_BUSINESS_ID_LENGTH));
+                entity.setChangeType(truncate(change.getChangeType(), MAX_CHANGE_TYPE_LENGTH));
+                entity.setChangeSource(truncate(change.getChangeSource(), MAX_CHANGE_SOURCE_LENGTH));
+                entity.setBeforeJson(truncate(change.getBeforeJson(), MAX_CHANGE_JSON_LENGTH));
+                entity.setAfterJson(truncate(change.getAfterJson(), MAX_CHANGE_JSON_LENGTH));
+                entity.setChangedFields(truncate(serializeChangedFields(change), MAX_CHANGED_FIELDS_LENGTH));
+                entity.setFieldCount(change.getFieldCount() == null ? 0 : change.getFieldCount());
+                entity.setUserId(context.getUserId());
+                entity.setUserAccount(truncate(context.getUserAccount(), MAX_ACCOUNT_LENGTH));
+                entity.setUserName(truncate(context.getUserName(), MAX_USER_NAME_LENGTH));
+                entity.setCreatedTime(context.getCreatedTime() == null
+                        ? LocalDateTime.now() : context.getCreatedTime());
+                sysDataChangeLogMapper.insert(entity);
+            } catch (Exception e) {
+                log.error("写入数据变更日志失败：表={}，主键={}，原因={}",
+                        change.getTableName(), change.getBusinessId(), e.getMessage(), e);
+            }
+        }
+    }
+
+    /**
+     * 序列化字段差异
+     *
+     * @param change 变更记录
+     * @return JSON 字符串
+     */
+    private String serializeChangedFields(DataChangeRecord change) {
+        if (change.getChangedFields() == null || change.getChangedFields().isEmpty()) {
+            return "[]";
+        }
+        try {
+            return objectMapper.writeValueAsString(change.getChangedFields());
+        } catch (Exception e) {
+            log.warn("序列化字段差异失败：表={}，原因={}", change.getTableName(), e.getMessage());
+            return "[]";
         }
     }
 

@@ -2,6 +2,7 @@ package com.tonghui.erp.Data.mapper;
 
 import com.tonghui.erp.Common.Dto.FinishedStock.FinishedStockAggDto;
 import com.tonghui.erp.Common.Dto.Stock.ExpiryWarningDTO;
+import com.tonghui.erp.Common.annotation.DataChangeAudit;
 import com.tonghui.erp.Data.Entity.Stock;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Delete;
@@ -47,6 +48,8 @@ public interface StockMapper extends BaseMapper<Stock> {
      * @param prodUnitId 生产单位ID
      * @return 删除的记录数
      */
+    @DataChangeAudit(table = "stock", whereColumn = "prod_unit_id", param = "prodUnitId",
+            primaryKeyColumn = "stock_id", changeType = "DELETE")
     @Delete("DELETE FROM stock WHERE prod_unit_id = #{prodUnitId}")
     int physicalDeleteByProdUnitId(@Param("prodUnitId") Long prodUnitId);
 
@@ -56,6 +59,8 @@ public interface StockMapper extends BaseMapper<Stock> {
      * @param prodUnitId 生产单位ID
      * @return 更新的记录数
      */
+    @DataChangeAudit(table = "stock", whereColumn = "prod_unit_id", param = "prodUnitId",
+            primaryKeyColumn = "stock_id", changeType = "DELETE")
     @Update("UPDATE stock SET is_deleted = 1 WHERE prod_unit_id = #{prodUnitId} AND is_deleted = 0")
     int softDeleteByProdUnitId(@Param("prodUnitId") Long prodUnitId);
 

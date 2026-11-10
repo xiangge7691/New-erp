@@ -826,6 +826,7 @@ int deleteBefore(@Param("before") LocalDateTime before, @Param("limit") int limi
 - 建表脚本：`create_login_log_table.sql`、`add_login_log_role_permission_fields.sql`、`create_operation_log_table.sql`、`init_log_config_data.sql`；
 - 实体与 Mapper：`SysLoginLog`、`SysOperationLog` 及清理/统计 SQL；
 - 登录日志：`AuthController` 登录成功/失败埋点，记录账号、IP、归属地、时间、结果、失败原因；
+- 数据变更日志：`DataChangeInterceptor` 自动采集 Mapper 增删改的修改前后字段值，写入 `sys_data_change_log`，通过 `trace_id` 与操作日志关联，支持级联修改记录；详见 [data-change-log-design.md](./data-change-log-design.md)；
 - 角色与权限快照：登录成功时记录角色ID/名称、可访问菜单（`menu`）范围、接口权限（`api`）键与名称，支持按角色名、权限键筛选，详情接口返回完整权限明细；
 - 操作日志：`@OperationLog` 注解、`OperationLogAspect` 切面、参数脱敏、结果判定、业务 ID SpEL；
 - IP：`IpUtils` + `IpLocationService`，离线 ip2region 3.3.7 双库，IPv4/IPv6 均原样记录并解析归属地；
@@ -839,6 +840,6 @@ int deleteBefore(@Param("before") LocalDateTime before, @Param("limit") int limi
 
 **尚未完成**
 
-- 前端“登录日志 / 操作日志”两个页面；
+- 前端“登录日志 / 操作日志 / 数据变更”页面与操作日志详情的数据变更页签；
 - 可选的退出登录接口与日志导出接口（各业务模块已有的导出接口已按 `EXPORT` 类型记录）；
-- 生产库需手动执行四个迁移脚本（新建表时直接使用含角色/权限字段的 `create_login_log_table.sql`；已建表则执行 `add_login_log_role_permission_fields.sql`）。
+- 生产库需手动执行日志相关迁移脚本（新建表时直接使用含新增字段的建表脚本；已建表则执行对应 `add_*` 迁移脚本）。

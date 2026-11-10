@@ -56,5 +56,10 @@ public class OperationLogDetailDto extends OperationLogDto {
      */
     private String userAgent;
 
+    /**
+     * 变更TraceID
+     */
+    private String traceId;
+
     // endregion
 }

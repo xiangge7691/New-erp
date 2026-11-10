@@ -174,4 +174,29 @@ public class SysOperationLog {
     private LocalDateTime createdTime;
 
     // endregion
+
+    // region 数据变更关联字段
+    // ===================================
+    // 数据变更关联字段
+    // ===================================
+
+    /**
+     * 变更TraceID
+     */
+    @TableField(value = "trace_id")
+    private String traceId;
+
+    /**
+     * 数据变更记录数
+     */
+    @TableField(value = "change_count")
+    private Integer changeCount;
+
+    /**
+     * 数据变更是否截断：0否/1是
+     */
+    @TableField(value = "change_truncated")
+    private Integer changeTruncated;
+
+    // endregion
 }

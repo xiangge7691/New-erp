@@ -2,6 +2,8 @@ package com.tonghui.erp.Common.aspect;
 
 import com.tonghui.erp.Common.Config.LogProperties;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.Dto.Log.DataChangeRecord;
+import com.tonghui.erp.Common.Dto.Log.DataChangeTraceContext;
 import com.tonghui.erp.Common.Dto.Log.OperationLogContext;
 import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Common.utils.IpLocationService;
@@ -29,6 +31,9 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.lang.reflect.Method;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 /**
  * 操作日志切面
@@ -121,6 +126,10 @@ public class OperationLogAspect {
         }
 
         Object result = null;
+        DataChangeTraceContext.Trace changeTrace = null;
+        if (context != null && logProperties.getChange().isEnabled()) {
+            changeTrace = DataChangeTraceContext.begin();
+        }
         try {
             result = joinPoint.proceed();
             if (context != null) {
@@ -135,11 +144,24 @@ public class OperationLogAspect {
             }
             throw ex;
         } finally {
+            if (changeTrace != null) {
+                DataChangeTraceContext.Trace ended = DataChangeTraceContext.end();
+                if (context != null && ended != null) {
+                    context.setTraceId(ended.getTraceId());
+                    context.setChanges(ended.getChanges());
+                    context.setChangeTruncated(ended.isTruncated());
+                }
+            }
             if (context != null) {
                 context.setCostTime((int) Math.min(Integer.MAX_VALUE, System.currentTimeMillis() - startMillis));
                 if (!hasText(context.getBusinessId())) {
                     context.setBusinessId(resolveBusinessId(operationLog.businessId(), joinPoint, result));
                 }
+                // 失败/回滚的操作不记录数据变更，避免日志与实际提交数据不一致
+                if (context.getResultStatus() == null || context.getResultStatus() != 1) {
+                    context.setChanges(new ArrayList<>());
+                }
+                markPrimaryChange(context, operationLog);
                 try {
                     operationLogService.recordAsync(context);
                 } catch (Exception e) {
@@ -289,6 +311,94 @@ public class OperationLogAspect {
             log.debug("解析操作日志业务ID失败：表达式={}，原因={}", expression, e.getMessage());
             return null;
         }
+    }
+
+    // endregion
+
+    // region 数据变更主记录标记
+    // ===================================
+    // 数据变更主记录标记
+    // ===================================
+
+    /**
+     * 标记主记录与关联变更
+     * <p>
+     * 优先按注解的 businessId + businessType 匹配；匹配不到时按 businessId，
+     * 仍匹配不到则把第一条变更作为主记录
+     * </p>
+     *
+     * @param context      操作日志上下文
+     * @param operationLog 操作日志注解
+     */
+    private void markPrimaryChange(OperationLogContext context, OperationLog operationLog) {
+        List<DataChangeRecord> changes = context.getChanges();
+        if (changes == null || changes.isEmpty()) {
+            return;
+        }
+        String businessType = normalizeType(operationLog.businessType());
+        String businessId = context.getBusinessId();
+
+        DataChangeRecord primary = null;
+        if (hasText(businessId)) {
+            for (DataChangeRecord change : changes) {
+                if (businessId.equals(change.getBusinessId()) && matchesType(change, businessType)) {
+                    primary = change;
+                    break;
+                }
+            }
+            if (primary == null) {
+                for (DataChangeRecord change : changes) {
+                    if (businessId.equals(change.getBusinessId())) {
+                        primary = change;
+                        break;
+                    }
+                }
+            }
+        }
+        if (primary == null && hasText(businessType)) {
+            for (DataChangeRecord change : changes) {
+                if (matchesType(change, businessType)) {
+                    primary = change;
+                    break;
+                }
+            }
+        }
+        if (primary == null) {
+            primary = changes.get(0);
+        }
+        for (DataChangeRecord change : changes) {
+            change.setChangeSource(change == primary ? "PRIMARY" : "RELATED");
+        }
+    }
+
+    /**
+     * 判断变更记录是否匹配业务类型
+     *
+     * @param change       变更记录
+     * @param businessType 归一化后的业务类型
+     * @return 是否匹配
+     */
+    private boolean matchesType(DataChangeRecord change, String businessType) {
+        if (!hasText(businessType) || change.getEntityClass() == null) {
+            return false;
+        }
+        String entityClass = change.getEntityClass();
+        String simpleName = entityClass.substring(entityClass.lastIndexOf('.') + 1);
+        String entityType = normalizeType(simpleName);
+        return entityType.startsWith(businessType) || businessType.startsWith(entityType);
+    }
+
+    /**
+     * 归一化业务类型/实体名，便于跨命名风格比较
+     *
+     * @param value 原始值
+     * @return 仅保留字母数字并转小写
+     */
+    private String normalizeType(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replaceAll("[^A-Za-z0-9]", "").toLowerCase(Locale.ROOT);
     }
 
     // endregion
