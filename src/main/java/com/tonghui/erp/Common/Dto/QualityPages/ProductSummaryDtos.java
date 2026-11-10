@@ -99,8 +99,10 @@ public final class ProductSummaryDtos {
         private String key;
         /** 显示名称 */
         private String label;
-        /** 状态：done/active/pending/error */
+        /** 状态：done/active/pending/error/skipped */
         private String state;
+        /** 不适用说明，如“无采购，物料直接入库” */
+        private String skipReason;
     }
 
     /** 页面聚合概览 */
@@ -257,6 +259,8 @@ public final class ProductSummaryDtos {
     public static class SlotState {
         /** 环节 */
         private String stage;
+        /** 链路节点编码 */
+        private String nodeKey;
         /** 显示名称 */
         private String label;
         /** 业务类型编码 */
@@ -280,8 +284,12 @@ public final class ProductSummaryDtos {
         private String key;
         /** 显示名称 */
         private String label;
-        /** 状态：done/active/pending/error */
+        /** 状态：done/active/pending/error/skipped */
         private String state;
+        /** 是否不适用（如无采购、物料直接入库） */
+        private Boolean skipped;
+        /** 不适用说明 */
+        private String skipReason;
         /** 主信息 */
         private String main;
         /** 辅助信息 */
@@ -349,6 +357,8 @@ public final class ProductSummaryDtos {
     public static class FileGroup {
         /** 环节 */
         private String stage;
+        /** 链路节点编码 */
+        private String nodeKey;
         /** 显示名称 */
         private String label;
         /** 业务类型编码 */
@@ -368,6 +378,8 @@ public final class ProductSummaryDtos {
     public static class MissingItem {
         /** 环节 */
         private String stage;
+        /** 链路节点编码 */
+        private String nodeKey;
         /** 显示名称 */
         private String label;
         /** 关联单据 */

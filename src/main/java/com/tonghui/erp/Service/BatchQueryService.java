@@ -1,6 +1,7 @@
 package com.tonghui.erp.Service;
 
 import com.tonghui.erp.Common.Dto.QualityPages.BatchContext;
+import com.tonghui.erp.Data.Entity.ProductionPlan;
 import com.tonghui.erp.Data.Entity.WorkOrder;
 
 import java.util.List;
@@ -29,4 +30,15 @@ public interface BatchQueryService {
      * @return 批次上下文列表
      */
     List<BatchContext> loadAll(List<WorkOrder> workOrders);
+
+    /**
+     * 加载未下达工单的生产计划上下文
+     * <p>
+     * 仅加载计划、采购、验收和物料入库数据，用于产品信息汇总中未下达工单的记录。
+     * </p>
+     *
+     * @param plan 生产计划
+     * @return 计划上下文
+     */
+    BatchContext loadByPlan(ProductionPlan plan);
 }

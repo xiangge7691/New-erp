@@ -11,6 +11,7 @@ import com.tonghui.erp.Data.Entity.PurchaseOrders;
 import com.tonghui.erp.Data.Entity.ReleaseReview;
 import com.tonghui.erp.Data.Entity.ReturnOrder;
 import com.tonghui.erp.Data.Entity.RoomInfo;
+import com.tonghui.erp.Data.Entity.SalesOrder;
 import com.tonghui.erp.Data.Entity.SamplingRecord;
 import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.Entity.StockOut;
@@ -41,8 +42,16 @@ public class BatchContext {
     private List<AcceptanceOrder> acceptances = new ArrayList<>();
     private List<ProductionPick> picks = new ArrayList<>();
     private List<ReturnOrder> returns = new ArrayList<>();
+    /** 成品入库单（stock_in.work_order_id 关联，in_type=成品入库） */
     private List<StockIn> stockIns = new ArrayList<>();
+    /** 成品出库单（销售出库/成品出库，按销售台账或批号关联） */
     private List<StockOut> stockOuts = new ArrayList<>();
+    /** 物料入库单（采购入库/直接入库/领料入库，按验收单或生产计划关联） */
+    private List<StockIn> materialStockIns = new ArrayList<>();
+    /** 生产领料出库单（领料单关联的出库单） */
+    private List<StockOut> materialStockOuts = new ArrayList<>();
+    /** 成品出库对应的销售台账 */
+    private List<SalesOrder> salesOrders = new ArrayList<>();
     private List<InspectionRequest> requests = new ArrayList<>();
     private List<SamplingRecord> samplings = new ArrayList<>();
     private List<InspectionRecord> inspections = new ArrayList<>();
@@ -62,8 +71,12 @@ public class BatchContext {
     private Map<Long, List<com.tonghui.erp.Data.Entity.PurchaseOrderItems>> purchaseItems;
     /** 领料单ID -> 明细 */
     private Map<Long, List<com.tonghui.erp.Data.Entity.ProductionPickDetail>> pickDetails;
-    /** 入库单ID -> 明细 */
+    /** 成品入库单ID -> 明细 */
     private Map<Long, List<com.tonghui.erp.Data.Entity.StockInDetail>> stockInDetails;
-    /** 出库单ID -> 明细 */
+    /** 成品出库单ID -> 明细 */
     private Map<Long, List<com.tonghui.erp.Data.Entity.StockOutDetail>> stockOutDetails;
+    /** 物料入库单ID -> 明细 */
+    private Map<Long, List<com.tonghui.erp.Data.Entity.StockInDetail>> materialStockInDetails;
+    /** 生产领料出库单ID -> 明细 */
+    private Map<Long, List<com.tonghui.erp.Data.Entity.StockOutDetail>> materialStockOutDetails;
 }

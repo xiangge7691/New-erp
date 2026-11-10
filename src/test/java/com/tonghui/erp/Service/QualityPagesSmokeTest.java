@@ -49,7 +49,15 @@ public class QualityPagesSmokeTest {
 
         JsonNode detail = get("/api/product-summary/batches/" + workOrderId).path("data");
         Assertions.assertEquals(workOrderId, detail.path("batch").path("workOrderId").asLong());
-        Assertions.assertTrue(detail.path("stages").size() >= 6, "全链路节点少于 6 个");
+        JsonNode stages = detail.path("stages");
+        Assertions.assertEquals(10, stages.size(), "全链路节点数量应为 10");
+        String[] expectedKeys = {"plan", "purchase", "acceptance", "workOrder", "pick",
+                "production", "inspection", "finishedInbound", "release", "finishedOutbound"};
+        for (int i = 0; i < expectedKeys.length; i++) {
+            Assertions.assertEquals(expectedKeys[i], stages.get(i).path("key").asText(),
+                    "第 " + (i + 1) + " 个节点编码不正确");
+        }
+        Assertions.assertEquals(10, first.path("stageStates").size(), "列表环节状态数量应为 10");
         Assertions.assertTrue(detail.path("slots").size() > 0, "槽位统计为空");
     }
 
@@ -171,6 +179,64 @@ public class QualityPagesSmokeTest {
         Assertions.assertTrue(stats.has("batchTotal"), "检验看板缺少批次总数");
         Assertions.assertTrue(stats.has("todoBatches"), "检验看板缺少待办数");
         Assertions.assertEquals(6, stats.path("stepCounts").size(), "检验看板环节数不是 6");
+
+        // 任务三态之和应等于任务总数
+        int taskTotal = stats.path("taskTotal").asInt();
+        int todoTasks = stats.path("todoTasks").asInt();
+        int inspectingTasks = stats.path("inspectingTasks").asInt();
+        int completedTasks = stats.path("completedTasks").asInt();
+        Assertions.assertEquals(taskTotal, todoTasks + inspectingTasks + completedTasks,
+                "任务三态之和应等于任务总数");
+
+        // 批次三态之和应等于批次总数
+        int batchTotal = stats.path("batchTotal").asInt();
+        int todoBatches = stats.path("todoBatches").asInt();
+        int inspectingBatches = stats.path("inspectingBatches").asInt();
+        int completedBatches = stats.path("completedBatches").asInt();
+        Assertions.assertEquals(batchTotal, todoBatches + inspectingBatches + completedBatches,
+                "批次三态之和应等于批次总数");
+
+        // 六步任务数之和加已完成任务数应等于任务总数
+        int stepTaskSum = 0;
+        for (JsonNode step : stats.path("stepCounts")) {
+            stepTaskSum += step.path("taskCount").asInt();
+        }
+        Assertions.assertEquals(taskTotal, stepTaskSum + completedTasks,
+                "六步任务数之和加已完成任务数应等于任务总数");
+
+        // 三态口径与环节计数应与任务列表的 current_step 分布一致（已作废任务不计入）
+        JsonNode tasks = get("/api/inspection/tasks?pageIndex=0&pageSize=2000").path("data");
+        Assumptions.assumeTrue(tasks.path("totalCount").asInt() <= 2000,
+                "测试库任务数超过 2000，跳过全量对账");
+        int expectedTodo = 0;
+        int expectedInspecting = 0;
+        int expectedCompleted = 0;
+        java.util.Map<String, Integer> expectedStepCounts = new java.util.HashMap<>();
+        for (JsonNode task : tasks.path("items")) {
+            if ("已作废".equals(task.path("taskStatus").asText())) {
+                continue;
+            }
+            String step = task.path("currentStep").asText();
+            if ("DONE".equals(step)) {
+                expectedCompleted++;
+            } else if ("SAMPLING".equals(step) || "INSPECTION".equals(step)
+                    || "RETENTION".equals(step) || "DESTRUCTION".equals(step)) {
+                expectedInspecting++;
+            } else {
+                expectedTodo++;
+            }
+            if (!"DONE".equals(step) && !step.isEmpty()) {
+                expectedStepCounts.merge(step, 1, Integer::sum);
+            }
+        }
+        Assertions.assertEquals(expectedTodo, todoTasks, "待办任务数口径不一致");
+        Assertions.assertEquals(expectedInspecting, inspectingTasks, "检验中任务数口径不一致");
+        Assertions.assertEquals(expectedCompleted, completedTasks, "已完成任务数口径不一致");
+        for (JsonNode step : stats.path("stepCounts")) {
+            int expected = expectedStepCounts.getOrDefault(step.path("stepCode").asText(), 0);
+            Assertions.assertEquals(expected, step.path("taskCount").asInt(),
+                    step.path("stepName").asText() + "环节任务数口径不一致");
+        }
     }
 
     @Test

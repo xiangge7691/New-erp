@@ -171,7 +171,8 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             if (StringUtils.hasText(dateType) && !"planDate".equals(dateType)) {
                 continue;
             }
-            ProductSummaryDtos.BatchSummary summary = toPlanSummary(plan);
+            BatchContext planContext = batchQueryService.loadByPlan(plan);
+            ProductSummaryDtos.BatchSummary summary = toPlanSummary(plan, planContext);
             if (!inDateRange(planDate(plan), start, end)) continue;
             if (onlyMissing && summary.getMissingCount() == 0) continue;
             data.summaries.add(summary);
@@ -328,21 +329,37 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         if (plan == null) {
             throw new IllegalArgumentException("生产计划不存在");
         }
+        BatchContext ctx = batchQueryService.loadByPlan(plan);
         ProductSummaryDtos.BatchDetail detail = new ProductSummaryDtos.BatchDetail();
-        detail.setBatch(toPlanSummary(plan));
+        detail.setBatch(toPlanSummary(plan, ctx));
         detail.setSlots(planOnlySlots(plan));
         detail.setFiles(planOnlyFileGroups(plan));
         detail.setMissingItems(planOnlyMissing(plan));
-        detail.setStages(planOnlyStages(plan));
+        detail.setStages(planOnlyStages(ctx));
         return detail;
     }
 
-    private List<ProductSummaryDtos.StageItem> planOnlyStages(ProductionPlan plan) {
-        ProductSummaryDtos.DocumentItem doc = planDocument(plan);
-        ProductSummaryDtos.StageItem stage = stage("plan", "计划", "done", plan.getPlanNumber(),
-                safe(plan.getCurrentStatus()) + (planDate(plan) == null ? "" : " · " + planDate(plan)),
-                List.of(doc));
-        return List.of(stage);
+    /**
+     * 未下达工单的计划节点：计划、采购、验收入库有数据时展示，其余节点固定为待处理
+     *
+     * @param ctx 计划上下文
+     * @return 固定顺序的链路节点
+     */
+    private List<ProductSummaryDtos.StageItem> planOnlyStages(BatchContext ctx) {
+        ProductionPlan plan = ctx.getPlan();
+        List<ProductSummaryDtos.StageItem> stages = new ArrayList<>();
+        stages.add(stage("plan", "计划", "done", plan.getPlanNumber(), planMeta(ctx),
+                List.of(planDocument(plan))));
+        addPurchaseStage(stages, ctx);
+        addAcceptanceStage(stages, ctx);
+        stages.add(pendingStage("workOrder", "生产任务"));
+        stages.add(pendingStage("pick", "生产领料"));
+        stages.add(pendingStage("production", "生产过程"));
+        stages.add(pendingStage("inspection", "检验"));
+        stages.add(pendingStage("finishedInbound", "成品入库"));
+        stages.add(pendingStage("release", "审核放行"));
+        stages.add(pendingStage("finishedOutbound", "成品出库"));
+        return stages;
     }
 
     private ProductSummaryDtos.DocumentItem planDocument(ProductionPlan plan) {
@@ -362,6 +379,7 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             if (ids.isEmpty()) continue;
             ProductSummaryDtos.SlotState slot = new ProductSummaryDtos.SlotState();
             slot.setStage(config.getStage());
+            slot.setNodeKey(nodeKeyOfStage(config.getStage()));
             slot.setLabel(StringUtils.hasText(config.getDisplayName())
                     ? config.getDisplayName() : config.getBizType() + " / " + config.getFileKind());
             slot.setBizType(config.getBizType());
@@ -387,6 +405,7 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             if (files.isEmpty()) continue;
             ProductSummaryDtos.FileGroup group = new ProductSummaryDtos.FileGroup();
             group.setStage(config.getStage());
+            group.setNodeKey(nodeKeyOfStage(config.getStage()));
             group.setLabel(StringUtils.hasText(config.getDisplayName())
                     ? config.getDisplayName() : config.getBizType() + " / " + config.getFileKind());
             group.setBizType(config.getBizType());
@@ -408,6 +427,7 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
                 if (files(config.getBizType(), id, config.getFileKind()).isEmpty()) {
                     ProductSummaryDtos.MissingItem item = new ProductSummaryDtos.MissingItem();
                     item.setStage(config.getStage());
+                    item.setNodeKey(nodeKeyOfStage(config.getStage()));
                     item.setLabel(StringUtils.hasText(config.getDisplayName())
                             ? config.getDisplayName() : config.getBizType());
                     item.setDoc(plan.getPlanNumber());
@@ -428,8 +448,9 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         };
     }
 
-    private ProductSummaryDtos.BatchSummary toPlanSummary(ProductionPlan plan) {
-        Preparation preparation = plan.getPreparationId() == null ? null : preparationService.getById(plan.getPreparationId());
+    private ProductSummaryDtos.BatchSummary toPlanSummary(ProductionPlan plan, BatchContext ctx) {
+        Preparation preparation = ctx.getPreparation() != null ? ctx.getPreparation()
+                : (plan.getPreparationId() == null ? null : preparationService.getById(plan.getPreparationId()));
         ProductSummaryDtos.BatchSummary dto = new ProductSummaryDtos.BatchSummary();
         dto.setRecordKey(plan.getId() + "__none");
         dto.setPlanId(plan.getId() == null ? null : plan.getId().longValue());
@@ -459,60 +480,202 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
                 .collect(Collectors.toList());
         dto.setFileExpected(slots.stream().mapToInt(ProductSummaryDtos.SlotState::getExpected).sum());
         dto.setFileUploaded(slots.stream().mapToInt(ProductSummaryDtos.SlotState::getUploaded).sum());
-        dto.setStageStates(planOnlyStageStates());
+        dto.setStageStates(planOnlyStageStates(ctx));
         return dto;
     }
 
-    private List<ProductSummaryDtos.StageState> planOnlyStageStates() {
+    /**
+     * 未下达工单计划的节点状态
+     *
+     * @param ctx 计划上下文
+     * @return 固定顺序的节点状态
+     */
+    private List<ProductSummaryDtos.StageState> planOnlyStageStates(BatchContext ctx) {
         List<ProductSummaryDtos.StageState> states = new ArrayList<>();
-        states.add(stageState("plan", "计划", "done"));
-        states.add(stageState("material", "采购", "pending"));
-        states.add(stageState("workOrder", "工单", "pending"));
-        states.add(stageState("production", "生产", "pending"));
-        states.add(stageState("inbound", "入库", "pending"));
-        states.add(stageState("outbound", "出库", "pending"));
+        states.add(stageState("plan", "计划", ctx.getPlan() == null ? "skipped" : "done"));
+        states.add(purchaseStageState(ctx));
+        states.add(stageState("acceptance", "验收入库", acceptanceState(ctx)));
+        states.add(stageState("workOrder", "生产任务", "pending"));
+        states.add(stageState("pick", "生产领料", "pending"));
+        states.add(stageState("production", "生产过程", "pending"));
         states.add(stageState("inspection", "检验", "pending"));
-        states.add(stageState("release", "放行", "pending"));
+        states.add(stageState("finishedInbound", "成品入库", "pending"));
+        states.add(stageState("release", "审核放行", "pending"));
+        states.add(stageState("finishedOutbound", "成品出库", "pending"));
         return states;
     }
 
+    /**
+     * 批次节点状态：与详情节点使用同一套 key、标签和顺序
+     *
+     * @param ctx 批次上下文
+     * @return 固定顺序的节点状态
+     */
     private List<ProductSummaryDtos.StageState> stageStates(BatchContext ctx) {
         List<ProductSummaryDtos.StageState> states = new ArrayList<>();
-        WorkOrder wo = ctx.getWorkOrder();
-        String materialLabel = ctx.getPicks().isEmpty() ? "采购" : "领料";
-        states.add(stageState("plan", "计划", ctx.getPlan() == null ? "pending" : "done"));
-        states.add(stageState("material", materialLabel,
-                !ctx.getPicks().isEmpty() || !ctx.getPurchases().isEmpty() || !ctx.getAcceptances().isEmpty()
-                        ? "done" : "pending"));
-        states.add(stageState("workOrder", "工单", wo.getFinishedQty() == null ? "active" : "done"));
-        states.add(stageState("production", "生产", stageStateOf(ctx.getExecutions())));
-        states.add(stageState("inbound", "入库", ctx.getStockIns().isEmpty() ? "pending" : "done"));
-        states.add(stageState("outbound", "出库", ctx.getStockOuts().isEmpty() ? "pending" : "done"));
-        List<InspectionRecord> finished = finishedInspections(ctx);
-        String conclusion = inspectionConclusion(ctx);
-        String inspectionState = "合格".equals(conclusion) ? "done" : "不合格".equals(conclusion) ? "error"
-                : (finished.isEmpty() ? "pending" : "active");
-        states.add(stageState("inspection", "检验", inspectionState));
-        states.add(stageState("release", "放行", ctx.getRelease() == null ? "pending"
-                : ("拒绝放行".equals(ctx.getRelease().getReleaseConclusion()) ? "error" : "done")));
+        states.add(stageState("plan", "计划", ctx.getPlan() == null ? "skipped" : "done"));
+        states.add(purchaseStageState(ctx));
+        states.add(stageState("acceptance", "验收入库", acceptanceState(ctx)));
+        states.add(stageState("workOrder", "生产任务", workOrderState(ctx)));
+        states.add(stageState("pick", "生产领料", pickState(ctx)));
+        states.add(stageState("production", "生产过程", productionState(ctx)));
+        states.add(stageState("inspection", "检验", inspectionState(ctx)));
+        states.add(stageState("finishedInbound", "成品入库", finishedInboundState(ctx)));
+        states.add(stageState("release", "审核放行", releaseState(ctx)));
+        states.add(stageState("finishedOutbound", "成品出库", finishedOutboundState(ctx)));
         return states;
+    }
+
+    /**
+     * 采购节点状态：无采购但存在验收/物料入库时标记为不适用
+     *
+     * @param ctx 批次上下文
+     * @return 节点状态
+     */
+    private ProductSummaryDtos.StageState purchaseStageState(BatchContext ctx) {
+        String state = purchaseState(ctx);
+        return stageState("purchase", "采购", state,
+                "skipped".equals(state) ? "无采购，物料直接入库" : null);
+    }
+
+    private String purchaseState(BatchContext ctx) {
+        List<PurchaseOrders> purchases = ctx.getPurchases();
+        if (purchases.isEmpty()) {
+            return hasMaterialInboundEvidence(ctx) ? "skipped" : "pending";
+        }
+        boolean allDone = purchases.stream().allMatch(purchase -> isPurchaseDone(purchase.getStatus()));
+        return allDone ? "done" : "active";
+    }
+
+    private boolean isPurchaseDone(Object status) {
+        String value = status == null ? "" : String.valueOf(status);
+        return "已入库".equals(value) || "已结束".equals(value)
+                || "已归档".equals(value) || "已完成".equals(value);
+    }
+
+    private boolean hasMaterialInboundEvidence(BatchContext ctx) {
+        boolean hasAcceptance = materialAcceptances(ctx).stream()
+                .anyMatch(acceptance -> !"已作废".equals(acceptance.getStatus()));
+        return hasAcceptance || hasEffectiveStockIn(ctx.getMaterialStockIns());
+    }
+
+    /**
+     * 有效入库单：排除草稿和已取消
+     */
+    private boolean isEffectiveStockIn(StockIn stockIn) {
+        String status = stockIn.getInStatus();
+        return status == null || (!"草稿".equals(status) && !"已取消".equals(status));
+    }
+
+    private boolean hasEffectiveStockIn(List<StockIn> stockIns) {
+        return stockIns.stream().anyMatch(this::isEffectiveStockIn);
+    }
+
+    /**
+     * 有效出库单：排除草稿和已取消
+     */
+    private boolean isEffectiveStockOut(StockOut stockOut) {
+        String status = stockOut.getOutStatus();
+        return status == null || (!"草稿".equals(status) && !"已取消".equals(status));
+    }
+
+    private boolean hasEffectiveStockOut(List<StockOut> stockOuts) {
+        return stockOuts.stream().anyMatch(this::isEffectiveStockOut);
+    }
+
+    private String acceptanceState(BatchContext ctx) {
+        if (hasEffectiveStockIn(ctx.getMaterialStockIns())) {
+            return "done";
+        }
+        boolean active = materialAcceptances(ctx).stream()
+                .anyMatch(acceptance -> !"已作废".equals(acceptance.getStatus()));
+        return active ? "active" : "pending";
+    }
+
+    private String workOrderState(BatchContext ctx) {
+        WorkOrder workOrder = ctx.getWorkOrder();
+        if (workOrder == null) {
+            return "pending";
+        }
+        if (workOrder.getConfigCompleteTime() != null || workOrder.getFinishedQty() != null) {
+            return "done";
+        }
+        return workOrder.getConfigDate() == null ? "pending" : "active";
+    }
+
+    private String pickState(BatchContext ctx) {
+        List<ProductionPick> picks = ctx.getPicks().stream()
+                .filter(pick -> !"已作废".equals(pick.getStatus()))
+                .collect(Collectors.toList());
+        if (picks.isEmpty()) {
+            return "pending";
+        }
+        return picks.stream().allMatch(pick -> "已发料".equals(pick.getStatus())) ? "done" : "active";
+    }
+
+    private String productionState(BatchContext ctx) {
+        List<WorkOrderProcessExecution> executions = ctx.getExecutions();
+        if (executions.isEmpty()) {
+            return "pending";
+        }
+        if (executions.stream().allMatch(execution -> execution.getEndTime() != null)) {
+            return "done";
+        }
+        return executions.stream().anyMatch(execution -> execution.getStartTime() != null) ? "active" : "pending";
+    }
+
+    private String inspectionState(BatchContext ctx) {
+        List<InspectionRecord> finished = finishedInspections(ctx);
+        if (finished.isEmpty()) {
+            return !ctx.getRequests().isEmpty() || !ctx.getSamplings().isEmpty() ? "active" : "pending";
+        }
+        String conclusion = inspectionConclusion(ctx);
+        if ("合格".equals(conclusion)) {
+            return "done";
+        }
+        if ("不合格".equals(conclusion)) {
+            return "error";
+        }
+        return "active";
+    }
+
+    private String finishedInboundState(BatchContext ctx) {
+        if (hasEffectiveStockIn(ctx.getStockIns())) {
+            return "done";
+        }
+        return "合格".equals(inspectionConclusion(ctx)) ? "active" : "pending";
+    }
+
+    private String releaseState(BatchContext ctx) {
+        if (ctx.getRelease() == null) {
+            return "done".equals(finishedInboundState(ctx)) ? "active" : "pending";
+        }
+        return "拒绝放行".equals(ctx.getRelease().getReleaseConclusion()) ? "error" : "done";
+    }
+
+    private String finishedOutboundState(BatchContext ctx) {
+        if (hasEffectiveStockOut(ctx.getStockOuts())) {
+            return "done";
+        }
+        return "done".equals(releaseState(ctx)) ? "active" : "pending";
     }
 
     private ProductSummaryDtos.StageState stageState(String key, String label, String state) {
+        return stageState(key, label, state, null);
+    }
+
+    private ProductSummaryDtos.StageState stageState(String key, String label, String state, String skipReason) {
         ProductSummaryDtos.StageState item = new ProductSummaryDtos.StageState();
         item.setKey(key);
         item.setLabel(label);
         item.setState(state);
+        item.setSkipReason(skipReason);
         return item;
-    }
-
-    private String stageStateOf(List<WorkOrderProcessExecution> executions) {
-        if (executions.isEmpty()) return "pending";
-        return executions.stream().allMatch(e -> e.getEndTime() != null) ? "done" : "active";
     }
 
     private BigDecimal inboundQty(BatchContext ctx) {
         return ctx.getStockIns().stream()
+                .filter(this::isEffectiveStockIn)
                 .flatMap(s -> ctx.getStockInDetails() == null ? java.util.stream.Stream.empty()
                         : ctx.getStockInDetails().getOrDefault(s.getInId(), Collections.emptyList()).stream())
                 .map(StockInDetail::getQuantity)
@@ -522,6 +685,7 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
 
     private BigDecimal outboundQty(BatchContext ctx) {
         return ctx.getStockOuts().stream()
+                .filter(this::isEffectiveStockOut)
                 .flatMap(s -> ctx.getStockOutDetails() == null ? java.util.stream.Stream.empty()
                         : ctx.getStockOutDetails().getOrDefault(s.getOutId(), Collections.emptyList()).stream())
                 .map(StockOutDetail::getQuantity)
@@ -545,13 +709,35 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             case "采购" -> 2;
             case "验收" -> 3;
             case "工单" -> 4;
-            case "工序" -> 5;
-            case "领料" -> 6;
-            case "入库" -> 7;
-            case "出库" -> 8;
-            case "检验" -> 9;
-            case "放行" -> 10;
+            case "领料" -> 5;
+            case "工序" -> 6;
+            case "检验" -> 7;
+            case "入库" -> 8;
+            case "放行" -> 9;
+            case "出库" -> 10;
             default -> 99;
+        };
+    }
+
+    /**
+     * 文件配置环节映射到链路节点编码
+     *
+     * @param stage 文件配置环节
+     * @return 节点编码
+     */
+    private String nodeKeyOfStage(String stage) {
+        return switch (stage == null ? "" : stage) {
+            case "品种资料", "计划" -> "plan";
+            case "采购" -> "purchase";
+            case "验收" -> "acceptance";
+            case "工单" -> "workOrder";
+            case "领料" -> "pick";
+            case "工序" -> "production";
+            case "检验" -> "inspection";
+            case "入库" -> "finishedInbound";
+            case "放行" -> "release";
+            case "出库" -> "finishedOutbound";
+            default -> null;
         };
     }
 
@@ -588,8 +774,10 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         dto.setMaterialSource(materialSource(ctx));
         dto.setPlanDate(planDate(ctx));
         dto.setWorkOrderDate(date(wo.getConfigDate()));
-        dto.setInboundDate(ctx.getStockIns().isEmpty() ? null : date(ctx.getStockIns().get(0).getInDate()));
-        dto.setOutboundDate(ctx.getStockOuts().isEmpty() ? null : date(ctx.getStockOuts().get(0).getOutDate()));
+        dto.setInboundDate(ctx.getStockIns().stream().filter(this::isEffectiveStockIn).findFirst()
+                .map(stockIn -> date(stockIn.getInDate())).orElse(null));
+        dto.setOutboundDate(ctx.getStockOuts().stream().filter(this::isEffectiveStockOut).findFirst()
+                .map(stockOut -> date(stockOut.getOutDate())).orElse(null));
         InspectionRecord latestInspection = latestFinishedInspection(ctx);
         dto.setInspectionDate(latestInspection == null ? null : date(latestInspection.getEndTime()));
         dto.setProductionStart(date(wo.getConfigDate()));
@@ -638,59 +826,193 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         return detail;
     }
 
+    /**
+     * 批次全链路节点：固定返回计划、采购、验收入库、生产任务、生产领料、
+     * 生产过程、检验、成品入库、审核放行、成品出库 10 个节点。
+     *
+     * @param ctx 批次上下文
+     * @return 固定顺序的链路节点
+     */
     private List<ProductSummaryDtos.StageItem> stages(BatchContext ctx) {
         List<ProductSummaryDtos.StageItem> stages = new ArrayList<>();
         WorkOrder wo = ctx.getWorkOrder();
 
-        stages.add(stage("plan", "计划", "done", planCode(ctx), planMeta(ctx),
-                ctx.getPlan() == null ? Collections.emptyList() : List.of(planDoc(ctx))));
+        // 计划
+        stages.add(ctx.getPlan() == null
+                ? skippedStage("plan", "计划", "无生产计划")
+                : stage("plan", "计划", "done", planCode(ctx), planMeta(ctx), List.of(planDoc(ctx))));
 
-        List<ProductSummaryDtos.DocumentItem> materialDocs = new ArrayList<>();
-        if (!ctx.getPicks().isEmpty()) {
-            ctx.getPicks().forEach(p -> materialDocs.add(pickDoc(p, ctx)));
-        } else {
-            ctx.getPurchases().forEach(p -> materialDocs.add(purchaseDoc(p, ctx)));
-            ctx.getAcceptances().forEach(a -> materialDocs.add(acceptanceDoc(a)));
-        }
-        stages.add(stage("material", ctx.getPicks().isEmpty() ? "采购 / 验收" : "领料",
-                materialDocs.isEmpty() ? "pending" : "done",
-                ctx.getPicks().isEmpty() ? ctx.getPurchases().size() + " 张采购单" : ctx.getPicks().size() + " 张领料单",
-                materialMeta(ctx), materialDocs));
+        // 采购
+        addPurchaseStage(stages, ctx);
 
-        stages.add(stage("workOrder", "工单", wo.getFinishedQty() != null ? "done" : "active",
+        // 验收入库
+        addAcceptanceStage(stages, ctx);
+
+        // 生产任务
+        stages.add(stage("workOrder", "生产任务", workOrderState(ctx),
                 wo.getWorkOrderCode(), "批号 " + safe(wo.getBatchNumber()) + " · " + safe(wo.getCurrentStatus()),
                 List.of(workOrderDoc(ctx))));
 
-        stages.add(stage("production", "生产", ctx.getExecutions().isEmpty() ? "pending" : "done",
-                ctx.getExecutions().size() + " 道工序",
+        // 生产领料
+        List<ProductSummaryDtos.DocumentItem> pickDocs = new ArrayList<>();
+        ctx.getPicks().forEach(pick -> pickDocs.add(pickDoc(pick, ctx)));
+        ctx.getMaterialStockOuts().forEach(stockOut -> pickDocs.add(pickStockOutDoc(stockOut, ctx)));
+        stages.add(stage("pick", "生产领料", pickState(ctx),
+                ctx.getPicks().isEmpty() ? "暂无领料" : ctx.getPicks().size() + " 张领料单",
+                pickMeta(ctx), pickDocs));
+
+        // 生产过程
+        stages.add(stage("production", "生产过程", productionState(ctx),
+                ctx.getExecutions().isEmpty() ? "暂无工序" : ctx.getExecutions().size() + " 道工序",
                 yieldRate(ctx) == null ? "" : "收率 " + yieldRate(ctx) + "%",
-                ctx.getExecutions().stream().map(e -> processDoc(e, ctx)).collect(Collectors.toList())));
+                ctx.getExecutions().stream().map(execution -> processDoc(execution, ctx)).collect(Collectors.toList())));
 
-        stages.add(stage("inbound", "入库", ctx.getStockIns().isEmpty() ? "pending" : "done",
-                ctx.getStockIns().size() + " 张入库单", "",
-                ctx.getStockIns().stream().map(s -> stockInDoc(s, ctx)).collect(Collectors.toList())));
-
-        stages.add(stage("outbound", "出库", ctx.getStockOuts().isEmpty() ? "pending" : "done",
-                ctx.getStockOuts().size() + " 张出库单", "",
-                ctx.getStockOuts().stream().map(s -> stockOutDoc(s, ctx)).collect(Collectors.toList())));
-
+        // 检验
         List<ProductSummaryDtos.DocumentItem> inspectionDocs = new ArrayList<>();
-        ctx.getRequests().forEach(r -> inspectionDocs.add(inspectionRequestDoc(r)));
-        ctx.getSamplings().forEach(s -> inspectionDocs.add(samplingDoc(s)));
-        ctx.getInspections().forEach(i -> inspectionDocs.add(inspectionRecordDoc(i)));
+        ctx.getRequests().forEach(request -> inspectionDocs.add(inspectionRequestDoc(request)));
+        ctx.getSamplings().forEach(sampling -> inspectionDocs.add(samplingDoc(sampling)));
+        ctx.getInspections().forEach(record -> inspectionDocs.add(inspectionRecordDoc(record)));
         List<InspectionRecord> finished = finishedInspections(ctx);
         String conclusion = inspectionConclusion(ctx);
-        stages.add(stage("inspection", "检验", finished.isEmpty() ? "pending"
-                        : ("合格".equals(conclusion) ? "done" : ("不合格".equals(conclusion) ? "error" : "active")),
+        stages.add(stage("inspection", "检验", inspectionState(ctx),
                 conclusion == null ? "暂无检验" : conclusion,
                 finished.size() + " 条成品检验记录", inspectionDocs));
 
-        stages.add(stage("release", "放行", ctx.getRelease() == null ? "pending"
-                        : ("拒绝放行".equals(ctx.getRelease().getReleaseConclusion()) ? "error" : "done"),
+        // 成品入库
+        stages.add(stage("finishedInbound", "成品入库", finishedInboundState(ctx),
+                ctx.getStockIns().isEmpty() ? "未入库" : ctx.getStockIns().size() + " 张入库单", inboundMeta(ctx),
+                ctx.getStockIns().stream().map(stockIn -> stockInDoc(stockIn, ctx)).collect(Collectors.toList())));
+
+        // 审核放行
+        stages.add(stage("release", "审核放行", releaseState(ctx),
                 ctx.getRelease() == null ? "未放行" : ctx.getRelease().getReleaseCode(),
                 ctx.getRelease() == null ? "" : safe(ctx.getRelease().getReleaseConclusion()),
                 ctx.getRelease() == null ? Collections.emptyList() : List.of(releaseDoc(ctx.getRelease()))));
+
+        // 成品出库
+        stages.add(stage("finishedOutbound", "成品出库", finishedOutboundState(ctx),
+                ctx.getStockOuts().isEmpty() ? "未出库" : ctx.getStockOuts().size() + " 张出库单",
+                outboundMeta(ctx),
+                ctx.getStockOuts().stream().map(stockOut -> stockOutDoc(stockOut, ctx)).collect(Collectors.toList())));
         return stages;
+    }
+
+    /**
+     * 追加采购节点：无采购但有验收/物料入库时标记为不适用
+     *
+     * @param stages 节点列表
+     * @param ctx    批次上下文
+     */
+    private void addPurchaseStage(List<ProductSummaryDtos.StageItem> stages, BatchContext ctx) {
+        if (ctx.getPurchases().isEmpty() && hasMaterialInboundEvidence(ctx)) {
+            stages.add(skippedStage("purchase", "采购", "无采购，物料直接入库"));
+            return;
+        }
+        stages.add(stage("purchase", "采购", purchaseState(ctx),
+                ctx.getPurchases().isEmpty() ? "无采购" : ctx.getPurchases().size() + " 张采购单",
+                purchaseMeta(ctx), purchaseDocuments(ctx)));
+    }
+
+    /**
+     * 追加验收入库节点：验收单与物料入库单在同一节点展示
+     *
+     * @param stages 节点列表
+     * @param ctx    批次上下文
+     */
+    private void addAcceptanceStage(List<ProductSummaryDtos.StageItem> stages, BatchContext ctx) {
+        stages.add(stage("acceptance", "验收入库", acceptanceState(ctx),
+                acceptanceMain(ctx), acceptanceMeta(ctx), acceptanceDocuments(ctx)));
+    }
+
+    private List<ProductSummaryDtos.DocumentItem> purchaseDocuments(BatchContext ctx) {
+        List<ProductSummaryDtos.DocumentItem> documents = new ArrayList<>();
+        ctx.getPurchases().forEach(purchase -> documents.add(purchaseDoc(purchase, ctx)));
+        return documents;
+    }
+
+    private String purchaseMeta(BatchContext ctx) {
+        if (ctx.getPurchases().isEmpty()) {
+            return "";
+        }
+        return ctx.getPurchases().stream()
+                .map(purchase -> purchase.getStatus() == null ? "" : String.valueOf(purchase.getStatus()))
+                .filter(StringUtils::hasText)
+                .distinct()
+                .collect(Collectors.joining(" / "));
+    }
+
+    private List<ProductSummaryDtos.DocumentItem> acceptanceDocuments(BatchContext ctx) {
+        List<ProductSummaryDtos.DocumentItem> documents = new ArrayList<>();
+        materialAcceptances(ctx).forEach(acceptance -> documents.add(acceptanceDoc(acceptance)));
+        ctx.getMaterialStockIns().forEach(stockIn -> documents.add(materialStockInDoc(stockIn, ctx)));
+        return documents;
+    }
+
+    private String acceptanceMain(BatchContext ctx) {
+        int acceptanceCount = materialAcceptances(ctx).size();
+        int stockInCount = ctx.getMaterialStockIns().size();
+        if (acceptanceCount == 0 && stockInCount == 0) {
+            return "暂无验收";
+        }
+        return acceptanceCount + " 张验收单 / " + stockInCount + " 张入库单";
+    }
+
+    private String acceptanceMeta(BatchContext ctx) {
+        LocalDate latest = null;
+        for (AcceptanceOrder acceptance : materialAcceptances(ctx)) {
+            LocalDate day = date(acceptance.getAcceptanceTime());
+            if (day != null && (latest == null || day.isAfter(latest))) {
+                latest = day;
+            }
+        }
+        for (StockIn stockIn : ctx.getMaterialStockIns()) {
+            LocalDate day = date(stockIn.getInDate());
+            if (day != null && (latest == null || day.isAfter(latest))) {
+                latest = day;
+            }
+        }
+        return latest == null ? "" : latest.toString();
+    }
+
+    private String pickMeta(BatchContext ctx) {
+        if (ctx.getPicks().isEmpty()) {
+            return "";
+        }
+        ProductionPick first = ctx.getPicks().get(0);
+        String meta = safe(first.getStatus()) + " · " + safe(first.getApplicant());
+        if (!ctx.getMaterialStockOuts().isEmpty()) {
+            meta += " · 出库 " + safe(ctx.getMaterialStockOuts().get(0).getOutCode());
+        }
+        return meta;
+    }
+
+    private String inboundMeta(BatchContext ctx) {
+        return ctx.getStockIns().stream().filter(this::isEffectiveStockIn).findFirst()
+                .map(stockIn -> date(stockIn.getInDate()))
+                .map(day -> day == null ? "" : day.toString())
+                .orElse("");
+    }
+
+    private String outboundMeta(BatchContext ctx) {
+        return ctx.getStockOuts().stream().filter(this::isEffectiveStockOut).findFirst()
+                .map(stockOut -> date(stockOut.getOutDate()))
+                .map(day -> day == null ? "" : day.toString())
+                .orElse("");
+    }
+
+    /**
+     * 物料验收单：排除成品入库来源
+     *
+     * @param ctx 批次上下文
+     * @return 验收单列表
+     */
+    private List<AcceptanceOrder> materialAcceptances(BatchContext ctx) {
+        if (ctx.getAcceptances() == null) {
+            return Collections.emptyList();
+        }
+        return ctx.getAcceptances().stream()
+                .filter(acceptance -> !"成品入库".equals(acceptance.getSourceType()))
+                .collect(Collectors.toList());
     }
 
     private ProductSummaryDtos.StageItem stage(String key, String label, String state, String main,
@@ -699,10 +1021,38 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         stage.setKey(key);
         stage.setLabel(label);
         stage.setState(state);
+        stage.setSkipped(false);
         stage.setMain(main);
         stage.setMeta(meta);
         stage.setDocuments(documents);
         return stage;
+    }
+
+    /**
+     * 不适用节点：业务上确实不存在的环节，如无采购直接入库
+     *
+     * @param key          节点编码
+     * @param label        显示名称
+     * @param skipReason   不适用说明
+     * @return 节点
+     */
+    private ProductSummaryDtos.StageItem skippedStage(String key, String label, String skipReason) {
+        ProductSummaryDtos.StageItem stage = stage(key, label, "skipped", "不适用", "",
+                Collections.emptyList());
+        stage.setSkipped(true);
+        stage.setSkipReason(skipReason);
+        return stage;
+    }
+
+    /**
+     * 待处理节点：未到达该环节
+     *
+     * @param key   节点编码
+     * @param label 显示名称
+     * @return 节点
+     */
+    private ProductSummaryDtos.StageItem pendingStage(String key, String label) {
+        return stage(key, label, "pending", "", "", Collections.emptyList());
     }
 
     private ProductSummaryDtos.DocumentItem planDoc(BatchContext ctx) {
@@ -769,9 +1119,6 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             line.setBatchNo(d.getBatchNumber());
             doc.getLines().add(line);
         }
-        if (pick.getStockOutId() != null) {
-            doc.setFiles(toFiles(businessFileService.list("STOCK_OUT_PRODUCTION", pick.getStockOutId(), null, null)));
-        }
         return doc;
     }
 
@@ -801,7 +1148,7 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
 
     private ProductSummaryDtos.DocumentItem stockInDoc(StockIn stockIn, BatchContext ctx) {
         ProductSummaryDtos.DocumentItem doc = new ProductSummaryDtos.DocumentItem();
-        doc.setType("入库单");
+        doc.setType("成品入库单");
         doc.setCode(stockIn.getInCode());
         doc.setDate(date(stockIn.getInDate()));
         doc.setStatus(stockIn.getInStatus());
@@ -823,9 +1170,39 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         return doc;
     }
 
+    /**
+     * 物料入库单：验收入库节点展示，附件随验收单归档
+     *
+     * @param stockIn 物料入库单
+     * @param ctx     批次上下文
+     * @return 单据项
+     */
+    private ProductSummaryDtos.DocumentItem materialStockInDoc(StockIn stockIn, BatchContext ctx) {
+        ProductSummaryDtos.DocumentItem doc = new ProductSummaryDtos.DocumentItem();
+        doc.setType("物料入库单");
+        doc.setCode(stockIn.getInCode());
+        doc.setDate(date(stockIn.getInDate()));
+        doc.setStatus(stockIn.getInStatus());
+        doc.setAmount(stockIn.getTotalAmount());
+        List<StockInDetail> details = ctx.getMaterialStockInDetails() == null ? Collections.emptyList()
+                : ctx.getMaterialStockInDetails().getOrDefault(stockIn.getInId(), Collections.emptyList());
+        for (StockInDetail d : details) {
+            ProductSummaryDtos.DocumentLine line = new ProductSummaryDtos.DocumentLine();
+            line.setCode(d.getItemCode());
+            line.setName(d.getItemName());
+            line.setCategory(d.getCategoryName());
+            line.setQty(d.getQuantity());
+            line.setUnit(d.getUnitName());
+            line.setBatchNo(d.getBatchNumber());
+            line.setAmount(d.getAmount());
+            doc.getLines().add(line);
+        }
+        return doc;
+    }
+
     private ProductSummaryDtos.DocumentItem stockOutDoc(StockOut stockOut, BatchContext ctx) {
         ProductSummaryDtos.DocumentItem doc = new ProductSummaryDtos.DocumentItem();
-        doc.setType("出库单");
+        doc.setType("成品出库单");
         doc.setCode(stockOut.getOutCode());
         doc.setDate(date(stockOut.getOutDate()));
         doc.setStatus(stockOut.getOutStatus());
@@ -844,6 +1221,37 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             doc.getLines().add(line);
         }
         doc.setFiles(toFiles(businessFileService.list("STOCK_OUT_SALES", stockOut.getOutId(), null, null)));
+        return doc;
+    }
+
+    /**
+     * 生产领料出库单：与领料单同属“生产领料”节点
+     *
+     * @param stockOut 领料出库单
+     * @param ctx      批次上下文
+     * @return 单据项
+     */
+    private ProductSummaryDtos.DocumentItem pickStockOutDoc(StockOut stockOut, BatchContext ctx) {
+        ProductSummaryDtos.DocumentItem doc = new ProductSummaryDtos.DocumentItem();
+        doc.setType("领料出库单");
+        doc.setCode(stockOut.getOutCode());
+        doc.setDate(date(stockOut.getOutDate()));
+        doc.setStatus(stockOut.getOutStatus());
+        doc.setAmount(stockOut.getTotalAmount());
+        List<StockOutDetail> details = ctx.getMaterialStockOutDetails() == null ? Collections.emptyList()
+                : ctx.getMaterialStockOutDetails().getOrDefault(stockOut.getOutId(), Collections.emptyList());
+        for (StockOutDetail d : details) {
+            ProductSummaryDtos.DocumentLine line = new ProductSummaryDtos.DocumentLine();
+            line.setCode(d.getItemCode());
+            line.setName(d.getItemName());
+            line.setCategory(d.getCategoryName());
+            line.setQty(d.getQuantity());
+            line.setUnit(d.getUnitName());
+            line.setBatchNo(d.getBatchNumber());
+            line.setAmount(d.getAmount());
+            doc.getLines().add(line);
+        }
+        doc.setFiles(toFiles(businessFileService.list("STOCK_OUT_PRODUCTION", stockOut.getOutId(), null, null)));
         return doc;
     }
 
@@ -910,6 +1318,7 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             if (ids.isEmpty()) continue;
             ProductSummaryDtos.SlotState slot = new ProductSummaryDtos.SlotState();
             slot.setStage(config.getStage());
+            slot.setNodeKey(nodeKeyOfStage(config.getStage()));
             slot.setLabel(StringUtils.hasText(config.getDisplayName())
                     ? config.getDisplayName() : config.getBizType() + " / " + config.getFileKind());
             slot.setBizType(config.getBizType());
@@ -935,6 +1344,7 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             if (files.isEmpty()) continue;
             ProductSummaryDtos.FileGroup group = new ProductSummaryDtos.FileGroup();
             group.setStage(config.getStage());
+            group.setNodeKey(nodeKeyOfStage(config.getStage()));
             group.setLabel(StringUtils.hasText(config.getDisplayName())
                     ? config.getDisplayName() : config.getBizType() + " / " + config.getFileKind());
             group.setBizType(config.getBizType());
@@ -956,6 +1366,7 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
                 if (files(config.getBizType(), id, config.getFileKind()).isEmpty()) {
                     ProductSummaryDtos.MissingItem item = new ProductSummaryDtos.MissingItem();
                     item.setStage(config.getStage());
+                    item.setNodeKey(nodeKeyOfStage(config.getStage()));
                     item.setLabel(StringUtils.hasText(config.getDisplayName())
                             ? config.getDisplayName() : config.getBizType());
                     item.setDoc(docCode(config.getBizType(), id, ctx));
@@ -1139,7 +1550,7 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             }
 
             for (ProductionPlan plan : planOnlyPlans) {
-                ProductSummaryDtos.BatchSummary summary = toPlanSummary(plan);
+                ProductSummaryDtos.BatchSummary summary = toPlanSummary(plan, batchQueryService.loadByPlan(plan));
                 String varietyFolder = safe(summary.getPreparationCode()) + "_" + safe(summary.getPreparationName());
                 String planFolder = safe(summary.getPlanNumber()) + "_未下达工单";
                 for (ProductSummaryDtos.FileGroup group : planOnlyFileGroups(plan)) {
@@ -1284,7 +1695,8 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
     private LocalDate rowDate(BatchContext ctx, String dateType) {
         return switch (dateType == null ? "" : dateType) {
             case "workOrderDate" -> date(ctx.getWorkOrder().getConfigDate());
-            case "inboundDate" -> ctx.getStockIns().isEmpty() ? null : date(ctx.getStockIns().get(0).getInDate());
+            case "inboundDate" -> ctx.getStockIns().stream().filter(this::isEffectiveStockIn).findFirst()
+                    .map(stockIn -> date(stockIn.getInDate())).orElse(null);
             case "inspectionDate" -> latestFinishedInspection(ctx) == null ? null : date(latestFinishedInspection(ctx).getEndTime());
             default -> planDate(ctx);
         };
@@ -1307,7 +1719,13 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
     }
 
     private String materialSource(BatchContext ctx) {
-        return !ctx.getPicks().isEmpty() ? "REQUISITION" : (!ctx.getPurchases().isEmpty() ? "PURCHASE" : null);
+        if (!ctx.getPicks().isEmpty()) {
+            return "REQUISITION";
+        }
+        if (!ctx.getPurchases().isEmpty() || !materialAcceptances(ctx).isEmpty()) {
+            return "PURCHASE";
+        }
+        return hasEffectiveStockIn(ctx.getMaterialStockIns()) ? "DIRECT" : null;
     }
 
     private String materialMeta(BatchContext ctx) {
@@ -1315,8 +1733,13 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             ProductionPick first = ctx.getPicks().get(0);
             return safe(first.getStatus()) + " · " + safe(first.getApplicant());
         }
-        if (ctx.getPurchases().isEmpty()) return "";
-        return safe(String.valueOf(ctx.getPurchases().get(0).getStatus()));
+        if (!ctx.getPurchases().isEmpty()) {
+            return safe(String.valueOf(ctx.getPurchases().get(0).getStatus()));
+        }
+        if (hasEffectiveStockIn(ctx.getMaterialStockIns())) {
+            return safe(ctx.getMaterialStockIns().get(0).getInStatus());
+        }
+        return "";
     }
 
     /**

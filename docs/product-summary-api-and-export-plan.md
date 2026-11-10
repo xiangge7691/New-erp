@@ -184,20 +184,22 @@ GET /api/product-summary/batches
   "missingSummary": "计划 1",
   "stageStates": [
     { "key": "plan", "label": "计划", "state": "done" },
-    { "key": "material", "label": "采购", "state": "pending" },
-    { "key": "workOrder", "label": "工单", "state": "pending" },
-    { "key": "production", "label": "生产", "state": "pending" },
-    { "key": "inbound", "label": "入库", "state": "pending" },
-    { "key": "outbound", "label": "出库", "state": "pending" },
+    { "key": "purchase", "label": "采购", "state": "pending" },
+    { "key": "acceptance", "label": "验收入库", "state": "pending" },
+    { "key": "workOrder", "label": "生产任务", "state": "pending" },
+    { "key": "pick", "label": "生产领料", "state": "pending" },
+    { "key": "production", "label": "生产过程", "state": "pending" },
     { "key": "inspection", "label": "检验", "state": "pending" },
-    { "key": "release", "label": "放行", "state": "pending" }
+    { "key": "finishedInbound", "label": "成品入库", "state": "pending" },
+    { "key": "release", "label": "审核放行", "state": "pending" },
+    { "key": "finishedOutbound", "label": "成品出库", "state": "pending" }
   ]
 }
 ```
 
 补充字段的用途：
 
-- `inboundQty`、`outboundQty`：清单“入库/出库”列和批次卡片。
+- `inboundQty`、`outboundQty`：清单“成品入库/成品出库”列和批次卡片，分别只统计成品入库、成品出库。
 - `processTotal`、`processCompleted`：批次卡片的工序进度。
 - `latestInspectionCode`：清单检验列副行。
 - `stageStates`：品种卡片视图的环节圆点。
@@ -213,7 +215,7 @@ GET /api/product-summary/batches/{workOrderId}
 
 - `batch`：批次头。
 - `slots`：槽位完整度。
-- `stages`：计划/采购/验收/工单/生产/入库/出库/检验/放行节点及单据。
+- `stages`：计划/采购/验收入库/生产任务/生产领料/生产过程/检验/成品入库/审核放行/成品出库节点及单据，固定 10 个节点、固定顺序，无数据时不省略。
 - `files`：文件分组。
 - `missingItems`：缺件清单。
 
@@ -229,7 +231,7 @@ GET /api/product-summary/batches/{workOrderId}
 GET /api/product-summary/plans/{planId}
 ```
 
-用于清单里“未下达工单”的记录点击详情。返回结构与批次详情一致，`batch.workOrderId` 为 `null`，`stages` 只包含计划/采购等已有节点。
+用于清单里“未下达工单”的记录点击详情。返回结构与批次详情一致，`batch.workOrderId` 为 `null`，`stages` 仍固定返回 10 个节点，采购/验收入库按计划数据填充，生产任务之后为待处理。
 
 如果不希望单独开接口，也可以让前端对计划记录只展示列表摘要；但当前 HTML 的每一行都可点击，建议补这个接口。
 

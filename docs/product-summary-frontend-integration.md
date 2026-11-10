@@ -107,6 +107,7 @@ export interface StageState {
   key: string
   label: string
   state: string
+  skipReason?: string
 }
 
 export interface ProductSummaryBatch {
@@ -203,6 +204,7 @@ export interface ProductSummaryFile {
 
 export interface ProductSummaryFileGroup {
   stage?: string
+  nodeKey?: string
   label?: string
   bizType?: string
   fileKind?: string
@@ -228,16 +230,37 @@ export interface ProductSummaryDocument {
 export interface ProductSummaryStage {
   key: string
   label: string
-  state: string
+  state: 'done' | 'active' | 'pending' | 'error' | 'skipped' | string
+  skipped?: boolean
+  skipReason?: string
   main?: string
   meta?: string
   documents: ProductSummaryDocument[]
 }
 
+/**
+ * 链路节点固定为以下 10 个，后端始终按此顺序返回，不因数据缺失而省略：
+ * plan(计划) → purchase(采购) → acceptance(验收入库) → workOrder(生产任务)
+ * → pick(生产领料) → production(生产过程) → inspection(检验)
+ * → finishedInbound(成品入库) → release(审核放行) → finishedOutbound(成品出库)
+ */
+export type ProductSummaryNodeKey =
+  | 'plan'
+  | 'purchase'
+  | 'acceptance'
+  | 'workOrder'
+  | 'pick'
+  | 'production'
+  | 'inspection'
+  | 'finishedInbound'
+  | 'release'
+  | 'finishedOutbound'
+
 export interface ProductSummaryDetail {
   batch: ProductSummaryBatch
   slots: Array<{
     stage: string
+    nodeKey?: string
     label: string
     bizType: string
     fileKind: string
@@ -250,6 +273,7 @@ export interface ProductSummaryDetail {
   files: ProductSummaryFileGroup[]
   missingItems: Array<{
     stage?: string
+    nodeKey?: string
     label?: string
     doc?: string
     slotCode?: string
@@ -483,7 +507,7 @@ const { columns, columnChecks, data, loading, pagination, getData,
 
 - 品种、规格
 - 工单/批号、计划
-- `stageStates` 环节圆点（done / active / pending / error）
+- `stageStates` 环节圆点（done / active / pending / error / skipped）
 - `processCompleted / processTotal`
 - `inboundQty / outboundQty`
 - `inspectionConclusion`、`latestInspectionCode`
@@ -496,7 +520,7 @@ const { columns, columnChecks, data, loading, pagination, getData,
 
 - 批次清单增加“时间（计划/工单/入库/检验）”动态列。
 - 卡片显示当前日期口径，计划日期保留在计划信息里。
-- 详情抽屉增加计划、工单、入库、出库、检验五个日期，当前筛选口径高亮。
+- 详情抽屉增加计划、生产任务、成品入库、成品出库、检验五个日期，当前筛选口径高亮。
 - 筛选区显示“日期口径：xxx 起止范围”，避免用户忘记筛选条件。
 
 ### 5.9 批次详情抽屉
@@ -515,7 +539,8 @@ const detail = row.workOrderId
 
 使用 `detail.stages`：
 
-- `state`: `done / active / pending / error`
+- `state`: `done / active / pending / error / skipped`
+- `skipped`、`skipReason`：业务上不适用的节点（如无采购、物料直接入库），前端置灰并展示说明
 - `main`、`meta`
 - `documents[]`：单据类型、编号、日期、状态、经办人、明细行、文件。
 
@@ -523,10 +548,10 @@ const detail = row.workOrderId
 
 使用 `detail.files`：
 
-- 按 `stage` 分组。
+- 优先按 `nodeKey` 分组挂到对应节点，`stage` 仅作为显示名称。
 - 每组显示 `label`、`slotCode`、`requirement`。
 - 每个文件显示 `name`、`size`、`time`，操作预览/下载。
-- 缺件使用 `detail.missingItems`，按 `stage`/`slotCode` 展示。
+- 缺件使用 `detail.missingItems`，按 `nodeKey`/`slotCode` 展示。
 
 文件预览/下载：
 
