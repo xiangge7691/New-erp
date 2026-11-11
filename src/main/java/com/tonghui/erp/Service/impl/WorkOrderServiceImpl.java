@@ -9,6 +9,7 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Production.ProductionDurationSummaryDto;
 import com.tonghui.erp.Common.utils.PreparationTemplateValidator;
 import com.tonghui.erp.Common.utils.ProductionDurationUtils;
+import com.tonghui.erp.Common.utils.WorkOrderStatusPolicy;
 import com.tonghui.erp.Data.Entity.Equipment;
 import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.PreparationProcessTemplate;
@@ -649,18 +650,19 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
     /**
      * 根据日期字段计算工单当前状态
      * <p>
-     * 状态流转规则（依据配置日期、配置完成日期、归档时间三个字段）：
+     * 状态流转规则（依据配置日期、配置完成日期、检验、放行、入库、归档时间）：
      * <ul>
      *   <li>待生产 - 配置日期为空</li>
      *   <li>生产中 - 配置日期有值 且 配置完成日期为空</li>
      *   <li>已生产 - 配置完成日期有值</li>
      *   <li>检验中 - 检验开始时间有值</li>
      *   <li>已检验 - 检验完成时间有值</li>
-     *   <li>已放行 - 审核放行时间有值</li>
      *   <li>已入库 - 入库时间有值</li>
+     *   <li>已放行 - 审核放行时间有值（业务顺序在成品入库之后）</li>
      *   <li>已归档 - 归档时间有值</li>
      * </ul>
-     * 在工单新增、更新时调用，保证 current_status 列与日期字段实时一致
+     * 在工单新增、更新时调用，保证 current_status 列与日期字段实时一致。
+     * 判定规则统一由 {@link WorkOrderStatusPolicy#resolve} 承载。
      * </p>
      *
      * @param configDate         配置日期
@@ -675,28 +677,8 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
     private String resolveStatus(LocalDateTime configDate, LocalDateTime configCompleteTime,
             LocalDateTime archiveTime, LocalDateTime inspectionStart, LocalDateTime inspectionEnd,
             LocalDateTime auditReleaseTime, LocalDateTime inboundTime) {
-        if (archiveTime != null) {
-            return "已归档";
-        }
-        if (inboundTime != null) {
-            return "已入库";
-        }
-        if (auditReleaseTime != null) {
-            return "已放行";
-        }
-        if (inspectionEnd != null) {
-            return "已检验";
-        }
-        if (inspectionStart != null) {
-            return "检验中";
-        }
-        if (configCompleteTime != null) {
-            return "已生产";
-        }
-        if (configDate != null) {
-            return "生产中";
-        }
-        return "待生产";
+        return WorkOrderStatusPolicy.resolve(configDate, configCompleteTime, archiveTime,
+                inspectionStart, inspectionEnd, auditReleaseTime, inboundTime);
     }
 
     // endregion
@@ -983,9 +965,9 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
     /**
      * 归档工单
      * <p>
-     * 将已入库的工单进行归档，设置归档时间为当前时间，
+     * 将已入库（或已审核放行）的工单进行归档，设置归档时间为当前时间，
      * 工单状态自动流转为"已归档"，归档后不可再进行其他操作。
-     * 仅"已入库"状态的工单可以归档。
+     * 仅"已入库"/"已放行"状态的工单可以归档。
      * </p>
      *
      * @param workOrderId 工单ID
@@ -1002,8 +984,9 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         if ("已归档".equals(workOrder.getCurrentStatus()) || "作废".equals(workOrder.getCurrentStatus())) {
             return false;
         }
-        // 仅"已入库"状态的工单可以归档
-        if (!"已入库".equals(workOrder.getCurrentStatus())) {
+        // 仅"已入库"/"已放行"状态的工单可以归档
+        if (!"已入库".equals(workOrder.getCurrentStatus())
+                && !WorkOrderStatusPolicy.RELEASED.equals(workOrder.getCurrentStatus())) {
             return false;
         }
 

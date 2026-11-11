@@ -140,6 +140,10 @@ public enum BizFileType {
     STOCK_OUT_PRODUCTION("STOCK_OUT_PRODUCTION", "production_pick", "id", "生产领料单",
             "生产管理/生产领料", kinds(BizFileKinds.DEFAULT, 10)),
 
+    /** 医院领料单（制剂室向医院药剂科领料） */
+    MATERIAL_REQUISITION_SLIP("MATERIAL_REQUISITION_SLIP", "material_requisition_slip", "id", "医院领料单",
+            "生产管理/医院领料", kinds(BizFileKinds.DEFAULT, 10)),
+
     /** 成品入库单（stock_in，in_type=成品入库） */
     STOCK_IN_PRODUCT("STOCK_IN_PRODUCT", "stock_in", "in_id", "成品入库单",
             "库存管理/成品入库", kinds(BizFileKinds.DEFAULT, 10)),

@@ -52,7 +52,7 @@ public class QualityPagesSmokeTest {
         JsonNode stages = detail.path("stages");
         Assertions.assertEquals(10, stages.size(), "全链路节点数量应为 10");
         String[] expectedKeys = {"plan", "purchase", "acceptance", "workOrder", "pick",
-                "production", "inspection", "finishedInbound", "release", "finishedOutbound"};
+                "production", "inspection", "release", "finishedInbound", "finishedOutbound"};
         for (int i = 0; i < expectedKeys.length; i++) {
             Assertions.assertEquals(expectedKeys[i], stages.get(i).path("key").asText(),
                     "第 " + (i + 1) + " 个节点编码不正确");

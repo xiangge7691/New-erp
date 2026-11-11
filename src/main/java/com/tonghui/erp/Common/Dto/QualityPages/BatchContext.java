@@ -6,6 +6,8 @@ import com.tonghui.erp.Data.Entity.DeviationRecord;
 import com.tonghui.erp.Data.Entity.InspectionRecord;
 import com.tonghui.erp.Data.Entity.InspectionRequest;
 import com.tonghui.erp.Data.Entity.InspectionTask;
+import com.tonghui.erp.Data.Entity.MaterialRequisitionSlip;
+import com.tonghui.erp.Data.Entity.MaterialRequisitionSlipDetail;
 import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.ProductionPick;
 import com.tonghui.erp.Data.Entity.ProductionPlan;
@@ -42,6 +44,8 @@ public class BatchContext {
     private Preparation preparation;
 
     private List<PurchaseOrders> purchases = new ArrayList<>();
+    /** 医院领料单（制剂室向医院药剂科领料，与采购同级展示） */
+    private List<MaterialRequisitionSlip> hospitalRequisitions = new ArrayList<>();
     private List<AcceptanceOrder> acceptances = new ArrayList<>();
     private List<ProductionPick> picks = new ArrayList<>();
     private List<ReturnOrder> returns = new ArrayList<>();
@@ -74,6 +78,8 @@ public class BatchContext {
 
     /** 采购订单ID -> 明细 */
     private Map<Long, List<com.tonghui.erp.Data.Entity.PurchaseOrderItems>> purchaseItems;
+    /** 医院领料单ID -> 明细 */
+    private Map<Long, List<MaterialRequisitionSlipDetail>> hospitalRequisitionDetails;
     /** 验收单ID -> 明细 */
     private Map<Long, List<AcceptanceDetail>> acceptanceDetails;
     /** 退库单ID -> 明细 */

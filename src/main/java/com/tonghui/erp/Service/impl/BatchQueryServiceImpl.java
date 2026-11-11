@@ -10,6 +10,8 @@ import com.tonghui.erp.Data.Entity.InspectionRecord;
 import com.tonghui.erp.Data.Entity.InspectionRequest;
 import com.tonghui.erp.Data.Entity.InspectionTask;
 import com.tonghui.erp.Data.Entity.Material;
+import com.tonghui.erp.Data.Entity.MaterialRequisitionSlip;
+import com.tonghui.erp.Data.Entity.MaterialRequisitionSlipDetail;
 import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.PreparationProcessTemplate;
 import com.tonghui.erp.Data.Entity.ProcessType;
@@ -33,6 +35,8 @@ import com.tonghui.erp.Data.Entity.WorkOrderProcessCheck;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessExecution;
 import com.tonghui.erp.Data.mapper.AcceptanceDetailMapper;
 import com.tonghui.erp.Data.mapper.MaterialMapper;
+import com.tonghui.erp.Data.mapper.MaterialRequisitionSlipDetailMapper;
+import com.tonghui.erp.Data.mapper.MaterialRequisitionSlipMapper;
 import com.tonghui.erp.Data.mapper.ProductionPickDetailMapper;
 import com.tonghui.erp.Data.mapper.ReturnOrderDetailMapper;
 import com.tonghui.erp.Data.mapper.StockInDetailMapper;
@@ -93,6 +97,10 @@ public class BatchQueryServiceImpl implements BatchQueryService {
     private PurchaseOrdersService purchaseOrdersService;
     @Autowired
     private PurchaseOrderItemsService purchaseOrderItemsService;
+    @Autowired
+    private MaterialRequisitionSlipMapper materialRequisitionSlipMapper;
+    @Autowired
+    private MaterialRequisitionSlipDetailMapper materialRequisitionSlipDetailMapper;
     @Autowired
     private AcceptanceOrderService acceptanceOrderService;
     @Autowired
@@ -165,6 +173,7 @@ public class BatchQueryServiceImpl implements BatchQueryService {
 
         // 未下达工单的计划仍需展示采购、验收入库节点
         loadPurchases(ctx, planId, planNumber);
+        loadHospitalRequisitions(ctx, planId, planNumber);
         loadAcceptances(ctx, null, planNumber);
         loadMaterialStockIns(ctx, planNumber);
         return ctx;
@@ -196,6 +205,8 @@ public class BatchQueryServiceImpl implements BatchQueryService {
 
         // 采购与明细
         loadPurchases(ctx, planId, planNumber);
+        // 医院领料（与采购同级展示）
+        loadHospitalRequisitions(ctx, planId, planNumber);
 
         // 验收
         loadAcceptances(ctx, workOrder.getWorkOrderCode(), planNumber);
@@ -328,6 +339,34 @@ public class BatchQueryServiceImpl implements BatchQueryService {
                 new QueryWrapper<PurchaseOrderItems>().in("order_id", ids));
         ctx.setPurchaseItems(items.stream().collect(Collectors.groupingBy(PurchaseOrderItems::getOrderId)));
         loadPurchaseMaterialNames(ctx, items);
+    }
+
+    /**
+     * 加载医院领料单及明细（制剂室向医院药剂科领料，与采购同级展示）
+     *
+     * @param ctx        批次上下文
+     * @param planId     生产计划ID
+     * @param planNumber 生产计划编号
+     */
+    private void loadHospitalRequisitions(BatchContext ctx, Long planId, String planNumber) {
+        if (planId == null && !StringUtils.hasText(planNumber)) {
+            return;
+        }
+        QueryWrapper<MaterialRequisitionSlip> wrapper = new QueryWrapper<>();
+        if (planId != null) {
+            wrapper.eq("production_plan_id", planId);
+        } else {
+            wrapper.eq("production_plan_code", planNumber);
+        }
+        List<MaterialRequisitionSlip> slips = materialRequisitionSlipMapper.selectList(wrapper);
+        ctx.setHospitalRequisitions(slips);
+        if (slips.isEmpty()) {
+            return;
+        }
+        List<Long> ids = slips.stream().map(MaterialRequisitionSlip::getId).collect(Collectors.toList());
+        ctx.setHospitalRequisitionDetails(materialRequisitionSlipDetailMapper.selectList(
+                        new QueryWrapper<MaterialRequisitionSlipDetail>().in("slip_id", ids))
+                .stream().collect(Collectors.groupingBy(MaterialRequisitionSlipDetail::getSlipId)));
     }
 
     /**

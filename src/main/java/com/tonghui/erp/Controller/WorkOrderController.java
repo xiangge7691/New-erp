@@ -310,9 +310,9 @@ public class WorkOrderController extends BaseCrudController<WorkOrder, WorkOrder
     /**
      * 归档工单
      * <p>
-     * 将已入库的工单进行归档，设置归档时间为当前时间，
+     * 将已入库（或已审核放行）的工单进行归档，设置归档时间为当前时间，
      * 工单状态自动流转为"已归档"，归档后不可再进行其他操作。
-     * 仅"已入库"状态的工单可以归档
+     * 仅"已入库"/"已放行"状态的工单可以归档
      * </p>
      *
      * 示例请求：

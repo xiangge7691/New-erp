@@ -6,6 +6,7 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.QualityPages.BatchContext;
 import com.tonghui.erp.Common.Dto.QualityPages.ProductSummaryDtos;
 import com.tonghui.erp.Common.utils.WorkOrderStatusPolicy;
+import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
 import com.tonghui.erp.Data.Entity.DeviationRecord;
 import com.tonghui.erp.Data.Entity.FileInfo;
@@ -19,6 +20,8 @@ import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.PurchaseOrderItems;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
 import com.tonghui.erp.Data.Entity.ReleaseReview;
+import com.tonghui.erp.Data.Entity.RoomInfo;
+import com.tonghui.erp.Data.Entity.SalesOrder;
 import com.tonghui.erp.Data.Entity.SamplingRecord;
 import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.Entity.StockInDetail;
@@ -48,6 +51,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -67,6 +71,9 @@ import java.util.zip.ZipOutputStream;
  */
 @Service
 public class ProductSummaryServiceImpl implements ProductSummaryService {
+
+    /** 单据时间展示格式 */
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     @Autowired
     private WorkOrderMapper workOrderMapper;
@@ -290,11 +297,14 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
                 .count();
         ProductSummaryDtos.Kpi kpi = new ProductSummaryDtos.Kpi();
         kpi.setTotalBatches(batchCount);
+        // 在产/完成口径：审核放行在成品入库之前完成，成品入库即生产完成，
+        // 因此已入库、已放行、已归档都计入完成；异常/不合格/作废既不算在产也不算完成
         kpi.setRunningBatches((int) rows.stream()
-                .filter(r -> r.getWorkOrderId() != null && WorkOrderStatusPolicy.isRunning(r.getStatus()))
+                .filter(r -> r.getWorkOrderId() != null && !r.isProductionDone()
+                        && WorkOrderStatusPolicy.isRunning(r.getStatus()))
                 .count());
         kpi.setCompletedBatches((int) rows.stream()
-                .filter(r -> r.getWorkOrderId() != null && WorkOrderStatusPolicy.isProductionDone(r.getStatus()))
+                .filter(r -> r.getWorkOrderId() != null && r.isProductionDone())
                 .count());
         kpi.setMissingItems(missingItems);
         kpi.setMissingRecords(missingRecords);
@@ -342,13 +352,18 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             throw new IllegalArgumentException("生产计划不存在");
         }
         BatchContext ctx = batchQueryService.loadByPlan(plan);
+        batchQueryService.loadDetail(ctx);
         ProductSummaryDtos.BatchDetail detail = new ProductSummaryDtos.BatchDetail();
         detail.setBatch(toPlanSummary(plan, ctx));
         detail.setSlots(planOnlySlots(plan));
         detail.setFiles(planOnlyFileGroups(plan));
         detail.setMissingItems(planOnlyMissing(plan));
-        detail.setStages(planOnlyStages(ctx));
-        detail.setFileChecklist(planOnlyFileChecklist(plan));
+        List<ProductSummaryDtos.FileChecklistItem> checklist = planOnlyFileChecklist(plan);
+        List<ProductSummaryDtos.StageItem> stageItems = planOnlyStages(ctx);
+        applyStageStats(stageItems, checklist);
+        applyDocumentMissing(stageItems, checklist);
+        detail.setStages(stageItems);
+        detail.setFileChecklist(checklist);
         return detail;
     }
 
@@ -369,8 +384,8 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         stages.add(pendingStage("pick", "生产领料"));
         stages.add(pendingStage("production", "生产过程"));
         stages.add(pendingStage("inspection", "检验"));
-        stages.add(pendingStage("finishedInbound", "成品入库"));
         stages.add(pendingStage("release", "审核放行"));
+        stages.add(pendingStage("finishedInbound", "成品入库"));
         stages.add(pendingStage("finishedOutbound", "成品出库"));
         return stages;
     }
@@ -381,6 +396,19 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         doc.setCode(plan.getPlanNumber());
         doc.setDate(planDate(plan));
         doc.setStatus(plan.getCurrentStatus());
+        doc.setDocId(plan.getId() == null ? null : plan.getId().longValue());
+        doc.setBizType("PRODUCTION_PLAN");
+        doc.setOperator(plan.getProductionUnit());
+        addField(doc, "计划名称", plan.getPlanName());
+        addField(doc, "品种", plan.getPreparationName());
+        addField(doc, "批量", qtyText(plan.getPlanQuantity(), plan.getUnitName()));
+        addField(doc, "计划生产", timeText(plan.getPlanProductionTime()));
+        addField(doc, "计划开始", timeText(plan.getProductionStartTime()));
+        addField(doc, "计划结束", timeText(plan.getProductionEndTime()));
+        addField(doc, "交付时间", timeText(plan.getDeliveryTime()));
+        addField(doc, "生产单位", plan.getProductionUnit());
+        addField(doc, "状态", plan.getCurrentStatus());
+        addField(doc, "备注", plan.getRemark());
         doc.setFiles(toFiles(businessFileService.list("PRODUCTION_PLAN", plan.getId().longValue(), null, null)));
         return doc;
     }
@@ -523,8 +551,8 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         states.add(stageState("pick", "生产领料", "pending"));
         states.add(stageState("production", "生产过程", "pending"));
         states.add(stageState("inspection", "检验", "pending"));
-        states.add(stageState("finishedInbound", "成品入库", "pending"));
         states.add(stageState("release", "审核放行", "pending"));
+        states.add(stageState("finishedInbound", "成品入库", "pending"));
         states.add(stageState("finishedOutbound", "成品出库", "pending"));
         return states;
     }
@@ -544,8 +572,8 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         states.add(stageState("pick", "生产领料", pickState(ctx)));
         states.add(stageState("production", "生产过程", productionState(ctx)));
         states.add(stageState("inspection", "检验", inspectionState(ctx)));
-        states.add(stageState("finishedInbound", "成品入库", finishedInboundState(ctx)));
         states.add(stageState("release", "审核放行", releaseState(ctx)));
+        states.add(stageState("finishedInbound", "成品入库", finishedInboundState(ctx)));
         states.add(stageState("finishedOutbound", "成品出库", finishedOutboundState(ctx)));
         return states;
     }
@@ -732,8 +760,8 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             case "领料" -> 5;
             case "工序" -> 6;
             case "检验" -> 7;
-            case "入库" -> 8;
-            case "放行" -> 9;
+            case "放行" -> 8;
+            case "入库" -> 9;
             case "出库" -> 10;
             default -> 99;
         };
@@ -807,8 +835,10 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         dto.setLatestInspectionCode(latestInspection == null ? null : latestInspection.getInspectionCode());
         dto.setProcessTotal(ctx.getExecutions().size());
         dto.setProcessCompleted((int) ctx.getExecutions().stream().filter(e -> e.getEndTime() != null).count());
-        dto.setStatus(wo.getCurrentStatus());
-        dto.setProductionDone(WorkOrderStatusPolicy.isProductionDone(wo.getCurrentStatus()));
+        dto.setStatus(WorkOrderStatusPolicy.effectiveStatus(wo));
+        // 成品入库即视为生产完成：优先按库内状态判定，状态未回写时以实际成品入库单兜底
+        dto.setProductionDone(WorkOrderStatusPolicy.isProductionDone(dto.getStatus())
+                || hasEffectiveStockIn(ctx.getStockIns()));
 
         List<ProductSummaryDtos.FileChecklistItem> checklist = fileChecklist(ctx, dto.getRecordKey());
         dto.setFileCount(checklist.stream()
@@ -840,19 +870,25 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             throw new IllegalArgumentException("工单不存在");
         }
         BatchContext ctx = batchQueryService.load(wo);
+        // 详情页需要验收/退库明细、检验任务等补充数据，列表场景不加载
+        batchQueryService.loadDetail(ctx);
         ProductSummaryDtos.BatchDetail detail = new ProductSummaryDtos.BatchDetail();
         detail.setBatch(toSummary(ctx));
         detail.setSlots(slotStates(ctx));
         detail.setFiles(fileGroups(ctx));
         detail.setMissingItems(missingItems(ctx));
-        detail.setStages(stages(ctx));
-        detail.setFileChecklist(fileChecklist(ctx, recordKey(ctx)));
+        List<ProductSummaryDtos.FileChecklistItem> checklist = fileChecklist(ctx, recordKey(ctx));
+        List<ProductSummaryDtos.StageItem> stageItems = stages(ctx);
+        applyStageStats(stageItems, checklist);
+        applyDocumentMissing(stageItems, checklist);
+        detail.setStages(stageItems);
+        detail.setFileChecklist(checklist);
         return detail;
     }
 
     /**
      * 批次全链路节点：固定返回计划、采购、验收入库、生产任务、生产领料、
-     * 生产过程、检验、成品入库、审核放行、成品出库 10 个节点。
+     * 生产过程、检验、审核放行、成品入库、成品出库 10 个节点。
      *
      * @param ctx 批次上下文
      * @return 固定顺序的链路节点
@@ -902,16 +938,16 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
                 conclusion == null ? "暂无检验" : conclusion,
                 finished.size() + " 条成品检验记录", inspectionDocs));
 
-        // 成品入库
-        stages.add(stage("finishedInbound", "成品入库", finishedInboundState(ctx),
-                ctx.getStockIns().isEmpty() ? "未入库" : ctx.getStockIns().size() + " 张入库单", inboundMeta(ctx),
-                ctx.getStockIns().stream().map(stockIn -> stockInDoc(stockIn, ctx)).collect(Collectors.toList())));
-
         // 审核放行
         stages.add(stage("release", "审核放行", releaseState(ctx),
                 ctx.getRelease() == null ? "未放行" : ctx.getRelease().getReleaseCode(),
                 ctx.getRelease() == null ? "" : safe(ctx.getRelease().getReleaseConclusion()),
                 ctx.getRelease() == null ? Collections.emptyList() : List.of(releaseDoc(ctx.getRelease()))));
+
+        // 成品入库
+        stages.add(stage("finishedInbound", "成品入库", finishedInboundState(ctx),
+                ctx.getStockIns().isEmpty() ? "未入库" : ctx.getStockIns().size() + " 张入库单", inboundMeta(ctx),
+                ctx.getStockIns().stream().map(stockIn -> stockInDoc(stockIn, ctx)).collect(Collectors.toList())));
 
         // 成品出库
         stages.add(stage("finishedOutbound", "成品出库", finishedOutboundState(ctx),
@@ -967,7 +1003,7 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
 
     private List<ProductSummaryDtos.DocumentItem> acceptanceDocuments(BatchContext ctx) {
         List<ProductSummaryDtos.DocumentItem> documents = new ArrayList<>();
-        materialAcceptances(ctx).forEach(acceptance -> documents.add(acceptanceDoc(acceptance)));
+        materialAcceptances(ctx).forEach(acceptance -> documents.add(acceptanceDoc(acceptance, ctx)));
         ctx.getMaterialStockIns().forEach(stockIn -> documents.add(materialStockInDoc(stockIn, ctx)));
         return documents;
     }
@@ -1086,6 +1122,22 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         doc.setCode(plan.getPlanNumber());
         doc.setDate(planDate(ctx));
         doc.setStatus(plan.getCurrentStatus());
+        doc.setDocId(plan.getId() == null ? null : plan.getId().longValue());
+        doc.setBizType("PRODUCTION_PLAN");
+        doc.setOperator(plan.getProductionUnit());
+        addField(doc, "计划名称", plan.getPlanName());
+        addField(doc, "品种", plan.getPreparationName());
+        addField(doc, "规格", ctx.getPreparation() == null ? null : ctx.getPreparation().getSpec());
+        addField(doc, "批号", ctx.getWorkOrder() == null ? null : ctx.getWorkOrder().getBatchNumber());
+        addField(doc, "批量", qtyText(plan.getPlanQuantity(), plan.getUnitName()));
+        addField(doc, "计划生产", timeText(plan.getPlanProductionTime()));
+        addField(doc, "计划开始", timeText(plan.getProductionStartTime()));
+        addField(doc, "计划结束", timeText(plan.getProductionEndTime()));
+        addField(doc, "交付时间", timeText(plan.getDeliveryTime()));
+        addField(doc, "生产单位", plan.getProductionUnit());
+        addField(doc, "工艺路线", processRoute(ctx));
+        addField(doc, "状态", plan.getCurrentStatus());
+        addField(doc, "备注", plan.getRemark());
         doc.setFiles(toFiles(businessFileService.list("PRODUCTION_PLAN", plan.getId().longValue(), null, null)));
         return doc;
     }
@@ -1096,6 +1148,18 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         doc.setCode(po.getPurchaseNumber());
         doc.setDate(po.getOrderTime() == null ? null : po.getOrderTime().toLocalDate());
         doc.setStatus(po.getStatus() == null ? null : String.valueOf(po.getStatus()));
+        doc.setDocId(po.getId());
+        doc.setBizType("PURCHASE_ORDER");
+        addField(doc, "采购单号", po.getPurchaseNumber());
+        addField(doc, "物料类型", po.getMaterialType());
+        addField(doc, "仓库", po.getWarehouse());
+        addField(doc, "下单时间", timeText(po.getOrderTime()));
+        addField(doc, "要求到货", dateValue(po.getDesiredDeliveryDate()));
+        addField(doc, "预计到货", dateValue(po.getExpectedDeliveryDate()));
+        addField(doc, "发票信息", po.getInvoiceInfo());
+        addField(doc, "收货信息", po.getReceivingInfo());
+        addField(doc, "状态", po.getStatus() == null ? null : String.valueOf(po.getStatus()));
+        addField(doc, "备注", po.getRemark());
         List<PurchaseOrderItems> items = ctx.getPurchaseItems() == null ? Collections.emptyList()
                 : ctx.getPurchaseItems().getOrDefault(po.getId(), Collections.emptyList());
         for (PurchaseOrderItems item : items) {
@@ -1111,6 +1175,10 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             line.setStatus(item.getStatus());
             doc.getLines().add(line);
         }
+        doc.setSupplier(doc.getLines().stream().map(ProductSummaryDtos.DocumentLine::getSupplier)
+                .filter(StringUtils::hasText).findFirst().orElse(null));
+        doc.setAmount(doc.getLines().stream().map(line -> line.getAmount() == null ? BigDecimal.ZERO : line.getAmount())
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
         doc.setFiles(toFiles(businessFileService.list("PURCHASE_ORDER", po.getId(), null, null)));
         return doc;
     }
@@ -1163,12 +1231,58 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         return null;
     }
 
-    private ProductSummaryDtos.DocumentItem acceptanceDoc(AcceptanceOrder acceptance) {
+    private ProductSummaryDtos.DocumentItem acceptanceDoc(AcceptanceOrder acceptance, BatchContext ctx) {
         ProductSummaryDtos.DocumentItem doc = new ProductSummaryDtos.DocumentItem();
         doc.setType("货物验收");
         doc.setCode(acceptance.getAcceptanceCode());
         doc.setDate(acceptance.getAcceptanceTime() == null ? null : acceptance.getAcceptanceTime().toLocalDate());
+        doc.setTime(acceptance.getAcceptanceTime());
         doc.setStatus(acceptance.getStatus());
+        doc.setDocId(acceptance.getAcceptanceId());
+        doc.setBizType("ACCEPTANCE_ORDER");
+        doc.setOperator(acceptance.getAcceptorName());
+        addField(doc, "验收单号", acceptance.getAcceptanceCode());
+        addField(doc, "来源类型", acceptance.getSourceType());
+        addField(doc, "关联单号", acceptance.getRelatedOrder());
+        addField(doc, "采购单号", acceptance.getPurchaseNumber());
+        addField(doc, "计划编号", acceptance.getPlanCode());
+        addField(doc, "标题", acceptance.getTitle());
+        addField(doc, "到货时间", timeText(acceptance.getArrivalTime()));
+        addField(doc, "验收时间", timeText(acceptance.getAcceptanceTime()));
+        addField(doc, "交货日期", dateValue(acceptance.getDeliveryDate()));
+        addField(doc, "验收人", acceptance.getAcceptorName());
+        addField(doc, "复核人", acceptance.getReviewerName());
+        addField(doc, "外包装检查", acceptance.getOuterPackageCheck());
+        addField(doc, "外观检查", acceptance.getAppearanceCheck());
+        addField(doc, "状态", acceptance.getStatus());
+        addField(doc, "备注", acceptance.getRemark());
+        List<AcceptanceDetail> details = ctx.getAcceptanceDetails() == null ? Collections.emptyList()
+                : ctx.getAcceptanceDetails().getOrDefault(acceptance.getAcceptanceId(), Collections.emptyList());
+        for (AcceptanceDetail d : details) {
+            ProductSummaryDtos.DocumentLine line = new ProductSummaryDtos.DocumentLine();
+            line.setCode(d.getMaterialCode());
+            line.setName(d.getMaterialName());
+            line.setCategory(d.getMaterialCategory());
+            line.setQty(d.getQuantity());
+            line.setArrivalQty(d.getQuantity());
+            line.setActualArrivalQty(d.getActualArrivalQty());
+            line.setInboundQty(d.getInboundQty());
+            line.setDiffQty(d.getDiffQuantity());
+            line.setUnit(d.getUnitName());
+            line.setPrice(d.getUnitPrice());
+            line.setAmount(d.getAmount());
+            line.setBatchNo(d.getBatchNumber());
+            line.setExpiryDate(d.getExpiryDate());
+            line.setOuterPackageCheck(d.getOuterPackageCheck());
+            line.setAppearanceCheck(d.getAppearanceCheck());
+            line.setReturnReason(d.getReturnReason());
+            line.setStatus(d.getStatus());
+            line.setSupplier(d.getSupplier());
+            line.setRemark(d.getReturnRemark());
+            doc.getLines().add(line);
+        }
+        doc.setSupplier(doc.getLines().stream().map(ProductSummaryDtos.DocumentLine::getSupplier)
+                .filter(StringUtils::hasText).findFirst().orElse(null));
         doc.setFiles(toFiles(businessFileService.list("ACCEPTANCE_ORDER", acceptance.getAcceptanceId(), null, null)));
         return doc;
     }
@@ -1180,6 +1294,18 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         doc.setDate(date(pick.getPickTime()));
         doc.setStatus(pick.getStatus());
         doc.setOperator(pick.getApplicant());
+        doc.setDocId(pick.getId());
+        doc.setBizType("STOCK_OUT_PRODUCTION");
+        addField(doc, "领料单号", pick.getPickCode());
+        addField(doc, "领料日期", dateValue(date(pick.getPickTime())));
+        addField(doc, "领料人", pick.getApplicant());
+        addField(doc, "领料用途", pick.getPurpose());
+        addField(doc, "车间", pick.getWorkshop());
+        addField(doc, "复核人", pick.getReviewer());
+        addField(doc, "发料人", pick.getIssuer());
+        addField(doc, "关联出库单", pick.getStockOutCode());
+        addField(doc, "状态", pick.getStatus());
+        addField(doc, "备注", pick.getRemark());
         List<ProductionPickDetail> details = ctx.getPickDetails() == null ? Collections.emptyList()
                 : ctx.getPickDetails().getOrDefault(pick.getId(), Collections.emptyList());
         for (ProductionPickDetail d : details) {
@@ -1192,6 +1318,7 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             line.setBatchNo(d.getBatchNumber());
             doc.getLines().add(line);
         }
+        doc.setFiles(toFiles(businessFileService.list("STOCK_OUT_PRODUCTION", pick.getId(), null, null)));
         return doc;
     }
 
@@ -1201,7 +1328,26 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         doc.setType("工单");
         doc.setCode(wo.getWorkOrderCode());
         doc.setDate(date(wo.getConfigDate()));
+        doc.setTime(wo.getConfigDate());
         doc.setStatus(wo.getCurrentStatus());
+        doc.setDocId(wo.getWorkOrderId());
+        doc.setBizType("WORK_ORDER");
+        doc.setOperator(wo.getProducer());
+        addField(doc, "工单号", wo.getWorkOrderCode());
+        addField(doc, "品种", wo.getPreparationName());
+        addField(doc, "规格", ctx.getPreparation() == null ? null : ctx.getPreparation().getSpec());
+        addField(doc, "批号", wo.getBatchNumber());
+        addField(doc, "计划量", qtyText(wo.getBatchQty(), unitName(ctx)));
+        addField(doc, "实际量", qtyText(wo.getFinishedQty(), unitName(ctx)));
+        addField(doc, "收率", yieldRate(ctx) == null ? null : yieldRate(ctx) + "%");
+        addField(doc, "生产单位", wo.getProducer());
+        addField(doc, "接收人", wo.getReceiver());
+        addField(doc, "配置日期", timeText(wo.getConfigDate()));
+        addField(doc, "配置完成", timeText(wo.getConfigCompleteTime()));
+        addField(doc, "生产完成", timeText(wo.getProductionCompleteTime()));
+        addField(doc, "工艺路线", processRoute(ctx));
+        addField(doc, "状态", wo.getCurrentStatus());
+        addField(doc, "备注", wo.getRemark());
         doc.setFiles(toFiles(businessFileService.list("WORK_ORDER", wo.getWorkOrderId(), null, null)));
         return doc;
     }
@@ -1209,14 +1355,50 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
     private ProductSummaryDtos.DocumentItem processDoc(WorkOrderProcessExecution execution, BatchContext ctx) {
         ProductSummaryDtos.DocumentItem doc = new ProductSummaryDtos.DocumentItem();
         doc.setType("工序记录");
-        String name = ctx.getProcessNames() == null ? null : ctx.getProcessNames().get(execution.getProcessTypeId());
+        String name = processName(ctx, execution);
         doc.setCode(StringUtils.hasText(name) ? name : "工序" + execution.getStepOrder());
         doc.setTime(execution.getStartTime());
         doc.setDate(date(execution.getStartTime()));
         doc.setStatus(execution.getStatus());
         doc.setOperator(execution.getOperatorName());
+        doc.setDocId(execution.getId());
+        doc.setBizType("WORK_ORDER_PROCESS_EXECUTION");
+        addField(doc, "工序名称", name);
+        addField(doc, "工序编码", execution.getProcessCode());
+        addField(doc, "顺序", execution.getStepOrder() == null ? null : String.valueOf(execution.getStepOrder()));
+        addField(doc, "状态", execution.getStatus());
+        addField(doc, "操作人", execution.getOperatorName());
+        addField(doc, "房间", resolveRoomName(execution, ctx));
+        addField(doc, "设备", execution.getEquipmentName());
+        addField(doc, "开始时间", timeText(execution.getStartTime()));
+        addField(doc, "结束时间", timeText(execution.getEndTime()));
+        addField(doc, "数量", qtyText(execution.getProcessQty(), execution.getUnitName()));
+        addField(doc, "工艺要求", ctx.getProcessRequirements() == null ? null
+                : ctx.getProcessRequirements().get(execution.getProcessTypeId()));
+        addField(doc, "关键参数", execution.getKeyProcessParams());
+        addField(doc, "备注", execution.getRemark());
         doc.setFiles(toFiles(businessFileService.list("WORK_ORDER_PROCESS_EXECUTION", execution.getId(), null, null)));
         return doc;
+    }
+
+    /**
+     * 解析工序执行的房间名称
+     *
+     * @param execution 工序执行记录
+     * @param ctx       批次上下文
+     * @return 房间名称
+     */
+    private String resolveRoomName(WorkOrderProcessExecution execution, BatchContext ctx) {
+        if (StringUtils.hasText(execution.getRoomName())) {
+            return execution.getRoomName();
+        }
+        if (execution.getRoomId() != null && ctx.getRooms() != null) {
+            RoomInfo room = ctx.getRooms().get(execution.getRoomId());
+            if (room != null) {
+                return room.getRoomName();
+            }
+        }
+        return null;
     }
 
     private ProductSummaryDtos.DocumentItem stockInDoc(StockIn stockIn, BatchContext ctx) {
@@ -1226,6 +1408,18 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         doc.setDate(date(stockIn.getInDate()));
         doc.setStatus(stockIn.getInStatus());
         doc.setAmount(stockIn.getTotalAmount());
+        doc.setDocId(stockIn.getInId());
+        doc.setBizType("STOCK_IN_PRODUCT");
+        addField(doc, "入库单号", stockIn.getInCode());
+        addField(doc, "入库类型", stockIn.getInType());
+        addField(doc, "关联单号", stockIn.getRelatedOrder());
+        addField(doc, "计划号", stockIn.getPlanNumber());
+        addField(doc, "工单号", stockIn.getWorkOrderCode());
+        addField(doc, "关联单据", stockIn.getRelatedOrderTitle());
+        addField(doc, "计划标题", stockIn.getPlanTitle());
+        addField(doc, "入库时间", timeText(stockIn.getInDate()));
+        addField(doc, "状态", stockIn.getInStatus());
+        addField(doc, "备注", stockIn.getRemark());
         List<StockInDetail> details = ctx.getStockInDetails() == null ? Collections.emptyList()
                 : ctx.getStockInDetails().getOrDefault(stockIn.getInId(), Collections.emptyList());
         for (StockInDetail d : details) {
@@ -1237,6 +1431,8 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             line.setQty(d.getQuantity());
             line.setUnit(d.getUnitName());
             line.setBatchNo(d.getBatchNumber());
+            line.setExpiryDate(d.getExpiryDate());
+            line.setStorageLocation(d.getStorageLocation());
             line.setAmount(d.getAmount());
             doc.getLines().add(line);
         }
@@ -1278,6 +1474,16 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         doc.setDate(date(stockIn.getInDate()));
         doc.setStatus(stockIn.getInStatus());
         doc.setAmount(stockIn.getTotalAmount());
+        doc.setDocId(stockIn.getInId());
+        doc.setBizType("STOCK_IN_PRODUCT");
+        addField(doc, "入库单号", stockIn.getInCode());
+        addField(doc, "入库类型", stockIn.getInType());
+        addField(doc, "关联单号", stockIn.getRelatedOrder());
+        addField(doc, "计划号", stockIn.getPlanNumber());
+        addField(doc, "入库时间", timeText(stockIn.getInDate()));
+        addField(doc, "状态", stockIn.getInStatus());
+        addField(doc, "附件归属", "随验收单归档");
+        addField(doc, "备注", stockIn.getRemark());
         List<StockInDetail> details = ctx.getMaterialStockInDetails() == null ? Collections.emptyList()
                 : ctx.getMaterialStockInDetails().getOrDefault(stockIn.getInId(), Collections.emptyList());
         for (StockInDetail d : details) {
@@ -1288,10 +1494,30 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             line.setQty(d.getQuantity());
             line.setUnit(d.getUnitName());
             line.setBatchNo(d.getBatchNumber());
+            line.setExpiryDate(d.getExpiryDate());
+            line.setStorageLocation(d.getStorageLocation());
             line.setAmount(d.getAmount());
             doc.getLines().add(line);
         }
         return doc;
+    }
+
+    /**
+     * 查找成品出库对应的销售台账，用于展示客户名称
+     *
+     * @param stockOut 成品出库单
+     * @param ctx      批次上下文
+     * @return 销售订单
+     */
+    private SalesOrder findSalesOrder(StockOut stockOut, BatchContext ctx) {
+        if (ctx.getSalesOrders() == null || ctx.getSalesOrders().isEmpty()) {
+            return null;
+        }
+        return ctx.getSalesOrders().stream()
+                .filter(order -> Objects.equals(order.getSalesOrderCode(), stockOut.getRelatedOrder())
+                        || Objects.equals(order.getRelatedOutCode(), stockOut.getOutCode())
+                        || (stockOut.getCustomerId() != null && Objects.equals(order.getCustomerId(), stockOut.getCustomerId())))
+                .findFirst().orElse(null);
     }
 
     private ProductSummaryDtos.DocumentItem stockOutDoc(StockOut stockOut, BatchContext ctx) {
@@ -1301,6 +1527,22 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         doc.setDate(date(stockOut.getOutDate()));
         doc.setStatus(stockOut.getOutStatus());
         doc.setAmount(stockOut.getTotalAmount());
+        doc.setDocId(stockOut.getOutId());
+        doc.setBizType("STOCK_OUT_SALES");
+        doc.setOperator(stockOut.getCreatedByName());
+        SalesOrder salesOrder = findSalesOrder(stockOut, ctx);
+        String customerName = salesOrder == null ? null : salesOrder.getCustomerName();
+        doc.setCustomer(customerName);
+        addField(doc, "出库单号", stockOut.getOutCode());
+        addField(doc, "出库类型", stockOut.getOutType());
+        addField(doc, "关联单号", stockOut.getRelatedOrder());
+        addField(doc, "计划号", stockOut.getPlanNumber());
+        addField(doc, "品种", stockOut.getPreparationName());
+        addField(doc, "客户", customerName);
+        addField(doc, "出库时间", timeText(stockOut.getOutDate()));
+        addField(doc, "经办人", stockOut.getCreatedByName());
+        addField(doc, "状态", stockOut.getOutStatus());
+        addField(doc, "备注", stockOut.getRemark());
         List<StockOutDetail> details = ctx.getStockOutDetails() == null ? Collections.emptyList()
                 : ctx.getStockOutDetails().getOrDefault(stockOut.getOutId(), Collections.emptyList());
         for (StockOutDetail d : details) {
@@ -1312,6 +1554,7 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             line.setQty(d.getQuantity());
             line.setUnit(d.getUnitName());
             line.setBatchNo(d.getBatchNumber());
+            line.setWarehouseName(d.getWarehouseName());
             line.setAmount(d.getAmount());
             doc.getLines().add(line);
         }
@@ -1333,6 +1576,18 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         doc.setDate(date(stockOut.getOutDate()));
         doc.setStatus(stockOut.getOutStatus());
         doc.setAmount(stockOut.getTotalAmount());
+        doc.setDocId(stockOut.getOutId());
+        doc.setBizType("STOCK_OUT_SALES");
+        doc.setOperator(stockOut.getCreatedByName());
+        addField(doc, "出库单号", stockOut.getOutCode());
+        addField(doc, "出库类型", stockOut.getOutType());
+        addField(doc, "关联单号", stockOut.getRelatedOrder());
+        addField(doc, "计划号", stockOut.getPlanNumber());
+        addField(doc, "出库时间", timeText(stockOut.getOutDate()));
+        addField(doc, "经办人", stockOut.getCreatedByName());
+        addField(doc, "状态", stockOut.getOutStatus());
+        addField(doc, "附件归属", "随领料单归档");
+        addField(doc, "备注", stockOut.getRemark());
         List<StockOutDetail> details = ctx.getMaterialStockOutDetails() == null ? Collections.emptyList()
                 : ctx.getMaterialStockOutDetails().getOrDefault(stockOut.getOutId(), Collections.emptyList());
         for (StockOutDetail d : details) {
@@ -1343,10 +1598,12 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             line.setQty(d.getQuantity());
             line.setUnit(d.getUnitName());
             line.setBatchNo(d.getBatchNumber());
+            line.setWarehouseName(d.getWarehouseName());
             line.setAmount(d.getAmount());
             doc.getLines().add(line);
         }
-        doc.setFiles(toFiles(businessFileService.list("STOCK_OUT_PRODUCTION", stockOut.getOutId(), null, null)));
+        // 领料出库单无独立附件口径，附件统一挂在领料单（production_pick.id）下
+        doc.setFiles(Collections.emptyList());
         return doc;
     }
 
@@ -1358,6 +1615,22 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         doc.setDate(date(request.getRequestTime()));
         doc.setOperator(request.getRequester());
         doc.setStatus(request.getProcessName());
+        doc.setItemCategory(request.getItemCategory());
+        doc.setDocId(request.getId());
+        doc.setBizType("INSPECTION_REQUEST");
+        addField(doc, "请检单号", request.getInspectionCode());
+        addField(doc, "检验计划编号", request.getInspectionPlanCode());
+        addField(doc, "被检品属性", request.getItemCategory());
+        addField(doc, "检验项目", request.getInspectionItemName());
+        addField(doc, "批号", request.getBatchNumber());
+        addField(doc, "规格", request.getSpec());
+        addField(doc, "检验环节", request.getProcessName());
+        addField(doc, "配置数量", request.getConfigQuantity());
+        addField(doc, "请检部门", request.getRequestDepartment());
+        addField(doc, "请检人", request.getRequester());
+        addField(doc, "请检时间", timeText(request.getRequestTime()));
+        addField(doc, "检验项目内容", request.getInspectionItems());
+        addField(doc, "备注", request.getRemark());
         doc.setFiles(toFiles(businessFileService.list("INSPECTION_REQUEST", request.getId(), null, null)));
         return doc;
     }
@@ -1370,6 +1643,22 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         doc.setDate(date(sampling.getSamplingTime()));
         doc.setOperator(sampling.getSampler());
         doc.setStatus(sampling.getSamplingMethod());
+        doc.setItemCategory(sampling.getItemCategory());
+        doc.setDocId(sampling.getId());
+        doc.setBizType("SAMPLING_RECORD");
+        addField(doc, "取样编号", sampling.getSamplingCode());
+        addField(doc, "关联计划号", sampling.getRelatedPlanCode());
+        addField(doc, "被检对象", sampling.getObjectName());
+        addField(doc, "被检品属性", sampling.getItemCategory());
+        addField(doc, "批号", sampling.getBatchNo());
+        addField(doc, "规格", sampling.getSpec());
+        addField(doc, "取样地点", sampling.getSamplingLocation());
+        addField(doc, "取样量", sampling.getSamplingQuantity());
+        addField(doc, "取样份数", sampling.getSamplingCount() == null ? null : String.valueOf(sampling.getSamplingCount()));
+        addField(doc, "取样方法", sampling.getSamplingMethod());
+        addField(doc, "取样人", sampling.getSampler());
+        addField(doc, "取样时间", timeText(sampling.getSamplingTime()));
+        addField(doc, "备注", sampling.getRemark());
         doc.setFiles(toFiles(businessFileService.list("SAMPLING_RECORD", sampling.getId(), null, null)));
         return doc;
     }
@@ -1383,6 +1672,24 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         doc.setDate(date(record.getEndTime()));
         doc.setOperator(record.getInspector());
         doc.setStatus(record.getConclusion());
+        doc.setDocId(record.getId());
+        doc.setBizType("INSPECTION_RECORD");
+        addField(doc, "检验编号", record.getInspectionCode());
+        addField(doc, "关联取样编号", record.getRelatedSamplingCode());
+        addField(doc, "关联请检编号", record.getRelatedInspectionRequestCode());
+        addField(doc, "被检对象", record.getObjectName());
+        addField(doc, "被检品属性", record.getItemCategory());
+        addField(doc, "品种", record.getPreparationName());
+        addField(doc, "批号", record.getBatchNo());
+        addField(doc, "规格", record.getSpec());
+        addField(doc, "检验依据", record.getInspectionBasis());
+        addField(doc, "检验项目", record.getInspectionItem());
+        addField(doc, "检验人", record.getInspector());
+        addField(doc, "复核人", record.getReviewer());
+        addField(doc, "开始时间", timeText(record.getStartTime()));
+        addField(doc, "结束时间", timeText(record.getEndTime()));
+        addField(doc, "检验结论", record.getConclusion());
+        addField(doc, "备注", record.getRemark());
         doc.setFiles(toFiles(businessFileService.list("INSPECTION_RECORD", record.getId(), null, null)));
         return doc;
     }
@@ -1395,6 +1702,20 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         doc.setDate(date(release.getReviewTime()));
         doc.setOperator(release.getReviewer());
         doc.setStatus(release.getReleaseConclusion());
+        doc.setDocId(release.getId());
+        doc.setBizType("RELEASE_REVIEW");
+        addField(doc, "放行单号", release.getReleaseCode());
+        addField(doc, "关联检验单", release.getRelatedInspectionCode());
+        addField(doc, "关联检验记录", release.getRelatedInspectionRecordCode());
+        addField(doc, "被检品属性", release.getItemCategory());
+        addField(doc, "品种", release.getPreparationName());
+        addField(doc, "批号", release.getBatchNo());
+        addField(doc, "规格", release.getSpec());
+        addField(doc, "放行结论", release.getReleaseConclusion());
+        addField(doc, "审核意见", release.getReviewOpinion());
+        addField(doc, "审核人", release.getReviewer());
+        addField(doc, "审核时间", timeText(release.getReviewTime()));
+        addField(doc, "备注", release.getRemark());
         doc.setFiles(toFiles(businessFileService.list("RELEASE_REVIEW", release.getId(), null, null)));
         return doc;
     }
@@ -1409,6 +1730,10 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
     private List<ProductSummaryDtos.SlotState> slotStates(BatchContext ctx) {
         List<ProductSummaryDtos.SlotState> result = new ArrayList<>();
         for (FileRequirementConfig config : fileRequirementService.listAll()) {
+            // 可选文件不计入节点的应传/缺件统计，仍保留在文件清单中展示为“不必传”
+            if ("OPTIONAL".equals(config.getRequirement())) {
+                continue;
+            }
             List<Long> ids = slotDocumentIds(config, ctx);
             if (ids.isEmpty()) continue;
             Map<Long, List<BusinessFileDto>> fileMap =
@@ -1508,14 +1833,16 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             case "PRODUCTION_PLAN" -> ctx.getPlan() == null ? Collections.emptyList()
                     : List.of(ctx.getPlan().getId().longValue());
             case "PURCHASE_ORDER" -> ctx.getPurchases().stream().map(PurchaseOrders::getId).collect(Collectors.toList());
-            case "ACCEPTANCE_ORDER" -> ctx.getAcceptances().stream().map(AcceptanceOrder::getAcceptanceId).collect(Collectors.toList());
+            case "ACCEPTANCE_ORDER" -> materialAcceptances(ctx).stream().map(AcceptanceOrder::getAcceptanceId).collect(Collectors.toList());
             case "WORK_ORDER" -> List.of(ctx.getWorkOrder().getWorkOrderId());
+            case "WORK_ORDER_PROCESS_EXECUTION" -> ctx.getExecutions().stream().map(WorkOrderProcessExecution::getId).collect(Collectors.toList());
             case "INSPECTION_REQUEST" -> ctx.getRequests().stream().map(InspectionRequest::getId).collect(Collectors.toList());
             case "SAMPLING_RECORD" -> ctx.getSamplings().stream().map(SamplingRecord::getId).collect(Collectors.toList());
             case "INSPECTION_RECORD" -> ctx.getInspections().stream().map(InspectionRecord::getId).collect(Collectors.toList());
             case "RELEASE_REVIEW" -> ctx.getRelease() == null ? Collections.emptyList() : List.of(ctx.getRelease().getId());
             case "DEVIATION_RECORD" -> ctx.getDeviations().stream().map(DeviationRecord::getId).collect(Collectors.toList());
-            case "STOCK_OUT_PRODUCTION" -> ctx.getPicks().stream().map(ProductionPick::getStockOutId)
+            // 生产领料附件挂在 production_pick.id 上，与 BizFileType.STOCK_OUT_PRODUCTION 的映射一致
+            case "STOCK_OUT_PRODUCTION" -> ctx.getPicks().stream().map(ProductionPick::getId)
                     .filter(Objects::nonNull).collect(Collectors.toList());
             case "STOCK_IN_PRODUCT" -> ctx.getStockIns().stream().map(StockIn::getInId).collect(Collectors.toList());
             case "STOCK_OUT_SALES" -> ctx.getStockOuts().stream().map(StockOut::getOutId).collect(Collectors.toList());
@@ -1819,9 +2146,12 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             case "WORK_ORDER_PROCESS_EXECUTION" -> ctx.getExecutions().stream()
                     .filter(e -> Objects.equals(e.getId(), id))
                     .map(e -> processName(ctx, e)).findFirst().orElse("");
-            case "STOCK_OUT_PRODUCTION" -> ctx.getMaterialStockOuts().stream()
-                    .filter(s -> Objects.equals(s.getOutId(), id))
-                    .map(StockOut::getOutCode).findFirst().orElse("");
+            case "STOCK_OUT_PRODUCTION" -> ctx.getPicks().stream()
+                    .filter(p -> Objects.equals(p.getId(), id))
+                    .map(ProductionPick::getPickCode).findFirst()
+                    .orElseGet(() -> ctx.getMaterialStockOuts().stream()
+                            .filter(s -> Objects.equals(s.getOutId(), id))
+                            .map(StockOut::getOutCode).findFirst().orElse(""));
             case "STOCK_IN_PRODUCT" -> ctx.getStockIns().stream()
                     .filter(s -> Objects.equals(s.getInId(), id))
                     .map(StockIn::getInCode).findFirst().orElse("");
@@ -2201,17 +2531,180 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         return value == null ? "" : value;
     }
 
+    // region 单据字段与节点统计
+    // ===================================
+    // 单据字段与节点统计
+    // ===================================
+
+    /**
+     * 追加单据表头字段，空值不展示
+     *
+     * @param doc   单据
+     * @param label 字段名称
+     * @param value 字段值
+     */
+    private void addField(ProductSummaryDtos.DocumentItem doc, String label, String value) {
+        if (StringUtils.hasText(value)) {
+            doc.getFields().add(new ProductSummaryDtos.FieldItem(label, value));
+        }
+    }
+
+    private String timeText(LocalDateTime time) {
+        return time == null ? null : time.format(DATE_TIME_FORMATTER);
+    }
+
+    private String dateValue(LocalDate date) {
+        return date == null ? null : date.toString();
+    }
+
+    private String qtyText(BigDecimal qty, String unit) {
+        if (qty == null) {
+            return null;
+        }
+        String value = qty.stripTrailingZeros().toPlainString();
+        return StringUtils.hasText(unit) ? value + " " + unit : value;
+    }
+
+    /**
+     * 工艺路线：按工序顺序拼接工序名称
+     *
+     * @param ctx 批次上下文
+     * @return 工艺路线
+     */
+    private String processRoute(BatchContext ctx) {
+        if (ctx.getExecutions() == null || ctx.getExecutions().isEmpty()) {
+            return null;
+        }
+        return ctx.getExecutions().stream()
+                .sorted(Comparator.comparing(e -> e.getStepOrder() == null ? 0 : e.getStepOrder()))
+                .map(e -> processName(ctx, e))
+                .distinct()
+                .collect(Collectors.joining(" → "));
+    }
+
+    /**
+     * 回填节点单据数与文件统计（排除可选文件）
+     *
+     * @param stages    链路节点
+     * @param checklist 文件完整性清单
+     */
+    private void applyStageStats(List<ProductSummaryDtos.StageItem> stages,
+                                 List<ProductSummaryDtos.FileChecklistItem> checklist) {
+        Map<String, List<ProductSummaryDtos.FileChecklistItem>> byNode = checklist.stream()
+                .filter(item -> StringUtils.hasText(item.getNodeKey()))
+                .collect(Collectors.groupingBy(ProductSummaryDtos.FileChecklistItem::getNodeKey));
+        for (ProductSummaryDtos.StageItem stage : stages) {
+            stage.setDocumentCount(stage.getDocuments() == null ? 0 : stage.getDocuments().size());
+            int expected = 0;
+            int uploaded = 0;
+            int missing = 0;
+            int optionalExpected = 0;
+            int optionalUploaded = 0;
+            Set<Long> missingDocs = new HashSet<>();
+            for (ProductSummaryDtos.FileChecklistItem item
+                    : byNode.getOrDefault(stage.getKey(), Collections.emptyList())) {
+                if ("OPTIONAL".equals(item.getRequirement())) {
+                    optionalExpected += item.getTotal();
+                    optionalUploaded += item.getUploaded();
+                    continue;
+                }
+                expected += item.getTotal();
+                uploaded += item.getUploaded();
+                missing += item.getMissing();
+                for (ProductSummaryDtos.FileChecklistDocument doc : item.getDocuments()) {
+                    if (!doc.isUploaded() && doc.getDocId() != null) {
+                        missingDocs.add(doc.getDocId());
+                    }
+                }
+            }
+            stage.setFileExpected(expected);
+            stage.setFileUploaded(uploaded);
+            stage.setFileMissing(missing);
+            stage.setMissingDocumentCount(missingDocs.size());
+            stage.setOptionalExpected(optionalExpected);
+            stage.setOptionalUploaded(optionalUploaded);
+        }
+    }
+
+    /**
+     * 回填每张单据的缺件标签
+     *
+     * @param stages    链路节点
+     * @param checklist 文件完整性清单
+     */
+    private void applyDocumentMissing(List<ProductSummaryDtos.StageItem> stages,
+                                      List<ProductSummaryDtos.FileChecklistItem> checklist) {
+        Map<String, List<ProductSummaryDtos.FileChecklistItem>> requiredByDoc = new LinkedHashMap<>();
+        for (ProductSummaryDtos.FileChecklistItem item : checklist) {
+            if ("OPTIONAL".equals(item.getRequirement())) {
+                continue;
+            }
+            for (ProductSummaryDtos.FileChecklistDocument doc : item.getDocuments()) {
+                if (doc.getDocId() == null) {
+                    continue;
+                }
+                requiredByDoc.computeIfAbsent(item.getBizType() + "#" + doc.getDocId(),
+                        key -> new ArrayList<>()).add(item);
+            }
+        }
+        for (ProductSummaryDtos.StageItem stage : stages) {
+            if (stage.getDocuments() == null) {
+                continue;
+            }
+            for (ProductSummaryDtos.DocumentItem doc : stage.getDocuments()) {
+                if (doc.getBizType() == null || doc.getDocId() == null) {
+                    continue;
+                }
+                List<ProductSummaryDtos.FileChecklistItem> items =
+                        requiredByDoc.get(doc.getBizType() + "#" + doc.getDocId());
+                if (items == null || items.isEmpty()) {
+                    continue;
+                }
+                int uploaded = 0;
+                List<String> missingLabels = new ArrayList<>();
+                for (ProductSummaryDtos.FileChecklistItem item : items) {
+                    boolean isUploaded = item.getDocuments().stream()
+                            .anyMatch(d -> Objects.equals(d.getDocId(), doc.getDocId()) && d.isUploaded());
+                    if (isUploaded) {
+                        uploaded++;
+                    } else {
+                        missingLabels.add(item.getLabel());
+                    }
+                }
+                doc.setFileExpected(items.size());
+                doc.setFileUploaded(uploaded);
+                doc.setMissingCount(missingLabels.size());
+                doc.setMissingLabels(missingLabels);
+            }
+        }
+    }
+
+    // endregion
+
     private List<ProductSummaryDtos.FileItem> toFiles(List<BusinessFileDto> files) {
         if (files == null) return Collections.emptyList();
-        return files.stream().map(f -> {
+        // 同一文件可能同时挂在多个文件槽位，槽位内按 fileId 去重，不合并不同槽位的记录
+        Map<String, ProductSummaryDtos.FileItem> unique = new LinkedHashMap<>();
+        for (BusinessFileDto f : files) {
+            String key = f.getFileId() != null ? "id:" + f.getFileId() : "name:" + f.getOriginalName();
+            if (unique.containsKey(key)) {
+                continue;
+            }
             ProductSummaryDtos.FileItem item = new ProductSummaryDtos.FileItem();
             item.setFileId(f.getFileId());
             item.setName(f.getOriginalName());
             item.setSize(f.getFileSize());
             item.setTime(f.getCreatedTime());
             item.setUploader("");
-            return item;
-        }).collect(Collectors.toList());
+            item.setFileUrl(f.getFileUrl());
+            item.setPreviewUrl(f.getPreviewUrl());
+            item.setContentType(f.getContentType());
+            item.setFileExtension(f.getFileExtension());
+            item.setBizType(f.getBizType());
+            item.setFileKind(f.getFileKind());
+            unique.put(key, item);
+        }
+        return new ArrayList<>(unique.values());
     }
 
     // endregion

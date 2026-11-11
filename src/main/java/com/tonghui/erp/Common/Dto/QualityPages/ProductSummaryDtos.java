@@ -76,9 +76,9 @@ public final class ProductSummaryDtos {
         private Integer processTotal;
         /** 已完成工序数 */
         private Integer processCompleted;
-        /** 批次/计划状态 */
+        /** 批次/计划状态（按工单日期字段实时推导，已放行不会因已入库被覆盖） */
         private String status;
-        /** 生产是否已完成（成品已入库/已归档）；未下达计划为 false */
+        /** 生产是否已完成（成品已入库及其后续的已放行/已归档）；未下达计划为 false */
         private boolean productionDone;
         /** 附件总数 */
         private int fileCount;
@@ -148,7 +148,7 @@ public final class ProductSummaryDtos {
     public static class Kpi {
         /** 在产批次数（未成品入库，且非异常/不合格/作废） */
         private int runningBatches;
-        /** 生产已完成批次数（成品已入库/已归档） */
+        /** 生产已完成批次数（成品已入库及其后续的已放行/已归档） */
         private int completedBatches;
         /** 已下达批次总数 */
         private int totalBatches;
@@ -304,6 +304,20 @@ public final class ProductSummaryDtos {
         private String meta;
         /** 单据列表 */
         private List<DocumentItem> documents = new ArrayList<>();
+        /** 单据数量（张） */
+        private int documentCount;
+        /** 必传+条件必传槽位应传单据数 */
+        private int fileExpected;
+        /** 必传+条件必传槽位已上传单据数 */
+        private int fileUploaded;
+        /** 必传+条件必传缺件项数 */
+        private int fileMissing;
+        /** 存在缺件的单据数（去重） */
+        private int missingDocumentCount;
+        /** 可选槽位应传单据数（不计入缺件） */
+        private int optionalExpected;
+        /** 可选槽位已上传单据数 */
+        private int optionalUploaded;
     }
 
     /** 单据 */
@@ -329,10 +343,41 @@ public final class ProductSummaryDtos {
         private String customer;
         /** 金额 */
         private BigDecimal amount;
+        /** 单据ID（与文件清单 documents[].docId 对齐） */
+        private Long docId;
+        /** 业务类型编码（BizFileType） */
+        private String bizType;
+        /** 单据表头字段（有序，前端按顺序展示） */
+        private List<FieldItem> fields = new ArrayList<>();
+        /** 本单据必传+条件必传槽位应传数 */
+        private int fileExpected;
+        /** 本单据必传+条件必传槽位已传数 */
+        private int fileUploaded;
+        /** 本单据缺件项数 */
+        private int missingCount;
+        /** 本单据缺件名称，如“验收检验报告” */
+        private List<String> missingLabels = new ArrayList<>();
         /** 单据明细行 */
         private List<DocumentLine> lines = new ArrayList<>();
         /** 文件列表/文件分组 */
         private List<FileItem> files = new ArrayList<>();
+    }
+
+    /** 单据表头字段 */
+    @Data
+    public static class FieldItem {
+        /** 字段名称 */
+        private String label;
+        /** 字段值 */
+        private String value;
+
+        public FieldItem() {
+        }
+
+        public FieldItem(String label, String value) {
+            this.label = label;
+            this.value = value;
+        }
     }
 
     /** 单据明细行 */
@@ -360,6 +405,28 @@ public final class ProductSummaryDtos {
         private String batchNo;
         /** 批次/计划状态 */
         private String status;
+        /** 到货数量（验收明细） */
+        private BigDecimal arrivalQty;
+        /** 实际到货数量（验收明细） */
+        private BigDecimal actualArrivalQty;
+        /** 入库数量（验收/入库明细） */
+        private BigDecimal inboundQty;
+        /** 差异数量（验收明细） */
+        private BigDecimal diffQty;
+        /** 有效期（验收/入库明细） */
+        private LocalDate expiryDate;
+        /** 外包装检查（验收明细） */
+        private String outerPackageCheck;
+        /** 外观检查（验收明细） */
+        private String appearanceCheck;
+        /** 退货原因（验收明细） */
+        private String returnReason;
+        /** 库位（入库明细） */
+        private String storageLocation;
+        /** 仓库（出库/退库明细） */
+        private String warehouseName;
+        /** 明细备注 */
+        private String remark;
     }
 
     /** 文件分组 */
@@ -461,6 +528,18 @@ public final class ProductSummaryDtos {
         private LocalDateTime time;
         /** 上传人 */
         private String uploader;
+        /** 下载地址 */
+        private String fileUrl;
+        /** 预览地址 */
+        private String previewUrl;
+        /** 内容类型 */
+        private String contentType;
+        /** 扩展名 */
+        private String fileExtension;
+        /** 业务类型编码 */
+        private String bizType;
+        /** 文件槽位 */
+        private String fileKind;
     }
 
     /** 导出筛选条件 */

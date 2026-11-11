@@ -273,7 +273,7 @@ export interface ProductSummaryStage {
  * 链路节点固定为以下 10 个，后端始终按此顺序返回，不因数据缺失而省略：
  * plan(计划) → purchase(采购) → acceptance(验收入库) → workOrder(生产任务)
  * → pick(生产领料) → production(生产过程) → inspection(检验)
- * → finishedInbound(成品入库) → release(审核放行) → finishedOutbound(成品出库)
+ * → release(审核放行) → finishedInbound(成品入库) → finishedOutbound(成品出库)
  */
 export type ProductSummaryNodeKey =
   | 'plan'
@@ -461,12 +461,13 @@ await Promise.all([loadOverview(), getData()])
 
 在产/完成口径：
 
-- 工单状态流转为 待生产 → 生产中 → 已生产 → 检验中 → 已检验 → 已放行 → 已入库 → 已归档；
-- **成品入库即视为生产完成**：`已入库`、`已归档` 计入 `completedBatches`，不计入 `runningBatches`；
+- 工单状态流转为 待生产 → 生产中 → 已生产 → 检验中 → 已检验 → 已入库 → 已放行 → 已归档（页面链路展示：检验 → 审核放行 → 成品入库 → 成品出库）；
+- **成品入库即视为生产完成**：`已入库`、`已放行`、`已归档` 计入 `completedBatches`，不计入 `runningBatches`；
 - `异常`、`不合格`、`作废` 为终止状态，既不计入在产也不计入完成；
-- 审核放行、成品出库属于入库后的后续环节，不影响“在产/完成”判定；
-- 列表/卡片行可用 `batch.productionDone` 判断是否展示为“已完成”；`status` 仍保留真实状态值（如 `已入库`），便于区分进度；
-- 卡片副标题建议显示为「在产 {runningBatches} · 已入库 {completedBatches} · 共 {totalBatches} 批」。
+- **审核放行会把状态推进到 `已放行`**，不会因为已入库而被覆盖；已归档才进入终态；
+- 列表/卡片行可用 `batch.productionDone` 判断是否展示为“已完成”；`status` 为按工单日期字段实时推导的有效状态；
+- 批次卡片副标题建议显示为「在产 {runningBatches} · 已完成 {completedBatches} · 共 {totalBatches} 批」；
+- `totalBatches`/`runningBatches`/`completedBatches` 只统计已下达工单的批次，未下达计划记录只计入 `verdict.recordCount` 与缺件统计，避免与「批次」口径混淆。
 
 ### 5.3 优先处理
 
@@ -743,3 +744,77 @@ const canExport = hasAuth('product_summary_export')
 - [ ] ZIP 和 CSV 都能下载，ZIP 含文件清单。
 - [ ] 文件缺失不阻断导出，清单有状态。
 - [ ] 无导出权限时按钮不可见。
+
+---
+
+## 10. 详情页改版（2026-11）
+
+### 10.1 页面形态
+
+批次详情由 85% 弹窗改为整页：批次信息 → 10 节点圆点导航 → 节点折叠卡片。节点内直接展示单据卡片，点击单据卡片打开详情抽屉（完整字段、物料明细、附件、缺件提示）。
+
+`GET /api/product-summary/batches/{workOrderId}`、`GET /api/product-summary/plans/{planId}` 保持原路径，字段只做追加，旧调用方不受影响。
+
+### 10.2 新增字段
+
+**StageItem（链路节点）**
+
+| 字段 | 说明 |
+|---|---|
+| `documentCount` | 单据数（张） |
+| `fileExpected` | 必传+条件必传槽位应传单据数 |
+| `fileUploaded` | 必传+条件必传槽位已上传单据数 |
+| `fileMissing` | 必传+条件必传缺件项数 |
+| `missingDocumentCount` | 存在缺件的单据数（去重） |
+| `optionalExpected` / `optionalUploaded` | 可选槽位的应传/已传数，不计入缺件 |
+
+**DocumentItem（单据）**
+
+| 字段 | 说明 |
+|---|---|
+| `docId` | 单据ID，与 `fileChecklist[].documents[].docId` 对齐 |
+| `bizType` | 业务类型编码 |
+| `fields[]` | 有序表头字段 `{ label, value }`，前端按顺序展示；空值不返回 |
+| `fileExpected` / `fileUploaded` | 本单据必传+条件必传槽位应传/已传数 |
+| `missingCount` / `missingLabels[]` | 本单据缺件项数与缺件名称 |
+
+**DocumentLine（单据明细）**
+
+新增验收/出入库字段：`spec`、`arrivalQty`、`actualArrivalQty`、`inboundQty`、`diffQty`、`expiryDate`、`outerPackageCheck`、`appearanceCheck`、`returnReason`、`storageLocation`、`warehouseName`、`remark`。
+
+**FileItem（附件）**
+
+新增 `fileUrl`、`previewUrl`、`contentType`、`fileExtension`、`bizType`、`fileKind`。前端仍优先用 `GET /api/files/preview/{fileId}`、`GET /api/files/{fileId}` 预览/下载，URL 字段作为兜底。
+
+### 10.3 单据类型
+
+- 计划：生产计划
+- 采购 / 领料：采购订单
+- 验收入库：货物验收（含验收明细）、物料入库单（明细随验收单归档，无独立附件）
+- 生产任务：工单
+- 生产领料：领料单（附件按 `production_pick.id` 查询）、领料出库单（无独立附件，附件随领料单）
+- 生产过程：每道工序一条记录
+- 检验：请检单、取样记录、检验记录
+- 成品入库：成品入库单
+- 审核放行：放行记录
+- 成品出库：成品出库单
+
+### 10.4 缺件口径
+
+| 指标 | 定义 |
+|---|---|
+| 单据数 | 节点下实际单据条数（张） |
+| 文件应传 | 必传+条件必传槽位的“单据×槽位”份数 |
+| 文件已传 | 上述槽位中已上传至少一个文件的“单据-槽位”数 |
+| 缺件项 | 应传但未传的“单据-槽位”数 |
+| 可选文件 | `OPTIONAL` 不计入应传/已传/缺件，展示为“不必传” |
+
+节点文案固定为 `单据 N 张 · 文件 x/y · 缺 m 项`，禁止把槽位数写成“缺件 m/y”。
+
+`detail.slots` 只返回必传/条件必传槽位；`detail.fileChecklist` 保留全部槽位（含 OPTIONAL），用于节点“已有附件”分组和缺件明细。
+
+### 10.5 联调注意
+
+- `STOCK_OUT_PRODUCTION` 的附件业务 ID 已统一为 `production_pick.id`；历史若曾按 `stock_out.id` 挂文件，需要核对数据。
+- 详情接口额外调用 `loadDetail` 加载验收/退库明细，响应体比列表接口大，属于预期。
+- 列表、概览、导出的文件统计口径未变；仅详情页增加了单据级统计字段。

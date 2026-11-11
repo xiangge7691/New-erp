@@ -451,6 +451,22 @@ Content-Type: application/json
 | `fileCount` | 附件数 |
 | `files[]` | 附件，见 3.9 |
 
+**`hospitalRequisitions[]`**（医院领料，与 `purchases[]` 同级展示）
+
+| 字段 | 说明 |
+|---|---|
+| `id` | 领料单 ID |
+| `code` | 领料单号 |
+| `planCode` / `planTitle` | 关联生产计划编号 / 标题 |
+| `fromDept` / `toDept` | 领用科室 / 发放科室 |
+| `applicant` / `applyTime` / `date` | 领料人 / 领料时间 / 领料日期 |
+| `materialType` / `multiplier` | 物料类型 / 处方倍数 |
+| `status` | 状态：待发放/验收中/已入库/已作废 |
+| `acceptanceOrderId` | 关联验收单 ID |
+| `remark` | 备注 |
+| `lines[]` | 明细行（字段同 10.2） |
+| `files[]` | 附件 |
+
 **`acceptances[]`**
 
 | 字段 | 说明 |
@@ -548,6 +564,7 @@ Content-Type: application/json
 | `id` | 请检单 ID |
 | `code` | 请检单号 |
 | `type` | 固定 `请检单` |
+| `itemCategory` | 被检品属性：生产原料/中间产品/成品 |
 | `process` | 工序 / 检验环节 |
 | `status` | 单据状态（当前后端未赋值，见第 9 节） |
 | `requester` | 请检人（当前字段名是 `operator`） |
@@ -565,6 +582,7 @@ Content-Type: application/json
 | `id` | 取样记录 ID |
 | `code` | 取样编号 |
 | `type` | 固定 `取样记录` |
+| `itemCategory` | 被检品属性：生产原料/中间产品/成品 |
 | `status` | 单据状态（当前后端未赋值） |
 | `sampler` | 取样人（当前字段名是 `operator`） |
 | `time` | 取样时间 |
@@ -579,6 +597,7 @@ Content-Type: application/json
 | `id` | 检验记录 ID |
 | `code` | 检验编号 |
 | `type` | 固定 `检验记录` |
+| `itemCategory` | 被检品属性：生产原料/中间产品/成品 |
 | `status` | 单据状态（当前后端未赋值） |
 | `conclusion` | 检验结论 |
 | `inspectionBasis` | 检验依据 |
@@ -589,7 +608,7 @@ Content-Type: application/json
 | `remark` | 备注 |
 | `files[]` | 检验记录、图谱等附件 |
 
-> 当前后端 `InspectionItem` 只回传 `id/code/type/process/status/conclusion/time/operator/files`，且 `status` 从未赋值。前端要做「查看表单」必须等第 9 节的字段扩展，或点击时改调各单据详情接口。
+> 当前后端 `InspectionItem` 回传 `id/code/type/itemCategory/process/status/conclusion/time/operator/files` 等字段，其中 `itemCategory` 为被检品属性；`status` 在部分单据上未赋值。前端要做「查看表单」必须等第 9 节的字段扩展，或点击时改调各单据详情接口。
 
 
 ### 3.7 区域记录（`rooms[]`）

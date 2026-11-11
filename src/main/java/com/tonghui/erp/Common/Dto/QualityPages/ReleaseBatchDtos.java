@@ -107,6 +107,8 @@ public final class ReleaseBatchDtos {
         private BatchInfo batch;
         /** 采购订单列表 */
         private List<PurchaseItem> purchases = new ArrayList<>();
+        /** 医院领料单列表（与采购同级展示） */
+        private List<HospitalRequisitionItem> hospitalRequisitions = new ArrayList<>();
         /** 验收单列表 */
         private List<AcceptanceItem> acceptances = new ArrayList<>();
         /** 生产指令列表 */
@@ -375,6 +377,43 @@ public final class ReleaseBatchDtos {
         private BigDecimal amount;
     }
 
+    /** 医院领料单（制剂室向医院药剂科领料） */
+    @Data
+    public static class HospitalRequisitionItem {
+        /** 领料单ID */
+        private Long id;
+        /** 领料单号 */
+        private String code;
+        /** 关联生产计划编号 */
+        private String planCode;
+        /** 生产计划标题 */
+        private String planTitle;
+        /** 领用科室 */
+        private String fromDept;
+        /** 发放科室 */
+        private String toDept;
+        /** 领料人 */
+        private String applicant;
+        /** 领料时间 */
+        private LocalDateTime applyTime;
+        /** 领料日期 */
+        private LocalDate date;
+        /** 物料类型：原料/辅料/包材 */
+        private String materialType;
+        /** 处方倍数 */
+        private BigDecimal multiplier;
+        /** 状态：待发放/验收中/已入库/已作废 */
+        private String status;
+        /** 关联验收单ID */
+        private Long acceptanceOrderId;
+        /** 备注 */
+        private String remark;
+        /** 明细行 */
+        private List<DocumentLineItem> lines = new ArrayList<>();
+        /** 附件列表 */
+        private List<FileItem> files = new ArrayList<>();
+    }
+
     /** 工序记录与符合性 */
     @Data
     public static class ProcessItem {
@@ -419,6 +458,8 @@ public final class ReleaseBatchDtos {
         private String code;
         /** 单据类型：请检单/取样记录/检验记录 */
         private String type;
+        /** 被检品属性：生产原料/中间产品/成品 */
+        private String itemCategory;
         /** 关联工序 */
         private String process;
         /** 单据状态 */

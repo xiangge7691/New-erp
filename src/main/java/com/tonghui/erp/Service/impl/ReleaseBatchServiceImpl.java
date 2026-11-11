@@ -13,6 +13,8 @@ import com.tonghui.erp.Data.Entity.FileRequirementConfig;
 import com.tonghui.erp.Data.Entity.InspectionRecord;
 import com.tonghui.erp.Data.Entity.InspectionRequest;
 import com.tonghui.erp.Data.Entity.InspectionTask;
+import com.tonghui.erp.Data.Entity.MaterialRequisitionSlip;
+import com.tonghui.erp.Data.Entity.MaterialRequisitionSlipDetail;
 import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.ProductionPick;
 import com.tonghui.erp.Data.Entity.ProductionPickDetail;
@@ -325,6 +327,8 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
         detail.setBatch(batch);
 
         detail.setPurchases(ctx.getPurchases().stream().map(p -> toPurchase(p, ctx)).collect(Collectors.toList()));
+        detail.setHospitalRequisitions(ctx.getHospitalRequisitions().stream()
+                .map(s -> toHospitalRequisition(s, ctx)).collect(Collectors.toList()));
         detail.setAcceptances(ctx.getAcceptances().stream().map(a -> toAcceptance(a, ctx)).collect(Collectors.toList()));
         detail.setInstructions(instruction(ctx));
         detail.setRequisitions(ctx.getPicks().stream().map(p -> toRequisition(p, ctx)).collect(Collectors.toList()));
@@ -390,6 +394,59 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
         item.setActualArrivalQty(line.getActualArrivalQty());
         item.setInvoiceNo(line.getInvoiceNo());
         item.setSupplier(line.getSupplier());
+        return item;
+    }
+
+    /**
+     * 组装医院领料单（与采购同级展示）
+     *
+     * @param slip 医院领料单实体
+     * @param ctx  批次上下文
+     * @return 医院领料单 DTO
+     */
+    private ReleaseBatchDtos.HospitalRequisitionItem toHospitalRequisition(MaterialRequisitionSlip slip,
+                                                                           BatchContext ctx) {
+        ReleaseBatchDtos.HospitalRequisitionItem item = new ReleaseBatchDtos.HospitalRequisitionItem();
+        item.setId(slip.getId());
+        item.setCode(slip.getSlipCode());
+        item.setPlanCode(slip.getProductionPlanCode());
+        item.setPlanTitle(slip.getProductionPlanTitle());
+        item.setFromDept(slip.getFromDept());
+        item.setToDept(slip.getToDept());
+        item.setApplicant(slip.getApplicant());
+        item.setApplyTime(slip.getApplyTime());
+        item.setDate(slip.getApplyTime() == null ? null : slip.getApplyTime().toLocalDate());
+        item.setMaterialType(slip.getMaterialType());
+        item.setMultiplier(slip.getMultiplier());
+        item.setStatus(slip.getStatus());
+        item.setAcceptanceOrderId(slip.getAcceptanceOrderId());
+        item.setRemark(slip.getRemark());
+        List<MaterialRequisitionSlipDetail> lines = ctx.getHospitalRequisitionDetails() == null
+                ? Collections.emptyList()
+                : ctx.getHospitalRequisitionDetails().getOrDefault(slip.getId(), Collections.emptyList());
+        item.setLines(lines.stream().map(this::toHospitalRequisitionLine).collect(Collectors.toList()));
+        item.setFiles(toFiles(businessFileService.list("MATERIAL_REQUISITION_SLIP", slip.getId(), null, null)));
+        return item;
+    }
+
+    /**
+     * 组装医院领料明细行
+     *
+     * @param line 医院领料明细实体
+     * @return 明细 DTO
+     */
+    private ReleaseBatchDtos.DocumentLineItem toHospitalRequisitionLine(MaterialRequisitionSlipDetail line) {
+        ReleaseBatchDtos.DocumentLineItem item = new ReleaseBatchDtos.DocumentLineItem();
+        item.setMaterialCode(line.getMaterialCode());
+        item.setMaterialName(line.getMaterialName());
+        item.setSpec(line.getCategoryName());
+        item.setQuantity(line.getActualQty() != null ? line.getActualQty() : line.getApplyQty());
+        item.setUnit(line.getUnitName());
+        item.setBatchNumber(line.getBatchNumber());
+        item.setUnitPrice(line.getUnitPrice());
+        if (item.getQuantity() != null && line.getUnitPrice() != null) {
+            item.setAmount(item.getQuantity().multiply(line.getUnitPrice()));
+        }
         return item;
     }
 
@@ -652,6 +709,7 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
         if (entity instanceof InspectionRequest r) {
             id = r.getId();
             item.setCode(r.getInspectionCode());
+            item.setItemCategory(r.getItemCategory());
             item.setProcess(r.getProcessName());
             item.setTime(r.getRequestTime());
             item.setOperator(r.getRequester());
@@ -667,6 +725,7 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
         } else if (entity instanceof SamplingRecord s) {
             id = s.getId();
             item.setCode(s.getSamplingCode());
+            item.setItemCategory(s.getItemCategory());
             item.setTime(s.getSamplingTime());
             item.setOperator(s.getSampler());
             item.setSampler(s.getSampler());
@@ -685,6 +744,7 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
         } else if (entity instanceof InspectionRecord r) {
             id = r.getId();
             item.setCode(r.getInspectionCode());
+            item.setItemCategory(r.getItemCategory());
             item.setConclusion(r.getConclusion());
             item.setTime(r.getEndTime());
             item.setOperator(r.getInspector());
