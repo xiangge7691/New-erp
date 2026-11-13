@@ -13,6 +13,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
@@ -54,6 +55,11 @@ public class ProductionPlanProgressSmokeTest {
         assertNotNull(detail.getChains());
         // 每条链路都应有展示状态，供详情选项卡使用
         detail.getChains().forEach(chain -> assertNotNull(chain.getDisplayStatus()));
+        // 关联了采购计划的链路应返回采购计划名称，供选项卡展示
+        detail.getChains().stream()
+                .filter(chain -> chain.getPurchasePlan() != null)
+                .forEach(chain -> assertEquals(chain.getPurchasePlan().getTitle(),
+                        chain.getPurchasePlanName()));
     }
 
     /**

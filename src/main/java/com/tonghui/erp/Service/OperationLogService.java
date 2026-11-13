@@ -43,6 +43,7 @@ public interface OperationLogService {
      * @param resultStatus  结果：1成功/0失败（可为空）
      * @param businessType  业务对象类型（精确匹配，可为空）
      * @param businessId    业务对象ID（精确匹配，可为空）
+     * @param macAddress    客户端MAC地址（支持完整地址或后缀片段，可为空）
      * @param keyword       关键字（模糊匹配操作描述、请求地址、账号、姓名，可为空）
      * @param startTime     起始时间（含，可为空）
      * @param endTime       截止时间（含，可为空）
@@ -51,8 +52,9 @@ public interface OperationLogService {
      */
     PagedResult<OperationLogDto> search(String userAccount, Long userId, String userName, String module,
                                         String operationType, Integer resultStatus, String businessType,
-                                        String businessId, String keyword, LocalDateTime startTime,
-                                        LocalDateTime endTime, PageRequestDto pageRequest);
+                                        String businessId, String macAddress, String keyword,
+                                        LocalDateTime startTime, LocalDateTime endTime,
+                                        PageRequestDto pageRequest);
 
     /**
      * 查询操作日志详情

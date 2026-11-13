@@ -126,6 +126,7 @@ export interface ProductSummaryBatch {
   inboundQty?: number
   outboundQty?: number
   materialSource?: string
+  materialSourceLabel?: string
   planDate?: string
   workOrderDate?: string
   inboundDate?: string
@@ -529,7 +530,7 @@ await Promise.all([loadOverview(), getData()])
 | 列 | 字段 |
 |---|---|
 | 品种 | `preparationName` + `preparationCode` + `spec` |
-| 工单 / 批号 | `workOrderCode` / `batchNo` / `planNumber` / `materialSource` |
+| 工单 / 批号 | `workOrderCode` / `batchNo` / `planNumber` / `materialSourceLabel` |
 | 时间 | 按 `filters.dateType` 取 `planDate` / `workOrderDate` / `inboundDate` / `inspectionDate`，列名同步变化 |
 | 状态 | `status` |
 | 生产 | `finishedQty / planQty` + `yieldRate` |
@@ -540,6 +541,8 @@ await Promise.all([loadOverview(), getData()])
 
 行 key 使用 `recordKey`。  
 `workOrderId` 为空时是未下达计划，行内“详情”调用 `/plans/{planId}`。
+
+物料来源 `materialSource` 为编码（`PURCHASE`/`REQUISITION`/`DIRECT`），展示一律用 `materialSourceLabel`（采购/院内领料/直接入库），不要再用编码自行映射文案。
 
 `useTable` 配置：
 

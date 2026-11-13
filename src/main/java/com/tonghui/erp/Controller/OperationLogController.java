@@ -62,7 +62,7 @@ public class OperationLogController extends BaseController {
      * 分页查询操作日志
      *
      * 示例请求：
-     * GET /api/system/operation-log/search?pageIndex=0&pageSize=20&userAccount=root&module=客户管理&operationType=CREATE&resultStatus=0&startTime=2026-11-01&endTime=2026-11-09
+     * GET /api/system/operation-log/search?pageIndex=0&pageSize=20&userAccount=root&module=客户管理&operationType=CREATE&resultStatus=0&macAddress=3C-52-82-1A-4F-09&startTime=2026-11-01&endTime=2026-11-09
      *
      * @param userAccount   操作人账号（精确匹配，可选）
      * @param userId        操作人ID（可选）
@@ -72,6 +72,7 @@ public class OperationLogController extends BaseController {
      * @param resultStatus  结果：1成功/0失败（可选）
      * @param businessType  业务对象类型（可选）
      * @param businessId    业务对象ID（可选）
+     * @param macAddress    客户端MAC地址（支持完整地址或后缀片段，可选）
      * @param keyword       关键字，模糊匹配操作描述、请求地址、账号、姓名、业务ID（可选）
      * @param startTime     起始时间，支持 yyyy-MM-dd 或 yyyy-MM-dd HH:mm:ss（可选）
      * @param endTime       截止时间，支持 yyyy-MM-dd 或 yyyy-MM-dd HH:mm:ss（可选）
@@ -88,6 +89,7 @@ public class OperationLogController extends BaseController {
             @RequestParam(required = false) Integer resultStatus,
             @RequestParam(required = false) String businessType,
             @RequestParam(required = false) String businessId,
+            @RequestParam(required = false) String macAddress,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String startTime,
             @RequestParam(required = false) String endTime,
@@ -95,7 +97,7 @@ public class OperationLogController extends BaseController {
         try {
             PagedResult<OperationLogDto> result = operationLogService.search(
                     userAccount, userId, userName, module, operationType, resultStatus,
-                    businessType, businessId, keyword,
+                    businessType, businessId, macAddress, keyword,
                     LogQueryTimeUtils.parseStart(startTime),
                     LogQueryTimeUtils.parseEnd(endTime),
                     processLogPageRequest(pageRequest));

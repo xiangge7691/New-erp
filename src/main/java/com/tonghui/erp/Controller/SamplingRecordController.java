@@ -138,7 +138,6 @@ public class SamplingRecordController extends BaseController {
         try {
             QueryWrapper<SamplingRecord> wrapper = buildQueryWrapper(samplingCode, relatedPlanCode, objectName,
                     batchNo, samplingLocation, samplingMethod, sampler, startTime, endTime);
-            wrapper.orderByDesc("sampling_time");
             return success(samplingRecordService.list(wrapper));
         } catch (Exception e) {
             return exception(e, "查询取样记录");
@@ -371,7 +370,8 @@ public class SamplingRecordController extends BaseController {
         if (StringUtils.hasText(sampler)) wrapper.like("sampler", sampler);
         if (StringUtils.hasText(startTime)) wrapper.ge("sampling_time", startTime);
         if (StringUtils.hasText(endTime)) wrapper.le("sampling_time", endTime);
-        wrapper.orderByDesc("sampling_time");
+        // 统一按创建时间倒序，保证新增记录排在最前
+        wrapper.orderByDesc("created_time", "id");
         return wrapper;
     }
 

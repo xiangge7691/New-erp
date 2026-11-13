@@ -108,6 +108,11 @@ public class LoginLogContext {
     private String loginIp;
 
     /**
+     * 客户端MAC地址（请求头 X-Client-Mac 上报）
+     */
+    private String macAddress;
+
+    /**
      * IP归属地
      */
     private String ipLocation;

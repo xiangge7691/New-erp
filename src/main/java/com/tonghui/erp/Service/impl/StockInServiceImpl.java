@@ -8,15 +8,21 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Stock.StockInWithDetailsDto;
 import com.tonghui.erp.Common.utils.StockInDetailMergeUtils;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
+import com.tonghui.erp.Data.Entity.Preparation;
+import com.tonghui.erp.Data.Entity.ProductionPlan;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.Entity.StockInDetail;
 import com.tonghui.erp.Data.Entity.User;
+import com.tonghui.erp.Data.Entity.WorkOrder;
 import com.tonghui.erp.Data.mapper.AcceptanceOrderMapper;
+import com.tonghui.erp.Data.mapper.PreparationMapper;
+import com.tonghui.erp.Data.mapper.ProductionPlanMapper;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Data.mapper.StockInMapper;
 import com.tonghui.erp.Data.mapper.StockInDetailMapper;
 import com.tonghui.erp.Data.mapper.UserMapper;
+import com.tonghui.erp.Data.mapper.WorkOrderMapper;
 import com.tonghui.erp.Service.StockInService;
 import com.tonghui.erp.Service.StockService;
 import com.tonghui.erp.Service.WorkOrderService;
@@ -28,6 +34,7 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -74,6 +81,15 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
     /** 工单服务，用于成品入库回填工单入库时间与状态 */
     private final WorkOrderService workOrderService;
 
+    /** 工单数据访问层，成品入库草稿按工单预填 */
+    private final WorkOrderMapper workOrderMapper;
+
+    /** 生产计划数据访问层，成品入库草稿补充计划号/计划标题 */
+    private final ProductionPlanMapper productionPlanMapper;
+
+    /** 制剂数据访问层，成品入库草稿补充制剂单位 */
+    private final PreparationMapper preparationMapper;
+
     /**
      * 构造函数注入依赖
      *
@@ -85,6 +101,9 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
      * @param productionUnitMapper 生产单位数据访问层
      * @param acceptanceOrderMapper 验收单数据访问层
      * @param workOrderService    工单服务
+     * @param workOrderMapper     工单数据访问层
+     * @param productionPlanMapper 生产计划数据访问层
+     * @param preparationMapper   制剂数据访问层
      */
     @Autowired
     public StockInServiceImpl(StockInMapper stockInMapper,
@@ -94,7 +113,10 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
                               UserMapper userMapper,
                               ProductionUnitMapper productionUnitMapper,
                               AcceptanceOrderMapper acceptanceOrderMapper,
-                              WorkOrderService workOrderService) {
+                              WorkOrderService workOrderService,
+                              WorkOrderMapper workOrderMapper,
+                              ProductionPlanMapper productionPlanMapper,
+                              PreparationMapper preparationMapper) {
         this.stockInMapper = stockInMapper;
         this.stockInDetailMapper = stockInDetailMapper;
         this.sequenceService = sequenceService;
@@ -103,6 +125,9 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
         this.productionUnitMapper = productionUnitMapper;
         this.acceptanceOrderMapper = acceptanceOrderMapper;
         this.workOrderService = workOrderService;
+        this.workOrderMapper = workOrderMapper;
+        this.productionPlanMapper = productionPlanMapper;
+        this.preparationMapper = preparationMapper;
     }
 
     // endregion
@@ -179,6 +204,113 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
         if ("成品入库".equals(stockIn.getInType()) && stockIn.getWorkOrderId() != null && stockIn.getInDate() != null) {
             workOrderService.syncWorkOrderTime(stockIn.getWorkOrderId(), "inboundTime", stockIn.getInDate());
         }
+    }
+
+    /**
+     * 按工单直接创建成品入库单
+     * <p>
+     * 审核放行完成后调用：从工单及其生产计划、制剂主数据预填成品入库信息，
+     * 自动选择启用的成品仓库并直接生成“已入库”状态的入库单，同步库存批次与工单入库时间。
+     * 同一工单已存在成品入库单时不再重复创建
+     * </p>
+     *
+     * @param workOrderId 工单ID
+     * @param inDate      入库时间，为空时取当前时间
+     * @return 创建后的入库单；工单不存在或已存在成品入库单时返回 null
+     */
+    @Override
+    @Transactional
+    public StockIn createFinishedStockInbound(Long workOrderId, LocalDateTime inDate) {
+        if (workOrderId == null) {
+            return null;
+        }
+        WorkOrder workOrder = workOrderMapper.selectById(workOrderId);
+        if (workOrder == null) {
+            return null;
+        }
+        // 同一工单只生成一张成品入库单，重复触发（如多入口放行）时不再创建
+        long existing = count(new QueryWrapper<StockIn>()
+                .eq("work_order_id", workOrderId)
+                .eq("in_type", "成品入库"));
+        if (existing > 0) {
+            return null;
+        }
+        // 自动选择启用的成品仓库（排除半成品库）
+        ProductionUnit warehouse = productionUnitMapper.selectOne(new QueryWrapper<ProductionUnit>()
+                .eq("is_deleted", 0)
+                .eq("prod_unit_status", 1)
+                .like("prod_unit_name", "成品")
+                .notLike("prod_unit_name", "半成品")
+                .orderByAsc("prod_unit_id")
+                .last("LIMIT 1"));
+        if (warehouse == null) {
+            throw new IllegalArgumentException("未配置启用的成品仓库，无法自动创建成品入库单");
+        }
+        ProductionPlan plan = workOrder.getPlanId() == null ? null
+                : productionPlanMapper.selectById(workOrder.getPlanId());
+        Preparation preparation = workOrder.getPreparationId() == null ? null
+                : preparationMapper.selectById(workOrder.getPreparationId());
+        BigDecimal quantity = workOrder.getFinishedQty() != null
+                ? workOrder.getFinishedQty() : workOrder.getBatchQty();
+        if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("工单未录入成品数量，无法自动创建成品入库单");
+        }
+
+        StockIn stockIn = new StockIn();
+        stockIn.setInType("成品入库");
+        stockIn.setProdUnitId(warehouse.getProdUnitId());
+        stockIn.setWorkOrderId(workOrder.getWorkOrderId());
+        stockIn.setWorkOrderCode(workOrder.getWorkOrderCode());
+        // 关联单号取工单号，便于审批工作台与上下游单据按生产任务关联检索
+        stockIn.setRelatedOrder(workOrder.getWorkOrderCode());
+        stockIn.setPlanNumber(plan != null ? plan.getPlanNumber() : workOrder.getPlanNumber());
+        stockIn.setPlanTitle(plan != null ? plan.getPlanName() : workOrder.getPlanName());
+        stockIn.setInDate(inDate == null ? LocalDateTime.now().withNano(0) : inDate);
+        stockIn.setRemark("审核放行通过自动生成成品入库单");
+
+        StockInDetail detail = new StockInDetail();
+        detail.setProdUnitId(warehouse.getProdUnitId());
+        detail.setItemType("preparation");
+        detail.setItemId(workOrder.getPreparationId() != null ? workOrder.getPreparationId()
+                : preparation == null ? null : preparation.getPreparationId());
+        detail.setItemCode(workOrder.getPreparationCode());
+        detail.setItemName(workOrder.getPreparationName());
+        detail.setCategoryName("成品");
+        if (preparation != null && StringUtils.hasText(preparation.getUnitName())) {
+            detail.setUnitName(preparation.getUnitName());
+        } else if (plan != null) {
+            detail.setUnitName(plan.getUnitName());
+        }
+        detail.setBatchNumber(workOrder.getBatchNumber());
+        detail.setProductionDate(resolveProductionDate(workOrder, plan));
+        detail.setQuantity(quantity);
+        // 放行通过即质量合格
+        detail.setStockStatus("合格");
+
+        // 直接入库：生成已入库单、联动库存批次与流水，并回填工单入库时间
+        addStockIn(stockIn, List.of(detail));
+        return stockIn;
+    }
+
+    /**
+     * 解析批次实际生产结束日期
+     * <p>生产完成时间 &gt; 配置完成时间 &gt; 计划生产结束时间</p>
+     *
+     * @param workOrder 工单
+     * @param plan      生产计划，可为空
+     * @return 生产结束日期，均缺失时返回 null
+     */
+    private LocalDate resolveProductionDate(WorkOrder workOrder, ProductionPlan plan) {
+        if (workOrder.getProductionCompleteTime() != null) {
+            return workOrder.getProductionCompleteTime().toLocalDate();
+        }
+        if (workOrder.getConfigCompleteTime() != null) {
+            return workOrder.getConfigCompleteTime().toLocalDate();
+        }
+        if (plan != null && plan.getProductionEndTime() != null) {
+            return plan.getProductionEndTime().toLocalDate();
+        }
+        return null;
     }
 
     /**
@@ -321,6 +453,11 @@ public class StockInServiceImpl extends ServiceImpl<StockInMapper, StockIn> impl
         // 更新入库单状态为已入库
         stockIn.setInStatus("已入库");
         stockInMapper.updateById(stockIn);
+        // 成品入库确认后回填工单入库时间（与新增即入库口径一致）
+        if ("成品入库".equals(stockIn.getInType()) && stockIn.getWorkOrderId() != null
+                && stockIn.getInDate() != null) {
+            workOrderService.syncWorkOrderTime(stockIn.getWorkOrderId(), "inboundTime", stockIn.getInDate());
+        }
     }
 
     /**

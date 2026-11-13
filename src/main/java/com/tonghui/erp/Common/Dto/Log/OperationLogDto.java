@@ -108,6 +108,11 @@ public class OperationLogDto {
     private String clientIp;
 
     /**
+     * 客户端MAC地址（客户端通过 X-Client-Mac 上报，格式 AA-BB-CC-DD-EE-FF）
+     */
+    private String macAddress;
+
+    /**
      * IP归属地
      */
     private String ipLocation;

@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS `sys_login_log` (
   `login_result` TINYINT      NOT NULL DEFAULT 1 COMMENT '结果：1成功/0失败',
   `fail_reason`  VARCHAR(255) DEFAULT NULL COMMENT '失败原因',
   `login_ip`     VARCHAR(64)  DEFAULT NULL COMMENT '登录IP（IPv4/IPv6原样记录）',
+  `mac_address`  VARCHAR(32)  DEFAULT NULL COMMENT '客户端MAC地址（客户端通过 X-Client-Mac 上报，格式 AA-BB-CC-DD-EE-FF）',
   `ip_location`  VARCHAR(128) DEFAULT NULL COMMENT 'IP归属地，如 江苏省南京市/内网/未知',
   `user_agent`   VARCHAR(500) DEFAULT NULL COMMENT '客户端User-Agent',
   `login_time`   DATETIME     NOT NULL COMMENT '登录时间',
@@ -28,5 +29,6 @@ CREATE TABLE IF NOT EXISTS `sys_login_log` (
   KEY `idx_login_user_time` (`user_id`, `login_time`),
   KEY `idx_login_account_time` (`user_account`, `login_time`),
   KEY `idx_login_time` (`login_time`),
-  KEY `idx_login_ip` (`login_ip`)
+  KEY `idx_login_ip` (`login_ip`),
+  KEY `idx_login_mac` (`mac_address`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='登录日志表';

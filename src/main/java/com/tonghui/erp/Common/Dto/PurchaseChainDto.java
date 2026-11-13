@@ -37,6 +37,9 @@ public class PurchaseChainDto {
     private PurchasePlan purchasePlan;
 
     /** 采购计划名称（选项卡展示；无采购计划时回退采购订单标题） */
+    private String purchasePlanName;
+
+    /** 采购计划名称（兼容旧字段名，与 purchasePlanName 同值） */
     private String purchasePlanTitle;
 
     /** 采购订单 */

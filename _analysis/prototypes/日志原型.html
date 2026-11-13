@@ -1,0 +1,2025 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>系统日志</title>
+<style>
+/* =========================================================
+ * Art Design Pro 风格原型公共样式
+ * 主色、灰阶与圆角对齐 C:\Work\Java\art-design-pro-main
+ * =======================================================*/
+:root {
+  --main: #5D87FF;
+  --main-light: #eef3ff;
+  --success: #13deb9;
+  --warning: #ffae1f;
+  --danger: #ff4d4f;
+  --bg: #fafbfc;
+  --card: #ffffff;
+  --border: rgba(0, 0, 0, .07);
+  --border2: #e2e8ee;
+  --g100: #f9fafb;
+  --g200: #f2f4f5;
+  --g300: #e6eaeb;
+  --g400: #dbdfe1;
+  --g500: #949eb7;
+  --g600: #7987a1;
+  --g700: #4d5875;
+  --g800: #383853;
+  --g900: #323251;
+  --radius: 14px;
+  --radius-md: 11px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .03);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, .08);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--g900);
+  font: 14px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: var(--main); text-decoration: none; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--g400); border-radius: 4px; }
+
+/* ---------- 主区域 ---------- */
+.main { max-width: 1320px; margin: 0 auto; min-height: 100vh; padding: 22px 26px 48px; }
+.page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.page-head h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: .2px; }
+.page-head .sub { margin: 4px 0 0; font-size: 12.5px; color: var(--g600); }
+.head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* ---------- 按钮 ---------- */
+.btn {
+  height: 34px; padding: 0 14px; border-radius: var(--radius-sm); border: 1px solid var(--border2);
+  background: #fff; color: var(--g700); font-size: 13px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; transition: .18s; white-space: nowrap;
+}
+.btn:hover { border-color: #c9d4e6; color: var(--g900); background: #fbfcfd; }
+.btn-primary { background: var(--main); border-color: var(--main); color: #fff; box-shadow: 0 2px 6px rgba(93, 135, 255, .26); }
+.btn-primary:hover { background: #7c9eff; border-color: #7c9eff; color: #fff; }
+.btn-sm { height: 26px; padding: 0 9px; font-size: 12px; border-radius: 6px; }
+.btn-ghost { border-color: transparent; background: transparent; color: var(--main); }
+.btn-ghost:hover { background: var(--main-light); }
+.btn[disabled], .btn.disabled { opacity: .45; cursor: not-allowed; }
+
+/* ---------- 卡片 ---------- */
+.card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 18px; border-bottom: 1px solid var(--g200); }
+.card-head h2 { margin: 0; font-size: 14px; font-weight: 600; color: var(--g900); }
+.card-head .meta { font-size: 11.5px; color: var(--g500); }
+.mb-2 { margin-bottom: 14px; }
+.mb-3 { margin-bottom: 20px; }
+
+/* ---------- 页签 ---------- */
+.tabbar {
+  display: flex; align-items: center; gap: 6px; padding: 6px; background: #fff;
+  border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
+  margin-bottom: 14px; flex-wrap: wrap;
+}
+.tab-btn {
+  height: 38px; padding: 0 16px; border: 0; border-radius: 9px; background: transparent;
+  color: var(--g600); font-size: 13.5px; cursor: pointer; display: inline-flex; align-items: center;
+  gap: 7px; transition: .18s;
+}
+.tab-btn:hover { background: var(--g100); color: var(--g900); }
+.tab-btn.active { background: var(--main-light); color: var(--main); font-weight: 600; }
+.tab-btn .count {
+  height: 19px; min-width: 20px; padding: 0 6px; border-radius: 10px; background: var(--g200);
+  color: var(--g600); font-size: 10.5px; display: inline-flex; align-items: center;
+  justify-content: center; font-weight: 500; font-variant-numeric: tabular-nums;
+}
+.tab-btn.active .count { background: #dbe6ff; color: var(--main); }
+.tab-pane.hidden { display: none; }
+
+/* ---------- 筛选栏 ---------- */
+.filters { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; padding: 12px 14px; }
+.filters label { font-size: 12.5px; color: var(--g600); white-space: nowrap; }
+.input, .select {
+  height: 34px; border: 1px solid var(--border2); background: #fff; border-radius: var(--radius-sm);
+  padding: 0 10px; font-size: 13px; color: var(--g800); outline: none; transition: .18s;
+}
+.input { width: 200px; }
+.select { cursor: pointer; min-width: 120px; }
+.input:focus, .select:focus { border-color: var(--main); box-shadow: 0 0 0 3px rgba(93, 135, 255, .12); }
+.input::placeholder { color: var(--g500); }
+.input.sm, .select.sm { height: 32px; font-size: 12.5px; }
+.input.sm { width: 148px; padding: 0 9px; }
+.select.sm { min-width: 104px; padding: 0 8px; }
+.spacer { flex: 1; }
+
+/* ---------- 统计 ---------- */
+.stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 10px; }
+.stat-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
+.stat-card .label { font-size: 12px; color: var(--g600); }
+.stat-card .num { display: flex; align-items: baseline; gap: 6px; margin-top: 2px; }
+.stat-card b { font-size: 24px; font-weight: 600; letter-spacing: -.3px; font-variant-numeric: tabular-nums; }
+.stat-card .unit { font-size: 11.5px; color: var(--g500); }
+.stat-card.warn b { color: var(--danger); }
+.stat-card.ok b { color: #0eaf93; }
+.stat-card.run b { color: var(--main); }
+.scope-line { font-size: 11.5px; color: var(--g500); margin: 0 0 14px 2px; }
+
+/* ---------- 表格 ---------- */
+.table-wrap { overflow: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+thead th {
+  background: var(--g100); color: var(--g600); font-weight: 500; text-align: left;
+  padding: 10px 12px; border-bottom: 1px solid var(--g200); white-space: nowrap; font-size: 11.5px;
+}
+tbody td { padding: 10px 12px; border-bottom: 1px solid var(--g200); color: var(--g700); vertical-align: top; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: #f7f9ff; }
+tbody tr.clickable { cursor: pointer; }
+/* 操作列固定在右侧，宽表横向滚动时仍可直接打开详情 */
+.table-wrap th:last-child,
+.table-wrap td:last-child {
+  position: sticky; right: 0; background: #fff;
+  box-shadow: -6px 0 10px -10px rgba(0, 0, 0, .28);
+}
+.table-wrap thead th:last-child { background: var(--g100); }
+.table-wrap tbody tr:hover td:last-child { background: #f7f9ff; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cell-main { color: var(--g900); font-weight: 500; }
+.cell-sub { display: block; font-size: 11px; color: var(--g500); margin-top: 1px; white-space: nowrap; }
+.cell-time { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--g600); font-size: 12px; }
+.ppl { display: flex; flex-direction: column; line-height: 1.35; }
+.ppl b { font-weight: 500; color: var(--g900); font-size: 12.5px; }
+.ppl span { font-size: 11px; color: var(--g500); }
+.ppl, .ppl b, .ppl span { white-space: nowrap; }
+.desc { max-width: 235px; white-space: normal; line-height: 1.5; color: var(--g800); }
+.tag {
+  display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 5px;
+  font-size: 10.5px; white-space: nowrap; background: var(--g200); color: var(--g600);
+}
+.tag.blue { background: #eef3ff; color: #3f6bd6; }
+.tag.green { background: #e8f8f3; color: #0e8f76; }
+.tag.orange { background: #fff7e6; color: #ad6800; }
+.tag.red { background: #fff1f0; color: #cf1322; }
+.tag.purple { background: #f3eeff; color: #6d4ed6; }
+.tag.gray { background: var(--g200); color: var(--g600); }
+.tags-inline { display: flex; gap: 4px; flex-wrap: wrap; }
+.diff-chips { display: flex; flex-direction: column; gap: 3px; max-width: 310px; }
+.diff-chip {
+  font-size: 11px; color: var(--g600); white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; max-width: 310px;
+}
+.diff-chip b { font-weight: 500; color: var(--g700); }
+.diff-chip .arrow { color: var(--g400); margin: 0 3px; }
+.diff-chip .to { color: #0e8f76; }
+.diff-chip .from { color: #a8071a; }
+.wild { color: var(--g400); }
+.muted { color: var(--g500); }
+.small { font-size: 11.5px; }
+.mono { font-family: Consolas, Monaco, monospace; font-size: 10.5px; color: var(--g500); }
+.mac { font: 11px Consolas, Monaco, monospace; color: var(--g700); white-space: nowrap; letter-spacing: .2px; }
+.empty { padding: 48px 20px; text-align: center; color: var(--g500); font-size: 13px; }
+.empty.sm { padding: 22px 12px; font-size: 12px; }
+
+/* ---------- 分页 ---------- */
+.pager {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  padding: 10px 14px; border-top: 1px solid var(--g200); background: var(--g100);
+  font-size: 12px; color: var(--g500);
+}
+.pager .pages { display: flex; align-items: center; gap: 6px; }
+.pager .select { height: 30px; font-size: 12px; min-width: 96px; }
+
+/* ---------- 详情抽屉 ---------- */
+.mask { position: fixed; inset: 0; background: rgba(0, 0, 0, .35); opacity: 0; pointer-events: none; transition: .2s; z-index: 30; }
+.mask.show { opacity: 1; pointer-events: auto; }
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: 820px; max-width: 96vw; background: #fff; z-index: 31;
+  transform: translateX(100%); transition: transform .24s ease; display: flex; flex-direction: column;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, .1);
+}
+.drawer.show { transform: none; }
+.drawer-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 20px 12px; border-bottom: 1px solid var(--g200); }
+.drawer-title { font-size: 16px; font-weight: 600; color: var(--g900); }
+.drawer-sub { font-size: 12px; color: var(--g600); margin-top: 3px; word-break: break-all; }
+.drawer-body { flex: 1; overflow: auto; padding: 16px 20px 24px; }
+.drawer-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; border-top: 1px solid var(--g200); font-size: 12px; color: var(--g600); }
+.icon-btn { border: 0; background: none; color: var(--g500); font-size: 18px; line-height: 1; cursor: pointer; padding: 4px 8px; border-radius: 8px; }
+.icon-btn:hover { background: var(--g200); color: var(--g900); }
+
+/* ---------- 抽屉内页签 ---------- */
+.drawer-tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--g200); flex-wrap: wrap; }
+.drawer-tab {
+  border: 0; background: none; padding: 8px 12px; font-size: 12.5px; color: var(--g600);
+  cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.drawer-tab:hover { color: var(--g900); }
+.drawer-tab.active { color: var(--main); border-bottom-color: var(--main); font-weight: 600; }
+.drawer-tab .n {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 17px;
+  padding: 0 5px; margin-left: 5px; border-radius: 9px; background: var(--g200);
+  color: var(--g600); font-size: 10px; font-weight: 500;
+}
+.drawer-tab.active .n { background: #dbe6ff; color: var(--main); }
+
+/* ---------- 键值 / 小节 ---------- */
+.kv2 { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 8px 14px; font-size: 12.5px; margin: 0; }
+.kv2 dt { color: var(--g500); }
+.kv2 dd { margin: 0; color: var(--g800); word-break: break-word; line-height: 1.55; }
+.section-title {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 10px;
+  font-size: 13px; font-weight: 600; color: var(--g900);
+}
+.section-title .meta { font-size: 11.5px; color: var(--g500); font-weight: 400; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips .tag { height: 22px; padding: 0 8px; font-size: 11px; }
+.note { border-radius: 9px; padding: 9px 11px; font-size: 12px; line-height: 1.6; }
+.note + .note { margin-top: 8px; }
+.note.info { background: #eef3ff; border: 1px solid #d6e2ff; color: #3f6bd6; }
+.note.warn { background: #fffbe6; border: 1px solid #ffe58f; color: #8a6100; }
+.note.danger { background: #fff1f0; border: 1px solid #ffccc7; color: #a8071a; }
+.note.ok { background: #e8f8f3; border: 1px solid #b7ebd8; color: #0e8f76; }
+
+/* ---------- 代码块 / 差异 ---------- */
+.code {
+  background: #f7f9fc; border: 1px solid var(--g200); border-radius: 10px; padding: 10px 12px;
+  font: 11.5px/1.7 Consolas, Monaco, monospace; color: var(--g700); overflow: auto;
+  max-height: 340px; white-space: pre; margin: 0;
+}
+.code.url { max-height: none; white-space: pre-wrap; word-break: break-all; line-height: 1.6; }
+.code.short { max-height: 200px; }
+.val { display: inline-block; padding: 1px 6px; border-radius: 5px; font-size: 11.5px; max-width: 240px; word-break: break-word; line-height: 1.55; }
+.val.before { background: #fff1f0; color: #a8071a; }
+.val.after { background: #e8f8f3; color: #0e8f76; }
+.val.none { background: var(--g200); color: var(--g500); }
+.diff-table td { vertical-align: top; }
+.diff-table .field-name { color: var(--g900); font-weight: 500; }
+.field-key { display: block; font: 10.5px Consolas, Monaco, monospace; color: var(--g500); margin-top: 1px; }
+.split-json { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+.split-json .code { max-height: 460px; }
+
+/* ---------- 变更卡片 ---------- */
+.chg-card { border: 1px solid var(--g200); border-radius: 11px; margin-bottom: 12px; overflow: hidden; }
+.chg-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 9px 12px; background: var(--g100); border-bottom: 1px solid var(--g200); }
+.chg-head b { font-size: 12.5px; color: var(--g900); }
+.chg-head .spacer { flex: 1; }
+.chg-body { padding: 10px 12px; }
+.mini-table { font-size: 11.5px; }
+.mini-table thead th { padding: 6px 10px; font-size: 11px; }
+.mini-table tbody td { padding: 7px 10px; }
+
+/* ---------- 接口对照面板 ---------- */
+.api-panel { display: none; margin-bottom: 14px; }
+.api-panel.show { display: block; }
+.api-panel .card-body { padding: 14px 18px 6px; }
+.api-group { margin-bottom: 14px; }
+.api-group h3 { margin: 0 0 7px; font-size: 12.5px; font-weight: 600; color: var(--g900); }
+.api-row {
+  display: grid; grid-template-columns: 46px minmax(0, 1fr); gap: 10px; align-items: start;
+  padding: 8px 10px; border: 1px solid var(--g200); border-radius: 9px; margin-bottom: 6px; background: #fff;
+}
+.method {
+  display: inline-flex; align-items: center; justify-content: center; height: 20px; border-radius: 5px;
+  background: #e8f8f3; color: #0e8f76; font-size: 10px; font-weight: 700; letter-spacing: .3px;
+}
+.api-path { font: 11.5px Consolas, Monaco, monospace; color: var(--g800); word-break: break-all; }
+.api-desc { font-size: 11.5px; color: var(--g500); margin-top: 2px; line-height: 1.5; }
+
+/* ---------- 提示 ---------- */
+.toast {
+  position: fixed; left: 50%; bottom: 30px; transform: translate(-50%, 10px); background: var(--g900); color: #fff;
+  border-radius: 9px; padding: 9px 16px; font-size: 12.5px; opacity: 0; pointer-events: none; transition: .2s; z-index: 40;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- 工具类 ---------- */
+.flex { display: flex; }
+.between { justify-content: space-between; }
+.center { align-items: center; }
+.gap-6 { gap: 6px; }
+.gap-10 { gap: 10px; }
+.wrap { flex-wrap: wrap; }
+.right { text-align: right; }
+.nowrap { white-space: nowrap; }
+.hidden { display: none !important; }
+.mt-2 { margin-top: 14px; }
+.mt-3 { margin-top: 20px; }
+.foot-note { margin-top: 18px; font-size: 11.5px; color: var(--g500); line-height: 1.7; }
+
+@media (max-width: 1100px) {
+  .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .split-json { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  .main { padding: 18px 14px 40px; }
+  .drawer { width: 100vw; }
+  .stat-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <main class="main">
+    <!-- =========================================================
+         页头
+         =======================================================-->
+    <header class="page-head">
+      <div>
+        <h1>系统日志</h1>
+        <p class="sub">登录留痕、业务操作审计与字段级数据变更追溯</p>
+      </div>
+      <div class="head-actions">
+        <button class="btn" onclick="toggleApiPanel()">接口对照</button>
+      </div>
+    </header>
+
+    <!-- =========================================================
+         接口对照（原型辅助面板）
+         =======================================================-->
+    <section class="api-panel" id="apiPanel">
+      <div class="card">
+        <div class="card-head">
+          <h2>后端接口对照</h2>
+          <span class="meta">统一返回 ApiResponse&lt;PagedResult&lt;T&gt;&gt;，分页从 pageIndex=0 开始</span>
+        </div>
+        <div class="card-body">
+          <div class="api-group">
+            <h3>登录日志</h3>
+            <div class="api-row"><span class="method">GET</span><div><div class="api-path">/api/system/login-log/search</div><div class="api-desc">参数：userAccount（精确）、userId、userName（模糊）、loginResult、loginIp、macAddress（支持完整地址或后缀片段）、roleName（模糊）、permissionKey（模糊）、startTime、endTime、pageIndex、pageSize</div></div></div>
+            <div class="api-row"><span class="method">GET</span><div><div class="api-path">/api/system/login-log/summary</div><div class="api-desc">参数：startTime、endTime（缺省统计今天）；返回总次数、成功、失败、去重账号数</div></div></div>
+            <div class="api-row"><span class="method">GET</span><div><div class="api-path">/api/system/login-log/{id}</div><div class="api-desc">登录当时的角色、可访问菜单与接口权限快照</div></div></div>
+            <div class="api-row"><span class="method">GET</span><div><div class="api-path">/api/system/login-log/latest?userId=</div><div class="api-desc">用户最近一次成功登录（用户管理页联动用）</div></div></div>
+          </div>
+          <div class="api-group">
+            <h3>操作日志</h3>
+            <div class="api-row"><span class="method">GET</span><div><div class="api-path">/api/system/operation-log/search</div><div class="api-desc">参数：userAccount、userId、userName、module、operationType、resultStatus、businessType、businessId、keyword、macAddress（支持完整地址或后缀片段）、startTime、endTime、pageIndex、pageSize</div></div></div>
+            <div class="api-row"><span class="method">GET</span><div><div class="api-path">/api/system/operation-log/{id}</div><div class="api-desc">详情：requestMethod、requestUrl、classMethod、requestParams、errorMsg、userAgent、traceId</div></div></div>
+            <div class="api-row"><span class="method">GET</span><div><div class="api-path">/api/system/operation-log/{id}/changes</div><div class="api-desc">本次操作产生的全部数据变更（主记录与级联记录），按执行顺序排列</div></div></div>
+          </div>
+          <div class="api-group">
+            <h3>数据变更日志</h3>
+            <div class="api-row"><span class="method">GET</span><div><div class="api-path">/api/system/data-change-log/search</div><div class="api-desc">参数：operationLogId、traceId、tableName、businessId、changeType（INSERT/UPDATE/DELETE）、userId、userAccount、startTime、endTime、pageIndex、pageSize</div></div></div>
+            <div class="api-row"><span class="method">GET</span><div><div class="api-path">/api/system/data-change-log/{id}</div><div class="api-desc">详情：字段差异 changedFields + 整行修改前/后快照 beforeJson、afterJson</div></div></div>
+          </div>
+          <div class="note warn" style="margin-bottom:8px">MAC 地址：后端已支持 <code>sys_login_log</code> / <code>sys_operation_log</code> 的 <code>mac_address</code> 字段与查询参数 <code>macAddress</code>。浏览器无法直接读取 MAC，需由客户端或本地代理通过请求头 <code>X-Client-Mac</code> 上报（兼容 <code>X-Mac-Address</code> / <code>Mac-Address</code>），服务端统一格式化为 AA-BB-CC-DD-EE-FF。</div>
+          <div class="note warn">日志表数据量大，分页接口不支持 pageSize=-1 全量查询：缺省第 0 页、每页 20 条，单页最多 200 条。以下原型中的筛选与分页在前端 Mock 数据上完成，接入时替换为真实请求即可。</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         页签
+         =======================================================-->
+    <div class="tabbar" id="tabbar">
+      <button class="tab-btn active" data-tab="login" onclick="switchTab('login')">登录日志<span class="count" id="loginCount">0</span></button>
+      <button class="tab-btn" data-tab="operation" onclick="switchTab('operation')">操作日志<span class="count" id="operationCount">0</span></button>
+      <button class="tab-btn" data-tab="change" onclick="switchTab('change')">数据变更日志<span class="count" id="changeCount">0</span></button>
+    </div>
+
+    <!-- =========================================================
+         登录日志
+         =======================================================-->
+    <section class="tab-pane" id="tab-login">
+      <div class="stat-grid" id="loginStats"></div>
+      <p class="scope-line" id="loginScope"></p>
+
+      <section class="card mb-2">
+        <div class="filters">
+          <label>账号</label>
+          <input class="input sm" id="lgAccount" placeholder="精确匹配，如 root" />
+          <label>结果</label>
+          <select class="select sm" id="lgResult">
+            <option value="">全部结果</option>
+            <option value="1">成功</option>
+            <option value="0">失败</option>
+          </select>
+          <label>时间</label>
+          <input type="date" class="input sm" id="lgStart" style="width:150px" />
+          <span class="muted small">至</span>
+          <input type="date" class="input sm" id="lgEnd" style="width:150px" />
+          <div class="spacer"></div>
+          <button class="btn btn-ghost" id="lgAdvToggle" onclick="toggleLoginAdvanced()">更多筛选 ▾</button>
+          <button class="btn" onclick="resetLogin()">重置</button>
+          <button class="btn btn-primary" onclick="applyLogin()">查询</button>
+        </div>
+        <div class="filters hidden" id="lgAdvanced" style="border-top:1px dashed var(--g300)">
+          <label>姓名</label>
+          <input class="input sm" id="lgName" placeholder="模糊匹配" />
+          <label>IP</label>
+          <input class="input sm" id="lgIp" placeholder="精确匹配" />
+          <label>MAC</label>
+          <input class="input sm" id="lgMac" placeholder="完整或后 8 位" style="width:160px" />
+          <label>角色</label>
+          <input class="input sm" id="lgRole" placeholder="角色名，模糊匹配" />
+          <span class="muted small">IP 精确匹配；MAC 支持完整地址或后 8 位</span>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>登录记录</h2>
+          <span class="meta" id="loginMeta">—</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>登录时间</th>
+                <th>账号 / 姓名</th>
+                <th>类型</th>
+                <th>结果</th>
+                <th>失败原因</th>
+                <th>角色</th>
+                <th>IP / 归属地</th>
+                <th>MAC 地址</th>
+                <th>客户端</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="loginBody"></tbody>
+          </table>
+        </div>
+        <div class="pager" id="loginPager"></div>
+      </section>
+    </section>
+
+    <!-- =========================================================
+         操作日志
+         =======================================================-->
+    <section class="tab-pane hidden" id="tab-operation">
+      <section class="card mb-2">
+        <div class="filters">
+          <label>账号</label>
+          <input class="input sm" id="opAccount" placeholder="精确匹配" />
+          <label>姓名</label>
+          <input class="input sm" id="opName" placeholder="模糊匹配" />
+          <label>模块</label>
+          <select class="select sm" id="opModule" style="min-width:140px">
+            <option value="">全部模块</option>
+          </select>
+          <label>类型</label>
+          <select class="select sm" id="opType">
+            <option value="">全部类型</option>
+            <option value="CREATE">新增</option>
+            <option value="UPDATE">修改</option>
+            <option value="DELETE">删除</option>
+            <option value="APPROVE">审批</option>
+            <option value="EXPORT">导出</option>
+            <option value="IMPORT">导入</option>
+            <option value="UPLOAD">上传</option>
+            <option value="DOWNLOAD">下载</option>
+            <option value="ENABLE">启用</option>
+            <option value="DISABLE">停用</option>
+            <option value="OTHER">其他</option>
+          </select>
+          <label>结果</label>
+          <select class="select sm" id="opResult">
+            <option value="">全部结果</option>
+            <option value="1">成功</option>
+            <option value="0">失败</option>
+          </select>
+          <label>关键字</label>
+          <input class="input sm" id="opKeyword" placeholder="描述 / 地址 / 业务ID" />
+        </div>
+        <div class="filters" style="border-top:1px dashed var(--g300)">
+          <label>业务对象</label>
+          <input class="input sm" id="opBizType" placeholder="如 Customer" style="width:170px" />
+          <label>业务ID</label>
+          <input class="input sm" id="opBizId" placeholder="精确匹配" />
+          <label>MAC</label>
+          <input class="input sm" id="opMac" placeholder="完整或后 8 位" style="width:160px" />
+          <label>时间</label>
+          <input type="date" class="input sm" id="opStart" style="width:150px" />
+          <span class="muted small">至</span>
+          <input type="date" class="input sm" id="opEnd" style="width:150px" />
+          <div class="spacer"></div>
+          <button class="btn" onclick="resetOperation()">重置</button>
+          <button class="btn btn-primary" onclick="applyOperation()">查询</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>操作记录</h2>
+          <span class="meta" id="operationMeta">—</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>操作时间</th>
+                <th>操作人</th>
+                <th>模块</th>
+                <th>类型</th>
+                <th>操作描述</th>
+                <th>业务对象</th>
+                <th>结果</th>
+                <th class="num">耗时</th>
+                <th>数据变更</th>
+                <th>IP / 归属地</th>
+                <th>MAC 地址</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="operationBody"></tbody>
+          </table>
+        </div>
+        <div class="pager" id="operationPager"></div>
+      </section>
+    </section>
+
+    <!-- =========================================================
+         数据变更日志
+         =======================================================-->
+    <section class="tab-pane hidden" id="tab-change">
+      <section class="card mb-2">
+        <div class="filters">
+          <label>操作日志ID</label>
+          <input class="input sm" id="chOpLogId" placeholder="operationLogId" />
+          <label>TraceID</label>
+          <input class="input sm" id="chTraceId" placeholder="模糊匹配" />
+          <label>表名</label>
+          <select class="select sm" id="chTable" style="min-width:160px">
+            <option value="">全部表</option>
+          </select>
+          <label>业务ID</label>
+          <input class="input sm" id="chBizId" placeholder="记录主键" />
+          <label>变更类型</label>
+          <select class="select sm" id="chType">
+            <option value="">全部类型</option>
+            <option value="INSERT">INSERT 新增</option>
+            <option value="UPDATE">UPDATE 修改</option>
+            <option value="DELETE">DELETE 删除</option>
+          </select>
+          <label>账号</label>
+          <input class="input sm" id="chAccount" placeholder="精确匹配" />
+        </div>
+        <div class="filters" style="border-top:1px dashed var(--g300)">
+          <label>时间</label>
+          <input type="date" class="input sm" id="chStart" style="width:150px" />
+          <span class="muted small">至</span>
+          <input type="date" class="input sm" id="chEnd" style="width:150px" />
+          <div class="spacer"></div>
+          <button class="btn" onclick="resetChange()">重置</button>
+          <button class="btn btn-primary" onclick="applyChange()">查询</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>字段级变更记录</h2>
+          <span class="meta" id="changeMeta">—</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>变更时间</th>
+                <th>表 / 实体</th>
+                <th>记录ID</th>
+                <th>类型</th>
+                <th>来源</th>
+                <th class="num">字段数</th>
+                <th>字段差异</th>
+                <th>操作人</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="changeBody"></tbody>
+          </table>
+        </div>
+        <div class="pager" id="changePager"></div>
+      </section>
+    </section>
+
+    <p class="foot-note">
+      原型说明：页面数据为 Mock，字段命名与 <code>/api/system/login-log</code>、<code>/api/system/operation-log</code>、<code>/api/system/data-change-log</code> 的返回结构保持一致。
+      接入时把页面内的 Mock 查询替换为真实请求即可；列表接口不返回请求参数、异常信息、整行快照等大字段，详情按需单独查询。
+      MAC 地址由客户端通过 <code>X-Client-Mac</code> 上报，后端已支持写入与查询；原型仍为演示数据。
+    </p>
+  </main>
+</div>
+
+<!-- =========================================================
+     全局遮罩 / 详情抽屉
+     =======================================================-->
+<div class="mask" id="mask" onclick="hideDrawer()"></div>
+<aside class="drawer" id="drawer">
+  <div class="drawer-head">
+    <div>
+      <div class="drawer-title" id="drawerTitle">—</div>
+      <div class="drawer-sub" id="drawerSub"></div>
+    </div>
+    <button class="icon-btn" onclick="hideDrawer()">×</button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+  <div class="drawer-foot" id="drawerFoot"></div>
+</aside>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// =========================================================
+// 基础常量
+// =========================================================
+const TODAY = '2026-11-10';
+
+const UA = {
+  chromeWin: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  edgeWin: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0',
+  chromeMac: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+  safariMac: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15',
+  firefoxWin: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0',
+  android: 'Mozilla/5.0 (Linux; Android 13; V2227A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36'
+};
+
+// 终端 MAC 地址（同一账号 + IP 视为同一台设备；原型演示数据）
+const DEVICE_MACS = {
+  'root|218.94.12.34': '3C-52-82-1A-4F-09',
+  'zhangwei|192.168.1.24': '00-1A-2B-3C-4D-5E',
+  'lina|192.168.1.31': '8C-16-45-7B-2E-10',
+  'wangqiang|218.94.12.88': '74-D4-35-6B-0C-2A',
+  'zhaomin|223.104.4.18': '3C-5A-B4-9E-21-77',
+  'chenjing|192.168.1.45': 'A4-5E-60-3F-1C-88'
+};
+
+function macFor(account, ip) {
+  return DEVICE_MACS[account + '|' + ip] || '—';
+}
+
+// 操作日志模块下拉（来自各 Controller 的 @OperationLog(module = "...")）
+const MODULES = [
+  '产品信息汇总', '人员档案', '人员证书', '供应商审核', '供应商管理', '偏差记录', '入库管理', '出库管理',
+  '制剂工序模板', '制剂文件', '制剂管理', '制剂配方', '剂型管理', '单位管理', '压差记录', '取样记录',
+  '培训记录', '审批实例', '审批流程', '审批节点', '审批记录', '审核放行', '客户管理', '岗位管理',
+  '工单工序执行', '工单管理', '工序类型', '房间管理', '机构管理', '机构证照', '权限管理', '检验任务',
+  '检验单', '检验计划', '检验记录', '洁净检查记录', '消毒记录', '清洁记录', '温湿度记录', '物料管理',
+  '物料退库', '生产单位', '生产工序记录', '生产计划', '生产领料', '用户管理', '用户角色关联', '用户部门关联',
+  '留样记录', '系统配置', '维保记录', '职务管理', '能源记录', '角色权限关联', '角色管理', '计划状态流水',
+  '设备管理', '设备维保', '请检单', '调拨单', '货物验收', '退货单', '部门管理', '采购计划', '采购订单',
+  '采购订单明细', '销售订单', '销毁记录', '领料单', '领料管理', '验证记录'
+];
+
+// 操作类型展示文案与颜色（对应 OperationType 枚举）
+const OPERATION_TYPES = {
+  CREATE: ['新增', 'blue'],
+  UPDATE: ['修改', 'orange'],
+  DELETE: ['删除', 'red'],
+  APPROVE: ['审批', 'green'],
+  EXPORT: ['导出', 'gray'],
+  IMPORT: ['导入', 'gray'],
+  UPLOAD: ['上传', 'gray'],
+  DOWNLOAD: ['下载', 'gray'],
+  ENABLE: ['启用', 'green'],
+  DISABLE: ['停用', 'orange'],
+  OTHER: ['其他', 'gray']
+};
+
+// =========================================================
+// 登录当时的角色权限快照（按角色归并出菜单与接口权限）
+// =========================================================
+const ROLE_SNAPSHOT = {
+  '超级管理员': {
+    menus: [
+      ['dashboard', '工作台'], ['production_plan', '生产计划'], ['work_order', '工单管理'],
+      ['purchase_order', '采购订单'], ['inspection', '检验管理'], ['release_review', '审核放行'],
+      ['stock', '库存管理'], ['customer', '客户管理'], ['user_management', '用户管理'],
+      ['role_management', '角色管理'], ['system_config', '系统配置'], ['log_management', '日志管理']
+    ],
+    perms: [
+      ['user:create', '新增用户'], ['user:update', '修改用户'], ['user:delete', '删除用户'],
+      ['role:assign', '分配角色'], ['customer:create', '新增客户'], ['purchase:approve', '采购审批'],
+      ['release:approve', '放行审批'], ['log:view', '查看日志']
+    ]
+  },
+  '系统管理员': {
+    menus: [
+      ['dashboard', '工作台'], ['user_management', '用户管理'], ['role_management', '角色管理'],
+      ['permission_management', '权限管理'], ['department_management', '部门管理'],
+      ['position_management', '岗位管理'], ['system_config', '系统配置'], ['log_management', '日志管理']
+    ],
+    perms: [
+      ['user:create', '新增用户'], ['user:update', '修改用户'], ['role:assign', '分配角色'],
+      ['config:update', '修改配置'], ['perm:manage', '权限维护'], ['log:view', '查看日志']
+    ]
+  },
+  '生产管理员': {
+    menus: [
+      ['dashboard', '工作台'], ['production_plan', '生产计划'], ['work_order', '工单管理'],
+      ['production_process', '生产工序记录'], ['equipment', '设备管理'], ['room', '房间管理']
+    ],
+    perms: [
+      ['plan:create', '新增计划'], ['plan:update', '修改计划'], ['workorder:release', '工单下达'],
+      ['workorder:update', '修改工单'], ['equipment:view', '查看设备']
+    ]
+  },
+  '质检员': {
+    menus: [
+      ['dashboard', '工作台'], ['inspection', '检验管理'], ['inspection_request', '请检单'],
+      ['retained_sample', '留样记录'], ['sampling_record', '取样记录'], ['deviation', '偏差记录'],
+      ['release_review', '审核放行']
+    ],
+    perms: [
+      ['inspection:create', '新增检验'], ['inspection:approve', '检验审核'],
+      ['sampling:create', '新增取样'], ['deviation:update', '处理偏差']
+    ]
+  },
+  '仓库管理员': {
+    menus: [
+      ['dashboard', '工作台'], ['stock_in', '入库管理'], ['stock_out', '出库管理'],
+      ['stock', '库存管理'], ['transfer', '调拨单'], ['material_return', '物料退库']
+    ],
+    perms: [
+      ['stockin:create', '新增入库'], ['stockout:create', '新增出库'],
+      ['transfer:create', '新增调拨'], ['return:create', '新增退库']
+    ]
+  },
+  '采购员': {
+    menus: [
+      ['dashboard', '工作台'], ['purchase_plan', '采购计划'], ['purchase_order', '采购订单'],
+      ['supplier', '供应商管理'], ['material', '物料管理'], ['inspection_request', '请检单']
+    ],
+    perms: [
+      ['purchase:create', '新增采购'], ['purchase:update', '修改采购'],
+      ['purchase:submit', '提交采购'], ['supplier:view', '查看供应商']
+    ]
+  }
+};
+
+// =========================================================
+// Mock：登录日志（字段与 LoginLogDto / LoginLogDetailDto 对齐）
+// =========================================================
+const LOGIN_LOGS = [
+  { id: 1014, userId: 1, userAccount: 'root', userName: '系统管理员', roleNames: ['超级管理员', '系统管理员'], loginType: 'LOGOUT', loginResult: 1, failReason: null, loginIp: '218.94.12.34', ipLocation: '江苏省南京市', userAgent: UA.chromeWin, loginTime: '2026-11-10 19:40:21' },
+  { id: 1013, userId: 18, userAccount: 'lina', userName: '李娜', roleNames: ['质检员'], loginType: 'LOGIN', loginResult: 1, failReason: null, loginIp: '192.168.1.31', ipLocation: '内网', userAgent: UA.chromeWin, loginTime: '2026-11-10 18:02:55' },
+  { id: 1012, userId: 27, userAccount: 'zhaomin', userName: '赵敏', roleNames: ['仓库管理员'], loginType: 'LOGOUT', loginResult: 1, failReason: null, loginIp: '223.104.4.18', ipLocation: '江苏省苏州市', userAgent: UA.android, loginTime: '2026-11-10 17:30:12' },
+  { id: 1011, userId: 31, userAccount: 'chenjing', userName: '陈静', roleNames: ['采购员'], loginType: 'LOGIN', loginResult: 0, failReason: '验证码已过期', loginIp: '192.168.1.45', ipLocation: '内网', userAgent: UA.edgeWin, loginTime: '2026-11-10 14:22:37' },
+  { id: 1010, userId: 1, userAccount: 'root', userName: '系统管理员', roleNames: ['超级管理员', '系统管理员'], loginType: 'LOGIN', loginResult: 1, failReason: null, loginIp: '218.94.12.34', ipLocation: '江苏省南京市', userAgent: UA.chromeWin, loginTime: '2026-11-10 13:05:09' },
+  { id: 1009, userId: 12, userAccount: 'zhangwei', userName: '张伟', roleNames: ['生产管理员'], loginType: 'LOGIN', loginResult: 1, failReason: null, loginIp: '192.168.1.24', ipLocation: '内网', userAgent: UA.edgeWin, loginTime: '2026-11-10 11:20:44' },
+  { id: 1008, userId: 18, userAccount: 'lina', userName: '李娜', roleNames: ['质检员'], loginType: 'LOGIN', loginResult: 0, failReason: '账号已被停用', loginIp: '192.168.1.31', ipLocation: '内网', userAgent: UA.chromeWin, loginTime: '2026-11-10 10:05:18' },
+  { id: 1007, userId: 31, userAccount: 'chenjing', userName: '陈静', roleNames: ['采购员'], loginType: 'LOGIN', loginResult: 1, failReason: null, loginIp: '192.168.1.45', ipLocation: '内网', userAgent: UA.edgeWin, loginTime: '2026-11-10 09:12:30' },
+  { id: 1006, userId: 27, userAccount: 'zhaomin', userName: '赵敏', roleNames: ['仓库管理员'], loginType: 'LOGIN', loginResult: 1, failReason: null, loginIp: '223.104.4.18', ipLocation: '江苏省苏州市', userAgent: UA.android, loginTime: '2026-11-10 09:03:55' },
+  { id: 1005, userId: 23, userAccount: 'wangqiang', userName: '王强', roleNames: ['生产管理员'], loginType: 'LOGIN', loginResult: 1, failReason: null, loginIp: '218.94.12.88', ipLocation: '江苏省南京市', userAgent: UA.chromeWin, loginTime: '2026-11-10 08:45:02' },
+  { id: 1004, userId: 23, userAccount: 'wangqiang', userName: '王强', roleNames: [], loginType: 'LOGIN', loginResult: 0, failReason: '密码错误', loginIp: '218.94.12.88', ipLocation: '江苏省南京市', userAgent: UA.chromeWin, loginTime: '2026-11-10 08:44:19' },
+  { id: 1003, userId: 18, userAccount: 'lina', userName: '李娜', roleNames: ['质检员'], loginType: 'LOGIN', loginResult: 1, failReason: null, loginIp: '192.168.1.31', ipLocation: '内网', userAgent: UA.chromeWin, loginTime: '2026-11-10 08:21:07' },
+  { id: 1002, userId: 12, userAccount: 'zhangwei', userName: '张伟', roleNames: ['生产管理员'], loginType: 'LOGIN', loginResult: 1, failReason: null, loginIp: '192.168.1.24', ipLocation: '内网', userAgent: UA.edgeWin, loginTime: '2026-11-10 08:15:42' },
+  { id: 1001, userId: 1, userAccount: 'root', userName: '系统管理员', roleNames: ['超级管理员', '系统管理员'], loginType: 'LOGIN', loginResult: 1, failReason: null, loginIp: '218.94.12.34', ipLocation: '江苏省南京市', userAgent: UA.chromeWin, loginTime: '2026-11-10 08:02:11' },
+  { id: 1000, userId: 12, userAccount: 'zhangwei', userName: '张伟', roleNames: ['生产管理员'], loginType: 'LOGIN', loginResult: 1, failReason: null, loginIp: '192.168.1.24', ipLocation: '内网', userAgent: UA.edgeWin, loginTime: '2026-11-09 17:45:10' },
+  { id: 999, userId: 18, userAccount: 'lina', userName: '李娜', roleNames: ['质检员'], loginType: 'LOGIN', loginResult: 0, failReason: '密码错误', loginIp: '192.168.1.31', ipLocation: '内网', userAgent: UA.chromeWin, loginTime: '2026-11-09 16:20:33' },
+  { id: 998, userId: 1, userAccount: 'root', userName: '系统管理员', roleNames: ['超级管理员', '系统管理员'], loginType: 'LOGIN', loginResult: 1, failReason: null, loginIp: '218.94.12.34', ipLocation: '江苏省南京市', userAgent: UA.chromeWin, loginTime: '2026-11-09 08:01:02' }
+];
+
+// =========================================================
+// Mock：操作日志（字段与 OperationLogDto / OperationLogDetailDto 对齐）
+// =========================================================
+const OPERATION_LOGS = [
+  {
+    id: 9001, userId: 1, userAccount: 'root', userName: '系统管理员', module: '系统配置', operationType: 'UPDATE',
+    operationDesc: '修改系统配置：文件上传大小限制', businessType: 'SystemConfig', businessId: '3',
+    responseCode: 200, resultStatus: 1, costTime: 38, changeCount: 0, changeTruncated: 0,
+    clientIp: '218.94.12.34', ipLocation: '江苏省南京市', createdTime: '2026-11-10 20:58:12',
+    requestMethod: 'PUT', requestUrl: '/api/system/config/3', classMethod: 'com.tonghui.erp.Controller.SystemConfigController#update',
+    requestParams: '{"id":3,"configKey":"file.upload.max-size","configValue":"200MB"}',
+    errorMsg: null, userAgent: UA.chromeWin, traceId: 'tr-a1f27c60'
+  },
+  {
+    id: 9002, userId: 31, userAccount: 'chenjing', userName: '陈静', module: '采购订单', operationType: 'UPDATE',
+    operationDesc: '修改采购订单：PO-20261110-001', businessType: 'PurchaseOrder', businessId: '1024',
+    responseCode: 200, resultStatus: 1, costTime: 1203, changeCount: 3, changeTruncated: 0,
+    clientIp: '192.168.1.45', ipLocation: '内网', createdTime: '2026-11-10 18:40:05',
+    requestMethod: 'PUT', requestUrl: '/api/purchase-orders/1024', classMethod: 'com.tonghui.erp.Controller.PurchaseOrdersController#update',
+    requestParams: '{"id":1024,"status":"运输中","expectedArrivalDate":"2026-11-18"}',
+    errorMsg: null, userAgent: UA.edgeWin, traceId: 'tr-3f81c0a2'
+  },
+  {
+    id: 9003, userId: 12, userAccount: 'zhangwei', userName: '张伟', module: '工单管理', operationType: 'UPDATE',
+    operationDesc: '工单 WO-20261110-008 下达生产', businessType: 'WorkOrder', businessId: '880',
+    responseCode: 200, resultStatus: 1, costTime: 268, changeCount: 0, changeTruncated: 0,
+    clientIp: '192.168.1.24', ipLocation: '内网', createdTime: '2026-11-10 17:25:44',
+    requestMethod: 'PUT', requestUrl: '/api/work-orders/880/release', classMethod: 'com.tonghui.erp.Controller.WorkOrderController#release',
+    requestParams: '{"workOrderId":880,"planNumber":"PP-20261110-003"}',
+    errorMsg: null, userAgent: UA.edgeWin, traceId: 'tr-c902d17a'
+  },
+  {
+    id: 9004, userId: 18, userAccount: 'lina', userName: '李娜', module: '检验单', operationType: 'APPROVE',
+    operationDesc: '检验单 CO-20261110-003 审核通过', businessType: 'CheckOrder', businessId: '603',
+    responseCode: 200, resultStatus: 1, costTime: 412, changeCount: 0, changeTruncated: 0,
+    clientIp: '192.168.1.31', ipLocation: '内网', createdTime: '2026-11-10 16:12:09',
+    requestMethod: 'PUT', requestUrl: '/api/warehouse/check-orders/603/approve', classMethod: 'com.tonghui.erp.Controller.CheckOrderController#approve',
+    requestParams: '{"checkOrderId":603,"result":"合格","remark":"外观、含量、微生物限度均符合标准"}',
+    errorMsg: null, userAgent: UA.chromeWin, traceId: 'tr-74bd0e18'
+  },
+  {
+    id: 9005, userId: 27, userAccount: 'zhaomin', userName: '赵敏', module: '入库管理', operationType: 'CREATE',
+    operationDesc: '新增入库单 SI-20261110-012', businessType: 'StockIn', businessId: '1208',
+    responseCode: 201, resultStatus: 1, costTime: 1890, changeCount: 3, changeTruncated: 1,
+    clientIp: '223.104.4.18', ipLocation: '江苏省苏州市', createdTime: '2026-11-10 15:33:27',
+    requestMethod: 'POST', requestUrl: '/api/stockin', classMethod: 'com.tonghui.erp.Controller.StockInController#create',
+    requestParams: '{"stockInCode":"SI-20261110-012","supplierId":36,"items":[{"materialId":77,"quantity":200},{"materialId":78,"quantity":150}]}',
+    errorMsg: null, userAgent: UA.android, traceId: 'tr-7ac2d90e'
+  },
+  {
+    id: 9006, userId: 1, userAccount: 'root', userName: '系统管理员', module: '用户管理', operationType: 'CREATE',
+    operationDesc: '新增用户：王强', businessType: 'User', businessId: null,
+    responseCode: 500, resultStatus: 0, costTime: 35, changeCount: 0, changeTruncated: 0,
+    clientIp: '218.94.12.34', ipLocation: '江苏省南京市', createdTime: '2026-11-10 14:05:51',
+    requestMethod: 'POST', requestUrl: '/api/User', classMethod: 'com.tonghui.erp.Controller.UserController#create',
+    requestParams: '{"userAccount":"wangqiang","userName":"王强","departmentId":6,"roleIds":[3]}',
+    errorMsg: '账号已存在：wangqiang', userAgent: UA.chromeWin, traceId: 'tr-0b15e7d4'
+  },
+  {
+    id: 9007, userId: 1, userAccount: 'root', userName: '系统管理员', module: '角色权限关联', operationType: 'UPDATE',
+    operationDesc: '调整角色权限：质检员（启用 5 项）', businessType: 'RolePerm', businessId: '12',
+    responseCode: 200, resultStatus: 1, costTime: 355, changeCount: 5, changeTruncated: 0,
+    clientIp: '218.94.12.34', ipLocation: '江苏省南京市', createdTime: '2026-11-10 13:22:16',
+    requestMethod: 'PUT', requestUrl: '/api/RolePermission', classMethod: 'com.tonghui.erp.Controller.RolePermController#update',
+    requestParams: '{"roleId":4,"permissionKeys":["inspection:view","inspection:create","inspection:approve","sampling:view","deviation:update"],"isEnabled":1}',
+    errorMsg: null, userAgent: UA.chromeWin, traceId: 'tr-1e44b7f5'
+  },
+  {
+    id: 9008, userId: 12, userAccount: 'zhangwei', userName: '张伟', module: '审核放行', operationType: 'APPROVE',
+    operationDesc: '批次 B20261110-01 放行审核通过', businessType: 'ReleaseBatch', businessId: '77',
+    responseCode: 200, resultStatus: 1, costTime: 512, changeCount: 0, changeTruncated: 0,
+    clientIp: '192.168.1.24', ipLocation: '内网', createdTime: '2026-11-10 11:48:03',
+    requestMethod: 'PUT', requestUrl: '/api/release-review/batches/77/approve', classMethod: 'com.tonghui.erp.Controller.ReleaseBatchController#approve',
+    requestParams: '{"batchId":77,"result":"通过","comment":"检验与工序记录完整"}',
+    errorMsg: null, userAgent: UA.edgeWin, traceId: 'tr-58c3b01f'
+  },
+  {
+    id: 9009, userId: 18, userAccount: 'lina', userName: '李娜', module: '客户管理', operationType: 'UPDATE',
+    operationDesc: '修改客户：南京康泰医药有限公司', businessType: 'Customer', businessId: '1024',
+    responseCode: 200, resultStatus: 1, costTime: 216, changeCount: 3, changeTruncated: 0,
+    clientIp: '192.168.1.31', ipLocation: '内网', createdTime: '2026-11-10 10:26:38',
+    requestMethod: 'PUT', requestUrl: '/api/customer/1024', classMethod: 'com.tonghui.erp.Controller.CustomerController#update',
+    requestParams: '{"id":1024,"customerName":"南京康泰医药股份有限公司","contactPhone":"025-83210088"}',
+    errorMsg: null, userAgent: UA.chromeWin, traceId: 'tr-8f3c2a91'
+  },
+  {
+    id: 9010, userId: 31, userAccount: 'chenjing', userName: '陈静', module: '客户管理', operationType: 'CREATE',
+    operationDesc: '新增客户：南京康泰医药有限公司', businessType: 'Customer', businessId: '1024',
+    responseCode: 201, resultStatus: 1, costTime: 302, changeCount: 2, changeTruncated: 0,
+    clientIp: '192.168.1.45', ipLocation: '内网', createdTime: '2026-11-10 09:59:12',
+    requestMethod: 'POST', requestUrl: '/api/customer', classMethod: 'com.tonghui.erp.Controller.CustomerController#create',
+    requestParams: '{"customerCode":"CUS-0021","customerName":"南京康泰医药有限公司","contactName":"周敏","contactPhone":"025-83210001"}',
+    errorMsg: null, userAgent: UA.edgeWin, traceId: 'tr-2b6e441d'
+  },
+  {
+    id: 9011, userId: 27, userAccount: 'zhaomin', userName: '赵敏', module: '出库管理', operationType: 'CREATE',
+    operationDesc: '新增出库单 SO-20261110-004', businessType: 'StockOut', businessId: '1305',
+    responseCode: 201, resultStatus: 1, costTime: 950, changeCount: 0, changeTruncated: 0,
+    clientIp: '223.104.4.18', ipLocation: '江苏省苏州市', createdTime: '2026-11-10 09:15:40',
+    requestMethod: 'POST', requestUrl: '/api/stockout', classMethod: 'com.tonghui.erp.Controller.StockOutController#create',
+    requestParams: '{"stockOutCode":"SO-20261110-004","warehouseId":2,"items":[{"materialId":77,"quantity":50}]}',
+    errorMsg: null, userAgent: UA.android, traceId: 'tr-6ea1f8c2'
+  },
+  {
+    id: 9012, userId: 18, userAccount: 'lina', userName: '李娜', module: '客户管理', operationType: 'UPDATE',
+    operationDesc: '修改客户：苏州瑞康医疗器械有限公司', businessType: 'Customer', businessId: '1018',
+    responseCode: 400, resultStatus: 0, costTime: 22, changeCount: 0, changeTruncated: 0,
+    clientIp: '192.168.1.31', ipLocation: '内网', createdTime: '2026-11-10 08:51:33',
+    requestMethod: 'PUT', requestUrl: '/api/customer/1018', classMethod: 'com.tonghui.erp.Controller.CustomerController#update',
+    requestParams: '{"id":1018,"customerCode":"CUS-0012","customerName":"苏州瑞康医疗器械有限公司"}',
+    errorMsg: '客户编码已存在：CUS-0012', userAgent: UA.chromeWin, traceId: 'tr-d4a8e053'
+  },
+  {
+    id: 9013, userId: 1, userAccount: 'root', userName: '系统管理员', module: '制剂管理', operationType: 'EXPORT',
+    operationDesc: '导出制剂清单', businessType: 'Preparation', businessId: null,
+    responseCode: 500, resultStatus: 0, costTime: 30241, changeCount: 0, changeTruncated: 0,
+    clientIp: '218.94.12.34', ipLocation: '江苏省南京市', createdTime: '2026-11-10 08:37:19',
+    requestMethod: 'GET', requestUrl: '/api/preparation/export', classMethod: 'com.tonghui.erp.Controller.PreparationController#export',
+    requestParams: '{"module":"制剂管理","format":"xlsx","filters":{"keyword":"","status":"启用"}}',
+    errorMsg: '导出超时：数据量超过 10 万行', userAgent: UA.chromeWin, traceId: 'tr-91f6c7be'
+  },
+  {
+    id: 9014, userId: 12, userAccount: 'zhangwei', userName: '张伟', module: '请检单', operationType: 'CREATE',
+    operationDesc: '新增请检单 QR-20261109-005', businessType: 'InspectionRequest', businessId: '335',
+    responseCode: 201, resultStatus: 1, costTime: 180, changeCount: 0, changeTruncated: 0,
+    clientIp: '192.168.1.24', ipLocation: '内网', createdTime: '2026-11-09 17:16:02',
+    requestMethod: 'POST', requestUrl: '/api/inspection-request', classMethod: 'com.tonghui.erp.Controller.InspectionRequestController#create',
+    requestParams: '{"requestCode":"QR-20261109-005","inspectionType":"成品检验","productName":"盐酸氨溴索口服溶液"}',
+    errorMsg: null, userAgent: UA.edgeWin, traceId: 'tr-e2b0a415'
+  },
+  {
+    id: 9015, userId: 1, userAccount: 'root', userName: '系统管理员', module: '采购订单', operationType: 'DELETE',
+    operationDesc: '删除采购订单：PO-20261109-007', businessType: 'PurchaseOrder', businessId: '998',
+    responseCode: 200, resultStatus: 1, costTime: 264, changeCount: 1, changeTruncated: 0,
+    clientIp: '218.94.12.34', ipLocation: '江苏省南京市', createdTime: '2026-11-09 15:03:48',
+    requestMethod: 'DELETE', requestUrl: '/api/purchase-orders/998', classMethod: 'com.tonghui.erp.Controller.PurchaseOrdersController#delete',
+    requestParams: '{"id":998}', errorMsg: null, userAgent: UA.chromeWin, traceId: 'tr-5d09a3c8'
+  }
+];
+
+// =========================================================
+// Mock：数据变更日志（字段与 DataChangeLogDto / DataChangeLogDetailDto 对齐）
+// =========================================================
+const DATA_CHANGES = [
+  {
+    id: 501, traceId: 'tr-2b6e441d', operationLogId: 9010, tableName: 'customer',
+    entityClass: 'com.tonghui.erp.Data.Entity.Customer', businessId: '1024', changeType: 'INSERT',
+    changeSource: 'PRIMARY', fieldCount: 0, changedFields: [], userId: 31, userAccount: 'chenjing',
+    userName: '陈静', createdTime: '2026-11-10 09:59:12',
+    afterObj: {
+      id: 1024, customer_code: 'CUS-0021', customer_name: '南京康泰医药有限公司',
+      contact_name: '周敏', contact_phone: '025-83210001', address: '南京市江宁区秣周东路 12 号',
+      status: '启用', created_time: '2026-11-10 09:59:12', updated_time: '2026-11-10 09:59:12'
+    }
+  },
+  {
+    id: 502, traceId: 'tr-2b6e441d', operationLogId: 9010, tableName: 'customer_contact',
+    entityClass: 'com.tonghui.erp.Data.Entity.CustomerContact', businessId: '2048', changeType: 'INSERT',
+    changeSource: 'RELATED', fieldCount: 0, changedFields: [], userId: 31, userAccount: 'chenjing',
+    userName: '陈静', createdTime: '2026-11-10 09:59:12',
+    afterObj: { id: 2048, customer_id: 1024, contact_name: '周敏', phone: '025-83210001', is_primary: 1 }
+  },
+  {
+    id: 503, traceId: 'tr-8f3c2a91', operationLogId: 9009, tableName: 'customer',
+    entityClass: 'com.tonghui.erp.Data.Entity.Customer', businessId: '1024', changeType: 'UPDATE',
+    changeSource: 'PRIMARY', fieldCount: 2,
+    changedFields: [
+      { field: 'customer_name', label: '客户名称', before: '南京康泰医药有限公司', after: '南京康泰医药股份有限公司' },
+      { field: 'contact_phone', label: '联系电话', before: '025-83210001', after: '025-83210088' }
+    ],
+    userId: 18, userAccount: 'lina', userName: '李娜', createdTime: '2026-11-10 10:26:38',
+    beforeObj: {
+      id: 1024, customer_code: 'CUS-0021', customer_name: '南京康泰医药有限公司',
+      contact_name: '周敏', contact_phone: '025-83210001', address: '南京市江宁区秣周东路 12 号',
+      status: '启用', updated_time: '2026-11-09 14:20:05'
+    },
+    afterObj: {
+      id: 1024, customer_code: 'CUS-0021', customer_name: '南京康泰医药股份有限公司',
+      contact_name: '周敏', contact_phone: '025-83210088', address: '南京市江宁区秣周东路 12 号',
+      status: '启用', updated_time: '2026-11-10 10:26:38'
+    }
+  },
+  {
+    id: 504, traceId: 'tr-8f3c2a91', operationLogId: 9009, tableName: 'customer_contact',
+    entityClass: 'com.tonghui.erp.Data.Entity.CustomerContact', businessId: '2048', changeType: 'UPDATE',
+    changeSource: 'RELATED', fieldCount: 1,
+    changedFields: [{ field: 'is_primary', label: '是否主联系人', before: 0, after: 1 }],
+    userId: 18, userAccount: 'lina', userName: '李娜', createdTime: '2026-11-10 10:26:38'
+  },
+  {
+    id: 505, traceId: 'tr-8f3c2a91', operationLogId: 9009, tableName: 'customer_contact',
+    entityClass: 'com.tonghui.erp.Data.Entity.CustomerContact', businessId: '2050', changeType: 'UPDATE',
+    changeSource: 'RELATED', fieldCount: 1,
+    changedFields: [{ field: 'phone', label: '联系电话', before: '13800001234', after: '13800005678' }],
+    userId: 18, userAccount: 'lina', userName: '李娜', createdTime: '2026-11-10 10:26:38'
+  },
+  {
+    id: 506, traceId: 'tr-3f81c0a2', operationLogId: 9002, tableName: 'purchase_orders',
+    entityClass: 'com.tonghui.erp.Data.Entity.PurchaseOrder', businessId: '1024', changeType: 'UPDATE',
+    changeSource: 'PRIMARY', fieldCount: 2,
+    changedFields: [
+      { field: 'status', label: '订单状态', before: '待采购', after: '运输中' },
+      { field: 'expected_arrival_date', label: '预计到货日期', before: '2026-11-15', after: '2026-11-18' }
+    ],
+    userId: 31, userAccount: 'chenjing', userName: '陈静', createdTime: '2026-11-10 18:40:05',
+    beforeObj: {
+      id: 1024, order_code: 'PO-20261110-001', supplier_id: 36, status: '待采购',
+      total_amount: 86500.00, expected_arrival_date: '2026-11-15', updated_time: '2026-11-10 16:10:20'
+    },
+    afterObj: {
+      id: 1024, order_code: 'PO-20261110-001', supplier_id: 36, status: '运输中',
+      total_amount: 86500.00, expected_arrival_date: '2026-11-18', updated_time: '2026-11-10 18:40:05'
+    }
+  },
+  {
+    id: 507, traceId: 'tr-3f81c0a2', operationLogId: 9002, tableName: 'purchase_order_items',
+    entityClass: 'com.tonghui.erp.Data.Entity.PurchaseOrderItems', businessId: '3001', changeType: 'UPDATE',
+    changeSource: 'RELATED', fieldCount: 2,
+    changedFields: [
+      { field: 'arrival_quantity', label: '到货数量', before: 0, after: 200 },
+      { field: 'arrival_status', label: '到货状态', before: '未到货', after: '部分到货' }
+    ],
+    userId: 31, userAccount: 'chenjing', userName: '陈静', createdTime: '2026-11-10 18:40:05'
+  },
+  {
+    id: 508, traceId: 'tr-3f81c0a2', operationLogId: 9002, tableName: 'purchase_order_items',
+    entityClass: 'com.tonghui.erp.Data.Entity.PurchaseOrderItems', businessId: '3002', changeType: 'UPDATE',
+    changeSource: 'RELATED', fieldCount: 2,
+    changedFields: [
+      { field: 'arrival_quantity', label: '到货数量', before: 0, after: 150 },
+      { field: 'arrival_status', label: '到货状态', before: '未到货', after: '部分到货' }
+    ],
+    userId: 31, userAccount: 'chenjing', userName: '陈静', createdTime: '2026-11-10 18:40:05'
+  },
+  {
+    id: 509, traceId: 'tr-7ac2d90e', operationLogId: 9005, tableName: 'stock_in',
+    entityClass: 'com.tonghui.erp.Data.Entity.StockIn', businessId: '1208', changeType: 'INSERT',
+    changeSource: 'PRIMARY', fieldCount: 0, changedFields: [], userId: 27, userAccount: 'zhaomin',
+    userName: '赵敏', createdTime: '2026-11-10 15:33:27',
+    afterObj: {
+      id: 1208, stock_in_code: 'SI-20261110-012', supplier_id: 36, status: '待检验',
+      total_quantity: 350, created_time: '2026-11-10 15:33:27'
+    }
+  },
+  {
+    id: 510, traceId: 'tr-7ac2d90e', operationLogId: 9005, tableName: 'stock_in_items',
+    entityClass: 'com.tonghui.erp.Data.Entity.StockInItems', businessId: '4101', changeType: 'INSERT',
+    changeSource: 'RELATED', fieldCount: 0, changedFields: [], userId: 27, userAccount: 'zhaomin',
+    userName: '赵敏', createdTime: '2026-11-10 15:33:27',
+    afterObj: { id: 4101, stock_in_id: 1208, material_id: 77, quantity: 200 }
+  },
+  {
+    id: 511, traceId: 'tr-7ac2d90e', operationLogId: 9005, tableName: 'stock_batch',
+    entityClass: 'com.tonghui.erp.Data.Entity.StockBatch', businessId: '5501', changeType: 'INSERT',
+    changeSource: 'RELATED', fieldCount: 0, changedFields: [], userId: 27, userAccount: 'zhaomin',
+    userName: '赵敏', createdTime: '2026-11-10 15:33:27',
+    afterObj: { id: 5501, stock_in_id: 1208, material_id: 77, batch_no: '20261101', quantity: 200 }
+  },
+  {
+    id: 512, traceId: 'tr-1e44b7f5', operationLogId: 9007, tableName: 'role_perm',
+    entityClass: 'com.tonghui.erp.Data.Entity.RolePerm', businessId: '12', changeType: 'UPDATE',
+    changeSource: 'PRIMARY', fieldCount: 1,
+    changedFields: [{ field: 'is_enabled', label: '启用状态', before: 0, after: 1 }],
+    userId: 1, userAccount: 'root', userName: '系统管理员', createdTime: '2026-11-10 13:22:16',
+    beforeObj: { id: 12, role_id: 4, permission_key: 'inspection:view', is_enabled: 0 },
+    afterObj: { id: 12, role_id: 4, permission_key: 'inspection:view', is_enabled: 1, updated_time: '2026-11-10 13:22:16' }
+  },
+  {
+    id: 513, traceId: 'tr-1e44b7f5', operationLogId: 9007, tableName: 'role_perm',
+    entityClass: 'com.tonghui.erp.Data.Entity.RolePerm', businessId: '13', changeType: 'UPDATE',
+    changeSource: 'PRIMARY', fieldCount: 1,
+    changedFields: [{ field: 'is_enabled', label: '启用状态', before: 0, after: 1 }],
+    userId: 1, userAccount: 'root', userName: '系统管理员', createdTime: '2026-11-10 13:22:16'
+  },
+  {
+    id: 514, traceId: 'tr-1e44b7f5', operationLogId: 9007, tableName: 'role_perm',
+    entityClass: 'com.tonghui.erp.Data.Entity.RolePerm', businessId: '14', changeType: 'UPDATE',
+    changeSource: 'PRIMARY', fieldCount: 1,
+    changedFields: [{ field: 'is_enabled', label: '启用状态', before: 0, after: 1 }],
+    userId: 1, userAccount: 'root', userName: '系统管理员', createdTime: '2026-11-10 13:22:16'
+  },
+  {
+    id: 515, traceId: 'tr-1e44b7f5', operationLogId: 9007, tableName: 'role_perm',
+    entityClass: 'com.tonghui.erp.Data.Entity.RolePerm', businessId: '15', changeType: 'UPDATE',
+    changeSource: 'PRIMARY', fieldCount: 1,
+    changedFields: [{ field: 'is_enabled', label: '启用状态', before: 0, after: 1 }],
+    userId: 1, userAccount: 'root', userName: '系统管理员', createdTime: '2026-11-10 13:22:16'
+  },
+  {
+    id: 516, traceId: 'tr-1e44b7f5', operationLogId: 9007, tableName: 'role_perm',
+    entityClass: 'com.tonghui.erp.Data.Entity.RolePerm', businessId: '16', changeType: 'UPDATE',
+    changeSource: 'PRIMARY', fieldCount: 1,
+    changedFields: [{ field: 'is_enabled', label: '启用状态', before: 0, after: 1 }],
+    userId: 1, userAccount: 'root', userName: '系统管理员', createdTime: '2026-11-10 13:22:16'
+  },
+  {
+    id: 517, traceId: 'tr-5d09a3c8', operationLogId: 9015, tableName: 'purchase_orders',
+    entityClass: 'com.tonghui.erp.Data.Entity.PurchaseOrder', businessId: '998', changeType: 'DELETE',
+    changeSource: 'PRIMARY', fieldCount: 2,
+    changedFields: [
+      { field: 'is_deleted', label: '是否删除', before: 0, after: 1 },
+      { field: 'updated_time', label: '更新时间', before: '2026-11-09 14:50:12', after: '2026-11-09 15:03:48' }
+    ],
+    userId: 1, userAccount: 'root', userName: '系统管理员', createdTime: '2026-11-09 15:03:48',
+    beforeObj: { id: 998, order_code: 'PO-20261109-007', supplier_id: 36, status: '已入库', is_deleted: 0 },
+    afterObj: { id: 998, order_code: 'PO-20261109-007', supplier_id: 36, status: '已入库', is_deleted: 1, updated_time: '2026-11-09 15:03:48' }
+  }
+];
+
+// =========================================================
+// 页面状态
+// =========================================================
+const state = {
+  tab: 'login',
+  login: {
+    pageIndex: 0,
+    pageSize: 10,
+    filter: { account: '', name: '', result: '', ip: '', mac: '', role: '', start: TODAY, end: TODAY }
+  },
+  operation: {
+    pageIndex: 0,
+    pageSize: 10,
+    filter: { account: '', name: '', module: '', type: '', result: '', keyword: '', bizType: '', bizId: '', mac: '', start: '', end: '' }
+  },
+  change: {
+    pageIndex: 0,
+    pageSize: 10,
+    filter: { opLogId: '', traceId: '', table: '', bizId: '', type: '', account: '', start: '', end: '' }
+  },
+  drawer: null
+};
+
+// =========================================================
+// 通用工具
+// =========================================================
+function e(v) {
+  return String(v == null ? '' : v).replace(/[&<>"']/g, function (s) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[s];
+  });
+}
+
+function tag(text, cls) {
+  return '<span class="tag ' + cls + '">' + e(text) + '</span>';
+}
+
+function prettyJson(str) {
+  if (str == null || str === '') return '';
+  try { return JSON.stringify(JSON.parse(str), null, 2); } catch (err) { return String(str); }
+}
+
+function formatMs(ms) {
+  if (ms == null) return '—';
+  if (ms < 1000) return ms + ' ms';
+  return (ms / 1000).toFixed(1) + ' s';
+}
+
+function inRange(time, start, end) {
+  const day = String(time || '').slice(0, 10);
+  if (start && day < start) return false;
+  if (end && day > end) return false;
+  return true;
+}
+
+// MAC 匹配忽略分隔符（支持只输入后 8 位或完整地址）
+function macMatch(mac, keyword) {
+  const kw = String(keyword || '').replace(/[^0-9a-fA-F]/g, '').toLowerCase();
+  if (!kw) return true;
+  const value = String(mac || '').replace(/[^0-9a-fA-F]/g, '').toLowerCase();
+  return value.indexOf(kw) !== -1;
+}
+
+function uaShort(ua) {
+  if (!ua) return '—';
+  let browser = '未知浏览器';
+  if (/Edg\//.test(ua)) browser = 'Edge';
+  else if (/Chrome\//.test(ua)) browser = 'Chrome';
+  else if (/Firefox\//.test(ua)) browser = 'Firefox';
+  else if (/Safari\//.test(ua)) browser = 'Safari';
+  let os = '';
+  if (/Windows NT/.test(ua)) os = 'Windows';
+  else if (/Macintosh/.test(ua)) os = 'macOS';
+  else if (/Android/.test(ua)) os = 'Android';
+  else if (/iPhone|iPad/.test(ua)) os = 'iOS';
+  else if (/Linux/.test(ua)) os = 'Linux';
+  return browser + (os ? ' · ' + os : '');
+}
+
+function opTypeTag(type) {
+  const conf = OPERATION_TYPES[type] || [type || '其他', 'gray'];
+  return tag(conf[0], conf[1]);
+}
+
+function resultTag(status) {
+  return status === 1 ? tag('成功', 'green') : tag('失败', 'red');
+}
+
+function changeTypeTag(type) {
+  if (type === 'INSERT') return tag('INSERT 新增', 'green');
+  if (type === 'UPDATE') return tag('UPDATE 修改', 'orange');
+  if (type === 'DELETE') return tag('DELETE 删除', 'red');
+  return tag(type || '—', 'gray');
+}
+
+function sourceTag(source) {
+  return source === 'PRIMARY' ? tag('主记录', 'blue') : tag('关联变更', 'gray');
+}
+
+function valueHtml(v, cls) {
+  if (v === null || v === undefined || v === '') {
+    return '<span class="val none">空</span>';
+  }
+  return '<span class="val ' + cls + '">' + e(String(v)) + '</span>';
+}
+
+function emptyRow(colspan, text) {
+  return '<tr><td colspan="' + colspan + '"><div class="empty">' + e(text) + '</div></td></tr>';
+}
+
+function roleChips(roleNames, limit) {
+  const list = roleNames || [];
+  if (!list.length) return '<span class="wild">—</span>';
+  const max = limit || 2;
+  let html = list.slice(0, max).map(function (r) { return tag(r, 'purple'); }).join('');
+  if (list.length > max) {
+    html += '<span class="tag gray" title="' + e(list.join('、')) + '">+' + (list.length - max) + '</span>';
+  }
+  return '<div class="tags-inline">' + html + '</div>';
+}
+
+function diffChips(changedFields) {
+  const list = changedFields || [];
+  if (!list.length) return '<span class="muted small">新增记录，无字段差异</span>';
+  const max = 3;
+  let html = '<div class="diff-chips">';
+  list.slice(0, max).forEach(function (f) {
+    html += '<div class="diff-chip" title="' + e(f.label + '：' + (f.before == null ? '空' : f.before) + ' → ' + (f.after == null ? '空' : f.after)) + '">'
+      + '<b>' + e(f.label) + '</b><span class="arrow">·</span>'
+      + '<span class="from">' + e(f.before == null ? '空' : f.before) + '</span>'
+      + '<span class="arrow">→</span>'
+      + '<span class="to">' + e(f.after == null ? '空' : f.after) + '</span></div>';
+  });
+  if (list.length > max) {
+    html += '<div class="diff-chip muted">另有 ' + (list.length - max) + ' 个字段变更…</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+// =========================================================
+// 初始化：补全登录快照、生成整行快照、填充下拉
+// =========================================================
+function hydrateLoginSnapshots() {
+  LOGIN_LOGS.forEach(function (log) {
+    log.macAddress = macFor(log.userAccount, log.loginIp);
+    const menus = new Map();
+    const perms = new Map();
+    (log.roleNames || []).forEach(function (role) {
+      const snap = ROLE_SNAPSHOT[role];
+      if (!snap) return;
+      snap.menus.forEach(function (m) { menus.set(m[0], m[1]); });
+      snap.perms.forEach(function (p) { perms.set(p[0], p[1]); });
+    });
+    log.menuKeys = Array.from(menus.keys());
+    log.menuNames = Array.from(menus.values());
+    log.permissionKeys = Array.from(perms.keys());
+    log.permissionNames = Array.from(perms.values());
+    log.menuCount = log.menuKeys.length;
+    log.permissionCount = log.permissionKeys.length;
+  });
+}
+
+function hydrateOperationMac() {
+  OPERATION_LOGS.forEach(function (log) {
+    log.macAddress = macFor(log.userAccount, log.clientIp);
+  });
+}
+
+function hydrateChangeSnapshots() {
+  DATA_CHANGES.sort(function (a, b) { return b.createdTime.localeCompare(a.createdTime); });  DATA_CHANGES.forEach(function (c) {
+    if (c.beforeObj) c.beforeJson = JSON.stringify(c.beforeObj, null, 2);
+    if (c.afterObj) c.afterJson = JSON.stringify(c.afterObj, null, 2);
+    if (c.beforeJson === undefined) {
+      c.beforeJson = c.changeType === 'INSERT' ? null : JSON.stringify(buildSnapshot(c, 'before'), null, 2);
+    }
+    if (c.afterJson === undefined) {
+      c.afterJson = c.changeType === 'DELETE' ? null : JSON.stringify(buildSnapshot(c, 'after'), null, 2);
+    }
+  });
+}
+
+function buildSnapshot(c, dir) {
+  const obj = { id: isNaN(Number(c.businessId)) ? c.businessId : Number(c.businessId) };
+  (c.changedFields || []).forEach(function (f) {
+    obj[f.field] = dir === 'before' ? f.before : f.after;
+  });
+  obj.updated_time = c.createdTime;
+  return obj;
+}
+
+function fillSelectOptions() {
+  const moduleSelect = document.getElementById('opModule');
+  MODULES.forEach(function (m) {
+    const opt = document.createElement('option');
+    opt.value = m;
+    opt.textContent = m;
+    moduleSelect.appendChild(opt);
+  });
+
+  const tables = Array.from(new Set(DATA_CHANGES.map(function (c) { return c.tableName; }))).sort();
+  const tableSelect = document.getElementById('chTable');
+  tables.forEach(function (t) {
+    const opt = document.createElement('option');
+    opt.value = t;
+    opt.textContent = t;
+    tableSelect.appendChild(opt);
+  });
+}
+
+function setDefaultDates() {
+  document.getElementById('lgStart').value = TODAY;
+  document.getElementById('lgEnd').value = TODAY;
+}
+
+function init() {
+  hydrateLoginSnapshots();
+  hydrateOperationMac();
+  hydrateChangeSnapshots();
+  fillSelectOptions();
+  setDefaultDates();
+
+  document.getElementById('loginCount').textContent = LOGIN_LOGS.length;
+  document.getElementById('operationCount').textContent = OPERATION_LOGS.length;
+  document.getElementById('changeCount').textContent = DATA_CHANGES.length;
+
+  ['lgAccount', 'lgName', 'lgIp', 'lgMac', 'lgRole'].forEach(function (id) {
+    document.getElementById(id).addEventListener('keydown', function (ev) { if (ev.key === 'Enter') applyLogin(); });
+  });
+  ['opAccount', 'opName', 'opKeyword', 'opBizType', 'opBizId', 'opMac'].forEach(function (id) {
+    document.getElementById(id).addEventListener('keydown', function (ev) { if (ev.key === 'Enter') applyOperation(); });
+  });
+  ['chOpLogId', 'chTraceId', 'chBizId', 'chAccount'].forEach(function (id) {
+    document.getElementById(id).addEventListener('keydown', function (ev) { if (ev.key === 'Enter') applyChange(); });
+  });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape') { hideDrawer(); closeApiPanel(); }
+  });
+
+  renderLogin();
+  renderOperation();
+  renderChange();
+  applyHash();
+}
+
+// =========================================================
+// Hash 深链：便于原型演示与联调
+// #login | #operation | #change
+// #operation/9009 | #operation/9009/changes | #change/503/snapshot
+// =========================================================
+function applyHash() {
+  const hash = (location.hash || '').replace(/^#/, '');
+  if (!hash) return;
+  const parts = hash.split('/');
+  const tab = parts[0];
+  if (['login', 'operation', 'change'].indexOf(tab) === -1) return;
+  switchTab(tab);
+  const id = parts[1] ? Number(parts[1]) : null;
+  if (!id) return;
+  const subtab = parts[2] || null;
+  if (tab === 'login') openLoginDetail(id);
+  else if (tab === 'operation') openOperationDetail(id, subtab || 'overview');
+  else openChangeDetail(id, subtab || 'overview');
+}
+
+// =========================================================
+// 页签切换
+// =========================================================
+function switchTab(tab) {
+  state.tab = tab;
+  document.querySelectorAll('#tabbar .tab-btn').forEach(function (btn) {
+    btn.classList.toggle('active', btn.getAttribute('data-tab') === tab);
+  });
+  ['login', 'operation', 'change'].forEach(function (key) {
+    document.getElementById('tab-' + key).classList.toggle('hidden', key !== tab);
+  });
+}
+
+function toggleApiPanel() {
+  document.getElementById('apiPanel').classList.toggle('show');
+}
+
+function closeApiPanel() {
+  document.getElementById('apiPanel').classList.remove('show');
+}
+
+// =========================================================
+// 登录日志
+// =========================================================
+function currentLoginFilter() {
+  return state.login.filter;
+}
+
+function loginFiltered() {
+  const f = currentLoginFilter();
+  return LOGIN_LOGS.filter(function (log) {
+    if (f.account && log.userAccount !== f.account.trim()) return false;
+    if (f.name && String(log.userName || '').indexOf(f.name.trim()) === -1) return false;
+    if (f.result !== '' && String(log.loginResult) !== f.result) return false;
+    if (f.ip && log.loginIp !== f.ip.trim()) return false;
+    if (f.mac && !macMatch(log.macAddress, f.mac)) return false;
+    if (f.role && !(log.roleNames || []).some(function (r) { return r.indexOf(f.role.trim()) !== -1; })) return false;
+    if (!inRange(log.loginTime, f.start, f.end)) return false;
+    return true;
+  });
+}
+
+function renderLogin() {
+  const all = loginFiltered();
+  const page = paginate(all, state.login);
+
+  document.getElementById('loginBody').innerHTML = page.length
+    ? page.map(loginRow).join('')
+    : emptyRow(10, '暂无登录记录');
+
+  document.getElementById('loginMeta').textContent = '共 ' + all.length + ' 条 · 支持按账号、结果、IP、MAC、角色与时间段筛选';
+
+  renderLoginStats();
+  renderPager('loginPager', 'login', all.length);
+}
+
+function loginRow(log) {
+  const failText = log.loginResult === 0
+    ? '<span class="small" style="color:#cf1322">' + e(log.failReason || '未知原因') + '</span>'
+    : '<span class="wild">—</span>';
+  const typeTag = log.loginType === 'LOGOUT' ? tag('退出', 'gray') : tag('登录', 'blue');
+  return '<tr class="clickable" onclick="openLoginDetail(' + log.id + ')">'
+    + '<td class="cell-time">' + e(log.loginTime) + '</td>'
+    + '<td><div class="ppl"><b>' + e(log.userAccount) + '</b><span>' + e(log.userName) + '</span></div></td>'
+    + '<td>' + typeTag + '</td>'
+    + '<td>' + resultTag(log.loginResult) + '</td>'
+    + '<td>' + failText + '</td>'
+    + '<td>' + roleChips(log.roleNames, 1) + '</td>'
+    + '<td><span class="cell-main">' + e(log.loginIp) + '</span><span class="cell-sub">' + e(log.ipLocation || '未知') + '</span></td>'
+    + '<td><span class="mac">' + e(log.macAddress) + '</span></td>'
+    + '<td><span class="small">' + e(uaShort(log.userAgent)) + '</span></td>'
+    + '<td class="right"><button class="btn btn-sm" onclick="event.stopPropagation();openLoginDetail(' + log.id + ')">详情</button></td>'
+    + '</tr>';
+}
+
+function renderLoginStats() {
+  // 统计接口只接受时间范围，因此只按日期过滤，忽略其他筛选项
+  const f = currentLoginFilter();
+  const list = LOGIN_LOGS.filter(function (log) { return inRange(log.loginTime, f.start, f.end); });
+  const success = list.filter(function (l) { return l.loginResult === 1; }).length;
+  const fail = list.length - success;
+  const unique = new Set(list.map(function (l) { return l.userAccount; })).size;
+
+  const cards = [
+    { label: '登录总次数', value: list.length, unit: '次', cls: 'run' },
+    { label: '成功登录', value: success, unit: '次', cls: 'ok' },
+    { label: '失败登录', value: fail, unit: '次', cls: 'warn' },
+    { label: '去重账号数', value: unique, unit: '个', cls: '' }
+  ];
+
+  document.getElementById('loginStats').innerHTML = cards.map(function (c) {
+    return '<div class="stat-card ' + c.cls + '">'
+      + '<div class="label">' + c.label + '</div>'
+      + '<div class="num"><b>' + c.value + '</b><span class="unit">' + c.unit + '</span></div>'
+      + '</div>';
+  }).join('');
+
+  const scope = (f.start || '不限') + ' 00:00:00 至 ' + (f.end || '现在') + ' 23:59:59';
+  document.getElementById('loginScope').textContent = '登录统计接口：GET /api/system/login-log/summary · 统计范围 ' + scope;
+}
+
+function applyLogin() {
+  state.login.filter = {
+    account: document.getElementById('lgAccount').value,
+    name: document.getElementById('lgName').value,
+    result: document.getElementById('lgResult').value,
+    ip: document.getElementById('lgIp').value,
+    mac: document.getElementById('lgMac').value,
+    role: document.getElementById('lgRole').value,
+    start: document.getElementById('lgStart').value,
+    end: document.getElementById('lgEnd').value
+  };
+  state.login.pageIndex = 0;
+  renderLogin();
+}
+
+function resetLogin() {
+  state.login.filter = { account: '', name: '', result: '', ip: '', mac: '', role: '', start: TODAY, end: TODAY };
+  document.getElementById('lgAccount').value = '';
+  document.getElementById('lgName').value = '';
+  document.getElementById('lgResult').value = '';
+  document.getElementById('lgIp').value = '';
+  document.getElementById('lgMac').value = '';
+  document.getElementById('lgRole').value = '';
+  document.getElementById('lgStart').value = TODAY;
+  document.getElementById('lgEnd').value = TODAY;
+  toggleLoginAdvanced(false);
+  state.login.pageIndex = 0;
+  renderLogin();
+}
+
+/**
+ * 展开/收起登录日志的高级筛选（姓名、IP、MAC、角色）
+ *
+ * @param {boolean} [force] 不传时切换当前状态；传 true/false 强制展开或收起
+ */
+function toggleLoginAdvanced(force) {
+  const panel = document.getElementById('lgAdvanced');
+  const button = document.getElementById('lgAdvToggle');
+  const show = force === undefined ? panel.classList.contains('hidden') : force;
+  panel.classList.toggle('hidden', !show);
+  button.textContent = show ? '收起筛选 ▴' : '更多筛选 ▾';
+}
+
+// =========================================================
+// 操作日志
+// =========================================================
+function operationFiltered() {
+  const f = state.operation.filter;
+  const keyword = (f.keyword || '').trim();
+  return OPERATION_LOGS.filter(function (log) {
+    if (f.account && log.userAccount !== f.account.trim()) return false;
+    if (f.name && String(log.userName || '').indexOf(f.name.trim()) === -1) return false;
+    if (f.module && String(log.module || '').indexOf(f.module) === -1) return false;
+    if (f.type && log.operationType !== f.type) return false;
+    if (f.result !== '' && String(log.resultStatus) !== f.result) return false;
+    if (f.bizType && String(log.businessType || '') !== f.bizType.trim()) return false;
+    if (f.bizId && String(log.businessId || '') !== f.bizId.trim()) return false;
+    if (f.mac && !macMatch(log.macAddress, f.mac)) return false;
+    if (keyword) {
+      const haystack = [log.operationDesc, log.requestUrl, log.userAccount, log.userName, log.businessId].join(' ');
+      if (haystack.indexOf(keyword) === -1) return false;
+    }
+    if (!inRange(log.createdTime, f.start, f.end)) return false;
+    return true;
+  });
+}
+
+function renderOperation() {
+  const all = operationFiltered();
+  const page = paginate(all, state.operation);
+  document.getElementById('operationBody').innerHTML = page.length
+    ? page.map(operationRow).join('')
+    : emptyRow(12, '暂无操作记录');
+  document.getElementById('operationMeta').textContent = '共 ' + all.length + ' 条 · 日志接口单页最多 200 条';
+  renderPager('operationPager', 'operation', all.length);
+}
+
+function operationRow(log) {
+  const biz = log.businessType
+    ? '<span class="cell-main">' + e(log.businessType) + '</span><span class="cell-sub">ID：' + e(log.businessId || '—') + '</span>'
+    : '<span class="wild">—</span>';
+  let changeCell = '<span class="wild">—</span>';
+  if (log.changeCount > 0) {
+    changeCell = '<button class="btn btn-sm" style="height:22px;padding:0 7px" onclick="event.stopPropagation();openOperationDetail(' + log.id + ',\'changes\')">'
+      + log.changeCount + ' 条</button>';
+    if (log.changeTruncated === 1) {
+      changeCell += ' <span class="tag orange" title="单次操作记录的变更条数已达上限，其余关联变更未记录">截断</span>';
+    }
+  }
+  return '<tr class="clickable" onclick="openOperationDetail(' + log.id + ')">'
+    + '<td class="cell-time">' + e(log.createdTime) + '</td>'
+    + '<td><div class="ppl"><b>' + e(log.userName) + '</b><span>' + e(log.userAccount) + '</span></div></td>'
+    + '<td>' + e(log.module) + '</td>'
+    + '<td>' + opTypeTag(log.operationType) + '</td>'
+    + '<td><div class="desc">' + e(log.operationDesc) + '</div></td>'
+    + '<td>' + biz + '</td>'
+    + '<td>' + resultTag(log.resultStatus) + '<span class="cell-sub">' + (log.responseCode == null ? '' : 'HTTP ' + log.responseCode) + '</span></td>'
+    + '<td class="num">' + formatMs(log.costTime) + '</td>'
+    + '<td class="nowrap">' + changeCell + '</td>'
+    + '<td><span class="cell-main">' + e(log.clientIp) + '</span><span class="cell-sub">' + e(log.ipLocation || '未知') + '</span></td>'
+    + '<td><span class="mac">' + e(log.macAddress) + '</span></td>'
+    + '<td class="right"><button class="btn btn-sm" onclick="event.stopPropagation();openOperationDetail(' + log.id + ')">详情</button></td>'
+    + '</tr>';
+}
+
+function applyOperation() {
+  state.operation.filter = {
+    account: document.getElementById('opAccount').value,
+    name: document.getElementById('opName').value,
+    module: document.getElementById('opModule').value,
+    type: document.getElementById('opType').value,
+    result: document.getElementById('opResult').value,
+    keyword: document.getElementById('opKeyword').value,
+    bizType: document.getElementById('opBizType').value,
+    bizId: document.getElementById('opBizId').value,
+    mac: document.getElementById('opMac').value,
+    start: document.getElementById('opStart').value,
+    end: document.getElementById('opEnd').value
+  };
+  state.operation.pageIndex = 0;
+  renderOperation();
+}
+
+function resetOperation() {
+  state.operation.filter = { account: '', name: '', module: '', type: '', result: '', keyword: '', bizType: '', bizId: '', mac: '', start: '', end: '' };
+  ['opAccount', 'opName', 'opModule', 'opType', 'opResult', 'opKeyword', 'opBizType', 'opBizId', 'opMac', 'opStart', 'opEnd'].forEach(function (id) {
+    document.getElementById(id).value = '';
+  });
+  state.operation.pageIndex = 0;
+  renderOperation();
+}
+
+// =========================================================
+// 数据变更日志
+// =========================================================
+function changeFiltered() {
+  const f = state.change.filter;
+  return DATA_CHANGES.filter(function (c) {
+    if (f.opLogId && String(c.operationLogId) !== f.opLogId.trim()) return false;
+    if (f.traceId && String(c.traceId || '').indexOf(f.traceId.trim()) === -1) return false;
+    if (f.table && c.tableName !== f.table) return false;
+    if (f.bizId && String(c.businessId) !== f.bizId.trim()) return false;
+    if (f.type && c.changeType !== f.type) return false;
+    if (f.account && c.userAccount !== f.account.trim()) return false;
+    if (!inRange(c.createdTime, f.start, f.end)) return false;
+    return true;
+  });
+}
+
+function renderChange() {
+  const all = changeFiltered();
+  const page = paginate(all, state.change);
+  document.getElementById('changeBody').innerHTML = page.length
+    ? page.map(changeRow).join('')
+    : emptyRow(9, '暂无数据变更记录');
+  document.getElementById('changeMeta').textContent = '共 ' + all.length + ' 条 · 字段差异来自 sys_data_change_log';
+  renderPager('changePager', 'change', all.length);
+}
+
+function changeRow(c) {
+  return '<tr class="clickable" onclick="openChangeDetail(' + c.id + ')">'
+    + '<td class="cell-time">' + e(c.createdTime) + '</td>'
+    + '<td><span class="cell-main">' + e(c.tableName) + '</span><span class="cell-sub" title="' + e(c.entityClass) + '">' + e(shortEntity(c.entityClass)) + '</span></td>'
+    + '<td>' + e(c.businessId) + '</td>'
+    + '<td>' + changeTypeTag(c.changeType) + '</td>'
+    + '<td>' + sourceTag(c.changeSource) + '</td>'
+    + '<td class="num">' + (c.fieldCount == null ? '—' : c.fieldCount) + '</td>'
+    + '<td>' + diffChips(c.changedFields) + '</td>'
+    + '<td><div class="ppl"><b>' + e(c.userName) + '</b><span>' + e(c.userAccount) + '</span></div></td>'
+    + '<td class="right"><button class="btn btn-sm" onclick="event.stopPropagation();openChangeDetail(' + c.id + ')">详情</button></td>'
+    + '</tr>';
+}
+
+function shortEntity(fullName) {
+  if (!fullName) return '—';
+  const parts = fullName.split('.');
+  return parts[parts.length - 1];
+}
+
+function applyChange() {
+  state.change.filter = {
+    opLogId: document.getElementById('chOpLogId').value,
+    traceId: document.getElementById('chTraceId').value,
+    table: document.getElementById('chTable').value,
+    bizId: document.getElementById('chBizId').value,
+    type: document.getElementById('chType').value,
+    account: document.getElementById('chAccount').value,
+    start: document.getElementById('chStart').value,
+    end: document.getElementById('chEnd').value
+  };
+  state.change.pageIndex = 0;
+  renderChange();
+}
+
+function resetChange() {
+  state.change.filter = { opLogId: '', traceId: '', table: '', bizId: '', type: '', account: '', start: '', end: '' };
+  ['chOpLogId', 'chTraceId', 'chTable', 'chBizId', 'chType', 'chAccount', 'chStart', 'chEnd'].forEach(function (id) {
+    document.getElementById(id).value = '';
+  });
+  state.change.pageIndex = 0;
+  renderChange();
+}
+
+// =========================================================
+// 分页
+// =========================================================
+function paginate(list, st) {
+  const maxPage = Math.max(1, Math.ceil(list.length / st.pageSize));
+  if (st.pageIndex > maxPage - 1) st.pageIndex = maxPage - 1;
+  if (st.pageIndex < 0) st.pageIndex = 0;
+  const start = st.pageIndex * st.pageSize;
+  return list.slice(start, start + st.pageSize);
+}
+
+function renderPager(elId, key, total) {
+  const st = state[key];
+  const maxPage = Math.max(1, Math.ceil(total / st.pageSize));
+  if (st.pageIndex > maxPage - 1) st.pageIndex = maxPage - 1;
+  const sizes = [10, 20, 50, 100, 200];
+  document.getElementById(elId).innerHTML =
+    '<span>共 <b style="color:var(--g700);font-weight:600">' + total + '</b> 条 · 第 ' + (st.pageIndex + 1) + ' / ' + maxPage + ' 页</span>'
+    + '<div class="pages">'
+    + '<select class="select" onchange="setPageSize(\'' + key + '\', this.value)">'
+    + sizes.map(function (n) { return '<option value="' + n + '"' + (n === st.pageSize ? ' selected' : '') + '>' + n + ' 条/页</option>'; }).join('')
+    + '</select>'
+    + '<button class="btn btn-sm" ' + (st.pageIndex <= 0 ? 'disabled' : '') + ' onclick="goPage(\'' + key + '\',-1)">上一页</button>'
+    + '<button class="btn btn-sm" ' + (st.pageIndex >= maxPage - 1 ? 'disabled' : '') + ' onclick="goPage(\'' + key + '\',1)">下一页</button>'
+    + '</div>';
+}
+
+function goPage(key, delta) {
+  state[key].pageIndex += delta;
+  renderTab(key);
+}
+
+function setPageSize(key, size) {
+  state[key].pageSize = Number(size);
+  state[key].pageIndex = 0;
+  renderTab(key);
+}
+
+function renderTab(key) {
+  if (key === 'login') renderLogin();
+  else if (key === 'operation') renderOperation();
+  else renderChange();
+}
+
+// =========================================================
+// 详情抽屉
+// =========================================================
+function showDrawer() {
+  document.getElementById('mask').classList.add('show');
+  document.getElementById('drawer').classList.add('show');
+}
+
+function hideDrawer() {
+  document.getElementById('mask').classList.remove('show');
+  document.getElementById('drawer').classList.remove('show');
+  state.drawer = null;
+}
+
+function openLoginDetail(id) {
+  state.drawer = { type: 'login', id: id };
+  refreshDrawer();
+  showDrawer();
+}
+
+function openOperationDetail(id, tab, back) {
+  state.drawer = { type: 'operation', id: id, tab: tab || 'overview', back: back || null };
+  refreshDrawer();
+  showDrawer();
+}
+
+function openChangeDetail(id, tab, back) {
+  state.drawer = { type: 'change', id: id, tab: tab || 'overview', back: back || null };
+  refreshDrawer();
+  showDrawer();
+}
+
+function openChangeFromOperation(changeId, opLogId) {
+  openChangeDetail(changeId, 'snapshot', { type: 'operation', id: opLogId, tab: 'changes', back: null });
+}
+
+function openOperationFromChange(opLogId, changeId) {
+  openOperationDetail(opLogId, 'overview', { type: 'change', id: changeId, tab: 'overview', back: null });
+}
+
+function drawerBack() {
+  if (!state.drawer || !state.drawer.back) return;
+  state.drawer = state.drawer.back;
+  refreshDrawer();
+}
+
+function switchOpTab(tab) {
+  if (!state.drawer || state.drawer.type !== 'operation') return;
+  state.drawer.tab = tab;
+  refreshDrawer();
+}
+
+function switchChangeTab(tab) {
+  if (!state.drawer || state.drawer.type !== 'change') return;
+  state.drawer.tab = tab;
+  refreshDrawer();
+}
+
+function refreshDrawer() {
+  const d = state.drawer;
+  if (!d) return;
+
+  let title = '';
+  let sub = '';
+  let body = '';
+  let footApi = '';
+
+  if (d.type === 'login') {
+    const log = LOGIN_LOGS.find(function (x) { return x.id === d.id; });
+    if (!log) return;
+    title = '登录详情 #' + log.id;
+    sub = e(log.userAccount) + '（' + e(log.userName) + '）· ' + e(log.loginTime);
+    body = renderLoginDetail(log);
+    footApi = 'GET /api/system/login-log/' + log.id;
+  } else if (d.type === 'operation') {
+    const log = OPERATION_LOGS.find(function (x) { return x.id === d.id; });
+    if (!log) return;
+    title = '操作详情 #' + log.id;
+    sub = e(log.module) + ' · ' + e(log.operationDesc);
+    body = renderOperationDetail(log, d.tab || 'overview');
+    footApi = 'GET /api/system/operation-log/' + log.id;
+  } else if (d.type === 'change') {
+    const c = DATA_CHANGES.find(function (x) { return x.id === d.id; });
+    if (!c) return;
+    title = '数据变更 #' + c.id;
+    sub = e(c.tableName) + ' · 记录 ' + e(c.businessId) + ' · ' + e(c.changeType) + ' · ' + e(c.createdTime);
+    body = renderChangeDetail(c, d.tab || 'overview');
+    footApi = 'GET /api/system/data-change-log/' + c.id;
+  }
+
+  document.getElementById('drawerTitle').textContent = title;
+  document.getElementById('drawerSub').innerHTML = sub;
+  document.getElementById('drawerBody').innerHTML = body;
+
+  const backBtn = d.back
+    ? '<button class="btn btn-sm" onclick="drawerBack()">← 返回上一页</button>'
+    : '';
+  document.getElementById('drawerFoot').innerHTML =
+    '<div class="flex center gap-6 wrap">' + backBtn
+    + '<span class="mono">' + e(footApi) + '</span></div>'
+    + '<button class="btn btn-sm" onclick="hideDrawer()">关闭</button>';
+}
+
+function renderLoginDetail(log) {
+  const failNote = log.loginResult === 0
+    ? '<div class="note danger mb-3"><b>登录失败：</b>' + e(log.failReason || '未知原因') + '</div>'
+    : '';
+
+  const roleHtml = log.roleNames && log.roleNames.length
+    ? '<div class="chips">' + log.roleNames.map(function (r) { return tag(r, 'purple'); }).join('') + '</div>'
+    : '<div class="muted small">无角色快照（登录失败时账号可能不存在或未分配角色）</div>';
+
+  const menuHtml = log.menuNames && log.menuNames.length
+    ? '<div class="chips">' + log.menuNames.map(function (name, i) {
+      return '<span class="tag blue" title="' + e(log.menuKeys[i]) + '">' + e(name) + '</span>';
+    }).join('') + '</div>'
+    : '<div class="empty sm">无菜单权限快照</div>';
+
+  const permHtml = log.permissionNames && log.permissionNames.length
+    ? '<div class="chips">' + log.permissionNames.map(function (name, i) {
+      return '<span class="tag gray" title="' + e(log.permissionKeys[i]) + '">' + e(name) + '</span>';
+    }).join('') + '</div>'
+    : '<div class="empty sm">无接口权限快照</div>';
+
+  return failNote
+    + '<section class="mb-3">'
+    + '<h3 class="section-title">基本信息</h3>'
+    + '<dl class="kv2">'
+    + '<dt>登录账号</dt><dd><b>' + e(log.userAccount) + '</b>（' + e(log.userName) + '）</dd>'
+    + '<dt>登录类型</dt><dd>' + (log.loginType === 'LOGOUT' ? tag('退出登录', 'gray') : tag('登录', 'blue')) + '</dd>'
+    + '<dt>登录结果</dt><dd>' + resultTag(log.loginResult) + '</dd>'
+    + '<dt>登录时间</dt><dd>' + e(log.loginTime) + '</dd>'
+    + '<dt>登录 IP</dt><dd>' + e(log.loginIp) + '</dd>'
+    + '<dt>IP 归属地</dt><dd>' + e(log.ipLocation || '未知') + '</dd>'
+    + '<dt>MAC 地址</dt><dd><span class="mac">' + e(log.macAddress) + '</span></dd>'
+    + '<dt>客户端</dt><dd>' + e(log.userAgent || '—') + '</dd>'
+    + '<dt>菜单数</dt><dd>' + log.menuCount + ' 个</dd>'
+    + '<dt>接口权限数</dt><dd>' + log.permissionCount + ' 个</dd>'
+    + '</dl>'
+    + '</section>'
+    + '<section class="mb-3"><h3 class="section-title">角色 <span class="meta">' + (log.roleNames ? log.roleNames.length : 0) + ' 个</span></h3>' + roleHtml + '</section>'
+    + '<section class="mb-3"><h3 class="section-title">可访问菜单 <span class="meta">' + log.menuCount + ' 个</span></h3>' + menuHtml + '</section>'
+    + '<section class="mb-3"><h3 class="section-title">接口权限 <span class="meta">' + log.permissionCount + ' 项</span></h3>' + permHtml + '</section>'
+    + '<div class="note info">菜单与接口权限为登录当时的快照，后续角色调整不影响本记录。列表接口不含快照明细，展开详情时再请求 <code>GET /api/system/login-log/{id}</code>。</div>';
+}
+
+function renderOperationDetail(log, tab) {
+  const failNote = log.resultStatus === 0
+    ? '<div class="note danger mb-3"><b>执行失败：</b>' + e(log.errorMsg || '无异常信息') + '</div>'
+    : '';
+
+  const changes = DATA_CHANGES.filter(function (c) { return c.operationLogId === log.id; });
+
+  const tabs = [
+    { key: 'overview', label: '概览' },
+    { key: 'request', label: '请求信息' },
+    { key: 'changes', label: '数据变更', count: changes.length }
+  ];
+
+  let tabBody = '';
+  if (tab === 'overview') {
+    tabBody = renderOperationOverview(log);
+  } else if (tab === 'request') {
+    tabBody = renderOperationRequest(log);
+  } else {
+    tabBody = renderOperationChanges(log, changes);
+  }
+
+  return failNote
+    + '<div class="drawer-tabs">' + tabs.map(function (t) {
+      return '<button class="drawer-tab ' + (t.key === tab ? 'active' : '') + '" onclick="switchOpTab(\'' + t.key + '\')">'
+        + t.label + (t.count != null ? '<span class="n">' + t.count + '</span>' : '') + '</button>';
+    }).join('') + '</div>'
+    + tabBody;
+}
+
+function renderOperationOverview(log) {
+  const bizHtml = log.businessType
+    ? '<b>' + e(log.businessType) + '</b>' + (log.businessId ? ' · ID ' + e(log.businessId) : '')
+    : '<span class="wild">—</span>';
+  return '<dl class="kv2">'
+    + '<dt>操作人</dt><dd><b>' + e(log.userName) + '</b>（' + e(log.userAccount) + '）</dd>'
+    + '<dt>业务模块</dt><dd>' + e(log.module) + '</dd>'
+    + '<dt>操作类型</dt><dd>' + opTypeTag(log.operationType) + '</dd>'
+    + '<dt>操作描述</dt><dd>' + e(log.operationDesc) + '</dd>'
+    + '<dt>业务对象</dt><dd>' + bizHtml + '</dd>'
+    + '<dt>执行结果</dt><dd>' + resultTag(log.resultStatus)
+    + (log.responseCode != null ? ' <span class="muted small">业务响应码 ' + log.responseCode + '</span>' : '') + '</dd>'
+    + '<dt>耗时</dt><dd>' + formatMs(log.costTime) + '</dd>'
+    + '<dt>操作时间</dt><dd>' + e(log.createdTime) + '</dd>'
+    + '<dt>客户端 IP</dt><dd>' + e(log.clientIp) + '</dd>'
+    + '<dt>IP 归属地</dt><dd>' + e(log.ipLocation || '未知') + '</dd>'
+    + '<dt>MAC 地址</dt><dd><span class="mac">' + e(log.macAddress) + '</span></dd>'
+    + '<dt>TraceID</dt><dd><code class="mono">' + e(log.traceId) + '</code></dd>'
+    + '<dt>数据变更</dt><dd>' + (log.changeCount > 0 ? log.changeCount + ' 条' + (log.changeTruncated === 1 ? '（已截断）' : '') : '无') + '</dd>'
+    + '</dl>';
+}
+
+function renderOperationRequest(log) {
+  const params = prettyJson(log.requestParams);
+  const errorHtml = log.errorMsg
+    ? '<section class="mt-3"><h3 class="section-title">异常信息</h3><div class="note danger">' + e(log.errorMsg) + '</div></section>'
+    : '';
+  return '<section class="mb-3">'
+    + '<h3 class="section-title">请求地址</h3>'
+    + '<div class="flex center gap-6 mb-2"><span class="tag blue">' + e(log.requestMethod) + '</span></div>'
+    + '<pre class="code url">' + e(log.requestUrl) + '</pre>'
+    + '</section>'
+    + '<section class="mb-3"><h3 class="section-title">执行方法</h3><div class="mono" style="font-size:11.5px;word-break:break-all">' + e(log.classMethod) + '</div></section>'
+    + '<section class="mb-3"><h3 class="section-title">请求参数 <span class="meta">已脱敏 / 截断</span></h3>'
+    + (params ? '<pre class="code">' + e(params) + '</pre>' : '<div class="empty sm">无请求参数</div>')
+    + '</section>'
+    + '<section class="mb-3"><h3 class="section-title">客户端</h3><dl class="kv2">'
+    + '<dt>User-Agent</dt><dd>' + e(log.userAgent || '—') + '</dd>'
+    + '<dt>MAC 地址</dt><dd><span class="mac">' + e(log.macAddress) + '</span></dd>'
+    + '<dt>TraceID</dt><dd><code class="mono">' + e(log.traceId) + '</code></dd>'
+    + '</dl></section>'
+    + errorHtml;
+}
+
+function renderOperationChanges(log, changes) {
+  if (!changes.length) {
+    return '<div class="empty">本次操作未产生数据变更记录</div>';
+  }
+  const truncatedNote = log.changeTruncated === 1
+    ? '<div class="note warn mb-3">单次操作记录的变更条数已达上限（changeTruncated = 1），其余关联变更未写入日志表。完整数据以业务表为准。</div>'
+    : '';
+  return truncatedNote
+    + '<div class="note info mb-3">按执行顺序排列：主记录与级联记录均会记录。数据来自 <code>GET /api/system/operation-log/' + log.id + '/changes</code>。</div>'
+    + changes.slice().sort(function (a, b) { return a.id - b.id; }).map(changeCard).join('');
+}
+
+function changeCard(c) {
+  let diffTable;
+  if (c.changedFields && c.changedFields.length) {
+    diffTable = '<table class="mini-table">'
+      + '<thead><tr><th>字段</th><th>修改前</th><th>修改后</th></tr></thead><tbody>'
+      + c.changedFields.map(function (f) {
+        return '<tr><td><span class="field-name">' + e(f.label) + '</span><span class="field-key">' + e(f.field) + '</span></td>'
+          + '<td>' + valueHtml(f.before, 'before') + '</td>'
+          + '<td>' + valueHtml(f.after, 'after') + '</td></tr>';
+      }).join('')
+      + '</tbody></table>';
+  } else {
+    diffTable = '<div class="muted small">' + (c.changeType === 'INSERT' ? '新增记录，无字段差异' : '无字段差异') + '，可查看整行快照。</div>';
+  }
+
+  return '<div class="chg-card">'
+    + '<div class="chg-head">'
+    + '<b>' + e(c.tableName) + '</b>'
+    + changeTypeTag(c.changeType)
+    + sourceTag(c.changeSource)
+    + '<span class="muted small">记录 ID：' + e(c.businessId) + '</span>'
+    + '<span class="spacer"></span>'
+    + '<button class="btn btn-sm" onclick="openChangeFromOperation(' + c.id + ',' + c.operationLogId + ')">完整快照</button>'
+    + '</div>'
+    + '<div class="chg-body">' + diffTable + '</div>'
+    + '</div>';
+}
+
+function renderChangeDetail(c, tab) {
+  const tabs = [
+    { key: 'overview', label: '概览' },
+    { key: 'diff', label: '字段差异', count: (c.changedFields || []).length },
+    { key: 'snapshot', label: '整行快照' }
+  ];
+
+  let tabBody = '';
+  if (tab === 'overview') tabBody = renderChangeOverview(c);
+  else if (tab === 'diff') tabBody = renderChangeDiff(c);
+  else tabBody = renderChangeSnapshot(c);
+
+  return '<div class="drawer-tabs">' + tabs.map(function (t) {
+    return '<button class="drawer-tab ' + (t.key === tab ? 'active' : '') + '" onclick="switchChangeTab(\'' + t.key + '\')">'
+      + t.label + (t.count != null ? '<span class="n">' + t.count + '</span>' : '') + '</button>';
+  }).join('') + '</div>' + tabBody;
+}
+
+function renderChangeOverview(c) {
+  const opLink = c.operationLogId
+    ? '<button class="btn btn-sm btn-ghost" style="height:22px;padding:0 6px" onclick="openOperationFromChange(' + c.operationLogId + ',' + c.id + ')">#' + c.operationLogId + ' 查看操作详情</button>'
+    : '<span class="wild">—</span>';
+  return '<dl class="kv2">'
+    + '<dt>表名</dt><dd><b>' + e(c.tableName) + '</b></dd>'
+    + '<dt>实体类</dt><dd><span class="mono" style="font-size:11px">' + e(c.entityClass) + '</span></dd>'
+    + '<dt>记录 ID</dt><dd>' + e(c.businessId) + '</dd>'
+    + '<dt>变更类型</dt><dd>' + changeTypeTag(c.changeType) + '</dd>'
+    + '<dt>变更来源</dt><dd>' + sourceTag(c.changeSource) + '</dd>'
+    + '<dt>字段数</dt><dd>' + (c.fieldCount == null ? '—' : c.fieldCount) + ' 个</dd>'
+    + '<dt>操作人</dt><dd><b>' + e(c.userName) + '</b>（' + e(c.userAccount) + '）</dd>'
+    + '<dt>TraceID</dt><dd><code class="mono">' + e(c.traceId) + '</code></dd>'
+    + '<dt>关联操作</dt><dd>' + opLink + '</dd>'
+    + '<dt>变更时间</dt><dd>' + e(c.createdTime) + '</dd>'
+    + '</dl>';
+}
+
+function renderChangeDiff(c) {
+  const fields = c.changedFields || [];
+  if (!fields.length) {
+    return '<div class="empty">' + (c.changeType === 'INSERT' ? '新增记录，无字段差异；请查看整行快照。' : '本次变更无字段差异。') + '</div>';
+  }
+  return '<div class="note info mb-3">差异来自 sys_data_change_log.changed_fields：field 为数据库列名，label 取列注释（取不到时回退字段名）。</div>'
+    + '<div class="table-wrap"><table class="diff-table">'
+    + '<thead><tr><th>字段</th><th>修改前</th><th>修改后</th></tr></thead><tbody>'
+    + fields.map(function (f) {
+      return '<tr><td><span class="field-name">' + e(f.label) + '</span><span class="field-key">' + e(f.field) + '</span></td>'
+        + '<td>' + valueHtml(f.before, 'before') + '</td>'
+        + '<td>' + valueHtml(f.after, 'after') + '</td></tr>';
+    }).join('')
+    + '</tbody></table></div>';
+}
+
+function renderChangeSnapshot(c) {
+  const before = c.beforeJson
+    ? '<pre class="code">' + e(c.beforeJson) + '</pre>'
+    : '<div class="empty sm">' + (c.changeType === 'INSERT' ? '新增记录，无修改前快照' : '无修改前快照') + '</div>';
+  const after = c.afterJson
+    ? '<pre class="code">' + e(c.afterJson) + '</pre>'
+    : '<div class="empty sm">' + (c.changeType === 'DELETE' ? '删除记录，无修改后快照' : '无修改后快照') + '</div>';
+  return '<div class="note info mb-3">整行快照仅在详情接口返回（beforeJson / afterJson），列表接口不返回大字段。</div>'
+    + '<div class="split-json">'
+    + '<div><h3 class="section-title">修改前 <span class="meta">beforeJson</span></h3>' + before + '</div>'
+    + '<div><h3 class="section-title">修改后 <span class="meta">afterJson</span></h3>' + after + '</div>'
+    + '</div>';
+}
+
+// =========================================================
+// 启动
+// =========================================================
+init();
+</script>
+</body>
+</html>

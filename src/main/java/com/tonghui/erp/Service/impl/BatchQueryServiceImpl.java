@@ -243,13 +243,38 @@ public class BatchQueryServiceImpl implements BatchQueryService {
         // 检验
         ctx.setRequests(inspectionRequestService.list(new QueryWrapper<InspectionRequest>()
                 .eq("work_order_id", workOrder.getWorkOrderId())));
-        if (StringUtils.hasText(workOrder.getBatchNumber())) {
-            ctx.setSamplings(samplingRecordService.list(new QueryWrapper<SamplingRecord>()
-                    .eq("batch_no", workOrder.getBatchNumber())));
+        // 取样记录：成品可按批号匹配，中间品取样单批号为空，需补充本工单检验任务关联的取样单
+        List<Long> taskSamplingIds = inspectionTaskService.list(new QueryWrapper<InspectionTask>()
+                        .select("sampling_ref_id")
+                        .eq("work_order_id", workOrder.getWorkOrderId())
+                        .isNotNull("sampling_ref_id"))
+                .stream()
+                .map(InspectionTask::getSamplingRefId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        boolean hasBatchNo = StringUtils.hasText(workOrder.getBatchNumber());
+        if (hasBatchNo || !taskSamplingIds.isEmpty()) {
+            QueryWrapper<SamplingRecord> samplingWrapper = new QueryWrapper<>();
+            samplingWrapper.and(w -> {
+                if (hasBatchNo) {
+                    w.eq("batch_no", workOrder.getBatchNumber());
+                }
+                if (!taskSamplingIds.isEmpty()) {
+                    if (hasBatchNo) {
+                        w.or();
+                    }
+                    w.in("id", taskSamplingIds);
+                }
+            });
+            samplingWrapper.orderByDesc("created_time", "id");
+            ctx.setSamplings(samplingRecordService.list(samplingWrapper));
+        } else {
+            ctx.setSamplings(Collections.emptyList());
         }
         ctx.setInspections(inspectionRecordService.list(new QueryWrapper<InspectionRecord>()
                 .eq("work_order_id", workOrder.getWorkOrderId())
-                .orderByDesc("end_time", "id")));
+                .orderByDesc("created_time", "id")));
 
         // 放行
         ctx.setRelease(releaseReviewService.getOne(new QueryWrapper<ReleaseReview>()
@@ -324,7 +349,10 @@ public class BatchQueryServiceImpl implements BatchQueryService {
             return;
         }
         QueryWrapper<PurchaseOrders> wrapper = new QueryWrapper<>();
-        if (planId != null) {
+        if (planId != null && StringUtils.hasText(planNumber)) {
+            // 历史采购单可能只写了计划编号、未写计划ID，两者取并集避免漏单
+            wrapper.and(w -> w.eq("production_plan_id", planId).or().eq("production_plan_code", planNumber));
+        } else if (planId != null) {
             wrapper.eq("production_plan_id", planId);
         } else {
             wrapper.eq("production_plan_code", planNumber);
@@ -353,7 +381,10 @@ public class BatchQueryServiceImpl implements BatchQueryService {
             return;
         }
         QueryWrapper<MaterialRequisitionSlip> wrapper = new QueryWrapper<>();
-        if (planId != null) {
+        if (planId != null && StringUtils.hasText(planNumber)) {
+            // 历史领料单可能只写了计划编号、未写计划ID，两者取并集避免漏单
+            wrapper.and(w -> w.eq("production_plan_id", planId).or().eq("production_plan_code", planNumber));
+        } else if (planId != null) {
             wrapper.eq("production_plan_id", planId);
         } else {
             wrapper.eq("production_plan_code", planNumber);
@@ -619,7 +650,10 @@ public class BatchQueryServiceImpl implements BatchQueryService {
             QueryWrapper<StockOut> wrapper = new QueryWrapper<StockOut>()
                     .in("out_type", "生产领料出库", "production")
                     .in("related_order", pickCodes);
-            if (planId != null) {
+            if (planId != null && StringUtils.hasText(planNumber)) {
+                // 历史出库单可能只写了计划编号、未写计划ID，两者取并集避免漏单
+                wrapper.and(w -> w.eq("plan_id", planId).or().eq("plan_number", planNumber));
+            } else if (planId != null) {
                 wrapper.eq("plan_id", planId);
             } else {
                 wrapper.eq("plan_number", planNumber);

@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>业务详情 · 变更历史</title>
+<style>
+/* =========================================================
+ * Art Design Pro 风格原型公共样式
+ * 生产任务 / 制剂详情内嵌字段级变更历史
+ * =======================================================*/
+:root {
+  --main: #5D87FF;
+  --main-light: #eef3ff;
+  --success: #13deb9;
+  --warning: #ffae1f;
+  --danger: #ff4d4f;
+  --bg: #fafbfc;
+  --card: #ffffff;
+  --border: rgba(0, 0, 0, .07);
+  --border2: #e2e8ee;
+  --g100: #f9fafb;
+  --g200: #f2f4f5;
+  --g300: #e6eaeb;
+  --g400: #dbdfe1;
+  --g500: #949eb7;
+  --g600: #7987a1;
+  --g700: #4d5875;
+  --g800: #383853;
+  --g900: #323251;
+  --radius: 14px;
+  --radius-md: 11px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .03);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, .08);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--g900);
+  font: 14px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: var(--main); text-decoration: none; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--g400); border-radius: 4px; }
+
+.main { max-width: 1400px; margin: 0 auto; min-height: 100vh; padding: 22px 26px 48px; }
+.page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.page-head h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: .2px; }
+.page-head .sub { margin: 4px 0 0; font-size: 12.5px; color: var(--g600); }
+.head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* ---------- 按钮 ---------- */
+.btn {
+  height: 34px; padding: 0 14px; border-radius: var(--radius-sm); border: 1px solid var(--border2);
+  background: #fff; color: var(--g700); font-size: 13px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; transition: .18s; white-space: nowrap;
+}
+.btn:hover { border-color: #c9d4e6; color: var(--g900); background: #fbfcfd; }
+.btn-primary { background: var(--main); border-color: var(--main); color: #fff; box-shadow: 0 2px 6px rgba(93, 135, 255, .26); }
+.btn-primary:hover { background: #7c9eff; border-color: #7c9eff; color: #fff; }
+.btn-sm { height: 26px; padding: 0 9px; font-size: 12px; border-radius: 6px; }
+.btn-ghost { border-color: transparent; background: transparent; color: var(--main); }
+.btn-ghost:hover { background: var(--main-light); }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.link-btn {
+  border: 0; background: none; color: var(--main); font-size: 11.5px;
+  padding: 0 2px; cursor: pointer; white-space: nowrap;
+}
+.link-btn:hover { text-decoration: underline; }
+
+/* ---------- 演示切换 ---------- */
+.demo-switch {
+  display: flex; align-items: center; gap: 6px; padding: 5px; background: #fff;
+  border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
+  margin-bottom: 14px; flex-wrap: wrap;
+}
+.demo-btn {
+  height: 36px; padding: 0 15px; border: 0; border-radius: 9px; background: transparent;
+  color: var(--g600); font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; transition: .18s;
+}
+.demo-btn:hover { background: var(--g100); color: var(--g900); }
+.demo-btn.active { background: var(--main-light); color: var(--main); font-weight: 600; }
+.demo-btn span { font-size: 10.5px; color: var(--g500); font-weight: 400; }
+.demo-btn.active span { color: var(--main); }
+.demo-note { margin-left: auto; padding-right: 10px; font-size: 11.5px; color: var(--g500); }
+
+/* ---------- 卡片 ---------- */
+.card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 13px 18px; border-bottom: 1px solid var(--g200); }
+.card-head h2 { margin: 0; font-size: 14px; font-weight: 600; color: var(--g900); display: flex; align-items: center; gap: 7px; }
+.card-head .meta { font-size: 11.5px; color: var(--g500); }
+.card-body { padding: 16px 18px; }
+.mb-2 { margin-bottom: 14px; }
+.mb-3 { margin-bottom: 20px; }
+
+/* ---------- 详情页头 ---------- */
+.detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+.dh-left { display: flex; align-items: flex-start; gap: 12px; }
+.detail-head h2 { margin: 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.detail-head p { margin: 3px 0 0; font-size: 12px; color: var(--g500); }
+
+/* ---------- 详情布局 ---------- */
+.detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) 468px; gap: 16px; align-items: start; }
+.detail-main { min-width: 0; }
+.history-card { position: sticky; top: 16px; max-height: calc(100vh - 32px); display: flex; flex-direction: column; transition: box-shadow .25s; }
+.history-card.flash { box-shadow: 0 0 0 3px rgba(93, 135, 255, .2), var(--shadow-md); }
+
+/* ---------- 信息栅格 ---------- */
+.info-grid {
+  display: grid; grid-template-columns: 108px minmax(0, 1fr) 108px minmax(0, 1fr);
+  gap: 1px; background: var(--g200); border: 1px solid var(--g200);
+  border-radius: 10px; overflow: hidden;
+}
+.info-grid > div { background: #fff; padding: 8px 11px; font-size: 12.5px; min-height: 38px; display: flex; align-items: center; }
+.ig-label { background: var(--g100) !important; color: var(--g500); gap: 4px; }
+.ig-label.span-start { grid-column: 1; }
+.ig-value { color: var(--g800); line-height: 1.55; word-break: break-word; align-items: flex-start !important; }
+.ig-value.span-3 { grid-column: span 3; }
+.ig-label.active, .ig-value.active { background: #f3f7ff !important; }
+.ig-value .long-text { white-space: pre-wrap; }
+.wild { color: var(--g400); }
+
+.hist-badge {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 17px; height: 17px;
+  padding: 0 4px; border: 0; border-radius: 9px; background: var(--main-light); color: var(--main);
+  font-size: 9.5px; font-weight: 600; line-height: 1; cursor: pointer; transition: .18s;
+}
+.hist-badge:hover { background: var(--main); color: #fff; }
+.hint { margin-top: 9px; font-size: 11.5px; color: var(--g500); line-height: 1.6; }
+
+/* ---------- 状态流转 ---------- */
+.step-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.step {
+  display: inline-flex; align-items: center; height: 26px; padding: 0 11px; border-radius: 13px;
+  background: var(--g100); color: var(--g500); font-size: 11.5px; border: 1px solid var(--g200);
+}
+.step.done { background: #e8f8f3; color: #0e8f76; border-color: #b7ebd8; }
+.step.active { background: var(--main-light); color: var(--main); border-color: #d6e2ff; font-weight: 600; box-shadow: 0 0 0 3px rgba(93, 135, 255, .1); }
+.step-line i { width: 16px; height: 1px; background: var(--g300); display: inline-block; }
+
+/* ---------- 状态标签 ---------- */
+.tag {
+  display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 5px;
+  font-size: 10.5px; white-space: nowrap; background: var(--g200); color: var(--g600);
+}
+.tag.blue { background: #eef3ff; color: #3f6bd6; }
+.tag.green { background: #e8f8f3; color: #0e8f76; }
+.tag.orange { background: #fff7e6; color: #ad6800; }
+.tag.red { background: #fff1f0; color: #cf1322; }
+.tag.purple { background: #f3eeff; color: #6d4ed6; }
+.tag.gray { background: var(--g200); color: var(--g600); }
+
+/* ---------- 处方表 ---------- */
+.table-wrap { overflow: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+thead th { background: var(--g100); color: var(--g600); font-weight: 500; text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--g200); white-space: nowrap; font-size: 11.5px; }
+tbody td { padding: 9px 12px; border-bottom: 1px solid var(--g200); color: var(--g700); vertical-align: middle; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: #f7f9ff; }
+tbody tr.row-changed td { background: #fffdf4; }
+tbody tr.row-changed:hover td { background: #fff9e8; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mono { font-family: Consolas, Monaco, monospace; font-size: 11px; color: var(--g600); }
+
+/* ---------- 变更历史 ---------- */
+.history-filters { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--g200); flex: none; }
+.history-filters .select {
+  height: 30px; border: 1px solid var(--border2); border-radius: 7px; background: #fff;
+  padding: 0 8px; font-size: 12px; color: var(--g700); outline: none; cursor: pointer;
+}
+.history-filters .select:focus { border-color: var(--main); box-shadow: 0 0 0 3px rgba(93, 135, 255, .12); }
+.filter-hint { padding: 8px 14px 0; font-size: 11.5px; color: var(--g500); line-height: 1.5; flex: none; }
+.filter-hint b { color: var(--main); font-weight: 500; }
+.history-body { overflow: auto; padding: 12px 14px 18px; flex: 1; }
+.ev { position: relative; padding-left: 17px; margin-bottom: 12px; }
+.ev:last-child { margin-bottom: 0; }
+.ev::before { content: ""; position: absolute; left: 5px; top: 8px; bottom: -14px; width: 2px; background: var(--g200); }
+.ev:last-child::before { display: none; }
+.ev-dot { position: absolute; left: 0; top: 6px; width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 2px solid var(--main); }
+.ev-dot.green { border-color: var(--success); }
+.ev-dot.orange { border-color: var(--warning); }
+.ev-dot.purple { border-color: #6d4ed6; }
+.ev-card { border: 1px solid var(--g200); border-radius: 10px; background: #fff; padding: 10px 12px; }
+.ev-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ev-head b { font-size: 12.5px; font-weight: 600; color: var(--g900); }
+.ev-time { margin-left: auto; font-size: 10.5px; color: var(--g500); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ev-meta { margin-top: 3px; font-size: 10.5px; color: var(--g500); line-height: 1.6; word-break: break-word; }
+.ev-meta span + span::before { content: "·"; margin: 0 5px; color: var(--g300); }
+.ev-desc { margin-top: 5px; font-size: 11.5px; color: var(--g600); line-height: 1.55; }
+.ev-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 7px; padding-top: 7px; border-top: 1px dashed var(--g200); font-size: 10.5px; color: var(--g500); }
+.ev-foot .mono { font-size: 10px; }
+.ev-foot .btn { margin-left: auto; }
+
+.diff-row { padding: 7px 0; border-top: 1px dashed var(--g200); }
+.diff-row:first-of-type { margin-top: 7px; }
+.diff-field { font-size: 11.5px; color: var(--g600); display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.diff-field b { color: var(--g800); font-weight: 500; }
+.diff-field .field-code { font: 10px Consolas, Monaco, monospace; color: var(--g400); }
+.diff-field .record-name { color: var(--g500); }
+.diff-values { display: flex; align-items: flex-start; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.val {
+  display: inline-block; padding: 1px 6px; border-radius: 5px; font-size: 11.5px;
+  max-width: calc(50% - 34px); word-break: break-word; line-height: 1.55;
+}
+.val.before { background: #fff1f0; color: #a8071a; }
+.val.after { background: #e8f8f3; color: #0e8f76; }
+.val.none { background: var(--g200); color: var(--g500); }
+.arrow { color: var(--g400); font-size: 11px; line-height: 1.55; }
+.create-note { margin-top: 7px; padding: 7px 9px; border-radius: 7px; background: var(--g100); color: var(--g500); font-size: 11.5px; }
+.empty { padding: 44px 16px; text-align: center; color: var(--g500); font-size: 12.5px; }
+.count {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 18px;
+  padding: 0 6px; border-radius: 9px; background: var(--main-light); color: var(--main);
+  font-size: 10.5px; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 接口面板 ---------- */
+.api-panel { display: none; margin-bottom: 14px; }
+.api-panel.show { display: block; }
+.api-panel .card-body { padding: 14px 18px 6px; }
+.api-row { display: grid; grid-template-columns: 46px minmax(0, 1fr); gap: 10px; align-items: start; padding: 8px 10px; border: 1px solid var(--g200); border-radius: 9px; margin-bottom: 6px; background: #fff; }
+.method { display: inline-flex; align-items: center; justify-content: center; height: 20px; border-radius: 5px; background: #e8f8f3; color: #0e8f76; font-size: 10px; font-weight: 700; letter-spacing: .3px; }
+.api-path { font: 11.5px Consolas, Monaco, monospace; color: var(--g800); word-break: break-all; }
+.api-desc { font-size: 11.5px; color: var(--g500); margin-top: 2px; line-height: 1.5; }
+.note { border-radius: 9px; padding: 9px 11px; font-size: 12px; line-height: 1.6; margin-top: 8px; }
+.note.info { background: #eef3ff; border: 1px solid #d6e2ff; color: #3f6bd6; }
+.note.warn { background: #fffbe6; border: 1px solid #ffe58f; color: #8a6100; }
+
+/* ---------- 弹窗 ---------- */
+.mask { position: fixed; inset: 0; background: rgba(0, 0, 0, .35); opacity: 0; pointer-events: none; transition: .2s; z-index: 30; }
+.mask.show { opacity: 1; pointer-events: auto; }
+.modal {
+  position: fixed; left: 50%; top: 50%; transform: translate(-50%, -46%); width: 920px; max-width: 94vw;
+  background: #fff; border-radius: 14px; z-index: 32; opacity: 0; pointer-events: none; transition: .2s;
+  display: flex; flex-direction: column; max-height: 86vh; box-shadow: 0 16px 48px rgba(0, 0, 0, .16);
+}
+.modal.show { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%); }
+.modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 18px 20px 10px; }
+.modal-title { font-size: 15px; font-weight: 600; }
+.modal-sub { font-size: 11.5px; color: var(--g500); margin-top: 3px; }
+.modal-body { padding: 0 20px 12px; overflow: auto; }
+.modal-foot { display: flex; justify-content: flex-end; padding: 12px 20px; border-top: 1px solid var(--g200); }
+.icon-btn { border: 0; background: none; color: var(--g500); font-size: 18px; line-height: 1; cursor: pointer; padding: 4px 8px; border-radius: 8px; }
+.icon-btn:hover { background: var(--g200); color: var(--g900); }
+.diff-modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.diff-modal-grid h4 { margin: 0 0 6px; font-size: 12px; font-weight: 600; color: var(--g600); }
+.code {
+  background: #f7f9fc; border: 1px solid var(--g200); border-radius: 10px; padding: 10px 12px;
+  font: 12px/1.75 Consolas, Monaco, monospace; color: var(--g700); overflow: auto; max-height: 460px;
+  white-space: pre-wrap; word-break: break-word; margin: 0;
+}
+
+/* ---------- 提示 ---------- */
+.toast { position: fixed; left: 50%; bottom: 30px; transform: translate(-50%, 10px); background: var(--g900); color: #fff; border-radius: 9px; padding: 9px 16px; font-size: 12.5px; opacity: 0; pointer-events: none; transition: .2s; z-index: 40; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- 工具类 ---------- */
+.hidden { display: none !important; }
+.flex { display: flex; }
+.center { align-items: center; }
+.gap-6 { gap: 6px; }
+.wrap { flex-wrap: wrap; }
+.muted { color: var(--g500); }
+.small { font-size: 11.5px; }
+.right { text-align: right; }
+.nowrap { white-space: nowrap; }
+.foot-note { margin-top: 18px; font-size: 11.5px; color: var(--g500); line-height: 1.7; }
+
+@media (max-width: 1180px) {
+  .detail-layout { grid-template-columns: 1fr; }
+  .history-card { position: static; max-height: none; }
+  .history-body { max-height: 620px; }
+}
+@media (max-width: 760px) {
+  .main { padding: 18px 14px 40px; }
+  .info-grid { grid-template-columns: 96px minmax(0, 1fr); }
+  .ig-value.span-3 { grid-column: span 1; }
+  .diff-modal-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="main">
+  <!-- =========================================================
+       页头
+       =======================================================-->
+  <header class="page-head">
+    <div>
+      <h1>业务详情 · 变更历史</h1>
+      <p class="sub">生产任务与制剂详情内嵌字段级修改记录，直接展示哪个字段改过、改前与改后</p>
+    </div>
+    <div class="head-actions">
+      <button class="btn" onclick="toggleApi()">接口对照</button>
+    </div>
+  </header>
+
+  <!-- =========================================================
+       接口对照（原型辅助）
+       =======================================================-->
+  <section class="api-panel" id="apiPanel">
+    <div class="card">
+      <div class="card-head">
+        <h2>接口对照</h2>
+        <span class="meta">现有日志接口可直接支撑字段级历史；聚合接口为后续建议</span>
+      </div>
+      <div class="card-body">
+        <div class="api-row"><span class="method">GET</span><div><div class="api-path">/api/system/data-change-log/search?tableName=work_order&amp;businessId=880&amp;pageIndex=0&amp;pageSize=100</div><div class="api-desc">生产任务主表字段级变更历史，返回 changedFields（field / label / before / after）</div></div></div>
+        <div class="api-row"><span class="method">GET</span><div><div class="api-path">/api/system/data-change-log/search?tableName=preparation&amp;businessId=42&amp;pageIndex=0&amp;pageSize=100</div><div class="api-desc">制剂主表字段级变更历史；tableName 与 businessId 按实际主键替换</div></div></div>
+        <div class="api-row"><span class="method">GET</span><div><div class="api-path">/api/system/operation-log/{id}/changes</div><div class="api-desc">一次保存操作产生的全部变更（主表 + 处方明细），适合“保存制剂及子表”场景</div></div></div>
+        <div class="api-row"><span class="method">GET</span><div><div class="api-path">/api/system/operation-log/search?businessType=WorkOrder&amp;businessId=880</div><div class="api-desc">按业务对象查询操作时间线，补充操作人、IP、MAC、操作描述</div></div></div>
+        <div class="api-row"><span class="method">GET</span><div><div class="api-path">/api/system/data-change-log/{id}</div><div class="api-desc">单条变更详情，含 beforeJson / afterJson 整行快照</div></div></div>
+        <div class="api-row"><span class="method">GET</span><div><div class="api-path">/api/business-history/{bizType}/{bizId}</div><div class="api-desc">已实现：聚合操作日志与主表/关联变更，一次返回字段统计、记录统计与事件时间线；支持 field、source、时间范围筛选与按事件分页</div></div></div>
+        <div class="api-row"><span class="method">GET</span><div><div class="api-path">/api/preparation/{id}/details</div><div class="api-desc">已启用：制剂详情，返回主表 + 处方 + 工艺模板 + 附件</div></div></div>
+        <div class="note warn">聚合接口已支持 <code>WORK_ORDER</code> 与 <code>PREPARATION</code> 两种业务类型；处方明细变更会归入同一个操作事件并补全 <code>recordLabel</code>。字段名与数据库列名保持一致（如 batch_qty、function_main、dosage），<code>truncated=true</code> 表示历史记录达到单次加载上限。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       演示页面切换
+       =======================================================-->
+  <div class="demo-switch">
+    <button class="demo-btn active" data-view="wo" onclick="switchView('wo')">生产任务详情 <span>work_order</span></button>
+    <button class="demo-btn" data-view="prep" onclick="switchView('prep')">制剂详情 <span>preparation</span></button>
+    <span class="demo-note">原型演示 · 数据为 Mock</span>
+  </div>
+
+  <!-- =========================================================
+       生产任务详情
+       =======================================================-->
+  <section id="view-wo" class="view">
+    <div class="detail-head">
+      <div class="dh-left">
+        <button class="btn btn-sm" onclick="toast('原型演示：返回工单列表')">← 返回列表</button>
+        <div>
+          <h2>WO-20261110-008 <span class="tag orange">生产中</span></h2>
+          <p>理伤续断丸生产任务 · 关联计划 PP-20261110-003 · 委托加工</p>
+        </div>
+      </div>
+      <div class="head-actions">
+        <button class="btn btn-sm" onclick="toast('原型演示：进入工单编辑')">编辑任务</button>
+        <button class="btn btn-sm btn-primary" onclick="focusHistory('wo')">变更历史</button>
+      </div>
+    </div>
+
+    <div class="detail-layout">
+      <div class="detail-main">
+        <section class="card mb-2">
+          <div class="card-head">
+            <h2>基本信息</h2>
+            <span class="meta">最后修改：2026-11-11 08:30:45 · 系统管理员（root）</span>
+          </div>
+          <div class="card-body">
+            <div class="info-grid" id="woInfo"></div>
+            <div class="hint">带数字角标的字段存在历史修改，点击角标可只看该字段的改前 / 改后记录。</div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2>状态流转</h2>
+            <span class="meta">当前：生产中 · 配置日期 → 成品入库时间计算生产用时</span>
+          </div>
+          <div class="card-body">
+            <div class="step-line">
+              <span class="step done">待生产</span><i></i>
+              <span class="step active">生产中</span><i></i>
+              <span class="step">已生产</span><i></i>
+              <span class="step">检验中</span><i></i>
+              <span class="step">已检验</span><i></i>
+              <span class="step">已入库</span><i></i>
+              <span class="step">已放行</span><i></i>
+              <span class="step">已归档</span>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <aside class="card history-card" id="woHistoryCard">
+        <div class="card-head">
+          <div>
+            <h2>变更历史 <span class="count" id="woHistoryCount">0</span></h2>
+            <span class="meta" id="woHistoryMeta">字段级改前 / 改后 · 含操作人与终端</span>
+          </div>
+          <button class="btn btn-sm btn-ghost" onclick="clearFilter('wo')">清空筛选</button>
+        </div>
+        <div class="history-filters">
+          <select class="select" id="woFieldFilter" style="min-width:170px" onchange="onFieldChange('wo', this.value)"></select>
+          <span class="muted small">表：work_order</span>
+        </div>
+        <div class="filter-hint" id="woFilterHint"></div>
+        <div class="history-body" id="woHistory"></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       制剂详情
+       =======================================================-->
+  <section id="view-prep" class="view hidden">
+    <div class="detail-head">
+      <div class="dh-left">
+        <button class="btn btn-sm" onclick="toast('原型演示：返回制剂列表')">← 返回列表</button>
+        <div>
+          <h2>理伤续断丸 <span class="tag green">启用</span></h2>
+          <p>制剂编码 Z04-W37-009 · 丸剂 · 委托加工</p>
+        </div>
+      </div>
+      <div class="head-actions">
+        <button class="btn btn-sm" onclick="toast('原型演示：进入制剂编辑')">编辑制剂</button>
+        <button class="btn btn-sm btn-primary" onclick="focusHistory('prep')">变更历史</button>
+      </div>
+    </div>
+
+    <div class="detail-layout">
+      <div class="detail-main">
+        <section class="card mb-2">
+          <div class="card-head">
+            <h2>基本信息</h2>
+            <span class="meta">最后修改：2026-11-11 08:45:19 · 系统管理员（root）</span>
+          </div>
+          <div class="card-body">
+            <div class="info-grid" id="prepInfo"></div>
+            <div class="hint">带数字角标的字段存在历史修改，点击角标可只看该字段的改前 / 改后记录。</div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2>处方信息</h2>
+            <span class="meta">6 味药材 · 2 行处方量有调整</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th class="num" style="width:48px">序号</th>
+                  <th>物料编码</th>
+                  <th>物料名称</th>
+                  <th>物料分类</th>
+                  <th class="num">处方量</th>
+                  <th>单位</th>
+                  <th style="width:72px">变更</th>
+                </tr>
+              </thead>
+              <tbody id="prepFormulaBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <aside class="card history-card" id="prepHistoryCard">
+        <div class="card-head">
+          <div>
+            <h2>变更历史 <span class="count" id="prepHistoryCount">0</span></h2>
+            <span class="meta" id="prepHistoryMeta">主表 + 处方明细 · 字段级改前 / 改后</span>
+          </div>
+          <button class="btn btn-sm btn-ghost" onclick="clearFilter('prep')">清空筛选</button>
+        </div>
+        <div class="history-filters">
+          <select class="select" id="prepFieldFilter" style="min-width:170px" onchange="onFieldChange('prep', this.value)"></select>
+          <select class="select" id="prepSourceFilter" style="min-width:118px" onchange="onSourceChange(this.value)">
+            <option value="">全部来源</option>
+            <option value="PRIMARY">主表变更</option>
+            <option value="RELATED">处方明细</option>
+          </select>
+        </div>
+        <div class="filter-hint" id="prepFilterHint"></div>
+        <div class="history-body" id="prepHistory"></div>
+      </aside>
+    </div>
+  </section>
+
+  <p class="foot-note">
+    原型说明：左侧详情字段取自 work_order / preparation / preparation_formula，右侧变更历史按操作时间倒序展示字段差异。
+    接入时先用现有 <code>/api/system/data-change-log/search</code> 按 tableName + businessId 查询；一次保存涉及的处方明细可通过 operationLogId / traceId 聚合。
+  </p>
+</div>
+
+<!-- =========================================================
+     长文本对比弹窗 / 提示
+     =======================================================-->
+<div class="mask" id="mask" onclick="closeDiff()"></div>
+<div class="modal" id="diffModal">
+  <div class="modal-head">
+    <div>
+      <div class="modal-title">字段变更对比</div>
+      <div class="modal-sub" id="diffSub"></div>
+    </div>
+    <button class="icon-btn" onclick="closeDiff()">×</button>
+  </div>
+  <div class="modal-body" id="diffBody"></div>
+  <div class="modal-foot"><button class="btn" onclick="closeDiff()">关闭</button></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// =========================================================
+// Mock 数据：生产任务（work_order）
+// =========================================================
+const WO = {
+  workOrderCode: 'WO-20261110-008',
+  workOrderName: '理伤续断丸生产任务',
+  preparationCode: 'Z04-W37-009',
+  preparationName: '理伤续断丸',
+  planName: '理伤续断丸 11 月生产计划',
+  planNumber: 'PP-20261110-003',
+  batchNumber: '20261110-01',
+  batchQty: 1500,
+  productionType: '委托加工',
+  producer: '未阳制剂室',
+  receiver: '株洲市中医伤科医院',
+  deliveryTime: '2026-11-20 00:00:00',
+  currentStatus: '生产中',
+  configDate: '2026-11-10 11:12:08',
+  configCompleteTime: '',
+  productionCompleteTime: '',
+  productionCycle: 10,
+  finishedQty: 0,
+  yieldRate: 98.5,
+  estimatedCostPriceSnapshot: 18.8,
+  salesPrice: 0,
+  totalAmount: 28200.00,
+  remark: '按计划分批投料',
+  createdTime: '2026-11-10 09:20:12',
+  updatedTime: '2026-11-11 08:30:45'
+};
+
+const WO_FIELDS = [
+  { label: '工单编号', field: 'work_order_code', value: WO.workOrderCode },
+  { label: '工单名称', field: 'work_order_name', value: WO.workOrderName },
+  { label: '制剂编码', field: 'preparation_code', value: WO.preparationCode },
+  { label: '制剂名称', field: 'preparation_name', value: WO.preparationName },
+  { label: '关联计划', field: 'plan_name', value: WO.planName + '（' + WO.planNumber + '）' },
+  { label: '批号', field: 'batch_number', value: WO.batchNumber },
+  { label: '批量', field: 'batch_qty', value: WO.batchQty },
+  { label: '加工类型', field: 'production_type', value: WO.productionType },
+  { label: '生产单位', field: 'producer', value: WO.producer },
+  { label: '收货单位', field: 'receiver', value: WO.receiver },
+  { label: '交付时间', field: 'delivery_time', value: WO.deliveryTime },
+  { label: '当前状态', field: 'current_status', value: WO.currentStatus, tag: 'orange' },
+  { label: '配置日期', field: 'config_date', value: WO.configDate },
+  { label: '配置完成时间', field: 'config_complete_time', value: WO.configCompleteTime },
+  { label: '生产完成时间', field: 'production_complete_time', value: WO.productionCompleteTime },
+  { label: '生产周期（天）', field: 'production_cycle', value: WO.productionCycle },
+  { label: '成品数量', field: 'finished_qty', value: WO.finishedQty },
+  { label: '得率（%）', field: 'yield_rate', value: WO.yieldRate },
+  { label: '预计成本价快照', field: 'estimated_cost_price_snapshot', value: WO.estimatedCostPriceSnapshot },
+  { label: '销售单价', field: 'sales_price', value: WO.salesPrice },
+  { label: '总金额', field: 'total_amount', value: WO.totalAmount },
+  { label: '备注', field: 'remark', value: WO.remark, span: true },
+  { label: '创建时间', field: 'created_time', value: WO.createdTime },
+  { label: '最后更新时间', field: 'updated_time', value: WO.updatedTime }
+];
+
+// =========================================================
+// Mock 数据：制剂（preparation）与处方（preparation_formula）
+// =========================================================
+const PREP = {
+  preparationCode: 'Z04-W37-009',
+  preparationName: '理伤续断丸',
+  spec: '每10丸重1.25g',
+  processAttr: '委托加工',
+  packageSpec: '每瓶装120g',
+  unitName: '株洲市中医伤科医院',
+  dosageCategory: '丸剂',
+  dosageName: '丸剂',
+  producer: '未阳制剂室',
+  functionMain: '活血化瘀、消肿止痛。用于骨折或急性软组织损伤中期瘀血停滞所致疼痛、肿胀、活动不利等症状的临床治疗。',
+  method: '以上十一味，当归、桂枝、红花三味混合粉碎成粗粉，50℃干燥，再粉碎成细粉，过 100 目筛；三七破碎，与骨碎补、苏木等余药混合粉碎成粗粉，60℃干燥，再粉碎成细粉，过 100 目筛，灭菌，与当归等细粉混合均匀，每 100g 细粉加蜂蜜 60～80g 与适量的水制成水蜜丸，50～60℃干燥，约制成 1000g，分装，即得。',
+  batchQty: 1500,
+  estimatedCostPrice: 18.8,
+  salesPrice: 0,
+  status: '启用',
+  executiveStandard: '',
+  recordInfo: '',
+  approvalExpiryDate: '',
+  commissionedApprovalExpiryDate: '',
+  createdTime: '2026-09-17 13:24:50',
+  updatedTime: '2026-11-11 08:45:19'
+};
+
+const PREP_FIELDS = [
+  { label: '编码', field: 'preparation_code', value: PREP.preparationCode },
+  { label: '品名', field: 'preparation_name', value: PREP.preparationName },
+  { label: '规格', field: 'spec', value: PREP.spec },
+  { label: '加工性质', field: 'process_attr', value: PREP.processAttr },
+  { label: '包装规格', field: 'package_spec', value: PREP.packageSpec },
+  { label: '委托单位', field: 'unit_name', value: PREP.unitName },
+  { label: '剂型大类', field: 'dosage_category', value: PREP.dosageCategory },
+  { label: '剂型名称', field: 'dosage_name', value: PREP.dosageName },
+  { label: '生产单位', field: 'producer', value: PREP.producer },
+  { label: '批量', field: 'batch_qty', value: PREP.batchQty },
+  { label: '预计成本价', field: 'estimated_cost_price', value: PREP.estimatedCostPrice },
+  { label: '销售单价', field: 'sales_price', value: PREP.salesPrice },
+  { label: '状态', field: 'status', value: PREP.status, tag: 'green' },
+  { label: '执行标准', field: 'executive_standard', value: PREP.executiveStandard },
+  { label: '备案/注册编号', field: 'record_info', value: PREP.recordInfo },
+  { label: '注册批件期限', field: 'approval_expiry_date', value: PREP.approvalExpiryDate },
+  { label: '委托配制批件期限', field: 'commissioned_approval_expiry_date', value: PREP.commissionedApprovalExpiryDate },
+  { label: '功能主治', field: 'function_main', value: PREP.functionMain, span: true, long: true },
+  { label: '制法', field: 'method', value: PREP.method, span: true, long: true },
+  { label: '创建时间', field: 'created_time', value: PREP.createdTime },
+  { label: '最后更新时间', field: 'updated_time', value: PREP.updatedTime }
+];
+
+const PREP_FORMULAS = [
+  { formulaId: 32027, code: 'Z027', name: '麸炒枳壳', category: '原料', dosage: 0.056, unit: '千克' },
+  { formulaId: 32038, code: 'Z038', name: '白芍', category: '原料', dosage: 0.056, unit: '千克' },
+  { formulaId: 32046, code: 'Z046-1', name: '当归（检）', category: '原料', dosage: 0.074, unit: '千克' },
+  { formulaId: 32061, code: 'Z061', name: '续断', category: '原料', dosage: 0.074, unit: '千克' },
+  { formulaId: 32065, code: 'Z065-1', name: '醋延胡索（检）', category: '原料', dosage: 0.056, unit: '千克' },
+  { formulaId: 32081, code: 'Z081-1', name: '三七（检）', category: '原料', dosage: 0.037, unit: '千克' }
+];
+
+// =========================================================
+// Mock 数据：变更历史
+// changes：field 为数据库列名，label 为中文名，before/after 为改前/改后
+// source：PRIMARY 主表 / RELATED 关联明细；recordId 为明细主键
+// =========================================================
+const WO_HISTORY = [
+  {
+    type: 'UPDATE', label: '修改工单', desc: '调整生产周期、得率与预计成本价快照',
+    time: '2026-11-11 08:30:45', user: '系统管理员', account: 'root',
+    ip: '218.94.12.34', mac: '3C-52-82-1A-4F-09', opLogId: 9005, traceId: 'tr-wo-05',
+    changes: [
+      { field: 'production_cycle', label: '生产周期（天）', before: '12', after: '10' },
+      { field: 'yield_rate', label: '得率（%）', before: '97.0', after: '98.5' },
+      { field: 'estimated_cost_price_snapshot', label: '预计成本价快照', before: '19.2', after: '18.8' }
+    ]
+  },
+  {
+    type: 'UPDATE', label: '修改工单', desc: '补充批号与备注',
+    time: '2026-11-10 11:40:21', user: '李娜', account: 'lina',
+    ip: '192.168.1.31', mac: '8C-16-45-7B-2E-10', opLogId: 9004, traceId: 'tr-wo-04',
+    changes: [
+      { field: 'batch_number', label: '批号', before: '', after: '20261110-01' },
+      { field: 'remark', label: '备注', before: '', after: '按计划分批投料' }
+    ]
+  },
+  {
+    type: 'AUTO', label: '工单下达生产', desc: '配置日期写入，状态自动流转为「生产中」',
+    time: '2026-11-10 11:12:08', user: '张伟', account: 'zhangwei',
+    ip: '192.168.1.24', mac: '00-1A-2B-3C-4D-5E', opLogId: 9003, traceId: 'tr-wo-03',
+    changes: [
+      { field: 'current_status', label: '当前状态', before: '待生产', after: '生产中' },
+      { field: 'config_date', label: '配置日期', before: '', after: '2026-11-10 11:12:08' }
+    ]
+  },
+  {
+    type: 'UPDATE', label: '修改工单', desc: '调整批量、交付时间与销售单价',
+    time: '2026-11-10 10:05:33', user: '张伟', account: 'zhangwei',
+    ip: '192.168.1.24', mac: '00-1A-2B-3C-4D-5E', opLogId: 9002, traceId: 'tr-wo-02',
+    changes: [
+      { field: 'batch_qty', label: '批量', before: '1200', after: '1500' },
+      { field: 'delivery_time', label: '交付时间', before: '2026-11-18 00:00:00', after: '2026-11-20 00:00:00' },
+      { field: 'sales_price', label: '销售单价', before: '18.5', after: '0' }
+    ]
+  },
+  {
+    type: 'CREATE', label: '新增工单', desc: '创建生产任务',
+    time: '2026-11-10 09:20:12', user: '系统管理员', account: 'root',
+    ip: '218.94.12.34', mac: '3C-52-82-1A-4F-09', opLogId: 9001, traceId: 'tr-wo-01',
+    changes: []
+  }
+];
+
+const PREP_HISTORY = [
+  {
+    type: 'UPDATE', label: '修改制剂信息', desc: '调整预计成本价与批量',
+    time: '2026-11-11 08:45:19', user: '系统管理员', account: 'root',
+    ip: '218.94.12.34', mac: '3C-52-82-1A-4F-09', opLogId: 9106, traceId: 'tr-prep-06',
+    changes: [
+      { field: 'estimated_cost_price', label: '预计成本价', before: '19.2', after: '18.8' },
+      { field: 'batch_qty', label: '批量', before: '1200', after: '1500' }
+    ]
+  },
+  {
+    type: 'UPDATE', label: '调整处方明细', desc: '当归、三七处方量调整',
+    time: '2026-11-10 10:02:11', user: '系统管理员', account: 'root',
+    ip: '218.94.12.34', mac: '3C-52-82-1A-4F-09', opLogId: 9105, traceId: 'tr-prep-05',
+    changes: [
+      { field: 'dosage', label: '处方量', before: '0.070', after: '0.074', source: 'RELATED', table: 'preparation_formula', recordId: 32046, recordName: '当归（检）' },
+      { field: 'dosage', label: '处方量', before: '0.036', after: '0.037', source: 'RELATED', table: 'preparation_formula', recordId: 32081, recordName: '三七（检）' }
+    ]
+  },
+  {
+    type: 'UPDATE', label: '修改制剂信息', desc: '更新制法',
+    time: '2026-11-10 09:18:30', user: '系统管理员', account: 'root',
+    ip: '218.94.12.34', mac: '3C-52-82-1A-4F-09', opLogId: 9104, traceId: 'tr-prep-04',
+    changes: [
+      { field: 'method', label: '制法', before: '以上十一味，粉碎成细粉，过筛，混匀，用水泛丸，干燥，即得。', after: PREP.method }
+    ]
+  },
+  {
+    type: 'UPDATE', label: '修改制剂信息', desc: '补充功能主治',
+    time: '2026-11-10 09:05:42', user: '系统管理员', account: 'root',
+    ip: '218.94.12.34', mac: '3C-52-82-1A-4F-09', opLogId: 9103, traceId: 'tr-prep-03',
+    changes: [
+      { field: 'function_main', label: '功能主治', before: '活血化瘀、消肿止痛。', after: PREP.functionMain }
+    ]
+  },
+  {
+    type: 'UPDATE', label: '修改制剂信息', desc: '调整规格与销售单价',
+    time: '2026-11-09 15:20:10', user: '系统管理员', account: 'root',
+    ip: '218.94.12.34', mac: '3C-52-82-1A-4F-09', opLogId: 9102, traceId: 'tr-prep-02',
+    changes: [
+      { field: 'spec', label: '规格', before: '每10丸重1.20g', after: '每10丸重1.25g' },
+      { field: 'sales_price', label: '销售单价', before: '18.8', after: '0' }
+    ]
+  },
+  {
+    type: 'CREATE', label: '新增制剂信息', desc: '创建制剂档案',
+    time: '2026-09-17 13:24:50', user: '系统管理员', account: 'root',
+    ip: '218.94.12.34', mac: '3C-52-82-1A-4F-09', opLogId: 9101, traceId: 'tr-prep-01',
+    changes: []
+  }
+];
+
+// =========================================================
+// 页面状态与配置
+// =========================================================
+const VIEWS = {
+  wo: { fields: WO_FIELDS, history: WO_HISTORY, table: 'work_order', recordName: WO.workOrderName },
+  prep: { fields: PREP_FIELDS, history: PREP_HISTORY, table: 'preparation', recordName: PREP.preparationName }
+};
+
+const state = {
+  view: 'wo',
+  wo: { field: '', source: '', recordId: null, recordName: '' },
+  prep: { field: '', source: '', recordId: null, recordName: '' }
+};
+
+const EVENT_TYPES = {
+  CREATE: ['新增', 'green', 'green'],
+  UPDATE: ['修改', 'orange', 'orange'],
+  AUTO: ['系统', 'blue', ''],
+  APPROVE: ['审批', 'purple', 'purple']
+};
+
+let diffSeq = 0;
+const diffStore = {};
+
+// =========================================================
+// 通用工具
+// =========================================================
+function e(v) {
+  return String(v == null ? '' : v).replace(/[&<>"']/g, function (s) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[s];
+  });
+}
+
+function tag(text, cls) {
+  return '<span class="tag ' + cls + '">' + e(text) + '</span>';
+}
+
+function isEmpty(v) {
+  return v === null || v === undefined || v === '';
+}
+
+function fmtRaw(v) {
+  return isEmpty(v) ? '空' : String(v);
+}
+
+function toast(message) {
+  const el = document.getElementById('toast');
+  el.textContent = message;
+  el.classList.add('show');
+  clearTimeout(el._timer);
+  el._timer = setTimeout(function () { el.classList.remove('show'); }, 1800);
+}
+
+// =========================================================
+// 详情信息渲染
+// =========================================================
+function countField(key, field) {
+  return VIEWS[key].history.reduce(function (total, ev) {
+    if (ev.type === 'CREATE') return total;
+    return total + ev.changes.filter(function (c) { return c.field === field; }).length;
+  }, 0);
+}
+
+function countFormulaRow(recordId) {
+  return PREP_HISTORY.reduce(function (total, ev) {
+    if (ev.type === 'CREATE') return total;
+    return total + ev.changes.filter(function (c) { return c.recordId === recordId; }).length;
+  }, 0);
+}
+
+function renderInfo(key) {
+  const conf = VIEWS[key];
+  const grid = document.getElementById(key + 'Info');
+  grid.innerHTML = conf.fields.map(function (f) {
+    const count = countField(key, f.field);
+    const active = state[key].field === f.field && !state[key].recordId;
+    const badge = count
+      ? '<button class="hist-badge" title="只看「' + e(f.label) + '」的修改记录" onclick="focusField(\'' + key + '\',\'' + f.field + '\')">' + count + '</button>'
+      : '';
+    const value = f.tag
+      ? tag(f.value, f.tag)
+      : isEmpty(f.value)
+        ? '<span class="wild">—</span>'
+        : '<span' + (f.long ? ' class="long-text"' : '') + '>' + e(f.value) + '</span>';
+    return '<div class="ig-label' + (f.span ? ' span-start' : '') + (active ? ' active' : '') + '">' + e(f.label) + badge + '</div>'
+      + '<div class="ig-value' + (f.span ? ' span-3' : '') + (active ? ' active' : '') + '">' + value + '</div>';
+  }).join('');
+
+  if (key === 'prep') {
+    renderFormula();
+  }
+}
+
+function renderFormula() {
+  const body = document.getElementById('prepFormulaBody');
+  body.innerHTML = PREP_FORMULAS.map(function (row, index) {
+    const count = countFormulaRow(row.formulaId);
+    const badge = count
+      ? '<button class="hist-badge" title="只看该处方行的修改记录" onclick="focusFormula(' + row.formulaId + ')">' + count + '</button>'
+      : '<span class="wild">—</span>';
+    return '<tr class="' + (count ? 'row-changed' : '') + '">'
+      + '<td class="num">' + (index + 1) + '</td>'
+      + '<td class="mono">' + e(row.code) + '</td>'
+      + '<td>' + e(row.name) + (count ? ' <span class="tag orange">有调整</span>' : '') + '</td>'
+      + '<td>' + e(row.category) + '</td>'
+      + '<td class="num">' + row.dosage + '</td>'
+      + '<td>' + e(row.unit) + '</td>'
+      + '<td>' + badge + '</td>'
+      + '</tr>';
+  }).join('');
+}
+
+// =========================================================
+// 筛选
+// =========================================================
+function buildFieldOptions(key) {
+  const map = new Map();
+  VIEWS[key].history.forEach(function (ev) {
+    if (ev.type === 'CREATE') return;
+    ev.changes.forEach(function (c) {
+      const label = key === 'prep' && c.field === 'dosage' ? '处方量（处方明细）' : c.label;
+      if (!map.has(c.field)) {
+        map.set(c.field, { label: label, count: 0 });
+      }
+      map.get(c.field).count += 1;
+    });
+  });
+  const select = document.getElementById(key + 'FieldFilter');
+  let html = '<option value="">全部字段</option>';
+  map.forEach(function (item, field) {
+    html += '<option value="' + e(field) + '">' + e(item.label) + '（' + item.count + '）</option>';
+  });
+  select.innerHTML = html;
+}
+
+function fieldLabel(key, field) {
+  if (!field) return '';
+  const found = VIEWS[key].history.reduce(function (result, ev) {
+    return result || ev.changes.find(function (c) { return c.field === field; });
+  }, null);
+  if (key === 'prep' && field === 'dosage') return '处方量（处方明细）';
+  return found ? found.label : field;
+}
+
+function onFieldChange(key, value) {
+  state[key].field = value;
+  state[key].recordId = null;
+  state[key].recordName = '';
+  if (key === 'prep') {
+    state.prep.source = value === 'dosage' ? 'RELATED' : '';
+    document.getElementById('prepSourceFilter').value = state.prep.source;
+  }
+  renderInfo(key);
+  renderHistory(key);
+}
+
+function onSourceChange(value) {
+  state.prep.source = value;
+  state.prep.recordId = null;
+  state.prep.recordName = '';
+  if (value === 'RELATED' && state.prep.field && state.prep.field !== 'dosage') {
+    state.prep.field = '';
+    document.getElementById('prepFieldFilter').value = '';
+  }
+  if (value === 'PRIMARY' && state.prep.field === 'dosage') {
+    state.prep.field = '';
+    document.getElementById('prepFieldFilter').value = '';
+  }
+  renderInfo('prep');
+  renderHistory('prep');
+}
+
+function focusField(key, field) {
+  state[key].field = field;
+  state[key].recordId = null;
+  state[key].recordName = '';
+  if (key === 'prep') {
+    state.prep.source = field === 'dosage' ? 'RELATED' : '';
+    document.getElementById('prepSourceFilter').value = state.prep.source;
+  }
+  document.getElementById(key + 'FieldFilter').value = field;
+  renderInfo(key);
+  renderHistory(key);
+  flashHistory(key);
+}
+
+function focusFormula(formulaId) {
+  const row = PREP_FORMULAS.find(function (r) { return r.formulaId === formulaId; });
+  state.prep.field = 'dosage';
+  state.prep.source = 'RELATED';
+  state.prep.recordId = formulaId;
+  state.prep.recordName = row ? row.name : '';
+  document.getElementById('prepFieldFilter').value = 'dosage';
+  document.getElementById('prepSourceFilter').value = 'RELATED';
+  renderInfo('prep');
+  renderHistory('prep');
+  flashHistory('prep');
+}
+
+function clearFilter(key) {
+  state[key].field = '';
+  state[key].source = '';
+  state[key].recordId = null;
+  state[key].recordName = '';
+  document.getElementById(key + 'FieldFilter').value = '';
+  if (key === 'prep') {
+    document.getElementById('prepSourceFilter').value = '';
+  }
+  renderInfo(key);
+  renderHistory(key);
+}
+
+function focusHistory(key) {
+  clearFilter(key);
+  flashHistory(key);
+  scrollToHistory(key);
+}
+
+function flashHistory(key) {
+  const card = document.getElementById(key + 'HistoryCard');
+  card.classList.remove('flash');
+  void card.offsetWidth;
+  card.classList.add('flash');
+  setTimeout(function () { card.classList.remove('flash'); }, 900);
+}
+
+function scrollToHistory(key) {
+  if (window.innerWidth <= 1180) {
+    document.getElementById(key + 'HistoryCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+// =========================================================
+// 变更历史渲染
+// =========================================================
+function filteredEvents(key) {
+  const st = state[key];
+  return VIEWS[key].history.map(function (ev) {
+    const changes = ev.changes.filter(function (c) {
+      if (st.field && c.field !== st.field) return false;
+      if (st.source && (c.source || 'PRIMARY') !== st.source) return false;
+      if (st.recordId != null && c.recordId !== st.recordId) return false;
+      return true;
+    });
+    return { ev: ev, changes: changes };
+  }).filter(function (item) {
+    if (item.ev.type === 'CREATE') {
+      return !st.field && !st.source && st.recordId == null;
+    }
+    return item.changes.length > 0;
+  });
+}
+
+function renderHistory(key) {
+  const items = filteredEvents(key);
+  const body = document.getElementById(key + 'History');
+  document.getElementById(key + 'HistoryCount').textContent = items.length;
+
+  const st = state[key];
+  const parts = [];
+  if (st.field) parts.push(fieldLabel(key, st.field));
+  if (st.source) parts.push(st.source === 'RELATED' ? '处方明细' : '主表变更');
+  if (st.recordName) parts.push(st.recordName);
+  const scope = parts.length ? parts.join(' · ') : '全部记录';
+  document.getElementById(key + 'FilterHint').innerHTML =
+    '<b>' + e(scope) + '</b> · 共 ' + items.length + ' 条变更'
+    + (parts.length ? ' <button class="link-btn" onclick="clearFilter(\'' + key + '\')">清除筛选</button>' : '');
+
+  document.getElementById(key + 'HistoryMeta').textContent = key === 'wo'
+    ? '表 work_order · 字段级改前 / 改后 · 共 ' + VIEWS.wo.history.length + ' 次操作'
+    : '主表 + 处方明细 · 字段级改前 / 改后 · 共 ' + VIEWS.prep.history.length + ' 次操作';
+
+  if (!items.length) {
+    body.innerHTML = '<div class="empty">没有符合筛选条件的变更记录</div>';
+    return;
+  }
+  body.innerHTML = items.map(function (item) { return eventHtml(item.ev, item.changes); }).join('');
+}
+
+function eventHtml(ev, changes) {
+  const type = EVENT_TYPES[ev.type] || ['变更', 'gray', ''];
+  let content = '';
+  if (changes.length) {
+    content = changes.map(function (c) { return diffRowHtml(c); }).join('');
+  } else {
+    content = '<div class="create-note">创建记录，无字段差异；初始值可在左侧详情中查看。</div>';
+  }
+
+  return '<div class="ev">'
+    + '<span class="ev-dot ' + type[2] + '"></span>'
+    + '<div class="ev-card">'
+    + '<div class="ev-head">' + tag(type[0], type[1]) + '<b>' + e(ev.label) + '</b>'
+    + '<span class="ev-time">' + e(ev.time) + '</span></div>'
+    + '<div class="ev-meta"><span>' + e(ev.user) + '（' + e(ev.account) + '）</span>'
+    + '<span>' + e(ev.ip) + '</span><span>MAC ' + e(ev.mac) + '</span></div>'
+    + (ev.desc ? '<div class="ev-desc">' + e(ev.desc) + '</div>' : '')
+    + content
+    + '<div class="ev-foot"><span class="mono">' + e(ev.traceId) + '</span>'
+    + '<button class="btn btn-sm btn-ghost" onclick="toast(\'原型演示：打开操作日志 #' + ev.opLogId + '\')">操作日志 #' + ev.opLogId + '</button>'
+    + '</div></div></div>';
+}
+
+function diffRowHtml(c) {
+  const diffId = registerDiff(c);
+  const sourceTag = c.source === 'RELATED'
+    ? '<span class="tag gray">' + e(c.table || '关联明细') + ' #' + e(c.recordId) + '</span>'
+    : '';
+  const recordName = c.recordName ? '<span class="record-name">' + e(c.recordName) + '</span>' : '';
+  return '<div class="diff-row">'
+    + '<div class="diff-field"><b>' + e(c.label) + '</b><span class="field-code">' + e(c.field) + '</span>'
+    + recordName + sourceTag + '</div>'
+    + '<div class="diff-values">'
+    + diffValueHtml(c.before, 'before', diffId)
+    + '<span class="arrow">→</span>'
+    + diffValueHtml(c.after, 'after', diffId)
+    + '</div></div>';
+}
+
+function diffValueHtml(value, cls, diffId) {
+  const empty = isEmpty(value);
+  const raw = empty ? '空' : String(value);
+  const isLong = raw.length > 70;
+  const shown = isLong ? raw.slice(0, 70) + '…' : raw;
+  return '<span class="val ' + (empty ? 'none' : cls) + '" title="' + e(raw) + '">' + e(shown) + '</span>'
+    + (isLong ? ' <button class="link-btn" onclick="openDiffById(\'' + diffId + '\')">完整</button>' : '');
+}
+
+// =========================================================
+// 长文本对比弹窗
+// =========================================================
+function registerDiff(c) {
+  const id = 'diff-' + (++diffSeq);
+  diffStore[id] = {
+    label: c.label,
+    field: c.field,
+    before: c.before,
+    after: c.after,
+    record: c.source === 'RELATED'
+      ? (c.table || '关联明细') + ' #' + c.recordId + (c.recordName ? ' · ' + c.recordName : '')
+      : ''
+  };
+  return id;
+}
+
+function openDiffById(id) {
+  const d = diffStore[id];
+  if (!d) return;
+  document.getElementById('diffSub').textContent =
+    d.label + '（' + d.field + '）' + (d.record ? ' · ' + d.record : '');
+  document.getElementById('diffBody').innerHTML =
+    '<div class="diff-modal-grid">'
+    + '<div><h4>修改前</h4><pre class="code">' + e(fmtRaw(d.before)) + '</pre></div>'
+    + '<div><h4>修改后</h4><pre class="code">' + e(fmtRaw(d.after)) + '</pre></div>'
+    + '</div>';
+  document.getElementById('mask').classList.add('show');
+  document.getElementById('diffModal').classList.add('show');
+}
+
+function closeDiff() {
+  document.getElementById('mask').classList.remove('show');
+  document.getElementById('diffModal').classList.remove('show');
+}
+
+// =========================================================
+// 页面切换 / 接口面板
+// =========================================================
+function switchView(view) {
+  state.view = view;
+  document.querySelectorAll('.demo-btn').forEach(function (btn) {
+    btn.classList.toggle('active', btn.getAttribute('data-view') === view);
+  });
+  document.getElementById('view-wo').classList.toggle('hidden', view !== 'wo');
+  document.getElementById('view-prep').classList.toggle('hidden', view !== 'prep');
+}
+
+function toggleApi() {
+  document.getElementById('apiPanel').classList.toggle('show');
+}
+
+// =========================================================
+// Hash 深链：#wo | #prep | #prep?field=spec | #prep?row=32046
+// =========================================================
+function applyHash() {
+  const hash = decodeURIComponent((location.hash || '').replace(/^#/, ''));
+  if (!hash) return;
+  const view = hash.indexOf('prep') === 0 ? 'prep' : 'wo';
+  switchView(view);
+  const fieldMatch = hash.match(/field=([A-Za-z0-9_]+)/);
+  if (fieldMatch) {
+    focusField(view, fieldMatch[1]);
+    return;
+  }
+  const rowMatch = hash.match(/row=([0-9]+)/);
+  if (rowMatch) {
+    focusFormula(Number(rowMatch[1]));
+  }
+}
+
+// =========================================================
+// 启动
+// =========================================================
+function init() {
+  buildFieldOptions('wo');
+  buildFieldOptions('prep');
+  renderInfo('wo');
+  renderInfo('prep');
+  renderHistory('wo');
+  renderHistory('prep');
+  applyHash();
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape') closeDiff();
+  });
+}
+
+init();
+</script>
+</body>
+</html>

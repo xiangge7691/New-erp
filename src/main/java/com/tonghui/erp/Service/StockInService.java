@@ -30,6 +30,20 @@ public interface StockInService extends IService<StockIn> {
     void addStockIn(StockIn stockIn, List<StockInDetail> details);
 
     /**
+     * 按工单直接创建成品入库单
+     * <p>
+     * 审核放行完成后调用：从工单及其生产计划、制剂主数据预填成品入库信息（批号、成品数量、
+     * 生产日期、单位），并自动选择启用的成品仓库，直接生成“已入库”状态的成品入库单，
+     * 同步库存批次与工单入库时间。同一工单已存在成品入库单时不再重复创建
+     * </p>
+     *
+     * @param workOrderId 工单ID
+     * @param inDate      入库时间，为空时取当前时间
+     * @return 创建后的入库单；工单不存在或已存在成品入库单时返回 null
+     */
+    StockIn createFinishedStockInbound(Long workOrderId, LocalDateTime inDate);
+
+    /**
      * 更新入库单（包含明细）
      *
      * @param stockIn 入库单实体

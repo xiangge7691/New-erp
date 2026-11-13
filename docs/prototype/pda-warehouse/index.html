@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>仓储扫码 · 原型入口</title>
+<style>
+:root{
+  --primary:#2f6fed; --primary-weak:#eaf1ff;
+  --text:#182230; --muted:#667085; --soft:#98a2b3;
+  --line:#e4e7ec; --bg:#f5f7fb; --card:#fff;
+  --green:#079455; --amber:#dc6803;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:radial-gradient(1200px 600px at 80% -10%,#e8efff 0%,transparent 55%),var(--bg);
+  color:var(--text);font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;min-height:100vh;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:48px 24px 64px}
+.brand{display:flex;align-items:center;gap:12px;margin-bottom:26px}
+.mark{width:42px;height:42px;border-radius:13px;background:linear-gradient(135deg,#2f6fed,#6d9bff);color:#fff;display:grid;place-items:center;font-weight:800;font-size:18px}
+.brand b{font-size:15px}
+.brand span{font-size:12px;color:var(--soft);display:block;margin-top:-1px}
+h1{margin:0;font-size:34px;letter-spacing:-.8px;line-height:1.25}
+.lead{margin:10px 0 0;color:var(--muted);max-width:760px;font-size:14px}
+.badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.badge{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:14px;background:#fff;border:1px solid var(--line);font-size:12px;color:#475467}
+.badge i{width:6px;height:6px;border-radius:50%;background:var(--primary);display:block}
+.badge.green i{background:var(--green)}
+.badge.amber i{background:var(--amber)}
+
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:34px}
+.card{
+  display:block;text-decoration:none;color:inherit;background:var(--card);border:1px solid var(--line);
+  border-radius:20px;padding:24px;box-shadow:0 2px 4px rgba(16,24,40,.03),0 18px 40px rgba(16,24,40,.06);
+  transition:.18s;position:relative;overflow:hidden;
+}
+.card:hover{transform:translateY(-3px);box-shadow:0 8px 14px rgba(16,24,40,.06),0 28px 60px rgba(16,24,40,.12);border-color:#c9d9f8}
+.card .tag{font-size:11px;font-weight:700;letter-spacing:.6px;color:var(--soft);text-transform:uppercase}
+.card h2{margin:6px 0 0;font-size:22px;letter-spacing:-.3px}
+.card p{margin:8px 0 0;color:var(--muted);font-size:13px;min-height:42px}
+.card .go{display:inline-flex;align-items:center;gap:7px;margin-top:18px;color:var(--primary);font-weight:650;font-size:13.5px}
+.card .go span{transition:transform .18s}
+.card:hover .go span{transform:translateX(4px)}
+.preview{height:170px;border-radius:14px;margin-bottom:18px;position:relative;overflow:hidden;border:1px solid var(--line)}
+.preview.pc{background:linear-gradient(180deg,#f8faff,#eef3fb)}
+.preview.pda{background:linear-gradient(180deg,#0d1526,#1b2740);display:grid;place-items:center}
+.mock-window{position:absolute;left:16px;right:16px;top:16px;bottom:-10px;background:#fff;border-radius:10px;box-shadow:0 10px 30px rgba(16,24,40,.12);overflow:hidden}
+.mock-top{height:26px;background:#f7f9fc;border-bottom:1px solid #eef1f5;display:flex;align-items:center;gap:5px;padding:0 9px}
+.mock-top i{width:6px;height:6px;border-radius:50%;background:#d6dce6}
+.mock-body{display:flex;height:100%}
+.mock-side{width:74px;background:#fbfcfe;border-right:1px solid #eef1f5;padding:9px 7px}
+.mock-side b{display:block;height:7px;border-radius:3px;background:#e6ecf7;margin-bottom:7px}
+.mock-side b:nth-child(1){width:80%;background:#cfe0ff}
+.mock-main{flex:1;padding:9px 10px}
+.mock-title{width:90px;height:10px;border-radius:3px;background:#dfe6f2;margin-bottom:9px}
+.mock-row{height:20px;border-radius:4px;background:#f4f7fc;margin-bottom:6px;border:1px solid #eef1f5}
+.mock-row.short{width:64%}
+.mock-phone{width:132px;height:250px;background:#f5f7fb;border-radius:20px;border:5px solid #2b3850;box-shadow:0 20px 50px rgba(0,0,0,.4);overflow:hidden;position:relative;margin-top:16px}
+.mock-status{height:13px;display:flex;align-items:center;justify-content:space-between;padding:0 8px;font-size:5px;color:#182230;font-weight:700}
+.mock-app{padding:8px}
+.mock-greet{display:flex;gap:5px;align-items:center;margin-bottom:8px}
+.mock-ava{width:16px;height:16px;border-radius:50%;background:#dfe8ff}
+.mock-greet b{display:block;width:34px;height:5px;border-radius:2px;background:#dfe6f2}
+.mock-greet span{display:block;width:24px;height:3px;border-radius:2px;background:#edf1f7;margin-top:3px}
+.mock-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.mock-tile{height:38px;border-radius:7px;background:linear-gradient(135deg,#2f6fed,#5b8cf7)}
+.mock-tile:nth-child(2){background:linear-gradient(135deg,#07865a,#20a97a)}
+.mock-tile:nth-child(3){background:linear-gradient(135deg,#c96a05,#e7912f)}
+.mock-tile:nth-child(4){background:linear-gradient(135deg,#475467,#667085)}
+.mock-line{height:26px;border-radius:6px;background:#fff;border:1px solid #eef1f5;margin-top:6px}
+.mock-line.green{border-color:#bfe3cd;background:#f7fcf9}
+
+.flow{margin-top:36px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:22px 24px;box-shadow:0 2px 4px rgba(16,24,40,.03)}
+.flow h3{margin:0;font-size:15px}
+.flow p{margin:4px 0 0;color:var(--muted);font-size:12.5px}
+.steps{display:flex;gap:6px;align-items:flex-start;margin-top:18px;flex-wrap:wrap}
+.step{flex:1;min-width:120px;position:relative;padding-right:18px}
+.step:not(:last-child)::after{content:"›";position:absolute;right:2px;top:9px;color:#c3ccdb;font-size:20px}
+.step .n{width:28px;height:28px;border-radius:9px;background:var(--primary-weak);color:var(--primary);display:grid;place-items:center;font-size:12px;font-weight:800}
+.step b{display:block;margin-top:8px;font-size:12.5px}
+.step span{display:block;color:var(--soft);font-size:11px;margin-top:2px;line-height:1.5}
+.rules{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:20px}
+.rule{background:#fafbfe;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.rule b{display:block;font-size:12.5px}
+.rule span{display:block;color:var(--muted);font-size:11.5px;margin-top:3px;line-height:1.5}
+.pda-note{margin-top:16px;display:flex;align-items:center;gap:12px;background:#f5f8ff;border:1px solid #dbe6ff;border-radius:12px;padding:13px 14px}
+.pda-note b{display:block;font-size:12.5px}
+.pda-note span{display:block;font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.6}
+.pda-note code{background:#fff;border:1px solid #dbe6ff;border-radius:4px;padding:1px 5px;font-size:11px;color:#1f5bd7;word-break:break-all}
+.pda-note a{margin-left:auto;white-space:nowrap;color:var(--primary);font-weight:650;font-size:12.5px;text-decoration:none}
+.footer{margin-top:26px;color:var(--soft);font-size:11.5px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+
+@media (max-width:860px){
+  .cards{grid-template-columns:1fr}
+  .rules{grid-template-columns:1fr}
+  h1{font-size:27px}
+  .wrap{padding:32px 18px 48px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <div class="mark">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>
+      </svg>
+    </div>
+    <div><b>仓储物料管理</b><span>PDA 扫码 · 交互原型</span></div>
+  </div>
+
+  <h1>仓储扫码 · 交互原型</h1>
+  <p class="lead">
+    按 PRD 落地：验收双签后生成入库码与包码，先进入「待打印入库码」，打印标签后再用 PC 或 PDA 扫码核对，<b>手动确认</b>后才改变库存。
+    扫码只记录核对结果，不改变已录入数量。
+  </p>
+  <div class="badges">
+    <span class="badge"><i></i>入库码 · 一物料批次一码</span>
+    <span class="badge"><i></i>包码 · 一来源单据一码</span>
+    <span class="badge green"><i></i>整单确认才动库存</span>
+    <span class="badge amber"><i></i>PC / PDA 双端一致</span>
+    <span class="badge green"><i></i>标签二维码真实可扫</span>
+  </div>
+
+  <div class="cards">
+    <a class="card" href="pc.html">
+      <div class="preview pc">
+        <div class="mock-window">
+          <div class="mock-top"><i></i><i></i><i></i></div>
+          <div class="mock-body">
+            <div class="mock-side"><b></b><b></b><b></b><b></b><b></b></div>
+            <div class="mock-main">
+              <div class="mock-title"></div>
+              <div class="mock-row"></div>
+              <div class="mock-row"></div>
+              <div class="mock-row short"></div>
+              <div class="mock-row"></div>
+              <div class="mock-row short"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tag">Desktop · 1440</div>
+      <h2>PC 端原型</h2>
+      <p>入库 / 出库 / 退库列表与详情抽屉、待打印入库码、明细行扫码、整单确认、验收双签、标签打印与补打。保留现有页面结构，增加打印、状态、扫码与确认按钮。</p>
+      <div class="go">打开 PC 原型 <span>→</span></div>
+    </a>
+
+    <a class="card" href="pda.html">
+      <div class="preview pda">
+        <div class="mock-phone">
+          <div class="mock-status"><span>9:41</span><span>5G ▮</span></div>
+          <div class="mock-app">
+            <div class="mock-greet"><div class="mock-ava"></div><div><b></b><span></span></div></div>
+            <div class="mock-grid">
+              <div class="mock-tile"></div><div class="mock-tile"></div>
+              <div class="mock-tile"></div><div class="mock-tile"></div>
+            </div>
+            <div class="mock-line"></div>
+            <div class="mock-line green"></div>
+            <div class="mock-line"></div>
+          </div>
+        </div>
+      </div>
+      <div class="tag">Mobile · 390</div>
+      <h2>PDA 端原型</h2>
+      <p>移动适配：登录与设备绑定、待打印入库码、入库/出库/退库任务、PDA 扫描头真实扫码（键盘模拟）、整包或逐条扫码、扫满后作业签名确认、补打标签与作业记录。</p>
+      <div class="go">打开 PDA 原型 <span>→</span></div>
+    </a>
+  </div>
+
+  <div class="flow">
+    <h3>核心流程</h3>
+    <p>PC 与 PDA 共用同一套状态与扫码记录，区别只在交互载体。</p>
+    <div class="steps">
+      <div class="step"><div class="n">1</div><b>验收双签</b><span>验收人 + 复核人，缺一不可</span></div>
+      <div class="step"><div class="n">2</div><b>生成入库码</b><span>入库码 + 包码，进入待打印</span></div>
+      <div class="step"><div class="n">3</div><b>待打印入库码</b><span>打印包码与入库码后才可扫码</span></div>
+      <div class="step"><div class="n">4</div><b>入库扫码</b><span>整包扫或逐条扫，只记明细</span></div>
+      <div class="step"><div class="n">5</div><b>手动确认</b><span>扫满 + 作业签名才生效</span></div>
+      <div class="step"><div class="n">6</div><b>库存更新</b><span>一次性入库 / 出库 / 退库</span></div>
+    </div>
+    <div class="rules">
+      <div class="rule"><b>先打印再扫码</b><span>验收完成后是「待打印入库码」，未打印不能扫码，库存不变。</span></div>
+      <div class="rule"><b>未扫满不能确认</b><span>任一行未扫码，确认按钮置灰，库存不变。</span></div>
+      <div class="rule"><b>明细行可单独扫码</b><span>PC 行按钮与 PDA 逐条扫码共用同一服务，扫错行直接拦截。</span></div>
+      <div class="rule"><b>扫码不改数量</b><span>数量先录入，扫码只确认物料与批次正确。</span></div>
+    </div>
+    <div class="pda-note">
+      <div>
+        <b>PDA 真机使用</b>
+        <span>扫描头设为「键盘模拟 / Keystroke」，结束符 Enter；在 PDA 浏览器打开 <code>http://192.168.5.80:5180/pda.html</code>（与电脑同一局域网）。</span>
+      </div>
+      <a href="pda.html">打开 PDA 端 →</a>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>原型数据为演示数据 · 2026-11-13</span>
+    <span>建议先看 PC 端的入库详情抽屉，再看 PDA 端的入库作业流程</span>
+  </div>
+</div>
+</body>
+</html>

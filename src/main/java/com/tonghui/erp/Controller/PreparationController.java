@@ -345,7 +345,7 @@ public class PreparationController extends BaseCrudController<Preparation, Prepa
      * @param id 制剂ID（路径参数）
      * @return 制剂及子表数据
      */
-// @GetMapping("/{id}/details")
+    @GetMapping("/{id}/details")
     public ApiResponse<PreparationWithDetailsDto> getWithDetails(@PathVariable Long id) {
         try {
             PreparationWithDetailsDto dto = preparationService.getWithDetails(id);

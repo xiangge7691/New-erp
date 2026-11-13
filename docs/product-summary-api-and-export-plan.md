@@ -169,6 +169,7 @@ GET /api/product-summary/batches
   "spec": "每50丸重6g（每1g相当于饮片约0.92g）",
   "batchNo": null,
   "materialSource": null,
+  "materialSourceLabel": null,
   "status": "待生产",
   "planDate": "2026-11-03",
   "planQty": 3500,

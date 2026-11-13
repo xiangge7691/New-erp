@@ -282,6 +282,8 @@ public final class ReleaseBatchDtos {
         private String spec;
         /** 数量 */
         private BigDecimal quantity;
+        /** 单价 */
+        private BigDecimal unitPrice;
         /** 单位 */
         private String unit;
         /** 批号 */

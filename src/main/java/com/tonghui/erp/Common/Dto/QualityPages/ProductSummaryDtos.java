@@ -1,5 +1,6 @@
 package com.tonghui.erp.Common.Dto.QualityPages;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -50,8 +51,10 @@ public final class ProductSummaryDtos {
         private BigDecimal inboundQty;
         /** 出库数量 */
         private BigDecimal outboundQty;
-        /** 物料来源：采购/领料 */
+        /** 物料来源编码：PURCHASE/REQUISITION/DIRECT */
         private String materialSource;
+        /** 物料来源显示文案：采购/院内领料/直接入库 */
+        private String materialSourceLabel;
         /** 计划日期 */
         private LocalDate planDate;
         /** 工单日期 */
@@ -396,12 +399,15 @@ public final class ProductSummaryDtos {
         /** 单位 */
         private String unit;
         /** 单价 */
+        @JsonInclude(JsonInclude.Include.NON_NULL)
         private BigDecimal price;
         /** 金额 */
+        @JsonInclude(JsonInclude.Include.NON_NULL)
         private BigDecimal amount;
         /** 供应商 */
         private String supplier;
         /** 批号 */
+        @JsonInclude(JsonInclude.Include.NON_NULL)
         private String batchNo;
         /** 批次/计划状态 */
         private String status;

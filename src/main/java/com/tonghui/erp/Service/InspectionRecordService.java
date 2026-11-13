@@ -33,4 +33,16 @@ public interface InspectionRecordService extends IService<InspectionRecord> {
      * @return 唯一返回true，否则返回false
      */
     boolean isCodeUnique(String code, Long excludeId);
+
+    /**
+     * 回填工单检验结束时间
+     * <p>
+     * 仅当检验记录已填结束时间、被检品属性为“成品”且结论为“合格”时，
+     * 才把结束时间同步到关联工单并重算工单/生产计划状态；
+     * 工单ID为空时通过关联请检单编号回退查找，兼容历史数据
+     * </p>
+     *
+     * @param record 检验记录（需包含 endTime、itemCategory、conclusion，workOrderId 可为空）
+     */
+    void syncWorkOrderInspectionEnd(InspectionRecord record);
 }

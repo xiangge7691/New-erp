@@ -6,6 +6,7 @@ import com.tonghui.erp.Common.Dto.Log.DataChangeRecord;
 import com.tonghui.erp.Common.Dto.Log.DataChangeTraceContext;
 import com.tonghui.erp.Common.Dto.Log.OperationLogContext;
 import com.tonghui.erp.Common.annotation.OperationLog;
+import com.tonghui.erp.Common.utils.ClientMacUtils;
 import com.tonghui.erp.Common.utils.IpLocationService;
 import com.tonghui.erp.Common.utils.IpUtils;
 import com.tonghui.erp.Common.utils.LogParamUtils;
@@ -210,6 +211,7 @@ public class OperationLogAspect {
             context.setRequestUrl(truncate(url, MAX_REQUEST_URL_LENGTH));
             String clientIp = IpUtils.getClientIp(request, logProperties.getIp().isTrustProxyHeaders());
             context.setClientIp(clientIp);
+            context.setMacAddress(ClientMacUtils.resolve(request));
             context.setIpLocation(ipLocationService.resolve(clientIp));
             context.setUserAgent(truncate(request.getHeader("User-Agent"), MAX_USER_AGENT_LENGTH));
         }

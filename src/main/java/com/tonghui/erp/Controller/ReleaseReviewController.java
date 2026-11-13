@@ -87,6 +87,12 @@ public class ReleaseReviewController extends BaseController {
     @Autowired
     private com.tonghui.erp.Data.mapper.WorkOrderMapper workOrderMapper;
 
+    /**
+     * 入库单服务（成品放行后自动生成入库单草稿）
+     */
+    @Autowired
+    private com.tonghui.erp.Service.StockInService stockInService;
+
     // endregion
 
     // region 查询接口
@@ -646,6 +652,10 @@ public class ReleaseReviewController extends BaseController {
 
         if (workOrderId != null) {
             workOrderService.syncWorkOrderTime(workOrderId, "auditReleaseTime", record.getReviewTime());
+            // 成品放行完成后直接生成成品入库单（同一工单已有成品入库单时不重复创建）
+            if ("成品".equals(record.getItemCategory())) {
+                stockInService.createFinishedStockInbound(workOrderId, record.getReviewTime());
+            }
         }
     }
 

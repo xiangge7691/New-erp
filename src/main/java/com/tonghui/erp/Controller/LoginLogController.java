@@ -58,13 +58,14 @@ public class LoginLogController extends BaseController {
      * 分页查询登录日志
      *
      * 示例请求：
-     * GET /api/system/login-log/search?pageIndex=0&pageSize=20&userAccount=root&loginResult=0&startTime=2026-11-01&endTime=2026-11-09
+     * GET /api/system/login-log/search?pageIndex=0&pageSize=20&userAccount=root&loginResult=0&macAddress=3C-52-82-1A-4F-09&startTime=2026-11-01&endTime=2026-11-09
      *
      * @param userAccount 登录账号（精确匹配，可选）
      * @param userId      用户ID（可选）
      * @param userName    用户姓名（模糊匹配，可选）
      * @param loginResult 登录结果：1成功/0失败（可选）
      * @param loginIp     登录IP（精确匹配，可选）
+     * @param macAddress  客户端MAC地址（支持完整地址或后缀片段，可选）
      * @param roleName    角色名称（模糊匹配，可选）
      * @param permissionKey 接口权限键（模糊匹配，可选）
      * @param startTime   起始时间，支持 yyyy-MM-dd 或 yyyy-MM-dd HH:mm:ss（可选）
@@ -79,6 +80,7 @@ public class LoginLogController extends BaseController {
             @RequestParam(required = false) String userName,
             @RequestParam(required = false) Integer loginResult,
             @RequestParam(required = false) String loginIp,
+            @RequestParam(required = false) String macAddress,
             @RequestParam(required = false) String roleName,
             @RequestParam(required = false) String permissionKey,
             @RequestParam(required = false) String startTime,
@@ -86,7 +88,7 @@ public class LoginLogController extends BaseController {
             @ModelAttribute PageRequestDto pageRequest) {
         try {
             PagedResult<LoginLogDto> result = loginLogService.search(
-                    userAccount, userId, userName, loginResult, loginIp, roleName, permissionKey,
+                    userAccount, userId, userName, loginResult, loginIp, macAddress, roleName, permissionKey,
                     LogQueryTimeUtils.parseStart(startTime),
                     LogQueryTimeUtils.parseEnd(endTime),
                     processLogPageRequest(pageRequest));

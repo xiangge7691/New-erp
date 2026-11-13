@@ -25,5 +25,6 @@ CREATE TABLE IF NOT EXISTS `sys_data_change_log` (
   KEY `idx_change_trace` (`trace_id`),
   KEY `idx_change_operation` (`operation_log_id`),
   KEY `idx_change_table_biz` (`table_name`, `business_id`),
+  KEY `idx_change_table_biz_time` (`table_name`, `business_id`, `created_time`),
   KEY `idx_change_time` (`created_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='数据变更日志表';

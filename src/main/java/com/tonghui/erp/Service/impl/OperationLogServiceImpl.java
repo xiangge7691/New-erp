@@ -10,6 +10,7 @@ import com.tonghui.erp.Common.Dto.Log.OperationLogDetailDto;
 import com.tonghui.erp.Common.Dto.Log.OperationLogDto;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.utils.ClientMacUtils;
 import com.tonghui.erp.Data.Entity.SysDataChangeLog;
 import com.tonghui.erp.Data.Entity.SysOperationLog;
 import com.tonghui.erp.Data.Entity.User;
@@ -60,6 +61,7 @@ public class OperationLogServiceImpl implements OperationLogService {
     private static final int MAX_CLASS_METHOD_LENGTH = 255;
     private static final int MAX_ERROR_MSG_LENGTH = 1000;
     private static final int MAX_IP_LENGTH = 60;
+    private static final int MAX_MAC_LENGTH = ClientMacUtils.MAX_MAC_LENGTH;
     private static final int MAX_LOCATION_LENGTH = 120;
     private static final int MAX_USER_AGENT_LENGTH = 500;
 
@@ -149,6 +151,7 @@ public class OperationLogServiceImpl implements OperationLogService {
             entity.setErrorMsg(truncate(context.getErrorMsg(), MAX_ERROR_MSG_LENGTH));
             entity.setCostTime(context.getCostTime());
             entity.setClientIp(truncate(context.getClientIp(), MAX_IP_LENGTH));
+            entity.setMacAddress(truncate(context.getMacAddress(), MAX_MAC_LENGTH));
             entity.setIpLocation(truncate(context.getIpLocation(), MAX_LOCATION_LENGTH));
             entity.setUserAgent(truncate(context.getUserAgent(), MAX_USER_AGENT_LENGTH));
             entity.setCreatedTime(context.getCreatedTime() == null ? LocalDateTime.now() : context.getCreatedTime());
@@ -286,6 +289,7 @@ public class OperationLogServiceImpl implements OperationLogService {
      * @param resultStatus  结果
      * @param businessType  业务对象类型
      * @param businessId    业务对象ID
+     * @param macAddress    客户端MAC地址（支持完整地址或后缀片段）
      * @param keyword       关键字
      * @param startTime     起始时间
      * @param endTime       截止时间
@@ -295,8 +299,9 @@ public class OperationLogServiceImpl implements OperationLogService {
     @Override
     public PagedResult<OperationLogDto> search(String userAccount, Long userId, String userName, String module,
                                                String operationType, Integer resultStatus, String businessType,
-                                               String businessId, String keyword, LocalDateTime startTime,
-                                               LocalDateTime endTime, PageRequestDto pageRequest) {
+                                               String businessId, String macAddress, String keyword,
+                                               LocalDateTime startTime, LocalDateTime endTime,
+                                               PageRequestDto pageRequest) {
         QueryWrapper<SysOperationLog> wrapper = new QueryWrapper<>();
         wrapper.eq(hasText(userAccount), "user_account", userAccount);
         wrapper.eq(userId != null, "user_id", userId);
@@ -306,6 +311,7 @@ public class OperationLogServiceImpl implements OperationLogService {
         wrapper.eq(resultStatus != null, "result_status", resultStatus);
         wrapper.eq(hasText(businessType), "business_type", businessType);
         wrapper.eq(hasText(businessId), "business_id", businessId);
+        applyMacFilter(wrapper, macAddress);
         wrapper.ge(startTime != null, "created_time", startTime);
         wrapper.le(endTime != null, "created_time", endTime);
         if (hasText(keyword)) {
@@ -398,6 +404,29 @@ public class OperationLogServiceImpl implements OperationLogService {
         OperationLogDto dto = new OperationLogDto();
         BeanUtils.copyProperties(entity, dto);
         return dto;
+    }
+
+    /**
+     * 追加 MAC 地址筛选条件
+     * <p>
+     * 支持完整地址或后缀片段，忽略短横线/冒号分隔符；查询值参数化，
+     * 列上使用 REPLACE 仅为兼容历史格式，数据量大时优先配合时间范围查询
+     * </p>
+     *
+     * @param wrapper    查询条件
+     * @param macAddress 原始 MAC 查询关键字
+     */
+    private void applyMacFilter(QueryWrapper<SysOperationLog> wrapper, String macAddress) {
+        String mac = ClientMacUtils.normalizeQuery(macAddress);
+        if (mac == null) {
+            return;
+        }
+        String column = "UPPER(REPLACE(REPLACE(mac_address, '-', ''), ':', ''))";
+        if (mac.length() == 12) {
+            wrapper.apply(column + " = {0}", mac);
+        } else {
+            wrapper.apply(column + " LIKE CONCAT('%', {0})", mac);
+        }
     }
 
     /**

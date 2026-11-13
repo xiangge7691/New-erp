@@ -189,7 +189,7 @@ private String skipReason;
 | `inboundDate` | 第一张工单入库单日期 | 仅成品入库，取最早/或已入库首张 |
 | `outboundQty` | 按计划查到的主要是领料出库量 | 仅成品出库明细，按批号/制剂匹配 |
 | `outboundDate` | 领料出库日期 | 仅成品出库日期 |
-| `materialSource` | `REQUISITION` / `PURCHASE` | 已扩展 `DIRECT`（无采购、无领料但存在物料入库）；节点状态成为主口径，该字段保留兼容 |
+| `materialSource` | `REQUISITION` / `PURCHASE` | 采购与院内领料二选一：按采购单、医院领料单、验收单来源类型判定（采购优先）；生产领料单不参与。两者都无但有物料入库时兼容返回 `DIRECT` |
 
 ## 四、后端代码改动点
 
@@ -271,7 +271,7 @@ stock_in WHERE work_order_id = ? AND in_type = '成品入库'
 | `planOnlyStageStates()`（约 466 行） | 换成固定 10 节点，采购/验收按计划数据判定 |
 | `stageOrder(String)`（约 541 行） | 健康度排序改为：品种资料→计划→采购→验收→工单→领料→工序→检验→入库→放行→出库 |
 | `inboundQty` / `outboundQty`（约 514/523 行） | 分别只统计成品入库、成品出库 |
-| `materialSource`（约 1309 行） | 按采购/领料/直接入库证据重新计算，保留字段兼容 |
+| `materialSource` | 按采购单/医院领料单/验收单来源类型重新计算（采购优先，生产领料单不参与），并补 `materialSourceLabel` |
 
 新增单据转换方法：
 

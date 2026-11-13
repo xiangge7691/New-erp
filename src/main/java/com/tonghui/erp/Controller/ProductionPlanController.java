@@ -377,6 +377,7 @@ public class ProductionPlanController extends BaseCrudController<ProductionPlan,
      * <p>
      * 返回采购申请、审批、下单、到货、验收、入库六个节点的时间、节点间耗时，
      * 以及节点可跳转的采购计划、验收单、入库单详情标识。一个生产计划关联多个采购订单时返回多条链路。
+     * 每条链路的 purchasePlanName 为采购计划名称（无采购计划的手工订单回退采购订单标题）。
      * 采购申请/审批/下单节点打开的采购计划详情为只读，到货/验收节点打开的物料验收详情为只读。
      * </p>
      *

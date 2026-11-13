@@ -34,6 +34,7 @@ import com.tonghui.erp.Service.InspectionTaskService;
 import com.tonghui.erp.Service.PreparationService;
 import com.tonghui.erp.Service.RetainedSampleService;
 import com.tonghui.erp.Service.SamplingRecordService;
+import com.tonghui.erp.Service.WorkOrderService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -158,6 +159,8 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
     private DestructionRecordService destructionRecordService;
     @Autowired
     private BusinessFileService businessFileService;
+    @Autowired
+    private WorkOrderService workOrderService;
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
@@ -849,6 +852,11 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
         entity.setRemark(request.getRemark());
         entity.setIsDeleted(0);
         inspectionRequestService.save(entity);
+        // 成品请检后回填工单检验开始时间（与请检页面口径一致）
+        if (entity.getWorkOrderId() != null && entity.getRequestTime() != null
+                && "成品".equals(entity.getItemCategory())) {
+            workOrderService.syncWorkOrderTime(entity.getWorkOrderId(), "inspectionStart", entity.getRequestTime());
+        }
         task.setRequestRefId(entity.getId());
         completeStepAndAdvance(task, STEP_REQUEST, "inspection_request", entity.getId(),
                 "请检单 " + entity.getInspectionCode() + " 已创建", request.getNextStep());
@@ -975,6 +983,8 @@ public class InspectionTaskServiceImpl extends ServiceImpl<InspectionTaskMapper,
             inspectionRecordService.updateById(entity);
         }
         task.setInspectionRefId(entity.getId());
+        // 成品检验合格后回填工单检验结束时间并联动工单/计划状态
+        inspectionRecordService.syncWorkOrderInspectionEnd(entity);
         completeStepAndAdvance(task, STEP_INSPECTION, "inspection_record", entity.getId(),
                 "检验记录 " + entity.getInspectionCode() + " 已保存", request.getNextStep());
         syncFiles(STEP_INSPECTION, entity.getId(), request.getFileIds());

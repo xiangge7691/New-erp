@@ -39,6 +39,7 @@ import com.tonghui.erp.Service.FileRequirementService;
 import com.tonghui.erp.Service.ProductionPlanService;
 import com.tonghui.erp.Service.ReleaseBatchService;
 import com.tonghui.erp.Service.ReleaseReviewService;
+import com.tonghui.erp.Service.StockInService;
 import com.tonghui.erp.Service.UserService;
 import com.tonghui.erp.Service.WorkOrderService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -106,6 +107,8 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
     private UserService userService;
     @Autowired
     private WorkOrderService workOrderService;
+    @Autowired
+    private StockInService stockInService;
 
     // region 列表
     // ===================================
@@ -494,6 +497,7 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
         item.setMaterialName(detail.getMaterialName());
         item.setSpec(detail.getMaterialCategory());
         item.setQuantity(detail.getQuantity());
+        item.setUnitPrice(detail.getUnitPrice());
         item.setUnit(detail.getUnitName());
         item.setBatchNumber(detail.getBatchNumber());
         item.setExpiryDate(detail.getExpiryDate());
@@ -594,8 +598,8 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
                 ? Collections.emptyList()
                 : ctx.getPickDetails().getOrDefault(pick.getId(), Collections.emptyList());
         item.setLines(details.stream().map(this::toDocumentLine).collect(Collectors.toList()));
-        if (pick.getStockOutId() != null) {
-            item.setFiles(toFiles(businessFileService.list("STOCK_OUT_PRODUCTION", pick.getStockOutId(), null, null)));
+        if (pick.getId() != null) {
+            item.setFiles(toFiles(businessFileService.list("STOCK_OUT_PRODUCTION", pick.getId(), null, null)));
         }
         return item;
     }
@@ -661,7 +665,9 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
                     : ctx.getProcessRequirements().get(execution.getProcessTypeId());
             item.setRequirement(StringUtils.hasText(requirement) ? requirement : execution.getKeyProcessParams());
             WorkOrderProcessCheck check = checkMap.get(execution.getId());
-            item.setResult(check == null ? RESULT_PENDING : check.getCheckResult());
+            // 未做工序检查视为“不做验证，直接通过”，仅显式“待查/不符合”参与拦截
+            String checkResult = check == null ? null : check.getCheckResult();
+            item.setResult(StringUtils.hasText(checkResult) ? checkResult : RESULT_PASS);
             item.setInspector(check == null ? null : check.getInspectorName());
             item.setCheckDate(check == null ? null : check.getCheckDate());
             item.setStartTime(execution.getStartTime());
@@ -972,6 +978,23 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
         return 0;
     }
 
+    /**
+     * 参与放行文件清单统计的成品入库单
+     * <p>
+     * 草稿（如放行通过后自动生成的入库单）与已取消单据不计入缺件，
+     * 避免刚完成放行就因待确认草稿被判为文件不完整
+     * </p>
+     *
+     * @param ctx 批次上下文
+     * @return 有效成品入库单列表
+     */
+    private List<StockIn> effectiveStockIns(BatchContext ctx) {
+        return ctx.getStockIns().stream()
+                .filter(stockIn -> !"草稿".equals(stockIn.getInStatus())
+                        && !"已取消".equals(stockIn.getInStatus()))
+                .collect(Collectors.toList());
+    }
+
     private int expectedCount(FileRequirementConfig config, BatchContext ctx) {
         return switch (config.getBizType()) {
             case "PRODUCTION_PLAN" -> ctx.getPlan() == null ? 0 : 1;
@@ -984,7 +1007,7 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
             case "INSPECTION_RECORD" -> ctx.getInspections().size();
             case "RELEASE_REVIEW" -> ctx.getRelease() == null ? 0 : 1;
             case "STOCK_OUT_PRODUCTION" -> ctx.getPicks().size();
-            case "STOCK_IN_PRODUCT" -> ctx.getStockIns().size();
+            case "STOCK_IN_PRODUCT" -> effectiveStockIns(ctx).size();
             case "STOCK_OUT_SALES" -> ctx.getStockOuts().size();
             default -> 0;
         };
@@ -1012,8 +1035,8 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
             // 放行记录本身即放行审核单据，存在记录即视为已传 1
             case "RELEASE_REVIEW" -> ctx.getRelease() == null ? 0 : 1;
             case "STOCK_OUT_PRODUCTION" -> (int) ctx.getPicks().stream()
-                    .filter(p -> p.getStockOutId() != null && hasFile(bizType, p.getStockOutId(), kind)).count();
-            case "STOCK_IN_PRODUCT" -> (int) ctx.getStockIns().stream()
+                    .filter(p -> p.getId() != null && hasFile(bizType, p.getId(), kind)).count();
+            case "STOCK_IN_PRODUCT" -> (int) effectiveStockIns(ctx).stream()
                     .filter(s -> hasFile(bizType, s.getInId(), kind)).count();
             case "STOCK_OUT_SALES" -> (int) ctx.getStockOuts().stream()
                     .filter(s -> hasFile(bizType, s.getOutId(), kind)).count();
@@ -1073,10 +1096,10 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
                 }
             }
             case "STOCK_OUT_PRODUCTION" -> ctx.getPicks().stream()
-                    .filter(p -> p.getStockOutId() == null || !hasFile(bizType, p.getStockOutId(), kind))
+                    .filter(p -> p.getId() == null || !hasFile(bizType, p.getId(), kind))
                     .map(p -> "领料单 " + p.getPickCode())
                     .forEach(details::add);
-            case "STOCK_IN_PRODUCT" -> ctx.getStockIns().stream()
+            case "STOCK_IN_PRODUCT" -> effectiveStockIns(ctx).stream()
                     .filter(s -> !hasFile(bizType, s.getInId(), kind))
                     .map(s -> "成品入库单 " + s.getInCode())
                     .forEach(details::add);
@@ -1117,9 +1140,9 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
                 .collect(Collectors.toMap(WorkOrderProcessCheck::getExecutionId, c -> c, (a, b) -> a));
         for (WorkOrderProcessExecution execution : ctx.getExecutions()) {
             WorkOrderProcessCheck check = checkMap.get(execution.getId());
-            if (check == null || !StringUtils.hasText(check.getCheckResult())) {
-                stat.pending++;
-            } else if (RESULT_PASS.equals(check.getCheckResult())) {
+            // 未做工序检查视为“不做验证，直接通过”，不再计入待查/阻塞项
+            if (check == null || !StringUtils.hasText(check.getCheckResult())
+                    || RESULT_PASS.equals(check.getCheckResult())) {
                 stat.pass++;
             } else if (RESULT_FAIL.equals(check.getCheckResult())) {
                 stat.fail++;
@@ -1339,6 +1362,8 @@ public class ReleaseBatchServiceImpl implements ReleaseBatchService {
                 reviewTime, opinion);
         // 走工单服务同步放行时间，并联动重算工单/生产计划状态
         workOrderService.syncWorkOrderTime(workOrderId, "auditReleaseTime", reviewTime);
+        // 放行完成后直接生成成品入库单
+        stockInService.createFinishedStockInbound(workOrderId, reviewTime);
         return getBatchDetail(workOrderId);
     }
 

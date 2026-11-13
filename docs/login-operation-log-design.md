@@ -107,6 +107,7 @@ CREATE TABLE IF NOT EXISTS `sys_login_log` (
   `login_result`  TINYINT      NOT NULL DEFAULT 1 COMMENT '结果：1成功/0失败',
   `fail_reason`   VARCHAR(255) DEFAULT NULL COMMENT '失败原因',
   `login_ip`      VARCHAR(64)  DEFAULT NULL COMMENT '登录IP',
+  `mac_address`   VARCHAR(32)  DEFAULT NULL COMMENT '客户端MAC地址（X-Client-Mac 上报）',
   `ip_location`   VARCHAR(128) DEFAULT NULL COMMENT 'IP归属地，如 江苏省南京市/内网/未知',
   `user_agent`    VARCHAR(500) DEFAULT NULL COMMENT '客户端User-Agent',
   `login_time`    DATETIME     NOT NULL COMMENT '登录时间',
@@ -114,7 +115,8 @@ CREATE TABLE IF NOT EXISTS `sys_login_log` (
   KEY `idx_login_user_time` (`user_id`, `login_time`),
   KEY `idx_login_account_time` (`user_account`, `login_time`),
   KEY `idx_login_time` (`login_time`),
-  KEY `idx_login_ip` (`login_ip`)
+  KEY `idx_login_ip` (`login_ip`),
+  KEY `idx_login_mac` (`mac_address`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='登录日志表';
 ```
 
@@ -130,6 +132,7 @@ CREATE TABLE IF NOT EXISTS `sys_login_log` (
 | `menu_count` / `permission_count` | 菜单数与接口权限数，列表页可直接展示，避免加载大字段 |
 | `login_result` | 1 成功 / 0 失败；失败原因如“用户名或密码错误”“用户账户已被禁用”“用户名或密码不能为空” |
 | `login_ip` | 真实客户端 IP，IPv6 原样保存 |
+| `mac_address` | 客户端通过 `X-Client-Mac` 上报的 MAC 地址，统一为 `AA-BB-CC-DD-EE-FF`；浏览器无法直接读取，未上报时为空 |
 | `ip_location` | 离线库解析结果；内网 IP 直接写“内网” |
 | `login_time` | 请求到达登录接口的时间，不是异步落库时间 |
 
@@ -155,6 +158,7 @@ CREATE TABLE IF NOT EXISTS `sys_operation_log` (
   `error_msg`      VARCHAR(1000) DEFAULT NULL COMMENT '失败时的异常信息',
   `cost_time`      INT           DEFAULT NULL COMMENT '耗时（毫秒）',
   `client_ip`      VARCHAR(64)   DEFAULT NULL COMMENT '客户端IP',
+  `mac_address`    VARCHAR(32)   DEFAULT NULL COMMENT '客户端MAC地址（X-Client-Mac 上报）',
   `ip_location`    VARCHAR(128)  DEFAULT NULL COMMENT 'IP归属地',
   `user_agent`     VARCHAR(500)  DEFAULT NULL COMMENT '客户端User-Agent',
   `created_time`   DATETIME      NOT NULL COMMENT '操作时间（请求进入时间）',
@@ -164,7 +168,8 @@ CREATE TABLE IF NOT EXISTS `sys_operation_log` (
   KEY `idx_op_module_time` (`module`, `created_time`),
   KEY `idx_op_type_time` (`operation_type`, `created_time`),
   KEY `idx_op_result_time` (`result_status`, `created_time`),
-  KEY `idx_op_time` (`created_time`)
+  KEY `idx_op_time` (`created_time`),
+  KEY `idx_op_mac_time` (`mac_address`, `created_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='操作日志表';
 ```
 
@@ -176,6 +181,7 @@ CREATE TABLE IF NOT EXISTS `sys_operation_log` (
 | `module` | 与前端菜单口径一致，如“客户管理”“采购管理”“库存管理” |
 | `operation_type` | 统一枚举，前端按类型显示不同颜色标签 |
 | `business_type` + `business_id` | 可选；用于从日志反查单据，例如 `CUSTOMER` + `1024` |
+| `mac_address` | 客户端通过 `X-Client-Mac` 上报的 MAC 地址，统一为 `AA-BB-CC-DD-EE-FF`；未上报时为空 |
 | `request_params` | 只存摘要，默认截断 2000 字符；密码、token 等字段脱敏 |
 | `result_status` | 由返回的 `ApiResponse.code` 判定：200 成功，其余失败 |
 | `cost_time` | 接口耗时，便于发现慢操作 |
@@ -217,6 +223,8 @@ CREATE TABLE IF NOT EXISTS `sys_operation_log` (
 > 登录失败时如果能在校验过程中拿到用户对象（如账号被禁用），可以补上 `user_id`，其余失败场景允许为空。
 
 **登录成功时额外记录角色与权限快照**：由 `AuthController` 从登录响应中读取角色列表和权限树，`LoginPermissionSnapshotUtils` 将权限树按 `perm_type` 拍平为“菜单范围（menu）”和“接口权限（api）”两组，随登录日志一起落库。这样即使后续角色、权限被修改，也能回溯该账号在登录当时实际能操作的内容。
+
+**客户端 MAC 地址**：浏览器无法直接读取 MAC，登录接口从请求头 `X-Client-Mac`（兼容 `X-Mac-Address`、`Mac-Address`）采集，由 `ClientMacUtils` 校验并格式化为 `AA-BB-CC-DD-EE-FF` 后落库；未上报或格式非法时为空。该值由客户端自行申报，仅用于审计辅助，不能作为身份认证依据。操作日志由 `OperationLogAspect` 按同一规则采集。
 
 ### 4.3 代码骨架
 
@@ -529,6 +537,7 @@ GET /api/system/login-log/search?pageIndex=0&pageSize=20
     &userName=张三
     &loginResult=0
     &loginIp=192.168.1.10
+    &macAddress=3C-52-82-1A-4F-09
     &roleName=管理员
     &permissionKey=user:create
     &startTime=2026-11-01 00:00:00
@@ -543,6 +552,7 @@ GET /api/system/login-log/search?pageIndex=0&pageSize=20
 | `userName` | 否 | 姓名，模糊匹配 |
 | `loginResult` | 否 | 1 成功 / 0 失败 |
 | `loginIp` | 否 | IP，精确匹配 |
+| `macAddress` | 否 | 客户端 MAC，支持完整地址或后缀片段（如 `4F09`），忽略 `-`/`:` 分隔符 |
 | `roleName` | 否 | 角色名称，模糊匹配（匹配角色名称快照） |
 | `permissionKey` | 否 | 接口权限键，模糊匹配（如 `user:create`） |
 | `startTime` / `endTime` | 否 | 支持 `yyyy-MM-dd HH:mm:ss` 或 `yyyy-MM-dd`；只传日期时自动补 `00:00:00` / `23:59:59` |
@@ -617,6 +627,7 @@ GET /api/system/operation-log/search?pageIndex=0&pageSize=20
     &module=客户管理
     &operationType=CREATE
     &resultStatus=0
+    &macAddress=3C-52-82-1A-4F-09
     &keyword=新增
     &startTime=2026-11-01
     &endTime=2026-11-09
@@ -630,6 +641,7 @@ GET /api/system/operation-log/search?pageIndex=0&pageSize=20
 | `operationType` | 否 | 操作类型 |
 | `resultStatus` | 否 | 1 成功 / 0 失败 |
 | `businessType` / `businessId` | 否 | 按业务对象反查 |
+| `macAddress` | 否 | 客户端 MAC，支持完整地址或后缀片段，忽略 `-`/`:` 分隔符 |
 | `keyword` | 否 | 模糊匹配操作描述、请求地址 |
 | `startTime` / `endTime` | 否 | 操作时间范围 |
 
@@ -743,6 +755,7 @@ int deleteBefore(@Param("before") LocalDateTime before, @Param("limit") int limi
 | `src/main/resources/Data/migration/create_login_log_table.sql` | 登录日志建表 |
 | `src/main/resources/Data/migration/add_login_log_role_permission_fields.sql` | 登录日志角色/权限字段补充（幂等） |
 | `src/main/resources/Data/migration/create_operation_log_table.sql` | 操作日志建表 |
+| `src/main/resources/Data/migration/add_log_mac_address.sql` | 登录/操作日志 MAC 字段与索引补充（幂等） |
 | `src/main/resources/ip2region/ip2region_v4.xdb` | IPv4 归属地离线库 |
 | `src/main/resources/ip2region/ip2region_v6.xdb` | IPv6 归属地离线库 |
 | `Data/Entity/SysLoginLog.java` | 登录日志实体 |
@@ -754,6 +767,7 @@ int deleteBefore(@Param("before") LocalDateTime before, @Param("limit") int limi
 | `Common/Config/LogAsyncConfig.java` | 日志线程池 + `@EnableAsync` |
 | `Common/Config/LogProperties.java` | 日志配置绑定（IP、归属地库、截断长度） |
 | `Common/utils/IpUtils.java` | 获取真实客户端 IP |
+| `Common/utils/ClientMacUtils.java` | 从 `X-Client-Mac` 采集并规范化客户端 MAC 地址 |
 | `Common/utils/IpLocationService.java` | IP 归属地解析 |
 | `Common/utils/LoginPermissionSnapshotUtils.java` | 登录角色/菜单/接口权限快照拍平 |
 | `Common/utils/LogParamUtils.java` | 参数序列化、脱敏、截断 |
@@ -830,13 +844,14 @@ int deleteBefore(@Param("before") LocalDateTime before, @Param("limit") int limi
 - 角色与权限快照：登录成功时记录角色ID/名称、可访问菜单（`menu`）范围、接口权限（`api`）键与名称，支持按角色名、权限键筛选，详情接口返回完整权限明细；
 - 操作日志：`@OperationLog` 注解、`OperationLogAspect` 切面、参数脱敏、结果判定、业务 ID SpEL；
 - IP：`IpUtils` + `IpLocationService`，离线 ip2region 3.3.7 双库，IPv4/IPv6 均原样记录并解析归属地；
+- MAC：`ClientMacUtils` 从请求头 `X-Client-Mac`（兼容 `X-Mac-Address`、`Mac-Address`）采集并统一格式化为 `AA-BB-CC-DD-EE-FF`，登录日志与操作日志均支持写入、列表展示与 `macAddress` 筛选（完整地址或后缀片段）；
 - 异步：`LogAsyncConfig` 独立日志线程池，`CallerRunsPolicy` 不丢日志；
 - 查询接口：登录日志分页/最近登录/统计/详情（含角色与权限快照），操作日志分页/详情，单页上限 200 条；
 - 清理：`LogCleanupTask` 每天 03:10 按保留天数分批物理删除；
 - 首批注解：用户、角色、权限、部门、用户角色/部门关联、角色权限关联、系统配置、审批流程、审批实例、审核放行；
 - 第二批、第三批注解：客户、剂型、设备、物料、制剂及配方/工序模板/文件、生产计划/工单/工序执行/领料、采购计划/订单/供应商/审核、入库/出库、验收、请检/检验/取样/留样/销毁、清洁/消毒/温湿度/压差、偏差、维保、人员档案/证书、机构/证照、岗位/职务、调拨/退货、检验单、产品汇总导出等；
 - 文件模块（`FileController`、`FileManagerController`、`BusinessFileController`）继续使用已有的 `file_operation_log`，不重复记录；登录/刷新接口由登录日志覆盖；
-- 测试：`IpUtilsTest`、`IpLocationServiceTest`、`LogParamUtilsTest`、`LoginPermissionSnapshotUtilsTest`、`AuthControllerLoginLogTest`、`LogModuleIntegrationTest`，其中集成测试已覆盖写入、角色/权限快照、筛选、详情、切面、路由注册与敏感参数脱敏。
+- 测试：`IpUtilsTest`、`ClientMacUtilsTest`、`IpLocationServiceTest`、`LogParamUtilsTest`、`LoginPermissionSnapshotUtilsTest`、`AuthControllerLoginLogTest`、`LogModuleIntegrationTest`，其中集成测试已覆盖写入、MAC/角色/权限快照、筛选、详情、切面、路由注册与敏感参数脱敏。
 
 **尚未完成**
 

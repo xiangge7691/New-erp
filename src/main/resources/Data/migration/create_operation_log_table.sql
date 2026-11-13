@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS `sys_operation_log` (
   `error_msg`      VARCHAR(1000) DEFAULT NULL COMMENT '失败时的异常信息',
   `cost_time`      INT           DEFAULT NULL COMMENT '耗时（毫秒）',
   `client_ip`      VARCHAR(64)   DEFAULT NULL COMMENT '客户端IP（IPv4/IPv6原样记录）',
+  `mac_address`    VARCHAR(32)   DEFAULT NULL COMMENT '客户端MAC地址（客户端通过 X-Client-Mac 上报，格式 AA-BB-CC-DD-EE-FF）',
   `ip_location`    VARCHAR(128)  DEFAULT NULL COMMENT 'IP归属地',
   `user_agent`     VARCHAR(500)  DEFAULT NULL COMMENT '客户端User-Agent',
   `created_time`   DATETIME      NOT NULL COMMENT '操作时间（请求进入时间）',
@@ -35,5 +36,7 @@ CREATE TABLE IF NOT EXISTS `sys_operation_log` (
   KEY `idx_op_module_time` (`module`, `created_time`),
   KEY `idx_op_type_time` (`operation_type`, `created_time`),
   KEY `idx_op_result_time` (`result_status`, `created_time`),
-  KEY `idx_op_time` (`created_time`)
+  KEY `idx_op_time` (`created_time`),
+  KEY `idx_op_biz_time` (`business_type`, `business_id`, `created_time`),
+  KEY `idx_op_mac_time` (`mac_address`, `created_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='操作日志表';

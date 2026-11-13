@@ -9,6 +9,7 @@ import com.tonghui.erp.Common.Dto.Log.LoginLogDto;
 import com.tonghui.erp.Common.Dto.Log.LoginLogSummaryDto;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.tonghui.erp.Common.utils.ClientMacUtils;
 import com.tonghui.erp.Common.utils.IpLocationService;
 import com.tonghui.erp.Common.utils.IpUtils;
 import com.tonghui.erp.Common.utils.LoginPermissionSnapshotUtils;
@@ -43,6 +44,9 @@ public class LoginLogServiceImpl implements LoginLogService {
 
     /** User-Agent 最大长度 */
     private static final int MAX_USER_AGENT_LENGTH = 500;
+
+    /** MAC 地址最大长度 */
+    private static final int MAX_MAC_LENGTH = ClientMacUtils.MAX_MAC_LENGTH;
 
     /** 失败原因最大长度 */
     private static final int MAX_FAIL_REASON_LENGTH = 255;
@@ -99,6 +103,7 @@ public class LoginLogServiceImpl implements LoginLogService {
             try {
                 String clientIp = IpUtils.getClientIp(request, logProperties.getIp().isTrustProxyHeaders());
                 context.setLoginIp(clientIp);
+                context.setMacAddress(ClientMacUtils.resolve(request));
                 context.setIpLocation(ipLocationService.resolve(clientIp));
                 context.setUserAgent(truncate(request.getHeader("User-Agent"), MAX_USER_AGENT_LENGTH));
             } catch (Exception e) {
@@ -152,6 +157,7 @@ public class LoginLogServiceImpl implements LoginLogService {
             entity.setLoginResult(success ? 1 : 0);
             entity.setFailReason(truncate(context.getFailReason(), MAX_FAIL_REASON_LENGTH));
             entity.setLoginIp(truncate(context.getLoginIp(), 60));
+            entity.setMacAddress(truncate(context.getMacAddress(), MAX_MAC_LENGTH));
             entity.setIpLocation(truncate(context.getIpLocation(), 120));
             entity.setUserAgent(truncate(context.getUserAgent(), MAX_USER_AGENT_LENGTH));
             entity.setLoginTime(context.getLoginTime() == null ? LocalDateTime.now() : context.getLoginTime());
@@ -177,6 +183,7 @@ public class LoginLogServiceImpl implements LoginLogService {
      * @param userName    用户姓名
      * @param loginResult 登录结果
      * @param loginIp     登录IP
+     * @param macAddress  客户端MAC地址（支持完整地址或后缀片段）
      * @param startTime   起始时间
      * @param endTime     截止时间
      * @param pageRequest 分页参数
@@ -184,7 +191,7 @@ public class LoginLogServiceImpl implements LoginLogService {
      */
     @Override
     public PagedResult<LoginLogDto> search(String userAccount, Long userId, String userName, Integer loginResult,
-                                           String loginIp, String roleName, String permissionKey,
+                                           String loginIp, String macAddress, String roleName, String permissionKey,
                                            LocalDateTime startTime, LocalDateTime endTime,
                                            PageRequestDto pageRequest) {
         QueryWrapper<SysLoginLog> wrapper = new QueryWrapper<>();
@@ -193,6 +200,7 @@ public class LoginLogServiceImpl implements LoginLogService {
         wrapper.like(hasText(userName), "user_name", userName);
         wrapper.eq(loginResult != null, "login_result", loginResult);
         wrapper.eq(hasText(loginIp), "login_ip", loginIp);
+        applyMacFilter(wrapper, macAddress);
         wrapper.like(hasText(roleName), "role_names", roleName);
         wrapper.like(hasText(permissionKey), "permission_keys", permissionKey);
         wrapper.ge(startTime != null, "login_time", startTime);
@@ -336,6 +344,29 @@ public class LoginLogServiceImpl implements LoginLogService {
         dto.setRoleNames(LoginPermissionSnapshotUtils.splitNames(entity.getRoleNames()));
         dto.setMenuCount(entity.getMenuCount() == null ? 0 : entity.getMenuCount());
         dto.setPermissionCount(entity.getPermissionCount() == null ? 0 : entity.getPermissionCount());
+    }
+
+    /**
+     * 追加 MAC 地址筛选条件
+     * <p>
+     * 支持完整地址或后缀片段，忽略短横线/冒号分隔符；查询值参数化，
+     * 列上使用 REPLACE 仅为兼容历史格式，数据量大时优先配合时间范围查询
+     * </p>
+     *
+     * @param wrapper    查询条件
+     * @param macAddress 原始 MAC 查询关键字
+     */
+    private void applyMacFilter(QueryWrapper<SysLoginLog> wrapper, String macAddress) {
+        String mac = ClientMacUtils.normalizeQuery(macAddress);
+        if (mac == null) {
+            return;
+        }
+        String column = "UPPER(REPLACE(REPLACE(mac_address, '-', ''), ':', ''))";
+        if (mac.length() == 12) {
+            wrapper.apply(column + " = {0}", mac);
+        } else {
+            wrapper.apply(column + " LIKE CONCAT('%', {0})", mac);
+        }
     }
 
     /**

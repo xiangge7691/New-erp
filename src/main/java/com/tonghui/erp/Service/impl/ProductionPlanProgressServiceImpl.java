@@ -846,8 +846,11 @@ public class ProductionPlanProgressServiceImpl implements ProductionPlanProgress
                 : (purchasePlan != null ? "PLAN-" + purchasePlan.getId() : "PLAN-" + plan.getId()));
         chain.setPurchasePlan(purchasePlan);
         // 选项卡展示采购计划名称；无采购计划的手工订单回退采购订单标题
-        chain.setPurchasePlanTitle(purchasePlan != null ? purchasePlan.getTitle()
-                : (order == null ? null : order.getTitle()));
+        String purchasePlanName = purchasePlan != null ? purchasePlan.getTitle()
+                : (order == null ? null : order.getTitle());
+        chain.setPurchasePlanName(purchasePlanName);
+        // 兼容旧字段名，保持与 purchasePlanName 同值
+        chain.setPurchasePlanTitle(purchasePlanName);
         chain.setPurchaseOrder(order);
         chain.setAcceptances(acceptances);
         chain.setStockIns(stockIns);

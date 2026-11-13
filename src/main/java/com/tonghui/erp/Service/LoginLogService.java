@@ -56,6 +56,7 @@ public interface LoginLogService {
      * @param userName    用户姓名（模糊匹配，可为空）
      * @param loginResult 登录结果：1成功/0失败（可为空）
      * @param loginIp     登录IP（精确匹配，可为空）
+     * @param macAddress  客户端MAC地址（支持完整地址或后缀片段，可为空）
      * @param roleName    角色名称（模糊匹配，可为空）
      * @param permissionKey 接口权限键（模糊匹配，可为空）
      * @param startTime   起始时间（含，可为空）
@@ -64,7 +65,7 @@ public interface LoginLogService {
      * @return 分页登录日志
      */
     PagedResult<LoginLogDto> search(String userAccount, Long userId, String userName, Integer loginResult,
-                                    String loginIp, String roleName, String permissionKey,
+                                    String loginIp, String macAddress, String roleName, String permissionKey,
                                     LocalDateTime startTime, LocalDateTime endTime,
                                     PageRequestDto pageRequest);
 

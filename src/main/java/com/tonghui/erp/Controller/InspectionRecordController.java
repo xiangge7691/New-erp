@@ -71,12 +71,6 @@ public class InspectionRecordController extends BaseController {
     @Autowired
     private WorkOrderMapper workOrderMapper;
 
-    /**
-     * 工单服务（用于时间回填联动）
-     */
-    @Autowired
-    private com.tonghui.erp.Service.WorkOrderService workOrderService;
-
     // endregion
 
     // region 查询接口
@@ -167,7 +161,6 @@ public class InspectionRecordController extends BaseController {
         try {
             QueryWrapper<InspectionRecord> wrapper = buildQueryWrapper(inspectionCode, relatedSamplingCode,
                     objectName, batchNo, inspectionBasis, inspector, conclusion, startTime, endTime);
-            wrapper.orderByDesc("start_time");
             List<InspectionRecord> list = inspectionRecordService.list(wrapper);
             fillWorkOrderInfo(list);
             return success(list);
@@ -288,7 +281,7 @@ public class InspectionRecordController extends BaseController {
                     // 获取保存后的完整记录并触发回填
                     InspectionRecord saved = inspectionRecordService.getById(record.getId());
                     if (saved != null) {
-                        backfillWorkOrderInspectionEnd(saved);
+                        inspectionRecordService.syncWorkOrderInspectionEnd(saved);
                     }
                     break;
                 } catch (DuplicateKeyException e) {
@@ -350,7 +343,7 @@ public class InspectionRecordController extends BaseController {
             // 获取更新后的完整记录并触发回填（结论改为合格时回填工单检验完成时间）
             InspectionRecord updated = inspectionRecordService.getById(id);
             if (updated != null) {
-                backfillWorkOrderInspectionEnd(updated);
+                inspectionRecordService.syncWorkOrderInspectionEnd(updated);
             }
             return success(updated != null ? updated : record, "修改成功");
         } catch (Exception e) {
@@ -444,46 +437,6 @@ public class InspectionRecordController extends BaseController {
     }
 
     /**
-     * 回填工单检验结束时间
-     * <p>
-     * 通过检验记录的 relatedInspectionRequestCode 关联请检记录，
-     * 再从请检记录中获取工单ID，最后将检验结束时间回填到工单
-     * </p>
-     *
-     * @param record 检验记录（需包含 relatedInspectionRequestCode 和 endTime）
-     */
-    private void backfillWorkOrderInspectionEnd(InspectionRecord record) {
-        if (record.getEndTime() == null) {
-            return;
-        }
-
-        Long workOrderId = null;
-        String itemCategory = null;
-
-        // 优先使用检验记录直接关联的工单ID
-        if (record.getWorkOrderId() != null) {
-            workOrderId = record.getWorkOrderId();
-            itemCategory = record.getItemCategory();
-        } else if (StringUtils.hasText(record.getRelatedInspectionRequestCode())) {
-            // 通过链路回退查询（兼容旧数据）
-            QueryWrapper<InspectionRequest> requestWrapper = new QueryWrapper<>();
-            requestWrapper.eq("inspection_code", record.getRelatedInspectionRequestCode());
-            requestWrapper.select("work_order_id", "item_category");
-            requestWrapper.last("LIMIT 1");
-            InspectionRequest inspectionRequest = inspectionRequestMapper.selectOne(requestWrapper);
-            if (inspectionRequest != null) {
-                workOrderId = inspectionRequest.getWorkOrderId();
-                itemCategory = inspectionRequest.getItemCategory();
-            }
-        }
-
-        // 仅成品类型且结论为合格时回填工单检验结束时间
-        if (workOrderId != null && "成品".equals(itemCategory) && "合格".equals(record.getConclusion())) {
-            workOrderService.syncWorkOrderTime(workOrderId, "inspectionEnd", record.getEndTime());
-        }
-    }
-
-    /**
      * 构建检验记录查询条件
      *
      * @param inspectionCode      检验编号（模糊匹配）
@@ -511,7 +464,8 @@ public class InspectionRecordController extends BaseController {
         if (StringUtils.hasText(conclusion)) wrapper.eq("conclusion", conclusion);
         if (StringUtils.hasText(startTime)) wrapper.ge("start_time", startTime);
         if (StringUtils.hasText(endTime)) wrapper.le("start_time", endTime);
-        wrapper.orderByDesc("start_time");
+        // 统一按创建时间倒序，保证新增记录排在最前
+        wrapper.orderByDesc("created_time", "id");
         return wrapper;
     }
 

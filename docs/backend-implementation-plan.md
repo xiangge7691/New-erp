@@ -241,6 +241,7 @@ GET /api/product-summary/batches
   "finishedQty": 7001,
   "unitName": "盒",
   "materialSource": "PURCHASE",
+  "materialSourceLabel": "采购",
   "planDate": "2026-09-16",
   "productionStart": "2026-09-16",
   "productionEnd": "2026-09-24",

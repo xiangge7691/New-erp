@@ -2,6 +2,7 @@ package com.tonghui.erp.Service;
 
 import com.tonghui.erp.Common.Constants.OperationType;
 import com.tonghui.erp.Common.Dto.ApiResponse;
+import com.tonghui.erp.Common.Dto.Log.BusinessHistoryDto;
 import com.tonghui.erp.Common.Dto.Log.DataChangeLogDetailDto;
 import com.tonghui.erp.Common.Dto.Log.DataChangeLogDto;
 import com.tonghui.erp.Common.Dto.Log.DataChangeRecord;
@@ -75,6 +76,9 @@ public class LogModuleIntegrationTest {
     private DataChangeLogService dataChangeLogService;
 
     @Autowired
+    private BusinessHistoryService businessHistoryService;
+
+    @Autowired
     private LogTestService logTestService;
 
     @Autowired
@@ -99,7 +103,9 @@ public class LogModuleIntegrationTest {
                 new ClassPathResource("Data/migration/add_login_log_role_permission_fields.sql"),
                 new ClassPathResource("Data/migration/create_operation_log_table.sql"),
                 new ClassPathResource("Data/migration/add_operation_log_change_fields.sql"),
+                new ClassPathResource("Data/migration/add_log_mac_address.sql"),
                 new ClassPathResource("Data/migration/create_data_change_log_table.sql"),
+                new ClassPathResource("Data/migration/add_business_history_indexes.sql"),
                 new ClassPathResource("Data/migration/init_log_config_data.sql"));
         populator.execute(dataSource);
     }
@@ -122,6 +128,7 @@ public class LogModuleIntegrationTest {
             context.setUserAccount(account);
             context.setUserName("日志测试");
             context.setLoginIp("240e:3b7:3272:d8d0:db09:c067:8d59:539e");
+            context.setMacAddress("3C-52-82-1A-4F-09");
             context.setIpLocation("中国广东省深圳市");
             context.setUserAgent("JUnit-Test");
             context.setLoginTime(LocalDateTime.now());
@@ -140,11 +147,12 @@ public class LogModuleIntegrationTest {
             pageRequest.setPageIndex(0);
             pageRequest.setPageSize(10);
             PagedResult<LoginLogDto> result = loginLogService.search(
-                    account, null, null, 1, null, null, null, null, null, pageRequest);
+                    account, null, null, 1, null, null, null, null, null, null, pageRequest);
 
             assertEquals(1, result.getTotalCount());
             LoginLogDto dto = result.getItems().get(0);
             assertEquals("240e:3b7:3272:d8d0:db09:c067:8d59:539e", dto.getLoginIp());
+            assertEquals("3C-52-82-1A-4F-09", dto.getMacAddress());
             assertEquals("中国广东省深圳市", dto.getIpLocation());
             assertEquals(1, dto.getLoginResult());
             assertEquals(List.of(1L, 25L), dto.getRoleIds());
@@ -160,11 +168,16 @@ public class LogModuleIntegrationTest {
 
             // 角色与权限条件筛选（带账号限定，避免命中其他测试数据）
             PagedResult<LoginLogDto> byRole = loginLogService.search(
-                    account, null, null, 1, null, "系统管理员", null, null, null, pageRequest);
+                    account, null, null, 1, null, null, "系统管理员", null, null, null, pageRequest);
             assertEquals(1, byRole.getTotalCount());
             PagedResult<LoginLogDto> byPermission = loginLogService.search(
-                    account, null, null, 1, null, null, "user:create", null, null, pageRequest);
+                    account, null, null, 1, null, null, null, "user:create", null, null, pageRequest);
             assertEquals(1, byPermission.getTotalCount());
+
+            // MAC 后缀片段筛选（忽略分隔符）
+            PagedResult<LoginLogDto> byMac = loginLogService.search(
+                    account, null, null, 1, null, "4F09", null, null, null, null, pageRequest);
+            assertEquals(1, byMac.getTotalCount());
 
             LoginLogDto latest = loginLogService.latestByUserId(999999L);
             assertNotNull(latest);
@@ -204,6 +217,7 @@ public class LogModuleIntegrationTest {
             context.setResponseCode(200);
             context.setCostTime(12);
             context.setClientIp("240e:3b7:3272:d8d0:db09:c067:8d59:539e");
+            context.setMacAddress("8C-16-45-7B-2E-10");
             context.setIpLocation("中国广东省深圳市");
             context.setCreatedTime(LocalDateTime.now());
             operationLogService.recordAsync(context);
@@ -214,13 +228,19 @@ public class LogModuleIntegrationTest {
             pageRequest.setPageIndex(0);
             pageRequest.setPageSize(10);
             PagedResult<OperationLogDto> result = operationLogService.search(
-                    account, null, null, module, null, null, null, null, null, null, null, pageRequest);
+                    account, null, null, module, null, null, null, null, null, null, null, null, pageRequest);
 
             assertEquals(1, result.getTotalCount());
             OperationLogDto dto = result.getItems().get(0);
             assertEquals(module, dto.getModule());
             assertEquals("CREATE", dto.getOperationType());
             assertEquals(1, dto.getResultStatus());
+            assertEquals("8C-16-45-7B-2E-10", dto.getMacAddress());
+
+            // MAC 后缀片段筛选
+            PagedResult<OperationLogDto> byMac = operationLogService.search(
+                    account, null, null, module, null, null, null, null, "2E10", null, null, null, pageRequest);
+            assertEquals(1, byMac.getTotalCount());
 
             OperationLogDetailDto detail = operationLogService.detail(dto.getId());
             assertNotNull(detail);
@@ -251,6 +271,75 @@ public class LogModuleIntegrationTest {
             assertFalse(params.contains("secret-value"));
         } finally {
             jdbcTemplate.update("DELETE FROM sys_operation_log WHERE business_id = ?", businessId);
+        }
+    }
+
+    // endregion
+
+    // region 业务变更历史用例
+    // ===================================
+    // 业务变更历史用例
+    // ===================================
+
+    /**
+     * 业务变更历史聚合接口应返回字段统计、事件分组和字段筛选结果
+     */
+    @Test
+    public void testBusinessHistoryAggregation() {
+        String account = "bizhist_" + System.nanoTime();
+        String bizId = String.valueOf(990000000L + Math.abs(System.nanoTime() % 1000000));
+        Long operationLogId = null;
+        LocalDateTime now = LocalDateTime.now();
+        try {
+            jdbcTemplate.update("INSERT INTO sys_operation_log"
+                            + " (user_account, user_name, module, operation_type, operation_desc,"
+                            + " business_type, business_id, result_status, created_time, mac_address)"
+                            + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    account, "业务历史测试", "工单管理", "UPDATE", "修改工单",
+                    "WORK_ORDER", bizId, 1, now, "00-1A-2B-3C-4D-5E");
+            operationLogId = jdbcTemplate.queryForObject(
+                    "SELECT id FROM sys_operation_log WHERE user_account = ? ORDER BY id DESC LIMIT 1",
+                    Long.class, account);
+            assertNotNull(operationLogId);
+
+            jdbcTemplate.update("INSERT INTO sys_data_change_log"
+                            + " (trace_id, operation_log_id, table_name, business_id, change_type,"
+                            + " change_source, changed_fields, field_count, user_account, user_name, created_time)"
+                            + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    "tr-bizhist-1", operationLogId, "work_order", bizId, "UPDATE", "PRIMARY",
+                    "[{\"field\":\"spec\",\"label\":\"规格\",\"before\":\"A\",\"after\":\"B\"}]",
+                    1, account, "业务历史测试", now);
+            jdbcTemplate.update("INSERT INTO sys_data_change_log"
+                            + " (trace_id, operation_log_id, table_name, business_id, change_type,"
+                            + " change_source, changed_fields, field_count, user_account, user_name, created_time)"
+                            + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    "tr-bizhist-1", operationLogId, "work_order", bizId, "UPDATE", "PRIMARY",
+                    "[{\"field\":\"batch_qty\",\"label\":\"批量\",\"before\":\"1200\",\"after\":\"1500\"}]",
+                    1, account, "业务历史测试", now);
+
+            PageRequestDto pageRequest = new PageRequestDto();
+            pageRequest.setPageIndex(0);
+            pageRequest.setPageSize(20);
+
+            BusinessHistoryDto result = businessHistoryService.query(
+                    "WORK_ORDER", bizId, null, null, null, null, pageRequest);
+
+            assertEquals(1, result.getEvents().size());
+            assertEquals(2, result.getEvents().get(0).getChanges().size());
+            assertEquals(2, result.getFieldStats().size());
+            assertEquals("00-1A-2B-3C-4D-5E", result.getEvents().get(0).getMacAddress());
+            assertTrue(result.getTitle().startsWith("工单 #"));
+
+            BusinessHistoryDto filtered = businessHistoryService.query(
+                    "WORK_ORDER", bizId, "spec", null, null, null, pageRequest);
+            assertEquals(1, filtered.getEvents().size());
+            assertEquals(1, filtered.getEvents().get(0).getChanges().size());
+            assertEquals("spec", filtered.getEvents().get(0).getChanges().get(0).getField());
+        } finally {
+            if (operationLogId != null) {
+                jdbcTemplate.update("DELETE FROM sys_data_change_log WHERE operation_log_id = ?", operationLogId);
+                jdbcTemplate.update("DELETE FROM sys_operation_log WHERE id = ?", operationLogId);
+            }
         }
     }
 
@@ -308,6 +397,9 @@ public class LogModuleIntegrationTest {
         assertMappingExists("GET", "/api/system/data-change-log/search");
         assertMappingExists("GET", "/api/system/data-change-log/1");
         assertMappingExists("GET", "/api/system/operation-log/1/changes");
+        assertMappingExists("GET", "/api/business-history/WORK_ORDER/1");
+        assertMappingExists("GET", "/api/business-history/PREPARATION/1");
+        assertMappingExists("GET", "/api/preparation/1/details");
     }
 
     /**

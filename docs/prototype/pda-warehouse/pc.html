@@ -1,0 +1,1390 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>仓储扫码 · PC 端原型</title>
+<style>
+:root{
+  --primary:#2f6fed; --primary-weak:#eaf1ff; --primary-dark:#1f5bd7;
+  --green:#079455; --green-weak:#e7f6ee;
+  --amber:#dc6803; --amber-weak:#fef4e6;
+  --red:#d92d20; --red-weak:#fdeceb;
+  --text:#182230; --muted:#667085; --soft:#98a2b3;
+  --line:#e4e7ec; --line2:#eef1f5; --bg:#f5f7fb; --card:#fff;
+  --radius:14px; --radius-sm:9px;
+  --shadow:0 1px 2px rgba(16,24,40,.04), 0 10px 28px rgba(16,24,40,.05);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--bg); color:var(--text);
+  font:13px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:#d6dce6;border-radius:4px}
+
+/* ---------- 布局 ---------- */
+.app{display:flex;min-height:100vh}
+.sidebar{
+  position:fixed;inset:0 auto 0 0;width:222px;background:#fff;
+  border-right:1px solid var(--line);display:flex;flex-direction:column;z-index:10;
+}
+.brand{height:64px;display:flex;align-items:center;gap:10px;padding:0 20px;border-bottom:1px solid var(--line2)}
+.brand-mark{
+  width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#2f6fed,#6d9bff);
+  color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px;letter-spacing:-.5px;
+}
+.brand-name{font-size:15px;font-weight:700;letter-spacing:.2px}
+.brand-sub{font-size:11px;color:var(--soft);margin-top:-2px}
+.nav{padding:14px 12px;flex:1;overflow:auto}
+.nav-label{font-size:11px;color:var(--soft);padding:8px 10px 6px;letter-spacing:.6px}
+.nav-item{
+  display:flex;align-items:center;gap:10px;height:40px;padding:0 12px;margin:2px 0;
+  border-radius:9px;color:var(--muted);font-size:13.5px;cursor:pointer;user-select:none;
+}
+.nav-item:hover{background:#f7f9fc;color:var(--text)}
+.nav-item.active{background:var(--primary-weak);color:var(--primary);font-weight:600}
+.nav-item.disabled{opacity:.45;cursor:not-allowed}
+.nav-dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.65}
+.nav-badge{
+  margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:10px;
+  background:var(--red);color:#fff;font-size:11px;display:grid;place-items:center;font-weight:600;
+}
+.sidebar-foot{border-top:1px solid var(--line2);padding:14px 18px;font-size:11.5px;color:var(--soft)}
+.sidebar-foot b{color:var(--muted);font-weight:600}
+
+.main{margin-left:222px;flex:1;min-width:0;padding:0 28px 64px}
+.topbar{
+  height:64px;display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:8;background:rgba(245,247,251,.86);backdrop-filter:blur(8px);
+}
+.crumb{font-size:12.5px;color:var(--soft)}
+.crumb b{color:var(--text);font-weight:600}
+.top-actions{display:flex;align-items:center;gap:10px}
+.avatar{
+  width:32px;height:32px;border-radius:50%;background:#dfe8ff;color:var(--primary);
+  display:grid;place-items:center;font-weight:700;font-size:12px;
+}
+
+/* ---------- 通用 ---------- */
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:2px 0 16px}
+.page-head h1{margin:0;font-size:22px;font-weight:700;letter-spacing:-.2px}
+.page-head p{margin:5px 0 0;color:var(--muted);font-size:12.5px}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{
+  height:34px;padding:0 14px;border:1px solid var(--line);border-radius:8px;
+  background:#fff;color:var(--text);font-size:12.5px;display:inline-flex;align-items:center;gap:6px;
+  transition:.15s;
+}
+.btn:hover{border-color:#c9d2e0;background:#fbfcfe}
+.btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+.btn.primary:hover{background:var(--primary-dark);border-color:var(--primary-dark)}
+.btn.danger{color:var(--red);border-color:#f3c4c0}
+.btn.ghost{background:transparent}
+.btn.sm{height:28px;padding:0 10px;font-size:12px;border-radius:7px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.link{background:none;border:0;color:var(--primary);padding:0;font-size:12.5px}
+.link.danger{color:var(--red)}
+.input,select.input{
+  height:34px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:0 11px;font-size:12.5px;outline:none;
+}
+.input:focus{border-color:#9db8f5;box-shadow:0 0 0 3px rgba(47,111,237,.10)}
+.input.sm{height:28px;font-size:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.card-head{padding:16px 18px;border-bottom:1px solid var(--line2);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.card-head h3{margin:0;font-size:14px;font-weight:700}
+.card-head p{margin:3px 0 0;font-size:12px;color:var(--muted)}
+.stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:16px}
+.stat{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow)}
+.stat .k{font-size:12px;color:var(--muted)}
+.stat .v{font-size:26px;font-weight:750;letter-spacing:-.6px;margin-top:6px}
+.stat .s{font-size:11.5px;color:var(--soft);margin-top:4px}
+.stat .s b{color:var(--green);font-weight:600}
+.stat .s b.warn{color:var(--amber)}
+.tabs{display:flex;gap:26px;padding:0 18px;border-bottom:1px solid var(--line2)}
+.tab{height:46px;display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:600}
+.tab .count{font-size:11px;background:#eef1f5;color:var(--muted);border-radius:9px;padding:1px 7px}
+.tab.active .count{background:var(--primary-weak);color:var(--primary)}
+.filters{display:flex;gap:10px;align-items:center;padding:14px 18px;flex-wrap:wrap;border-bottom:1px solid var(--line2)}
+.filters .grow{flex:1}
+table{width:100%;border-collapse:collapse}
+th{
+  text-align:left;font-size:11.5px;color:var(--soft);font-weight:600;letter-spacing:.3px;
+  padding:11px 14px;background:#fbfcfe;border-bottom:1px solid var(--line2);white-space:nowrap;
+}
+td{padding:13px 14px;border-bottom:1px solid var(--line2);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+tbody tr:hover{background:#fafbff}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;letter-spacing:-.2px}
+.sub{color:var(--muted);font-size:12px}
+.pill{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:12px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.pill.gray{background:#f2f4f7;color:#667085}
+.pill.blue{background:var(--primary-weak);color:var(--primary)}
+.pill.green{background:var(--green-weak);color:var(--green)}
+.pill.amber{background:var(--amber-weak);color:var(--amber)}
+.pill.red{background:var(--red-weak);color:var(--red)}
+.tag{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:6px;background:#f2f4f7;color:#475467;font-size:11px}
+.tag.lock{background:#fff4e8;color:#b54708}
+.qr{display:block;border-radius:6px;background:#fff}
+.empty{padding:56px 20px;text-align:center;color:var(--soft)}
+.empty b{display:block;color:var(--muted);margin-bottom:4px}
+
+/* ---------- 抽屉 ---------- */
+.overlay{position:fixed;inset:0;background:rgba(16,24,40,.34);opacity:0;pointer-events:none;transition:.2s;z-index:40}
+.overlay.open{opacity:1;pointer-events:auto}
+.drawer{
+  position:fixed;top:0;right:0;bottom:0;width:860px;max-width:94vw;background:#fff;
+  box-shadow:-18px 0 48px rgba(16,24,40,.16);transform:translateX(102%);transition:.24s cubic-bezier(.4,0,.2,1);
+  z-index:41;display:flex;flex-direction:column;
+}
+.drawer.open{transform:translateX(0)}
+.drawer-head{padding:20px 24px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.drawer-head h2{margin:0;font-size:18px;font-weight:700;letter-spacing:-.2px;display:flex;align-items:center;gap:10px}
+.drawer-head p{margin:6px 0 0;color:var(--muted);font-size:12.5px}
+.icon-btn{width:32px;height:32px;border:1px solid var(--line);border-radius:8px;background:#fff;display:grid;place-items:center;color:var(--muted)}
+.drawer-body{flex:1;overflow:auto;padding:20px 24px 110px}
+.drawer-foot{
+  position:absolute;left:0;right:0;bottom:0;height:76px;background:#fff;border-top:1px solid var(--line);
+  display:flex;align-items:center;justify-content:space-between;padding:0 24px;gap:14px;
+}
+.meta-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px 18px;background:#fafbfe;border:1px solid var(--line2);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+.meta .k{font-size:11.5px;color:var(--soft)}
+.meta .v{font-size:13px;font-weight:600;margin-top:3px;word-break:break-all}
+.package-card{display:flex;align-items:center;gap:16px;border:1px solid #d9e4ff;background:linear-gradient(135deg,#f5f8ff,#fff);border-radius:12px;padding:14px 16px;margin-bottom:16px}
+.package-card .grow{flex:1;min-width:0}
+.package-card .k{font-size:11.5px;color:var(--soft)}
+.package-card .code{font-size:15px;font-weight:700;letter-spacing:.2px;margin-top:2px}
+.package-card .hint{font-size:11.5px;color:var(--muted);margin-top:4px}
+.progress{display:flex;align-items:center;gap:12px;margin:2px 0 14px}
+.bar{flex:1;height:8px;border-radius:6px;background:#eef1f5;overflow:hidden}
+.bar > i{display:block;height:100%;border-radius:6px;background:var(--primary);transition:width .3s}
+.progress .txt{font-size:12px;color:var(--muted);white-space:nowrap}
+.progress .txt b{color:var(--text);font-weight:700}
+.section-title{display:flex;align-items:center;justify-content:space-between;margin:18px 0 8px}
+.section-title h4{margin:0;font-size:13px;font-weight:700}
+.section-title span{font-size:11.5px;color:var(--soft)}
+.detail-table th{background:#fff;border-bottom:1px solid var(--line2)}
+.detail-table td{padding:11px 10px}
+.detail-table .mat b{display:block;font-weight:600}
+.detail-table .mat span{display:block;color:var(--soft);font-size:11px;margin-top:1px}
+.row-scanned{background:#f7fcf9}
+.row-scanned td{border-bottom-color:#e7f3ec}
+.check{color:var(--green);font-weight:700}
+
+/* ---------- 弹窗 ---------- */
+.modal-wrap{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;padding:24px}
+.modal-wrap.open{display:flex}
+.modal-mask{position:absolute;inset:0;background:rgba(16,24,40,.42)}
+.modal{
+  position:relative;width:540px;max-width:100%;max-height:88vh;overflow:auto;background:#fff;border-radius:16px;
+  box-shadow:0 24px 64px rgba(16,24,40,.25);padding:22px 24px;
+}
+.modal.wide{width:760px}
+.modal h3{margin:0;font-size:17px;font-weight:700}
+.modal .sub{margin:6px 0 0}
+.modal-body{margin:16px 0 4px}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+.form-row{margin-top:14px}
+.form-row label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+.form-row .input{width:100%}
+.summary{background:#fafbfe;border:1px solid var(--line2);border-radius:10px;padding:12px 14px;font-size:12.5px;color:var(--muted)}
+.summary b{color:var(--text)}
+.sign-box{display:flex;align-items:center;gap:12px;border:1px dashed #cdd8ee;border-radius:10px;padding:12px 14px;background:#fbfcff}
+.sign-box .who{font-weight:700;font-size:13px}
+.sign-box .when{font-size:11.5px;color:var(--soft);margin-top:2px}
+.sign-box .ok{margin-left:auto;color:var(--green);font-weight:700;font-size:12px}
+.sig-pad{height:96px;border:1px dashed #cdd8ee;border-radius:10px;background:repeating-linear-gradient(0deg,#fff,#fff 23px,#f2f5fa 24px);display:grid;place-items:center;color:var(--soft);font-size:12px}
+
+/* ---------- 标签 ---------- */
+.label-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.label-card{border:1px solid #cfd6e3;border-radius:10px;padding:12px 14px;background:#fff}
+.label-card .lh{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;border-bottom:1px solid #eef1f5;padding-bottom:7px}
+.label-card .lh b{font-size:13px}
+.label-card .lh span{font-size:11px;color:var(--muted)}
+.label-card .lg{display:grid;grid-template-columns:1fr 110px;gap:10px;margin-top:8px}
+.label-card .fields{font-size:11.5px;color:#475467;line-height:1.7}
+.label-card .fields b{color:#182230;font-weight:600}
+.label-card .note{margin-top:7px;font-size:10.5px;color:var(--soft);border-top:1px dashed #e4e7ec;padding-top:6px}
+.label-preview{background:#f3f5f9;border-radius:12px;padding:16px}
+
+/* ---------- 原型说明 ---------- */
+.notes{
+  position:fixed;top:0;right:0;bottom:0;width:380px;background:#fff;border-left:1px solid var(--line);
+  box-shadow:-16px 0 40px rgba(16,24,40,.12);transform:translateX(102%);transition:.24s;z-index:55;
+  display:flex;flex-direction:column;
+}
+.notes.open{transform:translateX(0)}
+.notes-head{padding:18px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+.notes-body{padding:18px 20px;overflow:auto;font-size:12.5px;color:var(--muted);line-height:1.7}
+.notes-body h4{color:var(--text);font-size:13px;margin:18px 0 6px}
+.notes-body h4:first-child{margin-top:0}
+.notes-body ol{padding-left:18px;margin:6px 0}
+.notes-body li{margin:4px 0}
+.notes-body code{background:#f2f4f7;border-radius:4px;padding:1px 5px;font-size:11px;color:#344054}
+.notes-body .callout{background:#f5f8ff;border:1px solid #dbe6ff;border-radius:10px;padding:10px 12px;margin:10px 0;color:#344054}
+
+/* ---------- Toast ---------- */
+.toast-root{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:80;display:flex;flex-direction:column;gap:8px;align-items:center}
+.toast{
+  background:#182230;color:#fff;border-radius:10px;padding:10px 16px;font-size:12.5px;
+  box-shadow:0 12px 32px rgba(16,24,40,.25);opacity:0;transform:translateY(8px);transition:.2s;
+}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.ok{background:#065f46}
+.toast.warn{background:#92400e}
+.toast.err{background:#991b1b}
+
+@media (max-width:1180px){
+  .stat-grid{grid-template-columns:repeat(2,1fr)}
+  .meta-grid{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-name">仓储管理</div>
+        <div class="brand-sub">物料 · 扫码作业</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <div class="nav-label">仓储作业</div>
+      <div class="nav-item active" data-view="inbound" onclick="go('inbound')"><span class="nav-dot"></span>入库管理<span class="nav-badge">2</span></div>
+      <div class="nav-item" data-view="outbound" onclick="go('outbound')"><span class="nav-dot"></span>出库管理<span class="nav-badge">2</span></div>
+      <div class="nav-item" data-view="return" onclick="go('return')"><span class="nav-dot"></span>退库管理<span class="nav-badge">1</span></div>
+      <div class="nav-item" data-view="labels" onclick="go('labels')"><span class="nav-dot"></span>标签打印</div>
+      <div class="nav-item" data-view="acceptance" onclick="go('acceptance')"><span class="nav-dot"></span>验收签名<span class="nav-badge">1</span></div>
+      <div class="nav-label" style="margin-top:10px">其他</div>
+      <div class="nav-item disabled"><span class="nav-dot"></span>库存查询</div>
+      <div class="nav-item disabled"><span class="nav-dot"></span>调拨 / 盘点（本期不扫码）</div>
+      <div class="nav-item" data-view="notes" onclick="go('notes')"><span class="nav-dot"></span>原型说明</div>
+    </nav>
+    <div class="sidebar-foot">
+      当前仓库：<b>原料仓库</b><br/>
+      登录人：陶新文 · 库管
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="crumb">仓储管理 / <b id="crumb">入库管理</b></div>
+      <div class="top-actions">
+        <button class="btn ghost" onclick="toggleNotes()">设计说明</button>
+        <button class="btn ghost" onclick="toast('PC 端为手动确认：保存后进入待入库/草稿，确认后才改库存','warn')">?</button>
+        <div class="avatar">陶</div>
+      </div>
+    </header>
+    <div id="view"></div>
+  </main>
+</div>
+
+<div class="overlay" id="overlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer"></div>
+
+<div class="modal-wrap" id="modalWrap">
+  <div class="modal-mask" onclick="closeModal()"></div>
+  <div class="modal" id="modal"></div>
+</div>
+
+<aside class="notes" id="notes">
+  <div class="notes-head">
+    <b>原型说明</b>
+    <button class="icon-btn" onclick="toggleNotes()">×</button>
+  </div>
+  <div class="notes-body" id="notesBody"></div>
+</aside>
+
+<div class="toast-root" id="toastRoot"></div>
+
+<script src="vendor/qrcode.js"></script>
+<script>
+/* =========================================================
+ * 原型数据
+ * ======================================================= */
+const inboundDocs = [
+  {
+    id:'IN202611130001', type:'采购入库', source:'YS-20261113-001', warehouse:'原料仓库',
+    date:'2026-11-13 09:20', status:'待打印入库码', purpose:'疏肝养胃丸', packageCode:'pk2026111300001',
+    lines:[
+      {id:1, code:'Z046', name:'当归', batch:'260501', qty:14.71, unit:'千克', expiry:'2029-05-03', location:'A-01-02', inCode:'in2026111300001', scanned:false},
+      {id:2, code:'Z125', name:'红花', batch:'260701', qty:14.71, unit:'千克', expiry:'2029-07-27', location:'A-02-01', inCode:'in2026111300002', scanned:false},
+      {id:3, code:'Z055', name:'川芎', batch:'260601', qty:14.71, unit:'千克', expiry:'2029-05-31', location:'A-02-03', inCode:'in2026111300003', scanned:false},
+      {id:4, code:'Z013', name:'桃仁', batch:'251101', qty:14.71, unit:'千克', expiry:'2029-01-18', location:'A-03-01', inCode:'in2026111300004', scanned:false},
+      {id:5, code:'Z069', name:'蜈蚣（kg）', batch:'260701', qty:7.36, unit:'千克', expiry:'2029-06-30', location:'B-01-02', inCode:'in2026111300005', scanned:false},
+      {id:6, code:'Z067', name:'全蝎', batch:'260401', qty:7.36, unit:'千克', expiry:'2029-04-12', location:'B-01-04', inCode:'in2026111300006', scanned:false}
+    ]
+  },
+  {
+    id:'IN202611130002', type:'成品入库', source:'GD202611130001', warehouse:'成品仓库',
+    date:'2026-11-13 10:05', status:'待入库', purpose:'疏肝养胃丸', packageCode:'pk2026111300002',
+    lines:[
+      {id:1, code:'Z04-011', name:'疏肝养胃丸', batch:'20261101', qty:7000, unit:'盒', expiry:'2028-11-01', location:'C-01-01', inCode:'in2026111300007', scanned:false}
+    ]
+  },
+  {
+    id:'IN202611120008', type:'采购入库', source:'YS-20261112-006', warehouse:'辅料仓库',
+    date:'2026-11-12 16:40', status:'已入库', purpose:'活血通络丸', packageCode:'pk2026111200006',
+    lines:[
+      {id:1, code:'F030', name:'蜂蜜（药用）', batch:'260908-1', qty:500, unit:'千克', expiry:'2028-09-07', location:'F-01-01', inCode:'in2026111200021', scanned:true},
+      {id:2, code:'F0051', name:'郁金油', batch:'260801', qty:20, unit:'千克', expiry:'2028-08-01', location:'F-02-02', inCode:'in2026111200022', scanned:true}
+    ]
+  },
+  {
+    id:'IN202611120009', type:'采购入库', source:'YS-20261112-007', warehouse:'包材仓库',
+    date:'2026-11-12 17:20', status:'草稿', purpose:'—', packageCode:null,
+    lines:[
+      {id:1, code:'B05-004-01', name:'60ml口服固体药用高密度聚乙烯瓶', batch:'A202603023', qty:20000, unit:'个', expiry:'2028-09-15', location:'P-01-01', inCode:null, scanned:false}
+    ]
+  }
+];
+
+const outboundDocs = [
+  {
+    id:'OUT202611130001', type:'生产领料出库', source:'SCLL-20261113-001', warehouse:'原料仓库',
+    date:'2026-11-13 08:30', status:'草稿', qtyLocked:true, plan:'Plan202611130001',
+    lines:[
+      {id:1, code:'Z046', name:'当归', batch:'260501', qty:14.71, unit:'千克', inCode:'in2026111300001', scanned:false},
+      {id:2, code:'Z125', name:'红花', batch:'260701', qty:14.71, unit:'千克', inCode:'in2026111300002', scanned:false},
+      {id:3, code:'Z055', name:'川芎', batch:'260601', qty:14.71, unit:'千克', inCode:'in2026111300003', scanned:false},
+      {id:4, code:'Z013', name:'桃仁', batch:'251101', qty:14.71, unit:'千克', inCode:'in2026111300004', scanned:false},
+      {id:5, code:'Z069', name:'蜈蚣（kg）', batch:'260701', qty:7.36, unit:'千克', inCode:'in2026111300005', scanned:false},
+      {id:6, code:'Z067', name:'全蝎', batch:'260401', qty:7.36, unit:'千克', inCode:'in2026111300006', scanned:false}
+    ]
+  },
+  {
+    id:'OUT202611130002', type:'销售出库', source:'—', warehouse:'成品仓库',
+    date:'2026-11-13 10:20', status:'草稿', qtyLocked:false, plan:'—',
+    lines:[
+      {id:1, code:'Z04-011', name:'疏肝养胃丸', batch:'20261101', qty:200, unit:'盒', inCode:'in2026111300007', scanned:false}
+    ]
+  },
+  {
+    id:'OUT202611120006', type:'生产领料出库', source:'SCLL-20261112-004', warehouse:'原料仓库',
+    date:'2026-11-12 14:10', status:'已出库', qtyLocked:true, plan:'Plan202611120002',
+    lines:[
+      {id:1, code:'Z046', name:'当归', batch:'260501', qty:12.0, unit:'千克', inCode:'in2026111200011', scanned:true}
+    ]
+  }
+];
+
+const returnDocs = [
+  {
+    id:'TK-20261113001', outOrder:'OUT202611120006', warehouse:'原料仓库',
+    date:'2026-11-13 11:05', status:'草稿', operator:'陶新文',
+    lines:[
+      {id:1, code:'Z046', name:'当归', batch:'260501', outQty:12.0, returnable:2.0, qty:2.0, unit:'千克', inCode:'in2026111200011', scanned:false},
+      {id:2, code:'Z125', name:'红花', batch:'260701', outQty:8.0, returnable:1.5, qty:1.5, unit:'千克', inCode:'in2026111200012', scanned:false}
+    ]
+  }
+];
+
+const state = {
+  view:'inbound',
+  inboundTab:'print',
+  outboundTab:'draft',
+  returnTab:'draft',
+  open:null,
+  pendingConfirm:null,
+  signRole:null,
+  acceptanceSigned:{accept:false, review:false}
+};
+
+const titles = {inbound:'入库管理', outbound:'出库管理', return:'退库管理', labels:'标签打印', acceptance:'验收签名', notes:'原型说明'};
+
+/* =========================================================
+ * 工具
+ * ======================================================= */
+function qrSvg(seed, size=90){
+  // 真实二维码：优先用本地 qrcode-generator 生成，失败时才退回装饰码
+  try {
+    const qr = qrcode(0, 'M');
+    qr.addData(seed);
+    qr.make();
+    const count = qr.getModuleCount();
+    const margin = 4;
+    const total = count + margin * 2;
+    const cell = size / total;
+    let rects = '';
+    for (let r=0;r<count;r++) for (let c=0;c<count;c++){
+      if (qr.isDark(r,c)) {
+        rects += `<rect x="${((c+margin)*cell).toFixed(2)}" y="${((r+margin)*cell).toFixed(2)}" width="${cell.toFixed(2)}" height="${cell.toFixed(2)}"/>`;
+      }
+    }
+    return `<svg class="qr" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" fill="#000"><rect width="${size}" height="${size}" fill="#fff"/>${rects}</svg>`;
+  } catch (e) {
+    return fakeQrSvg(seed, size);
+  }
+}
+function fakeQrSvg(seed, size=90){
+  let h = 2166136261;
+  for (let i=0;i<seed.length;i++){ h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
+  const rand = () => { h ^= h<<13; h ^= h>>>17; h ^= h<<5; return ((h>>>0)/4294967296); };
+  const n = 25, c = size/n;
+  let cells = '';
+  for (let y=0;y<n;y++) for (let x=0;x<n;x++){
+    if ((x<8&&y<8)||(x>=n-8&&y<8)||(x<8&&y>=n-8)) continue;
+    if (rand() > 0.52) cells += `<rect x="${(x*c).toFixed(2)}" y="${(y*c).toFixed(2)}" width="${c.toFixed(2)}" height="${c.toFixed(2)}"/>`;
+  }
+  const finder = (fx,fy) => `<rect x="${fx*c}" y="${fy*c}" width="${7*c}" height="${7*c}" fill="#fff"/><rect x="${(fx+1)*c}" y="${(fy+1)*c}" width="${5*c}" height="${5*c}"/><rect x="${(fx+2)*c}" y="${(fy+2)*c}" width="${3*c}" height="${3*c}" fill="#fff"/>`;
+  return `<svg class="qr" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" fill="#111"><rect width="${size}" height="${size}" fill="#fff"/>${cells}${finder(0,0)}${finder(n-7,0)}${finder(0,n-7)}</svg>`;
+}
+function crc16(str){
+  let crc = 0xFFFF;
+  for (let i=0;i<str.length;i++){
+    crc ^= str.charCodeAt(i) << 8;
+    for (let j=0;j<8;j++){
+      crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) : (crc << 1);
+      crc &= 0xFFFF;
+    }
+  }
+  return crc.toString(16).toUpperCase().padStart(4, '0');
+}
+function qrContent(type, code){
+  return `ERP1|${type}|${code}|${crc16(code)}`;
+}
+function toast(msg, type=''){
+  const root = document.getElementById('toastRoot');
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  root.appendChild(el);
+  requestAnimationFrame(()=>el.classList.add('show'));
+  setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=>el.remove(), 220); }, 2400);
+}
+function pill(status){
+  const map = {
+    '待打印入库码':'amber','待入库':'blue','已入库':'green','草稿':'gray','待确认':'amber',
+    '已出库':'green','已退库':'green','已取消':'red','待扫码':'gray','已扫码':'green'
+  };
+  return `<span class="pill ${map[status]||'gray'}">${status}</span>`;
+}
+function go(view){
+  state.view = view;
+  render();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function toggleNotes(){
+  const el = document.getElementById('notes');
+  el.classList.toggle('open');
+  document.getElementById('notesBody').innerHTML = notesHtml();
+}
+
+/* =========================================================
+ * 视图
+ * ======================================================= */
+function render(){
+  document.querySelectorAll('.nav-item[data-view]').forEach(el=>{
+    el.classList.toggle('active', el.dataset.view === state.view);
+  });
+  document.getElementById('crumb').textContent = titles[state.view] || '';
+  const root = document.getElementById('view');
+  if (state.view === 'inbound') root.innerHTML = inboundView();
+  else if (state.view === 'outbound') root.innerHTML = outboundView();
+  else if (state.view === 'return') root.innerHTML = returnView();
+  else if (state.view === 'labels') root.innerHTML = labelsView();
+  else if (state.view === 'acceptance') root.innerHTML = acceptanceView();
+  else root.innerHTML = notesView();
+}
+
+const statsHtml = (items) => `<div class="stat-grid">${items.map(i=>`
+  <div class="stat"><div class="k">${i.k}</div><div class="v">${i.v}</div><div class="s">${i.s}</div></div>`).join('')}</div>`;
+
+function inboundView(){
+  const counts = {
+    print: inboundDocs.filter(d=>d.status==='待打印入库码').length,
+    scan: inboundDocs.filter(d=>d.status==='待入库').length,
+    done: inboundDocs.filter(d=>d.status==='已入库').length,
+    draft: inboundDocs.filter(d=>d.status==='草稿').length,
+    all: inboundDocs.length
+  };
+  const tabMap = { print:'待打印入库码', scan:'待入库', done:'已入库', draft:'草稿' };
+  const docs = state.inboundTab==='all' ? inboundDocs : inboundDocs.filter(d=>d.status===tabMap[state.inboundTab]);
+  return `
+  <div class="page-head">
+    <div>
+      <h1>入库管理</h1>
+      <p>验收完成后先进入「待打印入库码」；打印标签后转为「待入库」，扫码核对并手动确认后才增加库存。</p>
+    </div>
+    <div class="toolbar">
+      <button class="btn" onclick="toast('原型演示：导出待入库清单')">导出</button>
+      <button class="btn primary" onclick="toast('原型演示：新建入库单需先完成验收双签','warn')">新建入库</button>
+    </div>
+  </div>
+  ${statsHtml([
+    {k:'待打印入库码', v:String(counts.print), s:'验收完成，等待打印标签'},
+    {k:'待入库扫码', v:String(counts.scan), s:'已打印，等待扫码确认'},
+    {k:'今日已入库', v:'8', s:'较昨日 <b>+2</b>'},
+    {k:'待验收签名', v:'1', s:'验收人 / 复核人双签'}
+  ])}
+  <div class="card">
+    <div class="tabs">
+      <div class="tab ${state.inboundTab==='print'?'active':''}" onclick="setInboundTab('print')">待打印入库码 <span class="count">${counts.print}</span></div>
+      <div class="tab ${state.inboundTab==='scan'?'active':''}" onclick="setInboundTab('scan')">待入库 <span class="count">${counts.scan}</span></div>
+      <div class="tab ${state.inboundTab==='done'?'active':''}" onclick="setInboundTab('done')">已入库 <span class="count">${counts.done}</span></div>
+      <div class="tab ${state.inboundTab==='draft'?'active':''}" onclick="setInboundTab('draft')">草稿 <span class="count">${counts.draft}</span></div>
+      <div class="tab ${state.inboundTab==='all'?'active':''}" onclick="setInboundTab('all')">全部 <span class="count">${counts.all}</span></div>
+    </div>
+    <div class="filters">
+      <input class="input" style="width:240px" placeholder="搜索入库单号 / 来源单号" />
+      <select class="input"><option>全部仓库</option><option>原料仓库</option><option>成品仓库</option><option>辅料仓库</option></select>
+      <select class="input"><option>全部类型</option><option>采购入库</option><option>成品入库</option></select>
+      <div class="grow"></div>
+      <span class="sub">共 ${docs.length} 条</span>
+    </div>
+    <table>
+      <thead><tr>
+        <th>入库单号</th><th>类型</th><th>来源单号</th><th>仓库</th><th>品种</th><th>入库数量</th><th>状态</th><th>创建时间</th><th style="width:210px">操作</th>
+      </tr></thead>
+      <tbody>
+      ${docs.length ? docs.map(d=>`
+        <tr>
+          <td><span class="mono">${d.id}</span><div class="sub">用途：${d.purpose}</div></td>
+          <td>${d.type}</td>
+          <td><span class="mono">${d.source}</span></td>
+          <td>${d.warehouse}</td>
+          <td>${d.lines.length}</td>
+          <td><b>${d.lines.reduce((s,l)=>s+Number(l.qty),0).toFixed(2)}</b></td>
+          <td>${pill(d.status)}</td>
+          <td class="sub">${d.date}</td>
+          <td>
+            <button class="link" onclick="openInbound('${d.id}')">查看</button>
+            ${d.status==='待打印入库码'?`<button class="link" style="margin-left:12px" onclick="printDoc('${d.id}','inbound')">打印入库码</button>`:''}
+            ${d.status==='待入库'?`<button class="link" style="margin-left:12px" onclick="openInbound('${d.id}')">扫码</button>`:''}
+            ${(d.status==='待入库'||d.status==='已入库')?`<button class="link" style="margin-left:12px" onclick="printDoc('${d.id}','inbound')">补打</button>`:''}
+            ${d.status==='待入库'?`<button class="link" style="margin-left:12px" onclick="openInbound('${d.id}')">确认入库</button>`:''}
+          </td>
+        </tr>`).join('') : `<tr><td colspan="9"><div class="empty"><b>暂无单据</b>切换页签查看其他状态</div></td></tr>`}
+      </tbody>
+    </table>
+  </div>`;
+}
+function setInboundTab(t){ state.inboundTab = t; render(); }
+
+function outboundView(){
+  const counts = {
+    draft: outboundDocs.filter(d=>d.status==='草稿').length,
+    done: outboundDocs.filter(d=>d.status==='已出库').length,
+    all: outboundDocs.length
+  };
+  const docs = state.outboundTab==='all' ? outboundDocs : outboundDocs.filter(d=>{
+    const target = state.outboundTab==='draft' ? '草稿' : '已出库';
+    return d.status === target;
+  });
+  return `
+  <div class="page-head">
+    <div>
+      <h1>出库管理</h1>
+      <p>生产领料推送的草稿数量锁定；扫码核对批次后手动确认，确认时才扣减库存。</p>
+    </div>
+    <div class="toolbar">
+      <button class="btn" onclick="toast('原型演示：导出草稿出库单')">导出</button>
+      <button class="btn primary" onclick="newOutboundDemo()">新建出库单</button>
+    </div>
+  </div>
+  ${statsHtml([
+    {k:'待出库草稿', v:'2', s:'其中 <b class="warn">1</b> 单数量锁定'},
+    {k:'今日已出库', v:'12', s:'生产领料 9 · 销售 3'},
+    {k:'待扫码行', v:'8', s:'扫满后方可确认'},
+    {k:'库存预警批次', v:'4', s:'近效期 3 · 不足 1'}
+  ])}
+  <div class="card">
+    <div class="tabs">
+      <div class="tab ${state.outboundTab==='draft'?'active':''}" onclick="setOutboundTab('draft')">待出库（草稿） <span class="count">${counts.draft}</span></div>
+      <div class="tab ${state.outboundTab==='done'?'active':''}" onclick="setOutboundTab('done')">已出库 <span class="count">${counts.done}</span></div>
+      <div class="tab ${state.outboundTab==='all'?'active':''}" onclick="setOutboundTab('all')">全部 <span class="count">${counts.all}</span></div>
+    </div>
+    <div class="filters">
+      <input class="input" style="width:240px" placeholder="搜索出库单号 / 关联单号" />
+      <select class="input"><option>全部仓库</option><option>原料仓库</option><option>成品仓库</option></select>
+      <select class="input"><option>全部类型</option><option>生产领料出库</option><option>销售出库</option></select>
+      <div class="grow"></div>
+      <span class="sub">共 ${docs.length} 条</span>
+    </div>
+    <table>
+      <thead><tr>
+        <th>出库单号</th><th>类型</th><th>来源</th><th>仓库</th><th>数量</th><th>数量锁定</th><th>状态</th><th>创建时间</th><th style="width:190px">操作</th>
+      </tr></thead>
+      <tbody>
+      ${docs.length ? docs.map(d=>`
+        <tr>
+          <td><span class="mono">${d.id}</span><div class="sub">关联：${d.source}</div></td>
+          <td>${d.type}</td>
+          <td>${d.qtyLocked?'生产领料':'库管自建'}</td>
+          <td>${d.warehouse}</td>
+          <td><b>${d.lines.reduce((s,l)=>s+Number(l.qty),0).toFixed(2)}</b></td>
+          <td>${d.qtyLocked?'<span class="tag lock">已锁定</span>':'<span class="tag">可修改</span>'}</td>
+          <td>${pill(d.status)}</td>
+          <td class="sub">${d.date}</td>
+          <td>
+            <button class="link" onclick="openOutbound('${d.id}')">查看</button>
+            ${d.status==='草稿'?`<button class="link" style="margin-left:12px" onclick="openOutbound('${d.id}')">扫码</button>`:''}
+            ${d.status==='草稿'?`<button class="link" style="margin-left:12px" onclick="openOutbound('${d.id}')">确认出库</button>`:''}
+          </td>
+        </tr>`).join('') : `<tr><td colspan="9"><div class="empty"><b>暂无单据</b>切换页签查看其他状态</div></td></tr>`}
+      </tbody>
+    </table>
+  </div>`;
+}
+function setOutboundTab(t){ state.outboundTab = t; render(); }
+
+function returnView(){
+  const docs = state.returnTab==='all' ? returnDocs : returnDocs.filter(d=>{
+    const target = state.returnTab==='draft' ? '草稿' : '已退库';
+    return d.status === target;
+  });
+  return `
+  <div class="page-head">
+    <div>
+      <h1>退库管理</h1>
+      <p>从原出库单发起退库草稿；逐条扫入库码核对后手动确认，确认时才回增库存。</p>
+    </div>
+    <div class="toolbar">
+      <button class="btn primary" onclick="toast('原型演示：选择原出库单新建退库草稿')">新建退库</button>
+    </div>
+  </div>
+  ${statsHtml([
+    {k:'待退库草稿', v:'1', s:'待扫 2 行'},
+    {k:'今日已退库', v:'3', s:'回增 56.00 千克'},
+    {k:'可退库出库单', v:'6', s:'近 30 天生产领料'},
+    {k:'超期未退', v:'1', s:'超过 15 天'}
+  ])}
+  <div class="card">
+    <div class="tabs">
+      <div class="tab ${state.returnTab==='draft'?'active':''}" onclick="setReturnTab('draft')">草稿 <span class="count">1</span></div>
+      <div class="tab ${state.returnTab==='done'?'active':''}" onclick="setReturnTab('done')">已退库</div>
+      <div class="tab ${state.returnTab==='all'?'active':''}" onclick="setReturnTab('all')">全部</div>
+    </div>
+    <div class="filters">
+      <input class="input" style="width:240px" placeholder="搜索退库单号 / 原出库单号" />
+      <div class="grow"></div>
+      <span class="sub">共 ${docs.length} 条</span>
+    </div>
+    <table>
+      <thead><tr>
+        <th>退库单号</th><th>原出库单</th><th>仓库</th><th>品种</th><th>退库数量</th><th>状态</th><th>创建时间</th><th style="width:190px">操作</th>
+      </tr></thead>
+      <tbody>
+      ${docs.length ? docs.map(d=>`
+        <tr>
+          <td><span class="mono">${d.id}</span><div class="sub">操作人：${d.operator}</div></td>
+          <td><span class="mono">${d.outOrder}</span></td>
+          <td>${d.warehouse}</td>
+          <td>${d.lines.length}</td>
+          <td><b>${d.lines.reduce((s,l)=>s+Number(l.qty),0).toFixed(2)}</b></td>
+          <td>${pill(d.status)}</td>
+          <td class="sub">${d.date}</td>
+          <td>
+            <button class="link" onclick="openReturn('${d.id}')">查看</button>
+            ${d.status==='草稿'?`<button class="link" style="margin-left:12px" onclick="openReturn('${d.id}')">扫码</button>`:''}
+            ${d.status==='草稿'?`<button class="link" style="margin-left:12px" onclick="openReturn('${d.id}')">确认退库</button>`:''}
+          </td>
+        </tr>`).join('') : `<tr><td colspan="8"><div class="empty"><b>暂无退库单</b></div></td></tr>`}
+      </tbody>
+    </table>
+  </div>`;
+}
+function setReturnTab(t){ state.returnTab = t; render(); }
+
+/* =========================================================
+ * 入库抽屉
+ * ======================================================= */
+function openInbound(id){
+  const doc = inboundDocs.find(d=>d.id===id);
+  if(!doc) return;
+  state.open = {kind:'inbound', id};
+  const pendingPrint = doc.status==='待打印入库码';
+  const canScan = doc.status==='待入库';
+  const scanned = doc.lines.filter(l=>l.scanned).length;
+  const all = scanned === doc.lines.length;
+  const pct = Math.round(scanned/doc.lines.length*100);
+  const body = `
+    <div class="drawer-head">
+      <div>
+        <h2>${doc.id} ${pill(doc.status)}</h2>
+        <p>${doc.type} · 来源 ${doc.source} · ${doc.warehouse} · ${doc.date}</p>
+      </div>
+      <button class="icon-btn" onclick="closeDrawer()">×</button>
+    </div>
+    <div class="drawer-body">
+      <div class="meta-grid">
+        <div class="meta"><div class="k">入库类型</div><div class="v">${doc.type}</div></div>
+        <div class="meta"><div class="k">来源单号</div><div class="v mono">${doc.source}</div></div>
+        <div class="meta"><div class="k">入库仓库</div><div class="v">${doc.warehouse}</div></div>
+        <div class="meta"><div class="k">用途</div><div class="v">${doc.purpose}</div></div>
+        <div class="meta"><div class="k">品种数</div><div class="v">${doc.lines.length}</div></div>
+        <div class="meta"><div class="k">入库总量</div><div class="v">${doc.lines.reduce((s,l)=>s+Number(l.qty),0).toFixed(2)}</div></div>
+        <div class="meta"><div class="k">包码</div><div class="v mono">${doc.packageCode || '—'}</div></div>
+        <div class="meta"><div class="k">状态</div><div class="v">${doc.status}</div></div>
+      </div>
+
+      ${pendingPrint?`<div class="summary" style="margin-bottom:16px;background:#fff8ec;border-color:#f3d7b5">入库码/包码已生成，请先打印标签。打印后单据进入「待入库」，才能扫码确认。</div>`:''}
+
+      ${doc.packageCode ? `
+      <div class="package-card">
+        ${qrSvg(qrContent('PK', doc.packageCode), 72)}
+        <div class="grow">
+          <div class="k">包码（整包作业扫这个）</div>
+          <div class="code mono">${doc.packageCode}</div>
+          <div class="hint">${pendingPrint?'打印包码与入库码后才能扫码。':'整包扫码一次带出 '+doc.lines.length+' 种物料；整包不支持拆包。'}</div>
+        </div>
+        ${pendingPrint
+          ? `<button class="btn primary" onclick="printDoc('${doc.id}','inbound')">打印入库码</button>`
+          : `<button class="btn primary" onclick="scanAll('${doc.id}','inbound')">整包扫码</button>
+             <button class="btn" onclick="printDoc('${doc.id}','inbound')">补打标签</button>`}
+      </div>` : `
+      <div class="package-card">
+        <div class="grow">
+          <div class="k">草稿单据</div>
+          <div class="code">尚未生成入库码</div>
+          <div class="hint">需先完成验收双签，系统生成入库码与包码后才能扫码。</div>
+        </div>
+      </div>`}
+
+      <div class="progress">
+        <span class="txt">${pendingPrint?'打印进度':'扫码进度'} <b>${pendingPrint?'待打印':scanned+'/'+doc.lines.length}</b></span>
+        <div class="bar"><i style="width:${pendingPrint?0:pct}%"></i></div>
+        <span class="txt">${pendingPrint?'打印后进入待入库':(all?'已扫满，可确认':'还差 '+(doc.lines.length-scanned)+' 行')}</span>
+      </div>
+
+      <div class="section-title"><h4>入库明细</h4><span>扫码只做核对，不改变录入数量</span></div>
+      <table class="detail-table">
+        <thead><tr>
+          <th style="width:36px">#</th><th>物料</th><th>批号</th><th>数量</th><th>有效期至</th><th>库位</th><th>入库码</th><th style="width:96px">扫码状态</th>
+        </tr></thead>
+        <tbody>
+        ${doc.lines.map((l,i)=>`
+          <tr class="${l.scanned?'row-scanned':''}">
+            <td class="sub">${i+1}</td>
+            <td class="mat"><b>${l.name}</b><span class="mono">${l.code}</span></td>
+            <td class="mono">${l.batch}</td>
+            <td><b>${l.qty}</b> <span class="sub">${l.unit}</span></td>
+            <td class="sub">${l.expiry}</td>
+            <td><input class="input sm" style="width:92px" value="${l.location||''}" placeholder="库位" /></td>
+            <td class="mono">${l.inCode || '—'}</td>
+            <td>
+              ${!canScan
+                ? `<span class="pill gray">${pendingPrint?'待打印':'未就绪'}</span>`
+                : (l.scanned
+                  ? `<span class="check">✓ 已扫码</span><div><button class="link" style="font-size:11px" onclick="clearLine('${doc.id}',${l.id},'inbound')">清除</button></div>`
+                  : `<button class="btn sm" onclick="scanLine('${doc.id}',${l.id},'inbound')">扫码</button>`)}
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="drawer-foot">
+      <div class="sub">${pendingPrint?'打印标签后进入待入库；扫码扫满并手动确认后才增加库存。':'整单确认后一次性增加库存；未扫满不可确认。'}</div>
+      <div style="display:flex;gap:10px">
+        <button class="btn" onclick="closeDrawer()">关闭</button>
+        ${pendingPrint
+          ? `<button class="btn primary" onclick="printDoc('${doc.id}','inbound')">打印入库码</button>`
+          : (canScan
+            ? `<button class="btn primary" ${all?'':'disabled'} onclick="openSign('${doc.id}','inbound')">确认入库</button>`
+            : `<button class="btn" disabled>${doc.status==='已入库'?'已入库':'草稿不可确认'}</button>`)}
+      </div>
+    </div>`;
+  showDrawer(body);
+}
+
+/* =========================================================
+ * 出库抽屉
+ * ======================================================= */
+function openOutbound(id){
+  const doc = outboundDocs.find(d=>d.id===id);
+  if(!doc) return;
+  state.open = {kind:'outbound', id};
+  const scanned = doc.lines.filter(l=>l.scanned).length;
+  const all = scanned === doc.lines.length;
+  const pct = Math.round(scanned/doc.lines.length*100);
+  const body = `
+    <div class="drawer-head">
+      <div>
+        <h2>${doc.id} ${pill(doc.status)}</h2>
+        <p>${doc.type} · ${doc.warehouse} · ${doc.date} ${doc.qtyLocked?'· 数量已锁定':''}</p>
+      </div>
+      <button class="icon-btn" onclick="closeDrawer()">×</button>
+    </div>
+    <div class="drawer-body">
+      <div class="meta-grid">
+        <div class="meta"><div class="k">出库类型</div><div class="v">${doc.type}</div></div>
+        <div class="meta"><div class="k">来源</div><div class="v">${doc.qtyLocked?'生产领料推送':'库管自建'}</div></div>
+        <div class="meta"><div class="k">关联单号</div><div class="v mono">${doc.source}</div></div>
+        <div class="meta"><div class="k">关联计划</div><div class="v mono">${doc.plan}</div></div>
+        <div class="meta"><div class="k">出库仓库</div><div class="v">${doc.warehouse}</div></div>
+        <div class="meta"><div class="k">品种数</div><div class="v">${doc.lines.length}</div></div>
+        <div class="meta"><div class="k">出库总量</div><div class="v">${doc.lines.reduce((s,l)=>s+Number(l.qty),0).toFixed(2)}</div></div>
+        <div class="meta"><div class="k">数量锁定</div><div class="v">${doc.qtyLocked?'是（接收生产领料）':'否'}</div></div>
+      </div>
+
+      ${doc.qtyLocked?`<div class="summary" style="margin-bottom:16px">该出库单由生产领料推送生成，<b>数量不可修改</b>；扫码只用于核对物料与批次。</div>`:''}
+
+      <div class="progress">
+        <span class="txt">扫码进度 <b>${scanned}/${doc.lines.length}</b></span>
+        <div class="bar"><i style="width:${pct}%"></i></div>
+        <span class="txt">${all?'已扫满，可确认':'还差 '+(doc.lines.length-scanned)+' 行'}</span>
+      </div>
+
+      <div class="section-title"><h4>出库明细</h4><span>扫入库码或包码，确认批次正确</span></div>
+      <table class="detail-table">
+        <thead><tr>
+          <th style="width:36px">#</th><th>物料</th><th>批号</th><th>数量</th><th>入库码</th><th style="width:96px">扫码状态</th>
+        </tr></thead>
+        <tbody>
+        ${doc.lines.map((l,i)=>`
+          <tr class="${l.scanned?'row-scanned':''}">
+            <td class="sub">${i+1}</td>
+            <td class="mat"><b>${l.name}</b><span class="mono">${l.code}</span></td>
+            <td class="mono">${l.batch}</td>
+            <td><b>${l.qty}</b> <span class="sub">${l.unit}</span></td>
+            <td class="mono">${l.inCode}</td>
+            <td>
+              ${l.scanned
+                ? `<span class="check">✓ 已扫码</span><div><button class="link" style="font-size:11px" onclick="clearLine('${doc.id}',${l.id},'outbound')">清除</button></div>`
+                : `<button class="btn sm" onclick="scanLine('${doc.id}',${l.id},'outbound')">扫码</button>`}
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="drawer-foot">
+      <div class="sub">整单确认后才扣减库存；草稿状态库存不变。</div>
+      <div style="display:flex;gap:10px">
+        <button class="btn" onclick="closeDrawer()">关闭</button>
+        ${doc.status==='草稿'
+          ? `<button class="btn primary" ${all?'':'disabled'} onclick="openSign('${doc.id}','outbound')">确认出库</button>`
+          : `<button class="btn" disabled>已出库</button>`}
+      </div>
+    </div>`;
+  showDrawer(body);
+}
+
+/* =========================================================
+ * 退库抽屉
+ * ======================================================= */
+function openReturn(id){
+  const doc = returnDocs.find(d=>d.id===id);
+  if(!doc) return;
+  state.open = {kind:'return', id};
+  const scanned = doc.lines.filter(l=>l.scanned).length;
+  const all = scanned === doc.lines.length;
+  const pct = Math.round(scanned/doc.lines.length*100);
+  const body = `
+    <div class="drawer-head">
+      <div>
+        <h2>${doc.id} ${pill(doc.status)}</h2>
+        <p>原出库单 ${doc.outOrder} · ${doc.warehouse} · ${doc.date}</p>
+      </div>
+      <button class="icon-btn" onclick="closeDrawer()">×</button>
+    </div>
+    <div class="drawer-body">
+      <div class="meta-grid">
+        <div class="meta"><div class="k">原出库单</div><div class="v mono">${doc.outOrder}</div></div>
+        <div class="meta"><div class="k">退库仓库</div><div class="v">${doc.warehouse}</div></div>
+        <div class="meta"><div class="k">退库人</div><div class="v">${doc.operator}</div></div>
+        <div class="meta"><div class="k">退库总量</div><div class="v">${doc.lines.reduce((s,l)=>s+Number(l.qty),0).toFixed(2)}</div></div>
+      </div>
+      <div class="progress">
+        <span class="txt">扫码进度 <b>${scanned}/${doc.lines.length}</b></span>
+        <div class="bar"><i style="width:${pct}%"></i></div>
+        <span class="txt">${all?'已扫满，可确认':'还差 '+(doc.lines.length-scanned)+' 行'}</span>
+      </div>
+      <div class="section-title"><h4>退库明细</h4><span>退哪个批次就扫哪个入库码</span></div>
+      <table class="detail-table">
+        <thead><tr>
+          <th style="width:36px">#</th><th>物料</th><th>批号</th><th>原出库</th><th>可退</th><th>本次退库</th><th>入库码</th><th style="width:96px">扫码状态</th>
+        </tr></thead>
+        <tbody>
+        ${doc.lines.map((l,i)=>`
+          <tr class="${l.scanned?'row-scanned':''}">
+            <td class="sub">${i+1}</td>
+            <td class="mat"><b>${l.name}</b><span class="mono">${l.code}</span></td>
+            <td class="mono">${l.batch}</td>
+            <td class="sub">${l.outQty} ${l.unit}</td>
+            <td class="sub">${l.returnable} ${l.unit}</td>
+            <td><b>${l.qty}</b> <span class="sub">${l.unit}</span></td>
+            <td class="mono">${l.inCode}</td>
+            <td>
+              ${l.scanned
+                ? `<span class="check">✓ 已扫码</span><div><button class="link" style="font-size:11px" onclick="clearLine('${doc.id}',${l.id},'return')">清除</button></div>`
+                : `<button class="btn sm" onclick="scanLine('${doc.id}',${l.id},'return')">扫码</button>`}
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="drawer-foot">
+      <div class="sub">整单确认后才回增库存。</div>
+      <div style="display:flex;gap:10px">
+        <button class="btn" onclick="closeDrawer()">关闭</button>
+        ${doc.status==='草稿'
+          ? `<button class="btn primary" ${all?'':'disabled'} onclick="openSign('${doc.id}','return')">确认退库</button>`
+          : `<button class="btn" disabled>已退库</button>`}
+      </div>
+    </div>`;
+  showDrawer(body);
+}
+
+function showDrawer(html){
+  document.getElementById('drawer').innerHTML = html;
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('overlay').classList.add('open');
+}
+function closeDrawer(){
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('overlay').classList.remove('open');
+  state.open = null;
+}
+
+/* =========================================================
+ * 扫码 / 撤销 / 确认
+ * ======================================================= */
+function findDoc(kind, id){
+  if(kind==='inbound') return inboundDocs.find(d=>d.id===id);
+  if(kind==='outbound') return outboundDocs.find(d=>d.id===id);
+  return returnDocs.find(d=>d.id===id);
+}
+function refreshOpen(kind, id){
+  if(kind==='inbound') openInbound(id);
+  else if(kind==='outbound') openOutbound(id);
+  else openReturn(id);
+  render();
+}
+function scanLine(docId, lineId, kind){
+  const doc = findDoc(kind, docId);
+  if(kind==='inbound' && doc.status!=='待入库'){ toast('请先打印入库码，单据进入待入库后才能扫码','warn'); return; }
+  const line = doc.lines.find(l=>l.id===lineId);
+  line.scanned = true;
+  toast('扫码成功：' + line.name + ' · 批次 ' + line.batch, 'ok');
+  refreshOpen(kind, docId);
+}
+function scanAll(docId, kind){
+  const doc = findDoc(kind, docId);
+  if(kind==='inbound' && doc.status!=='待入库'){ toast('请先打印入库码，单据进入待入库后才能扫码','warn'); return; }
+  doc.lines.forEach(l=>l.scanned = true);
+  toast('整包扫码成功，共带出 ' + doc.lines.length + ' 种物料', 'ok');
+  refreshOpen(kind, docId);
+}
+function clearLine(docId, lineId, kind){
+  const doc = findDoc(kind, docId);
+  doc.lines.find(l=>l.id===lineId).scanned = false;
+  toast('已撤销该行扫码');
+  refreshOpen(kind, docId);
+}
+
+/* =========================================================
+ * 签名确认
+ * ======================================================= */
+function openSign(docId, kind){
+  const doc = findDoc(kind, docId);
+  if(kind==='inbound' && doc.status!=='待入库'){ toast('请先打印入库码并完成扫码','warn'); return; }
+  const all = doc.lines.every(l=>l.scanned);
+  if(!all){ toast('还有未扫码的明细行，不能确认', 'warn'); return; }
+  state.pendingConfirm = {docId, kind};
+  const labels = {inbound:'确认入库', outbound:'确认出库', return:'确认退库'};
+  const effects = {
+    inbound:'确认后将一次性增加库存，入库码状态变为「在库」。',
+    outbound:'确认后将一次性扣减库存，入库码剩余数量同步扣减。',
+    return:'确认后将回增库存，入库码剩余数量同步回增。'
+  };
+  document.getElementById('modal').className = 'modal';
+  document.getElementById('modal').innerHTML = `
+    <h3>${labels[kind]} · 作业签名</h3>
+    <p class="sub">${effects[kind]}</p>
+    <div class="modal-body">
+      <div class="summary">
+        单据：<b>${doc.id}</b><br/>
+        品种数：<b>${doc.lines.length}</b> · 总量：<b>${doc.lines.reduce((s,l)=>s+Number(l.qty),0).toFixed(2)}</b><br/>
+        扫码：<b>全部 ${doc.lines.length} 行已核对</b>
+      </div>
+      <div class="form-row">
+        <label>操作人</label>
+        <div class="sign-box">
+          <div class="avatar" style="width:34px;height:34px">陶</div>
+          <div><div class="who">陶新文 · 库管</div><div class="when">PDA-A03 · 2026-11-13 11:26</div></div>
+          <div class="ok">已登录</div>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>签名密码（作业签名，必填）</label>
+        <input class="input" id="signPwd" type="password" placeholder="请输入登录密码完成签名" />
+      </div>
+      <div class="form-row">
+        <label>手写签名（可选）</label>
+        <div class="sig-pad">在此签名（原型占位）</div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">取消</button>
+      <button class="btn primary" onclick="doConfirm()">签名并${labels[kind].slice(2)}</button>
+    </div>`;
+  document.getElementById('modalWrap').classList.add('open');
+}
+
+function doConfirm(){
+  const pwd = document.getElementById('signPwd');
+  if(!pwd || !pwd.value.trim()){
+    toast('请输入签名密码', 'warn');
+    pwd && pwd.focus();
+    return;
+  }
+  const {docId, kind} = state.pendingConfirm || {};
+  const doc = findDoc(kind, docId);
+  doc.status = kind==='inbound' ? '已入库' : kind==='outbound' ? '已出库' : '已退库';
+  closeModal();
+  closeDrawer();
+  render();
+  toast((kind==='inbound'?'入库':kind==='outbound'?'出库':'退库') + '确认成功，库存已更新', 'ok');
+  state.pendingConfirm = null;
+}
+
+function closeModal(){
+  document.getElementById('modalWrap').classList.remove('open');
+}
+
+/* =========================================================
+ * 标签打印
+ * ======================================================= */
+function printDoc(id, kind){
+  const doc = findDoc(kind, id);
+  const pendingPrint = kind==='inbound' && doc.status==='待打印入库码';
+  const packageLabel = (kind==='inbound' && doc.packageCode) ? `
+    <div class="label-card">
+      <div class="lh"><b>整包标签</b><span class="mono">${doc.packageCode}</span></div>
+      <div class="lg">
+        <div class="fields">
+          用途：<b>${doc.purpose || '—'}</b><br/>
+          入库时间：<b>2026-11-13</b><br/>
+          品种数量：<b>${doc.lines.length} 种</b><br/>
+          来源：<b class="mono">${doc.id}</b>
+        </div>
+        ${qrSvg(qrContent('PK', doc.packageCode), 110)}
+      </div>
+      <div class="note">${doc.packageCode} · 整包作业扫此码</div>
+    </div>` : '';
+  const labels = doc.lines.map(l=>`
+    <div class="label-card">
+      <div class="lh"><b>${l.name}</b><span class="mono">${l.code}</span></div>
+      <div class="lg">
+        <div class="fields">
+          批号：<b>${l.batch}</b><br/>
+          入库日期：<b>2026-11-13</b><br/>
+          有效期至：<b>${l.expiry}</b><br/>
+          入库数量：<b>${l.qty} ${l.unit}</b><br/>
+          用途：<b>${doc.purpose || '—'}</b><br/>
+          库位：<b>${l.location || '待录入'}</b>
+        </div>
+        ${qrSvg(qrContent('IC', l.inCode || l.code), 110)}
+      </div>
+      <div class="note">${l.inCode || l.code} · 部分领用后以系统实时库存为准</div>
+    </div>`).join('');
+  const total = doc.lines.length + (packageLabel ? 1 : 0);
+  document.getElementById('modal').className = 'modal wide';
+  document.getElementById('modal').innerHTML = `
+    <h3>${pendingPrint?'打印入库码':'标签打印预览'}</h3>
+    <p class="sub">${pendingPrint?'打印包码与入库码后，单据进入「待入库」，才能扫码确认。':'补打复用原码，不生成新编码；补打需填写原因并记录操作人、设备与时间。'}</p>
+    <div class="modal-body">
+      <div class="label-preview">
+        <div class="label-grid">${packageLabel}${labels}</div>
+      </div>
+      <div class="summary" style="margin-top:14px">${pendingPrint?'验收完成后必须先打印入库码；未打印不能扫码，也不会改变库存。':'补打复用原码，不生成新编码；补打需填写原因并记录操作人、设备与时间。'}</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">关闭</button>
+      ${pendingPrint
+        ? `<button class="btn primary" onclick="printPcAndMark('${doc.id}','inbound')">打印并确认（${total} 张）</button>`
+        : `<button class="btn primary" onclick="printPcWindow(findDoc('${kind}','${doc.id}'))">打印（${total} 张）</button>`}
+    </div>`;
+  document.getElementById('modalWrap').classList.add('open');
+}
+function markPrinted(id, kind){
+  const doc = findDoc(kind, id);
+  const wasPending = doc.status==='待打印入库码';
+  if(wasPending){
+    doc.status = '待入库';
+    if(state.view==='inbound') state.inboundTab = 'scan';
+  }
+  closeModal();
+  toast(wasPending?'标签已打印，单据进入待入库扫码':'打印任务已发送（原型）','ok');
+  render();
+  if(state.open && state.open.kind===kind && state.open.id===id) refreshOpen(kind, id);
+}
+
+function pcLabelHtml(title, code, fields, qr){
+  return `<div class="label">
+    <div class="main">
+      <div class="title">${title}</div>
+      <div class="fields">${fields}</div>
+      <div class="code">${code}</div>
+      <div class="note">部分领用后以系统实时库存为准</div>
+    </div>
+    <div class="qr">${qr}</div>
+  </div>`;
+}
+function buildPcPrintHtml(doc){
+  const packageLabel = doc.packageCode ? pcLabelHtml('整包标签', doc.packageCode,
+    `用途：${doc.purpose || '—'}<br/>入库时间：2026-11-13<br/>品种数量：${doc.lines.length} 种`,
+    qrSvg(qrContent('PK', doc.packageCode), 100)) : '';
+  const labels = doc.lines.map(l => pcLabelHtml(l.name, l.inCode || l.code,
+    `物料编码：${l.code}<br/>批号：${l.batch}<br/>入库日期：2026-11-13<br/>有效期至：${l.expiry || '—'}<br/>入库数量：${l.qty} ${l.unit}<br/>用途：${doc.purpose || '—'}<br/>库位：${l.location || '待录入'}`,
+    qrSvg(qrContent('IC', l.inCode || l.code), 100))).join('');
+  return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><title>入库标签 ${doc.id}</title>
+  <style>
+    @page { size: 60mm 40mm; margin: 0; }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif;color:#000;background:#fff}
+    .toolbar{position:sticky;top:0;background:#fff;border-bottom:1px solid #ddd;padding:8px;display:flex;gap:8px;justify-content:flex-end}
+    .toolbar button{height:34px;padding:0 14px;border:1px solid #ccc;border-radius:8px;background:#fff;font-size:13px;cursor:pointer}
+    .sheet{padding:8mm}
+    .label{width:60mm;height:40mm;padding:2.5mm;display:flex;gap:2mm;page-break-after:always;overflow:hidden;border-bottom:1px dashed #999;margin:0 auto 4mm}
+    .label:last-child{page-break-after:auto}
+    .main{flex:1;min-width:0;display:flex;flex-direction:column}
+    .title{font-size:9pt;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .fields{font-size:6.5pt;line-height:1.45;margin-top:1mm}
+    .code{font-size:6pt;font-family:ui-monospace,Consolas,monospace;margin-top:1mm;word-break:break-all}
+    .note{font-size:5.5pt;color:#444;margin-top:auto;padding-top:1mm}
+    .qr{width:22mm;height:22mm;flex:none;align-self:center}
+    .qr svg{width:100%;height:100%;display:block}
+    @media print { .toolbar{display:none} .sheet{padding:0} .label{margin:0;border-bottom:0} body{-webkit-print-color-adjust:exact;print-color-adjust:exact} }
+  </style></head><body>
+  <div class="toolbar"><button onclick="window.print()">打印</button><button onclick="window.close()">关闭</button></div>
+  <div class="sheet">${packageLabel}${labels}</div>
+  </body></html>`;
+}
+function printPcWindow(doc){
+  if(!doc) return false;
+  const w = window.open('', '_blank');
+  if(!w){ toast('浏览器阻止了打印窗口，请允许弹窗后重试','err'); return false; }
+  w.document.open();
+  w.document.write(buildPcPrintHtml(doc));
+  w.document.close();
+  toast('已打开打印预览，请选择打印机或另存为 PDF','ok');
+  setTimeout(()=>{ try { w.focus(); w.print(); } catch(e){} }, 500);
+  return true;
+}
+function printPcAndMark(id, kind){
+  const doc = findDoc(kind, id);
+  if(!printPcWindow(doc)) return;
+  setTimeout(()=>markPrinted(id, kind), 900);
+}
+
+function labelsView(){
+  const rows = inboundDocs.filter(d=>d.status!=='草稿').flatMap(d=>d.lines.map(l=>({doc:d, line:l})));
+  return `
+  <div class="page-head">
+    <div><h1>标签打印</h1><p>按入库单批量打印入库码；包码单独打印。补打需填写原因并留痕。</p></div>
+    <div class="toolbar"><button class="btn" onclick="toast('原型演示：按筛选批量打印')">批量打印</button></div>
+  </div>
+  <div class="stat-grid">
+    <div class="stat"><div class="k">待打印入库码</div><div class="v">7</div><div class="s">1 张入库单 · 含包码</div></div>
+    <div class="stat"><div class="k">待打印包码</div><div class="v">1</div><div class="s">一单一个包码</div></div>
+    <div class="stat"><div class="k">今日补打</div><div class="v">5</div><div class="s">均已记录原因</div></div>
+    <div class="stat"><div class="k">标签打印机</div><div class="v">1</div><div class="s"><b>在线</b> · 60×40mm</div></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><div><h3>待打印清单</h3><p>验收完成后先打印入库码与包码；打印后单据进入待入库，才能扫码。</p></div>
+      <button class="btn primary" onclick="toast('已发送打印任务（原型）','ok')">打印选中</button></div>
+    <table>
+      <thead><tr><th style="width:36px"><input type="checkbox" /></th><th>入库单号</th><th>物料</th><th>批号</th><th>数量</th><th>有效期至</th><th>入库码</th><th>单据状态</th><th>扫码状态</th><th>操作</th></tr></thead>
+      <tbody>
+      ${rows.slice(0,8).map(({doc,line})=>`
+        <tr>
+          <td><input type="checkbox" /></td>
+          <td class="mono">${doc.id}</td>
+          <td><b>${line.name}</b><div class="sub mono">${line.code}</div></td>
+          <td class="mono">${line.batch}</td>
+          <td>${line.qty} ${line.unit}</td>
+          <td class="sub">${line.expiry}</td>
+          <td class="mono">${line.inCode}</td>
+          <td>${pill(doc.status)}</td>
+          <td>${doc.status==='待打印入库码' ? '<span class="pill gray">待打印</span>' : (line.scanned?pill('已扫码'):pill('待扫码'))}</td>
+          <td>${doc.status==='待打印入库码'
+            ? `<button class="link" onclick="printDoc('${doc.id}','inbound')">打印</button>`
+            : `<button class="link" onclick="printDoc('${doc.id}','inbound')">预览</button><button class="link" style="margin-left:12px" onclick="toast('补打需填写原因（原型）','warn')">补打</button>`}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+/* =========================================================
+ * 验收签名
+ * ======================================================= */
+function acceptanceView(){
+  const s = state.acceptanceSigned;
+  const both = s.accept && s.review;
+  return `
+  <div class="page-head">
+    <div><h1>验收签名</h1><p>验收人与复核人分别签名，缺一不可；双签完成后系统生成入库码与包码。</p></div>
+    <div class="toolbar"><button class="btn" onclick="toast('原型演示：查看验收单明细')">查看验收明细</button></div>
+  </div>
+  <div class="card" style="padding:20px 22px;margin-bottom:16px">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div>
+        <h2 style="margin:0;font-size:18px">YS-20261113-001 ${both?pill('待入库'):pill('待签名')}</h2>
+        <div class="sub" style="margin-top:6px">采购入库 · 采购单 CGDH202611130001 · 原料仓库 · 用途：疏肝养胃丸</div>
+      </div>
+      <div class="toolbar">
+        <button class="btn" onclick="printDoc('IN202611130001','inbound')" ${both?'':'disabled'}>打印标签</button>
+        <button class="btn primary" ${both?'':'disabled'} onclick="go('inbound')">去入库扫码</button>
+      </div>
+    </div>
+    <div class="meta-grid" style="margin-top:16px;margin-bottom:0">
+      <div class="meta"><div class="k">供应商</div><div class="v">湖南本草饮片有限公司</div></div>
+      <div class="meta"><div class="k">到货时间</div><div class="v">2026-11-13 08:40</div></div>
+      <div class="meta"><div class="k">品种数</div><div class="v">6</div></div>
+      <div class="meta"><div class="k">实际到货量</div><div class="v">94.06 千克</div></div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+    <div class="card" style="padding:18px 20px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div><b>验收人签名</b><div class="sub">验收人对到货数量与外观检查负责</div></div>
+        ${s.accept?pill('已扫码'):pill('待签名')}
+      </div>
+      <div class="sign-box" style="margin-top:14px">
+        <div class="avatar" style="width:34px;height:34px">李</div>
+        <div><div class="who">李梅 · 验收员</div><div class="when">${s.accept?'签名时间 2026-11-13 11:02':'尚未签名'}</div></div>
+        ${s.accept?'<div class="ok">已签名</div>':`<button class="btn primary" style="margin-left:auto" onclick="openAcceptanceSign('accept')">签名</button>`}
+      </div>
+    </div>
+    <div class="card" style="padding:18px 20px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div><b>复核人签名</b><div class="sub">复核人对验收结论与批号信息负责</div></div>
+        ${s.review?pill('已扫码'):pill('待签名')}
+      </div>
+      <div class="sign-box" style="margin-top:14px">
+        <div class="avatar" style="width:34px;height:34px">王</div>
+        <div><div class="who">王强 · 质量复核</div><div class="when">${s.review?'签名时间 2026-11-13 11:08':'尚未签名'}</div></div>
+        ${s.review?'<div class="ok">已签名</div>':`<button class="btn primary" style="margin-left:auto" onclick="openAcceptanceSign('review')">签名</button>`}
+      </div>
+    </div>
+  </div>
+
+  ${both?`
+  <div class="card" style="border-color:#bfe3cd;background:#f7fcf9">
+    <div style="padding:18px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      <div style="width:38px;height:38px;border-radius:50%;background:var(--green);color:#fff;display:grid;place-items:center;font-weight:800">✓</div>
+      <div style="flex:1;min-width:260px">
+        <b>双签完成，已生成入库码与包码</b>
+        <div class="sub">入库单 IN202611130001 · 包码 pk2026111300001 · 6 个入库码 · 等待库管扫码确认</div>
+      </div>
+      <button class="btn primary" onclick="go('inbound')">去入库扫码</button>
+    </div>
+  </div>`:`
+  <div class="card" style="padding:18px 20px">
+    <b>验收明细</b>
+    <table class="detail-table" style="margin-top:8px">
+      <thead><tr><th>#</th><th>物料</th><th>批号</th><th>到货数量</th><th>有效期至</th><th>状态</th></tr></thead>
+      <tbody>
+        ${inboundDocs[0].lines.map((l,i)=>`
+          <tr><td class="sub">${i+1}</td><td><b>${l.name}</b><div class="sub mono">${l.code}</div></td><td class="mono">${l.batch}</td><td>${l.qty} ${l.unit}</td><td class="sub">${l.expiry}</td><td>${pill('待入库')}</td></tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`}`;
+}
+function openAcceptanceSign(role){
+  state.signRole = role;
+  const who = role==='accept' ? '验收人' : '复核人';
+  const name = role==='accept' ? '李梅' : '王强';
+  document.getElementById('modal').className = 'modal';
+  document.getElementById('modal').innerHTML = `
+    <h3>${who}电子签名</h3>
+    <p class="sub">签名将记录账号、时间、设备与签名摘要，提交后不可修改。</p>
+    <div class="modal-body">
+      <div class="summary">单据：<b>YS-20261113-001</b><br/>签名角色：<b>${who}</b><br/>签名人：<b>${name}</b></div>
+      <div class="form-row"><label>签名密码（必填）</label><input class="input" id="acceptPwd" type="password" placeholder="请输入登录密码" /></div>
+      <div class="form-row"><label>手写签名（可选）</label><div class="sig-pad">在此签名（原型占位）</div></div>
+    </div>
+    <div class="modal-actions"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="doAcceptanceSign()">确认签名</button></div>`;
+  document.getElementById('modalWrap').classList.add('open');
+}
+function doAcceptanceSign(){
+  const pwd = document.getElementById('acceptPwd');
+  if(!pwd || !pwd.value.trim()){ toast('请输入签名密码','warn'); pwd && pwd.focus(); return; }
+  state.acceptanceSigned[state.signRole] = true;
+  closeModal();
+  render();
+  const both = state.acceptanceSigned.accept && state.acceptanceSigned.review;
+  toast(both?'双签完成，已生成入库码与包码':'签名成功', 'ok');
+}
+
+/* =========================================================
+ * 原型说明
+ * ======================================================= */
+function notesHtml(){
+  return `
+  <div class="callout"><b>核心变化</b><br/>现有 PC 端是「保存即入库/出库」。本原型改为：验收完成后先进入 <code>待打印入库码</code>，打印后转为 <code>待入库</code>，扫码扫满并<b>手动确认</b>才改库存。扫码只记录核对，不改数量。</div>
+  <h4>PC 端操作路径</h4>
+  <ol>
+    <li>验收签名：验收人、复核人双签 → 生成入库码与包码，单据进入「待打印入库码」。</li>
+    <li>入库管理：待打印入库码 → 打印包码与入库码 → 转为「待入库」→ 整包扫码或逐行扫码 → 录入库位 → 确认入库（作业签名）。</li>
+    <li>出库管理：生产领料草稿数量锁定 → 扫码核对 → 确认出库。</li>
+    <li>退库管理：选择原出库单 → 录入退库数量 → 扫码 → 确认退库。</li>
+    <li>标签打印：入库码/包码预览、打印、补打（留痕）。</li>
+  </ol>
+  <h4>状态规则</h4>
+  <ol>
+    <li>验收完成后是「待打印入库码」，未打印不能扫码，库存不变。</li>
+    <li>打印完成后转为「待入库」，扫码扫满并手动确认后才变「已入库」。</li>
+    <li>未扫满不能确认，库存不变。</li>
+    <li>确认后一次性改库存，单据变已入库/已出库/已退库。</li>
+    <li>扫码可撤销；撤销以一次扫码动作为单位（整包扫一次撤销整组）。</li>
+    <li>重复扫同一码提示已扫，不重复计数。</li>
+  </ol>
+  <h4>明细行扫码</h4>
+  <p>每行右侧「扫码」按钮：扫入库码后回填批次/效期/入库码，行变绿；支持清除后重扫。整包扫码等价于批量行扫码。</p>
+  <h4>设计取舍</h4>
+  <p>PC 端保留现有列表/详情结构，只增加状态列、扫码按钮与确认按钮；不改变原有录单方式。</p>`;
+}
+function notesView(){
+  return `
+  <div class="page-head"><div><h1>原型说明</h1><p>用于评审交互与状态规则；数据均为演示数据。</p></div>
+    <div class="toolbar"><button class="btn primary" onclick="go('inbound')">去入库管理</button></div></div>
+  <div class="card" style="padding:22px 24px;max-width:980px"><div class="notes-body" style="padding:0">${notesHtml()}</div></div>`;
+}
+
+/* =========================================================
+ * 演示：新建出库单
+ * ======================================================= */
+function newOutboundDemo(){
+  document.getElementById('modal').className = 'modal wide';
+  document.getElementById('modal').innerHTML = `
+    <h3>新建出库单（库管自建）</h3>
+    <p class="sub">数量先录入，扫码只用于确认批次；保存后进入草稿，确认出库时才扣库存。</p>
+    <div class="modal-body">
+      <div class="meta-grid" style="grid-template-columns:1fr 1fr 1fr">
+        <div class="meta"><div class="k">出库类型</div><div class="v"><select class="input"><option>销售出库</option><option>报损出库</option></select></div></div>
+        <div class="meta"><div class="k">出库仓库</div><div class="v"><select class="input"><option>成品仓库</option><option>原料仓库</option></select></div></div>
+        <div class="meta"><div class="k">出库日期</div><div class="v">2026-11-13</div></div>
+      </div>
+      <table class="detail-table" style="margin-top:8px">
+        <thead><tr><th>物料</th><th>批号</th><th>数量</th><th>单位</th><th>操作</th></tr></thead>
+        <tbody>
+          <tr><td><b>疏肝养胃丸</b><div class="sub mono">Z04-011</div></td><td class="mono">20261101</td><td><input class="input sm" style="width:90px" value="200" /></td><td>盒</td><td><button class="link danger">删除</button></td></tr>
+        </tbody>
+      </table>
+      <button class="btn" style="margin-top:10px" onclick="toast('原型演示：添加明细行')">+ 添加明细</button>
+    </div>
+    <div class="modal-actions"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="toast('草稿已保存，等待扫码确认（原型）','ok');closeModal()">保存草稿</button></div>`;
+  document.getElementById('modalWrap').classList.add('open');
+}
+
+/* 初始化 */
+render();
+</script>
+</body>
+</html>

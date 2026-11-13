@@ -156,6 +156,12 @@ public class SysOperationLog {
     private String clientIp;
 
     /**
+     * 客户端MAC地址（客户端通过 X-Client-Mac 上报，格式 AA-BB-CC-DD-EE-FF）
+     */
+    @TableField(value = "mac_address")
+    private String macAddress;
+
+    /**
      * IP归属地
      */
     @TableField(value = "ip_location")

@@ -5,6 +5,8 @@ import com.tonghui.erp.Common.Dto.BusinessFile.BusinessFileDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.QualityPages.BatchContext;
 import com.tonghui.erp.Common.Dto.QualityPages.ProductSummaryDtos;
+import com.tonghui.erp.Common.utils.AcceptanceStatusPolicy;
+import com.tonghui.erp.Common.utils.MaterialSourcePolicy;
 import com.tonghui.erp.Common.utils.WorkOrderStatusPolicy;
 import com.tonghui.erp.Data.Entity.AcceptanceDetail;
 import com.tonghui.erp.Data.Entity.AcceptanceOrder;
@@ -20,6 +22,8 @@ import com.tonghui.erp.Data.Entity.Preparation;
 import com.tonghui.erp.Data.Entity.PurchaseOrderItems;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
 import com.tonghui.erp.Data.Entity.ReleaseReview;
+import com.tonghui.erp.Data.Entity.ReturnOrder;
+import com.tonghui.erp.Data.Entity.ReturnOrderDetail;
 import com.tonghui.erp.Data.Entity.RoomInfo;
 import com.tonghui.erp.Data.Entity.SalesOrder;
 import com.tonghui.erp.Data.Entity.SamplingRecord;
@@ -74,6 +78,13 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
 
     /** 单据时间展示格式 */
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+
+    /** 采购退货明细状态：待退货/已退货/已重发/已取消，以验收明细状态承载 */
+    private static final Set<String> PURCHASE_RETURN_STATUSES = Set.of(
+            AcceptanceStatusPolicy.DETAIL_PENDING_RETURN,
+            AcceptanceStatusPolicy.DETAIL_RETURNED,
+            AcceptanceStatusPolicy.DETAIL_RESENT,
+            AcceptanceStatusPolicy.DETAIL_CANCELLED);
 
     @Autowired
     private WorkOrderMapper workOrderMapper;
@@ -819,7 +830,9 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         dto.setFinishedQty(wo.getFinishedQty());
         dto.setInboundQty(inboundQty(ctx));
         dto.setOutboundQty(outboundQty(ctx));
-        dto.setMaterialSource(materialSource(ctx));
+        String materialSource = materialSource(ctx);
+        dto.setMaterialSource(materialSource);
+        dto.setMaterialSourceLabel(MaterialSourcePolicy.label(materialSource));
         dto.setPlanDate(planDate(ctx));
         dto.setWorkOrderDate(date(wo.getConfigDate()));
         dto.setInboundDate(ctx.getStockIns().stream().filter(this::isEffectiveStockIn).findFirst()
@@ -913,13 +926,13 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
                 wo.getWorkOrderCode(), "批号 " + safe(wo.getBatchNumber()) + " · " + safe(wo.getCurrentStatus()),
                 List.of(workOrderDoc(ctx))));
 
-        // 生产领料
+        // 生产领料（同时展示关联退库单）
         List<ProductSummaryDtos.DocumentItem> pickDocs = new ArrayList<>();
         ctx.getPicks().forEach(pick -> pickDocs.add(pickDoc(pick, ctx)));
         ctx.getMaterialStockOuts().forEach(stockOut -> pickDocs.add(pickStockOutDoc(stockOut, ctx)));
+        ctx.getReturns().forEach(returnOrder -> pickDocs.add(returnDoc(returnOrder, ctx)));
         stages.add(stage("pick", "生产领料", pickState(ctx),
-                ctx.getPicks().isEmpty() ? "暂无领料" : ctx.getPicks().size() + " 张领料单",
-                pickMeta(ctx), pickDocs));
+                pickLabel(ctx), pickMeta(ctx), pickDocs));
 
         // 生产过程
         stages.add(stage("production", "生产过程", productionState(ctx),
@@ -968,9 +981,12 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             stages.add(skippedStage("purchase", "采购", "无采购，物料直接入库"));
             return;
         }
+        List<ProductSummaryDtos.DocumentItem> documents = purchaseDocuments(ctx);
+        int returnCount = (int) documents.stream()
+                .filter(doc -> "退货单".equals(doc.getType()))
+                .count();
         stages.add(stage("purchase", "采购", purchaseState(ctx),
-                ctx.getPurchases().isEmpty() ? "无采购" : ctx.getPurchases().size() + " 张采购单",
-                purchaseMeta(ctx), purchaseDocuments(ctx)));
+                purchaseLabel(ctx, returnCount), purchaseMeta(ctx), documents));
     }
 
     /**
@@ -987,6 +1003,116 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
     private List<ProductSummaryDtos.DocumentItem> purchaseDocuments(BatchContext ctx) {
         List<ProductSummaryDtos.DocumentItem> documents = new ArrayList<>();
         ctx.getPurchases().forEach(purchase -> documents.add(purchaseDoc(purchase, ctx)));
+        documents.addAll(purchaseReturnDocs(ctx));
+        return documents;
+    }
+
+    /**
+     * 采购节点摘要：采购单与采购退货单数量
+     *
+     * @param ctx         批次上下文
+     * @param returnCount 退货单数量
+     * @return 节点摘要文案
+     */
+    private String purchaseLabel(BatchContext ctx, int returnCount) {
+        int purchaseCount = ctx.getPurchases().size();
+        if (purchaseCount == 0 && returnCount == 0) {
+            return "无采购";
+        }
+        StringBuilder label = new StringBuilder();
+        if (purchaseCount > 0) {
+            label.append(purchaseCount).append(" 张采购单");
+        }
+        if (returnCount > 0) {
+            if (label.length() > 0) {
+                label.append("、");
+            }
+            label.append(returnCount).append(" 张退货单");
+        }
+        return label.toString();
+    }
+
+    /**
+     * 采购退货单：按来源验收单聚合并仅展示退货/取消明细
+     * <p>
+     * 采购退货以验收明细状态承载，不单独生成退货单号，单号沿用来源验收单号；
+     * 领料退货（来源类型含“领料”）归属生产领料，不在采购节点展示
+     * </p>
+     *
+     * @param ctx 批次上下文
+     * @return 采购退货单文档列表
+     */
+    private List<ProductSummaryDtos.DocumentItem> purchaseReturnDocs(BatchContext ctx) {
+        List<ProductSummaryDtos.DocumentItem> documents = new ArrayList<>();
+        if (ctx.getAcceptanceDetails() == null) {
+            return documents;
+        }
+        for (AcceptanceOrder acceptance : materialAcceptances(ctx)) {
+            if (acceptance.getSourceType() != null && acceptance.getSourceType().contains("领料")) {
+                continue;
+            }
+            List<AcceptanceDetail> details = ctx.getAcceptanceDetails()
+                    .getOrDefault(acceptance.getAcceptanceId(), Collections.emptyList())
+                    .stream()
+                    .filter(detail -> PURCHASE_RETURN_STATUSES.contains(detail.getStatus()))
+                    .collect(Collectors.toList());
+            if (details.isEmpty()) {
+                continue;
+            }
+            String status = details.stream().map(AcceptanceDetail::getStatus)
+                    .filter(StringUtils::hasText).distinct().collect(Collectors.joining(" / "));
+            String supplier = details.stream().map(AcceptanceDetail::getSupplier)
+                    .filter(StringUtils::hasText).findFirst().orElse(null);
+            String returnReason = details.stream().map(AcceptanceDetail::getReturnReason)
+                    .filter(StringUtils::hasText).distinct().collect(Collectors.joining(" / "));
+            String returnRemark = details.stream().map(AcceptanceDetail::getReturnRemark)
+                    .filter(StringUtils::hasText).distinct().collect(Collectors.joining("；"));
+
+            ProductSummaryDtos.DocumentItem doc = new ProductSummaryDtos.DocumentItem();
+            doc.setType("退货单");
+            doc.setCode(acceptance.getAcceptanceCode());
+            doc.setDate(date(acceptance.getAcceptanceTime()));
+            doc.setTime(acceptance.getAcceptanceTime());
+            doc.setStatus(status);
+            doc.setSupplier(supplier);
+            doc.setOperator(acceptance.getAcceptorName());
+            doc.setDocId(acceptance.getAcceptanceId());
+            doc.setBizType("ACCEPTANCE_ORDER");
+            addField(doc, "退货单号", acceptance.getAcceptanceCode());
+            addField(doc, "来源验收单", acceptance.getAcceptanceCode());
+            addField(doc, "采购单号", acceptance.getPurchaseNumber());
+            addField(doc, "供应商", supplier);
+            addField(doc, "退货原因", returnReason);
+            addField(doc, "状态", status);
+            addField(doc, "备注", returnRemark);
+
+            BigDecimal totalAmount = BigDecimal.ZERO;
+            for (AcceptanceDetail detail : details) {
+                BigDecimal qty = detail.getActualArrivalQty() != null
+                        ? detail.getActualArrivalQty() : detail.getQuantity();
+                ProductSummaryDtos.DocumentLine line = new ProductSummaryDtos.DocumentLine();
+                line.setCode(detail.getMaterialCode());
+                line.setName(detail.getMaterialName());
+                line.setCategory(detail.getMaterialCategory());
+                line.setQty(qty);
+                line.setUnit(detail.getUnitName());
+                line.setPrice(detail.getUnitPrice());
+                if (qty != null && detail.getUnitPrice() != null) {
+                    line.setAmount(qty.multiply(detail.getUnitPrice()).setScale(2, RoundingMode.HALF_UP));
+                    totalAmount = totalAmount.add(line.getAmount());
+                }
+                line.setBatchNo(detail.getBatchNumber());
+                line.setSupplier(detail.getSupplier());
+                line.setReturnReason(detail.getReturnReason());
+                line.setStatus(detail.getStatus());
+                line.setRemark(detail.getReturnRemark());
+                doc.getLines().add(line);
+            }
+            if (totalAmount.compareTo(BigDecimal.ZERO) > 0) {
+                doc.setAmount(totalAmount);
+            }
+            documents.add(doc);
+        }
         return documents;
     }
 
@@ -1044,6 +1170,31 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             meta += " · 出库 " + safe(ctx.getMaterialStockOuts().get(0).getOutCode());
         }
         return meta;
+    }
+
+    /**
+     * 生产领料节点摘要：领料单与关联退库单数量
+     *
+     * @param ctx 批次上下文
+     * @return 节点摘要文案
+     */
+    private String pickLabel(BatchContext ctx) {
+        int pickCount = ctx.getPicks().size();
+        int returnCount = ctx.getReturns().size();
+        if (pickCount == 0 && returnCount == 0) {
+            return "暂无领料";
+        }
+        StringBuilder label = new StringBuilder();
+        if (pickCount > 0) {
+            label.append(pickCount).append(" 张领料单");
+        }
+        if (returnCount > 0) {
+            if (label.length() > 0) {
+                label.append("、");
+            }
+            label.append(returnCount).append(" 张退库单");
+        }
+        return label.toString();
     }
 
     private String inboundMeta(BatchContext ctx) {
@@ -1169,16 +1320,15 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             line.setCategory(resolvePurchaseLineCategory(item, ctx));
             line.setQty(item.getPurchaseQuantity());
             line.setUnit(item.getUnit());
-            line.setPrice(item.getUnitPrice());
-            line.setAmount(item.getAmount());
             line.setSupplier(item.getSupplier());
             line.setStatus(item.getStatus());
             doc.getLines().add(line);
         }
         doc.setSupplier(doc.getLines().stream().map(ProductSummaryDtos.DocumentLine::getSupplier)
                 .filter(StringUtils::hasText).findFirst().orElse(null));
-        doc.setAmount(doc.getLines().stream().map(line -> line.getAmount() == null ? BigDecimal.ZERO : line.getAmount())
-                .reduce(BigDecimal.ZERO, BigDecimal::add));
+        // 明细不再返回单价/金额/批次，单据金额按采购明细金额直接汇总
+        doc.setAmount(items.stream().map(PurchaseOrderItems::getAmount)
+                .filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add));
         doc.setFiles(toFiles(businessFileService.list("PURCHASE_ORDER", po.getId(), null, null)));
         return doc;
     }
@@ -1319,6 +1469,52 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             doc.getLines().add(line);
         }
         doc.setFiles(toFiles(businessFileService.list("STOCK_OUT_PRODUCTION", pick.getId(), null, null)));
+        return doc;
+    }
+
+    /**
+     * 退库单：与领料单同属“生产领料”节点展示
+     *
+     * @param returnOrder 退库单
+     * @param ctx         批次上下文
+     * @return 单据项
+     */
+    private ProductSummaryDtos.DocumentItem returnDoc(ReturnOrder returnOrder, BatchContext ctx) {
+        ProductSummaryDtos.DocumentItem doc = new ProductSummaryDtos.DocumentItem();
+        String status = returnOrder.getReturnTime() != null ? "已退库" : "待退库";
+        doc.setType("退库单");
+        doc.setCode(returnOrder.getReturnNo());
+        doc.setDate(date(returnOrder.getReturnTime()));
+        doc.setTime(returnOrder.getReturnTime());
+        doc.setStatus(status);
+        doc.setOperator(returnOrder.getReturnPersonName());
+        doc.setDocId(returnOrder.getId());
+        doc.setBizType("RETURN_ORDER");
+        addField(doc, "退库单号", returnOrder.getReturnNo());
+        addField(doc, "退库日期", dateValue(date(returnOrder.getReturnTime())));
+        addField(doc, "退库人", returnOrder.getReturnPersonName());
+        addField(doc, "验收人", returnOrder.getAcceptorName());
+        addField(doc, "复核人", returnOrder.getReviewerName());
+        addField(doc, "关联出库单", returnOrder.getOutOrderNo());
+        addField(doc, "生产计划", returnOrder.getProductionPlanNo());
+        addField(doc, "状态", status);
+        addField(doc, "备注", returnOrder.getRemark());
+        List<ReturnOrderDetail> details = ctx.getReturnDetails() == null ? Collections.emptyList()
+                : ctx.getReturnDetails().getOrDefault(returnOrder.getId(), Collections.emptyList());
+        for (ReturnOrderDetail d : details) {
+            ProductSummaryDtos.DocumentLine line = new ProductSummaryDtos.DocumentLine();
+            line.setCode(d.getMaterialCode());
+            line.setName(d.getMaterialName());
+            line.setCategory(d.getCategory());
+            line.setQty(d.getReturnQuantity());
+            line.setUnit(d.getUnit());
+            line.setPrice(d.getUnitPrice());
+            line.setAmount(d.getAmount());
+            line.setBatchNo(d.getBatchNo());
+            line.setWarehouseName(d.getWarehouse());
+            doc.getLines().add(line);
+        }
+        doc.setFiles(toFiles(businessFileService.list("RETURN_ORDER", returnOrder.getId(), null, null)));
         return doc;
     }
 
@@ -2444,28 +2640,65 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         return safe(ctx.getPlan().getCurrentStatus()) + (planDate(ctx) == null ? "" : " · " + planDate(ctx));
     }
 
+    /**
+     * 物料来源：采购与院内领料二选一，判定只看采购单、医院领料单与验收单来源类型
+     * <p>
+     * 生产领料单是每批生产都会发生的仓内发料流程，不代表物料取得渠道，不参与判定；
+     * 采购证据优先，其次为院内领料，两者都无但存在物料入库时兼容返回直接入库。
+     * </p>
+     *
+     * @param ctx 批次上下文
+     * @return 物料来源编码：PURCHASE/REQUISITION/DIRECT；均无证据时为 null
+     */
     private String materialSource(BatchContext ctx) {
-        if (!ctx.getPicks().isEmpty()) {
-            return "REQUISITION";
-        }
-        if (!ctx.getPurchases().isEmpty() || !materialAcceptances(ctx).isEmpty()) {
-            return "PURCHASE";
-        }
-        return hasEffectiveStockIn(ctx.getMaterialStockIns()) ? "DIRECT" : null;
+        return MaterialSourcePolicy.resolve(
+                hasPurchaseEvidence(ctx),
+                hasRequisitionEvidence(ctx),
+                hasEffectiveStockIn(ctx.getMaterialStockIns()));
     }
 
-    private String materialMeta(BatchContext ctx) {
-        if (!ctx.getPicks().isEmpty()) {
-            ProductionPick first = ctx.getPicks().get(0);
-            return safe(first.getStatus()) + " · " + safe(first.getApplicant());
+    /**
+     * 采购证据：存在非作废采购单，或存在采购来源（采购入库/退货重发）且非作废的验收单
+     *
+     * @param ctx 批次上下文
+     * @return 存在采购证据返回 true
+     */
+    private boolean hasPurchaseEvidence(BatchContext ctx) {
+        boolean hasPurchaseOrder = ctx.getPurchases().stream()
+                .anyMatch(purchase -> !isVoided(purchase.getStatus()));
+        if (hasPurchaseOrder) {
+            return true;
         }
-        if (!ctx.getPurchases().isEmpty()) {
-            return safe(String.valueOf(ctx.getPurchases().get(0).getStatus()));
+        return materialAcceptances(ctx).stream()
+                .filter(acceptance -> !isVoided(acceptance.getStatus()))
+                .anyMatch(acceptance -> MaterialSourcePolicy.isPurchaseSource(acceptance.getSourceType()));
+    }
+
+    /**
+     * 院内领料证据：存在非作废医院领料单，或存在来源类型含“领料”且非作废的验收单
+     *
+     * @param ctx 批次上下文
+     * @return 存在院内领料证据返回 true
+     */
+    private boolean hasRequisitionEvidence(BatchContext ctx) {
+        boolean hasHospitalSlip = ctx.getHospitalRequisitions().stream()
+                .anyMatch(slip -> !isVoided(slip.getStatus()));
+        if (hasHospitalSlip) {
+            return true;
         }
-        if (hasEffectiveStockIn(ctx.getMaterialStockIns())) {
-            return safe(ctx.getMaterialStockIns().get(0).getInStatus());
-        }
-        return "";
+        return materialAcceptances(ctx).stream()
+                .filter(acceptance -> !isVoided(acceptance.getStatus()))
+                .anyMatch(acceptance -> MaterialSourcePolicy.isRequisitionSource(acceptance.getSourceType()));
+    }
+
+    /**
+     * 单据状态是否已作废（采购单状态为 Object，统一转字符串比较）
+     *
+     * @param status 单据状态
+     * @return 已作废返回 true
+     */
+    private boolean isVoided(Object status) {
+        return "已作废".equals(status == null ? null : String.valueOf(status));
     }
 
     /**

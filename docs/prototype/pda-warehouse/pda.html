@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>仓储扫码 · PDA 端原型</title>
+<style>
+:root{
+  --primary:#2f6fed; --primary-weak:#eaf1ff; --primary-dark:#1f5bd7;
+  --green:#079455; --green-weak:#e7f6ee;
+  --amber:#dc6803; --amber-weak:#fef4e6;
+  --red:#d92d20; --red-weak:#fdeceb;
+  --text:#182230; --muted:#667085; --soft:#98a2b3;
+  --line:#e4e7ec; --line2:#eef1f5; --bg:#f5f7fb; --card:#fff;
+  --radius:16px; --radius-sm:11px;
+  --shadow:0 2px 4px rgba(16,24,40,.04), 0 12px 28px rgba(16,24,40,.06);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{
+  background:#0d1526;display:flex;align-items:center;justify-content:center;padding:24px;
+  font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Arial,sans-serif;
+  color:var(--text);-webkit-font-smoothing:antialiased;
+}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+::-webkit-scrollbar{width:0;height:0}
+
+.phone{
+  width:390px;height:844px;background:var(--bg);border-radius:44px;overflow:hidden;position:relative;
+  box-shadow:0 0 0 10px #1b2538,0 0 0 12px #2b3850,0 40px 90px rgba(0,0,0,.55);
+  display:flex;flex-direction:column;
+}
+.statusbar{
+  height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;
+  padding:0 26px;font-size:12px;font-weight:650;color:#111;background:transparent;z-index:5;
+}
+.statusbar .right{display:flex;align-items:center;gap:5px}
+.signal{display:flex;align-items:flex-end;gap:1.5px;height:10px}
+.signal i{width:2.5px;background:#111;border-radius:1px}
+.signal i:nth-child(1){height:4px}.signal i:nth-child(2){height:6px}.signal i:nth-child(3){height:8px}.signal i:nth-child(4){height:10px}
+.battery{width:20px;height:10px;border:1.4px solid #111;border-radius:3px;position:relative}
+.battery::after{content:"";position:absolute;right:-3px;top:2.6px;width:2px;height:4px;background:#111;border-radius:1px}
+.battery i{display:block;height:100%;width:72%;background:#111;border-radius:1.5px}
+
+.app{flex:1;min-height:0;display:flex;flex-direction:column;position:relative}
+.screen{flex:1;min-height:0;display:flex;flex-direction:column}
+.appbar{
+  height:54px;flex:none;display:flex;align-items:center;gap:10px;padding:0 16px;background:var(--bg);
+  position:relative;z-index:4;
+}
+.appbar .back{width:36px;height:36px;border:0;background:#fff;border-radius:11px;display:grid;place-items:center;box-shadow:var(--shadow)}
+.appbar .title{font-size:17px;font-weight:750;letter-spacing:-.2px}
+.appbar .sub{font-size:11px;color:var(--soft);margin-top:1px}
+.appbar .right{margin-left:auto;display:flex;gap:8px}
+.content{flex:1;min-height:0;overflow:auto;padding:4px 16px 20px}
+.bottom-bar{
+  flex:none;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:#fff;
+  border-top:1px solid var(--line);display:flex;gap:10px;align-items:center;
+}
+.btn{
+  height:48px;padding:0 18px;border:1px solid var(--line);border-radius:13px;background:#fff;color:var(--text);
+  font-size:15px;font-weight:650;display:inline-flex;align-items:center;justify-content:center;gap:7px;
+}
+.btn.primary{background:var(--primary);border-color:var(--primary);color:#fff;box-shadow:0 8px 18px rgba(47,111,237,.25)}
+.btn.primary:disabled{background:#c7d4ee;border-color:#c7d4ee;box-shadow:none;color:#fff}
+.btn.block{width:100%}
+.btn.ghost{background:transparent}
+.btn.sm{height:34px;padding:0 12px;font-size:12.5px;border-radius:9px;font-weight:600}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.pad{padding:16px}
+.pill{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:11px;font-size:11px;font-weight:700;white-space:nowrap}
+.pill::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor}
+.pill.amber{background:var(--amber-weak);color:var(--amber)}
+.pill.green{background:var(--green-weak);color:var(--green)}
+.pill.gray{background:#f2f4f7;color:#667085}
+.pill.blue{background:var(--primary-weak);color:var(--primary)}
+.pill.red{background:var(--red-weak);color:var(--red)}
+.sub{color:var(--muted);font-size:12px}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:-.2px}
+
+/* ---------- 登录 ---------- */
+.login{padding:26px 22px;display:flex;flex-direction:column;height:100%}
+.login-brand{display:flex;align-items:center;gap:12px;margin-top:16px}
+.login-mark{width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,#2f6fed,#6d9bff);color:#fff;display:grid;place-items:center;font-weight:800;font-size:20px}
+.login h1{margin:0;font-size:22px;letter-spacing:-.4px}
+.login .sub{margin-top:4px}
+.device-card{margin-top:26px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow)}
+.device-icon{width:42px;height:42px;border-radius:12px;background:var(--primary-weak);color:var(--primary);display:grid;place-items:center}
+.device-card b{display:block;font-size:14px}
+.device-card .sub{font-size:11.5px;margin-top:2px}
+.device-card .ok{margin-left:auto;color:var(--green);font-size:11.5px;font-weight:700}
+.login-form{margin-top:22px;display:flex;flex-direction:column;gap:14px}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+.field input{width:100%;height:50px;border:1px solid var(--line);border-radius:13px;background:#fff;padding:0 14px;font-size:15px;outline:none}
+.field input:focus{border-color:#9db8f5;box-shadow:0 0 0 4px rgba(47,111,237,.10)}
+.login-note{margin-top:auto;font-size:11.5px;color:var(--soft);line-height:1.7;padding-bottom:8px}
+.login-note b{color:var(--muted)}
+
+/* ---------- 首页 ---------- */
+.home-head{display:flex;align-items:center;gap:12px;padding:8px 2px 16px}
+.home-head .avatar{width:44px;height:44px;border-radius:50%;background:#dfe8ff;color:var(--primary);display:grid;place-items:center;font-weight:800;font-size:15px}
+.home-head b{display:block;font-size:16px}
+.home-head .sub{font-size:11.5px;margin-top:1px}
+.home-head .bell{margin-left:auto;width:38px;height:38px;border-radius:12px;background:#fff;border:1px solid var(--line);display:grid;place-items:center;position:relative}
+.home-head .bell::after{content:"";position:absolute;top:9px;right:9px;width:6px;height:6px;border-radius:50%;background:var(--red)}
+.action-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.action{
+  border-radius:16px;padding:16px;color:#fff;position:relative;overflow:hidden;border:0;text-align:left;
+  min-height:104px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:var(--shadow);
+}
+.action.blue{background:linear-gradient(135deg,#2f6fed,#5b8cf7)}
+.action.green{background:linear-gradient(135deg,#07865a,#20a97a)}
+.action.amber{background:linear-gradient(135deg,#c96a05,#e7912f)}
+.action.slate{background:linear-gradient(135deg,#475467,#667085)}
+.action .ico{width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.2);display:grid;place-items:center}
+.action b{font-size:15px;display:block;margin-top:8px}
+.action span{font-size:11px;opacity:.82;display:block;margin-top:2px}
+.action .arrow{position:absolute;right:12px;bottom:12px;opacity:.5}
+.section{margin-top:20px}
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.section-head b{font-size:14px}
+.section-head a{font-size:12px;color:var(--primary);text-decoration:none}
+.mini-stat{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.mini{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;text-align:center;box-shadow:var(--shadow)}
+.mini .v{font-size:21px;font-weight:800;letter-spacing:-.5px}
+.mini .k{font-size:10.5px;color:var(--soft);margin-top:2px}
+.task-card{background:#fff;border:1px solid var(--line);border-radius:15px;padding:14px;box-shadow:var(--shadow);margin-bottom:10px}
+.task-card .top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.task-card .no{font-size:13.5px;font-weight:750}
+.task-card .meta{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.6}
+.task-card .foot{display:flex;align-items:center;gap:8px;margin-top:12px;padding-top:10px;border-top:1px dashed var(--line2)}
+.task-card .foot .sub{font-size:11px}
+.task-card .foot .btn{margin-left:auto}
+
+/* ---------- 任务列表 ---------- */
+.seg{display:flex;background:#e9edf4;border-radius:12px;padding:4px;margin:6px 0 14px}
+.seg button{flex:1;height:38px;border:0;background:transparent;border-radius:9px;font-size:13px;font-weight:650;color:var(--muted)}
+.seg button.active{background:#fff;color:var(--text);box-shadow:0 1px 4px rgba(16,24,40,.12)}
+
+/* ---------- 作业页 ---------- */
+.doc-summary{background:#fff;border:1px solid var(--line);border-radius:15px;padding:14px 15px;box-shadow:var(--shadow);margin-bottom:12px}
+.doc-summary .top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.doc-summary .no{font-size:14px;font-weight:750}
+.doc-summary .meta{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;margin-top:10px;font-size:11.5px;color:var(--muted)}
+.doc-summary .meta b{color:var(--text);font-weight:600}
+.scan-panel{
+  border:1.5px dashed #b9cdf5;background:linear-gradient(180deg,#f7faff,#fff);border-radius:16px;
+  padding:18px 16px;text-align:center;margin-bottom:12px;
+}
+.scan-ico{width:54px;height:54px;border-radius:16px;background:var(--primary-weak);color:var(--primary);display:grid;place-items:center;margin:0 auto 10px}
+.scan-panel b{display:block;font-size:15px}
+.scan-panel .sub{font-size:11.5px;margin-top:3px}
+.scan-input-row{display:flex;gap:8px;margin-top:14px}
+.scan-input{
+  flex:1;min-width:0;height:52px;border:2px solid var(--primary);border-radius:13px;background:#fff;
+  padding:0 14px;font-size:16px;font-weight:700;outline:none;letter-spacing:.4px;
+  transition:box-shadow .15s,border-color .15s;
+}
+.scan-input::placeholder{color:#9aa7bd;font-weight:500;letter-spacing:0}
+.scan-input:focus{box-shadow:0 0 0 4px rgba(47,111,237,.14)}
+.scan-input-row .btn{height:52px;min-width:74px;padding:0 14px;font-size:15px;border-radius:13px}
+.scan-status{display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;color:var(--green);margin-top:9px}
+.scan-status i{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px rgba(7,148,85,.12)}
+.scan-tip{font-size:10.5px;color:var(--soft);margin-top:6px;line-height:1.5}
+.scan-links{display:flex;justify-content:center;gap:18px;margin-top:10px}
+.scan-links .link{background:none;border:0;color:var(--primary);font-size:11.5px;padding:0}
+.last-scan{margin-top:9px;font-size:11px;color:var(--soft);min-height:16px;word-break:break-all}
+.last-scan b{color:var(--muted)}
+.scan-panel .manual{display:inline-block;margin-top:10px;font-size:11.5px;color:var(--primary)}
+.progress-card{background:#fff;border:1px solid var(--line);border-radius:15px;padding:13px 15px;box-shadow:var(--shadow);margin-bottom:12px}
+.progress-card .row{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--muted)}
+.progress-card .row b{color:var(--text);font-size:13px}
+.bar{height:8px;border-radius:5px;background:#eef1f5;overflow:hidden;margin-top:9px}
+.bar i{display:block;height:100%;background:var(--primary);border-radius:5px;transition:width .3s}
+.line-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow);margin-bottom:9px;display:flex;gap:11px;align-items:flex-start}
+.line-card.scanned{border-color:#bfe3cd;background:#f7fcf9}
+.line-num{width:26px;height:26px;border-radius:8px;background:#f2f4f7;color:var(--muted);display:grid;place-items:center;font-size:11px;font-weight:700;flex:none}
+.line-card.scanned .line-num{background:var(--green-weak);color:var(--green)}
+.line-main{flex:1;min-width:0}
+.line-main b{display:block;font-size:13.5px}
+.line-main .sub{font-size:11px;margin-top:2px}
+.line-main .qty{font-size:12px;margin-top:5px;color:var(--muted)}
+.line-main .qty b{display:inline;color:var(--text);font-size:12.5px}
+.line-status{flex:none;align-self:center}
+.check-ico{width:26px;height:26px;border-radius:50%;background:var(--green);color:#fff;display:grid;place-items:center;font-size:13px;font-weight:800}
+.loc-row{display:flex;align-items:center;gap:10px;margin:14px 0 4px}
+.loc-row label{font-size:12px;color:var(--muted);white-space:nowrap}
+.loc-row input{flex:1;height:42px;border:1px solid var(--line);border-radius:11px;padding:0 12px;background:#fff;outline:none}
+.hint{font-size:11px;color:var(--soft);line-height:1.6;margin-top:8px}
+.bottom-bar .progress-txt{font-size:11.5px;color:var(--muted);line-height:1.4}
+.bottom-bar .progress-txt b{display:block;color:var(--text);font-size:14px}
+.bottom-bar .btn{flex:1}
+
+/* ---------- 底部导航 ---------- */
+.tabbar{
+  flex:none;height:62px;background:#fff;border-top:1px solid var(--line);display:flex;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+.tabbar button{flex:1;border:0;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--soft);font-size:10px}
+.tabbar button.active{color:var(--primary)}
+.tabbar svg{width:21px;height:21px}
+
+/* ---------- 底部弹层 ---------- */
+.sheet-wrap{position:absolute;inset:0;z-index:30;display:none}
+.sheet-wrap.open{display:block}
+.sheet-mask{position:absolute;inset:0;background:rgba(16,24,40,.42)}
+.sheet{
+  position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:22px 22px 0 0;padding:20px 18px calc(18px + env(safe-area-inset-bottom));
+  box-shadow:0 -18px 50px rgba(16,24,40,.25);animation:up .22s ease-out;
+}
+@keyframes up{from{transform:translateY(30px);opacity:.6}to{transform:translateY(0);opacity:1}}
+.sheet .handle{width:38px;height:4px;border-radius:3px;background:#d6dce6;margin:0 auto 14px}
+.sheet h3{margin:0;font-size:17px}
+.sheet .sub{margin-top:4px}
+.sheet .summary{background:#fafbfe;border:1px solid var(--line2);border-radius:12px;padding:12px 14px;font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.8}
+.sheet .summary b{color:var(--text)}
+.sheet .field{margin-top:14px}
+.sheet .field input{width:100%;height:48px;border:1px solid var(--line);border-radius:12px;padding:0 13px;outline:none;font-size:15px}
+.sheet .actions{display:flex;gap:10px;margin-top:16px}
+.sheet .actions .btn{flex:1}
+
+/* ---------- 成功 ---------- */
+.success{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center}
+.success .ico{width:82px;height:82px;border-radius:50%;background:var(--green-weak);color:var(--green);display:grid;place-items:center;font-size:38px;font-weight:800;margin-bottom:18px}
+.success h2{margin:0;font-size:21px;letter-spacing:-.3px}
+.success .sub{margin-top:6px;line-height:1.7}
+.success .summary{width:100%;background:#fff;border:1px solid var(--line);border-radius:15px;padding:14px 16px;margin-top:22px;text-align:left;box-shadow:var(--shadow)}
+.success .summary .row{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);padding:5px 0}
+.success .summary .row b{color:var(--text)}
+.success .actions{width:100%;display:flex;gap:10px;margin-top:20px}
+
+/* ---------- 补打/记录 ---------- */
+.code-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px 14px;box-shadow:var(--shadow);margin-bottom:9px;display:flex;align-items:center;gap:12px}
+.code-card .qrbox{width:56px;height:56px;border-radius:9px;background:#fff;border:1px solid var(--line);display:grid;place-items:center;overflow:hidden;flex:none}
+.code-card b{display:block;font-size:13px}
+.code-card .sub{font-size:11px;margin-top:2px}
+.code-card .btn{margin-left:auto}
+.record{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px 14px;box-shadow:var(--shadow);margin-bottom:9px}
+.record .top{display:flex;justify-content:space-between;align-items:center}
+.record b{font-size:13px}
+.record .sub{font-size:11px;margin-top:3px}
+.record .lines{font-size:11.5px;color:var(--muted);margin-top:7px;line-height:1.7}
+.profile-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow);display:flex;align-items:center;gap:14px}
+.profile-card .avatar{width:54px;height:54px;border-radius:50%;background:#dfe8ff;color:var(--primary);display:grid;place-items:center;font-size:18px;font-weight:800}
+.profile-card b{font-size:16px}
+.profile-card .sub{font-size:11.5px;margin-top:2px}
+.list-card{background:#fff;border:1px solid var(--line);border-radius:15px;box-shadow:var(--shadow);margin-top:14px;overflow:hidden}
+.list-row{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line2);font-size:13.5px}
+.list-row:last-child{border-bottom:0}
+.list-row .ico{width:32px;height:32px;border-radius:9px;background:#f2f4f7;display:grid;place-items:center;color:var(--muted)}
+.list-row .arrow{margin-left:auto;color:var(--soft)}
+
+.toast-root{position:absolute;left:0;right:0;bottom:86px;z-index:40;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+.toast{background:#182230;color:#fff;border-radius:11px;padding:10px 16px;font-size:12.5px;box-shadow:0 12px 28px rgba(16,24,40,.3);opacity:0;transform:translateY(8px);transition:.2s;max-width:86%}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.ok{background:#065f46}.toast.warn{background:#92400e}.toast.err{background:#991b1b}
+
+@media (max-width:520px){
+  body{padding:0;background:var(--bg)}
+  .phone{width:100%;height:100%;border-radius:0;box-shadow:none}
+  .statusbar{padding-top:env(safe-area-inset-top);height:calc(44px + env(safe-area-inset-top))}
+}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="statusbar">
+    <span>9:41</span>
+    <div class="right">
+      <div class="signal"><i></i><i></i><i></i><i></i></div>
+      <span style="font-size:11px">5G</span>
+      <div class="battery"><i></i></div>
+    </div>
+  </div>
+  <div class="app" id="app"></div>
+  <div class="toast-root" id="toastRoot"></div>
+</div>
+
+<script src="vendor/qrcode.js"></script>
+<script>
+/* =========================================================
+ * 演示数据
+ * ======================================================= */
+const docs = {
+  inbound: {
+    id:'IN202611130001', type:'采购入库', source:'YS-20261113-001', warehouse:'原料仓库',
+    purpose:'疏肝养胃丸', packageCode:'pk2026111300001', status:'待打印入库码',
+    lines:[
+      {id:1, code:'Z046', name:'当归', batch:'260501', qty:14.71, unit:'千克', expiry:'2029-05-03', location:'A-01-02', inCode:'in2026111300001', scanned:false},
+      {id:2, code:'Z125', name:'红花', batch:'260701', qty:14.71, unit:'千克', expiry:'2029-07-27', location:'A-02-01', inCode:'in2026111300002', scanned:false},
+      {id:3, code:'Z055', name:'川芎', batch:'260601', qty:14.71, unit:'千克', expiry:'2029-05-31', location:'A-02-03', inCode:'in2026111300003', scanned:false},
+      {id:4, code:'Z013', name:'桃仁', batch:'251101', qty:14.71, unit:'千克', expiry:'2029-01-18', location:'A-03-01', inCode:'in2026111300004', scanned:false},
+      {id:5, code:'Z069', name:'蜈蚣（kg）', batch:'260701', qty:7.36, unit:'千克', expiry:'2029-06-30', location:'B-01-02', inCode:'in2026111300005', scanned:false},
+      {id:6, code:'Z067', name:'全蝎', batch:'260401', qty:7.36, unit:'千克', expiry:'2029-04-12', location:'B-01-04', inCode:'in2026111300006', scanned:false}
+    ]
+  },
+  outbound: {
+    id:'OUT202611130001', type:'生产领料出库', source:'SCLL-20261113-001', warehouse:'原料仓库',
+    purpose:'疏肝养胃丸', packageCode:'pk2026111300001', qtyLocked:true, status:'草稿',
+    lines:[
+      {id:1, code:'Z046', name:'当归', batch:'260501', qty:14.71, unit:'千克', inCode:'in2026111300001', scanned:false},
+      {id:2, code:'Z125', name:'红花', batch:'260701', qty:14.71, unit:'千克', inCode:'in2026111300002', scanned:false},
+      {id:3, code:'Z055', name:'川芎', batch:'260601', qty:14.71, unit:'千克', inCode:'in2026111300003', scanned:false},
+      {id:4, code:'Z013', name:'桃仁', batch:'251101', qty:14.71, unit:'千克', inCode:'in2026111300004', scanned:false},
+      {id:5, code:'Z069', name:'蜈蚣（kg）', batch:'260701', qty:7.36, unit:'千克', inCode:'in2026111300005', scanned:false},
+      {id:6, code:'Z067', name:'全蝎', batch:'260401', qty:7.36, unit:'千克', inCode:'in2026111300006', scanned:false}
+    ]
+  },
+  return: {
+    id:'TK-20261113001', type:'退库', source:'OUT202611120006', warehouse:'原料仓库',
+    purpose:'疏肝养胃丸', packageCode:null, status:'草稿',
+    lines:[
+      {id:1, code:'Z046', name:'当归', batch:'260501', qty:2.0, unit:'千克', inCode:'in2026111200011', scanned:false},
+      {id:2, code:'Z125', name:'红花', batch:'260701', qty:1.5, unit:'千克', inCode:'in2026111200012', scanned:false}
+    ]
+  }
+};
+
+const state = {
+  screen:'login',
+  tab:'home',
+  taskTab:'inbound',
+  mode:'package',
+  current:'inbound',
+  signed:false,
+  lastScan:null,
+  scanPaused:false,
+  scanTimer:null
+};
+
+/* =========================================================
+ * 工具
+ * ======================================================= */
+function qrSvg(seed, size=40){
+  // 真实二维码：优先用本地 qrcode-generator 生成，失败时才退回装饰码
+  try {
+    const qr = qrcode(0, 'M');
+    qr.addData(seed);
+    qr.make();
+    const count = qr.getModuleCount();
+    const margin = 4;
+    const total = count + margin * 2;
+    const cell = size / total;
+    let rects = '';
+    for (let r=0;r<count;r++) for (let c=0;c<count;c++){
+      if (qr.isDark(r,c)) {
+        rects += `<rect x="${((c+margin)*cell).toFixed(2)}" y="${((r+margin)*cell).toFixed(2)}" width="${cell.toFixed(2)}" height="${cell.toFixed(2)}"/>`;
+      }
+    }
+    return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" fill="#000"><rect width="${size}" height="${size}" fill="#fff"/>${rects}</svg>`;
+  } catch (e) {
+    return fakeQrSvg(seed, size);
+  }
+}
+function fakeQrSvg(seed, size=40){
+  let h = 2166136261;
+  for (let i=0;i<seed.length;i++){ h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
+  const rand = () => { h ^= h<<13; h ^= h>>>17; h ^= h<<5; return ((h>>>0)/4294967296); };
+  const n = 21, c = size/n;
+  let cells = '';
+  for (let y=0;y<n;y++) for (let x=0;x<n;x++){
+    if ((x<7&&y<7)||(x>=n-7&&y<7)||(x<7&&y>=n-7)) continue;
+    if (rand() > 0.5) cells += `<rect x="${x*c}" y="${y*c}" width="${c}" height="${c}"/>`;
+  }
+  const f = (fx,fy)=>`<rect x="${fx*c}" y="${fy*c}" width="${7*c}" height="${7*c}" fill="#fff"/><rect x="${(fx+1)*c}" y="${(fy+1)*c}" width="${5*c}" height="${5*c}"/><rect x="${(fx+2)*c}" y="${(fy+2)*c}" width="${3*c}" height="${3*c}" fill="#fff"/>`;
+  return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" fill="#111"><rect width="${size}" height="${size}" fill="#fff"/>${cells}${f(0,0)}${f(n-7,0)}${f(0,n-7)}</svg>`;
+}
+function crc16(str){
+  let crc = 0xFFFF;
+  for (let i=0;i<str.length;i++){
+    crc ^= str.charCodeAt(i) << 8;
+    for (let j=0;j<8;j++){
+      crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) : (crc << 1);
+      crc &= 0xFFFF;
+    }
+  }
+  return crc.toString(16).toUpperCase().padStart(4, '0');
+}
+function qrContent(type, code){
+  return `ERP1|${type}|${code}|${crc16(code)}`;
+}
+function toast(msg, type=''){
+  const root = document.getElementById('toastRoot');
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  root.appendChild(el);
+  requestAnimationFrame(()=>el.classList.add('show'));
+  setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=>el.remove(), 220); }, 2200);
+}
+function doc(){
+  return docs[state.current];
+}
+function scannedCount(){
+  return doc().lines.filter(l=>l.scanned).length;
+}
+function allScanned(){
+  return scannedCount() === doc().lines.length;
+}
+function go(screen){ state.screen = screen; render(); }
+function setTab(tab){ state.tab = tab; state.screen = 'home'; render(); }
+function goInboundTasks(){ state.tab = 'tasks'; state.taskTab = 'inbound'; state.screen = 'home'; render(); }
+
+/* =========================================================
+ * 图标
+ * ======================================================= */
+const icons = {
+  home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>',
+  task:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>',
+  record:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v5l3 2"/><circle cx="12" cy="12" r="9"/></svg>',
+  user:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>',
+  back:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 5-7 7 7 7"/></svg>',
+  scan:'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M4 12h16"/></svg>',
+  box:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>',
+  out:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 19h16"/></svg>',
+  ret:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>',
+  print:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 8V3h10v5"/><rect x="4" y="8" width="16" height="8" rx="2"/><path d="M7 16v5h10v-5"/></svg>'
+};
+
+/* =========================================================
+ * 页面
+ * ======================================================= */
+function render(){
+  const app = document.getElementById('app');
+  if (state.screen === 'login') { app.innerHTML = loginView(); return; }
+  if (state.screen === 'success') { app.innerHTML = successView(); return; }
+  app.innerHTML = shellView();
+}
+
+function loginView(){
+  return `
+  <div class="screen">
+    <div class="login">
+      <div class="login-brand">
+        <div class="login-mark">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>
+          </svg>
+        </div>
+        <div><h1>仓储扫码</h1><div class="sub">仓储物料 · PDA 作业端</div></div>
+      </div>
+      <div class="device-card">
+        <div class="device-icon">${icons.box}</div>
+        <div><b>PDA-A03</b><div class="sub">优博讯 i6310 · 已登记</div></div>
+        <div class="ok">已绑定</div>
+      </div>
+      <div class="login-form">
+        <div class="field"><label>账号</label><input value="taoxinwen" /></div>
+        <div class="field"><label>密码</label><input type="password" value="123456" /></div>
+        <button class="btn primary block" onclick="go('home')" style="margin-top:6px">登录</button>
+      </div>
+      <div class="login-note">
+        <b>设备说明</b><br/>
+        未登记设备不能作业；设备与使用人绑定。当前设备：PDA-A03 → 陶新文（库管）。
+      </div>
+    </div>
+  </div>`;
+}
+
+function shellView(){
+  const tab = state.tab;
+  let body = '';
+  if (tab === 'home') body = homeView();
+  else if (tab === 'tasks') body = tasksView();
+  else if (tab === 'records') body = recordsView();
+  else body = profileView();
+  return `
+  <div class="screen">
+    ${body}
+    <div class="tabbar">
+      <button class="${tab==='home'?'active':''}" onclick="setTab('home')">${icons.home}<span>首页</span></button>
+      <button class="${tab==='tasks'?'active':''}" onclick="setTab('tasks')">${icons.task}<span>任务</span></button>
+      <button class="${tab==='records'?'active':''}" onclick="setTab('records')">${icons.record}<span>记录</span></button>
+      <button class="${tab==='profile'?'active':''}" onclick="setTab('profile')">${icons.user}<span>我的</span></button>
+    </div>
+  </div>`;
+}
+
+function homeView(){
+  const inboundSub = docs.inbound.status==='待打印入库码' ? '待打印 1 · 待入库 0'
+    : docs.inbound.status==='待入库' ? '待打印 0 · 待入库 1' : '今日已完成';
+  return `
+  <div class="content">
+    <div class="home-head">
+      <div class="avatar">陶</div>
+      <div><b>陶新文</b><div class="sub">原料仓库 · 库管</div></div>
+      <button class="bell" onclick="toast('有 2 条待处理提醒')"></button>
+    </div>
+    <div class="action-grid">
+      <button class="action blue" onclick="goInboundTasks()">
+        <div class="ico">${icons.box}</div>
+        <div><b>入库扫码</b><span>${inboundSub}</span></div>
+        <span class="arrow">›</span>
+      </button>
+      <button class="action green" onclick="openWork('outbound')">
+        <div class="ico">${icons.out}</div>
+        <div><b>出库扫码</b><span>待出库 2 单</span></div>
+        <span class="arrow">›</span>
+      </button>
+      <button class="action amber" onclick="openWork('return')">
+        <div class="ico">${icons.ret}</div>
+        <div><b>退库扫码</b><span>待退库 1 单</span></div>
+        <span class="arrow">›</span>
+      </button>
+      <button class="action slate" onclick="go('reprint')">
+        <div class="ico">${icons.print}</div>
+        <div><b>补打标签</b><span>今日补打 5 张</span></div>
+        <span class="arrow">›</span>
+      </button>
+    </div>
+
+    <div class="section">
+      <div class="section-head"><b>今日作业</b><a onclick="setTab('records')">全部记录</a></div>
+      <div class="mini-stat">
+        <div class="mini"><div class="v">8</div><div class="k">已入库单</div></div>
+        <div class="mini"><div class="v">12</div><div class="k">已出库单</div></div>
+        <div class="mini"><div class="v">3</div><div class="k">已退库单</div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head"><b>待办任务</b><a onclick="setTab('tasks')">更多</a></div>
+      ${['待打印入库码','待入库'].includes(docs.inbound.status)
+        ? taskCard(docs.inbound, 'inbound')
+        : '<div class="hint" style="margin:0 0 10px">入库任务已完成</div>'}
+      ${taskCard(docs.outbound, 'outbound')}
+    </div>
+  </div>`;
+}
+
+function taskCard(d, kind){
+  const total = d.lines.length;
+  const done = d.lines.filter(l=>l.scanned).length;
+  const status = d.status || (kind==='inbound'?'待入库':kind==='outbound'?'草稿':'草稿');
+  const pendingPrint = kind==='inbound' && status==='待打印入库码';
+  const finished = ['已入库','已出库','已退库'].includes(status);
+  const pillClass = pendingPrint ? 'amber' : finished ? 'green' : (status==='待入库' || kind==='outbound') ? 'blue' : 'gray';
+  const progress = pendingPrint
+    ? `待打印 ${total + (d.packageCode ? 1 : 0)} 张标签`
+    : `${total} 种物料 · 已扫 ${done}/${total}`;
+  const action = pendingPrint
+    ? `<button class="btn sm primary" onclick="openPrint('${kind}')">打印入库码</button>`
+    : finished
+      ? `<button class="btn sm" onclick="toast('该单已完成','warn')">查看</button>`
+      : `<button class="btn sm primary" onclick="openWork('${kind}')">${done ? '继续扫码' : '开始扫码'}</button>`;
+  return `
+  <div class="task-card">
+    <div class="top">
+      <div><div class="no mono">${d.id}</div><div class="meta">${d.type} · ${d.warehouse}<br/>来源 ${d.source}</div></div>
+      <span class="pill ${pillClass}">${status}</span>
+    </div>
+    <div class="foot">
+      <span class="sub">${progress}</span>
+      ${action}
+    </div>
+  </div>`;
+}
+
+function tasksView(){
+  return `
+  <div class="appbar"><div><div class="title">任务</div><div class="sub">今日待办</div></div></div>
+  <div class="content">
+    <div class="seg">
+      <button class="${state.taskTab==='inbound'?'active':''}" onclick="state.taskTab='inbound';render()">入库 1</button>
+      <button class="${state.taskTab==='outbound'?'active':''}" onclick="state.taskTab='outbound';render()">出库 2</button>
+      <button class="${state.taskTab==='return'?'active':''}" onclick="state.taskTab='return';render()">退库 1</button>
+    </div>
+    ${state.taskTab==='inbound'?`
+      <div class="section-head" style="margin:2px 0 8px"><b>待打印入库码</b><span class="sub">打印后进入待入库</span></div>
+      ${docs.inbound.status==='待打印入库码'?taskCard(docs.inbound,'inbound'):`<div class="hint" style="margin:0 0 12px">暂无待打印单据</div>`}
+      <div class="section-head" style="margin:18px 0 8px"><b>待入库扫码</b><span class="sub">扫满后手动确认</span></div>
+      ${docs.inbound.status==='待入库'?taskCard(docs.inbound,'inbound'):`<div class="hint" style="margin:0 0 12px">暂无待扫码单据</div>`}
+    `:state.taskTab==='outbound'?`
+      ${taskCard(docs.outbound,'outbound')}
+      ${taskCard({...docs.outbound,id:'OUT202611130002',type:'销售出库',source:'—',warehouse:'成品仓库'},'outbound')}
+    `:`
+      ${taskCard(docs.return,'return')}
+    `}
+    <div class="hint">生产领料推送的出库单数量已锁定，只能核对，不能改数量。</div>
+  </div>`;
+}
+
+/* ---------- 作业页 ---------- */
+function openWork(kind){
+  const d = docs[kind];
+  if(kind==='inbound' && d.status==='待打印入库码'){ openPrint(kind); return; }
+  if(['已入库','已出库','已退库'].includes(d.status)){ toast('该单已完成','warn'); return; }
+  state.current = kind;
+  state.screen = 'work';
+  state.mode = kind === 'return' ? 'line' : 'package';
+  state.lastScan = null;
+  state.scanPaused = false;
+  render();
+}
+function openPrint(kind){
+  state.current = kind;
+  state.screen = 'print';
+  state.scanPaused = true;
+  render();
+}
+
+function workView(){
+  const d = doc();
+  const total = d.lines.length;
+  const done = scannedCount();
+  const pct = Math.round(done/total*100);
+  const kind = state.current;
+  const status = d.status || (kind==='inbound'?'待入库':kind==='outbound'?'草稿':'草稿');
+  const statusClass = status==='待入库'?'blue':status==='已入库'?'green':status==='草稿'?(kind==='outbound'?'blue':'gray'):'gray';
+  const title = kind==='inbound'?'入库作业':kind==='outbound'?'出库作业':'退库作业';
+  const actionText = kind==='inbound'?'确认入库':kind==='outbound'?'确认出库':'确认退库';
+  return `
+  <div class="screen">
+    <div class="appbar">
+      <button class="back" onclick="go('home')">${icons.back}</button>
+      <div><div class="title">${title}</div><div class="sub mono">${d.id}</div></div>
+      <div class="right"><button class="back" onclick="toast('会话已保存，可稍后继续')">···</button></div>
+    </div>
+    <div class="content">
+      <div class="doc-summary">
+        <div class="top">
+          <div class="no mono">${d.id}</div>
+          <span class="pill ${statusClass}">${status}</span>
+        </div>
+        <div class="meta">
+          <div>类型：<b>${d.type}</b></div>
+          <div>仓库：<b>${d.warehouse}</b></div>
+          <div>来源：<b class="mono">${d.source}</b></div>
+          <div>用途：<b>${d.purpose}</b></div>
+        </div>
+      </div>
+
+      ${d.qtyLocked?`<div class="card pad" style="margin-bottom:12px;border-color:#f3d7b5;background:#fffaf3"><div style="font-size:12px;color:#92400e"><b>数量已锁定</b> · 该单由生产领料推送，扫码只核对物料与批次，不能改数量。</div></div>`:''}
+
+      ${kind==='return' ? '' : `<div class="seg">
+        <button class="${state.mode==='package'?'active':''}" onclick="state.mode='package';render()">整包扫码</button>
+        <button class="${state.mode==='line'?'active':''}" onclick="state.mode='line';render()">逐条扫码</button>
+      </div>`}
+
+      <div class="scan-panel">
+        <div class="scan-ico">${icons.scan}</div>
+        <b>${state.mode==='package'?'扫描包码':'扫描入库码'}</b>
+        <div class="sub">${state.mode==='package'?'一次带出包内全部物料，整包不支持拆包':'逐个扫描入库码，扫到哪行核对哪行'}</div>
+        <div class="scan-input-row">
+          <input id="scanInput" class="scan-input" autocomplete="off" autocorrect="off" autocapitalize="off"
+                 spellcheck="false" inputmode="none" placeholder="等待扫描…"
+                 onkeydown="onScanKey(event)" oninput="onScanInput(event)" />
+          <button class="btn primary" onclick="submitScanInput()">确认</button>
+        </div>
+        <div class="scan-status" onclick="focusScanInput()"><i></i>扫描头已就绪 · 键盘模拟模式</div>
+        <div class="scan-tip">扫描头设为「键盘模拟 / Keystroke」，扫完自动回车；若弹出软键盘，按返回键收起。</div>
+        <div class="scan-links">
+          <button class="link" onclick="enableManualInput()">手输码值</button>
+          <button class="link" onclick="simulateScan()">模拟扫码（演示）</button>
+        </div>
+        <div class="last-scan" id="lastScan">${state.lastScan ? `最近扫码：<b>${esc(state.lastScan.code)}</b> · ${esc(state.lastScan.msg)}` : '最近扫码：—'}</div>
+        <a class="manual" onclick="toast('标签破损可申请补打，或由主管授权手工录入','warn')">标签无法识别？补打 / 手工录入</a>
+      </div>
+
+      <div class="progress-card">
+        <div class="row"><span>扫码进度</span><span><b id="progressCount">${done}/${total}</b> 行</span></div>
+        <div class="bar"><i id="progressBar" style="width:${pct}%"></i></div>
+      </div>
+
+      ${kind==='inbound'?`
+      <div class="loc-row"><label>库位</label><input value="A-01-02" placeholder="扫描/输入库位" /></div>
+      <div class="hint">包级库位默认应用到全部明细，可逐行修改；库位由 PDA 录入，电脑端可编辑。</div>`:''}
+
+      <div class="section" style="margin-top:14px">
+        <div class="section-head"><b>明细（${total}）</b><span class="sub">扫码只核对，不改数量</span></div>
+        <div id="linesWrap">${d.lines.map((l,i)=>lineCard(l,i)).join('')}</div>
+      </div>
+    </div>
+    <div class="bottom-bar">
+      <div class="progress-txt" id="bottomProgress"><b>${done}/${total}</b>${allScanned()?'已扫满，可确认':'还差 '+(total-done)+' 行'}</div>
+      <button class="btn primary" id="confirmBtn" ${allScanned()?'':'disabled'} onclick="openSignSheet()">${actionText}</button>
+    </div>
+  </div>`;
+}
+
+function printView(){
+  const d = doc();
+  return `
+  <div class="screen">
+    <div class="appbar">
+      <button class="back" onclick="go('home')">${icons.back}</button>
+      <div><div class="title">打印入库码</div><div class="sub mono">${d.id}</div></div>
+    </div>
+    <div class="content">
+      <div class="doc-summary">
+        <div class="top">
+          <div class="no mono">${d.id}</div>
+          <span class="pill amber">待打印入库码</span>
+        </div>
+        <div class="meta">
+          <div>类型：<b>${d.type}</b></div>
+          <div>仓库：<b>${d.warehouse}</b></div>
+          <div>来源：<b class="mono">${d.source}</b></div>
+          <div>用途：<b>${d.purpose}</b></div>
+        </div>
+      </div>
+
+      <div class="card pad" style="text-align:center;margin-bottom:12px">
+        <div class="scan-ico">${icons.print}</div>
+        <b>入库码已生成</b>
+        <div class="sub">先打印包码与入库码；打印后单据进入「待入库」，才能扫码确认。</div>
+        <div style="display:flex;justify-content:center;margin-top:14px">${qrSvg(qrContent('PK', d.packageCode), 132)}</div>
+        <div class="mono" style="margin-top:8px;font-size:13px;font-weight:700">${d.packageCode}</div>
+        <div class="hint">整包标签 · 整包作业扫此码</div>
+      </div>
+
+      <div class="section-head" style="margin:16px 0 8px"><b>入库码（${d.lines.length}）</b><span class="sub">逐张粘贴到物料上</span></div>
+      ${d.lines.map(l=>`
+        <div class="code-card">
+          <div class="qrbox">${qrSvg(qrContent('IC', l.inCode), 54)}</div>
+          <div><b>${l.name}</b><div class="sub mono">${l.inCode} · 批号 ${l.batch}</div><div class="sub">${l.qty} ${l.unit} · 效期 ${l.expiry}</div></div>
+        </div>`).join('')}
+      <div class="hint">标签破损或漏贴时，可在首页「补打标签」复用原码补打，补打会记录原因与操作人。</div>
+    </div>
+    <div class="bottom-bar" style="gap:8px">
+      <button class="btn" onclick="printLabels()">打印标签（${d.lines.length + 1} 张）</button>
+      <button class="btn primary" onclick="printAndContinue()">打印并去扫码</button>
+    </div>
+  </div>`;
+}
+function labelHtml(title, code, fields, qr){
+  return `<div class="label">
+    <div class="main">
+      <div class="title">${title}</div>
+      <div class="fields">${fields}</div>
+      <div class="code">${code}</div>
+      <div class="note">部分领用后以系统实时库存为准</div>
+    </div>
+    <div class="qr">${qr}</div>
+  </div>`;
+}
+function buildPrintHtml(d){
+  const packageLabel = d.packageCode ? labelHtml('整包标签', d.packageCode,
+    `用途：${d.purpose || '—'}<br/>入库时间：2026-11-13<br/>品种数量：${d.lines.length} 种`,
+    qrSvg(qrContent('PK', d.packageCode), 100)) : '';
+  const inboundLabels = d.lines.map(l => labelHtml(l.name, l.inCode,
+    `物料编码：${l.code}<br/>批号：${l.batch}<br/>入库日期：2026-11-13<br/>有效期至：${l.expiry}<br/>入库数量：${l.qty} ${l.unit}<br/>用途：${d.purpose || '—'}<br/>库位：${l.location || '待录入'}`,
+    qrSvg(qrContent('IC', l.inCode), 100))).join('');
+  return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><title>入库标签 ${d.id}</title>
+  <style>
+    @page { size: 60mm 40mm; margin: 0; }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif;color:#000;background:#fff}
+    .toolbar{position:sticky;top:0;background:#fff;border-bottom:1px solid #ddd;padding:8px;display:flex;gap:8px;justify-content:flex-end}
+    .toolbar button{height:34px;padding:0 14px;border:1px solid #ccc;border-radius:8px;background:#fff;font-size:13px}
+    .toolbar button.primary{background:#2f6fed;border-color:#2f6fed;color:#fff}
+    .sheet{padding:8mm}
+    .label{width:60mm;height:40mm;padding:2.5mm;display:flex;gap:2mm;page-break-after:always;overflow:hidden;border-bottom:1px dashed #999;margin:0 auto 4mm}
+    .label:last-child{page-break-after:auto}
+    .main{flex:1;min-width:0;display:flex;flex-direction:column}
+    .title{font-size:9pt;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .fields{font-size:6.5pt;line-height:1.45;margin-top:1mm}
+    .code{font-size:6pt;font-family:ui-monospace,Consolas,monospace;margin-top:1mm;word-break:break-all}
+    .note{font-size:5.5pt;color:#444;margin-top:auto;padding-top:1mm}
+    .qr{width:22mm;height:22mm;flex:none;align-self:center}
+    .qr svg{width:100%;height:100%;display:block}
+    @media print { .toolbar{display:none} .sheet{padding:0} .label{margin:0;border-bottom:0} body{-webkit-print-color-adjust:exact;print-color-adjust:exact} }
+  </style></head><body>
+  <div class="toolbar"><button onclick="window.print()">打印</button><button onclick="window.close()">关闭</button></div>
+  <div class="sheet">${packageLabel}${inboundLabels}</div>
+  </body></html>`;
+}
+function printLabels(){
+  const d = doc();
+  const w = window.open('', '_blank');
+  if (!w){ toast('浏览器阻止了打印窗口，请允许弹窗后重试','err'); return false; }
+  w.document.open();
+  w.document.write(buildPrintHtml(d));
+  w.document.close();
+  toast('已打开打印预览，请选择打印机或另存为 PDF','ok');
+  setTimeout(()=>{ try { w.focus(); w.print(); } catch(e){} }, 500);
+  return true;
+}
+function printAndContinue(){
+  if (!printLabels()) return;
+  setTimeout(()=>doPrint(), 900);
+}
+function doPrint(){
+  const d = doc();
+  d.status = '待入库';
+  state.scanPaused = false;
+  toast('标签已发送打印，进入待入库扫码', 'ok');
+  openWork('inbound');
+}
+
+function lineCard(l, i){
+  return `
+  <div class="line-card ${l.scanned?'scanned':''}">
+    <div class="line-num">${l.scanned?'✓':i+1}</div>
+    <div class="line-main">
+      <b>${l.name}</b>
+      <div class="sub mono">${l.code} · 批号 ${l.batch}</div>
+      <div class="qty">应扫 <b>${l.qty} ${l.unit}</b>${l.expiry ? ' · 效期 '+l.expiry : ''}</div>
+    </div>
+    <div class="line-status">${l.scanned?'<div class="check-ico">✓</div>':'<span class="pill gray">待扫</span>'}</div>
+  </div>`;
+}
+
+/* ---------- 真实扫码（扫描头键盘模拟） ---------- */
+function parseScan(raw){
+  const s = String(raw || '').trim();
+  if (!s) return { type:'unknown', code:'' };
+  // 二维码内容：ERP1|IC|in...|CRC / ERP1|PK|pk...|CRC
+  if (/^ERP1\|/i.test(s)) {
+    const parts = s.split('|');
+    const type = (parts[1] || '').toUpperCase();
+    const code = (parts[2] || '').trim();
+    if (type === 'PK') return { type:'package', code };
+    if (type === 'IC') return { type:'inbound', code };
+    return { type:'unknown', code };
+  }
+  if (/^pk/i.test(s)) return { type:'package', code:s };
+  if (/^in/i.test(s)) return { type:'inbound', code:s };
+  return { type:'unknown', code:s };
+}
+
+function handleScan(raw){
+  const d = doc();
+  const text = String(raw || '').trim();
+  if (!text) return;
+  clearTimeout(state.scanTimer);
+  const parsed = parseScan(text);
+  let ok = false, msg = '';
+
+  if (parsed.type === 'package') {
+    if (!d.packageCode) msg = '当前单据没有包码，请逐条扫入库码';
+    else if (parsed.code !== d.packageCode) msg = '包码不属于当前单据';
+    else if (allScanned()) msg = '该包已全部扫描，不重复计数';
+    else {
+      d.lines.forEach(l => l.scanned = true);
+      ok = true;
+      msg = '整包扫码成功，共 ' + d.lines.length + ' 种物料';
+    }
+  } else if (parsed.type === 'inbound') {
+    const line = d.lines.find(l => l.inCode && l.inCode.toLowerCase() === parsed.code.toLowerCase());
+    if (!line) msg = '入库码不属于当前单据';
+    else if (line.scanned) msg = '该码已扫描，不重复计数';
+    else {
+      line.scanned = true;
+      ok = true;
+      msg = '扫码成功：' + line.name + ' · 批次 ' + line.batch;
+    }
+  } else {
+    const key = parsed.code.toLowerCase();
+    const matches = d.lines.filter(l =>
+      (l.code && l.code.toLowerCase() === key) || (l.batch && l.batch.toLowerCase() === key));
+    if (!matches.length) msg = '无法识别的条码';
+    else if (matches.length > 1) msg = '匹配到多行，请扫描入库码';
+    else if (matches[0].scanned) msg = '该物料已扫描，不重复计数';
+    else {
+      matches[0].scanned = true;
+      ok = true;
+      msg = '扫码成功：' + matches[0].name;
+    }
+  }
+
+  state.lastScan = { code:text, ok, msg, time:new Date().toLocaleTimeString('zh-CN', { hour12:false }) };
+  toast(msg, ok ? 'ok' : 'err');
+  beep(ok);
+  updateWorkUI();
+}
+
+function updateWorkUI(){
+  const d = doc();
+  const total = d.lines.length;
+  const done = scannedCount();
+  const pct = total ? Math.round(done / total * 100) : 0;
+  const lines = document.getElementById('linesWrap');
+  if (lines) lines.innerHTML = d.lines.map((l,i) => lineCard(l,i)).join('');
+  const bar = document.getElementById('progressBar');
+  if (bar) bar.style.width = pct + '%';
+  const count = document.getElementById('progressCount');
+  if (count) count.textContent = done + '/' + total;
+  const bottom = document.getElementById('bottomProgress');
+  if (bottom) bottom.innerHTML = `<b>${done}/${total}</b>${allScanned() ? '已扫满，可确认' : '还差 ' + (total - done) + ' 行'}`;
+  const btn = document.getElementById('confirmBtn');
+  if (btn) btn.disabled = !allScanned();
+  const last = document.getElementById('lastScan');
+  if (last) last.innerHTML = state.lastScan
+    ? `最近扫码：<b>${esc(state.lastScan.code)}</b> · ${esc(state.lastScan.msg)}`
+    : '最近扫码：—';
+  focusScanInput();
+}
+
+function onScanKey(e){
+  if (e.key === 'Enter' || e.key === 'Tab'){
+    e.preventDefault();
+    submitScanInput();
+  }
+}
+
+function onScanInput(e){
+  clearTimeout(state.scanTimer);
+  if (e.target.value.length >= 6){
+    state.scanTimer = setTimeout(submitScanInput, 220);
+  }
+}
+
+function submitScanInput(){
+  clearTimeout(state.scanTimer);
+  const el = document.getElementById('scanInput');
+  if (!el) return;
+  const value = el.value;
+  el.value = '';
+  if (!value.trim()) return;
+  handleScan(value);
+}
+
+function enableManualInput(){
+  const el = document.getElementById('scanInput');
+  if (!el) return;
+  el.setAttribute('inputmode', 'text');
+  el.placeholder = '输入入库码 / 包码';
+  el.focus();
+  toast('已切换手输模式，可手动输入码值');
+}
+
+function focusScanInput(){
+  if (state.screen !== 'work' || state.scanPaused) return;
+  const el = document.getElementById('scanInput');
+  if (!el) return;
+  try { el.focus({ preventScroll:true }); } catch (e) { el.focus(); }
+}
+
+function bindScanInput(){
+  const el = document.getElementById('scanInput');
+  if (!el) return;
+  el.addEventListener('blur', () => {
+    if (state.screen === 'work' && !state.scanPaused) setTimeout(focusScanInput, 150);
+  });
+}
+
+function simulateScan(){
+  const d = doc();
+  if (state.mode === 'package' && d.packageCode){ handleScan(d.packageCode); return; }
+  const next = d.lines.find(l => !l.scanned);
+  if (!next){ toast('本单已全部扫满'); return; }
+  handleScan(next.inCode || next.code);
+}
+
+let audioCtx = null;
+let pointerGesture = false;
+document.addEventListener('pointerdown', () => { pointerGesture = true; }, { once:true, capture:true });
+document.addEventListener('touchstart', () => { pointerGesture = true; }, { once:true, capture:true });
+
+function beep(ok){
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = ok ? 980 : 220;
+    gain.gain.value = 0.07;
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + (ok ? 0.09 : 0.22));
+  } catch (e) {}
+  if (pointerGesture && navigator.vibrate) {
+    try { navigator.vibrate(ok ? 50 : [80, 60, 80]); } catch (e) {}
+  }
+}
+
+function esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ---------- 签名弹层 ---------- */
+function openSignSheet(){
+  state.scanPaused = true;
+  const d = doc();
+  const kind = state.current;
+  const label = kind==='inbound'?'确认入库':kind==='outbound'?'确认出库':'确认退库';
+  const effect = kind==='inbound'?'确认后一次性增加库存':kind==='outbound'?'确认后一次性扣减库存':'确认后回增库存';
+  const wrap = document.createElement('div');
+  wrap.className = 'sheet-wrap open';
+  wrap.id = 'sheet';
+  wrap.innerHTML = `
+    <div class="sheet-mask" onclick="closeSheet()"></div>
+    <div class="sheet">
+      <div class="handle"></div>
+      <h3>${label} · 作业签名</h3>
+      <p class="sub">${effect}；提交后不可修改。</p>
+      <div class="summary">
+        单据：<b>${d.id}</b><br/>
+        品种：<b>${d.lines.length}</b> · 总量：<b>${d.lines.reduce((s,l)=>s+Number(l.qty),0).toFixed(2)}</b><br/>
+        扫码：<b>全部 ${d.lines.length} 行已核对</b>
+      </div>
+      <div class="field"><label>签名密码</label><input id="pdaPwd" type="password" placeholder="请输入登录密码" /></div>
+      <div class="actions">
+        <button class="btn" onclick="closeSheet()">取消</button>
+        <button class="btn primary" onclick="doConfirm()">签名并${label.slice(2)}</button>
+      </div>
+    </div>`;
+  document.getElementById('app').appendChild(wrap);
+  setTimeout(()=>{ const el = document.getElementById('pdaPwd'); if (el) el.focus(); }, 120);
+}
+function closeSheet(){
+  const el = document.getElementById('sheet');
+  if (el) el.remove();
+  state.scanPaused = false;
+  setTimeout(focusScanInput, 120);
+}
+function doConfirm(){
+  const pwd = document.getElementById('pdaPwd');
+  if (!pwd || !pwd.value.trim()){ toast('请输入签名密码', 'warn'); pwd && pwd.focus(); return; }
+  closeSheet();
+  const d = doc();
+  d.status = state.current==='inbound' ? '已入库' : state.current==='outbound' ? '已出库' : '已退库';
+  state.scanPaused = false;
+  state.signed = true;
+  go('success');
+}
+
+/* ---------- 成功页 ---------- */
+function successView(){
+  const d = doc();
+  const kind = state.current;
+  const label = kind==='inbound'?'入库':kind==='outbound'?'出库':'退库';
+  return `
+  <div class="screen">
+    <div class="success">
+      <div class="ico">✓</div>
+      <h2>${label}成功</h2>
+      <div class="sub">库存已更新，单据状态已变为「已${label}」</div>
+      <div class="summary">
+        <div class="row"><span>单据号</span><b class="mono">${d.id}</b></div>
+        <div class="row"><span>品种数</span><b>${d.lines.length}</b></div>
+        <div class="row"><span>${label}总量</span><b>${d.lines.reduce((s,l)=>s+Number(l.qty),0).toFixed(2)}</b></div>
+        <div class="row"><span>作业签名</span><b>陶新文 · 11:26</b></div>
+      </div>
+      <div class="actions">
+        <button class="btn" onclick="toast('已发送标签打印任务（原型）','ok')">打印标签</button>
+        <button class="btn primary" onclick="state.tab='home';go('home')">返回首页</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ---------- 补打 ---------- */
+function reprintView(){
+  const codes = docs.inbound.lines.slice(0,4);
+  return `
+  <div class="screen">
+    <div class="appbar">
+      <button class="back" onclick="go('home')">${icons.back}</button>
+      <div><div class="title">补打标签</div><div class="sub">复用原码，不生成新编码</div></div>
+    </div>
+    <div class="content">
+      <div class="card pad" style="margin-bottom:12px">
+        <div style="font-size:12px;color:var(--muted);line-height:1.7">补打需填写原因，系统记录操作人、设备与时间；已作废的码不能补打。</div>
+      </div>
+      ${codes.map(l=>`
+        <div class="code-card">
+          <div class="qrbox">${qrSvg(qrContent('IC', l.inCode),54)}</div>
+          <div><b>${l.name}</b><div class="sub mono">${l.inCode} · 批号 ${l.batch}</div></div>
+          <button class="btn sm" onclick="toast('补打需填写原因（原型）','warn')">补打</button>
+        </div>`).join('')}
+      <div class="hint">标签破损、无法识别时先补打；补打失败可由主管授权手工录入并记录原因。</div>
+    </div>
+  </div>`;
+}
+
+/* ---------- 记录 ---------- */
+function recordsView(){
+  return `
+  <div class="appbar"><div><div class="title">作业记录</div><div class="sub">2026-11-13 · 原料仓库</div></div></div>
+  <div class="content">
+    <div class="record">
+      <div class="top"><b class="mono">IN202611130001</b><span class="pill green">已入库</span></div>
+      <div class="sub">采购入库 · 6 种物料 · 94.06 千克</div>
+      <div class="lines">11:26 整单确认 · 作业签名 陶新文<br/>扫码方式：整包扫码（pk2026111300001）</div>
+    </div>
+    <div class="record">
+      <div class="top"><b class="mono">OUT202611130001</b><span class="pill green">已出库</span></div>
+      <div class="sub">生产领料出库 · 6 种物料 · 94.06 千克</div>
+      <div class="lines">10:42 整单确认 · 作业签名 陶新文<br/>扫码方式：逐条扫码</div>
+    </div>
+    <div class="record">
+      <div class="top"><b class="mono">TK-20261113001</b><span class="pill green">已退库</span></div>
+      <div class="sub">退库 · 2 种物料 · 3.50 千克</div>
+      <div class="lines">09:18 整单确认 · 作业签名 陶新文</div>
+    </div>
+    <div class="hint">每笔记录可追溯操作账号、PDA 设备编号、时间与入库码。</div>
+  </div>`;
+}
+
+/* ---------- 我的 ---------- */
+function profileView(){
+  return `
+  <div class="appbar"><div><div class="title">我的</div><div class="sub">账号与设备</div></div></div>
+  <div class="content">
+    <div class="profile-card">
+      <div class="avatar">陶</div>
+      <div><b>陶新文</b><div class="sub">库管 · 原料仓库</div></div>
+    </div>
+    <div class="list-card">
+      <div class="list-row"><div class="ico">${icons.box}</div>当前设备<div class="arrow">PDA-A03 ›</div></div>
+      <div class="list-row"><div class="ico">${icons.task}</div>作业权限<div class="arrow">入库 / 出库 / 退库 ›</div></div>
+      <div class="list-row"><div class="ico">${icons.print}</div>标签打印<div class="arrow">已连接 ›</div></div>
+      <div class="list-row"><div class="ico">${icons.user}</div>切换账号<div class="arrow">›</div></div>
+    </div>
+    <div class="hint" style="margin-top:16px">未登记设备不能作业；设备换人需主管重新绑定。</div>
+  </div>`;
+}
+
+/* 扩展：work 页走独立渲染 */
+const _render = render;
+render = function(){
+  const app = document.getElementById('app');
+  if (state.screen === 'work') {
+    app.innerHTML = workView();
+    bindScanInput();
+    setTimeout(focusScanInput, 80);
+    return;
+  }
+  if (state.screen === 'print') { app.innerHTML = printView(); return; }
+  if (state.screen === 'reprint') { app.innerHTML = reprintView(); return; }
+  _render();
+};
+
+render();
+</script>
+</body>
+</html>

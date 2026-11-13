@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>产品信息汇总 · 批次详情（结构稿）</title>
+<style>
+  :root{
+    --primary:#409eff; --success:#67c23a; --warning:#e6a23c; --danger:#f56c6c; --info:#909399;
+    --text:#303133; --text-regular:#606266; --text-secondary:#909399; --placeholder:#a8abb2;
+    --border:#dcdfe6; --border-light:#e4e7ed; --border-lighter:#ebeef5;
+    --bg:#ffffff; --bg-page:#f5f7fa; --fill:#f0f2f5; --fill-light:#f5f7fa;
+    --radius:6px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg-page);color:var(--text);
+    font-family:"Microsoft YaHei","PingFang SC","Helvetica Neue",Arial,sans-serif;font-size:14px;}
+  .page{min-height:100vh;}
+  /* ---------- 吸顶工具栏 ---------- */
+  .toolbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;
+    height:52px;padding:0 20px;background:var(--bg);border-bottom:1px solid var(--border-lighter);
+    box-shadow:0 1px 4px rgba(0,0,0,.04);}
+  .toolbar-left{display:flex;align-items:center;gap:12px;min-width:0;}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 14px;
+    border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text-regular);
+    cursor:pointer;font-size:13px;transition:all .15s;}
+  .btn:hover{color:var(--primary);border-color:#c6e2ff;background:#ecf5ff;}
+  .btn-primary{background:var(--primary);border-color:var(--primary);color:#fff;}
+  .btn-primary:hover{background:#66b1ff;border-color:#66b1ff;color:#fff;}
+  .btn-plain-danger{color:var(--danger);border-color:#fbc4c4;background:#fef0f0;}
+  .icon-btn{width:32px;padding:0;font-size:16px;}
+  .breadcrumb{font-size:13px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .breadcrumb b{color:var(--text);font-weight:600;}
+  /* ---------- 批次头部 ---------- */
+  .header{background:var(--bg);border-bottom:1px solid var(--border-lighter);padding:16px 20px 18px;}
+  .header-title-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .header-title{font-size:20px;font-weight:600;letter-spacing:.5px;}
+  .tag{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:4px;font-size:12px;
+    line-height:1;border:1px solid transparent;white-space:nowrap;}
+  .tag-success{color:#529b2e;background:#f0f9eb;border-color:#e1f3d8;}
+  .tag-primary{color:#337ecc;background:#ecf5ff;border-color:#d9ecff;}
+  .tag-warning{color:#b88230;background:#fdf6ec;border-color:#faecd8;}
+  .tag-danger{color:#c45656;background:#fef0f0;border-color:#fde2e2;}
+  .tag-info{color:#73767a;background:#f4f4f5;border-color:#e9e9eb;}
+  .tag-plain{background:transparent;border-color:var(--border);color:var(--text-regular);}
+  .header-meta{margin-top:6px;font-size:12px;color:var(--text-secondary);display:flex;gap:16px;flex-wrap:wrap;}
+  .desc-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:14px;
+    border:1px solid var(--border-lighter);border-radius:var(--radius);overflow:hidden;}
+  .desc-cell{display:flex;border-right:1px solid var(--border-lighter);border-bottom:1px solid var(--border-lighter);
+    min-height:40px;}
+  .desc-cell:nth-child(4n){border-right:none;}
+  .desc-cell:nth-last-child(-n+4){border-bottom:none;}
+  .desc-label{flex:0 0 88px;display:flex;align-items:center;padding:8px 10px;background:var(--fill-light);
+    color:var(--text-regular);font-size:12px;border-right:1px solid var(--border-lighter);}
+  .desc-value{flex:1;display:flex;align-items:center;padding:8px 10px;font-size:13px;min-width:0;}
+  .muted{color:var(--text-secondary);}
+  .danger-text{color:var(--danger);}
+  .success-text{color:var(--success);}
+  /* ---------- 主体两栏 ---------- */
+  .body{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;padding:16px 20px 40px;align-items:start;}
+  .main{min-width:0;display:flex;flex-direction:column;gap:12px;}
+  .aside{position:sticky;top:68px;display:flex;flex-direction:column;gap:12px;}
+  /* ---------- 节点卡片 ---------- */
+  .section{background:var(--bg);border:1px solid var(--border-lighter);border-radius:8px;
+    box-shadow:0 1px 2px rgba(0,0,0,.02);overflow:hidden;}
+  .section-head{display:flex;align-items:center;gap:10px;padding:12px 14px;background:#fafbfc;
+    border-bottom:1px solid var(--border-lighter);}
+  .node-index{flex:0 0 22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:12px;font-weight:600;color:#fff;background:var(--info);}
+  .node-index.done{background:var(--success);}
+  .node-index.active{background:var(--primary);}
+  .node-title{font-size:14px;font-weight:600;}
+  .node-main{font-size:12px;color:var(--text-regular);}
+  .node-meta{font-size:12px;color:var(--text-secondary);}
+  .head-spacer{flex:1;}
+  .stat-text{font-size:12px;color:var(--text-secondary);white-space:nowrap;}
+  .stat-text b{color:var(--text);font-weight:600;}
+  .section-body{padding:0;}
+  .section-empty{padding:14px;font-size:12px;color:var(--text-secondary);}
+  /* ---------- 表格 ---------- */
+  table.doc-table{width:100%;border-collapse:collapse;table-layout:fixed;}
+  .doc-table th{background:var(--fill-light);color:var(--text-regular);font-weight:600;font-size:12px;
+    text-align:left;padding:8px 10px;border-bottom:1px solid var(--border-lighter);white-space:nowrap;}
+  .doc-table td{padding:8px 10px;border-bottom:1px solid var(--border-lighter);font-size:13px;
+    color:var(--text-regular);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .doc-table tr:last-child td{border-bottom:none;}
+  .doc-table tbody tr{cursor:pointer;transition:background .12s;}
+  .doc-table tbody tr:hover{background:#f5faff;}
+  .doc-code{color:var(--primary);font-weight:500;}
+  .doc-sub{font-size:11px;color:var(--placeholder);margin-top:2px;}
+  .link{color:var(--primary);cursor:pointer;text-decoration:none;}
+  .link:hover{text-decoration:underline;}
+  .table-scroll{max-height:300px;overflow:auto;}
+  .table-scroll::-webkit-scrollbar{width:6px;height:6px;}
+  .table-scroll::-webkit-scrollbar-thumb{background:#d3d8de;border-radius:3px;}
+  /* ---------- 右侧栏 ---------- */
+  .panel{background:var(--bg);border:1px solid var(--border-lighter);border-radius:8px;
+    box-shadow:0 1px 2px rgba(0,0,0,.02);}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;
+    border-bottom:1px solid var(--border-lighter);}
+  .panel-title{font-size:14px;font-weight:600;}
+  .panel-body{padding:10px 14px 14px;}
+  .progress{height:6px;border-radius:3px;background:var(--fill);overflow:hidden;margin:4px 0 12px;}
+  .progress > i{display:block;height:100%;background:var(--success);border-radius:3px;}
+  .slot{display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px dashed var(--border-lighter);}
+  .slot:last-child{border-bottom:none;}
+  .slot-main{flex:1;min-width:0;}
+  .slot-name{font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .slot-note{font-size:11px;color:var(--text-secondary);margin-top:2px;}
+  .slot-count{font-size:12px;font-weight:600;color:var(--success);white-space:nowrap;}
+  .slot-count.bad{color:var(--danger);}
+  .missing-item{display:flex;gap:8px;padding:7px 0;border-bottom:1px dashed var(--border-lighter);font-size:12px;}
+  .missing-item:last-child{border-bottom:none;}
+  .missing-dot{flex:0 0 6px;height:6px;margin-top:5px;border-radius:50%;background:var(--danger);}
+  .missing-text{flex:1;color:var(--text-regular);}
+  .missing-text small{display:block;color:var(--text-secondary);font-size:11px;margin-top:2px;}
+  /* ---------- Drawer ---------- */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .2s;z-index:40;}
+  .overlay.show{opacity:1;pointer-events:auto;}
+  .drawer{position:fixed;top:0;right:0;bottom:0;width:46%;min-width:520px;max-width:760px;background:var(--bg);
+    z-index:41;transform:translateX(100%);transition:transform .22s ease;display:flex;flex-direction:column;
+    box-shadow:-6px 0 24px rgba(0,0,0,.12);}
+  .drawer.show{transform:translateX(0);}
+  .drawer-head{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border-lighter);}
+  .drawer-title{font-size:15px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .drawer-close{border:none;background:transparent;font-size:18px;color:var(--text-secondary);cursor:pointer;line-height:1;}
+  .drawer-body{flex:1;overflow:auto;padding:16px 18px 40px;}
+  .block{margin-bottom:20px;}
+  .block-title{font-size:13px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+  .block-title .bar{width:3px;height:14px;background:var(--primary);border-radius:2px;}
+  .block-note{font-size:12px;color:var(--text-secondary);font-weight:400;}
+  .field-grid{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--border-lighter);border-radius:var(--radius);overflow:hidden;}
+  .field{display:flex;border-bottom:1px solid var(--border-lighter);min-height:38px;}
+  .field:nth-child(even){border-right:none;}
+  .field:nth-last-child(-n+2){border-bottom:none;}
+  .field-label{flex:0 0 92px;padding:8px 10px;background:var(--fill-light);font-size:12px;color:var(--text-regular);
+    border-right:1px solid var(--border-lighter);display:flex;align-items:center;}
+  .field-value{flex:1;padding:8px 10px;font-size:13px;display:flex;align-items:center;min-width:0;}
+  .detail-table{width:100%;border-collapse:collapse;table-layout:auto;}
+  .detail-table th{background:var(--fill-light);font-size:12px;color:var(--text-regular);font-weight:600;
+    padding:7px 9px;border:1px solid var(--border-lighter);white-space:nowrap;}
+  .detail-table td{padding:7px 9px;border:1px solid var(--border-lighter);font-size:12px;white-space:nowrap;}
+  .file-rows{display:flex;flex-direction:column;gap:4px;}
+  .file-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 10px;
+    background:var(--fill-light);border-radius:4px;}
+  .file-row-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:var(--text);}
+  .file-row-side{display:flex;align-items:center;gap:12px;flex-shrink:0;}
+  .file-size{font-size:12px;color:var(--text-secondary);}
+  .empty-tip{font-size:12px;color:var(--text-secondary);padding:8px 0;}
+  .missing-box{background:#fef0f0;border:1px solid #fde2e2;border-radius:var(--radius);padding:10px 12px;}
+  .missing-box-title{font-size:12px;font-weight:600;color:var(--danger);margin-bottom:6px;}
+  .missing-box li{font-size:12px;color:var(--text-regular);margin:4px 0;list-style:none;}
+  .missing-box ul{margin:0;padding:0;}
+  /* ---------- 附件弹窗 ---------- */
+  .dialog-mask{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;z-index:50;}
+  .dialog-mask.show{display:flex;}
+  .dialog{width:520px;max-width:92vw;background:var(--bg);border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.18);
+    overflow:hidden;}
+  .dialog-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border-lighter);}
+  .dialog-title{font-size:15px;font-weight:600;}
+  .dialog-body{padding:14px 18px;max-height:360px;overflow:auto;}
+  .dialog-foot{display:flex;justify-content:flex-end;padding:10px 18px 14px;}
+  .file-table{width:100%;border-collapse:collapse;}
+  .file-table th{background:var(--fill-light);font-size:12px;color:var(--text-regular);padding:7px 8px;
+    border:1px solid var(--border-lighter);text-align:left;}
+  .file-table td{padding:7px 8px;border:1px solid var(--border-lighter);font-size:12px;color:var(--text-regular);}
+  .tip{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(8px);background:rgba(0,0,0,.78);
+    color:#fff;font-size:12px;padding:7px 14px;border-radius:4px;opacity:0;transition:.2s;z-index:60;pointer-events:none;}
+  .tip.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  @media (max-width:1200px){
+    .body{grid-template-columns:1fr;}
+    .aside{position:static;}
+    .desc-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .desc-cell:nth-child(4n){border-right:1px solid var(--border-lighter);}
+    .desc-cell:nth-child(2n){border-right:none;}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <!-- 工具栏 -->
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <button class="btn icon-btn" title="返回列表" onclick="toast('返回产品汇总列表')">←</button>
+      <div class="breadcrumb">产品信息汇总 / <b>桂附潜阳丸</b> / 261017</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <span class="stat-text">最近更新 2026-11-10 19:55</span>
+      <button class="btn" onclick="toast('导出本批次附件 ZIP')">导出 ZIP</button>
+    </div>
+  </div>
+
+  <!-- 批次头部 -->
+  <div class="header">
+    <div class="header-title-row">
+      <span class="header-title">桂附潜阳丸</span>
+      <span class="tag tag-plain">批号 261017</span>
+      <span class="tag tag-primary">生产中</span>
+      <span class="tag tag-warning">文件 5 / 7</span>
+      <span class="tag tag-danger">缺 2 项</span>
+      <span class="tag tag-success">检验 合格</span>
+    </div>
+    <div class="header-meta">
+      <span>工单号：GD202610200001</span>
+      <span>计划号：Plan202610190008</span>
+      <span>规格：每50丸重6g（每1g相当于饮片约0.83g）</span>
+    </div>
+    <div class="desc-grid">
+      <div class="desc-cell"><div class="desc-label">批量 / 成品</div><div class="desc-value">7000 / 7001 盒</div></div>
+      <div class="desc-cell"><div class="desc-label">计划生产</div><div class="desc-value">2026-10-18</div></div>
+      <div class="desc-cell"><div class="desc-label">实际生产</div><div class="desc-value">2026-10-18 ~ 2026-10-20</div></div>
+      <div class="desc-cell"><div class="desc-label">整批收率</div><div class="desc-value success-text">100.01%</div></div>
+      <div class="desc-cell"><div class="desc-label">入库 / 出库</div><div class="desc-value">7001 / 0</div></div>
+      <div class="desc-cell"><div class="desc-label">检验结论</div><div class="desc-value"><span class="tag tag-success">合格</span></div></div>
+      <div class="desc-cell"><div class="desc-label">工序</div><div class="desc-value">8 / 8 道</div></div>
+      <div class="desc-cell"><div class="desc-label">物料来源</div><div class="desc-value">采购</div></div>
+    </div>
+  </div>
+
+  <!-- 主体 -->
+  <div class="body">
+    <div class="main">
+
+      <!-- ① 计划 -->
+      <div class="section">
+        <div class="section-head">
+          <span class="node-index done">1</span>
+          <span class="node-title">计划</span>
+          <span class="tag tag-success">已完成</span>
+          <span class="node-main">Plan202610190008</span>
+          <span class="node-meta">批号 261017 · 7000 盒</span>
+          <span class="head-spacer"></span>
+          <span class="stat-text">单据 <b>1</b> 张 · 文件 <b>4/4</b></span>
+        </div>
+        <div class="section-body">
+          <table class="doc-table">
+            <colgroup><col style="width:110px"><col style="width:190px"><col style="width:90px"><col style="width:110px"><col><col style="width:110px"></colgroup>
+            <thead><tr><th>单据类型</th><th>单据编号</th><th>状态</th><th>计划日期</th><th>品种 / 批量</th><th>文件</th></tr></thead>
+            <tbody>
+              <tr onclick="openDoc('plan')">
+                <td>生产计划</td>
+                <td><span class="doc-code">Plan202610190008</span></td>
+                <td><span class="tag tag-success">已完成</span></td>
+                <td>2026-10-18</td>
+                <td>桂附潜阳丸 · 7000 盒</td>
+                <td><span class="link" onclick="event.stopPropagation();openFiles('计划附件')">4 个文件</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ② 采购 / 领料 -->
+      <div class="section">
+        <div class="section-head">
+          <span class="node-index done">2</span>
+          <span class="node-title">采购 / 领料</span>
+          <span class="tag tag-success">已完成</span>
+          <span class="node-main">1 张采购单</span>
+          <span class="node-meta">已入库</span>
+          <span class="head-spacer"></span>
+          <span class="stat-text">单据 <b>1</b> 张 · 文件 <b>1/1</b></span>
+        </div>
+        <div class="section-body">
+          <table class="doc-table">
+            <colgroup><col style="width:110px"><col style="width:190px"><col style="width:90px"><col style="width:110px"><col style="width:130px"><col><col style="width:110px"></colgroup>
+            <thead><tr><th>单据类型</th><th>单据编号</th><th>状态</th><th>下单日期</th><th>供应商</th><th>金额</th><th>文件</th></tr></thead>
+            <tbody>
+              <tr onclick="openDoc('purchase')">
+                <td>采购订单</td>
+                <td><span class="doc-code">CG202610180001</span></td>
+                <td><span class="tag tag-success">已入库</span></td>
+                <td>2026-10-18</td>
+                <td>亳州市药材有限公司</td>
+                <td>¥ 128,600.00</td>
+                <td><span class="link" onclick="event.stopPropagation();openFiles('采购订单附件')">1 个文件</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ③ 验收入库 -->
+      <div class="section">
+        <div class="section-head">
+          <span class="node-index done">3</span>
+          <span class="node-title">验收入库（物料入库）</span>
+          <span class="tag tag-success">已完成</span>
+          <span class="node-main">1 张验收单 / 1 张入库单</span>
+          <span class="head-spacer"></span>
+          <span class="stat-text">单据 <b>2</b> 张 · 文件 <b>2/3</b> · <span class="danger-text">缺 1 项</span></span>
+        </div>
+        <div class="section-body">
+          <table class="doc-table">
+            <colgroup><col style="width:110px"><col style="width:190px"><col style="width:90px"><col style="width:110px"><col style="width:170px"><col><col style="width:110px"></colgroup>
+            <thead><tr><th>单据类型</th><th>单据编号</th><th>状态</th><th>验收日期</th><th>来源 / 采购单号</th><th>物料明细</th><th>文件</th></tr></thead>
+            <tbody>
+              <tr onclick="openDoc('acceptance')">
+                <td>货物验收</td>
+                <td><span class="doc-code">YS-20261019-009</span></td>
+                <td><span class="tag tag-success">已入库</span></td>
+                <td>2026-10-19</td>
+                <td>采购入库 · CG202610180001</td>
+                <td>5 条明细</td>
+                <td><span class="link" onclick="event.stopPropagation();openFiles('验收单附件')">1 个文件</span> <span class="tag tag-danger" style="margin-left:4px;">缺 验收检验报告</span></td>
+              </tr>
+              <tr onclick="openDoc('stockin')">
+                <td>物料入库单</td>
+                <td><span class="doc-code">IN202610200002</span></td>
+                <td><span class="tag tag-success">已入库</span></td>
+                <td>2026-10-20</td>
+                <td>关联验收单 YS-20261019-009</td>
+                <td>5 条明细</td>
+                <td><span class="muted">无附件（随验收单归档）</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ④ 生产任务 -->
+      <div class="section">
+        <div class="section-head">
+          <span class="node-index done">4</span>
+          <span class="node-title">生产任务</span>
+          <span class="tag tag-success">已完成</span>
+          <span class="node-main">GD202610200001</span>
+          <span class="node-meta">批号 261017 · 7000 盒</span>
+          <span class="head-spacer"></span>
+          <span class="stat-text">单据 <b>1</b> 张 · 文件 <b>1/1</b></span>
+        </div>
+        <div class="section-body">
+          <table class="doc-table">
+            <colgroup><col style="width:110px"><col style="width:190px"><col style="width:90px"><col style="width:110px"><col><col style="width:110px"></colgroup>
+            <thead><tr><th>单据类型</th><th>单据编号</th><th>状态</th><th>下达日期</th><th>计划量 / 实际量</th><th>文件</th></tr></thead>
+            <tbody>
+              <tr onclick="openDoc('workorder')">
+                <td>生产工单</td>
+                <td><span class="doc-code">GD202610200001</span></td>
+                <td><span class="tag tag-primary">生产中</span></td>
+                <td>2026-10-18</td>
+                <td>7000 / 7001 盒</td>
+                <td><span class="link" onclick="event.stopPropagation();openFiles('工单附件')">1 个文件</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ⑤ 生产领料 -->
+      <div class="section">
+        <div class="section-head">
+          <span class="node-index done">5</span>
+          <span class="node-title">生产领料</span>
+          <span class="tag tag-success">已完成</span>
+          <span class="node-main">1 张领料单 · 1 张出库单</span>
+          <span class="head-spacer"></span>
+          <span class="stat-text">单据 <b>2</b> 张 · 文件 <b>1/1</b></span>
+        </div>
+        <div class="section-body">
+          <table class="doc-table">
+            <colgroup><col style="width:110px"><col style="width:190px"><col style="width:90px"><col style="width:110px"><col><col style="width:110px"></colgroup>
+            <thead><tr><th>单据类型</th><th>单据编号</th><th>状态</th><th>领料日期</th><th>领料人 / 仓库</th><th>文件</th></tr></thead>
+            <tbody>
+              <tr onclick="openDoc('pick')">
+                <td>领料单</td>
+                <td><span class="doc-code">LL202610190003</span></td>
+                <td><span class="tag tag-success">已完成</span></td>
+                <td>2026-10-19</td>
+                <td>张晓明 · 原料库</td>
+                <td><span class="link" onclick="event.stopPropagation();openFiles('领料单附件')">1 个文件</span></td>
+              </tr>
+              <tr onclick="openDoc('stockout')">
+                <td>领料出库单</td>
+                <td><span class="doc-code">CK202610190006</span></td>
+                <td><span class="tag tag-success">已出库</span></td>
+                <td>2026-10-19</td>
+                <td>张晓明 · 原料库</td>
+                <td><span class="muted">无附件</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ⑥ 生产过程 -->
+      <div class="section">
+        <div class="section-head">
+          <span class="node-index done">6</span>
+          <span class="node-title">生产过程</span>
+          <span class="tag tag-success">已完成</span>
+          <span class="node-main">8 道工序</span>
+          <span class="node-meta">全部符合</span>
+          <span class="head-spacer"></span>
+          <span class="stat-text">单据 <b>8</b> 张 · 文件 <b>8/8</b></span>
+        </div>
+        <div class="section-body">
+          <div class="table-scroll">
+            <table class="doc-table">
+              <colgroup><col style="width:140px"><col style="width:80px"><col style="width:130px"><col style="width:110px"><col style="width:110px"><col><col style="width:100px"></colgroup>
+              <thead><tr><th>工序名称</th><th>状态</th><th>房间 / 设备</th><th>开始时间</th><th>结束时间</th><th>操作人 / 工艺要求</th><th>文件</th></tr></thead>
+              <tbody>
+                <tr onclick="openDoc('process')">
+                  <td>粉碎</td><td><span class="tag tag-success">已完成</span></td>
+                  <td>粉碎间 · 万能粉碎机</td><td>10-18 08:30</td><td>10-18 10:10</td>
+                  <td>王磊 · 粒度符合内控标准</td>
+                  <td><span class="link" onclick="event.stopPropagation();openFiles('工序记录附件')">1 个文件</span></td>
+                </tr>
+                <tr onclick="openDoc('process')">
+                  <td>过筛</td><td><span class="tag tag-success">已完成</span></td>
+                  <td>过筛间 · 振荡筛</td><td>10-18 10:20</td><td>10-18 11:30</td>
+                  <td>王磊 · 80 目筛</td>
+                  <td><span class="link" onclick="event.stopPropagation();openFiles('工序记录附件')">1 个文件</span></td>
+                </tr>
+                <tr onclick="openDoc('process')">
+                  <td>混合</td><td><span class="tag tag-success">已完成</span></td>
+                  <td>混合间 · 三维混合机</td><td>10-18 13:00</td><td>10-18 14:20</td>
+                  <td>李娜 · 混合 20 分钟</td>
+                  <td><span class="link" onclick="event.stopPropagation();openFiles('工序记录附件')">1 个文件</span></td>
+                </tr>
+                <tr onclick="openDoc('process')">
+                  <td>制丸</td><td><span class="tag tag-success">已完成</span></td>
+                  <td>制丸间 · 制丸机</td><td>10-18 14:40</td><td>10-19 09:00</td>
+                  <td>李娜 · 丸重差异符合规定</td>
+                  <td><span class="link" onclick="event.stopPropagation();openFiles('工序记录附件')">1 个文件</span></td>
+                </tr>
+                <tr onclick="openDoc('process')">
+                  <td>干燥</td><td><span class="tag tag-success">已完成</span></td>
+                  <td>干燥间 · 热风循环烘箱</td><td>10-19 09:20</td><td>10-19 16:00</td>
+                  <td>赵强 · 水分 ≤ 9.0%</td>
+                  <td><span class="link" onclick="event.stopPropagation();openFiles('工序记录附件')">1 个文件</span></td>
+                </tr>
+                <tr onclick="openDoc('process')">
+                  <td>包衣</td><td><span class="tag tag-success">已完成</span></td>
+                  <td>包衣间 · 高效包衣机</td><td>10-19 16:30</td><td>10-20 08:30</td>
+                  <td>赵强 · 增重 3%</td>
+                  <td><span class="link" onclick="event.stopPropagation();openFiles('工序记录附件')">1 个文件</span></td>
+                </tr>
+                <tr onclick="openDoc('process')">
+                  <td>内包装</td><td><span class="tag tag-success">已完成</span></td>
+                  <td>内包间 · 泡罩包装机</td><td>10-20 09:00</td><td>10-20 14:00</td>
+                  <td>周敏 · 密封性合格</td>
+                  <td><span class="link" onclick="event.stopPropagation();openFiles('工序记录附件')">1 个文件</span></td>
+                </tr>
+                <tr onclick="openDoc('process')">
+                  <td>外包装</td><td><span class="tag tag-success">已完成</span></td>
+                  <td>外包间 · 装盒机</td><td>10-20 14:20</td><td>10-20 17:00</td>
+                  <td>周敏 · 标签核对无误</td>
+                  <td><span class="link" onclick="event.stopPropagation();openFiles('工序记录附件')">1 个文件</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ⑦ 检验 -->
+      <div class="section">
+        <div class="section-head">
+          <span class="node-index done">7</span>
+          <span class="node-title">检验</span>
+          <span class="tag tag-success">已完成</span>
+          <span class="node-main">1 张请检单 · 1 份取样 · 1 份检验</span>
+          <span class="node-meta">结论：合格</span>
+          <span class="head-spacer"></span>
+          <span class="stat-text">单据 <b>3</b> 张 · 文件 <b>3/3</b></span>
+        </div>
+        <div class="section-body">
+          <table class="doc-table">
+            <colgroup><col style="width:110px"><col style="width:180px"><col style="width:100px"><col style="width:90px"><col style="width:110px"><col><col style="width:90px"></colgroup>
+            <thead><tr><th>单据类型</th><th>单据编号</th><th>被检品</th><th>状态</th><th>检验结论</th><th>检验人 / 依据</th><th>文件</th></tr></thead>
+            <tbody>
+              <tr onclick="openDoc('inspection')">
+                <td>请检单</td>
+                <td><span class="doc-code">QJ202610200001</span></td>
+                <td>成品</td>
+                <td><span class="tag tag-success">已检验</span></td>
+                <td>—</td>
+                <td>请检人 刘洋 · 全项检验</td>
+                <td><span class="link" onclick="event.stopPropagation();openFiles('请检单附件')">1 个文件</span></td>
+              </tr>
+              <tr onclick="openDoc('sampling')">
+                <td>取样记录</td>
+                <td><span class="doc-code">QY202610200001</span></td>
+                <td>成品</td>
+                <td><span class="tag tag-success">已取样</span></td>
+                <td>—</td>
+                <td>取样 10 份 · 随机取样</td>
+                <td><span class="link" onclick="event.stopPropagation();openFiles('取样记录附件')">1 个文件</span></td>
+              </tr>
+              <tr onclick="openDoc('inspection-record')">
+                <td>检验记录</td>
+                <td><span class="doc-code">JY202610200001</span></td>
+                <td>成品</td>
+                <td><span class="tag tag-success">已检验</span></td>
+                <td><span class="tag tag-success">合格</span></td>
+                <td>检验人 陈静 · 复核 王芳</td>
+                <td><span class="link" onclick="event.stopPropagation();openFiles('检验记录附件')">1 个文件</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ⑧ 成品入库 -->
+      <div class="section">
+        <div class="section-head">
+          <span class="node-index done">8</span>
+          <span class="node-title">成品入库</span>
+          <span class="tag tag-success">已完成</span>
+          <span class="node-main">IN202610200002</span>
+          <span class="node-meta">入库 7001 盒</span>
+          <span class="head-spacer"></span>
+          <span class="stat-text">单据 <b>1</b> 张 · 文件 <b>1/1</b></span>
+        </div>
+        <div class="section-body">
+          <table class="doc-table">
+            <colgroup><col style="width:110px"><col style="width:190px"><col style="width:90px"><col style="width:110px"><col><col style="width:110px"></colgroup>
+            <thead><tr><th>单据类型</th><th>单据编号</th><th>状态</th><th>入库日期</th><th>产品 / 数量</th><th>文件</th></tr></thead>
+            <tbody>
+              <tr onclick="openDoc('finished-in')">
+                <td>成品入库单</td>
+                <td><span class="doc-code">IN202610200002</span></td>
+                <td><span class="tag tag-success">已入库</span></td>
+                <td>2026-10-20</td>
+                <td>桂附潜阳丸 · 7001 盒</td>
+                <td><span class="link" onclick="event.stopPropagation();openFiles('成品入库单附件')">1 个文件</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ⑨ 审核放行 -->
+      <div class="section">
+        <div class="section-head">
+          <span class="node-index active">9</span>
+          <span class="node-title">审核放行</span>
+          <span class="tag tag-warning">待审核</span>
+          <span class="node-main">文件缺 2 项</span>
+          <span class="head-spacer"></span>
+          <span class="stat-text">单据 <b>0</b> 张 · 文件 <b>0/1</b> · <span class="danger-text">缺 1 项</span></span>
+        </div>
+        <div class="section-body">
+          <div class="section-empty">尚未生成放行审核记录；当前存在 2 项缺件，补齐后可提交审核。</div>
+        </div>
+      </div>
+
+      <!-- ⑩ 成品出库 -->
+      <div class="section">
+        <div class="section-head">
+          <span class="node-index">10</span>
+          <span class="node-title">成品出库</span>
+          <span class="tag tag-info">未开始</span>
+          <span class="node-main">—</span>
+          <span class="head-spacer"></span>
+          <span class="stat-text">单据 <b>0</b> 张</span>
+        </div>
+        <div class="section-body">
+          <div class="section-empty">该环节尚未开始。</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 右侧栏 -->
+    <div class="aside">
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title">文件完整性</span>
+          <span class="stat-text"><b>5</b> / 7</span>
+        </div>
+        <div class="panel-body">
+          <div class="progress"><i style="width:71%"></i></div>
+          <div class="slot">
+            <div class="slot-main">
+              <div class="slot-name">批记录模板</div>
+              <div class="slot-note"><span class="tag tag-danger">必传</span></div>
+            </div>
+            <span class="slot-count">1/1</span>
+          </div>
+          <div class="slot">
+            <div class="slot-main">
+              <div class="slot-name">工艺规程</div>
+              <div class="slot-note"><span class="tag tag-danger">必传</span></div>
+            </div>
+            <span class="slot-count">1/1</span>
+          </div>
+          <div class="slot">
+            <div class="slot-main">
+              <div class="slot-name">质量标准</div>
+              <div class="slot-note"><span class="tag tag-danger">必传</span></div>
+            </div>
+            <span class="slot-count">1/1</span>
+          </div>
+          <div class="slot">
+            <div class="slot-main">
+              <div class="slot-name">验证方案</div>
+              <div class="slot-note"><span class="tag tag-warning">条件必传</span></div>
+            </div>
+            <span class="slot-count">1/1</span>
+          </div>
+          <div class="slot">
+            <div class="slot-main">
+              <div class="slot-name">随货清单</div>
+              <div class="slot-note"><span class="tag tag-warning">条件必传</span> · 验收单 YS-20261019-009</div>
+            </div>
+            <span class="slot-count">1/1</span>
+          </div>
+          <div class="slot">
+            <div class="slot-main">
+              <div class="slot-name">验收检验报告</div>
+              <div class="slot-note danger-text"><span class="tag tag-danger">必传</span> · 验收单 YS-20261019-009 未上传</div>
+            </div>
+            <span class="slot-count bad">0/1</span>
+          </div>
+          <div class="slot">
+            <div class="slot-main">
+              <div class="slot-name">发票</div>
+              <div class="slot-note"><span class="tag tag-info">可空缺</span> · 不计入缺件</div>
+            </div>
+            <span class="slot-count muted">0/1</span>
+          </div>
+          <div class="slot">
+            <div class="slot-main">
+              <div class="slot-name">放行审核</div>
+              <div class="slot-note danger-text"><span class="tag tag-danger">必传</span> · 尚未生成放行记录</div>
+            </div>
+            <span class="slot-count bad">0/1</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title">缺件明细</span>
+          <span class="tag tag-danger">2 项</span>
+        </div>
+        <div class="panel-body">
+          <div class="missing-item">
+            <span class="missing-dot"></span>
+            <div class="missing-text">验收检验报告
+              <small>验收单 YS-20261019-009 · 验收入库</small>
+            </div>
+          </div>
+          <div class="missing-item">
+            <span class="missing-dot"></span>
+            <div class="missing-text">放行审核
+              <small>审核放行 · 尚未生成放行记录</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 单据详情抽屉 -->
+<div class="overlay" id="overlay" onclick="closeDoc()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <span class="drawer-title" id="drawer-title">单据详情</span>
+    <span class="tag tag-success" id="drawer-status">已入库</span>
+    <button class="drawer-close" onclick="closeDoc()">✕</button>
+  </div>
+  <div class="drawer-body">
+    <div class="block">
+      <div class="block-title"><span class="bar"></span>单据信息</div>
+      <div class="field-grid" id="drawer-fields"></div>
+    </div>
+    <div class="block">
+      <div class="block-title"><span class="bar"></span>物料明细 <span class="block-note" id="drawer-line-count">5 条</span></div>
+      <div style="overflow:auto;">
+        <table class="detail-table" id="drawer-lines"></table>
+      </div>
+    </div>
+    <div class="block">
+      <div class="block-title"><span class="bar"></span>附件 <span class="block-note" id="drawer-file-count">1 个文件</span></div>
+      <div class="file-rows" id="drawer-files"></div>
+    </div>
+    <div class="block" id="drawer-missing-block">
+      <div class="block-title"><span class="bar" style="background:var(--danger)"></span>缺件提示</div>
+      <div class="missing-box">
+        <div class="missing-box-title">该单据缺失以下必传附件</div>
+        <ul id="drawer-missing"></ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 附件弹窗 -->
+<div class="dialog-mask" id="file-dialog" onclick="if(event.target===this)closeFiles()">
+  <div class="dialog">
+    <div class="dialog-head">
+      <span class="dialog-title" id="file-dialog-title">附件</span>
+      <button class="drawer-close" onclick="closeFiles()">✕</button>
+    </div>
+    <div class="dialog-body">
+      <table class="file-table" id="file-dialog-table"></table>
+    </div>
+    <div class="dialog-foot">
+      <button class="btn" onclick="closeFiles()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="tip" id="tip"></div>
+
+<script>
+  const DOC_DATA = {
+    plan: {
+      title: '生产计划 · Plan202610190008', status: '已完成', statusClass: 'success',
+      fields: [['计划号','Plan202610190008'],['品种','桂附潜阳丸'],['规格','每50丸重6g（每1g相当于饮片约0.83g）'],
+               ['批号','261017'],['批量','7000 盒'],['计划开始','2026-10-18'],['计划结束','2026-10-21'],
+               ['工艺路线','粉碎 → 过筛 → 混合 → 制丸 → 干燥 → 包衣 → 内包装 → 外包装'],['状态','已完成'],['备注','—']],
+      lines: null, files: [['批记录模板 SOR-PM-04-03 桂附潜阳丸批生产记录 YG - 24个月 - 大批量.docx','86 KB'],
+                           ['工艺规程 STP-PZ-04-03 桂附潜阳丸配制工艺规程G - 24个月.doc','128 KB'],
+                           ['质量标准 STP-CP-004 桂附潜阳丸成品质量标准及检验操作规程.doc','96 KB'],
+                           ['验证方案 STP-VM-204-00 桂附潜阳丸工艺验证方案.doc','112 KB']],
+      missing: []
+    },
+    purchase: {
+      title: '采购订单 · CG202610180001', status: '已入库', statusClass: 'success',
+      fields: [['采购单号','CG202610180001'],['供应商','亳州市药材有限公司'],['下单时间','2026-10-18 09:20'],
+               ['发票号','FP202610180017'],['物料类型','原料'],['金额','¥ 128,600.00'],['状态','已入库'],['备注','—']],
+      lines: { head:['物料名称','物料编码','物料分类','数量','单位','单价','金额','批次'],
+               rows:[['黄柏','Z032','原料','22.04','千克','1,850.00','40,774.00','260701'],
+                     ['仙鹤草','Z174','原料','14.71','千克','2,100.00','30,891.00','260401'],
+                     ['肉苁蓉','Z162','原料','14.71','千克','2,350.00','34,568.50','260302'],
+                     ['紫苏叶','Z195','原料','14.71','千克','1,564.00','23,006.44','250901']]},
+      files: [['采购订单 CG202610180001.pdf','204 KB']], missing: []
+    },
+    acceptance: {
+      title: '货物验收 · YS-20261019-009', status: '已入库', statusClass: 'success',
+      fields: [['验收单号','YS-20261019-009'],['来源类型','采购入库'],['采购单号','CG202610180001'],
+               ['到货时间','2026-10-19 08:40'],['验收时间','2026-10-19 10:15'],['验收人','丁圣芳'],
+               ['复核人','赵磊'],['状态','已入库'],['备注','随货清单已核对'],['附件归属','验收单']],
+      lines: { head:['物料名称','物料编码','到货数量','实际到货','差异','单位','外观','外包装','结论','有效期','批号'],
+               rows:[['黄柏','Z032','22.04','22.04','0','千克','符合','完好','合格','2028-09-30','260701'],
+                     ['仙鹤草','Z174','14.71','14.71','0','千克','符合','完好','合格','2028-09-30','260401'],
+                     ['肉苁蓉','Z162','14.71','14.71','0','千克','符合','完好','合格','2028-09-30','260302'],
+                     ['紫苏叶','Z195','14.71','14.71','0','千克','符合','完好','合格','2028-09-30','250901'],
+                     ['蜂蜜','Z211','35.00','35.00','0','千克','符合','完好','合格','2028-08-31','260801']]},
+      files: [['桂附潜阳丸261017.pdf','1.2 MB'],['随货清单.pdf','180 KB']],
+      missing: ['验收检验报告（必传）未上传']
+    },
+    stockin: {
+      title: '物料入库单 · IN202610200002', status: '已入库', statusClass: 'success',
+      fields: [['入库单号','IN202610200002'],['入库类型','采购入库'],['关联验收单','YS-20261019-009'],
+               ['入库时间','2026-10-20 09:10'],['仓库','原料库'],['经办人','张晓明'],['状态','已入库'],['备注','附件随验收单归档']],
+      lines: { head:['物料名称','物料编码','物料分类','入库数量','单位','批次','供应商','状态'],
+               rows:[['黄柏','Z032','原料','22.04','千克','260701','亳州市药材有限公司','已入库'],
+                     ['仙鹤草','Z174','原料','14.71','千克','260401','亳州市药材有限公司','已入库'],
+                     ['肉苁蓉','Z162','原料','14.71','千克','260302','亳州市药材有限公司','已入库'],
+                     ['紫苏叶','Z195','原料','14.71','千克','250901','亳州市药材有限公司','已入库'],
+                     ['蜂蜜','Z211','原料','35.00','千克','260801','亳州市药材有限公司','已入库']]},
+      files: [], missing: []
+    },
+    workorder: {
+      title: '生产工单 · GD202610200001', status: '生产中', statusClass: 'primary',
+      fields: [['工单号','GD202610200001'],['品种','桂附潜阳丸'],['规格','每50丸重6g'],['批号','261017'],
+               ['计划量','7000 盒'],['实际量','7001 盒'],['计划日期','2026-10-18'],['工艺路线','粉碎 → … → 外包装'],
+               ['状态','生产中'],['备注','—']],
+      lines: null, files: [['批生产记录 GD202610200001.pdf','2.1 MB']], missing: []
+    },
+    pick: {
+      title: '领料单 · LL202610190003', status: '已完成', statusClass: 'success',
+      fields: [['领料单号','LL202610190003'],['领料日期','2026-10-19'],['领料人','张晓明'],['领料仓库','原料库'],
+               ['领料用途','生产领料'],['关联出库单','CK202610190006'],['状态','已完成'],['备注','—']],
+      lines: { head:['物料名称','物料编码','物料分类','领料数量','单位','批次'],
+               rows:[['黄柏','Z032','原料','22.04','千克','260701'],['仙鹤草','Z174','原料','14.71','千克','260401'],
+                     ['肉苁蓉','Z162','原料','14.71','千克','260302'],['紫苏叶','Z195','原料','14.71','千克','250901']]},
+      files: [['领料单 LL202610190003.pdf','96 KB']], missing: []
+    },
+    stockout: {
+      title: '领料出库单 · CK202610190006', status: '已出库', statusClass: 'success',
+      fields: [['出库单号','CK202610190006'],['出库类型','生产领料出库'],['领料单号','LL202610190003'],
+               ['出库时间','2026-10-19 10:40'],['仓库','原料库'],['经办人','张晓明'],['状态','已出库'],['备注','—']],
+      lines: { head:['物料名称','物料编码','出库数量','单位','批次'],
+               rows:[['黄柏','Z032','22.04','千克','260701'],['仙鹤草','Z174','14.71','千克','260401']]},
+      files: [], missing: []
+    },
+    process: {
+      title: '工序记录 · 粉碎', status: '已完成', statusClass: 'success',
+      fields: [['工序名称','粉碎'],['工序编码','GY-001'],['状态','已完成'],['操作人','王磊'],['房间','粉碎间'],
+               ['设备','万能粉碎机'],['开始时间','2026-10-18 08:30'],['结束时间','2026-10-18 10:10'],
+               ['工艺要求','粒度符合内控标准；设备清洁合格；操作人签字'],['备注','—']],
+      lines: null, files: [['粉碎工序记录.pdf','320 KB']], missing: []
+    },
+    inspection: {
+      title: '请检单 · QJ202610200001', status: '已检验', statusClass: 'success',
+      fields: [['请检单号','QJ202610200001'],['被检品属性','成品'],['检验环节','成品全项检验'],['请检人','刘洋'],
+               ['请检部门','质量部'],['请检时间','2026-10-20 15:20'],['检验项目','性状、鉴别、含量测定等'],
+               ['配置数量','1 批'],['状态','已检验'],['备注','—']],
+      lines: null, files: [['请检单 QJ202610200001.pdf','88 KB']], missing: []
+    },
+    sampling: {
+      title: '取样记录 · QY202610200001', status: '已取样', statusClass: 'success',
+      fields: [['取样编号','QY202610200001'],['被检品属性','成品'],['取样人','陈静'],['取样时间','2026-10-20 15:40'],
+               ['取样量','10 盒'],['取样份数','10'],['取样方法','随机取样'],['取样地点','成品暂存间'],
+               ['状态','已取样'],['备注','—']],
+      lines: null, files: [['取样记录 QY202610200001.pdf','72 KB']], missing: []
+    },
+    'inspection-record': {
+      title: '检验记录 · JY202610200001', status: '已检验', statusClass: 'success',
+      fields: [['检验编号','JY202610200001'],['被检品属性','成品'],['检验依据','《中国药典》2025年版'],
+               ['检验项目','性状、鉴别、水分、含量测定'],['检验结论','合格'],['检验人','陈静'],['复核人','王芳'],
+               ['开始时间','2026-10-20 16:00'],['结束时间','2026-10-21 09:30'],
+               ['关联请检单','QJ202610200001'],['关联取样记录','QY202610200001'],['状态','已检验']],
+      lines: null, files: [['检验记录 JY202610200001.pdf','1.6 MB'],['含量测定图谱.pdf','2.4 MB']], missing: []
+    },
+    'finished-in': {
+      title: '成品入库单 · IN202610200002', status: '已入库', statusClass: 'success',
+      fields: [['入库单号','IN202610200002'],['入库类型','成品入库'],['工单号','GD202610200001'],
+               ['入库时间','2026-10-20 17:30'],['仓库','成品库'],['经办人','周敏'],['状态','已入库'],['备注','—']],
+      lines: { head:['产品名称','产品编码','规格','入库数量','单位','批号','库位'],
+               rows:[['桂附潜阳丸','Z04-003','每50丸重6g','7001','盒','261017','A-01-03']]},
+      files: [['成品入库单 IN202610200002.pdf','104 KB']], missing: []
+    }
+  };
+
+  const FILE_SETS = {
+    '计划附件': [['批记录模板 SOR-PM-04-03 桂附潜阳丸批生产记录 YG - 24个月 - 大批量.docx','86 KB','2026-10-18 09:10'],
+                 ['工艺规程 STP-PZ-04-03 桂附潜阳丸配制工艺规程G - 24个月.doc','128 KB','2026-10-18 09:11'],
+                 ['质量标准 STP-CP-004 桂附潜阳丸成品质量标准及检验操作规程.doc','96 KB','2026-10-18 09:12'],
+                 ['验证方案 STP-VM-204-00 桂附潜阳丸工艺验证方案.doc','112 KB','2026-10-18 09:13']],
+    '验收单附件': [['桂附潜阳丸261017.pdf','1.2 MB','2026-10-19 10:05'],['随货清单.pdf','180 KB','2026-10-19 10:06']],
+    '采购订单附件': [['采购订单 CG202610180001.pdf','204 KB','2026-10-18 09:30']],
+    '工单附件': [['批生产记录 GD202610200001.pdf','2.1 MB','2026-10-20 18:00']],
+    '领料单附件': [['领料单 LL202610190003.pdf','96 KB','2026-10-19 10:30']],
+    '工序记录附件': [['工序记录.pdf','320 KB','2026-10-18 10:12']],
+    '请检单附件': [['请检单 QJ202610200001.pdf','88 KB','2026-10-20 15:25']],
+    '取样记录附件': [['取样记录 QY202610200001.pdf','72 KB','2026-10-20 15:45']],
+    '检验记录附件': [['检验记录 JY202610200001.pdf','1.6 MB','2026-10-21 09:35'],['含量测定图谱.pdf','2.4 MB','2026-10-21 09:36']],
+    '成品入库单附件': [['成品入库单 IN202610200002.pdf','104 KB','2026-10-20 17:35']]
+  };
+
+  function openDoc(key){
+    const d = DOC_DATA[key];
+    if(!d) return;
+    document.getElementById('drawer-title').textContent = d.title;
+    const st = document.getElementById('drawer-status');
+    st.textContent = d.status;
+    st.className = 'tag tag-' + d.statusClass;
+
+    document.getElementById('drawer-fields').innerHTML = d.fields.map(([k,v]) =>
+      `<div class="field"><div class="field-label">${k}</div><div class="field-value">${v}</div></div>`).join('');
+
+    const linesWrap = document.getElementById('drawer-lines');
+    const lineCount = document.getElementById('drawer-line-count');
+    if(d.lines){
+      lineCount.textContent = d.lines.rows.length + ' 条';
+      linesWrap.innerHTML =
+        '<thead><tr>' + d.lines.head.map(h=>`<th>${h}</th>`).join('') + '</tr></thead>' +
+        '<tbody>' + d.lines.rows.map(r=>'<tr>' + r.map(c=>`<td>${c}</td>`).join('') + '</tr>').join('') + '</tbody>';
+      linesWrap.parentElement.parentElement.style.display = '';
+    }else{
+      lineCount.textContent = '无明细';
+      linesWrap.innerHTML = '<tbody><tr><td class="muted" style="border:none;padding:8px 0;">该单据无明细行</td></tr></tbody>';
+    }
+
+    const filesWrap = document.getElementById('drawer-files');
+    document.getElementById('drawer-file-count').textContent = (d.files.length || 0) + ' 个文件';
+    filesWrap.innerHTML = d.files.length ? d.files.map(([name,size]) =>
+      `<div class="file-row"><span class="file-row-name" title="${name}">${name}</span>
+        <span class="file-row-side"><span class="file-size">${size}</span>
+        <span class="link" onclick="toast('预览 ${name}')">预览</span>
+        <span class="link" onclick="toast('下载 ${name}')">下载</span></span></div>`).join('')
+      : '<div class="empty-tip">无附件</div>';
+
+    const mb = document.getElementById('drawer-missing-block');
+    if(d.missing && d.missing.length){
+      mb.style.display = '';
+      document.getElementById('drawer-missing').innerHTML = d.missing.map(m=>`<li>· ${m}</li>`).join('');
+    }else{
+      mb.style.display = 'none';
+    }
+
+    document.getElementById('overlay').classList.add('show');
+    document.getElementById('drawer').classList.add('show');
+  }
+
+  function closeDoc(){
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('drawer').classList.remove('show');
+  }
+
+  function openFiles(setName){
+    const files = FILE_SETS[setName] || [];
+    document.getElementById('file-dialog-title').textContent = setName + '（' + files.length + '）';
+    const table = document.getElementById('file-dialog-table');
+    table.innerHTML =
+      '<thead><tr><th>文件名</th><th style="width:80px">大小</th><th style="width:140px">上传时间</th><th style="width:100px">操作</th></tr></thead>' +
+      '<tbody>' + files.map(([name,size,time])=>
+        `<tr><td title="${name}">${name}</td><td>${size}</td><td>${time}</td>
+          <td><span class="link" onclick="toast('预览 ${name}')">预览</span>
+          <span class="link" style="margin-left:8px" onclick="toast('下载 ${name}')">下载</span></td></tr>`).join('')
+      + '</tbody>';
+    document.getElementById('file-dialog').classList.add('show');
+  }
+
+  function closeFiles(){
+    document.getElementById('file-dialog').classList.remove('show');
+  }
+
+  let tipTimer = null;
+  function toast(msg){
+    const t = document.getElementById('tip');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(tipTimer);
+    tipTimer = setTimeout(()=>t.classList.remove('show'), 1600);
+  }
+
+  document.addEventListener('keydown', e=>{
+    if(e.key === 'Escape'){ closeFiles(); closeDoc(); }
+  });
+</script>
+</body>
+</html>

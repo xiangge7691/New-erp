@@ -74,6 +74,62 @@ public class QualityPagesSmokeTest {
     }
 
     @Test
+    public void productSummaryShouldIncludePurchaseOrdersLinkedByPlanCodeOnly() throws Exception {
+        JsonNode items = get("/api/product-summary/batches?pageIndex=0&pageSize=50").path("data").path("items");
+        JsonNode target = null;
+        for (JsonNode item : items) {
+            if ("GD202611090001".equals(item.path("workOrderCode").asText())) {
+                target = item;
+                break;
+            }
+        }
+        Assumptions.assumeTrue(target != null, "测试库无 GD202611090001，跳过采购按计划编号匹配冒烟");
+
+        JsonNode detail = get("/api/product-summary/batches/" + target.path("workOrderId").asLong()).path("data");
+        JsonNode purchaseStage = null;
+        for (JsonNode stage : detail.path("stages")) {
+            if ("purchase".equals(stage.path("key").asText())) {
+                purchaseStage = stage;
+                break;
+            }
+        }
+        Assertions.assertNotNull(purchaseStage, "产品汇总缺少采购节点");
+        boolean hasRawMaterialOrder = false;
+        boolean hasPackagingOrder = false;
+        for (JsonNode doc : purchaseStage.path("documents")) {
+            String code = doc.path("code").asText();
+            hasRawMaterialOrder |= "CGDH202611030002".equals(code);
+            hasPackagingOrder |= "CGDH202611030001".equals(code);
+        }
+        Assertions.assertTrue(hasRawMaterialOrder, "采购节点缺少原料采购单 CGDH202611030002");
+        Assertions.assertTrue(hasPackagingOrder, "采购节点缺少仅按计划编号关联的包材采购单 CGDH202611030001");
+    }
+
+    @Test
+    public void productSummaryMaterialSourceShouldComeFromPurchaseOrHospitalRequisition() throws Exception {
+        JsonNode items = get("/api/product-summary/batches?pageIndex=0&pageSize=200").path("data").path("items");
+        Assumptions.assumeTrue(items.size() > 0, "测试库无产品汇总记录，跳过物料来源冒烟");
+        JsonNode target = null;
+        for (JsonNode item : items) {
+            String source = item.path("materialSource").isNull() ? null : item.path("materialSource").asText();
+            if (source != null) {
+                Assertions.assertTrue(java.util.Set.of("PURCHASE", "REQUISITION", "DIRECT").contains(source),
+                        "物料来源取值不合法: " + source);
+                Assertions.assertTrue(item.path("materialSourceLabel").asText().matches("采购|院内领料|直接入库"),
+                        "物料来源文案不匹配: " + item.path("materialSourceLabel").asText());
+            }
+            if ("GD202611110001".equals(item.path("workOrderCode").asText())) {
+                target = item;
+            }
+        }
+        Assumptions.assumeTrue(target != null, "测试库无 GD202611110001，跳过采购批次物料来源断言");
+        // 该批次有 2 张采购单和采购入库验收单、0 张医院领料单：不能因生产领料单被判成领料
+        Assertions.assertEquals("PURCHASE", target.path("materialSource").asText(),
+                "存在采购单/采购入库验收单的批次应判定为采购");
+        Assertions.assertEquals("采购", target.path("materialSourceLabel").asText());
+    }
+
+    @Test
     public void productSummaryOverviewCardsPlanDetailAndCsvShouldReturn() throws Exception {
         JsonNode overview = get("/api/product-summary/overview").path("data");
         Assertions.assertTrue(overview.has("verdict"), "概览缺少结论");
