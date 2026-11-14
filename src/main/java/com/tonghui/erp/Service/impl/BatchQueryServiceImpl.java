@@ -18,6 +18,7 @@ import com.tonghui.erp.Data.Entity.ProcessType;
 import com.tonghui.erp.Data.Entity.ProductionPick;
 import com.tonghui.erp.Data.Entity.ProductionPickDetail;
 import com.tonghui.erp.Data.Entity.ProductionPlan;
+import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Data.Entity.PurchaseOrderItems;
 import com.tonghui.erp.Data.Entity.PurchaseOrders;
 import com.tonghui.erp.Data.Entity.ReleaseReview;
@@ -38,6 +39,7 @@ import com.tonghui.erp.Data.mapper.MaterialMapper;
 import com.tonghui.erp.Data.mapper.MaterialRequisitionSlipDetailMapper;
 import com.tonghui.erp.Data.mapper.MaterialRequisitionSlipMapper;
 import com.tonghui.erp.Data.mapper.ProductionPickDetailMapper;
+import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Data.mapper.ReturnOrderDetailMapper;
 import com.tonghui.erp.Data.mapper.StockInDetailMapper;
 import com.tonghui.erp.Data.mapper.StockOutDetailMapper;
@@ -71,6 +73,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -124,6 +127,8 @@ public class BatchQueryServiceImpl implements BatchQueryService {
     @Autowired
     private StockOutDetailMapper stockOutDetailMapper;
     @Autowired
+    private ProductionUnitMapper productionUnitMapper;
+    @Autowired
     private InspectionRequestService inspectionRequestService;
     @Autowired
     private InspectionTaskService inspectionTaskService;
@@ -176,6 +181,7 @@ public class BatchQueryServiceImpl implements BatchQueryService {
         loadHospitalRequisitions(ctx, planId, planNumber);
         loadAcceptances(ctx, null, planNumber);
         loadMaterialStockIns(ctx, planNumber);
+        loadProductionUnits(ctx);
         return ctx;
     }
 
@@ -239,6 +245,9 @@ public class BatchQueryServiceImpl implements BatchQueryService {
 
         // 成品出库（销售台账/批号关联）
         loadFinishedStockOuts(ctx, workOrder);
+
+        // 出入库单据涉及的仓库名称（产品信息汇总单据表头/明细展示）
+        loadProductionUnits(ctx);
 
         // 检验
         ctx.setRequests(inspectionRequestService.list(new QueryWrapper<InspectionRequest>()
@@ -753,6 +762,85 @@ public class BatchQueryServiceImpl implements BatchQueryService {
         QueryWrapper<StockOut> wrapper = new QueryWrapper<>();
         wrapper.and(w -> w.in("out_type", "销售出库", "成品出库").or().isNull("out_type"));
         return wrapper;
+    }
+
+    /**
+     * 加载出入库单据涉及的仓库名称
+     * <p>
+     * 入库单、出库单的表头与明细都可能跨仓库，统一收集生产单位ID后一次查询，
+     * 供产品信息汇总展示“入到哪个仓库/从哪个仓库出/退到哪个仓库”。
+     * 无出入库单据时不查询。
+     * </p>
+     *
+     * @param ctx 批次上下文
+     */
+    private void loadProductionUnits(BatchContext ctx) {
+        Set<Long> unitIds = new HashSet<>();
+        collectInboundUnitIds(ctx.getStockIns(), ctx.getStockInDetails(), unitIds);
+        collectInboundUnitIds(ctx.getMaterialStockIns(), ctx.getMaterialStockInDetails(), unitIds);
+        collectOutboundUnitIds(ctx.getStockOuts(), ctx.getStockOutDetails(), unitIds);
+        collectOutboundUnitIds(ctx.getMaterialStockOuts(), ctx.getMaterialStockOutDetails(), unitIds);
+        if (unitIds.isEmpty()) {
+            ctx.setProdUnitNames(Collections.emptyMap());
+            return;
+        }
+        ctx.setProdUnitNames(productionUnitMapper.selectBatchIds(unitIds).stream()
+                .collect(Collectors.toMap(ProductionUnit::getProdUnitId,
+                        unit -> unit.getProdUnitName() == null ? "" : unit.getProdUnitName(), (a, b) -> a)));
+    }
+
+    /**
+     * 收集入库单及其明细的仓库ID
+     *
+     * @param stockIns  入库单
+     * @param detailMap 入库单ID → 明细
+     * @param unitIds   仓库ID集合（输出）
+     */
+    private void collectInboundUnitIds(List<StockIn> stockIns, Map<Long, List<StockInDetail>> detailMap,
+                                       Set<Long> unitIds) {
+        if (stockIns == null) {
+            return;
+        }
+        for (StockIn stockIn : stockIns) {
+            addUnitId(unitIds, stockIn.getProdUnitId());
+            List<StockInDetail> details = detailMap == null ? null : detailMap.get(stockIn.getInId());
+            if (details != null) {
+                details.forEach(detail -> addUnitId(unitIds, detail.getProdUnitId()));
+            }
+        }
+    }
+
+    /**
+     * 收集出库单及其明细的仓库ID
+     *
+     * @param stockOuts 出库单
+     * @param detailMap 出库单ID → 明细
+     * @param unitIds   仓库ID集合（输出）
+     */
+    private void collectOutboundUnitIds(List<StockOut> stockOuts, Map<Long, List<StockOutDetail>> detailMap,
+                                        Set<Long> unitIds) {
+        if (stockOuts == null) {
+            return;
+        }
+        for (StockOut stockOut : stockOuts) {
+            addUnitId(unitIds, stockOut.getProdUnitId());
+            List<StockOutDetail> details = detailMap == null ? null : detailMap.get(stockOut.getOutId());
+            if (details != null) {
+                details.forEach(detail -> addUnitId(unitIds, detail.getProdUnitId()));
+            }
+        }
+    }
+
+    /**
+     * 仓库ID非空时加入集合
+     *
+     * @param unitIds 仓库ID集合
+     * @param unitId  仓库ID
+     */
+    private void addUnitId(Set<Long> unitIds, Long unitId) {
+        if (unitId != null) {
+            unitIds.add(unitId);
+        }
     }
 
     // endregion

@@ -429,7 +429,7 @@ public final class ProductSummaryDtos {
         private String returnReason;
         /** 库位（入库明细） */
         private String storageLocation;
-        /** 仓库（出库/退库明细） */
+        /** 仓库（入库/出库/退库明细） */
         private String warehouseName;
         /** 明细备注 */
         private String remark;

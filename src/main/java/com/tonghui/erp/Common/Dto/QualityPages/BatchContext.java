@@ -75,6 +75,8 @@ public class BatchContext {
     private Map<Long, String> processNames;
     /** 房间ID -> 房间信息 */
     private Map<Integer, RoomInfo> rooms;
+    /** 生产单位ID（仓库） -> 仓库名称，用于出入库/退库单据展示 */
+    private Map<Long, String> prodUnitNames;
 
     /** 采购订单ID -> 明细 */
     private Map<Long, List<com.tonghui.erp.Data.Entity.PurchaseOrderItems>> purchaseItems;

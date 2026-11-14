@@ -1350,13 +1350,16 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
             detail.setUnitPrice(item.getUnitPrice());
             detail.setAmount(item.getQuantity() != null && item.getUnitPrice() != null
                     ? item.getQuantity().multiply(item.getUnitPrice()) : null);
-            // 自动填充来源入库单号
+            // 自动填充来源入库单号与明细级出库仓库
             if (item.getStockId() != null) {
                 Stock stock = stockMapper.selectById(item.getStockId());
-                if (stock != null && stock.getStockInId() != null) {
-                    StockIn stockIn = stockInMapper.selectById(stock.getStockInId());
-                    if (stockIn != null) {
-                        detail.setRelatedInCode(stockIn.getInCode());
+                if (stock != null) {
+                    detail.setProdUnitId(stock.getProdUnitId());
+                    if (stock.getStockInId() != null) {
+                        StockIn stockIn = stockInMapper.selectById(stock.getStockInId());
+                        if (stockIn != null) {
+                            detail.setRelatedInCode(stockIn.getInCode());
+                        }
                     }
                 }
             }

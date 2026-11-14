@@ -46,6 +46,7 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -294,7 +295,12 @@ public class ReturnOrderServiceImpl extends ServiceImpl<ReturnOrderMapper, Retur
             return List.of();
         }
 
-        String warehouseName = resolveWarehouseName(out.getProdUnitId());
+        // 仓库按出库明细解析（明细可跨仓库），明细未记录时回退出库单表头仓库
+        Map<Long, String> unitNames = resolveWarehouseNames(details.stream()
+                .map(detail -> detail.getProdUnitId() != null ? detail.getProdUnitId() : out.getProdUnitId())
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList()));
         Map<Long, BigDecimal> returnedMap = sumReturnedByOutDetailId();
 
         // 批量加载入库单号映射（通过出库明细的stockId → Stock.stockInId → StockIn.inCode）
@@ -324,7 +330,8 @@ public class ReturnOrderServiceImpl extends ServiceImpl<ReturnOrderMapper, Retur
             dto.setMaterialName(detail.getItemName());
             dto.setCategory(detail.getCategoryName());
             dto.setBatchNo(detail.getBatchNumber());
-            dto.setWarehouse(warehouseName);
+            Long unitId = detail.getProdUnitId() != null ? detail.getProdUnitId() : out.getProdUnitId();
+            dto.setWarehouse(unitNames.getOrDefault(unitId, ""));
             dto.setUnit(detail.getUnitName());
             dto.setOutQuantity(detail.getQuantity());
             BigDecimal returned = returnedMap.getOrDefault(detail.getOutDetailId(), BigDecimal.ZERO);
@@ -373,6 +380,8 @@ public class ReturnOrderServiceImpl extends ServiceImpl<ReturnOrderMapper, Retur
 
         // 已退数量汇总（按出库明细ID）
         Map<Long, BigDecimal> returnedMap = sumReturnedByOutDetailId();
+        // 仓库按出库明细解析并缓存（跨仓出库时逐行不同），避免逐行查库
+        Map<Long, String> unitNameCache = new HashMap<>();
 
         // 逐项校验并预计算汇总（校验失败整体回滚）
         List<ReturnOrderDetail> details = new ArrayList<>();
@@ -404,7 +413,10 @@ public class ReturnOrderServiceImpl extends ServiceImpl<ReturnOrderMapper, Retur
             detail.setMaterialName(outDetail.getItemName());
             detail.setCategory(outDetail.getCategoryName());
             detail.setBatchNo(outDetail.getBatchNumber());
-            detail.setWarehouse(warehouseName);
+            // 退库仓库取该条出库明细的仓库，明细未记录时回退出库单表头仓库
+            detail.setWarehouse(unitNameCache.computeIfAbsent(
+                    outDetail.getProdUnitId() != null ? outDetail.getProdUnitId() : out.getProdUnitId(),
+                    this::resolveWarehouseName));
             detail.setOutQuantity(outDetail.getQuantity());
             detail.setReturnedQuantity(returned);
             detail.setReturnQuantity(item.getReturnQuantity());
@@ -685,6 +697,21 @@ public class ReturnOrderServiceImpl extends ServiceImpl<ReturnOrderMapper, Retur
         }
         ProductionUnit unit = productionUnitMapper.selectById(prodUnitId);
         return unit != null ? unit.getProdUnitName() : "";
+    }
+
+    /**
+     * 批量解析生产单位ID对应的仓库名称
+     *
+     * @param prodUnitIds 生产单位ID集合
+     * @return 生产单位ID → 仓库名称，空集合返回空映射
+     */
+    private Map<Long, String> resolveWarehouseNames(List<Long> prodUnitIds) {
+        if (prodUnitIds == null || prodUnitIds.isEmpty()) {
+            return new HashMap<>();
+        }
+        return productionUnitMapper.selectBatchIds(prodUnitIds).stream()
+                .collect(Collectors.toMap(ProductionUnit::getProdUnitId,
+                        unit -> unit.getProdUnitName() == null ? "" : unit.getProdUnitName(), (a, b) -> a));
     }
 
     /**

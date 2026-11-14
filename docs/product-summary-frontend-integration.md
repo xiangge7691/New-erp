@@ -785,6 +785,16 @@ const canExport = hasAuth('product_summary_export')
 
 新增验收/出入库字段：`spec`、`arrivalQty`、`actualArrivalQty`、`inboundQty`、`diffQty`、`expiryDate`、`outerPackageCheck`、`appearanceCheck`、`returnReason`、`storageLocation`、`warehouseName`、`remark`。
 
+`warehouseName` 在入库单、出库单、退库单明细上均有值：入库/出库取明细级仓库（生产单位），明细未记录时回退单据表头仓库；库位信息仍由 `storageLocation` 承载。
+
+出入库/退库单据表头额外返回仓库字段，前端按 `fields[]` 顺序展示即可：
+
+| 单据 | 表头字段 | 取值 |
+|---|---|---|
+| 成品入库单 / 物料入库单 | `入库仓库` | 明细仓库去重拼接；明细无仓库时取表头仓库 |
+| 成品出库单 / 领料出库单 | `出库仓库` | 同上，取明细出库仓库 |
+| 退库单 | `退库仓库` | 明细 `warehouse` 去重拼接 |
+
 **FileItem（附件）**
 
 新增 `fileUrl`、`previewUrl`、`contentType`、`fileExtension`、`bizType`、`fileKind`。前端仍优先用 `GET /api/files/preview/{fileId}`、`GET /api/files/{fileId}` 预览/下载，URL 字段作为兜底。

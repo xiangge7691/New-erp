@@ -1490,8 +1490,12 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         doc.setOperator(returnOrder.getReturnPersonName());
         doc.setDocId(returnOrder.getId());
         doc.setBizType("RETURN_ORDER");
+        List<ReturnOrderDetail> details = ctx.getReturnDetails() == null ? Collections.emptyList()
+                : ctx.getReturnDetails().getOrDefault(returnOrder.getId(), Collections.emptyList());
         addField(doc, "退库单号", returnOrder.getReturnNo());
         addField(doc, "退库日期", dateValue(date(returnOrder.getReturnTime())));
+        addField(doc, "退库仓库", warehouseTextOf(details.stream()
+                .map(ReturnOrderDetail::getWarehouse).collect(Collectors.toList())));
         addField(doc, "退库人", returnOrder.getReturnPersonName());
         addField(doc, "验收人", returnOrder.getAcceptorName());
         addField(doc, "复核人", returnOrder.getReviewerName());
@@ -1499,8 +1503,6 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         addField(doc, "生产计划", returnOrder.getProductionPlanNo());
         addField(doc, "状态", status);
         addField(doc, "备注", returnOrder.getRemark());
-        List<ReturnOrderDetail> details = ctx.getReturnDetails() == null ? Collections.emptyList()
-                : ctx.getReturnDetails().getOrDefault(returnOrder.getId(), Collections.emptyList());
         for (ReturnOrderDetail d : details) {
             ProductSummaryDtos.DocumentLine line = new ProductSummaryDtos.DocumentLine();
             line.setCode(d.getMaterialCode());
@@ -1606,8 +1608,12 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         doc.setAmount(stockIn.getTotalAmount());
         doc.setDocId(stockIn.getInId());
         doc.setBizType("STOCK_IN_PRODUCT");
+        List<StockInDetail> details = ctx.getStockInDetails() == null ? Collections.emptyList()
+                : ctx.getStockInDetails().getOrDefault(stockIn.getInId(), Collections.emptyList());
         addField(doc, "入库单号", stockIn.getInCode());
         addField(doc, "入库类型", stockIn.getInType());
+        addField(doc, "入库仓库", warehouseText(ctx, stockIn.getProdUnitId(),
+                details.stream().map(StockInDetail::getProdUnitId).collect(Collectors.toList())));
         addField(doc, "关联单号", stockIn.getRelatedOrder());
         addField(doc, "计划号", stockIn.getPlanNumber());
         addField(doc, "工单号", stockIn.getWorkOrderCode());
@@ -1616,8 +1622,6 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         addField(doc, "入库时间", timeText(stockIn.getInDate()));
         addField(doc, "状态", stockIn.getInStatus());
         addField(doc, "备注", stockIn.getRemark());
-        List<StockInDetail> details = ctx.getStockInDetails() == null ? Collections.emptyList()
-                : ctx.getStockInDetails().getOrDefault(stockIn.getInId(), Collections.emptyList());
         for (StockInDetail d : details) {
             ProductSummaryDtos.DocumentLine line = new ProductSummaryDtos.DocumentLine();
             line.setCode(d.getItemCode());
@@ -1628,6 +1632,7 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             line.setUnit(d.getUnitName());
             line.setBatchNo(d.getBatchNumber());
             line.setExpiryDate(d.getExpiryDate());
+            line.setWarehouseName(resolveWarehouseName(ctx, d.getProdUnitId(), stockIn.getProdUnitId()));
             line.setStorageLocation(d.getStorageLocation());
             line.setAmount(d.getAmount());
             doc.getLines().add(line);
@@ -1672,16 +1677,18 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         doc.setAmount(stockIn.getTotalAmount());
         doc.setDocId(stockIn.getInId());
         doc.setBizType("STOCK_IN_PRODUCT");
+        List<StockInDetail> details = ctx.getMaterialStockInDetails() == null ? Collections.emptyList()
+                : ctx.getMaterialStockInDetails().getOrDefault(stockIn.getInId(), Collections.emptyList());
         addField(doc, "入库单号", stockIn.getInCode());
         addField(doc, "入库类型", stockIn.getInType());
+        addField(doc, "入库仓库", warehouseText(ctx, stockIn.getProdUnitId(),
+                details.stream().map(StockInDetail::getProdUnitId).collect(Collectors.toList())));
         addField(doc, "关联单号", stockIn.getRelatedOrder());
         addField(doc, "计划号", stockIn.getPlanNumber());
         addField(doc, "入库时间", timeText(stockIn.getInDate()));
         addField(doc, "状态", stockIn.getInStatus());
         addField(doc, "附件归属", "随验收单归档");
         addField(doc, "备注", stockIn.getRemark());
-        List<StockInDetail> details = ctx.getMaterialStockInDetails() == null ? Collections.emptyList()
-                : ctx.getMaterialStockInDetails().getOrDefault(stockIn.getInId(), Collections.emptyList());
         for (StockInDetail d : details) {
             ProductSummaryDtos.DocumentLine line = new ProductSummaryDtos.DocumentLine();
             line.setCode(d.getItemCode());
@@ -1691,6 +1698,7 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             line.setUnit(d.getUnitName());
             line.setBatchNo(d.getBatchNumber());
             line.setExpiryDate(d.getExpiryDate());
+            line.setWarehouseName(resolveWarehouseName(ctx, d.getProdUnitId(), stockIn.getProdUnitId()));
             line.setStorageLocation(d.getStorageLocation());
             line.setAmount(d.getAmount());
             doc.getLines().add(line);
@@ -1729,8 +1737,12 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         SalesOrder salesOrder = findSalesOrder(stockOut, ctx);
         String customerName = salesOrder == null ? null : salesOrder.getCustomerName();
         doc.setCustomer(customerName);
+        List<StockOutDetail> details = ctx.getStockOutDetails() == null ? Collections.emptyList()
+                : ctx.getStockOutDetails().getOrDefault(stockOut.getOutId(), Collections.emptyList());
         addField(doc, "出库单号", stockOut.getOutCode());
         addField(doc, "出库类型", stockOut.getOutType());
+        addField(doc, "出库仓库", warehouseText(ctx, stockOut.getProdUnitId(),
+                details.stream().map(StockOutDetail::getProdUnitId).collect(Collectors.toList())));
         addField(doc, "关联单号", stockOut.getRelatedOrder());
         addField(doc, "计划号", stockOut.getPlanNumber());
         addField(doc, "品种", stockOut.getPreparationName());
@@ -1739,8 +1751,6 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         addField(doc, "经办人", stockOut.getCreatedByName());
         addField(doc, "状态", stockOut.getOutStatus());
         addField(doc, "备注", stockOut.getRemark());
-        List<StockOutDetail> details = ctx.getStockOutDetails() == null ? Collections.emptyList()
-                : ctx.getStockOutDetails().getOrDefault(stockOut.getOutId(), Collections.emptyList());
         for (StockOutDetail d : details) {
             ProductSummaryDtos.DocumentLine line = new ProductSummaryDtos.DocumentLine();
             line.setCode(d.getItemCode());
@@ -1750,7 +1760,7 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             line.setQty(d.getQuantity());
             line.setUnit(d.getUnitName());
             line.setBatchNo(d.getBatchNumber());
-            line.setWarehouseName(d.getWarehouseName());
+            line.setWarehouseName(resolveWarehouseName(ctx, d.getProdUnitId(), stockOut.getProdUnitId()));
             line.setAmount(d.getAmount());
             doc.getLines().add(line);
         }
@@ -1775,8 +1785,12 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         doc.setDocId(stockOut.getOutId());
         doc.setBizType("STOCK_OUT_SALES");
         doc.setOperator(stockOut.getCreatedByName());
+        List<StockOutDetail> details = ctx.getMaterialStockOutDetails() == null ? Collections.emptyList()
+                : ctx.getMaterialStockOutDetails().getOrDefault(stockOut.getOutId(), Collections.emptyList());
         addField(doc, "出库单号", stockOut.getOutCode());
         addField(doc, "出库类型", stockOut.getOutType());
+        addField(doc, "出库仓库", warehouseText(ctx, stockOut.getProdUnitId(),
+                details.stream().map(StockOutDetail::getProdUnitId).collect(Collectors.toList())));
         addField(doc, "关联单号", stockOut.getRelatedOrder());
         addField(doc, "计划号", stockOut.getPlanNumber());
         addField(doc, "出库时间", timeText(stockOut.getOutDate()));
@@ -1784,8 +1798,6 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         addField(doc, "状态", stockOut.getOutStatus());
         addField(doc, "附件归属", "随领料单归档");
         addField(doc, "备注", stockOut.getRemark());
-        List<StockOutDetail> details = ctx.getMaterialStockOutDetails() == null ? Collections.emptyList()
-                : ctx.getMaterialStockOutDetails().getOrDefault(stockOut.getOutId(), Collections.emptyList());
         for (StockOutDetail d : details) {
             ProductSummaryDtos.DocumentLine line = new ProductSummaryDtos.DocumentLine();
             line.setCode(d.getItemCode());
@@ -1794,7 +1806,7 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
             line.setQty(d.getQuantity());
             line.setUnit(d.getUnitName());
             line.setBatchNo(d.getBatchNumber());
-            line.setWarehouseName(d.getWarehouseName());
+            line.setWarehouseName(resolveWarehouseName(ctx, d.getProdUnitId(), stockOut.getProdUnitId()));
             line.setAmount(d.getAmount());
             doc.getLines().add(line);
         }
@@ -2780,6 +2792,82 @@ public class ProductSummaryServiceImpl implements ProductSummaryService {
         if (StringUtils.hasText(value)) {
             doc.getFields().add(new ProductSummaryDtos.FieldItem(label, value));
         }
+    }
+
+    /**
+     * 解析单据明细的仓库名称
+     * <p>
+     * 明细级仓库优先（入库/出库明细可跨仓库），明细未记录时回退表头仓库。
+     * </p>
+     *
+     * @param ctx          批次上下文
+     * @param detailUnitId 明细仓库ID（生产单位）
+     * @param headerUnitId 表头仓库ID（生产单位）
+     * @return 仓库名称，无法解析时返回 null
+     */
+    private String resolveWarehouseName(BatchContext ctx, Long detailUnitId, Long headerUnitId) {
+        String name = warehouseName(ctx, detailUnitId);
+        if (!StringUtils.hasText(name)) {
+            name = warehouseName(ctx, headerUnitId);
+        }
+        return StringUtils.hasText(name) ? name : null;
+    }
+
+    /**
+     * 单据表头仓库文案：明细仓库去重拼接，明细未记录时回退表头仓库
+     *
+     * @param ctx           批次上下文
+     * @param headerUnitId  表头仓库ID（生产单位）
+     * @param detailUnitIds 明细仓库ID列表
+     * @return 仓库文案，无仓库时返回 null
+     */
+    private String warehouseText(BatchContext ctx, Long headerUnitId, List<Long> detailUnitIds) {
+        LinkedHashSet<String> names = new LinkedHashSet<>();
+        if (detailUnitIds != null) {
+            for (Long unitId : detailUnitIds) {
+                String name = warehouseName(ctx, unitId);
+                if (StringUtils.hasText(name)) {
+                    names.add(name);
+                }
+            }
+        }
+        if (names.isEmpty()) {
+            String name = warehouseName(ctx, headerUnitId);
+            if (StringUtils.hasText(name)) {
+                names.add(name);
+            }
+        }
+        return names.isEmpty() ? null : String.join("、", names);
+    }
+
+    /**
+     * 仓库名称文案：退库单明细直接存储仓库名称，去重拼接
+     *
+     * @param warehouseNames 仓库名称列表
+     * @return 仓库文案，无仓库时返回 null
+     */
+    private String warehouseTextOf(List<String> warehouseNames) {
+        LinkedHashSet<String> names = new LinkedHashSet<>();
+        for (String name : warehouseNames) {
+            if (StringUtils.hasText(name)) {
+                names.add(name);
+            }
+        }
+        return names.isEmpty() ? null : String.join("、", names);
+    }
+
+    /**
+     * 按生产单位ID取仓库名称
+     *
+     * @param ctx    批次上下文
+     * @param unitId 仓库ID（生产单位）
+     * @return 仓库名称，未加载或不存在时返回 null
+     */
+    private String warehouseName(BatchContext ctx, Long unitId) {
+        if (unitId == null || ctx.getProdUnitNames() == null) {
+            return null;
+        }
+        return ctx.getProdUnitNames().get(unitId);
     }
 
     private String timeText(LocalDateTime time) {
