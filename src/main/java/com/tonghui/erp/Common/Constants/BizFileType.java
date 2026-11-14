@@ -99,6 +99,20 @@ public enum BizFileType {
                   BizFileKinds.PACKAGING_DESIGN, 1,
                   BizFileKinds.VERIFICATION_REPORT, 1)),
 
+    /** 制剂续展文件（与制剂附件隔离，1~9 类各限 10 个，其他文件不限） */
+    PREPARATION_RENEWAL("PREPARATION_RENEWAL", "preparation", "preparation_id", "制剂续展",
+            "制剂管理/续展文件",
+            kinds(PreparationRenewalKind.APPLICATION_FORM.getCode(), 10,
+                  PreparationRenewalKind.COMMISSIONER_APPROVAL.getCode(), 10,
+                  PreparationRenewalKind.MANUFACTURER_LICENSE_GMP.getCode(), 10,
+                  PreparationRenewalKind.PREVIOUS_FILING.getCode(), 10,
+                  PreparationRenewalKind.PREVIOUS_PERIOD_SUMMARY.getCode(), 10,
+                  PreparationRenewalKind.CHANGE_PROOF.getCode(), 10,
+                  PreparationRenewalKind.COMMISSION_CONTRACT.getCode(), 10,
+                  PreparationRenewalKind.AUTHENTICITY_DECLARATION.getCode(), 10,
+                  PreparationRenewalKind.AUTHORIZATION_LETTER.getCode(), 10,
+                  PreparationRenewalKind.OTHER.getCode(), -1)),
+
     /** 制剂工序模板 */
     PREPARATION_PROCESS_TEMPLATE("PREPARATION_PROCESS_TEMPLATE", "preparation_process_template", "template_id",
             "制剂工序模板", "制剂管理/工序模板", kinds(BizFileKinds.DEFAULT, 1)),

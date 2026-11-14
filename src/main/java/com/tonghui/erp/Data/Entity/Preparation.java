@@ -92,6 +92,12 @@ public class Preparation extends AuditEntity {
     private LocalDate commissionedApprovalExpiryDate;
 
     /**
+     * 续展备注（续展申报说明，可为空）
+     */
+    @TableField(value = "renewal_remark")
+    private String renewalRemark;
+
+    /**
      * 功能主治
      */
     @TableField(value = "function_main")

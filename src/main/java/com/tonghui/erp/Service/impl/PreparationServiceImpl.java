@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Config.JwtConfig;
+import com.tonghui.erp.Common.Constants.BizFileType;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.PreparationOptionDto;
@@ -24,6 +25,7 @@ import com.tonghui.erp.Service.PreparationDocumentService;
 import com.tonghui.erp.Service.PreparationFormulaService;
 import com.tonghui.erp.Service.PreparationProcessTemplateService;
 import com.tonghui.erp.Service.PreparationService;
+import com.tonghui.erp.Service.BusinessFileService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -74,6 +76,10 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
 
     @Autowired
     private StockMapper stockMapper;
+
+    /** 业务附件服务（删除制剂时解绑附件关系） */
+    @Autowired
+    private BusinessFileService businessFileService;
 
     @Override
     public PagedResult<Preparation> getPreparationList(PageRequestDto pageRequestDto) {
@@ -683,6 +689,10 @@ public class PreparationServiceImpl extends ServiceImpl<PreparationMapper, Prepa
         QueryWrapper<PreparationDocument> dw = new QueryWrapper<>();
         dw.eq("preparation_id", preparationId);
         preparationDocumentMapper.delete(dw);
+
+        // 解绑续展文件与普通附件，避免制剂删除后留下孤儿关系
+        businessFileService.unbindAll(BizFileType.PREPARATION_RENEWAL.getCode(), preparationId, 0L, null);
+        businessFileService.unbindAll(BizFileType.PREPARATION.getCode(), preparationId, 0L, null);
 
         this.removeById(preparationId);
     }
