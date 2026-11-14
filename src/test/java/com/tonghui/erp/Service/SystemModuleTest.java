@@ -133,6 +133,11 @@ public class SystemModuleTest {
         assertNotNull(response.getData(), "登录数据不应为空");
         assertNotNull(response.getData().getToken(), "登录成功应返回访问令牌");
         assertNotNull(response.getData().getUser(), "登录成功应返回用户信息");
+        // 登录日志的账号取自该字段，必须是登录账号而非真实姓名
+        UserDto user = response.getData().getUser();
+        assertEquals("root", user.getUserName(), "登录响应的 userName 应为登录账号");
+        assertNotNull(user.getName(), "登录响应应返回真实姓名");
+        assertNotEquals(user.getUserName(), user.getName(), "账号与姓名不应是同一个值");
     }
 
     /**

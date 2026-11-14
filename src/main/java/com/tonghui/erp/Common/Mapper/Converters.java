@@ -35,8 +35,13 @@ public interface Converters {
 
     /**
      * User -> UserDto（基础字段转换）
+     * <p>
+     * UserDto.userName 语义为登录账号，必须显式从 userAccount 映射；
+     * 否则 MapStruct 会按同名属性自动把真实姓名 user_name 填进 userName
+     * </p>
      */
     @Mapping(source = "userId", target = "id")
+    @Mapping(source = "userAccount", target = "userName")
     @Mapping(source = "userName", target = "name")
     @Mapping(source = "userStatus", target = "status")
     @Mapping(source = "userNotes", target = "notes")
@@ -47,8 +52,12 @@ public interface Converters {
 
     /**
      * User -> UserDto（完整转换，含关联数据）
+     * <p>
+     * 字段映射规则同 {@link #toUserDto(User)}，userName 取账号、name 取真实姓名
+     * </p>
      */
     @Mapping(source = "userId", target = "id")
+    @Mapping(source = "userAccount", target = "userName")
     @Mapping(source = "userName", target = "name")
     @Mapping(source = "userStatus", target = "status")
     @Mapping(source = "userNotes", target = "notes")
