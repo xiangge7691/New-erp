@@ -131,7 +131,10 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
                 }
             }
             if (!toInsert.isEmpty()) {
-                this.saveBatch(toInsert);
+                // 逐条写入，保证数据变更日志能记录每一行新增
+                for (WorkOrderProcessExecution execution : toInsert) {
+                    this.save(execution);
+                }
             }
         }
 
@@ -139,8 +142,9 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
         List<Long> removedIds = existingMap.keySet().stream()
                 .filter(id -> !incomingIds.contains(id))
                 .collect(Collectors.toList());
-        if (!removedIds.isEmpty()) {
-            baseMapper.physicalDeleteByIds(removedIds);
+        for (Long removedId : removedIds) {
+            // 逐行删除并记录变更历史
+            baseMapper.physicalDeleteById(removedId);
         }
     }
 

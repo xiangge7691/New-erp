@@ -166,6 +166,20 @@ tbody tr.row-changed:hover td { background: #fff9e8; }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .mono { font-family: Consolas, Monaco, monospace; font-size: 11px; color: var(--g600); }
 
+/* ---------- 工序表与附件 ---------- */
+.file-chips { display: flex; flex-direction: column; gap: 3px; min-width: 96px; }
+.file-chip {
+  display: inline-flex; align-items: center; gap: 4px; max-width: 190px;
+  padding: 1px 6px; border-radius: 5px; background: var(--g100); border: 1px solid var(--g200);
+  font-size: 10.5px; color: var(--g600); white-space: nowrap;
+}
+.file-chip .name { overflow: hidden; text-overflow: ellipsis; }
+.file-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; font-size: 11.5px; }
+.file-name { color: var(--g800); word-break: break-all; }
+.file-name.removed { color: #a8071a; text-decoration: line-through; }
+.file-meta { color: var(--g500); font-size: 10.5px; }
+.file-row { background: #fcfdff; border-radius: 7px; padding-left: 6px; padding-right: 6px; }
+
 /* ---------- 变更历史 ---------- */
 .history-filters { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--g200); flex: none; }
 .history-filters .select {
@@ -291,7 +305,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
   <header class="page-head">
     <div>
       <h1>业务详情 · 变更历史</h1>
-      <p class="sub">生产任务与制剂详情内嵌字段级修改记录，直接展示哪个字段改过、改前与改后</p>
+      <p class="sub">生产任务与制剂详情内嵌字段级修改记录，覆盖主表、处方、工序与工序附件，直接展示改前与改后</p>
     </div>
     <div class="head-actions">
       <button class="btn" onclick="toggleApi()">接口对照</button>
@@ -314,8 +328,10 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
         <div class="api-row"><span class="method">GET</span><div><div class="api-path">/api/system/operation-log/search?businessType=WorkOrder&amp;businessId=880</div><div class="api-desc">按业务对象查询操作时间线，补充操作人、IP、MAC、操作描述</div></div></div>
         <div class="api-row"><span class="method">GET</span><div><div class="api-path">/api/system/data-change-log/{id}</div><div class="api-desc">单条变更详情，含 beforeJson / afterJson 整行快照</div></div></div>
         <div class="api-row"><span class="method">GET</span><div><div class="api-path">/api/business-history/{bizType}/{bizId}</div><div class="api-desc">已实现：聚合操作日志与主表/关联变更，一次返回字段统计、记录统计与事件时间线；支持 field、source、时间范围筛选与按事件分页</div></div></div>
+        <div class="api-row"><span class="method">GET</span><div><div class="api-path">/api/business-history/{bizType}/{bizId}?source=RELATED&amp;table=preparation_process_template</div><div class="api-desc">建议扩展：只看工序变更；<code>table</code> 可选 preparation_process_template（工序模版）/ work_order_process_execution（工单工序执行）/ preparation_formula（处方行）</div></div></div>
+        <div class="api-row"><span class="method">GET</span><div><div class="api-path">/api/business-history/{bizType}/{bizId}?source=FILE</div><div class="api-desc">建议扩展：只看工序附件变更（上传 / 删除 / 替换），合并 file_operation_log 与 business_file，返回文件名、附件类型、大小与所属工序</div></div></div>
         <div class="api-row"><span class="method">GET</span><div><div class="api-path">/api/preparation/{id}/details</div><div class="api-desc">已启用：制剂详情，返回主表 + 处方 + 工艺模板 + 附件</div></div></div>
-        <div class="note warn">聚合接口已支持 <code>WORK_ORDER</code> 与 <code>PREPARATION</code> 两种业务类型；处方明细变更会归入同一个操作事件并补全 <code>recordLabel</code>。字段名与数据库列名保持一致（如 batch_qty、function_main、dosage），<code>truncated=true</code> 表示历史记录达到单次加载上限。</div>
+        <div class="note warn">聚合接口已支持 <code>WORK_ORDER</code> 与 <code>PREPARATION</code> 两种业务类型；处方明细、工序模版、工单工序执行的变更都会归入同一个操作事件并补全 <code>recordLabel</code>。新增建议：<code>source</code> 增加 <code>FILE</code>（工序附件），并用 <code>table</code> 区分关联明细类型；附件变更来自文件模块，需要与 <code>sys_data_change_log</code> 按同一操作事件合并。字段名与数据库列名保持一致（如 batch_qty、function_main、dosage、standard_duration），<code>truncated=true</code> 表示历史记录达到单次加载上限。</div>
       </div>
     </div>
   </section>
@@ -360,6 +376,34 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
           </div>
         </section>
 
+        <section class="card mb-2">
+          <div class="card-head">
+            <h2>工序信息</h2>
+            <span class="meta">5 道工序 · 2 道有调整 · 工序字段与附件变更并入右侧历史</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th class="num" style="width:48px">序号</th>
+                  <th>工序名称</th>
+                  <th>工序编码</th>
+                  <th>配置室</th>
+                  <th>设备</th>
+                  <th class="num">加工数量</th>
+                  <th>状态</th>
+                  <th>工序附件</th>
+                  <th style="width:72px">变更</th>
+                </tr>
+              </thead>
+              <tbody id="woProcessBody"></tbody>
+            </table>
+          </div>
+          <div class="card-body" style="padding-top:10px">
+            <div class="hint">点击工序行的变更角标，可只看该工序的字段与附件变更；附件变更同时出现在右侧时间线。</div>
+          </div>
+        </section>
+
         <section class="card">
           <div class="card-head">
             <h2>状态流转</h2>
@@ -389,8 +433,13 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
           <button class="btn btn-sm btn-ghost" onclick="clearFilter('wo')">清空筛选</button>
         </div>
         <div class="history-filters">
-          <select class="select" id="woFieldFilter" style="min-width:170px" onchange="onFieldChange('wo', this.value)"></select>
-          <span class="muted small">表：work_order</span>
+          <select class="select" id="woFieldFilter" style="min-width:150px" onchange="onFieldChange('wo', this.value)"></select>
+          <select class="select" id="woSourceFilter" style="min-width:112px" onchange="onSourceChange('wo', this.value)">
+            <option value="">全部来源</option>
+            <option value="PRIMARY">主表变更</option>
+            <option value="PROCESS">工序执行</option>
+            <option value="FILE">工序附件</option>
+          </select>
         </div>
         <div class="filter-hint" id="woFilterHint"></div>
         <div class="history-body" id="woHistory"></div>
@@ -451,6 +500,33 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
             </table>
           </div>
         </section>
+
+        <section class="card mb-2">
+          <div class="card-head">
+            <h2>工序信息</h2>
+            <span class="meta">5 道工序 · 2 道有调整 · 工序字段与附件变更并入右侧历史</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th class="num" style="width:48px">序号</th>
+                  <th>工序名称</th>
+                  <th>配置室</th>
+                  <th>设备</th>
+                  <th class="num">标准加工数量</th>
+                  <th class="num">标准工时（分钟）</th>
+                  <th>工序附件</th>
+                  <th style="width:72px">变更</th>
+                </tr>
+              </thead>
+              <tbody id="prepProcessBody"></tbody>
+            </table>
+          </div>
+          <div class="card-body" style="padding-top:10px">
+            <div class="hint">点击工序行的变更角标，可只看该工序的字段与附件变更；附件变更同时出现在右侧时间线。</div>
+          </div>
+        </section>
       </div>
 
       <aside class="card history-card" id="prepHistoryCard">
@@ -463,10 +539,12 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
         </div>
         <div class="history-filters">
           <select class="select" id="prepFieldFilter" style="min-width:170px" onchange="onFieldChange('prep', this.value)"></select>
-          <select class="select" id="prepSourceFilter" style="min-width:118px" onchange="onSourceChange(this.value)">
+          <select class="select" id="prepSourceFilter" style="min-width:118px" onchange="onSourceChange('prep', this.value)">
             <option value="">全部来源</option>
             <option value="PRIMARY">主表变更</option>
-            <option value="RELATED">处方明细</option>
+            <option value="FORMULA">处方明细</option>
+            <option value="PROCESS">工序模版</option>
+            <option value="FILE">工序附件</option>
           </select>
         </div>
         <div class="filter-hint" id="prepFilterHint"></div>
@@ -476,8 +554,9 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
   </section>
 
   <p class="foot-note">
-    原型说明：左侧详情字段取自 work_order / preparation / preparation_formula，右侧变更历史按操作时间倒序展示字段差异。
-    接入时先用现有 <code>/api/system/data-change-log/search</code> 按 tableName + businessId 查询；一次保存涉及的处方明细可通过 operationLogId / traceId 聚合。
+    原型说明：左侧详情字段取自 work_order / preparation / preparation_formula / work_order_process_execution / preparation_process_template，
+    工序附件来自 business_file + file_info；右侧变更历史按操作时间倒序展示字段差异与附件上传、删除、替换记录。
+    接入时先用现有 <code>/api/system/data-change-log/search</code> 按 tableName + businessId 查询；一次保存涉及的处方明细、工序与附件可通过 operationLogId / traceId 聚合。
   </p>
 </div>
 
@@ -618,11 +697,65 @@ const PREP_FORMULAS = [
 ];
 
 // =========================================================
+// Mock 数据：工序
+// 生产任务取 work_order_process_execution；制剂取 preparation_process_template
+// files 为该工序当前附件，仅用于左侧展示，变更以历史 changes 为准
+// =========================================================
+const WO_PROCESSES = [
+  { execId: 7201, processName: '粉碎', processCode: 'GF-01', stepOrder: 1, roomName: '粉碎间', equipmentName: '万能粉碎机', processQty: 1500, status: '已完成',
+    files: [{ fileId: 9901, name: '粉碎工序记录.pdf', kind: '工序附件', size: '1.2 MB' }] },
+  { execId: 7202, processName: '制粒', processCode: 'GF-02', stepOrder: 2, roomName: '制粒间', equipmentName: '高效湿法混合制粒机', processQty: 1500, status: '执行中',
+    files: [{ fileId: 9902, name: '制粒工序记录.pdf', kind: '工序附件', size: '1.8 MB' }, { fileId: 9903, name: '制粒参数确认单.xlsx', kind: '工序附件', size: '86 KB' }] },
+  { execId: 7203, processName: '干燥', processCode: 'GF-03', stepOrder: 3, roomName: '干燥间', equipmentName: '热风循环烘箱', processQty: 1480, status: '待执行',
+    files: [{ fileId: 9904, name: '干燥曲线图.png', kind: '工序附件', size: '600 KB' }] },
+  { execId: 7204, processName: '压片', processCode: 'GF-04', stepOrder: 4, roomName: '压片间', equipmentName: '旋转式压片机', processQty: 1500, status: '待执行', files: [] },
+  { execId: 7205, processName: '包装', processCode: 'GF-05', stepOrder: 5, roomName: '包装间', equipmentName: '自动包装线', processQty: 1500, status: '待执行', files: [] }
+];
+
+const PREP_PROCESSES = [
+  { templateId: 6101, processName: '粉碎', processCode: 'GF-01', stepOrder: 1, roomName: '粉碎间', equipmentName: '万能粉碎机', standardQty: 1500, unit: '千克', standardDuration: 90,
+    files: [{ fileId: 8801, name: '粉碎SOP.pdf', kind: '工序附件', size: '2.3 MB' }] },
+  { templateId: 6102, processName: '制粒', processCode: 'GF-02', stepOrder: 2, roomName: '制粒间', equipmentName: '高效湿法混合制粒机', standardQty: 1500, unit: '千克', standardDuration: 75,
+    files: [{ fileId: 8802, name: '制粒参数确认单.xlsx', kind: '工序附件', size: '86 KB' }] },
+  { templateId: 6103, processName: '干燥', processCode: 'GF-03', stepOrder: 3, roomName: '干燥间', equipmentName: '热风循环烘箱', standardQty: 1500, unit: '千克', standardDuration: 120,
+    files: [{ fileId: 8803, name: '干燥曲线图-v2.png', kind: '工序附件', size: '640 KB' }, { fileId: 8804, name: '干燥温度记录表.pdf', kind: '工序附件', size: '312 KB' }] },
+  { templateId: 6104, processName: '压片', processCode: 'GF-04', stepOrder: 4, roomName: '压片间', equipmentName: '旋转式压片机', standardQty: 1500, unit: '千克', standardDuration: 180, files: [] },
+  { templateId: 6105, processName: '包装', processCode: 'GF-05', stepOrder: 5, roomName: '包装间', equipmentName: '自动包装线', standardQty: 1500, unit: '千克', standardDuration: 90, files: [] }
+];
+
+// =========================================================
 // Mock 数据：变更历史
 // changes：field 为数据库列名，label 为中文名，before/after 为改前/改后
 // source：PRIMARY 主表 / RELATED 关联明细；recordId 为明细主键
 // =========================================================
 const WO_HISTORY = [
+  {
+    type: 'UPDATE', label: '上传工序附件', desc: '制粒工序上传工序记录与参数确认单',
+    time: '2026-11-11 10:22:40', user: '张伟', account: 'zhangwei',
+    ip: '192.168.1.24', mac: '00-1A-2B-3C-4D-5E', opLogId: 9008, traceId: 'tr-wo-08',
+    changes: [
+      { field: 'file_name', label: '附件文件', kind: 'FILE', fileAction: 'ADD', fileName: '制粒工序记录.pdf', fileKind: '工序附件', fileSize: '1.8 MB', before: '', after: '制粒工序记录.pdf', source: 'FILE', table: 'business_file', recordId: 7202, recordName: '制粒' },
+      { field: 'file_name', label: '附件文件', kind: 'FILE', fileAction: 'ADD', fileName: '制粒参数确认单.xlsx', fileKind: '工序附件', fileSize: '86 KB', before: '', after: '制粒参数确认单.xlsx', source: 'FILE', table: 'business_file', recordId: 7202, recordName: '制粒' }
+    ]
+  },
+  {
+    type: 'UPDATE', label: '调整工序执行', desc: '制粒工序更换设备、调整加工数量并补充关键工艺参数',
+    time: '2026-11-11 10:20:18', user: '张伟', account: 'zhangwei',
+    ip: '192.168.1.24', mac: '00-1A-2B-3C-4D-5E', opLogId: 9007, traceId: 'tr-wo-07',
+    changes: [
+      { field: 'equipment_id', label: '设备（工序执行）', before: '摇摆式颗粒机 G-02', after: '高效湿法混合制粒机 G-05', source: 'RELATED', table: 'work_order_process_execution', recordId: 7202, recordName: '制粒' },
+      { field: 'process_qty', label: '加工数量', before: '1480', after: '1500', source: 'RELATED', table: 'work_order_process_execution', recordId: 7202, recordName: '制粒' },
+      { field: 'key_process_params', label: '关键工艺参数', before: '搅拌 15 分钟', after: '搅拌 15 分钟；制粒 8 分钟；含水量 3%～5%', source: 'RELATED', table: 'work_order_process_execution', recordId: 7202, recordName: '制粒' }
+    ]
+  },
+  {
+    type: 'UPDATE', label: '删除工序附件', desc: '粉碎工序删除作废的现场照片',
+    time: '2026-11-11 10:10:00', user: '李娜', account: 'lina',
+    ip: '192.168.1.31', mac: '8C-16-45-7B-2E-10', opLogId: 9006, traceId: 'tr-wo-06',
+    changes: [
+      { field: 'file_name', label: '附件文件', kind: 'FILE', fileAction: 'DELETE', fileName: '粉碎现场-作废.jpg', fileKind: '工序附件', fileSize: '2.1 MB', before: '粉碎现场-作废.jpg', after: '', source: 'FILE', table: 'business_file', recordId: 7201, recordName: '粉碎' }
+    ]
+  },
   {
     type: 'UPDATE', label: '修改工单', desc: '调整生产周期、得率与预计成本价快照',
     time: '2026-11-11 08:30:45', user: '系统管理员', account: 'root',
@@ -670,6 +803,33 @@ const WO_HISTORY = [
 ];
 
 const PREP_HISTORY = [
+  {
+    type: 'UPDATE', label: '调整工序模版', desc: '制粒工序更换设备并调整标准工时，干燥工序调整标准工时',
+    time: '2026-11-11 09:12:05', user: '系统管理员', account: 'root',
+    ip: '218.94.12.34', mac: '3C-52-82-1A-4F-09', opLogId: 9109, traceId: 'tr-prep-09',
+    changes: [
+      { field: 'equipment_id', label: '设备（工序模版）', before: '摇摆式颗粒机 G-02', after: '高效湿法混合制粒机 G-05', source: 'RELATED', table: 'preparation_process_template', recordId: 6102, recordName: '制粒' },
+      { field: 'standard_duration', label: '标准工时（分钟）', before: '60', after: '75', source: 'RELATED', table: 'preparation_process_template', recordId: 6102, recordName: '制粒' },
+      { field: 'standard_duration', label: '标准工时（分钟）', before: '90', after: '120', source: 'RELATED', table: 'preparation_process_template', recordId: 6103, recordName: '干燥' }
+    ]
+  },
+  {
+    type: 'UPDATE', label: '工序附件变更', desc: '制粒工序新增参数确认单，删除旧版确认单',
+    time: '2026-11-11 09:10:22', user: '系统管理员', account: 'root',
+    ip: '218.94.12.34', mac: '3C-52-82-1A-4F-09', opLogId: 9108, traceId: 'tr-prep-08',
+    changes: [
+      { field: 'file_name', label: '附件文件', kind: 'FILE', fileAction: 'ADD', fileName: '制粒参数确认单.xlsx', fileKind: '工序附件', fileSize: '86 KB', before: '', after: '制粒参数确认单.xlsx', source: 'FILE', table: 'business_file', recordId: 6102, recordName: '制粒' },
+      { field: 'file_name', label: '附件文件', kind: 'FILE', fileAction: 'DELETE', fileName: '制粒参数确认单-旧版.xlsx', fileKind: '工序附件', fileSize: '82 KB', before: '制粒参数确认单-旧版.xlsx', after: '', source: 'FILE', table: 'business_file', recordId: 6102, recordName: '制粒' }
+    ]
+  },
+  {
+    type: 'UPDATE', label: '更换工序附件', desc: '干燥工序曲线图更新为 v2 版',
+    time: '2026-11-11 09:05:00', user: '系统管理员', account: 'root',
+    ip: '218.94.12.34', mac: '3C-52-82-1A-4F-09', opLogId: 9107, traceId: 'tr-prep-07',
+    changes: [
+      { field: 'file_name', label: '附件文件', kind: 'FILE', fileAction: 'REPLACE', fileName: '干燥曲线图-v2.png', fileKind: '工序附件', fileSize: '640 KB', before: '干燥曲线图.png', after: '干燥曲线图-v2.png', source: 'FILE', table: 'business_file', recordId: 6103, recordName: '干燥' }
+    ]
+  },
   {
     type: 'UPDATE', label: '修改制剂信息', desc: '调整预计成本价与批量',
     time: '2026-11-11 08:45:19', user: '系统管理员', account: 'root',
@@ -742,6 +902,24 @@ const EVENT_TYPES = {
   APPROVE: ['审批', 'purple', 'purple']
 };
 
+// 关联表中文名：用于变更行上的来源标签
+const TABLE_LABELS = {
+  work_order: '主表',
+  preparation: '主表',
+  preparation_formula: '处方行',
+  preparation_process_template: '工序模版',
+  work_order_process_execution: '工序执行',
+  business_file: '附件'
+};
+
+// 来源筛选项中文名
+const SOURCE_LABELS = {
+  PRIMARY: '主表变更',
+  FORMULA: '处方明细',
+  PROCESS: '工序',
+  FILE: '工序附件'
+};
+
 let diffSeq = 0;
 const diffStore = {};
 
@@ -784,8 +962,8 @@ function countField(key, field) {
   }, 0);
 }
 
-function countFormulaRow(recordId) {
-  return PREP_HISTORY.reduce(function (total, ev) {
+function countRecord(key, recordId) {
+  return VIEWS[key].history.reduce(function (total, ev) {
     if (ev.type === 'CREATE') return total;
     return total + ev.changes.filter(function (c) { return c.recordId === recordId; }).length;
   }, 0);
@@ -812,12 +990,13 @@ function renderInfo(key) {
   if (key === 'prep') {
     renderFormula();
   }
+  renderProcessTable(key);
 }
 
 function renderFormula() {
   const body = document.getElementById('prepFormulaBody');
   body.innerHTML = PREP_FORMULAS.map(function (row, index) {
-    const count = countFormulaRow(row.formulaId);
+    const count = countRecord('prep', row.formulaId);
     const badge = count
       ? '<button class="hist-badge" title="只看该处方行的修改记录" onclick="focusFormula(' + row.formulaId + ')">' + count + '</button>'
       : '<span class="wild">—</span>';
@@ -828,6 +1007,59 @@ function renderFormula() {
       + '<td>' + e(row.category) + '</td>'
       + '<td class="num">' + row.dosage + '</td>'
       + '<td>' + e(row.unit) + '</td>'
+      + '<td>' + badge + '</td>'
+      + '</tr>';
+  }).join('');
+}
+
+// =========================================================
+// 工序表渲染（生产任务：工序执行 / 制剂：工序模版）
+// =========================================================
+function processRows(key) {
+  return key === 'wo' ? WO_PROCESSES : PREP_PROCESSES;
+}
+
+function processIdField(key) {
+  return key === 'wo' ? 'execId' : 'templateId';
+}
+
+function renderProcessTable(key) {
+  const body = document.getElementById(key + 'ProcessBody');
+  const idField = processIdField(key);
+  body.innerHTML = processRows(key).map(function (row, index) {
+    const recordId = row[idField];
+    // 角标统计该工序的字段变更 + 附件变更
+    const count = countRecord(key, recordId);
+    const badge = count
+      ? '<button class="hist-badge" title="只看该工序的字段与附件变更" onclick="focusProcess(\'' + key + '\',' + recordId + ')">' + count + '</button>'
+      : '<span class="wild">—</span>';
+    const files = (row.files && row.files.length)
+      ? '<div class="file-chips">' + row.files.map(function (f) {
+          return '<span class="file-chip" title="' + e(f.name + ' · ' + f.kind + ' · ' + f.size) + '">📎 <span class="name">' + e(f.name) + '</span></span>';
+        }).join('') + '</div>'
+      : '<span class="wild">—</span>';
+
+    let middle;
+    if (key === 'wo') {
+      const statusCls = row.status === '已完成' ? 'green' : row.status === '执行中' ? 'blue' : 'gray';
+      middle = '<td>' + e(row.processName) + (count ? ' <span class="tag orange">有调整</span>' : '') + '</td>'
+        + '<td class="mono">' + e(row.processCode) + '</td>'
+        + '<td>' + e(row.roomName) + '</td>'
+        + '<td>' + e(row.equipmentName) + '</td>'
+        + '<td class="num">' + row.processQty + '</td>'
+        + '<td>' + tag(row.status, statusCls) + '</td>';
+    } else {
+      middle = '<td>' + e(row.processName) + (count ? ' <span class="tag orange">有调整</span>' : '') + '</td>'
+        + '<td>' + e(row.roomName) + '</td>'
+        + '<td>' + e(row.equipmentName) + '</td>'
+        + '<td class="num">' + row.standardQty + ' ' + e(row.unit) + '</td>'
+        + '<td class="num">' + row.standardDuration + '</td>';
+    }
+
+    return '<tr class="' + (count ? 'row-changed' : '') + '">'
+      + '<td class="num">' + (index + 1) + '</td>'
+      + middle
+      + '<td>' + files + '</td>'
       + '<td>' + badge + '</td>'
       + '</tr>';
   }).join('');
@@ -869,38 +1101,22 @@ function onFieldChange(key, value) {
   state[key].field = value;
   state[key].recordId = null;
   state[key].recordName = '';
-  if (key === 'prep') {
-    state.prep.source = value === 'dosage' ? 'RELATED' : '';
-    document.getElementById('prepSourceFilter').value = state.prep.source;
-  }
   renderInfo(key);
   renderHistory(key);
 }
 
-function onSourceChange(value) {
-  state.prep.source = value;
-  state.prep.recordId = null;
-  state.prep.recordName = '';
-  if (value === 'RELATED' && state.prep.field && state.prep.field !== 'dosage') {
-    state.prep.field = '';
-    document.getElementById('prepFieldFilter').value = '';
-  }
-  if (value === 'PRIMARY' && state.prep.field === 'dosage') {
-    state.prep.field = '';
-    document.getElementById('prepFieldFilter').value = '';
-  }
-  renderInfo('prep');
-  renderHistory('prep');
+function onSourceChange(key, value) {
+  state[key].source = value;
+  state[key].recordId = null;
+  state[key].recordName = '';
+  renderInfo(key);
+  renderHistory(key);
 }
 
 function focusField(key, field) {
   state[key].field = field;
   state[key].recordId = null;
   state[key].recordName = '';
-  if (key === 'prep') {
-    state.prep.source = field === 'dosage' ? 'RELATED' : '';
-    document.getElementById('prepSourceFilter').value = state.prep.source;
-  }
   document.getElementById(key + 'FieldFilter').value = field;
   renderInfo(key);
   renderHistory(key);
@@ -909,15 +1125,29 @@ function focusField(key, field) {
 
 function focusFormula(formulaId) {
   const row = PREP_FORMULAS.find(function (r) { return r.formulaId === formulaId; });
-  state.prep.field = 'dosage';
-  state.prep.source = 'RELATED';
+  state.prep.field = '';
+  state.prep.source = '';
   state.prep.recordId = formulaId;
   state.prep.recordName = row ? row.name : '';
-  document.getElementById('prepFieldFilter').value = 'dosage';
-  document.getElementById('prepSourceFilter').value = 'RELATED';
+  document.getElementById('prepFieldFilter').value = '';
+  document.getElementById('prepSourceFilter').value = '';
   renderInfo('prep');
   renderHistory('prep');
   flashHistory('prep');
+}
+
+function focusProcess(key, processId) {
+  const idField = processIdField(key);
+  const row = processRows(key).find(function (r) { return r[idField] === processId; });
+  state[key].field = '';
+  state[key].source = '';
+  state[key].recordId = processId;
+  state[key].recordName = row ? row.processName : '';
+  document.getElementById(key + 'FieldFilter').value = '';
+  document.getElementById(key + 'SourceFilter').value = '';
+  renderInfo(key);
+  renderHistory(key);
+  flashHistory(key);
 }
 
 function clearFilter(key) {
@@ -926,9 +1156,7 @@ function clearFilter(key) {
   state[key].recordId = null;
   state[key].recordName = '';
   document.getElementById(key + 'FieldFilter').value = '';
-  if (key === 'prep') {
-    document.getElementById('prepSourceFilter').value = '';
-  }
+  document.getElementById(key + 'SourceFilter').value = '';
   renderInfo(key);
   renderHistory(key);
 }
@@ -956,12 +1184,20 @@ function scrollToHistory(key) {
 // =========================================================
 // 变更历史渲染
 // =========================================================
+function matchSource(c, source) {
+  if (source === 'PRIMARY') return (c.source || 'PRIMARY') === 'PRIMARY';
+  if (source === 'FORMULA') return c.table === 'preparation_formula';
+  if (source === 'PROCESS') return c.table === 'preparation_process_template' || c.table === 'work_order_process_execution';
+  if (source === 'FILE') return c.kind === 'FILE' || c.source === 'FILE';
+  return true;
+}
+
 function filteredEvents(key) {
   const st = state[key];
   return VIEWS[key].history.map(function (ev) {
     const changes = ev.changes.filter(function (c) {
       if (st.field && c.field !== st.field) return false;
-      if (st.source && (c.source || 'PRIMARY') !== st.source) return false;
+      if (st.source && !matchSource(c, st.source)) return false;
       if (st.recordId != null && c.recordId !== st.recordId) return false;
       return true;
     });
@@ -982,7 +1218,7 @@ function renderHistory(key) {
   const st = state[key];
   const parts = [];
   if (st.field) parts.push(fieldLabel(key, st.field));
-  if (st.source) parts.push(st.source === 'RELATED' ? '处方明细' : '主表变更');
+  if (st.source) parts.push(SOURCE_LABELS[st.source] || st.source);
   if (st.recordName) parts.push(st.recordName);
   const scope = parts.length ? parts.join(' · ') : '全部记录';
   document.getElementById(key + 'FilterHint').innerHTML =
@@ -990,8 +1226,8 @@ function renderHistory(key) {
     + (parts.length ? ' <button class="link-btn" onclick="clearFilter(\'' + key + '\')">清除筛选</button>' : '');
 
   document.getElementById(key + 'HistoryMeta').textContent = key === 'wo'
-    ? '表 work_order · 字段级改前 / 改后 · 共 ' + VIEWS.wo.history.length + ' 次操作'
-    : '主表 + 处方明细 · 字段级改前 / 改后 · 共 ' + VIEWS.prep.history.length + ' 次操作';
+    ? '主表 + 工序执行 + 工序附件 · 字段级改前 / 改后 · 共 ' + VIEWS.wo.history.length + ' 次操作'
+    : '主表 + 处方 + 工序模版 + 工序附件 · 字段级改前 / 改后 · 共 ' + VIEWS.prep.history.length + ' 次操作';
 
   if (!items.length) {
     body.innerHTML = '<div class="empty">没有符合筛选条件的变更记录</div>';
@@ -1024,9 +1260,11 @@ function eventHtml(ev, changes) {
 }
 
 function diffRowHtml(c) {
+  if (c.kind === 'FILE') return fileRowHtml(c);
+
   const diffId = registerDiff(c);
   const sourceTag = c.source === 'RELATED'
-    ? '<span class="tag gray">' + e(c.table || '关联明细') + ' #' + e(c.recordId) + '</span>'
+    ? '<span class="tag gray">' + e(TABLE_LABELS[c.table] || c.table || '关联明细') + ' #' + e(c.recordId) + '</span>'
     : '';
   const recordName = c.recordName ? '<span class="record-name">' + e(c.recordName) + '</span>' : '';
   return '<div class="diff-row">'
@@ -1036,6 +1274,35 @@ function diffRowHtml(c) {
     + diffValueHtml(c.before, 'before', diffId)
     + '<span class="arrow">→</span>'
     + diffValueHtml(c.after, 'after', diffId)
+    + '</div></div>';
+}
+
+// 工序附件变更行：上传 / 删除 / 替换，不按字段值差异渲染
+function fileRowHtml(c) {
+  const actionMap = {
+    ADD: ['上传', 'green'],
+    DELETE: ['删除', 'red'],
+    REPLACE: ['替换', 'orange']
+  };
+  const action = actionMap[c.fileAction] || ['变更', 'gray'];
+  const recordName = c.recordName ? '<span class="record-name">' + e(c.recordName) + '</span>' : '';
+
+  let line;
+  if (c.fileAction === 'REPLACE') {
+    line = '<span class="file-name removed">📎 ' + e(c.before) + '</span>'
+      + '<span class="arrow">→</span>'
+      + '<span class="file-name">📎 ' + e(c.after) + '</span>';
+  } else if (c.fileAction === 'DELETE') {
+    line = '<span class="file-name removed">📎 ' + e(c.fileName) + '</span>';
+  } else {
+    line = '<span class="file-name">📎 ' + e(c.fileName) + '</span>';
+  }
+
+  const meta = [c.fileKind, c.fileSize].filter(Boolean).join(' · ');
+  return '<div class="diff-row file-row">'
+    + '<div class="diff-field"><b>工序附件</b>' + tag(action[0], action[1]) + recordName + '</div>'
+    + '<div class="file-line">' + line
+    + (meta ? '<span class="file-meta">' + e(meta) + '</span>' : '')
     + '</div></div>';
 }
 
@@ -1101,7 +1368,7 @@ function toggleApi() {
 }
 
 // =========================================================
-// Hash 深链：#wo | #prep | #prep?field=spec | #prep?row=32046
+// Hash 深链：#wo | #prep | #prep?field=spec | #prep?row=32046 | #prep?process=6102
 // =========================================================
 function applyHash() {
   const hash = decodeURIComponent((location.hash || '').replace(/^#/, ''));
@@ -1116,6 +1383,11 @@ function applyHash() {
   const rowMatch = hash.match(/row=([0-9]+)/);
   if (rowMatch) {
     focusFormula(Number(rowMatch[1]));
+    return;
+  }
+  const processMatch = hash.match(/process=([0-9]+)/);
+  if (processMatch) {
+    focusProcess(view, Number(processMatch[1]));
   }
 }
 

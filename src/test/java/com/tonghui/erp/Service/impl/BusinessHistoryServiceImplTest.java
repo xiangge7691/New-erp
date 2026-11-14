@@ -1,12 +1,17 @@
 package com.tonghui.erp.Service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tonghui.erp.Common.Dto.Log.BusinessHistoryChangeDto;
 import com.tonghui.erp.Common.Dto.Log.BusinessHistoryDto;
 import com.tonghui.erp.Common.Dto.Log.BusinessHistoryEventDto;
 import com.tonghui.erp.Common.Dto.Log.BusinessHistoryScope;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
+import com.tonghui.erp.Data.Entity.FileInfo;
+import com.tonghui.erp.Data.Entity.FileOperationLog;
 import com.tonghui.erp.Data.Entity.SysDataChangeLog;
 import com.tonghui.erp.Data.Entity.SysOperationLog;
+import com.tonghui.erp.Data.mapper.FileInfoMapper;
+import com.tonghui.erp.Data.mapper.FileOperationLogMapper;
 import com.tonghui.erp.Data.mapper.SysDataChangeLogMapper;
 import com.tonghui.erp.Data.mapper.SysOperationLogMapper;
 import com.tonghui.erp.Service.businesshistory.BusinessHistoryProvider;
@@ -43,6 +48,8 @@ public class BusinessHistoryServiceImplTest {
 
     private SysDataChangeLogMapper changeLogMapper;
     private SysOperationLogMapper operationLogMapper;
+    private FileOperationLogMapper fileOperationLogMapper;
+    private FileInfoMapper fileInfoMapper;
     private BusinessHistoryProvider provider;
     private BusinessHistoryServiceImpl service;
 
@@ -53,6 +60,8 @@ public class BusinessHistoryServiceImplTest {
     public void setUp() {
         changeLogMapper = mock(SysDataChangeLogMapper.class);
         operationLogMapper = mock(SysOperationLogMapper.class);
+        fileOperationLogMapper = mock(FileOperationLogMapper.class);
+        fileInfoMapper = mock(FileInfoMapper.class);
         provider = mock(BusinessHistoryProvider.class);
 
         BusinessHistoryScope scope = new BusinessHistoryScope();
@@ -64,7 +73,8 @@ public class BusinessHistoryServiceImplTest {
         when(operationLogMapper.selectBriefByIds(anyCollection())).thenReturn(List.of());
 
         service = new BusinessHistoryServiceImpl(
-                List.of(provider), changeLogMapper, operationLogMapper, new ObjectMapper());
+                List.of(provider), changeLogMapper, operationLogMapper,
+                fileOperationLogMapper, fileInfoMapper, new ObjectMapper());
     }
 
     // endregion
@@ -89,7 +99,7 @@ public class BusinessHistoryServiceImplTest {
         SysOperationLog operationLog = operationLog(100L, "修改工单");
         when(operationLogMapper.selectBriefByIds(anyCollection())).thenReturn(List.of(operationLog));
 
-        BusinessHistoryDto result = service.query("WORK_ORDER", "880", null, null, null, null, page(0, 20));
+        BusinessHistoryDto result = service.query("WORK_ORDER", "880", null, null, null, null, null, page(0, 20));
 
         assertEquals(1, result.getEvents().size());
         BusinessHistoryEventDto event = result.getEvents().get(0);
@@ -120,7 +130,7 @@ public class BusinessHistoryServiceImplTest {
         when(changeLogMapper.selectHistory(eq("work_order"), anyList(), isNull(), isNull(), anyInt()))
                 .thenReturn(List.of(spec, batch));
 
-        BusinessHistoryDto result = service.query("WORK_ORDER", "880", "spec", null, null, null, page(0, 20));
+        BusinessHistoryDto result = service.query("WORK_ORDER", "880", "spec", null, null, null, null, page(0, 20));
 
         assertEquals(1, result.getEvents().size());
         assertEquals(1, result.getEvents().get(0).getChanges().size());
@@ -138,7 +148,7 @@ public class BusinessHistoryServiceImplTest {
         when(changeLogMapper.selectHistory(eq("work_order"), anyList(), isNull(), isNull(), anyInt()))
                 .thenReturn(List.of(primary));
 
-        BusinessHistoryDto result = service.query("WORK_ORDER", "880", null, "RELATED", null, null, page(0, 20));
+        BusinessHistoryDto result = service.query("WORK_ORDER", "880", null, "RELATED", null, null, null, page(0, 20));
 
         assertEquals(0, result.getTotalCount());
         assertTrue(result.getEvents().isEmpty());
@@ -158,7 +168,7 @@ public class BusinessHistoryServiceImplTest {
         when(changeLogMapper.selectHistory(eq("work_order"), anyList(), isNull(), isNull(), anyInt()))
                 .thenReturn(List.of(first, second, third));
 
-        BusinessHistoryDto result = service.query("WORK_ORDER", "880", null, null, null, null, page(0, 2));
+        BusinessHistoryDto result = service.query("WORK_ORDER", "880", null, null, null, null, null, page(0, 2));
 
         assertEquals(3, result.getTotalCount());
         assertEquals(2, result.getEvents().size());
@@ -190,7 +200,8 @@ public class BusinessHistoryServiceImplTest {
         when(preparationProvider.resolve("42")).thenReturn(scope);
 
         BusinessHistoryServiceImpl preparationService = new BusinessHistoryServiceImpl(
-                List.of(preparationProvider), changeLogMapper, operationLogMapper, new ObjectMapper());
+                List.of(preparationProvider), changeLogMapper, operationLogMapper,
+                fileOperationLogMapper, fileInfoMapper, new ObjectMapper());
 
         SysDataChangeLog main = change(1L, 200L, "2026-11-10 10:00:00",
                 "[{\"field\":\"spec\",\"label\":\"规格\",\"before\":\"A\",\"after\":\"B\"}]");
@@ -208,7 +219,7 @@ public class BusinessHistoryServiceImplTest {
                         ? List.of(main) : List.of(detail));
 
         BusinessHistoryDto result = preparationService.query(
-                "PREPARATION", "42", null, null, null, null, page(0, 20));
+                "PREPARATION", "42", null, null, null, null, null, page(0, 20));
 
         assertEquals(2, result.getEvents().size());
         assertEquals(2, result.getRecordStats().size());
@@ -226,6 +237,88 @@ public class BusinessHistoryServiceImplTest {
 
     // endregion
 
+    // region 工序与附件
+    // ===================================
+    // 工序与附件
+    // ===================================
+
+    /**
+     * 工序附件变更应归入对应工序行，并返回文件操作信息
+     */
+    @Test
+    public void testProcessFileChanges() {
+        BusinessHistoryProvider preparationProvider = mock(BusinessHistoryProvider.class);
+        BusinessHistoryScope scope = new BusinessHistoryScope();
+        scope.setTitle("Z04-W37-009 · 理伤续断丸");
+        scope.addTable("preparation", List.of("42"));
+        scope.addFileScope("PREPARATION_PROCESS_TEMPLATE", "6102", "preparation_process_template");
+        scope.addRecordLabel("preparation_process_template", "6102", "制粒");
+        when(preparationProvider.bizType()).thenReturn("PREPARATION");
+        when(preparationProvider.resolve("42")).thenReturn(scope);
+
+        BusinessHistoryServiceImpl preparationService = new BusinessHistoryServiceImpl(
+                List.of(preparationProvider), changeLogMapper, operationLogMapper,
+                fileOperationLogMapper, fileInfoMapper, new ObjectMapper());
+
+        when(changeLogMapper.selectHistory(anyString(), anyList(), isNull(), isNull(), anyInt()))
+                .thenReturn(List.of());
+        when(operationLogMapper.selectBriefByIds(anyCollection())).thenReturn(List.of());
+
+        FileOperationLog upload = new FileOperationLog();
+        upload.setId(11L);
+        upload.setFileId(9902L);
+        upload.setFileName("制粒参数确认单.xlsx");
+        upload.setOperationType("UPLOAD");
+        upload.setUserName("张伟");
+        upload.setDetail("bizType=PREPARATION_PROCESS_TEMPLATE, bizId=6102, refId=0, kind=DEFAULT");
+        upload.setCreatedTime(LocalDateTime.of(2026, 11, 11, 9, 10, 22));
+
+        FileOperationLog delete = new FileOperationLog();
+        delete.setId(12L);
+        delete.setFileId(9903L);
+        delete.setFileName("制粒参数确认单-旧版.xlsx");
+        delete.setOperationType("DELETE");
+        delete.setUserName("张伟");
+        delete.setDetail("bizType=PREPARATION_PROCESS_TEMPLATE, bizId=6102, refId=0, kind=DEFAULT");
+        delete.setCreatedTime(LocalDateTime.of(2026, 11, 11, 9, 10, 23));
+
+        when(fileOperationLogMapper.selectBusinessFileHistory(anyList(), isNull(), isNull(), anyInt()))
+                .thenReturn(List.of(upload, delete));
+
+        FileInfo fileInfo = new FileInfo();
+        fileInfo.setFileId(9902L);
+        fileInfo.setOriginalName("制粒参数确认单.xlsx");
+        fileInfo.setFileSize(88064L);
+        when(fileInfoMapper.selectByIdsIgnoreDeleted(anyList())).thenReturn(List.of(fileInfo));
+
+        BusinessHistoryDto result = preparationService.query(
+                "PREPARATION", "42", null, "FILE", null, null, null, page(0, 20));
+
+        assertEquals(2, result.getEvents().size());
+        BusinessHistoryChangeDto added = result.getEvents().stream()
+                .flatMap(event -> event.getChanges().stream())
+                .filter(change -> "ADD".equals(change.getFileAction()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals("FILE", added.getChangeKind());
+        assertEquals(9902L, added.getFileId());
+        assertEquals("制粒参数确认单.xlsx", added.getFileName());
+        assertEquals(88064L, added.getFileSize());
+        assertEquals("制粒", added.getRecordLabel());
+
+        BusinessHistoryChangeDto removed = result.getEvents().stream()
+                .flatMap(event -> event.getChanges().stream())
+                .filter(change -> "DELETE".equals(change.getFileAction()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals("制粒参数确认单-旧版.xlsx", removed.getFileName());
+
+        assertEquals(1, result.getFieldStats().size());
+        assertEquals(2, result.getFieldStats().get(0).getCount());
+    }
+
+    // endregion
+
     // region 异常
     // ===================================
     // 异常
@@ -237,7 +330,7 @@ public class BusinessHistoryServiceImplTest {
     @Test
     public void testUnsupportedBizType() {
         assertThrows(IllegalArgumentException.class, () ->
-                service.query("UNKNOWN", "1", null, null, null, null, page(0, 20)));
+                service.query("UNKNOWN", "1", null, null, null, null, null, page(0, 20)));
     }
 
     // endregion

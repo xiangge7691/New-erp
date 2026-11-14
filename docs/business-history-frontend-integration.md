@@ -2,7 +2,7 @@
 
 > 对应原型：`_analysis/prototypes/业务变更历史原型.html`
 > 后端接口：`GET /api/business-history/{bizType}/{bizId}`
-> 适用页面：生产任务（工单）详情、制剂详情
+> 适用页面：生产任务（工单）详情、制剂详情（含工序与工序附件）
 
 ---
 
@@ -12,8 +12,8 @@
 
 | 数据 | 接口 | 用途 |
 |------|------|------|
-| 业务详情 | `GET /api/work-orders/{id}` 或 `GET /api/preparation/{id}/details` | 左侧基本信息、处方明细 |
-| 变更历史 | `GET /api/business-history/{bizType}/{bizId}` | 右侧时间线、字段角标、处方行角标 |
+| 业务详情 | `GET /api/work-orders/{id}` 或 `GET /api/preparation/{id}/details` | 左侧基本信息、处方明细、工序与附件 |
+| 变更历史 | `GET /api/business-history/{bizType}/{bizId}` | 右侧时间线、字段角标、处方行/工序行角标、附件变更 |
 
 如果页面只需要变更历史，可以只请求第二个接口；`BusinessHistoryDto.title` 会返回业务对象展示名称。
 
@@ -43,8 +43,9 @@ GET /api/business-history/{bizType}/{bizId}?pageIndex=0&pageSize=20
 | `bizId` | 是 | 业务主键 |
 | `pageIndex` | 否 | 按“操作事件”分页，从 0 开始，默认 0 |
 | `pageSize` | 否 | 每页事件数，默认 20，最大 200 |
-| `field` | 否 | 只看某个字段，传数据库列名，如 `spec`、`batch_qty`、`dosage` |
-| `source` | 否 | `PRIMARY` 主表变更 / `RELATED` 关联明细变更 |
+| `field` | 否 | 只看某个字段，传数据库列名，如 `spec`、`batch_qty`、`dosage`、`standard_duration`、`file_name` |
+| `source` | 否 | `PRIMARY` 主表变更 / `RELATED` 关联明细变更 / `FILE` 工序附件变更 |
+| `table` | 否 | 只看某张表：`preparation_formula` 处方行 / `preparation_process_template` 制剂工序模版 / `work_order_process_execution` 工单工序执行 |
 | `startTime` | 否 | 支持 `yyyy-MM-dd` 或 `yyyy-MM-dd HH:mm:ss` |
 | `endTime` | 否 | 同上 |
 
@@ -56,6 +57,12 @@ GET /api/business-history/WORK_ORDER/880?pageIndex=0&pageSize=20&field=batch_qty
 
 # 制剂：只看处方明细里的处方量变更
 GET /api/business-history/PREPARATION/42?pageIndex=0&pageSize=20&field=dosage&source=RELATED
+
+# 制剂：只看工序模版的变更
+GET /api/business-history/PREPARATION/42?pageIndex=0&pageSize=20&source=RELATED&table=preparation_process_template
+
+# 制剂：只看工序附件上传 / 删除
+GET /api/business-history/PREPARATION/42?pageIndex=0&pageSize=20&source=FILE
 ```
 
 ### 2.2 返回结构
@@ -130,11 +137,12 @@ GET /api/business-history/PREPARATION/42?pageIndex=0&pageSize=20&field=dosage&so
 | 字段 | 说明 |
 |------|------|
 | `fieldStats` | 字段级变更次数，用于详情页字段旁的数字角标；不受 `field/source` 筛选影响 |
-| `recordStats` | 记录级变更次数，用于处方明细行角标；`tableName=preparation_formula` 时 `recordId` 是处方行 ID |
-| `events` | 按操作事件归组，时间倒序；一次操作的多张表、多个字段变更放在同一个事件里 |
+| `recordStats` | 记录级变更次数，用于处方行、工序行角标；工序行对应 `tableName=preparation_process_template` 或 `work_order_process_execution`，附件变更也计入所属工序行 |
+| `events` | 按操作事件归组，时间倒序；一次操作的多张表、多个字段变更放在同一个事件里；附件变更按文件操作日志单独成事件 |
 | `changes` | 扁平化的字段变更，一个字段一条；前端直接渲染“字段 / 改前 / 改后” |
-| `changeSource` | `PRIMARY` 主表、`RELATED` 关联明细，用于区分“主表变更 / 处方明细” |
-| `recordLabel` | 关联记录名称，如处方行的物料名称；可能为空，为空时回退展示 `businessId` |
+| `changeSource` | `PRIMARY` 主表、`RELATED` 关联明细、`FILE` 工序附件 |
+| `changeKind` | `FIELD` 字段变更 / `FILE` 附件变更 |
+| `recordLabel` | 关联记录名称，如处方行的物料名称、工序行的工序名称；可能为空，为空时回退展示 `businessId` |
 | `totalCount` | 筛选后的事件总数，不是字段变更条数 |
 | `truncated` | 变更日志加载达到单次上限时为 `true`，前端可提示“历史记录较多，仅展示最近部分” |
 
@@ -143,6 +151,31 @@ GET /api/business-history/PREPARATION/42?pageIndex=0&pageSize=20&field=dosage&so
 - `before` / `after` 是 `Object`，可能是字符串、数字或 `null`；`null` 展示为“空”。
 - 新增记录的事件可能 `changes` 为空（INSERT 没有字段差异），前端显示“创建记录，无字段差异”。
 - `pageIndex` / `pageSize` 按事件分页，不是按字段变更行分页。
+
+附件变更的 `change` 示例（`source=FILE`）：
+
+```json
+{
+  "tableName": "preparation_process_template",
+  "businessId": "6102",
+  "recordLabel": "制粒",
+  "changeType": "INSERT",
+  "changeSource": "FILE",
+  "changeKind": "FILE",
+  "fileAction": "ADD",
+  "fileId": 9902,
+  "fileName": "制粒参数确认单.xlsx",
+  "fileKind": "DEFAULT",
+  "fileSize": 88064,
+  "field": "file_name",
+  "label": "附件文件",
+  "before": "",
+  "after": "制粒参数确认单.xlsx"
+}
+```
+
+删除附件时 `changeType=DELETE`、`fileAction=DELETE`，`before` 为文件名、`after` 为空。
+附件文件被替换时，后端会分别返回 DELETE 与 ADD 两条记录，前端可按同一工序、同一时间合并展示为“替换”。
 
 ---
 
@@ -155,8 +188,12 @@ GET /api/business-history/PREPARATION/42?pageIndex=0&pageSize=20&field=dosage&so
 | 生产任务基本信息 | `GET /api/work-orders/{id}` |
 | 制剂基本信息 | `GET /api/preparation/{id}/details` |
 | 制剂处方信息 | 详情接口的 `formulas` |
+| 工序信息（生产任务） | 详情接口的工序执行列表，或 `GET /api/workOrderProcessExecution/byWorkOrder/{id}` |
+| 工序信息（制剂） | 详情接口的 `processTemplates` |
+| 工序附件 | `GET /api/business-files?bizType=PREPARATION_PROCESS_TEMPLATE&bizId={templateId}`（工单工序用 `WORK_ORDER_PROCESS_EXECUTION`） |
 | 字段旁数字角标 | `fieldStats` 中 `count > 0` 的字段 |
 | 处方行旁数字角标 | `recordStats` 中 `tableName=preparation_formula` 的记录 |
+| 工序行旁数字角标 | `recordStats` 中 `tableName=preparation_process_template` / `work_order_process_execution` 的记录，含附件变更 |
 
 字段角标建议：
 
@@ -179,6 +216,12 @@ const fieldCountMap = new Map(
 | 批号 | `batch_number` |
 | 当前状态 | `current_status` |
 | 处方量 | `dosage` |
+| 工序设备 | `equipment_id` |
+| 工序配置室 | `room_id` |
+| 工序标准工时 | `standard_duration` |
+| 工序加工数量 | `process_qty` |
+| 工序关键工艺参数 | `key_process_params` |
+| 附件文件 | `file_name` |
 
 ### 3.2 右侧时间线
 
@@ -190,6 +233,7 @@ const fieldCountMap = new Map(
 - 操作人：`userName`（`userAccount`）；
 - 终端：`clientIp`、`macAddress`；
 - 字段差异：遍历 `changes`，展示 `label`（`field`）、`before`、`after`；
+- 附件差异：`changeKind=FILE` 时按 `fileAction` 渲染“上传 / 删除 / 替换”，展示 `fileName`、`fileKind`、`fileSize`，并显示所属工序 `recordLabel`；
 - 页脚：`traceId` + “操作日志 #operationLogId”。
 
 `operationLogId` 可点击跳转：
@@ -204,11 +248,15 @@ GET /api/system/operation-log/{id}
 |----------|----------|
 | 点击字段角标（如“规格 1”） | `field=spec`，重新请求 |
 | 选择“全部字段” | 移除 `field` |
-| 点击处方行角标 | `field=dosage&source=RELATED` |
+| 点击处方行角标 | `field=dosage&source=RELATED&table=preparation_formula` |
+| 点击工序行角标 | `table=preparation_process_template`（或 `work_order_process_execution`），不带 `field/source`，同时返回该工序的字段与附件变更 |
 | 来源选择“主表变更” | `source=PRIMARY` |
-| 来源选择“处方明细” | `source=RELATED` |
-| 清空筛选 | 移除 `field`、`source`，回到第 0 页 |
-| 翻页 | 修改 `pageIndex`，保留当前 `field/source/time` |
+| 来源选择“处方明细” | `source=RELATED&table=preparation_formula` |
+| 来源选择“工序模版” | `source=RELATED&table=preparation_process_template` |
+| 来源选择“工序执行” | `source=RELATED&table=work_order_process_execution` |
+| 来源选择“工序附件” | `source=FILE` |
+| 清空筛选 | 移除 `field`、`source`、`table`，回到第 0 页 |
+| 翻页 | 修改 `pageIndex`，保留当前 `field/source/table/time` |
 
 字段下拉选项直接来自 `fieldStats`，不需要额外接口：
 
@@ -237,7 +285,9 @@ GET /api/system/data-change-log/{dataChangeId}
 
 ```ts
 export type BusinessHistoryBizType = 'WORK_ORDER' | 'PREPARATION';
-export type BusinessHistorySource = 'PRIMARY' | 'RELATED';
+export type BusinessHistorySource = 'PRIMARY' | 'RELATED' | 'FILE';
+export type BusinessHistoryChangeKind = 'FIELD' | 'FILE';
+export type BusinessHistoryFileAction = 'ADD' | 'DELETE';
 
 export interface BusinessHistoryFieldStat {
   field: string;
@@ -253,16 +303,22 @@ export interface BusinessHistoryRecordStat {
 }
 
 export interface BusinessHistoryChange {
-  dataChangeId: number;
+  dataChangeId?: number | null;
   tableName: string;
   businessId: string;
   recordLabel: string | null;
   changeType: 'INSERT' | 'UPDATE' | 'DELETE';
   changeSource: BusinessHistorySource;
+  changeKind: BusinessHistoryChangeKind;
   field: string;
   label: string;
   before: unknown;
   after: unknown;
+  fileAction?: BusinessHistoryFileAction;
+  fileId?: number;
+  fileName?: string;
+  fileKind?: string;
+  fileSize?: number;
 }
 
 export interface BusinessHistoryEvent {
@@ -305,6 +361,7 @@ interface HistoryQuery {
   pageSize?: number;
   field?: string;
   source?: BusinessHistorySource;
+  table?: string;
   startTime?: string;
   endTime?: string;
 }
@@ -319,6 +376,7 @@ async function getBusinessHistory(
   params.set('pageSize', String(query.pageSize ?? 20));
   if (query.field) params.set('field', query.field);
   if (query.source) params.set('source', query.source);
+  if (query.table) params.set('table', query.table);
   if (query.startTime) params.set('startTime', query.startTime);
   if (query.endTime) params.set('endTime', query.endTime);
 
@@ -346,13 +404,15 @@ async function getBusinessHistory(
 |------|----------|
 | 顶部“生产任务详情 / 制剂详情”切换 | 真实页面中通常由路由决定，不需要切换 |
 | 左侧字段角标 | `fieldStats` |
-| 处方行“有调整 / 数字” | `recordStats` |
+| 处方行“有调整 / 数字” | `recordStats` 中 `tableName=preparation_formula` |
+| 工序行“有调整 / 数字” | `recordStats` 中 `tableName=preparation_process_template` 或 `work_order_process_execution`，含该工序附件变更 |
 | 右侧时间线 | `events` |
+| 工序附件行 | `changeKind=FILE` 的 change，按 `fileAction` 渲染上传 / 删除 / 替换 |
 | 字段筛选下拉 | `fieldStats` 生成选项，变化时传 `field` |
-| 主表 / 处方明细筛选 | 传 `source` |
+| 主表 / 处方明细 / 工序 / 附件筛选 | 传 `source`，需要区分明细类型时同时传 `table` |
 | “完整”按钮 | 展示 `before` / `after` 全文；需要整行快照时查 `data-change-log/{id}` |
 | “操作日志 #xxx” | 跳转或抽屉展示 `GET /api/system/operation-log/{id}` |
-| “清空筛选” | 清空 `field/source`，重新请求第一页 |
+| “清空筛选” | 清空 `field/source/table`，重新请求第一页 |
 | “历史记录较多”提示 | `truncated=true` 时展示 |
 
 ---
@@ -363,12 +423,15 @@ async function getBusinessHistory(
 2. **字段统计不受筛选影响**：即使用户选了 `field=spec`，`fieldStats` 仍返回全部字段的次数，方便随时切换。
 3. **创建事件没有字段差异**：`changes` 为空时展示“创建记录，无字段差异”，不要隐藏整条事件。
 4. **处方行被删除**：后端会通过 `preparation_formula` 历史行补全 `recordLabel`，前端直接用；为空时回退显示 `businessId`。
-5. **历史截断**：`truncated=true` 表示单次加载达到上限，前端提示“仅展示最近部分变更”，如有需要再按时间范围缩小查询。
-6. **MAC 为空**：旧日志或未上报 MAC 的客户端可能为空，展示“—”，不要报错。
-7. **操作日志缺失**：极少数日志被清理后，事件仍会用数据变更里的操作人/时间兜底，`operationLogId` 可能不可点击。
-8. **权限**：接口仍需要 JWT；页面入口建议由菜单/按钮权限控制，后端后续可按角色补方法级权限。
-9. **刷新时机**：详情页保存成功后重新请求变更历史；筛选变化时只请求变更历史，不重新请求详情。
-10. **不要再用多次 data-change-log 查询拼时间线**：生产任务、制剂详情统一使用聚合接口，避免主表 + 子表多次请求和前端合并。
+5. **工序行被删除**：后端同样会查询已删除的 `preparation_process_template` / `work_order_process_execution` 行补全工序名称。
+6. **附件历史来源**：附件变更来自 `file_operation_log`，只取 UPLOAD / DELETE；`dataChangeId` 为空，文件信息看 `fileId / fileName / fileKind / fileSize`。
+7. **附件替换**：后端分别返回 DELETE 与 ADD 两条记录，前端可按同一工序、同一时间合并为“替换”。
+8. **历史截断**：`truncated=true` 表示单次加载达到上限，前端提示“仅展示最近部分变更”，如有需要再按时间范围缩小查询。
+9. **MAC 为空**：旧日志或未上报 MAC 的客户端可能为空，展示“—”，不要报错。
+10. **操作日志缺失**：极少数日志被清理后，事件仍会用数据变更里的操作人/时间兜底，`operationLogId` 可能不可点击。
+11. **权限**：接口仍需要 JWT；页面入口建议由菜单/按钮权限控制，后端后续可按角色补方法级权限。
+12. **刷新时机**：详情页保存成功后重新请求变更历史；筛选变化时只请求变更历史，不重新请求详情。
+13. **不要再用多次 data-change-log 查询拼时间线**：生产任务、制剂详情统一使用聚合接口，避免主表 + 子表多次请求和前端合并。
 
 ---
 
@@ -380,6 +443,9 @@ async function getBusinessHistory(
 |------|------|
 | `GET /api/work-orders/{id}` | 生产任务详情 |
 | `GET /api/preparation/{id}/details` | 制剂详情（含处方、工艺模板、附件） |
+| `GET /api/business-files?bizType={bizType}&bizId={bizId}` | 查询业务附件（工序附件用 `PREPARATION_PROCESS_TEMPLATE` / `WORK_ORDER_PROCESS_EXECUTION`） |
+| `GET /api/workOrderProcessExecution/byWorkOrder/{id}` | 生产任务工序执行列表 |
+| `GET /api/preparationProcessTemplate/byPreparation/{prepId}` | 制剂工序模版列表 |
 | `GET /api/system/operation-log/{id}` | 操作日志详情 |
 | `GET /api/system/operation-log/{id}/changes` | 某次操作的全部变更（调试/兜底） |
 | `GET /api/system/data-change-log/{id}` | 单条变更详情（整行快照） |
@@ -396,11 +462,15 @@ src/main/resources/Data/migration/add_log_mac_address.sql
 
 # 业务变更历史查询索引（幂等）
 src/main/resources/Data/migration/add_business_history_indexes.sql
+
+# 附件变更历史查询索引（幂等）
+src/main/resources/Data/migration/add_business_file_history_index.sql
 ```
 
 说明：
 
 - `add_business_history_indexes.sql` 为 `sys_operation_log`、`sys_data_change_log`、`preparation_formula` 补查询索引；
+- `add_business_file_history_index.sql` 为 `file_operation_log` 补 `root_type + operation_type + created_time` 索引，缩小附件历史扫描范围；
 - 脚本已在测试库 `8.134.48.54/erp_db` 随集成测试执行；
 - 生产库 `8.148.27.237/erp_db1` 需要手动执行后再重启服务；
 - 前端不需要额外配置，接口仍在 `/api` 下，JWT 认证方式不变。
@@ -415,9 +485,13 @@ src/main/resources/Data/migration/add_business_history_indexes.sql
 2. 制剂主表字段（规格、制法、功能主治）与处方明细（处方量）同时出现。
 3. 点击“规格”“批量”“处方量”角标，列表只剩对应字段。
 4. 处方行角标只显示该行记录。
-5. 清空筛选后恢复全部事件。
-6. 翻页保留筛选条件。
-7. 长文本“完整”弹窗展示改前/改后全文。
-8. 无历史记录时显示空状态。
-9. `truncated=true` 时显示提示。
-10. 操作日志跳转正常，MAC 为空时展示“—”。
+5. 工序行角标同时显示该工序的字段变更与附件变更。
+6. 工序模版更换设备、调整标准工时后，右侧时间线出现工序变更。
+7. 工序附件上传 / 删除后，时间线出现 `changeKind=FILE` 的记录，并带文件名与大小。
+8. 来源筛选“工序附件”只保留附件记录；`table=preparation_process_template` 只保留该工序。
+9. 清空筛选后恢复全部事件。
+10. 翻页保留筛选条件。
+11. 长文本“完整”弹窗展示改前/改后全文。
+12. 无历史记录时显示空状态。
+13. `truncated=true` 时显示提示。
+14. 操作日志跳转正常，MAC 为空时展示“—”。

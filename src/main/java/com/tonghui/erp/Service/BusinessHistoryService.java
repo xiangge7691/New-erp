@@ -19,13 +19,15 @@ public interface BusinessHistoryService {
      * @param bizType    业务类型：WORK_ORDER / PREPARATION
      * @param bizId      业务对象主键
      * @param field      字段筛选（数据库列名，可为空）
-     * @param source     来源筛选：PRIMARY / RELATED（可为空）
+     * @param source     来源筛选：PRIMARY / RELATED / FILE（可为空）
+     * @param table      表筛选：preparation_formula / preparation_process_template /
+     *                   work_order_process_execution 等（可为空）
      * @param startTime  起始时间（可为空）
      * @param endTime    截止时间（可为空）
      * @param pageRequest 分页参数（按操作事件分页）
      * @return 业务变更历史
      */
-    BusinessHistoryDto query(String bizType, String bizId, String field, String source,
+    BusinessHistoryDto query(String bizType, String bizId, String field, String source, String table,
                              LocalDateTime startTime, LocalDateTime endTime,
                              PageRequestDto pageRequest);
 }

@@ -106,6 +106,7 @@ public class LogModuleIntegrationTest {
                 new ClassPathResource("Data/migration/add_log_mac_address.sql"),
                 new ClassPathResource("Data/migration/create_data_change_log_table.sql"),
                 new ClassPathResource("Data/migration/add_business_history_indexes.sql"),
+                new ClassPathResource("Data/migration/add_business_file_history_index.sql"),
                 new ClassPathResource("Data/migration/init_log_config_data.sql"));
         populator.execute(dataSource);
     }
@@ -322,7 +323,7 @@ public class LogModuleIntegrationTest {
             pageRequest.setPageSize(20);
 
             BusinessHistoryDto result = businessHistoryService.query(
-                    "WORK_ORDER", bizId, null, null, null, null, pageRequest);
+                    "WORK_ORDER", bizId, null, null, null, null, null, pageRequest);
 
             assertEquals(1, result.getEvents().size());
             assertEquals(2, result.getEvents().get(0).getChanges().size());
@@ -331,7 +332,7 @@ public class LogModuleIntegrationTest {
             assertTrue(result.getTitle().startsWith("工单 #"));
 
             BusinessHistoryDto filtered = businessHistoryService.query(
-                    "WORK_ORDER", bizId, "spec", null, null, null, pageRequest);
+                    "WORK_ORDER", bizId, "spec", null, null, null, null, pageRequest);
             assertEquals(1, filtered.getEvents().size());
             assertEquals(1, filtered.getEvents().get(0).getChanges().size());
             assertEquals("spec", filtered.getEvents().get(0).getChanges().get(0).getField());
@@ -343,9 +344,43 @@ public class LogModuleIntegrationTest {
         }
     }
 
-    // endregion
+    /**
+     * 附件上传 / 删除日志应出现在业务变更历史中
+     */
+    @Test
+    public void testBusinessHistoryFileChanges() {
+        long bizId = 990000001L;
+        long fileId = 990000002L;
+        LocalDateTime now = LocalDateTime.now();
+        try {
+            jdbcTemplate.update("INSERT INTO file_operation_log"
+                            + " (file_id, file_name, file_path, operation_type, root_type,"
+                            + " user_id, user_name, detail, created_time)"
+                            + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    fileId, "工序记录测试.pdf", "/test/工序记录测试.pdf", "UPLOAD", "business",
+                    1L, "附件测试", "bizType=WORK_ORDER, bizId=" + bizId + ", refId=0, kind=BATCH_RECORD",
+                    now);
 
-    // region 路由与注解校验
+            PageRequestDto pageRequest = new PageRequestDto();
+            pageRequest.setPageIndex(0);
+            pageRequest.setPageSize(20);
+
+            BusinessHistoryDto result = businessHistoryService.query(
+                    "WORK_ORDER", String.valueOf(bizId), null, "FILE", null, null, null, pageRequest);
+
+            assertEquals(1, result.getTotalCount());
+            assertEquals(1, result.getEvents().size());
+            var change = result.getEvents().get(0).getChanges().get(0);
+            assertEquals("FILE", change.getChangeKind());
+            assertEquals("ADD", change.getFileAction());
+            assertEquals("工序记录测试.pdf", change.getFileName());
+            assertEquals("file_name", change.getField());
+        } finally {
+            jdbcTemplate.update("DELETE FROM file_operation_log WHERE file_id = ?", fileId);
+        }
+    }
+
+    // endregion
     // ===================================
     // 路由与注解校验
     // ===================================

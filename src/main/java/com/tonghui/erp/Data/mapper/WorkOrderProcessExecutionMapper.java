@@ -2,9 +2,11 @@ package com.tonghui.erp.Data.mapper;
 
 import com.tonghui.erp.Data.Entity.WorkOrderProcessExecution;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.tonghui.erp.Common.annotation.DataChangeAudit;
 import com.tonghui.erp.Common.Dto.Equipment.EquipmentUsageConflictDto;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
@@ -14,6 +16,35 @@ import java.util.List;
  * 工单工序执行记录数据访问Mapper接口
  */
 public interface WorkOrderProcessExecutionMapper extends BaseMapper<WorkOrderProcessExecution> {
+
+    /**
+     * 查询指定工单下的全部工序执行记录（包含已删除记录）
+     * <p>
+     * 用于变更历史：工序行后来被删除时，历史记录仍需展示工序名称
+     * </p>
+     *
+     * @param workOrderId 工单ID
+     * @return 工序执行记录列表（含工序类型名称与编码）
+     */
+    @Select("SELECT e.id AS id, e.work_order_id AS workOrderId, e.process_type_id AS processTypeId,"
+            + " e.step_order AS stepOrder, p.process_name AS processTypeName, p.process_code AS processCode"
+            + " FROM work_order_process_execution e"
+            + " LEFT JOIN process_type p ON p.process_id = e.process_type_id"
+            + " WHERE e.work_order_id = #{workOrderId}"
+            + " ORDER BY e.step_order ASC, e.id ASC")
+    List<WorkOrderProcessExecution> selectByWorkOrderIdIncludeDeleted(@Param("workOrderId") Long workOrderId);
+
+    /**
+     * 按记录ID物理删除单行（批量保存时删除被移除的行）
+     * <p>逐行删除便于数据变更日志记录每一行的删除历史</p>
+     *
+     * @param id 记录ID
+     * @return 删除的行数
+     */
+    @DataChangeAudit(table = "work_order_process_execution", whereColumn = "id",
+            param = "id", primaryKeyColumn = "id", changeType = "DELETE")
+    @Delete("DELETE FROM work_order_process_execution WHERE id = #{id}")
+    int physicalDeleteById(@Param("id") Long id);
 
     /**
      * 按记录ID集合物理删除（批量保存时删除被移除的行）

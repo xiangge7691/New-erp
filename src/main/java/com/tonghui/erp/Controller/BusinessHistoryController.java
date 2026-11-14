@@ -54,12 +54,17 @@ public class BusinessHistoryController extends BaseController {
      * 示例请求：
      * GET /api/business-history/WORK_ORDER/880?pageIndex=0&pageSize=20
      * GET /api/business-history/PREPARATION/42?pageIndex=0&pageSize=20&field=spec
+     * GET /api/business-history/PREPARATION/42?pageIndex=0&pageSize=20&source=RELATED&table=preparation_process_template
+     * GET /api/business-history/PREPARATION/42?pageIndex=0&pageSize=20&source=FILE
      * GET /api/business-history/PREPARATION/42?pageIndex=0&pageSize=20&source=RELATED&startTime=2026-11-01&endTime=2026-11-13
      *
      * @param bizType    业务类型：WORK_ORDER（生产任务）/ PREPARATION（制剂）
      * @param bizId      业务对象主键
      * @param field      字段筛选，数据库列名（可选）
-     * @param source     来源筛选：PRIMARY主表/RELATED关联明细（可选）
+     * @param source     来源筛选：PRIMARY主表/RELATED关联明细/FILE工序附件（可选）
+     * @param table      表筛选：preparation_formula（处方行）/
+     *                   preparation_process_template（工序模版）/
+     *                   work_order_process_execution（工单工序执行）（可选）
      * @param startTime  起始时间，支持 yyyy-MM-dd 或 yyyy-MM-dd HH:mm:ss（可选）
      * @param endTime    截止时间，支持 yyyy-MM-dd 或 yyyy-MM-dd HH:mm:ss（可选）
      * @param pageRequest 分页参数（按操作事件分页）
@@ -71,12 +76,13 @@ public class BusinessHistoryController extends BaseController {
             @PathVariable String bizId,
             @RequestParam(required = false) String field,
             @RequestParam(required = false) String source,
+            @RequestParam(required = false) String table,
             @RequestParam(required = false) String startTime,
             @RequestParam(required = false) String endTime,
             @ModelAttribute PageRequestDto pageRequest) {
         try {
             BusinessHistoryDto result = businessHistoryService.query(
-                    bizType, bizId, field, source,
+                    bizType, bizId, field, source, table,
                     LogQueryTimeUtils.parseStart(startTime),
                     LogQueryTimeUtils.parseEnd(endTime),
                     processLogPageRequest(pageRequest));

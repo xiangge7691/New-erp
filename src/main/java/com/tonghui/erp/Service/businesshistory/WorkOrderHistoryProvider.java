@@ -1,16 +1,22 @@
 package com.tonghui.erp.Service.businesshistory;
 
+import com.tonghui.erp.Common.Constants.BizFileType;
 import com.tonghui.erp.Common.Dto.Log.BusinessHistoryScope;
 import com.tonghui.erp.Data.Entity.WorkOrder;
+import com.tonghui.erp.Data.Entity.WorkOrderProcessExecution;
 import com.tonghui.erp.Data.mapper.WorkOrderMapper;
+import com.tonghui.erp.Data.mapper.WorkOrderProcessExecutionMapper;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
  * 生产任务（工单）变更历史 Provider
  * <p>
- * 工单的字段变更全部记录在 work_order 表，直接按主键查询即可
+ * 工单历史包含主表 work_order 与工序执行 work_order_process_execution；
+ * 工序执行的变更日志以执行记录 ID 作为 business_id，工序附件变更从
+ * file_operation_log 聚合后归到对应工序行
  * </p>
  */
 @Component
@@ -22,14 +28,18 @@ public class WorkOrderHistoryProvider implements BusinessHistoryProvider {
     // ===================================
 
     private final WorkOrderMapper workOrderMapper;
+    private final WorkOrderProcessExecutionMapper processExecutionMapper;
 
     /**
      * 构造生产任务变更历史 Provider
      *
-     * @param workOrderMapper 工单Mapper
+     * @param workOrderMapper         工单Mapper
+     * @param processExecutionMapper  工单工序执行Mapper
      */
-    public WorkOrderHistoryProvider(WorkOrderMapper workOrderMapper) {
+    public WorkOrderHistoryProvider(WorkOrderMapper workOrderMapper,
+                                    WorkOrderProcessExecutionMapper processExecutionMapper) {
         this.workOrderMapper = workOrderMapper;
+        this.processExecutionMapper = processExecutionMapper;
     }
 
     // endregion
@@ -59,10 +69,27 @@ public class WorkOrderHistoryProvider implements BusinessHistoryProvider {
     public BusinessHistoryScope resolve(String bizId) {
         Long id = parseId(bizId);
         WorkOrder workOrder = workOrderMapper.selectById(id);
+        List<WorkOrderProcessExecution> executions = processExecutionMapper.selectByWorkOrderIdIncludeDeleted(id);
 
         BusinessHistoryScope scope = new BusinessHistoryScope();
         scope.setTitle(buildTitle(id, workOrder));
         scope.addTable("work_order", List.of(String.valueOf(id)));
+        scope.addFileScope(BizFileType.WORK_ORDER.getCode(), String.valueOf(id), "work_order");
+
+        if (executions != null && !executions.isEmpty()) {
+            List<String> executionIds = new ArrayList<>(executions.size());
+            for (WorkOrderProcessExecution execution : executions) {
+                if (execution.getId() == null) {
+                    continue;
+                }
+                String executionId = String.valueOf(execution.getId());
+                executionIds.add(executionId);
+                scope.addRecordLabel("work_order_process_execution", executionId, processLabel(execution));
+            }
+            scope.addTable("work_order_process_execution", executionIds);
+            scope.addFileScope(BizFileType.WORK_ORDER_PROCESS_EXECUTION.getCode(), executionIds,
+                    "work_order_process_execution");
+        }
         return scope;
     }
 
@@ -85,6 +112,20 @@ public class WorkOrderHistoryProvider implements BusinessHistoryProvider {
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("业务ID不合法：" + bizId);
         }
+    }
+
+    /**
+     * 构建工序展示名称
+     *
+     * @param execution 工单工序执行记录
+     * @return 工序名称
+     */
+    private String processLabel(WorkOrderProcessExecution execution) {
+        String name = execution.getProcessTypeName();
+        if (name != null && !name.trim().isEmpty()) {
+            return name;
+        }
+        return "工序 #" + execution.getId();
     }
 
     /**

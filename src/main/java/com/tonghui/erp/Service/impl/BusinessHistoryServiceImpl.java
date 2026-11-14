@@ -10,8 +10,12 @@ import com.tonghui.erp.Common.Dto.Log.BusinessHistoryRecordStatDto;
 import com.tonghui.erp.Common.Dto.Log.BusinessHistoryScope;
 import com.tonghui.erp.Common.Dto.Log.FieldChange;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
+import com.tonghui.erp.Data.Entity.FileInfo;
+import com.tonghui.erp.Data.Entity.FileOperationLog;
 import com.tonghui.erp.Data.Entity.SysDataChangeLog;
 import com.tonghui.erp.Data.Entity.SysOperationLog;
+import com.tonghui.erp.Data.mapper.FileInfoMapper;
+import com.tonghui.erp.Data.mapper.FileOperationLogMapper;
 import com.tonghui.erp.Data.mapper.SysDataChangeLogMapper;
 import com.tonghui.erp.Data.mapper.SysOperationLogMapper;
 import com.tonghui.erp.Service.BusinessHistoryService;
@@ -56,6 +60,15 @@ public class BusinessHistoryServiceImpl implements BusinessHistoryService {
     /** 单表单次最大加载变更数，避免大记录拖慢详情页 */
     private static final int MAX_HISTORY_CHANGES = 1000;
 
+    /** 附件变更字段名 */
+    private static final String FILE_FIELD = "file_name";
+
+    /** 附件变更字段中文名 */
+    private static final String FILE_LABEL = "附件文件";
+
+    /** 附件变更来源标记 */
+    private static final String FILE_SOURCE = "FILE";
+
     /** 字段差异JSON类型 */
     private static final TypeReference<List<FieldChange>> FIELD_CHANGE_TYPE = new TypeReference<>() {
     };
@@ -63,19 +76,25 @@ public class BusinessHistoryServiceImpl implements BusinessHistoryService {
     private final Map<String, BusinessHistoryProvider> providers;
     private final SysDataChangeLogMapper dataChangeLogMapper;
     private final SysOperationLogMapper operationLogMapper;
+    private final FileOperationLogMapper fileOperationLogMapper;
+    private final FileInfoMapper fileInfoMapper;
     private final ObjectMapper objectMapper;
 
     /**
      * 构造业务变更历史服务
      *
-     * @param providers          业务历史 Provider 列表
-     * @param dataChangeLogMapper 数据变更日志Mapper
-     * @param operationLogMapper  操作日志Mapper
-     * @param objectMapper        Jackson对象映射器
+     * @param providers            业务历史 Provider 列表
+     * @param dataChangeLogMapper  数据变更日志Mapper
+     * @param operationLogMapper   操作日志Mapper
+     * @param fileOperationLogMapper 文件操作日志Mapper
+     * @param fileInfoMapper       文件信息Mapper
+     * @param objectMapper         Jackson对象映射器
      */
     public BusinessHistoryServiceImpl(List<BusinessHistoryProvider> providers,
                                       SysDataChangeLogMapper dataChangeLogMapper,
                                       SysOperationLogMapper operationLogMapper,
+                                      FileOperationLogMapper fileOperationLogMapper,
+                                      FileInfoMapper fileInfoMapper,
                                       ObjectMapper objectMapper) {
         this.providers = new LinkedHashMap<>();
         if (providers != null) {
@@ -85,6 +104,8 @@ public class BusinessHistoryServiceImpl implements BusinessHistoryService {
         }
         this.dataChangeLogMapper = dataChangeLogMapper;
         this.operationLogMapper = operationLogMapper;
+        this.fileOperationLogMapper = fileOperationLogMapper;
+        this.fileInfoMapper = fileInfoMapper;
         this.objectMapper = objectMapper;
     }
 
@@ -102,13 +123,14 @@ public class BusinessHistoryServiceImpl implements BusinessHistoryService {
      * @param bizId       业务对象主键
      * @param field       字段筛选
      * @param source      来源筛选
+     * @param table       表筛选
      * @param startTime   起始时间
      * @param endTime     截止时间
      * @param pageRequest 分页参数
      * @return 业务变更历史
      */
     @Override
-    public BusinessHistoryDto query(String bizType, String bizId, String field, String source,
+    public BusinessHistoryDto query(String bizType, String bizId, String field, String source, String table,
                                     LocalDateTime startTime, LocalDateTime endTime,
                                     PageRequestDto pageRequest) {
         BusinessHistoryProvider provider = providers.get(normalize(bizType));
@@ -139,8 +161,9 @@ public class BusinessHistoryServiceImpl implements BusinessHistoryService {
 
         String fieldFilter = hasText(field) ? field.trim() : null;
         String sourceFilter = hasText(source) ? source.trim().toUpperCase(Locale.ROOT) : null;
+        String tableFilter = hasText(table) ? table.trim() : null;
 
-        List<BusinessHistoryEventDto> events = buildEvents(views, fieldFilter, sourceFilter, scope);
+        List<BusinessHistoryEventDto> events = buildEvents(views, fieldFilter, sourceFilter, tableFilter, scope);
         result.setTotalCount(events.size());
         result.setPageIndex(pageIndex);
         result.setPageSize(pageSize);
@@ -185,8 +208,127 @@ public class BusinessHistoryServiceImpl implements BusinessHistoryService {
                 views.add(new ChangeView(row, parseFields(row.getChangedFields())));
             }
         }
+        truncated |= loadFileViews(scope, startTime, endTime, views);
         views.sort(this::compareChangeDesc);
         return truncated;
+    }
+
+    /**
+     * 加载业务对象的附件上传 / 删除记录
+     * <p>
+     * 文件模块不写数据变更日志，附件历史取自 file_operation_log；
+     * 通过日志 detail 中的 bizType + bizId 归到主表或具体工序行
+     * </p>
+     *
+     * @param scope     查询范围
+     * @param startTime 起始时间
+     * @param endTime   截止时间
+     * @param views     变更视图输出
+     * @return 是否因为单次上限被截断
+     */
+    private boolean loadFileViews(BusinessHistoryScope scope, LocalDateTime startTime,
+                                  LocalDateTime endTime, List<ChangeView> views) {
+        List<BusinessHistoryScope.FileScope> fileScopes = scope.getFileScopes();
+        if (fileScopes == null || fileScopes.isEmpty()) {
+            return false;
+        }
+        List<FileOperationLog> logs = fileOperationLogMapper.selectBusinessFileHistory(
+                fileScopes, startTime, endTime, MAX_HISTORY_CHANGES + 1);
+        if (logs == null || logs.isEmpty()) {
+            return false;
+        }
+        boolean truncated = false;
+        if (logs.size() > MAX_HISTORY_CHANGES) {
+            truncated = true;
+            logs = new ArrayList<>(logs.subList(0, MAX_HISTORY_CHANGES));
+        }
+
+        Map<String, BusinessHistoryScope.FileScope> scopeIndex = new LinkedHashMap<>();
+        for (BusinessHistoryScope.FileScope fileScope : fileScopes) {
+            scopeIndex.put(fileScope.getBizType() + "#" + fileScope.getBizId(), fileScope);
+        }
+        Set<Long> fileIds = new LinkedHashSet<>();
+        for (FileOperationLog fileLog : logs) {
+            if (fileLog.getFileId() != null) {
+                fileIds.add(fileLog.getFileId());
+            }
+        }
+        Map<Long, FileInfo> fileInfos = loadFileInfos(fileIds);
+
+        for (FileOperationLog fileLog : logs) {
+            String bizType = detailValue(fileLog.getDetail(), "bizType");
+            String bizId = detailValue(fileLog.getDetail(), "bizId");
+            BusinessHistoryScope.FileScope fileScope = scopeIndex.get(bizType + "#" + bizId);
+            if (fileScope == null) {
+                continue;
+            }
+            boolean upload = "UPLOAD".equalsIgnoreCase(fileLog.getOperationType());
+
+            SysDataChangeLog entity = new SysDataChangeLog();
+            entity.setId(fileLog.getId());
+            entity.setTableName(fileScope.getTableName());
+            entity.setBusinessId(fileScope.getBizId());
+            entity.setChangeType(upload ? "INSERT" : "DELETE");
+            entity.setChangeSource(FILE_SOURCE);
+            entity.setUserName(fileLog.getUserName());
+            entity.setCreatedTime(fileLog.getCreatedTime());
+
+            String before = upload ? "" : fileLog.getFileName();
+            String after = upload ? fileLog.getFileName() : "";
+            FieldChange fieldChange = new FieldChange(FILE_FIELD, FILE_LABEL, before, after);
+            views.add(new ChangeView(entity, List.of(fieldChange), fileLog,
+                    fileInfos.get(fileLog.getFileId())));
+        }
+        return truncated;
+    }
+
+    /**
+     * 批量加载文件信息，用于展示附件大小
+     *
+     * @param fileIds 文件ID集合
+     * @return 文件ID到文件信息的映射
+     */
+    private Map<Long, FileInfo> loadFileInfos(Set<Long> fileIds) {
+        Map<Long, FileInfo> result = new HashMap<>();
+        if (fileIds == null || fileIds.isEmpty()) {
+            return result;
+        }
+        List<FileInfo> infos = fileInfoMapper.selectByIdsIgnoreDeleted(new ArrayList<>(fileIds));
+        if (infos == null) {
+            return result;
+        }
+        for (FileInfo info : infos) {
+            if (info.getFileId() != null) {
+                result.put(info.getFileId(), info);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * 解析文件日志 detail 中的业务标记
+     * <p>
+     * detail 形如：bizType=WORK_ORDER, bizId=880, refId=0, kind=BATCH_RECORD
+     * </p>
+     *
+     * @param detail 操作详情
+     * @param key    标记名
+     * @return 标记值；不存在时返回 null
+     */
+    private String detailValue(String detail, String key) {
+        if (!hasText(detail)) {
+            return null;
+        }
+        String marker = key + "=";
+        int start = detail.indexOf(marker);
+        if (start < 0) {
+            return null;
+        }
+        start += marker.length();
+        int end = detail.indexOf(',', start);
+        String value = end < 0 ? detail.substring(start) : detail.substring(start, end);
+        value = value.trim();
+        return value.isEmpty() ? null : value;
     }
 
     /**
@@ -272,15 +414,17 @@ public class BusinessHistoryServiceImpl implements BusinessHistoryService {
      * @param views        变更视图
      * @param fieldFilter  字段筛选
      * @param sourceFilter 来源筛选
+     * @param tableFilter  表筛选
      * @param scope        查询范围
      * @return 事件列表（按时间倒序）
      */
     private List<BusinessHistoryEventDto> buildEvents(List<ChangeView> views, String fieldFilter,
-                                                      String sourceFilter, BusinessHistoryScope scope) {
+                                                      String sourceFilter, String tableFilter,
+                                                      BusinessHistoryScope scope) {
         Map<String, EventGroup> groups = new LinkedHashMap<>();
         for (ChangeView view : views) {
             SysDataChangeLog entity = view.entity;
-            if (!matchesSource(entity, sourceFilter)) {
+            if (!matchesSource(entity, sourceFilter) || !matchesTable(entity, tableFilter)) {
                 continue;
             }
             List<FieldChange> matched = view.fields;
@@ -298,7 +442,7 @@ public class BusinessHistoryServiceImpl implements BusinessHistoryService {
                 group = new EventGroup();
                 groups.put(key, group);
             }
-            group.add(entity, matched);
+            group.add(view.withFields(matched));
         }
 
         Map<Long, SysOperationLog> operationLogs = loadOperationLogs(groups);
@@ -369,6 +513,12 @@ public class BusinessHistoryServiceImpl implements BusinessHistoryService {
             event.setMacAddress(operationLog.getMacAddress());
             event.setCreatedTime(operationLog.getCreatedTime() != null
                     ? operationLog.getCreatedTime() : group.time);
+        } else if (FILE_SOURCE.equalsIgnoreCase(first.getChangeSource())) {
+            event.setOperationType("UPDATE");
+            event.setOperationDesc(fileEventDesc(group));
+            event.setUserName(first.getUserName());
+            event.setUserAccount(first.getUserAccount());
+            event.setCreatedTime(group.time);
         } else {
             event.setOperationType(first.getChangeType());
             event.setOperationDesc(defaultDesc(first.getChangeType()));
@@ -386,7 +536,7 @@ public class BusinessHistoryServiceImpl implements BusinessHistoryService {
                     continue;
                 }
                 BusinessHistoryChangeDto dto = new BusinessHistoryChangeDto();
-                dto.setDataChangeId(entity.getId());
+                dto.setDataChangeId(view.fileLog == null ? entity.getId() : null);
                 dto.setTableName(entity.getTableName());
                 dto.setBusinessId(entity.getBusinessId());
                 dto.setRecordLabel(recordLabel);
@@ -396,11 +546,60 @@ public class BusinessHistoryServiceImpl implements BusinessHistoryService {
                 dto.setLabel(hasText(change.getLabel()) ? change.getLabel() : change.getField());
                 dto.setBefore(change.getBefore());
                 dto.setAfter(change.getAfter());
+                if (view.fileLog != null) {
+                    fillFileChange(dto, view);
+                } else {
+                    dto.setChangeKind("FIELD");
+                }
                 changes.add(dto);
             }
         }
         event.setChanges(changes);
         return event;
+    }
+
+    /**
+     * 填充附件变更的文件信息
+     *
+     * @param dto  变更返回对象
+     * @param view 变更视图
+     */
+    private void fillFileChange(BusinessHistoryChangeDto dto, ChangeView view) {
+        FileOperationLog fileLog = view.fileLog;
+        boolean upload = "UPLOAD".equalsIgnoreCase(fileLog.getOperationType());
+        dto.setChangeKind(FILE_SOURCE);
+        dto.setFileAction(upload ? "ADD" : "DELETE");
+        dto.setFileId(fileLog.getFileId());
+        dto.setFileName(fileLog.getFileName());
+        dto.setFileKind(detailValue(fileLog.getDetail(), "kind"));
+        if (view.fileInfo != null) {
+            dto.setFileSize(view.fileInfo.getFileSize());
+        }
+    }
+
+    /**
+     * 附件事件的默认描述
+     *
+     * @param group 事件分组
+     * @return 操作描述
+     */
+    private String fileEventDesc(EventGroup group) {
+        boolean hasUpload = false;
+        boolean hasDelete = false;
+        for (ChangeView view : group.changes) {
+            if (view.fileLog == null) {
+                continue;
+            }
+            if ("UPLOAD".equalsIgnoreCase(view.fileLog.getOperationType())) {
+                hasUpload = true;
+            } else {
+                hasDelete = true;
+            }
+        }
+        if (hasUpload && hasDelete) {
+            return "变更工序附件";
+        }
+        return hasUpload ? "上传工序附件" : "删除工序附件";
     }
 
     // endregion
@@ -425,12 +624,29 @@ public class BusinessHistoryServiceImpl implements BusinessHistoryService {
     }
 
     /**
+     * 判断变更是否匹配表筛选
+     *
+     * @param entity      变更日志
+     * @param tableFilter 表筛选
+     * @return 是否匹配
+     */
+    private boolean matchesTable(SysDataChangeLog entity, String tableFilter) {
+        if (tableFilter == null) {
+            return true;
+        }
+        return tableFilter.equalsIgnoreCase(entity.getTableName());
+    }
+
+    /**
      * 生成事件分组键
      *
      * @param entity 变更日志
      * @return 分组键
      */
     private String groupKey(SysDataChangeLog entity) {
+        if (FILE_SOURCE.equalsIgnoreCase(entity.getChangeSource())) {
+            return "file:" + entity.getId();
+        }
         if (entity.getOperationLogId() != null) {
             return "op:" + entity.getOperationLogId();
         }
@@ -578,15 +794,37 @@ public class BusinessHistoryServiceImpl implements BusinessHistoryService {
 
     /**
      * 变更视图：日志实体 + 解析后的字段差异
+     * <p>
+     * 附件变更额外携带文件操作日志与文件信息
+     * </p>
      */
     private static class ChangeView {
 
         private final SysDataChangeLog entity;
         private final List<FieldChange> fields;
+        private final FileOperationLog fileLog;
+        private final FileInfo fileInfo;
 
         private ChangeView(SysDataChangeLog entity, List<FieldChange> fields) {
+            this(entity, fields, null, null);
+        }
+
+        private ChangeView(SysDataChangeLog entity, List<FieldChange> fields,
+                           FileOperationLog fileLog, FileInfo fileInfo) {
             this.entity = entity;
             this.fields = fields;
+            this.fileLog = fileLog;
+            this.fileInfo = fileInfo;
+        }
+
+        /**
+         * 生成字段筛选后的视图，保留附件上下文
+         *
+         * @param fields 筛选后的字段差异
+         * @return 新视图
+         */
+        private ChangeView withFields(List<FieldChange> fields) {
+            return new ChangeView(entity, fields, fileLog, fileInfo);
         }
     }
 
@@ -601,7 +839,8 @@ public class BusinessHistoryServiceImpl implements BusinessHistoryService {
         private SysDataChangeLog first;
         private final List<ChangeView> changes = new ArrayList<>();
 
-        private void add(SysDataChangeLog entity, List<FieldChange> fields) {
+        private void add(ChangeView view) {
+            SysDataChangeLog entity = view.entity;
             if (first == null) {
                 first = entity;
             }
@@ -614,7 +853,7 @@ public class BusinessHistoryServiceImpl implements BusinessHistoryService {
             if (traceId == null || traceId.trim().isEmpty()) {
                 traceId = entity.getTraceId();
             }
-            changes.add(new ChangeView(entity, fields));
+            changes.add(view);
         }
     }
 

@@ -39,6 +39,11 @@ public class BusinessHistoryScope {
      */
     private Map<String, String> recordLabels = new HashMap<>();
 
+    /**
+     * 需要查询附件变更的业务范围（按业务类型 + 业务主键）
+     */
+    private List<FileScope> fileScopes = new ArrayList<>();
+
     // endregion
 
     // region 便捷方法
@@ -88,6 +93,36 @@ public class BusinessHistoryScope {
     }
 
     /**
+     * 提交附件变更查询范围
+     *
+     * @param bizType   文件业务类型编码（BizFileType.code）
+     * @param bizId     业务记录主键
+     * @param tableName 业务记录所属表名，用于记录统计与展示名称解析
+     */
+    public void addFileScope(String bizType, String bizId, String tableName) {
+        if (bizType == null || bizId == null || tableName == null) {
+            return;
+        }
+        fileScopes.add(new FileScope(bizType, bizId, tableName));
+    }
+
+    /**
+     * 批量提交附件变更查询范围
+     *
+     * @param bizType   文件业务类型编码（BizFileType.code）
+     * @param bizIds    业务记录主键集合
+     * @param tableName 业务记录所属表名
+     */
+    public void addFileScope(String bizType, List<String> bizIds, String tableName) {
+        if (bizIds == null) {
+            return;
+        }
+        for (String bizId : bizIds) {
+            addFileScope(bizType, bizId, tableName);
+        }
+    }
+
+    /**
      * 生成记录名称的键
      *
      * @param tableName 表名
@@ -122,6 +157,41 @@ public class BusinessHistoryScope {
          * 业务记录主键集合
          */
         private List<String> businessIds;
+    }
+
+    // endregion
+
+    // region 附件范围
+    // ===================================
+    // 附件范围
+    // ===================================
+
+    /**
+     * 附件变更查询范围
+     * <p>
+     * bizType + bizId 用于匹配 file_operation_log.detail 中的业务标记；
+     * tableName 是附件所属业务表，用于把附件变更归到对应工序或主表记录
+     * </p>
+     */
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class FileScope {
+
+        /**
+         * 文件业务类型编码
+         */
+        private String bizType;
+
+        /**
+         * 业务记录主键
+         */
+        private String bizId;
+
+        /**
+         * 业务记录所属表名
+         */
+        private String tableName;
     }
 
     // endregion

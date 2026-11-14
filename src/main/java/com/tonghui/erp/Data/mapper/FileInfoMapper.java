@@ -23,6 +23,21 @@ import java.util.List;
 public interface FileInfoMapper extends BaseMapper<FileInfo> {
 
     /**
+     * 按文件ID集合查询文件记录（绕过软删除过滤）
+     * <p>
+     * 变更历史展示附件大小时，已解绑并软删除的文件仍需返回文件信息
+     * </p>
+     *
+     * @param fileIds 文件ID集合
+     * @return 文件记录（仅 fileId、originalName、fileSize）
+     */
+    @Select("<script>SELECT file_id AS fileId, original_name AS originalName, file_size AS fileSize"
+            + " FROM file_info WHERE file_id IN"
+            + " <foreach collection='fileIds' item='fileId' open='(' separator=',' close=')'>#{fileId}</foreach>"
+            + "</script>")
+    List<FileInfo> selectByIdsIgnoreDeleted(@Param("fileIds") List<Long> fileIds);
+
+    /**
      * 查询回收站目录内的全部文件记录（绕过软删除过滤，包含 is_deleted=0/1 的所有行）
      *
      * @param dir 回收站目录名，如 ".recycle-bin"

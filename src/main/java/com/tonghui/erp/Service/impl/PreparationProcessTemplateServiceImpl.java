@@ -105,7 +105,10 @@ public class PreparationProcessTemplateServiceImpl extends ServiceImpl<Preparati
                 }
             }
             if (!toInsert.isEmpty()) {
-                saveBatch(toInsert);
+                // 逐条写入，保证数据变更日志能记录每一行新增
+                for (PreparationProcessTemplate template : toInsert) {
+                    save(template);
+                }
             }
         }
 
@@ -113,8 +116,9 @@ public class PreparationProcessTemplateServiceImpl extends ServiceImpl<Preparati
         List<Long> removedIds = existingMap.keySet().stream()
                 .filter(id -> !incomingIds.contains(id))
                 .collect(Collectors.toList());
-        if (!removedIds.isEmpty()) {
-            baseMapper.physicalDeleteByIds(removedIds);
+        for (Long removedId : removedIds) {
+            // 逐行删除并记录变更历史
+            baseMapper.physicalDeleteById(removedId);
         }
     }
 

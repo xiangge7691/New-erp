@@ -24,9 +24,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -106,7 +108,7 @@ public class BusinessFileServiceImpl extends ServiceImpl<BusinessFileMapper, Bus
 
             fileOperationLogService.log(fileInfo.getFileId(), fileInfo.getOriginalName(),
                     fileInfo.getFilePath(), "UPLOAD", "business",
-                    "bizType=" + type.getCode() + ", bizId=" + bizId + ", refId=" + ref + ", kind=" + kind);
+                    fileDetail(type.getCode(), bizId, ref, kind));
             return BusinessFileDto.from(relation, fileInfo);
         } catch (IOException | RuntimeException e) {
             // 关系写入失败时回收刚写入的文件记录，避免孤儿文件
@@ -236,6 +238,17 @@ public class BusinessFileServiceImpl extends ServiceImpl<BusinessFileMapper, Bus
             }
         }
 
+        // 记录变更前的绑定关系，供附件变更历史比对新增 / 移除
+        List<BusinessFile> existingRelations = list(new LambdaQueryWrapper<BusinessFile>()
+                .eq(BusinessFile::getBizType, type.getCode())
+                .eq(BusinessFile::getBizId, dto.getBizId())
+                .eq(BusinessFile::getRefId, ref)
+                .eq(BusinessFile::getFileKind, kind));
+        Set<Long> existingFileIds = existingRelations.stream()
+                .map(BusinessFile::getFileId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
         // 先全部解绑，再按目标顺序重建，保证顺序与前端一致
         baseMapper.physicalDelete(type.getCode(), dto.getBizId(), ref, kind);
         int sort = 0;
@@ -250,6 +263,14 @@ public class BusinessFileServiceImpl extends ServiceImpl<BusinessFileMapper, Bus
             relation.setIsDeleted(0);
             save(relation);
         }
+
+        // 同步附件变更日志，供业务详情页的变更历史展示
+        Set<Long> targetFileIds = new LinkedHashSet<>(fileIds);
+        Set<Long> changedFileIds = new LinkedHashSet<>(existingFileIds);
+        changedFileIds.addAll(targetFileIds);
+        Map<Long, FileInfo> fileInfoMap = loadFileInfoMap(changedFileIds);
+        logFileChanges(existingFileIds, targetFileIds, fileInfoMap,
+                type.getCode(), dto.getBizId(), ref, kind);
         return list(type.getCode(), dto.getBizId(), ref, kind);
     }
 
@@ -266,15 +287,17 @@ public class BusinessFileServiceImpl extends ServiceImpl<BusinessFileMapper, Bus
         FileInfo fileInfo = fileInfoService.getById(relation.getFileId());
         baseMapper.physicalDeleteById(relationId);
 
+        // 解绑即记一次附件删除，即使文件仍被其他业务引用，也需要出现在本业务的变更历史中
+        if (fileInfo != null) {
+            fileOperationLogService.log(fileInfo.getFileId(), fileInfo.getOriginalName(),
+                    fileInfo.getFilePath(), "DELETE", "business",
+                    fileDetail(relation.getBizType(), relation.getBizId(), relation.getRefId(),
+                            relation.getFileKind()));
+        }
+
         // 文件不再被任何业务引用时，软删除文件记录（磁盘文件由文件管理模块回收）
         if (baseMapper.countByFileId(relation.getFileId()) == 0) {
             fileInfoService.deleteFile(relation.getFileId());
-            if (fileInfo != null) {
-                fileOperationLogService.log(fileInfo.getFileId(), fileInfo.getOriginalName(),
-                        fileInfo.getFilePath(), "DELETE", "business",
-                        "解绑附件, bizType=" + relation.getBizType() + ", bizId=" + relation.getBizId()
-                                + ", refId=" + relation.getRefId());
-            }
         }
     }
 
@@ -299,9 +322,20 @@ public class BusinessFileServiceImpl extends ServiceImpl<BusinessFileMapper, Bus
             return 0;
         }
         baseMapper.physicalDelete(type.getCode(), bizId, refId, kind);
+        Map<Long, FileInfo> fileInfoMap = loadFileInfoMap(relations.stream()
+                .map(BusinessFile::getFileId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new)));
         for (BusinessFile relation : relations) {
             if (baseMapper.countByFileId(relation.getFileId()) == 0) {
                 fileInfoService.deleteFile(relation.getFileId());
+            }
+            FileInfo fileInfo = fileInfoMap.get(relation.getFileId());
+            if (fileInfo != null) {
+                fileOperationLogService.log(fileInfo.getFileId(), fileInfo.getOriginalName(),
+                        fileInfo.getFilePath(), "DELETE", "business",
+                        fileDetail(relation.getBizType(), relation.getBizId(), relation.getRefId(),
+                                relation.getFileKind()));
             }
         }
         return relations.size();
@@ -330,6 +364,94 @@ public class BusinessFileServiceImpl extends ServiceImpl<BusinessFileMapper, Bus
     // ===================================
     // 私有方法
     // ===================================
+
+    /**
+     * 比较同步前后的文件集合，记录新增与移除的附件操作日志
+     *
+     * @param before        变更前文件ID集合
+     * @param after         变更后文件ID集合
+     * @param fileInfoMap   文件信息映射
+     * @param bizType       业务类型编码
+     * @param bizId         业务ID
+     * @param refId         子对象ID
+     * @param kind          槽位
+     */
+    private void logFileChanges(Set<Long> before, Set<Long> after, Map<Long, FileInfo> fileInfoMap,
+                                String bizType, Long bizId, Long refId, String kind) {
+        for (Long fileId : after) {
+            if (!before.contains(fileId)) {
+                logFileChange(fileId, "UPLOAD", fileInfoMap, bizType, bizId, refId, kind);
+            }
+        }
+        for (Long fileId : before) {
+            if (!after.contains(fileId)) {
+                logFileChange(fileId, "DELETE", fileInfoMap, bizType, bizId, refId, kind);
+            }
+        }
+    }
+
+    /**
+     * 记录单个文件操作日志
+     *
+     * @param fileId      文件ID
+     * @param operation   操作类型（UPLOAD / DELETE）
+     * @param fileInfoMap 文件信息映射
+     * @param bizType     业务类型编码
+     * @param bizId       业务ID
+     * @param refId       子对象ID
+     * @param kind        槽位
+     */
+    private void logFileChange(Long fileId, String operation, Map<Long, FileInfo> fileInfoMap,
+                               String bizType, Long bizId, Long refId, String kind) {
+        FileInfo fileInfo = fileInfoMap.get(fileId);
+        if (fileInfo == null) {
+            return;
+        }
+        fileOperationLogService.log(fileInfo.getFileId(), fileInfo.getOriginalName(),
+                fileInfo.getFilePath(), operation, "business",
+                fileDetail(bizType, bizId, refId, kind));
+    }
+
+    /**
+     * 构造文件日志中的业务标记
+     * <p>
+     * 格式固定为 bizType=..., bizId=..., refId=..., kind=...，
+     * 业务变更历史按该标记匹配附件所属的业务对象
+     * </p>
+     *
+     * @param bizType 业务类型编码
+     * @param bizId   业务ID
+     * @param refId   子对象ID
+     * @param kind    槽位
+     * @return 业务标记
+     */
+    private String fileDetail(String bizType, Long bizId, Long refId, String kind) {
+        return "bizType=" + bizType + ", bizId=" + bizId + ", refId=" + (refId == null ? 0L : refId)
+                + ", kind=" + (kind == null ? "" : kind);
+    }
+
+    /**
+     * 批量加载文件信息
+     *
+     * @param fileIds 文件ID集合
+     * @return 文件ID到文件信息的映射
+     */
+    private Map<Long, FileInfo> loadFileInfoMap(Set<Long> fileIds) {
+        Map<Long, FileInfo> result = new LinkedHashMap<>();
+        if (fileIds == null || fileIds.isEmpty()) {
+            return result;
+        }
+        List<FileInfo> files = fileInfoService.listByIds(fileIds);
+        if (files == null) {
+            return result;
+        }
+        for (FileInfo fileInfo : files) {
+            if (fileInfo.getFileId() != null) {
+                result.put(fileInfo.getFileId(), fileInfo);
+            }
+        }
+        return result;
+    }
 
     /**
      * 解析并校验业务类型
