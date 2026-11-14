@@ -252,6 +252,10 @@ button{cursor:pointer}
 .list-row .arrow{margin-left:auto;color:var(--soft)}
 
 .toast-root{position:absolute;left:0;right:0;bottom:86px;z-index:40;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+#printArea{display:none}
+@media print{
+  .phone,.toast-root{display:none!important}
+}
 .toast{background:#182230;color:#fff;border-radius:11px;padding:10px 16px;font-size:12.5px;box-shadow:0 12px 28px rgba(16,24,40,.3);opacity:0;transform:translateY(8px);transition:.2s;max-width:86%}
 .toast.show{opacity:1;transform:translateY(0)}
 .toast.ok{background:#065f46}.toast.warn{background:#92400e}.toast.err{background:#991b1b}
@@ -276,6 +280,7 @@ button{cursor:pointer}
   <div class="app" id="app"></div>
   <div class="toast-root" id="toastRoot"></div>
 </div>
+<div id="printArea"></div>
 
 <script src="vendor/qrcode.js"></script>
 <script>
@@ -717,6 +722,8 @@ function printView(){
           <div><b>${l.name}</b><div class="sub mono">${l.inCode} · 批号 ${l.batch}</div><div class="sub">${l.qty} ${l.unit} · 效期 ${l.expiry}</div></div>
         </div>`).join('')}
       <div class="hint">标签破损或漏贴时，可在首页「补打标签」复用原码补打，补打会记录原因与操作人。</div>
+      <div class="hint">点击打印会打开系统打印预览；若未弹出，请允许浏览器弹窗（会自动切换到页面打印兜底）。</div>
+      <div class="hint">当前默认按 A4 横向（58:40 比例）打印，打印 App 会缩放到 58×40 标签。</div>
     </div>
     <div class="bottom-bar" style="gap:8px">
       <button class="btn" onclick="printLabels()">打印标签（${d.lines.length + 1} 张）</button>
@@ -724,56 +731,149 @@ function printView(){
     </div>
   </div>`;
 }
-function labelHtml(title, code, fields, qr){
+function fieldHtml(k, v){
+  return `<div class="field"><span>${k}</span><b>${v}</b></div>`;
+}
+function labelHtml(opts){
   return `<div class="label">
-    <div class="main">
-      <div class="title">${title}</div>
-      <div class="fields">${fields}</div>
-      <div class="code">${code}</div>
-      <div class="note">部分领用后以系统实时库存为准</div>
+    <div class="head">
+      <div class="title">${opts.title}</div>
+      <div class="badge">${opts.badge || ''}</div>
     </div>
-    <div class="qr">${qr}</div>
+    <div class="body">
+      <div class="left">
+        <div class="fields">${(opts.fields || []).map(f => fieldHtml(f[0], f[1])).join('')}</div>
+        ${opts.materials ? `<div class="materials">${opts.materials}</div>` : ''}
+      </div>
+      <div class="qr">${opts.qr}</div>
+    </div>
+    <div class="foot">
+      <span class="code">${opts.footLeft || ''}</span>
+      <span>部分领用后以系统实时库存为准</span>
+    </div>
   </div>`;
 }
-function buildPrintHtml(d){
-  const packageLabel = d.packageCode ? labelHtml('整包标签', d.packageCode,
-    `用途：${d.purpose || '—'}<br/>入库时间：2026-11-13<br/>品种数量：${d.lines.length} 种`,
-    qrSvg(qrContent('PK', d.packageCode), 100)) : '';
-  const inboundLabels = d.lines.map(l => labelHtml(l.name, l.inCode,
-    `物料编码：${l.code}<br/>批号：${l.batch}<br/>入库日期：2026-11-13<br/>有效期至：${l.expiry}<br/>入库数量：${l.qty} ${l.unit}<br/>用途：${d.purpose || '—'}<br/>库位：${l.location || '待录入'}`,
-    qrSvg(qrContent('IC', l.inCode), 100))).join('');
+function buildLabelsHtml(d, a4){
+  const wrap = html => a4 ? `<div class="page">${html}</div>` : html;
+  const packageLabel = d.packageCode ? labelHtml({
+    title: '整包入库标签',
+    badge: d.packageCode,
+    fields: [
+      ['用途', d.purpose || '—'],
+      ['入库日期', '2026-11-13'],
+      ['品种数量', `${d.lines.length} 种`],
+      ['来源', d.id]
+    ],
+    materials: d.lines.map(l => `${l.name} ${l.batch}`).join(' · '),
+    qr: qrSvg(qrContent('PK', d.packageCode), 100),
+    footLeft: '包码 ' + d.packageCode
+  }) : '';
+  const inboundLabels = d.lines.map(l => labelHtml({
+    title: l.name,
+    badge: l.code,
+    fields: [
+      ['批号', l.batch],
+      ['有效期', l.expiry || '—'],
+      ['入库日期', '2026-11-13'],
+      ['数量', `${l.qty} ${l.unit}`],
+      ['用途', d.purpose || '—'],
+      ['库位', l.location || '待录入']
+    ],
+    qr: qrSvg(qrContent('IC', l.inCode), 100),
+    footLeft: l.inCode
+  })).map(wrap).join('');
+  return (packageLabel ? wrap(packageLabel) : '') + inboundLabels;
+}
+function buildPrintHtml(d, a4, pdf){
+  const pageCss = pdf
+    ? `@page { size: 58mm 40mm; margin: 0; }`
+    : (a4
+      ? `@page { size: 297mm 204.8mm; margin: 0; }
+    .page{width:297mm;height:204mm;display:flex;align-items:center;justify-content:center;page-break-after:always;overflow:hidden}
+    .page:last-child{page-break-after:auto}
+    .page .label{width:58mm;height:39.5mm;transform:scale(5.1,4.8);transform-origin:center center;margin:0;border:0;page-break-after:auto}`
+      : `@page { /* size: 58mm 40mm; */ margin: 0; }`);
   return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><title>入库标签 ${d.id}</title>
   <style>
-    @page { size: 60mm 40mm; margin: 0; }
+    ${pageCss}
     *{box-sizing:border-box}
     body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif;color:#000;background:#fff}
     .toolbar{position:sticky;top:0;background:#fff;border-bottom:1px solid #ddd;padding:8px;display:flex;gap:8px;justify-content:flex-end}
+    .toolbar .hint{font-size:11px;color:#666;margin-right:auto;align-self:center}
     .toolbar button{height:34px;padding:0 14px;border:1px solid #ccc;border-radius:8px;background:#fff;font-size:13px}
     .toolbar button.primary{background:#2f6fed;border-color:#2f6fed;color:#fff}
     .sheet{padding:8mm}
-    .label{width:60mm;height:40mm;padding:2.5mm;display:flex;gap:2mm;page-break-after:always;overflow:hidden;border-bottom:1px dashed #999;margin:0 auto 4mm}
+    .label{width:58mm;height:39.5mm;padding:2mm 1.2mm 1mm;display:flex;flex-direction:column;border:0.25mm solid #000;border-radius:0;page-break-after:always;break-inside:avoid;overflow:hidden;margin:0 auto 4mm;background:#fff}
     .label:last-child{page-break-after:auto}
-    .main{flex:1;min-width:0;display:flex;flex-direction:column}
-    .title{font-size:9pt;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .fields{font-size:6.5pt;line-height:1.45;margin-top:1mm}
-    .code{font-size:6pt;font-family:ui-monospace,Consolas,monospace;margin-top:1mm;word-break:break-all}
-    .note{font-size:5.5pt;color:#444;margin-top:auto;padding-top:1mm}
-    .qr{width:22mm;height:22mm;flex:none;align-self:center}
+    .head{display:flex;align-items:baseline;justify-content:space-between;gap:1mm;border-bottom:0.4mm solid #000;padding-bottom:0.6mm;flex:none}
+    .title{font-size:4.5mm;font-weight:800;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .badge{font-size:2.1mm;font-family:ui-monospace,Consolas,monospace;white-space:nowrap}
+    .body{flex:1;display:flex;gap:1.5mm;padding:0.8mm 0 0.4mm;min-height:0}
+    .left{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:0.8mm}
+    .fields{display:grid;grid-template-columns:1fr 1fr;gap:0.6mm 1.2mm;align-content:start}
+    .field span{display:block;font-size:2mm;color:#555;line-height:1.1}
+    .field b{display:block;font-size:2.8mm;font-weight:650;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .field{text-align:left}
+    .materials{font-size:1.9mm;line-height:1.25;color:#222;border-top:0.15mm dashed #999;padding-top:0.5mm;white-space:normal;max-height:5mm;overflow:hidden}
+    .qr{width:20mm;height:20mm;flex:none;align-self:center}
     .qr svg{width:100%;height:100%;display:block}
-    @media print { .toolbar{display:none} .sheet{padding:0} .label{margin:0;border-bottom:0} body{-webkit-print-color-adjust:exact;print-color-adjust:exact} }
+    .foot{display:flex;justify-content:space-between;align-items:flex-end;gap:1mm;border-top:0.2mm solid #000;padding-top:0.5mm;font-size:1.9mm;color:#333;line-height:1.2;flex:none}
+    .foot .code{font-family:ui-monospace,Consolas,monospace}
+    @media print { html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; } .toolbar{display:none} .sheet{padding:0} .label{margin:0;border:0;height:37.5mm;page-break-after:always} .label:last-child{page-break-after:auto} body{-webkit-print-color-adjust:exact;print-color-adjust:exact} }
   </style></head><body>
-  <div class="toolbar"><button onclick="window.print()">打印</button><button onclick="window.close()">关闭</button></div>
-  <div class="sheet">${packageLabel}${inboundLabels}</div>
+  <div class="toolbar"><span class="hint">${pdf ? 'PDF 58×40 · 在打印对话框选择「另存为 PDF」' : (a4 ? 'A4 横向（58:40 比例）· 打印 App 会缩放到 58×40 标签' : '纸张 58×40mm · 缩放 100% · 边距无 · 关闭页眉页脚')}</span><button onclick="window.print()">打印</button><button onclick="window.close()">关闭</button></div>
+  <div class="sheet">${buildLabelsHtml(d, a4)}</div>
   </body></html>`;
 }
-function printLabels(){
+function printLabelsFallback(d, a4){
+  const area = document.getElementById('printArea');
+  const pageCss = a4
+    ? `@page { size: 297mm 204.8mm; margin: 0; }
+    #printArea .page{width:297mm;height:204mm;display:flex;align-items:center;justify-content:center;page-break-after:always;overflow:hidden}
+    #printArea .page:last-child{page-break-after:auto}
+    #printArea .page .label{width:58mm;height:39.5mm;transform:scale(5.1,4.8);transform-origin:center center;margin:0;border:0;page-break-after:auto}`
+    : `@page { /* size: 58mm 40mm; */ margin: 0; }`;
+  area.innerHTML = `<style>
+    ${pageCss}
+    #printArea .label{width:58mm;height:39.5mm;padding:2mm 1.2mm 1mm;display:flex;flex-direction:column;border:0.25mm solid #000;border-radius:0;page-break-after:always;break-inside:avoid;overflow:hidden;margin:0 auto 4mm;background:#fff}
+    #printArea .label:last-child{page-break-after:auto}
+    #printArea .head{display:flex;align-items:baseline;justify-content:space-between;gap:1mm;border-bottom:0.4mm solid #000;padding-bottom:0.6mm;flex:none}
+    #printArea .title{font-size:4.5mm;font-weight:800;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #printArea .badge{font-size:2.1mm;font-family:ui-monospace,Consolas,monospace;white-space:nowrap}
+    #printArea .body{flex:1;display:flex;gap:1.5mm;padding:0.8mm 0 0.4mm;min-height:0}
+    #printArea .left{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:0.8mm}
+    #printArea .fields{display:grid;grid-template-columns:1fr 1fr;gap:0.6mm 1.2mm;align-content:start}
+    #printArea .field span{display:block;font-size:2mm;color:#555;line-height:1.1}
+    #printArea .field b{display:block;font-size:2.8mm;font-weight:650;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #printArea .field{text-align:left}
+    #printArea .materials{font-size:1.9mm;line-height:1.25;color:#222;border-top:0.15mm dashed #999;padding-top:0.5mm;white-space:normal;max-height:5mm;overflow:hidden}
+    #printArea .qr{width:20mm;height:20mm;flex:none;align-self:center}
+    #printArea .qr svg{width:100%;height:100%;display:block}
+    #printArea .foot{display:flex;justify-content:space-between;align-items:flex-end;gap:1mm;border-top:0.2mm solid #000;padding-top:0.5mm;font-size:1.9mm;color:#333;line-height:1.2;flex:none}
+    #printArea .foot .code{font-family:ui-monospace,Consolas,monospace}
+    @media print {
+      html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
+      body{display:block}
+      #printArea{display:block!important}
+      #printArea .label{margin:0;border:0;height:37.5mm;page-break-after:always}
+      #printArea .label:last-child{page-break-after:auto}
+      body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    }
+  </style>${buildLabelsHtml(d, a4)}`;
+  setTimeout(()=>{ try { window.print(); } catch(e){} }, 250);
+}
+function printLabels(a4 = true, pdf = false){
   const d = doc();
   const w = window.open('', '_blank');
-  if (!w){ toast('浏览器阻止了打印窗口，请允许弹窗后重试','err'); return false; }
+  if (!w){
+    printLabelsFallback(d, a4);
+    toast('浏览器阻止了弹窗，已切换到页面打印','warn');
+    return true;
+  }
   w.document.open();
-  w.document.write(buildPrintHtml(d));
+  w.document.write(buildPrintHtml(d, a4, pdf));
   w.document.close();
-  toast('已打开打印预览，请选择打印机或另存为 PDF','ok');
+  toast(pdf ? '已打开 PDF 打印页，请选择「另存为 PDF」' : (a4 ? '已打开 A4 横向打印预览' : '已打开 58×40 打印预览'),'ok');
   setTimeout(()=>{ try { w.focus(); w.print(); } catch(e){} }, 500);
   return true;
 }

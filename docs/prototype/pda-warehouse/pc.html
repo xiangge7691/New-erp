@@ -1099,7 +1099,7 @@ function printDoc(id, kind){
       <div class="label-preview">
         <div class="label-grid">${packageLabel}${labels}</div>
       </div>
-      <div class="summary" style="margin-top:14px">${pendingPrint?'验收完成后必须先打印入库码；未打印不能扫码，也不会改变库存。':'补打复用原码，不生成新编码；补打需填写原因并记录操作人、设备与时间。'}</div>
+      <div class="summary" style="margin-top:14px">${pendingPrint?'验收完成后必须先打印入库码；未打印不能扫码，也不会改变库存。':'补打复用原码，不生成新编码；补打需填写原因并记录操作人、设备与时间。'}<br/>默认按 A4 横向（58:40 比例）打印，打印 App 会缩放到 58×40 标签。</div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal()">关闭</button>
@@ -1122,55 +1122,104 @@ function markPrinted(id, kind){
   if(state.open && state.open.kind===kind && state.open.id===id) refreshOpen(kind, id);
 }
 
-function pcLabelHtml(title, code, fields, qr){
+function pcFieldHtml(k, v){
+  return `<div class="field"><span>${k}</span><b>${v}</b></div>`;
+}
+function pcLabelHtml(opts){
   return `<div class="label">
-    <div class="main">
-      <div class="title">${title}</div>
-      <div class="fields">${fields}</div>
-      <div class="code">${code}</div>
-      <div class="note">部分领用后以系统实时库存为准</div>
+    <div class="head">
+      <div class="title">${opts.title}</div>
+      <div class="badge">${opts.badge || ''}</div>
     </div>
-    <div class="qr">${qr}</div>
+    <div class="body">
+      <div class="left">
+        <div class="fields">${(opts.fields || []).map(f => pcFieldHtml(f[0], f[1])).join('')}</div>
+        ${opts.materials ? `<div class="materials">${opts.materials}</div>` : ''}
+      </div>
+      <div class="qr">${opts.qr}</div>
+    </div>
+    <div class="foot">
+      <span class="code">${opts.footLeft || ''}</span>
+      <span>部分领用后以系统实时库存为准</span>
+    </div>
   </div>`;
 }
-function buildPcPrintHtml(doc){
-  const packageLabel = doc.packageCode ? pcLabelHtml('整包标签', doc.packageCode,
-    `用途：${doc.purpose || '—'}<br/>入库时间：2026-11-13<br/>品种数量：${doc.lines.length} 种`,
-    qrSvg(qrContent('PK', doc.packageCode), 100)) : '';
-  const labels = doc.lines.map(l => pcLabelHtml(l.name, l.inCode || l.code,
-    `物料编码：${l.code}<br/>批号：${l.batch}<br/>入库日期：2026-11-13<br/>有效期至：${l.expiry || '—'}<br/>入库数量：${l.qty} ${l.unit}<br/>用途：${doc.purpose || '—'}<br/>库位：${l.location || '待录入'}`,
-    qrSvg(qrContent('IC', l.inCode || l.code), 100))).join('');
+function buildPcPrintHtml(doc, a4, pdf){
+  const wrap = html => a4 ? `<div class="page">${html}</div>` : html;
+  const packageLabel = doc.packageCode ? pcLabelHtml({
+    title: '整包入库标签',
+    badge: doc.packageCode,
+    fields: [
+      ['用途', doc.purpose || '—'],
+      ['入库日期', '2026-11-13'],
+      ['品种数量', `${doc.lines.length} 种`],
+      ['来源', doc.id]
+    ],
+    materials: doc.lines.map(l => `${l.name} ${l.batch}`).join(' · '),
+    qr: qrSvg(qrContent('PK', doc.packageCode), 100),
+    footLeft: '包码 ' + doc.packageCode
+  }) : '';
+  const labels = doc.lines.map(l => pcLabelHtml({
+    title: l.name,
+    badge: l.code,
+    fields: [
+      ['批号', l.batch],
+      ['有效期', l.expiry || '—'],
+      ['入库日期', '2026-11-13'],
+      ['数量', `${l.qty} ${l.unit}`],
+      ['用途', doc.purpose || '—'],
+      ['库位', l.location || '待录入']
+    ],
+    qr: qrSvg(qrContent('IC', l.inCode || l.code), 100),
+    footLeft: l.inCode || l.code
+  })).map(wrap).join('');
+  const pageCss = pdf
+    ? `@page { size: 58mm 40mm; margin: 0; }`
+    : (a4
+      ? `@page { size: 297mm 204.8mm; margin: 0; }
+    .page{width:297mm;height:204mm;display:flex;align-items:center;justify-content:center;page-break-after:always;overflow:hidden}
+    .page:last-child{page-break-after:auto}
+    .page .label{width:58mm;height:39.5mm;transform:scale(5.1,4.8);transform-origin:center center;margin:0;border:0;page-break-after:auto}`
+      : `@page { /* size: 58mm 40mm; */ margin: 0; }`);
   return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><title>入库标签 ${doc.id}</title>
   <style>
-    @page { size: 60mm 40mm; margin: 0; }
+    ${pageCss}
     *{box-sizing:border-box}
     body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif;color:#000;background:#fff}
     .toolbar{position:sticky;top:0;background:#fff;border-bottom:1px solid #ddd;padding:8px;display:flex;gap:8px;justify-content:flex-end}
+    .toolbar .hint{font-size:11px;color:#666;margin-right:auto;align-self:center}
     .toolbar button{height:34px;padding:0 14px;border:1px solid #ccc;border-radius:8px;background:#fff;font-size:13px;cursor:pointer}
     .sheet{padding:8mm}
-    .label{width:60mm;height:40mm;padding:2.5mm;display:flex;gap:2mm;page-break-after:always;overflow:hidden;border-bottom:1px dashed #999;margin:0 auto 4mm}
+    .label{width:58mm;height:39.5mm;padding:2mm 1.2mm 1mm;display:flex;flex-direction:column;border:0.25mm solid #000;border-radius:0;page-break-after:always;break-inside:avoid;overflow:hidden;margin:0 auto 4mm;background:#fff}
     .label:last-child{page-break-after:auto}
-    .main{flex:1;min-width:0;display:flex;flex-direction:column}
-    .title{font-size:9pt;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .fields{font-size:6.5pt;line-height:1.45;margin-top:1mm}
-    .code{font-size:6pt;font-family:ui-monospace,Consolas,monospace;margin-top:1mm;word-break:break-all}
-    .note{font-size:5.5pt;color:#444;margin-top:auto;padding-top:1mm}
-    .qr{width:22mm;height:22mm;flex:none;align-self:center}
+    .head{display:flex;align-items:baseline;justify-content:space-between;gap:1mm;border-bottom:0.4mm solid #000;padding-bottom:0.6mm;flex:none}
+    .title{font-size:4.5mm;font-weight:800;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .badge{font-size:2.1mm;font-family:ui-monospace,Consolas,monospace;white-space:nowrap}
+    .body{flex:1;display:flex;gap:1.5mm;padding:0.8mm 0 0.4mm;min-height:0}
+    .left{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:0.8mm}
+    .fields{display:grid;grid-template-columns:1fr 1fr;gap:0.6mm 1.2mm;align-content:start}
+    .field span{display:block;font-size:2mm;color:#555;line-height:1.1}
+    .field b{display:block;font-size:2.8mm;font-weight:650;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .field{text-align:left}
+    .materials{font-size:1.9mm;line-height:1.25;color:#222;border-top:0.15mm dashed #999;padding-top:0.5mm;white-space:normal;max-height:5mm;overflow:hidden}
+    .qr{width:20mm;height:20mm;flex:none;align-self:center}
     .qr svg{width:100%;height:100%;display:block}
-    @media print { .toolbar{display:none} .sheet{padding:0} .label{margin:0;border-bottom:0} body{-webkit-print-color-adjust:exact;print-color-adjust:exact} }
+    .foot{display:flex;justify-content:space-between;align-items:flex-end;gap:1mm;border-top:0.2mm solid #000;padding-top:0.5mm;font-size:1.9mm;color:#333;line-height:1.2;flex:none}
+    .foot .code{font-family:ui-monospace,Consolas,monospace}
+    @media print { html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; } .toolbar{display:none} .sheet{padding:0} .label{margin:0;border:0;height:37.5mm;page-break-after:always} .label:last-child{page-break-after:auto} body{-webkit-print-color-adjust:exact;print-color-adjust:exact} }
   </style></head><body>
-  <div class="toolbar"><button onclick="window.print()">打印</button><button onclick="window.close()">关闭</button></div>
-  <div class="sheet">${packageLabel}${labels}</div>
+  <div class="toolbar"><span class="hint">${pdf ? 'PDF 58×40 · 在打印对话框选择「另存为 PDF」' : (a4 ? 'A4 横向（58:40 比例）· 打印 App 会缩放到 58×40 标签' : '纸张 58×40mm · 缩放 100% · 边距无 · 关闭页眉页脚')}</span><button onclick="window.print()">打印</button><button onclick="window.close()">关闭</button></div>
+  <div class="sheet">${packageLabel ? wrap(packageLabel) : ''}${labels}</div>
   </body></html>`;
 }
-function printPcWindow(doc){
+function printPcWindow(doc, a4 = true, pdf = false){
   if(!doc) return false;
   const w = window.open('', '_blank');
   if(!w){ toast('浏览器阻止了打印窗口，请允许弹窗后重试','err'); return false; }
   w.document.open();
-  w.document.write(buildPcPrintHtml(doc));
+  w.document.write(buildPcPrintHtml(doc, a4, pdf));
   w.document.close();
-  toast('已打开打印预览，请选择打印机或另存为 PDF','ok');
+  toast(pdf ? '已打开 PDF 打印页，请选择「另存为 PDF」' : (a4 ? '已打开 A4 横向打印预览' : '已打开 58×40 打印预览'),'ok');
   setTimeout(()=>{ try { w.focus(); w.print(); } catch(e){} }, 500);
   return true;
 }
@@ -1191,7 +1240,7 @@ function labelsView(){
     <div class="stat"><div class="k">待打印入库码</div><div class="v">7</div><div class="s">1 张入库单 · 含包码</div></div>
     <div class="stat"><div class="k">待打印包码</div><div class="v">1</div><div class="s">一单一个包码</div></div>
     <div class="stat"><div class="k">今日补打</div><div class="v">5</div><div class="s">均已记录原因</div></div>
-    <div class="stat"><div class="k">标签打印机</div><div class="v">1</div><div class="s"><b>在线</b> · 60×40mm</div></div>
+    <div class="stat"><div class="k">标签打印机</div><div class="v">1</div><div class="s"><b>在线</b> · 58×40mm</div></div>
   </div>
   <div class="card">
     <div class="card-head"><div><h3>待打印清单</h3><p>验收完成后先打印入库码与包码；打印后单据进入待入库，才能扫码。</p></div>

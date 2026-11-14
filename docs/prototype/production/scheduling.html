@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>工序排产 · PC 端原型</title>
+<style>
+:root{
+  --primary:#2f6fed; --primary-weak:#eaf1ff; --primary-dark:#1f5bd7;
+  --green:#079455; --green-weak:#e7f6ee;
+  --amber:#dc6803; --amber-weak:#fef4e6;
+  --red:#d92d20; --red-weak:#fdeceb;
+  --text:#182230; --muted:#667085; --soft:#98a2b3;
+  --line:#e4e7ec; --line2:#eef1f5; --bg:#f5f7fb; --card:#fff;
+  --radius:14px; --radius-sm:9px;
+  --shadow:0 1px 2px rgba(16,24,40,.04), 0 10px 28px rgba(16,24,40,.05);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:13px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:#d6dce6;border-radius:4px}
+
+/* 布局 */
+.app{display:flex;min-height:100vh}
+.sidebar{position:fixed;inset:0 auto 0 0;width:222px;background:#fff;border-right:1px solid var(--line);display:flex;flex-direction:column;z-index:10}
+.brand{height:64px;display:flex;align-items:center;gap:10px;padding:0 20px;border-bottom:1px solid var(--line2)}
+.brand-mark{width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#2f6fed,#6d9bff);color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px}
+.brand-name{font-size:15px;font-weight:700;letter-spacing:.2px}
+.brand-sub{font-size:11px;color:var(--soft);margin-top:-2px}
+.nav{padding:14px 12px;flex:1;overflow:auto}
+.nav-label{font-size:11px;color:var(--soft);padding:8px 10px 6px;letter-spacing:.6px}
+.nav-item{display:flex;align-items:center;gap:10px;height:40px;padding:0 12px;margin:2px 0;border-radius:9px;color:var(--muted);font-size:13.5px;cursor:pointer;user-select:none}
+.nav-item:hover{background:#f7f9fc;color:var(--text)}
+.nav-item.active{background:var(--primary-weak);color:var(--primary);font-weight:600}
+.nav-dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.65}
+.nav-badge{margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--red);color:#fff;font-size:11px;display:grid;place-items:center;font-weight:600}
+.sidebar-foot{border-top:1px solid var(--line2);padding:14px 18px;font-size:11.5px;color:var(--soft)}
+.sidebar-foot b{color:var(--muted);font-weight:600}
+.main{margin-left:222px;flex:1;min-width:0;padding:0 28px 64px}
+.topbar{height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:8;background:rgba(245,247,251,.86);backdrop-filter:blur(8px)}
+.crumb{font-size:12.5px;color:var(--soft)}
+.crumb b{color:var(--text);font-weight:600}
+.top-actions{display:flex;align-items:center;gap:10px}
+.avatar{width:32px;height:32px;border-radius:50%;background:#dfe8ff;color:var(--primary);display:grid;place-items:center;font-weight:700;font-size:12px}
+
+/* 通用 */
+.view{display:none}
+.view.active{display:block}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:2px 0 16px}
+.page-head h1{margin:0;font-size:22px;font-weight:700;letter-spacing:-.2px}
+.page-head p{margin:5px 0 0;color:var(--muted);font-size:12.5px}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{height:34px;padding:0 14px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--text);font-size:12.5px;display:inline-flex;align-items:center;gap:6px;transition:.15s;text-decoration:none}
+.btn:hover{border-color:#c9d2e0;background:#fbfcfe}
+.btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+.btn.primary:hover{background:var(--primary-dark);border-color:var(--primary-dark)}
+.btn.danger{color:var(--red);border-color:#f3c4c0}
+.btn.ghost{background:transparent}
+.btn.sm{height:28px;padding:0 10px;font-size:12px;border-radius:7px}
+.link{background:none;border:0;color:var(--primary);padding:0;font-size:12.5px}
+.link.danger{color:var(--red)}
+.input,select.input,textarea.input{height:34px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:0 11px;font-size:12.5px;outline:none}
+textarea.input{height:auto;padding:9px 11px;resize:vertical}
+.input:focus{border-color:#9db8f5;box-shadow:0 0 0 3px rgba(47,111,237,.10)}
+.input.sm{height:28px;font-size:12px}
+.tscroll{overflow-x:auto}
+.tscroll table{min-width:1040px}
+.tscroll th,.tscroll td{white-space:nowrap;padding-left:10px;padding-right:10px}
+.btn{white-space:nowrap}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:16px}
+.card-head{padding:16px 18px;border-bottom:1px solid var(--line2);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.card-head h3{margin:0;font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.card-head p{margin:3px 0 0;font-size:12px;color:var(--muted)}
+.stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:16px}
+.stat{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow)}
+.stat .k{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.stat .v{font-size:26px;font-weight:750;letter-spacing:-.6px;margin-top:6px}
+.stat .v small{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:0}
+.stat .s{font-size:11.5px;color:var(--soft);margin-top:4px}
+.stat .s b{color:var(--green);font-weight:600}
+.stat .s b.warn{color:var(--amber)}
+.stat .s b.bad{color:var(--red)}
+.tabs{display:flex;gap:26px;padding:0 18px;border-bottom:1px solid var(--line2);flex-wrap:wrap}
+.tab{height:46px;display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;user-select:none}
+.tab.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:600}
+.tab .count{font-size:11px;background:#eef1f5;color:var(--muted);border-radius:9px;padding:1px 7px}
+.tab.active .count{background:var(--primary-weak);color:var(--primary)}
+.filters{display:flex;gap:10px;align-items:center;padding:14px 18px;flex-wrap:wrap;border-bottom:1px solid var(--line2)}
+.filters .grow{flex:1}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:11.5px;color:var(--soft);font-weight:600;letter-spacing:.3px;padding:11px 14px;background:#fbfcfe;border-bottom:1px solid var(--line2);white-space:nowrap}
+td{padding:12px 14px;border-bottom:1px solid var(--line2);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+tbody tr:hover{background:#fafbff}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;letter-spacing:-.2px}
+.sub{color:var(--muted);font-size:12px}
+.pill{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:12px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.pill.gray{background:#f2f4f7;color:#667085}
+.pill.blue{background:var(--primary-weak);color:var(--primary)}
+.pill.green{background:var(--green-weak);color:var(--green)}
+.pill.amber{background:var(--amber-weak);color:var(--amber)}
+.pill.red{background:var(--red-weak);color:var(--red)}
+.tag{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:6px;background:#f2f4f7;color:#475467;font-size:11px;white-space:nowrap}
+.tag.blue{background:var(--primary-weak);color:var(--primary)}
+.tag.warn{background:var(--amber-weak);color:#b54708}
+.tag.red{background:var(--red-weak);color:var(--red)}
+.chip{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:11px;background:#f2f4f7;color:#475467;font-size:11px;margin:1px 2px 1px 0}
+.empty{padding:56px 20px;text-align:center;color:var(--soft)}
+.empty b{display:block;color:var(--muted);margin-bottom:4px}
+.banner{display:flex;gap:10px;align-items:flex-start;background:#f7faff;border:1px solid #dbe6fb;border-radius:10px;padding:11px 14px;font-size:12px;color:#475467;margin:0 0 16px}
+.banner b{color:var(--primary)}
+.banner.warn{background:#fffbf5;border-color:#f5e2c4;color:#7a4a08}
+.banner.warn b{color:#b54708}
+
+/* 甘特图 */
+.gantt{display:flex;flex-direction:column;font-size:11.5px}
+.gantt-head,.gantt-row{display:flex;align-items:stretch}
+.gantt-label{width:196px;flex:0 0 196px;padding:9px 14px;border-bottom:1px solid var(--line2);display:flex;flex-direction:column;justify-content:center;gap:1px}
+.gantt-label b{font-size:12px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gantt-label span{font-size:10.5px;color:var(--soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gantt-track{flex:1;position:relative;border-bottom:1px solid var(--line2);min-height:56px;background-image:repeating-linear-gradient(to right,transparent 0,transparent calc(8.3333% - 1px),#f2f4f8 calc(8.3333% - 1px),#f2f4f8 8.3333%)}
+.gantt-head .gantt-track{min-height:34px;background:#fbfcfe}
+.gantt-head .gantt-label{background:#fbfcfe;color:var(--soft);font-size:11px;font-weight:600;letter-spacing:.4px;flex-direction:row;align-items:center}
+.ghour{position:absolute;top:9px;font-size:10px;color:var(--soft);transform:translateX(-50%)}
+.gbar{position:absolute;top:15px;height:26px;border-radius:6px;background:#2f6fed;color:#fff;display:flex;align-items:center;padding:0 7px;font-size:10.5px;white-space:nowrap;overflow:hidden;cursor:pointer;box-shadow:0 1px 2px rgba(16,24,40,.12);z-index:1}
+.gbar:hover{filter:brightness(1.06);z-index:2}
+.gbar.c0{background:#2f6fed}.gbar.c1{background:#0aa06e}.gbar.c2{background:#7a5af8}
+.gbar.c3{background:#dd8a1a}.gbar.c4{background:#0e9384}.gbar.c5{background:#475467}
+.gbar.conflict{background:repeating-linear-gradient(135deg,#e05252,#e05252 7px,#c93b3b 7px,#c93b3b 14px)}
+.gbar .warn-dot{width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,.28);display:grid;place-items:center;font-size:9px;margin-left:4px;flex:0 0 14px}
+.gantt-legend{display:flex;align-items:center;gap:16px;padding:10px 18px;font-size:11.5px;color:var(--muted);border-top:1px solid var(--line2);flex-wrap:wrap}
+.legend-dot{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:-1px}
+.legend-dot.red{background:repeating-linear-gradient(135deg,#e05252,#e05252 3px,#c93b3b 3px,#c93b3b 6px)}
+.legend-dot.gray{background:#98a2b3}
+
+/* 任务卡片 */
+.task-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:16px}
+.task-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow);cursor:pointer;transition:.15s}
+.task-card:hover{border-color:#c9d9f8}
+.task-card.active{border-color:var(--primary);box-shadow:0 0 0 3px rgba(47,111,237,.10),var(--shadow)}
+.task-card .tc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.task-card .tc-code{font-size:11px;color:var(--soft);font-family:ui-monospace,Menlo,Consolas,monospace}
+.task-card h4{margin:3px 0 0;font-size:14px}
+.task-card .tc-meta{font-size:11.5px;color:var(--muted);margin-top:3px}
+.task-card .tc-foot{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:11.5px;color:var(--soft)}
+.task-card .tc-foot b{color:var(--muted);font-weight:600}
+
+/* 批次 */
+tr.batch-tr td{padding:0;background:#fafbff;border-bottom:1px solid var(--line2)}
+.batch-wrap{padding:14px 18px 16px 46px}
+.batch-title{font-size:12px;font-weight:650;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.batch-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.batch-card{border:1px solid var(--line);border-radius:10px;background:#fff;padding:12px 14px}
+.batch-card .bc-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.batch-card .bc-name{font-weight:700;font-size:12.5px}
+.batch-card .bc-rows{margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:5px 12px;font-size:11.5px;color:var(--muted)}
+.batch-card .bc-rows b{color:var(--text);font-weight:600}
+.batch-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;font-size:11.5px;color:var(--muted)}
+.batch-foot b{color:var(--green)}
+.batch-foot b.bad{color:var(--red)}
+
+/* 班组 */
+.team-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.team-card{background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:16px 18px}
+.team-card .tm-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.team-card h4{margin:0;font-size:14px}
+.team-card .ws{font-size:11.5px;color:var(--muted);margin-top:3px}
+.team-card .members{margin-top:12px;min-height:52px}
+.team-card .tm-foot{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid var(--line2);font-size:11.5px;color:var(--muted)}
+.team-card.inactive{opacity:.65}
+.avatar-sm{width:22px;height:22px;border-radius:50%;background:#e7eeff;color:var(--primary);display:inline-grid;place-items:center;font-size:10px;font-weight:700;margin-right:3px;vertical-align:-6px}
+
+/* 抽屉 / 弹窗 */
+.overlay{position:fixed;inset:0;background:rgba(16,24,40,.34);opacity:0;pointer-events:none;transition:.2s;z-index:40}
+.overlay.open{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:720px;max-width:94vw;background:#fff;box-shadow:-18px 0 48px rgba(16,24,40,.16);transform:translateX(102%);transition:.24s cubic-bezier(.4,0,.2,1);z-index:41;display:flex;flex-direction:column}
+.drawer.open{transform:translateX(0)}
+.drawer-head{padding:20px 24px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.drawer-head h2{margin:0;font-size:18px;font-weight:700;letter-spacing:-.2px;display:flex;align-items:center;gap:10px}
+.drawer-head p{margin:6px 0 0;color:var(--muted);font-size:12.5px}
+.icon-btn{width:32px;height:32px;border:1px solid var(--line);border-radius:8px;background:#fff;display:grid;place-items:center;color:var(--muted);flex:0 0 32px}
+.drawer-body{padding:20px 24px;overflow:auto;flex:1}
+.drawer-foot{padding:14px 24px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px;background:#fff}
+.sec{margin-bottom:22px}
+.sec h4{margin:0 0 10px;font-size:12.5px;font-weight:700;color:var(--muted);letter-spacing:.3px}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;font-size:12.5px}
+.kv > div{display:flex;flex-direction:column;gap:2px}
+.kv .k{font-size:11px;color:var(--soft)}
+.kv .v{font-weight:550}
+.conflict-box{border:1px solid #f5c7c3;background:#fff8f7;border-radius:10px;padding:12px 14px;font-size:12px;color:#7a271a}
+.conflict-box .cb-title{font-weight:700;display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.conflict-box ul{margin:0;padding-left:18px}
+.conflict-box li{margin:3px 0}
+.reco{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #cfe0ff;background:#f7faff;border-radius:10px;padding:10px 12px;margin-top:10px;font-size:12px}
+.reco b{color:var(--primary)}
+.modal-mask{position:fixed;inset:0;background:rgba(16,24,40,.38);display:none;align-items:center;justify-content:center;z-index:50;padding:24px}
+.modal-mask.show{display:flex}
+.modal{width:640px;max-width:94vw;max-height:90vh;background:#fff;border-radius:16px;box-shadow:0 30px 80px rgba(16,24,40,.28);display:flex;flex-direction:column;overflow:hidden}
+.modal-head{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.modal-head h3{margin:0;font-size:16px}
+.modal-head p{margin:4px 0 0;color:var(--muted);font-size:12px}
+.modal-body{padding:20px 22px;overflow:auto}
+.modal-foot{padding:14px 22px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px;background:#fbfcfe}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:12px;color:var(--muted)}
+.field label i{color:var(--red);font-style:normal}
+.field .input{width:100%}
+.field.full{grid-column:1/-1}
+.hint{font-size:11.5px;color:var(--soft);line-height:1.5}
+.divider{height:1px;background:var(--line2);margin:16px 0}
+.split-row{display:grid;grid-template-columns:88px 1fr 1fr 90px 1fr 1fr 32px;gap:8px;align-items:center;margin-bottom:8px}
+.split-row .input,.split-row select{width:100%}
+.split-head{font-size:10.5px;color:var(--soft);margin-bottom:5px}
+.split-head.row{display:grid;grid-template-columns:88px 1fr 1fr 90px 1fr 1fr 32px;gap:8px}
+.total-line{display:flex;justify-content:space-between;align-items:center;background:#fbfcfe;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:12px;margin-top:12px}
+.total-line b.ok{color:var(--green)}
+.total-line b.bad{color:var(--red)}
+.toast{position:fixed;left:50%;bottom:34px;transform:translate(-50%,20px);background:#182230;color:#fff;padding:10px 18px;border-radius:10px;font-size:12.5px;opacity:0;pointer-events:none;transition:.22s;z-index:80;box-shadow:0 12px 30px rgba(16,24,40,.28)}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+@media (max-width:1200px){.stat-grid{grid-template-columns:1fr 1fr}.task-cards{grid-template-columns:1fr}.team-grid{grid-template-columns:1fr 1fr}}
+@media (max-width:900px){.sidebar{display:none}.main{margin-left:0;padding:0 16px 48px}.team-grid{grid-template-columns:1fr}.batch-grid{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}.gantt-label{width:130px;flex-basis:130px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">生</div>
+      <div><div class="brand-name">生产管理</div><div class="brand-sub">工序排产 · 原型</div></div>
+    </div>
+    <nav class="nav">
+      <div class="nav-label">生产排产</div>
+      <div class="nav-item active" data-view="overview" onclick="go('overview')"><span class="nav-dot"></span>排产总览<span class="nav-badge">3</span></div>
+      <div class="nav-item" data-view="tasks" onclick="go('tasks')"><span class="nav-dot"></span>任务排产</div>
+      <div class="nav-item" data-view="kanban" onclick="go('kanban')"><span class="nav-dot"></span>工序看板</div>
+      <div class="nav-item" data-view="teams" onclick="go('teams')"><span class="nav-dot"></span>班组管理</div>
+      <div class="nav-label" style="margin-top:10px">说明</div>
+      <div class="nav-item" data-view="notes" onclick="go('notes')"><span class="nav-dot"></span>原型说明</div>
+    </nav>
+    <div class="sidebar-foot"><b>排产员</b> · 张工<br/>2026-11-14 白班</div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="crumb">生产管理 / <b id="crumb">排产总览</b></div>
+      <div class="top-actions">
+        <button class="btn sm" onclick="toast('已刷新排产数据（演示）')">刷新</button>
+        <div class="avatar">张</div>
+      </div>
+    </div>
+
+    <!-- 排产总览 -->
+    <section id="view-overview" class="view active">
+      <div class="page-head">
+        <div>
+          <h1>排产总览</h1>
+          <p>全部未完成生产任务的工序占用与冲突；资源冲突跨任务比对。</p>
+        </div>
+        <div class="toolbar">
+          <input class="input" type="date" value="2026-11-14" />
+          <select class="input"><option>全部车间</option><option>制剂车间</option><option>包装车间</option></select>
+          <button class="btn" onclick="openConflictDrawer()">冲突清单 <span class="tag red" style="margin-left:2px">3</span></button>
+          <button class="btn primary" onclick="go('tasks')">进入任务排产</button>
+        </div>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat"><div class="k">今日计划工序</div><div class="v">13 <small>道</small></div><div class="s">涉及 <b>3</b> 个生产任务</div></div>
+        <div class="stat"><div class="k">冲突项</div><div class="v" style="color:var(--red)">3 <small>项</small></div><div class="s"><b class="bad">设备 1 · 房间 1 · 班次 1</b></div></div>
+        <div class="stat"><div class="k">关键设备占用率</div><div class="v">72<small>%</small></div><div class="s">灌装机 F-301 最紧张</div></div>
+        <div class="stat"><div class="k">今日在岗人员</div><div class="v">24 <small>人</small></div><div class="s">5 个班组 · 1 人班次冲突</div></div>
+      </div>
+
+      <div class="banner warn"><span>⚠</span><div><b>冲突提示：</b>灌装机 F-301 在 12:00–13:00 被两个任务同时占用；灭菌柜 S-102 在 17:00–18:00 重叠；操作人周涛的灯检任务超出其班次。前端标红仅作提示，<b>保存时以后端校验结果为准</b>，被拒绝时按返回信息调整。</div></div>
+
+      <div class="card">
+        <div class="card-head">
+          <div><h3>排产甘特图</h3><p>点击色块查看工序详情与可用时段；红色斜纹为冲突工序。</p></div>
+          <div class="tabs" style="border:0;padding:0">
+            <div class="tab active" data-gantt="task" onclick="setGantt('task',this)">按任务</div>
+            <div class="tab" data-gantt="eq" onclick="setGantt('eq',this)">按设备</div>
+            <div class="tab" data-gantt="room" onclick="setGantt('room',this)">按房间</div>
+          </div>
+        </div>
+        <div class="gantt" id="gantt"></div>
+        <div class="gantt-legend">
+          <span><i class="legend-dot" style="background:#2f6fed"></i>工序计划</span>
+          <span><i class="legend-dot red"></i>冲突</span>
+          <span><i class="legend-dot gray"></i>时间轴 08:00–20:00</span>
+          <span style="margin-left:auto">拆分批次以连续色块表示</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div><h3>冲突清单</h3><p>列出冲突工序、占用时段与推荐可用时段。</p></div>
+          <button class="link" onclick="openConflictDrawer()">查看全部</button>
+        </div>
+        <table>
+          <thead><tr><th>类型</th><th>计划编号</th><th>制剂 / 工序</th><th>冲突时段</th><th>冲突对象</th><th>推荐时段</th><th></th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="pill red">设备占用</span></td>
+              <td class="mono">RW-20261114-001</td>
+              <td>复方甘草口服溶液 · 灌装</td>
+              <td class="mono">12:00–14:00</td>
+              <td>灌装机 F-301 与 RW-20261113-006 重叠</td>
+              <td class="mono">今日 20:00 后 / 明日 08:00</td>
+              <td><button class="btn sm" onclick="toast('已将灌装批次顺延至推荐时段（演示）')">套用</button></td>
+            </tr>
+            <tr>
+              <td><span class="pill red">房间占用</span></td>
+              <td class="mono">RW-20261114-001</td>
+              <td>复方甘草口服溶液 · 灌装</td>
+              <td class="mono">12:00–13:00</td>
+              <td>灌装间与 RW-20261113-006 重叠</td>
+              <td class="mono">今日 20:00 后</td>
+              <td><button class="btn sm" onclick="toast('已套用推荐时段（演示）')">套用</button></td>
+            </tr>
+            <tr>
+              <td><span class="pill red">人员班次</span></td>
+              <td class="mono">RW-20261114-001</td>
+              <td>复方甘草口服溶液 · 灯检</td>
+              <td class="mono">18:00–20:00</td>
+              <td>周涛班次为 08:00–17:00</td>
+              <td class="mono">明日 08:00–10:00</td>
+              <td><button class="btn sm" onclick="toast('已替换为同日班次内人员（演示）')">换人</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 任务排产 -->
+    <section id="view-tasks" class="view">
+      <div class="page-head">
+        <div>
+          <h1>任务排产</h1>
+          <p>按单个生产任务顺排工序；一道工序可拆分为多次生产，各批次独立指派时间、数量与人员。</p>
+        </div>
+        <div class="toolbar">
+          <button class="btn" onclick="autoSchedule()">自动顺排</button>
+          <button class="btn" onclick="toast('排产已保存（演示）')">保存排产</button>
+          <button class="btn primary" onclick="openSplitModal(curProcForSplit())">拆分工序</button>
+        </div>
+      </div>
+
+      <div class="task-cards" id="taskCards"></div>
+
+      <div class="banner"><span>ℹ</span><div><b>顺排规则：</b>首道工序不早于任务计划开始时间；后道工序不早于紧前工序结束。修改某道工序的计划起止只重算本工序计划用时，不联动其他工序。</div></div>
+
+      <div class="card">
+        <div class="card-head">
+          <div><h3 id="taskTitle">生产任务</h3><p id="taskSub">选择任务查看工序计划</p></div>
+          <div class="toolbar">
+            <span class="tag" id="taskStatusTag">排产中</span>
+            <button class="btn sm" onclick="openBatchHelp()">拆分说明</button>
+          </div>
+        </div>
+        <div class="tscroll">
+          <table id="taskTable">
+            <thead>
+              <tr>
+                <th style="width:42px">#</th><th>工序</th><th>标准时长</th><th>计划开始</th><th>计划结束</th><th>计划用时</th>
+                <th>计划数量</th><th>设备</th><th>房间</th><th>班组</th><th>操作人</th><th>冲突</th><th style="width:150px">操作</th>
+              </tr>
+            </thead>
+            <tbody id="taskTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 工序看板 -->
+    <section id="view-kanban" class="view">
+      <div class="page-head">
+        <div>
+          <h1>工序看板</h1>
+          <p>逐工序展示计划与实际、资源与参与人；支持按任务、设备、房间、班组筛选。</p>
+        </div>
+        <div class="toolbar">
+          <button class="btn" onclick="toast('已导出工序看板（演示）')">导出</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="filters">
+          <select class="input sm"><option>全部任务</option><option>RW-20261114-001</option><option>RW-20261114-002</option><option>RW-20261113-006</option></select>
+          <select class="input sm"><option>全部设备</option><option>灌装机 F-301</option><option>灭菌柜 S-102</option></select>
+          <select class="input sm"><option>全部房间</option><option>灌装间</option><option>灭菌间</option></select>
+          <select class="input sm"><option>全部班组</option><option>灌装一班</option><option>包装二班</option></select>
+          <select class="input sm"><option>全部状态</option><option>待开工</option><option>生产中</option><option>已完工</option></select>
+          <div class="grow"></div>
+          <label class="sub" style="display:flex;gap:6px;align-items:center"><input type="checkbox" checked />仅看冲突</label>
+        </div>
+        <div class="tscroll">
+          <table>
+            <thead><tr><th>任务 / 批号</th><th>工序</th><th>计划起止</th><th>实际起止</th><th>计划 / 实际数量</th><th>设备</th><th>房间</th><th>班组 / 操作人</th><th>状态</th><th>冲突</th></tr></thead>
+            <tbody id="kanbanTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 班组管理 -->
+    <section id="view-teams" class="view">
+      <div class="page-head">
+        <div>
+          <h1>班组管理</h1>
+          <p>维护班组名称、所属车间与成员；排产选择班组时自动带入成员，也可针对单道工序增减人员。</p>
+        </div>
+        <div class="toolbar">
+          <button class="btn primary" onclick="openTeamDrawer()">新建班组</button>
+        </div>
+      </div>
+      <div class="team-grid" id="teamGrid"></div>
+    </section>
+
+    <!-- 原型说明 -->
+    <section id="view-notes" class="view">
+      <div class="page-head"><div><h1>原型说明</h1><p>用于评审工序排产的交互与状态规则；数据均为演示数据。</p></div></div>
+      <div class="card" style="padding:22px 24px">
+        <h3 style="margin-top:0">一、排产对象</h3>
+        <p class="sub">以单个生产任务的每道工序为对象，工序顺序与标准时长来自「制剂信息—工序信息」。计划数量默认取任务数量，设备与房间由工序信息带出，均可调整。</p>
+        <h3>二、拆分多次生产（本期重点）</h3>
+        <p class="sub">一道工序可以拆成多个生产批次。每个批次独立维护计划起止、计划数量、设备、房间、班组与操作人。批次数量合计必须等于工序计划数量，否则不允许保存。拆分后甘特图按批次显示连续色块；绩效模块按批次分别登记参与人与时长。</p>
+        <h3>三、顺排与调整</h3>
+        <p class="sub">首道工序不早于任务计划开始时间，后续工序按标准时长依次顺排；手工修改某道工序的计划起止只重算本工序计划用时，不联动其他工序。前道超期时后续计划不顺延，由排产员决定是否逐条调整。</p>
+        <h3>四、冲突检测</h3>
+        <p class="sub">设备与房间冲突在全部未完成生产任务范围内比对；人员冲突按班次判断；工序顺序冲突按「后道开始不早于紧前结束」判断。前端对冲突项标红并给出推荐可用时段；<b>提交保存时以后端校验为准</b>，若后端限制不允许冲突，则按接口返回的冲突信息提示用户修正，前端不绕过服务端限制。</p>
+        <h3>五、班组与操作人</h3>
+        <p class="sub">每道工序或每个批次可选择班组或逐个添加人员。班组在独立页面维护，包含班组名称、所属车间与成员，支持编辑与停用。排产仅记录参与人员，绩效统计在人员绩效模块完成。</p>
+        <h3>六、与生产任务联动</h3>
+        <p class="sub">排产结果回写生产任务的工序计划起止、计划数量、班组与操作人。实际执行以工序记录为准，计划仅作参考；工序开工与完工后，看板并列展示计划与实际，供后续修正标准时长。</p>
+        <h3>七、校验边界</h3>
+        <p class="sub">原型中的保存、拆分、套用推荐时段等均为交互演示；设备/房间占用、人员班次、工序顺序与批次数量合计等最终校验<b>以后端接口为准</b>，前端标红与提示不替代服务端校验。演示数据中有意保留了 3 项冲突用于展示标红效果，不代表系统允许带冲突保存。</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="overlay" id="overlay" onclick="closeAll()"></div>
+<aside class="drawer" id="drawer"></aside>
+<div class="modal-mask" id="modalMask" onclick="if(event.target===this)closeModal()"><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// region 基础交互
+// ===================================
+// 视图切换、抽屉、弹窗与提示
+// ===================================
+const crumbMap = {overview:'排产总览',tasks:'任务排产',kanban:'工序看板',teams:'班组管理',notes:'原型说明'};
+function go(v){
+  document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active', x.id==='view-'+v));
+  document.querySelectorAll('.nav-item[data-view]').forEach(x=>x.classList.toggle('active', x.dataset.view===v));
+  document.getElementById('crumb').textContent = crumbMap[v]||'';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function openDrawer(title, sub, body, foot){
+  const d = document.getElementById('drawer');
+  d.innerHTML = `
+    <div class="drawer-head">
+      <div><h2>${title}</h2>${sub?`<p>${sub}</p>`:''}</div>
+      <button class="icon-btn" onclick="closeAll()">✕</button>
+    </div>
+    <div class="drawer-body">${body}</div>
+    ${foot?`<div class="drawer-foot">${foot}</div>`:''}`;
+  document.getElementById('overlay').classList.add('open');
+  d.classList.add('open');
+}
+function openModal(title, sub, body, foot, width){
+  const m = document.getElementById('modal');
+  m.style.width = (width||640)+'px';
+  m.innerHTML = `
+    <div class="modal-head">
+      <div><h3>${title}</h3>${sub?`<p>${sub}</p>`:''}</div>
+      <button class="icon-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">${body}</div>
+    <div class="modal-foot">${foot||'<button class="btn" onclick="closeModal()">取消</button>'}</div>`;
+  document.getElementById('modalMask').classList.add('show');
+}
+function closeModal(){ document.getElementById('modalMask').classList.remove('show'); }
+function closeAll(){
+  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('drawer').classList.remove('open');
+  closeModal();
+}
+let toastTimer;
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 2300);
+}
+// endregion
+
+// region 演示数据
+// ===================================
+// 任务、工序、批次与班组数据
+// ===================================
+const tasks = [
+  {
+    code:'RW-20261114-001', name:'复方甘草口服溶液', batch:'20261114A', qty:200000,
+    start:'2026-11-14 08:00', status:'排产中', statusCls:'blue',
+    procs:[
+      {id:'a1', name:'称量配料', std:60, ps:'08:00', pe:'09:00', dur:60, qty:200000, eq:'电子秤 E-01', room:'配料间', team:'配料一班', people:['刘洋'], conflict:'', batches:null},
+      {id:'a2', name:'配制', std:180, ps:'09:00', pe:'12:00', dur:180, qty:200000, eq:'配制罐 R-201', room:'配制间', team:'配制一班', people:['刘洋','陈静'], conflict:'', batches:null},
+      {id:'a3', name:'灌装', std:240, ps:'12:00', pe:'16:00', dur:240, qty:200000, eq:'灌装机 F-301', room:'灌装间', team:'灌装一班', people:['张伟','李娜','王强','陈静'], conflict:'设备 / 房间冲突', batches:[
+        {name:'批次 1', ps:'12:00', pe:'14:00', qty:100000, eq:'灌装机 F-301', room:'灌装间', team:'灌装一班', people:'张伟、李娜'},
+        {name:'批次 2', ps:'14:00', pe:'16:00', qty:100000, eq:'灌装机 F-301', room:'灌装间', team:'灌装一班', people:'王强、陈静'}
+      ]},
+      {id:'a4', name:'灭菌', std:120, ps:'16:00', pe:'18:00', dur:120, qty:200000, eq:'灭菌柜 S-102', room:'灭菌间', team:'灭菌班', people:['赵磊'], conflict:'设备冲突', batches:null},
+      {id:'a5', name:'灯检', std:120, ps:'18:00', pe:'20:00', dur:120, qty:200000, eq:'灯检台 L-01', room:'灯检间', team:'灯检班', people:['周涛','孙敏'], conflict:'人员班次冲突', batches:null},
+      {id:'a6', name:'包装', std:300, ps:'明日 08:00', pe:'明日 13:00', dur:300, qty:200000, eq:'包装线 P-401', room:'包装间', team:'包装二班', people:['周涛','孙敏','王强'], conflict:'', batches:null}
+    ]
+  },
+  {
+    code:'RW-20261114-002', name:'维生素C片', batch:'20261114B', qty:120000,
+    start:'2026-11-14 08:30', status:'待开工', statusCls:'gray',
+    procs:[
+      {id:'b1', name:'称量配料', std:60, ps:'08:30', pe:'09:30', dur:60, qty:120000, eq:'电子秤 E-02', room:'配料间', team:'配料一班', people:['张伟'], conflict:'', batches:null},
+      {id:'b2', name:'制粒', std:180, ps:'09:30', pe:'12:30', dur:180, qty:120000, eq:'制粒机 G-101', room:'制粒间', team:'制粒班', people:['陈静','李娜'], conflict:'', batches:null},
+      {id:'b3', name:'压片', std:240, ps:'12:30', pe:'16:30', dur:240, qty:120000, eq:'压片机 T-201', room:'压片间', team:'压片班', people:['张伟','孙敏'], conflict:'', batches:null},
+      {id:'b4', name:'包衣', std:180, ps:'16:30', pe:'19:30', dur:180, qty:120000, eq:'包衣机 C-301', room:'包衣间', team:'包衣班', people:['王强'], conflict:'', batches:null},
+      {id:'b5', name:'包装', std:300, ps:'明日 08:00', pe:'明日 13:00', dur:300, qty:120000, eq:'包装线 P-402', room:'包装间', team:'包装二班', people:['周涛','孙敏'], conflict:'', batches:null}
+    ]
+  },
+  {
+    code:'RW-20261113-006', name:'板蓝根颗粒', batch:'20261113C', qty:80000,
+    start:'2026-11-14 09:00', status:'生产中', statusCls:'green',
+    procs:[
+      {id:'c1', name:'称量配料', std:60, ps:'09:00', pe:'10:00', dur:60, qty:80000, eq:'电子秤 E-03', room:'配料间', team:'配料一班', people:['刘洋'], conflict:'', batches:null},
+      {id:'c2', name:'制粒', std:180, ps:'10:00', pe:'13:00', dur:180, qty:80000, eq:'制粒机 G-102', room:'制粒间', team:'制粒班', people:['陈静','王强'], conflict:'', batches:null},
+      {id:'c3', name:'灌装', std:240, ps:'09:00', pe:'13:00', dur:240, qty:80000, eq:'灌装机 F-301', room:'灌装间', team:'灌装一班', people:['张伟','李娜'], conflict:'设备 / 房间冲突', batches:null},
+      {id:'c4', name:'灭菌', std:120, ps:'17:00', pe:'19:00', dur:120, qty:80000, eq:'灭菌柜 S-102', room:'灭菌间', team:'灭菌班', people:['赵磊'], conflict:'设备冲突', batches:null},
+      {id:'c5', name:'包装', std:300, ps:'明日 08:00', pe:'明日 13:00', dur:300, qty:80000, eq:'包装线 P-401', room:'包装间', team:'包装二班', people:['周涛'], conflict:'', batches:null}
+    ]
+  }
+];
+
+const ganttItems = [
+  {id:'g1', task:'RW-20261114-001', product:'复方甘草口服溶液', batch:'20261114A', proc:'称量配料', s:8, e:9, eq:'电子秤 E-01', room:'配料间', team:'配料一班', people:['刘洋'], status:'待开工', conflict:'', color:'c0'},
+  {id:'g2', task:'RW-20261114-001', product:'复方甘草口服溶液', batch:'20261114A', proc:'配制', s:9, e:12, eq:'配制罐 R-201', room:'配制间', team:'配制一班', people:['刘洋','陈静'], status:'待开工', conflict:'', color:'c1'},
+  {id:'g3a', task:'RW-20261114-001', product:'复方甘草口服溶液', batch:'20261114A', proc:'灌装 · 批次 1', s:12, e:14, eq:'灌装机 F-301', room:'灌装间', team:'灌装一班', people:['张伟','李娜'], status:'待开工', conflict:'设备冲突：灌装机 F-301 与 RW-20261113-006 在 12:00–13:00 重叠；房间同样重叠', color:'c2', batches:[
+    {name:'批次 1', time:'12:00–14:00', qty:100000, people:'张伟、李娜'},
+    {name:'批次 2', time:'14:00–16:00', qty:100000, people:'王强、陈静'}
+  ]},
+  {id:'g3b', task:'RW-20261114-001', product:'复方甘草口服溶液', batch:'20261114A', proc:'灌装 · 批次 2', s:14, e:16, eq:'灌装机 F-301', room:'灌装间', team:'灌装一班', people:['王强','陈静'], status:'待开工', conflict:'设备冲突：灌装机 F-301 与 RW-20261113-006 在 12:00–13:00 重叠；房间同样重叠', color:'c2', batches:[
+    {name:'批次 1', time:'12:00–14:00', qty:100000, people:'张伟、李娜'},
+    {name:'批次 2', time:'14:00–16:00', qty:100000, people:'王强、陈静'}
+  ]},
+  {id:'g4', task:'RW-20261114-001', product:'复方甘草口服溶液', batch:'20261114A', proc:'灭菌', s:16, e:18, eq:'灭菌柜 S-102', room:'灭菌间', team:'灭菌班', people:['赵磊'], status:'待开工', conflict:'设备冲突：灭菌柜 S-102 与 RW-20261113-006 在 17:00–18:00 重叠', color:'c3'},
+  {id:'g5', task:'RW-20261114-001', product:'复方甘草口服溶液', batch:'20261114A', proc:'灯检', s:18, e:20, eq:'灯检台 L-01', room:'灯检间', team:'灯检班', people:['周涛','孙敏'], status:'待开工', conflict:'人员班次冲突：周涛班次为 08:00–17:00', color:'c4'},
+  {id:'g8', task:'RW-20261114-002', product:'维生素C片', batch:'20261114B', proc:'称量配料', s:8.5, e:9.5, eq:'电子秤 E-02', room:'配料间', team:'配料一班', people:['张伟'], status:'待开工', conflict:'', color:'c0'},
+  {id:'g9', task:'RW-20261114-002', product:'维生素C片', batch:'20261114B', proc:'制粒', s:9.5, e:12.5, eq:'制粒机 G-101', room:'制粒间', team:'制粒班', people:['陈静','李娜'], status:'待开工', conflict:'', color:'c1'},
+  {id:'g10', task:'RW-20261114-002', product:'维生素C片', batch:'20261114B', proc:'压片', s:12.5, e:16.5, eq:'压片机 T-201', room:'压片间', team:'压片班', people:['张伟','孙敏'], status:'待开工', conflict:'', color:'c5'},
+  {id:'g11', task:'RW-20261114-002', product:'维生素C片', batch:'20261114B', proc:'包衣', s:16.5, e:19.5, eq:'包衣机 C-301', room:'包衣间', team:'包衣班', people:['王强'], status:'待开工', conflict:'', color:'c3'},
+  {id:'g12', task:'RW-20261113-006', product:'板蓝根颗粒', batch:'20261113C', proc:'灌装', s:9, e:13, eq:'灌装机 F-301', room:'灌装间', team:'灌装一班', people:['张伟','李娜'], status:'生产中', conflict:'设备冲突：灌装机 F-301 与 RW-20261114-001 在 12:00–13:00 重叠；房间同样重叠', color:'c2'},
+  {id:'g13', task:'RW-20261113-006', product:'板蓝根颗粒', batch:'20261113C', proc:'灭菌', s:17, e:19, eq:'灭菌柜 S-102', room:'灭菌间', team:'灭菌班', people:['赵磊'], status:'生产中', conflict:'设备冲突：灭菌柜 S-102 与 RW-20261114-001 在 17:00–18:00 重叠', color:'c3'}
+];
+
+const teams = [
+  {id:'t1', name:'配料一班', ws:'制剂车间', members:['张伟','李娜','刘洋','陈静'], active:true},
+  {id:'t2', name:'配制一班', ws:'制剂车间', members:['刘洋','陈静'], active:true},
+  {id:'t3', name:'灌装一班', ws:'制剂车间', members:['张伟','李娜','王强','陈静'], active:true},
+  {id:'t4', name:'灭菌班', ws:'制剂车间', members:['赵磊','孙敏'], active:true},
+  {id:'t5', name:'灯检班', ws:'制剂车间', members:['孙敏','周涛'], active:true},
+  {id:'t6', name:'包装二班', ws:'包装车间', members:['周涛','王强','孙敏'], active:false}
+];
+
+const peoplePool = ['张伟','李娜','王强','陈静','刘洋','赵磊','孙敏','周涛'];
+// endregion
+
+// region 排产总览
+// ===================================
+// 甘特图渲染与冲突抽屉
+// ===================================
+let ganttMode = 'task';
+const G_START = 8, G_END = 20;
+
+function hourLabel(h){
+  const hh = Math.floor(h), mm = Math.round((h-hh)*60);
+  return String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
+}
+function setGantt(mode, el){
+  ganttMode = mode;
+  document.querySelectorAll('[data-gantt]').forEach(x=>x.classList.toggle('active', x.dataset.gantt===mode));
+  renderGantt();
+}
+function renderGantt(){
+  const key = ganttMode==='task' ? 'task' : ganttMode==='eq' ? 'eq' : 'room';
+  const groups = {};
+  ganttItems.forEach(it=>{
+    const k = it[key];
+    (groups[k] = groups[k] || []).push(it);
+  });
+  let html = `<div class="gantt-head"><div class="gantt-label">${ganttMode==='task'?'生产任务':ganttMode==='eq'?'设备':'房间'}</div><div class="gantt-track head">`;
+  for(let h=G_START; h<=G_END; h+=2){
+    html += `<span class="ghour" style="left:${(h-G_START)/(G_END-G_START)*100}%">${hourLabel(h)}</span>`;
+  }
+  html += `</div></div>`;
+
+  Object.keys(groups).forEach(k=>{
+    const items = groups[k];
+    let label, sub;
+    if(ganttMode==='task'){
+      const first = items[0];
+      label = first.task;
+      sub = `${first.product} · ${first.batch}`;
+    }else if(ganttMode==='eq'){
+      label = k;
+      sub = `${items.length} 个占用时段`;
+    }else{
+      label = k;
+      sub = `${items.length} 个占用时段`;
+    }
+    html += `<div class="gantt-row"><div class="gantt-label"><b>${label}</b><span>${sub}</span></div><div class="gantt-track">`;
+    items.forEach(it=>{
+      const left = (it.s-G_START)/(G_END-G_START)*100;
+      const width = (it.e-it.s)/(G_END-G_START)*100;
+      const cls = 'gbar '+(it.color||'c0')+(it.conflict?' conflict':'');
+      const text = ganttMode==='task' ? it.proc : `${it.proc} · ${it.task.slice(-3)}`;
+      html += `<div class="${cls}" style="left:${left}%;width:${width}%" title="${it.task} ${it.proc} ${hourLabel(it.s)}–${hourLabel(it.e)}${it.conflict?'（冲突）':''}" onclick="openProcDrawer('${it.id}')">
+        <span>${text}</span>${it.conflict?'<span class="warn-dot">!</span>':''}</div>`;
+    });
+    html += `</div></div>`;
+  });
+  document.getElementById('gantt').innerHTML = html;
+}
+function openProcDrawer(id){
+  const it = ganttItems.find(x=>x.id===id);
+  if(!it) return;
+  const statusCls = it.status==='生产中'?'green':it.status==='已完工'?'gray':'blue';
+  let body = `
+    <div class="sec"><h4>计划信息</h4>
+      <div class="kv">
+        <div><span class="k">生产任务</span><span class="v mono">${it.task}</span></div>
+        <div><span class="k">制剂 / 批号</span><span class="v">${it.product} · ${it.batch}</span></div>
+        <div><span class="k">计划时段</span><span class="v mono">${hourLabel(it.s)}–${hourLabel(it.e)}（${(it.e-it.s).toFixed(1)} 小时）</span></div>
+        <div><span class="k">当前状态</span><span class="v"><span class="pill ${statusCls}">${it.status}</span></span></div>
+      </div>
+    </div>
+    <div class="sec"><h4>资源与人员</h4>
+      <div class="kv">
+        <div><span class="k">设备</span><span class="v">${it.eq}</span></div>
+        <div><span class="k">房间</span><span class="v">${it.room}</span></div>
+        <div><span class="k">班组</span><span class="v">${it.team}</span></div>
+        <div><span class="k">操作人</span><span class="v">${it.people.join('、')}</span></div>
+      </div>
+    </div>`;
+  if(it.batches){
+    body += `<div class="sec"><h4>拆分批次（一次工序拆多次生产）</h4><div class="batch-grid">`;
+    it.batches.forEach(b=>{
+      body += `<div class="batch-card"><div class="bc-top"><span class="bc-name">${b.name}</span><span class="tag blue">${b.qty.toLocaleString()} 件</span></div>
+        <div class="bc-rows"><span>时段</span><b class="mono">${b.time}</b><span>参与人</span><b>${b.people}</b></div></div>`;
+    });
+    body += `</div><div class="batch-foot"><span>批次数量合计</span><b>${it.batches.reduce((s,b)=>s+b.qty,0).toLocaleString()} / 200,000 ✓</b></div></div>`;
+  }
+  if(it.conflict){
+    const recos = it.proc.indexOf('灌装')>=0
+      ? ['今日 20:00–24:00（F-301 空闲）','明日 08:00–12:00（满足工序顺序）']
+      : it.proc==='灭菌' ? ['今日 19:00–21:00（S-102 空闲）','明日 08:00–10:00']
+      : ['明日 08:00–10:00（周涛在班）','今日 16:00–17:00（班次内）'];
+    body += `<div class="sec"><h4>冲突</h4><div class="conflict-box">
+      <div class="cb-title">⚠ 检测到冲突</div>
+      <div>${it.conflict}</div>
+      <ul>${recos.map(r=>`<li>推荐可用时段：<b>${r}</b> <button class="link" style="margin-left:6px" onclick="toast('已套用推荐时段（演示）');closeAll()">一键替换</button></li>`).join('')}</ul>
+    </div></div>`;
+  }
+  const baseProc = it.proc.split(' · ')[0];
+  const pidMap = {'称量配料':'a1','配制':'a2','灌装':'a3','灭菌':'a4','灯检':'a5','制粒':'b2','压片':'b3','包衣':'b4','包装':'a6'};
+  const foot = `<button class="btn" onclick="closeAll()">关闭</button>
+    <button class="btn" onclick="openSplitModal('${pidMap[baseProc]||'a3'}')">拆分批次</button>
+    <button class="btn primary" onclick="toast('已打开计划调整（演示）');closeAll()">调整计划</button>`;
+  openDrawer(baseProc, `${it.task} · ${it.product} · ${it.batch}`, body, foot);
+}
+function openConflictDrawer(){
+  const body = `
+    <div class="banner warn" style="margin-top:0"><span>⚠</span><div>共 <b>3</b> 项冲突，均在全部未完成任务范围内比对。前端标红仅作提示，<b>最终以后端校验为准</b>；后端拒绝时按返回信息调整后重新提交。</div></div>
+    <div class="sec"><h4>设备占用</h4><div class="conflict-box">
+      <div class="cb-title">灌装机 F-301 · 12:00–13:00</div>
+      <div>RW-20261114-001（复方甘草口服溶液 · 灌装批次 1）与 RW-20261113-006（板蓝根颗粒 · 灌装）同时占用。</div>
+      <div class="reco"><span>推荐：<b>今日 20:00–24:00</b> 或 <b>明日 08:00–12:00</b></span><button class="btn sm primary" onclick="toast('已顺延至推荐时段（演示）')">一键替换</button></div>
+    </div></div>
+    <div class="sec"><h4>房间占用</h4><div class="conflict-box">
+      <div class="cb-title">灌装间 · 12:00–13:00</div>
+      <div>灌装间同时被 RW-20261114-001 灌装批次 1 与 RW-20261113-006 灌装占用。</div>
+      <div class="reco"><span>推荐：<b>今日 20:00 后</b></span><button class="btn sm primary" onclick="toast('已套用推荐时段（演示）')">一键替换</button></div>
+    </div></div>
+    <div class="sec"><h4>人员与班次</h4><div class="conflict-box">
+      <div class="cb-title">周涛 · 18:00–20:00</div>
+      <div>周涛的班次为 08:00–17:00，RW-20261114-001 灯检工序安排在其班次外。</div>
+      <div class="reco"><span>推荐：替换为 <b>孙敏</b> 或顺延至 <b>明日 08:00–10:00</b></span><button class="btn sm primary" onclick="toast('已替换为班次内人员（演示）')">一键替换</button></div>
+    </div></div>`;
+  openDrawer('冲突清单', '仅展示当前仍存在的冲突；消除后自动移出清单', body, '<button class="btn" onclick="closeAll()">关闭</button>');
+}
+// endregion
+
+// region 任务排产
+// ===================================
+// 任务卡片、工序表与批次展开
+// ===================================
+let curTask = 0;
+let expandedBatches = {};
+
+function renderTaskCards(){
+  document.getElementById('taskCards').innerHTML = tasks.map((t,i)=>`
+    <div class="task-card ${i===curTask?'active':''}" onclick="selectTask(${i})">
+      <div class="tc-top">
+        <div><div class="tc-code">${t.code}</div><h4>${t.name}</h4><div class="tc-meta">批号 ${t.batch} · ${t.qty.toLocaleString()} 件</div></div>
+        <span class="pill ${t.statusCls}">${t.status}</span>
+      </div>
+      <div class="tc-foot"><span>计划开始 <b>${t.start.slice(5)}</b></span><span>${t.procs.length} 道工序</span></div>
+    </div>`).join('');
+}
+function selectTask(i){
+  curTask = i;
+  expandedBatches = {};
+  renderTaskCards();
+  renderTaskTable();
+}
+function curProcForSplit(){
+  const t = tasks[curTask];
+  const p = t.procs.find(x=>x.name==='灌装') || t.procs[1] || t.procs[0];
+  return p.id;
+}
+function renderTaskTable(){
+  const t = tasks[curTask];
+  document.getElementById('taskTitle').textContent = `${t.code} · ${t.name}`;
+  document.getElementById('taskSub').textContent = `批号 ${t.batch} · 数量 ${t.qty.toLocaleString()} 件 · 计划开始 ${t.start}`;
+  const tag = document.getElementById('taskStatusTag');
+  tag.className = 'tag '+(t.statusCls==='green'?'':t.statusCls==='gray'?'':'blue');
+  tag.textContent = t.status;
+  const rows = t.procs.map((p,i)=>{
+    const expanded = !!expandedBatches[p.id];
+    return `
+    <tr>
+      <td class="sub">${i+1}</td>
+      <td><b>${p.name}</b>${p.batches?` <span class="tag blue" style="margin-left:4px">拆 ${p.batches.length} 次</span>`:''}</td>
+      <td class="mono">${p.std} 分钟</td>
+      <td class="mono">${p.ps}</td>
+      <td class="mono">${p.pe}</td>
+      <td class="mono">${p.dur} 分钟</td>
+      <td class="mono">${p.qty.toLocaleString()}</td>
+      <td>${p.eq}</td>
+      <td>${p.room}</td>
+      <td><span class="chip">${p.team}</span></td>
+      <td>${p.people.map(x=>`<span class="chip">${x}</span>`).join('')}</td>
+      <td>${p.conflict?`<span class="pill red">${p.conflict}</span>`:'<span class="pill green">正常</span>'}</td>
+      <td>
+        <button class="link" onclick="openAdjustModal('${p.id}')">调整</button>
+        ${p.batches?`<button class="link" style="margin-left:8px" onclick="toggleBatches('${p.id}')">${expanded?'收起批次':'批次('+p.batches.length+')'}</button>`:`<button class="link" style="margin-left:8px" onclick="openSplitModal('${p.id}')">拆分</button>`}
+      </td>
+    </tr>
+    ${expanded?`<tr class="batch-tr"><td colspan="13"><div class="batch-wrap">
+      <div class="batch-title"><span>拆分批次</span><span class="sub">每批次独立计划时间、数量与人员，合计须等于工序计划数量</span></div>
+      <div class="batch-grid">
+        ${p.batches.map(b=>`<div class="batch-card">
+          <div class="bc-top"><span class="bc-name">${b.name}</span><span class="tag ${b.qty===p.qty/p.batches.length?'blue':''}">${b.qty.toLocaleString()} 件</span></div>
+          <div class="bc-rows">
+            <span>计划时段</span><b class="mono">${b.ps}–${b.pe}</b>
+            <span>班组</span><b>${b.team}</b>
+            <span>设备 / 房间</span><b>${b.eq} / ${b.room}</b>
+            <span>参与人</span><b>${b.people}</b>
+          </div>
+          <div class="batch-foot"><span>${b.ps}–${b.pe}</span><button class="link" onclick="openAdjustModal('${p.id}')">调整批次</button></div>
+        </div>`).join('')}
+      </div>
+      <div class="batch-foot"><span>批次数量合计</span><b>${p.batches.reduce((s,b)=>s+b.qty,0).toLocaleString()} / ${p.qty.toLocaleString()} ✓</b></div>
+    </div></td></tr>`:''}`;
+  }).join('');
+  document.getElementById('taskTbody').innerHTML = rows;
+}
+function toggleBatches(id){
+  expandedBatches[id] = !expandedBatches[id];
+  renderTaskTable();
+}
+function autoSchedule(){
+  const t = tasks[curTask];
+  let h = parseInt(t.start.slice(11,13),10)*60 + parseInt(t.start.slice(14,16),10);
+  t.procs.forEach(p=>{
+    const dur = p.std;
+    p.ps = String(Math.floor(h/60)).padStart(2,'0')+':'+String(h%60).padStart(2,'0');
+    h += dur;
+    p.pe = String(Math.floor(h/60)).padStart(2,'0')+':'+String(h%60).padStart(2,'0');
+    p.dur = dur;
+  });
+  renderTaskTable();
+  toast('已按标准时长顺排全部工序，共 '+t.procs.length+' 道');
+}
+// endregion
+
+// region 调整与拆分
+// ===================================
+// 调整工序弹窗、拆分批次弹窗
+// ===================================
+function findProc(id){
+  for(const t of tasks){ const p = t.procs.find(x=>x.id===id); if(p) return {task:t, proc:p}; }
+  return null;
+}
+function openAdjustModal(id){
+  const f = findProc(id); if(!f) return;
+  const p = f.proc;
+  const body = `
+    <div class="form-grid">
+      <div class="field"><label>工序</label><input class="input" value="${p.name}" disabled /></div>
+      <div class="field"><label>标准时长（分钟）</label><input class="input" value="${p.std}" disabled /></div>
+      <div class="field"><label>计划开始 <i>*</i></label><input class="input" id="adjPs" value="${p.ps.startsWith('明日')?'08:00':p.ps}" /></div>
+      <div class="field"><label>计划结束 <i>*</i></label><input class="input" id="adjPe" value="${p.pe.startsWith('明日')?'13:00':p.pe}" /></div>
+      <div class="field"><label>计划数量</label><input class="input" id="adjQty" type="number" value="${p.qty}" /></div>
+      <div class="field"><label>设备</label><input class="input" id="adjEq" value="${p.eq}" /></div>
+      <div class="field"><label>房间</label><input class="input" id="adjRoom" value="${p.room}" /></div>
+      <div class="field"><label>班组</label><input class="input" id="adjTeam" value="${p.team}" /></div>
+      <div class="field full"><label>操作人（逗号分隔）</label><input class="input" id="adjPeople" value="${p.people.join('、')}" /></div>
+      <div class="field full"><label>备注</label><textarea class="input" rows="2" placeholder="调整原因（演示）"></textarea></div>
+    </div>
+    <div class="divider"></div>
+    <div class="hint">修改只重算本工序计划用时，不联动其他工序。保存后将重新校验设备、房间、人员班次与工序顺序冲突。</div>
+    ${p.batches?`<div class="banner warn" style="margin-top:14px"><span>ℹ</span><div>该工序已拆分为 ${p.batches.length} 个批次。调整整道工序计划不会自动分摊到批次，请在任务排产中逐批次调整。</div></div>`:''}`;
+  openModal('调整工序计划', `${f.task.code} · ${f.task.name} · ${p.name}`, body,
+    `<button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveAdjust('${p.id}')">保存</button>`);
+}
+function saveAdjust(id){
+  const f = findProc(id); if(!f) return;
+  const p = f.proc;
+  const ps = document.getElementById('adjPs').value;
+  const pe = document.getElementById('adjPe').value;
+  p.ps = ps; p.pe = pe;
+  p.qty = Number(document.getElementById('adjQty').value)||p.qty;
+  p.eq = document.getElementById('adjEq').value;
+  p.room = document.getElementById('adjRoom').value;
+  p.team = document.getElementById('adjTeam').value;
+  p.people = document.getElementById('adjPeople').value.split(/[、,，]/).map(s=>s.trim()).filter(Boolean);
+  const dur = toMinutes(pe)-toMinutes(ps);
+  p.dur = dur>0?dur:p.dur;
+  closeModal();
+  renderTaskTable();
+  toast('计划已保存，已重新校验冲突（演示）');
+}
+function toMinutes(t){
+  const m = (t||'').match(/(\d{1,2}):(\d{2})/);
+  return m ? Number(m[1])*60+Number(m[2]) : 0;
+}
+function openSplitModal(id){
+  const f = findProc(id); if(!f) return;
+  const p = f.proc;
+  const batches = p.batches ? JSON.parse(JSON.stringify(p.batches)) : [
+    {name:'批次 1', ps:p.ps, pe:p.pe, qty:Math.floor(p.qty/2), eq:p.eq, room:p.room, team:p.team, people:p.people.slice(0,2).join('、')},
+    {name:'批次 2', ps:p.ps, pe:p.pe, qty:p.qty-Math.floor(p.qty/2), eq:p.eq, room:p.room, team:p.team, people:p.people.slice(2).join('、')||p.people[0]}
+  ];
+  window.__splitCtx = {id, p};
+  let rows = batches.map((b,i)=>splitRow(b,i)).join('');
+  const body = `
+    <div class="banner"><span>ℹ</span><div><b>拆分规则：</b>每个批次独立安排计划时间与参与人，批次数量合计必须等于工序计划数量。保存后，绩效模块按批次分别生成参与人记录。</div></div>
+    <div class="split-head row"><span>批次名称</span><span>计划开始</span><span>计划结束</span><span>计划数量</span><span>班组</span><span>操作人</span><span></span></div>
+    <div id="splitRows">${rows}</div>
+    <button class="btn sm" onclick="addSplitRow()">＋ 添加批次</button>
+    <div class="total-line"><span>批次数量合计</span><span id="splitTotal"></span></div>
+    <div class="field" style="margin-top:14px"><label>拆分原因</label><textarea class="input" rows="2" placeholder="如：批量较大，分两批生产"></textarea></div>`;
+  openModal('拆分工序为多次生产', `${f.task.code} · ${p.name} · 工序计划数量 ${p.qty.toLocaleString()} 件`, body,
+    `<button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveSplit('${id}')">保存拆分</button>`, 760);
+  updateSplitTotal();
+}
+function splitRow(b,i){
+  return `<div class="split-row">
+    <input class="input sm" value="${b.name||('批次 '+(i+1))}" />
+    <input class="input sm" value="${b.ps}" />
+    <input class="input sm" value="${b.pe}" />
+    <input class="input sm qty" type="number" value="${b.qty}" oninput="updateSplitTotal()" />
+    <input class="input sm" value="${b.team}" />
+    <input class="input sm" value="${b.people}" />
+    <button class="icon-btn" style="width:28px;height:28px;flex:0 0 28px" onclick="this.closest('.split-row').remove();updateSplitTotal()">✕</button>
+  </div>`;
+}
+function addSplitRow(){
+  const wrap = document.getElementById('splitRows');
+  const i = wrap.children.length+1;
+  const ctx = window.__splitCtx;
+  const p = ctx.p;
+  wrap.insertAdjacentHTML('beforeend', splitRow({name:'批次 '+i, ps:p.ps, pe:p.pe, qty:0, team:p.team, people:''}, i-1));
+  updateSplitTotal();
+}
+function updateSplitTotal(){
+  const ctx = window.__splitCtx; if(!ctx) return;
+  const qty = [...document.querySelectorAll('#splitRows .qty')].reduce((s,el)=>s+(Number(el.value)||0),0);
+  const ok = qty === ctx.p.qty;
+  const el = document.getElementById('splitTotal');
+  if(el) el.innerHTML = `<b class="${ok?'ok':'bad'}">${qty.toLocaleString()} / ${ctx.p.qty.toLocaleString()} ${ok?'✓ 数量平衡':'✗ 数量不平，不允许保存'}</b>`;
+}
+function saveSplit(id){
+  const ctx = window.__splitCtx;
+  const qty = [...document.querySelectorAll('#splitRows .qty')].reduce((s,el)=>s+(Number(el.value)||0),0);
+  if(qty !== ctx.p.qty){ toast('批次数量合计必须等于工序计划数量'); return; }
+  const rows = [...document.querySelectorAll('#splitRows .split-row')];
+  const batches = rows.map((r,i)=>({
+    name: r.children[0].value, ps: r.children[1].value, pe: r.children[2].value,
+    qty: Number(r.children[3].value)||0, eq: ctx.p.eq, room: ctx.p.room,
+    team: r.children[4].value, people: r.children[5].value
+  }));
+  ctx.p.batches = batches;
+  ctx.p.people = [...new Set(batches.flatMap(b=>b.people.split(/[、,，]/).map(s=>s.trim()).filter(Boolean)))];
+  closeModal();
+  expandedBatches[ctx.p.id] = true;
+  renderTaskTable();
+  toast('已拆分 '+batches.length+' 个生产批次（演示）');
+}
+function openBatchHelp(){
+  openModal('拆分多次生产说明', '一次工序可拆多次生产', `
+    <div class="sec"><h4>要点</h4>
+      <ul class="sub" style="margin:0;padding-left:18px;line-height:1.9">
+        <li>拆分后每个批次有自己的计划起止、计划数量、设备、房间、班组与操作人。</li>
+        <li>批次数量合计必须等于工序计划数量，不等时不允许保存。</li>
+        <li>设备与房间冲突按批次时段参与全任务比对，批次之间也互为占用。</li>
+        <li>生产执行时按批次登记参与人与完成数量，绩效按批次生成个人记录。</li>
+        <li>拆分只影响当前工序，不联动前后工序计划时间。</li>
+      </ul>
+    </div>
+    <div class="batch-grid">
+      <div class="batch-card"><div class="bc-top"><span class="bc-name">未拆分</span><span class="tag">1 次生产</span></div><div class="bc-rows"><span>计划</span><b class="mono">12:00–16:00</b><span>数量</span><b>200,000</b></div></div>
+      <div class="batch-card"><div class="bc-top"><span class="bc-name">拆分后</span><span class="tag blue">2 次生产</span></div><div class="bc-rows"><span>批次 1</span><b class="mono">12:00–14:00 · 100,000</b><span>批次 2</span><b class="mono">14:00–16:00 · 100,000</b></div></div>
+    </div>`, '<button class="btn primary" onclick="closeModal()">知道了</button>', 640);
+}
+// endregion
+
+// region 工序看板与班组
+// ===================================
+// 看板演示数据与班组卡片
+// ===================================
+const kanbanRows = [
+  {task:'RW-20261114-001', batch:'20261114A', proc:'称量配料', plan:'08:00–09:00', act:'—', qty:'200,000 / —', eq:'电子秤 E-01', room:'配料间', team:'配料一班', people:'刘洋', status:'待开工', cls:'blue', conflict:false},
+  {task:'RW-20261114-001', batch:'20261114A', proc:'配制', plan:'09:00–12:00', act:'—', qty:'200,000 / —', eq:'配制罐 R-201', room:'配制间', team:'配制一班', people:'刘洋、陈静', status:'待开工', cls:'blue', conflict:false},
+  {task:'RW-20261114-001', batch:'20261114A', proc:'灌装 · 批次 1', plan:'12:00–14:00', act:'—', qty:'100,000 / —', eq:'灌装机 F-301', room:'灌装间', team:'灌装一班', people:'张伟、李娜', status:'待开工', cls:'blue', conflict:true},
+  {task:'RW-20261114-001', batch:'20261114A', proc:'灌装 · 批次 2', plan:'14:00–16:00', act:'—', qty:'100,000 / —', eq:'灌装机 F-301', room:'灌装间', team:'灌装一班', people:'王强、陈静', status:'待开工', cls:'blue', conflict:true},
+  {task:'RW-20261114-001', batch:'20261114A', proc:'灭菌', plan:'16:00–18:00', act:'—', qty:'200,000 / —', eq:'灭菌柜 S-102', room:'灭菌间', team:'灭菌班', people:'赵磊', status:'待开工', cls:'blue', conflict:true},
+  {task:'RW-20261114-001', batch:'20261114A', proc:'灯检', plan:'18:00–20:00', act:'—', qty:'200,000 / —', eq:'灯检台 L-01', room:'灯检间', team:'灯检班', people:'周涛、孙敏', status:'待开工', cls:'blue', conflict:true},
+  {task:'RW-20261114-002', batch:'20261114B', proc:'制粒', plan:'09:30–12:30', act:'—', qty:'120,000 / —', eq:'制粒机 G-101', room:'制粒间', team:'制粒班', people:'陈静、李娜', status:'待开工', cls:'blue', conflict:false},
+  {task:'RW-20261114-002', batch:'20261114B', proc:'压片', plan:'12:30–16:30', act:'—', qty:'120,000 / —', eq:'压片机 T-201', room:'压片间', team:'压片班', people:'张伟、孙敏', status:'待开工', cls:'blue', conflict:false},
+  {task:'RW-20261113-006', batch:'20261113C', proc:'灌装', plan:'09:00–13:00', act:'09:10–（进行中）', qty:'80,000 / 42,000', eq:'灌装机 F-301', room:'灌装间', team:'灌装一班', people:'张伟、李娜', status:'生产中', cls:'green', conflict:true},
+  {task:'RW-20261113-006', batch:'20261113C', proc:'灭菌', plan:'17:00–19:00', act:'—', qty:'80,000 / —', eq:'灭菌柜 S-102', room:'灭菌间', team:'灭菌班', people:'赵磊', status:'待开工', cls:'blue', conflict:true}
+];
+function renderKanban(){
+  document.getElementById('kanbanTbody').innerHTML = kanbanRows.map(r=>`
+    <tr>
+      <td><div class="mono">${r.task}</div><div class="sub">${r.batch}</div></td>
+      <td><b>${r.proc}</b></td>
+      <td class="mono">${r.plan}</td>
+      <td class="mono">${r.act}</td>
+      <td class="mono">${r.qty}</td>
+      <td>${r.eq}</td>
+      <td>${r.room}</td>
+      <td><div class="sub">${r.team}</div><div>${r.people.split('、').map(x=>`<span class="chip">${x}</span>`).join('')}</div></td>
+      <td><span class="pill ${r.cls}">${r.status}</span></td>
+      <td>${r.conflict?'<span class="pill red">冲突</span>':'<span class="pill green">正常</span>'}</td>
+    </tr>`).join('');
+}
+function renderTeams(){
+  document.getElementById('teamGrid').innerHTML = teams.map(t=>`
+    <div class="team-card ${t.active?'':'inactive'}">
+      <div class="tm-top">
+        <div><h4>${t.name}</h4><div class="ws">${t.ws}</div></div>
+        <span class="pill ${t.active?'green':'gray'}">${t.active?'启用':'停用'}</span>
+      </div>
+      <div class="members">${t.members.map(m=>`<span class="chip"><span class="avatar-sm">${m.slice(-1)}</span>${m}</span>`).join('')}</div>
+      <div class="tm-foot">
+        <span>${t.members.length} 人</span>
+        <div>
+          <button class="link" onclick="openTeamDrawer('${t.id}')">编辑</button>
+          <button class="link" style="margin-left:10px;color:${t.active?'var(--red)':'var(--primary)'}" onclick="toggleTeam('${t.id}')">${t.active?'停用':'启用'}</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+function toggleTeam(id){
+  const t = teams.find(x=>x.id===id);
+  t.active = !t.active;
+  renderTeams();
+  toast(t.name+(t.active?' 已启用':' 已停用')+'（演示）');
+}
+function openTeamDrawer(id){
+  const t = id ? teams.find(x=>x.id===id) : null;
+  const selected = t ? t.members : [];
+  const body = `
+    <div class="form-grid">
+      <div class="field"><label>班组名称 <i>*</i></label><input class="input" id="teamName" value="${t?t.name:''}" placeholder="如：灌装二班" /></div>
+      <div class="field"><label>所属车间</label><select class="input" id="teamWs"><option>制剂车间</option><option>包装车间</option></select></div>
+    </div>
+    <div class="divider"></div>
+    <div class="field"><label>班组人员 <i>*</i></label>
+      <div style="display:flex;flex-wrap:wrap;gap:8px 14px;padding:4px 0">
+        ${peoplePool.map(p=>`<label style="display:flex;align-items:center;gap:6px;font-size:12.5px"><input type="checkbox" value="${p}" ${selected.includes(p)?'checked':''}/>${p}</label>`).join('')}
+      </div>
+    </div>
+    <div class="hint" style="margin-top:10px">排产选择班组后自动带入成员；也可在单道工序或批次上增减人员。停用班组不影响历史排产记录。</div>`;
+  openDrawer(t?'编辑班组':'新建班组', t?'修改班组名称、车间与成员':'维护班组名称与成员', body,
+    `<button class="btn" onclick="closeAll()">取消</button><button class="btn primary" onclick="saveTeam('${id||''}')">保存</button>`);
+}
+function saveTeam(id){
+  const name = document.getElementById('teamName').value.trim();
+  const ws = document.getElementById('teamWs').value;
+  const members = [...document.querySelectorAll('.drawer-body input[type=checkbox]:checked')].map(x=>x.value);
+  if(!name){ toast('请填写班组名称'); return; }
+  if(!members.length){ toast('请至少选择一名班组人员'); return; }
+  if(id){
+    const t = teams.find(x=>x.id===id);
+    t.name=name; t.ws=ws; t.members=members;
+  }else{
+    teams.push({id:'t'+Date.now(), name, ws, members, active:true});
+  }
+  closeAll();
+  renderTeams();
+  toast('班组已保存（演示）');
+}
+// endregion
+
+// region 页面初始化
+// ===================================
+// 初次渲染
+// ===================================
+renderGantt();
+renderTaskCards();
+renderTaskTable();
+renderKanban();
+renderTeams();
+// endregion
+</script>
+</body>
+</html>
