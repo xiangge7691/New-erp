@@ -5,10 +5,21 @@ import com.tonghui.erp.Common.Dto.ApiResponse;
 import com.tonghui.erp.Common.annotation.OperationLog;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessExecution;
 import com.tonghui.erp.Service.WorkOrderProcessExecutionService;
+import jakarta.servlet.http.HttpServletResponse;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 工单工序执行记录控制器
@@ -40,6 +51,111 @@ public class WorkOrderProcessExecutionController extends BaseController {
         } catch (Exception ex) {
             return exception(ex, "查询工序执行记录失败");
         }
+    }
+
+    /**
+     * 查询已完工（锁定）的工序执行记录
+     *
+     * 示例请求：
+     * GET /api/work-order-process-execution/completed?from=2026-11-01&to=2026-11-30&workOrderId=470
+     *
+     * 返回记录已锁定，且包含参与人、计划起止/数量、已生成绩效记录数，
+     * 供「完工记录」页面直接展示。
+     *
+     * @param from        完工日期起（可选）
+     * @param to          完工日期止（可选）
+     * @param workOrderId 工单ID（可选）
+     * @return 已完工工序执行记录列表
+     */
+    @GetMapping("/completed")
+    public ApiResponse<List<WorkOrderProcessExecution>> completed(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) Long workOrderId) {
+        try {
+            return success(workOrderProcessExecutionService.listCompleted(from, to, workOrderId));
+        } catch (Exception ex) {
+            return exception(ex, "查询完工记录失败");
+        }
+    }
+
+    /**
+     * 导出已完工的工序执行记录
+     *
+     * 示例请求：
+     * GET /api/work-order-process-execution/completed/export?from=2026-11-01&to=2026-11-30
+     *
+     * @param from        完工日期起（可选）
+     * @param to          完工日期止（可选）
+     * @param workOrderId 工单ID（可选）
+     * @param response    HTTP响应
+     */
+    @OperationLog(module = "工单工序执行", type = OperationType.EXPORT, desc = "导出完工记录")
+    @GetMapping("/completed/export")
+    public void exportCompleted(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) Long workOrderId,
+            HttpServletResponse response) throws IOException {
+        List<WorkOrderProcessExecution> list =
+                workOrderProcessExecutionService.listCompleted(from, to, workOrderId);
+        try (XSSFWorkbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("完工记录");
+            String[] headers = {"生产任务", "批号", "制剂", "工序", "批次", "计划起止", "实际起止",
+                    "实际数量", "参与人", "生成绩效数", "完工时间"};
+            Row head = sheet.createRow(0);
+            for (int i = 0; i < headers.length; i++) {
+                head.createCell(i).setCellValue(headers[i]);
+            }
+            int rowIndex = 1;
+            for (WorkOrderProcessExecution execution : list) {
+                Row row = sheet.createRow(rowIndex++);
+                int c = 0;
+                row.createCell(c++).setCellValue(nullSafe(execution.getWorkOrderCode()));
+                row.createCell(c++).setCellValue(nullSafe(execution.getBatchNumber()));
+                row.createCell(c++).setCellValue(nullSafe(execution.getPreparationName()));
+                row.createCell(c++).setCellValue(nullSafe(execution.getProcessTypeName()));
+                row.createCell(c++).setCellValue(nullSafe(execution.getPlanBatchName()));
+                row.createCell(c++).setCellValue(period(execution.getPlanStartTime(), execution.getPlanEndTime()));
+                row.createCell(c++).setCellValue(period(execution.getStartTime(), execution.getEndTime()));
+                row.createCell(c++).setCellValue(decimal(execution.getProcessQty()));
+                String participants = execution.getParticipants() == null ? "" : execution.getParticipants().stream()
+                        .map(p -> p.getPersonnelName() == null ? "" : p.getPersonnelName())
+                        .filter(name -> !name.isEmpty())
+                        .collect(Collectors.joining("、"));
+                row.createCell(c++).setCellValue(participants);
+                row.createCell(c++).setCellValue(execution.getPerformanceRecordCount() == null
+                        ? 0 : execution.getPerformanceRecordCount());
+                row.createCell(c).setCellValue(period(execution.getCompletedTime(), null));
+            }
+            for (int i = 0; i < headers.length; i++) {
+                sheet.autoSizeColumn(i);
+            }
+            response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            response.setHeader("Content-Disposition", "attachment; filename=completed-executions.xlsx");
+            workbook.write(response.getOutputStream());
+        }
+    }
+
+    private String nullSafe(String value) {
+        return value == null ? "" : value;
+    }
+
+    private String decimal(BigDecimal value) {
+        return value == null ? "" : value.toPlainString();
+    }
+
+    /**
+     * 格式化起止时间区间
+     */
+    private String period(LocalDateTime start, LocalDateTime end) {
+        if (start == null && end == null) {
+            return "";
+        }
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+        String startText = start == null ? "" : start.format(formatter);
+        String endText = end == null ? "" : end.format(formatter);
+        return startText + " ~ " + endText;
     }
 
     /**
@@ -92,6 +208,30 @@ public class WorkOrderProcessExecutionController extends BaseController {
             return success(workOrderProcessExecutionService.getByWorkOrderId(workOrderId), "保存成功");
         } catch (Exception ex) {
             return exception(ex, "保存工序执行记录失败");
+        }
+    }
+
+    /**
+     * 工序/批次完工
+     * <p>
+     * 锁定实际执行记录，按实际参与人与个人工作时间生成人员绩效；
+     * 已锁定的工序不可重复完工。
+     * </p>
+     *
+     * 示例请求：
+     * POST /api/work-order-process-execution/123/complete
+     *
+     * @param executionId 工序执行记录ID
+     * @return 完工后的执行记录（含参与人）
+     */
+    @OperationLog(module = "工单工序执行", type = OperationType.UPDATE, desc = "工序完工",
+            businessType = "WORK_ORDER_PROCESS_EXECUTION", businessId = "#executionId")
+    @PostMapping("/{executionId}/complete")
+    public ApiResponse<WorkOrderProcessExecution> complete(@PathVariable Long executionId) {
+        try {
+            return success(workOrderProcessExecutionService.complete(executionId), "完工成功");
+        } catch (Exception ex) {
+            return exception(ex, "工序完工");
         }
     }
 }

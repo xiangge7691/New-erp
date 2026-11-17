@@ -132,6 +132,12 @@ public class WorkOrder extends AuditEntity {
     private String batchNumber;
 
     /**
+     * 任务计划开始时间（排产顺排起点）
+     */
+    @TableField(value = "plan_start_time")
+    private LocalDateTime planStartTime;
+
+    /**
      * 出库量
      */
     @TableField(value = "outbound_qty")

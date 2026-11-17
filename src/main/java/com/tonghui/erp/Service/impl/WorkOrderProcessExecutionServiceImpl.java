@@ -4,18 +4,34 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Constants.ProcessExecutionStatus;
 import com.tonghui.erp.Common.utils.EquipmentUsageConflictValidator;
+import com.tonghui.erp.Data.Entity.PerformanceRecord;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessExecution;
+import com.tonghui.erp.Data.Entity.WorkOrderProcessExecutionParticipant;
+import com.tonghui.erp.Data.Entity.WorkOrderProcessPlan;
+import com.tonghui.erp.Data.Entity.WorkOrderProcessPlanBatch;
+import com.tonghui.erp.Data.mapper.PerformanceRecordMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessExecutionMapper;
+import com.tonghui.erp.Data.mapper.WorkOrderProcessExecutionParticipantMapper;
+import com.tonghui.erp.Data.mapper.WorkOrderProcessPlanBatchMapper;
+import com.tonghui.erp.Data.mapper.WorkOrderProcessPlanMapper;
+import com.tonghui.erp.Service.PerformanceGenerationService;
 import com.tonghui.erp.Service.WorkOrderProcessExecutionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
 
+import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -31,11 +47,29 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
     // 依赖注入
     // ===================================
 
-    /**
-     * 设备使用冲突校验器
-     */
+    /** 设备使用冲突校验器 */
     @Autowired
     private EquipmentUsageConflictValidator equipmentUsageConflictValidator;
+
+    /** 实际参与人 Mapper */
+    @Autowired
+    private WorkOrderProcessExecutionParticipantMapper participantMapper;
+
+    /** 排产批次 Mapper */
+    @Autowired
+    private WorkOrderProcessPlanBatchMapper planBatchMapper;
+
+    /** 排产计划 Mapper */
+    @Autowired
+    private WorkOrderProcessPlanMapper planMapper;
+
+    /** 绩效记录 Mapper */
+    @Autowired
+    private PerformanceRecordMapper performanceRecordMapper;
+
+    /** 绩效生成服务 */
+    @Autowired
+    private PerformanceGenerationService performanceGenerationService;
 
     // endregion
 
@@ -45,49 +79,143 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
     // ===================================
 
     /**
-     * 根据工单ID查询工序执行记录
-     * <p>
-     * 查询结果中的状态按开始/结束时间重新推导，覆盖历史数据中未回写的状态值，
-     * 保证页面与设备使用记录、审核放行的状态口径一致。
-     * </p>
+     * 根据工单ID查询工序执行记录（含实际参与人）
      *
      * @param workOrderId 工单ID
-     * @return 工序执行记录列表（按工序顺序排序）
+     * @return 工序执行记录列表
      */
     @Override
     public List<WorkOrderProcessExecution> getByWorkOrderId(Long workOrderId) {
         List<WorkOrderProcessExecution> executions = baseMapper.selectByWorkOrderIdWithDetails(workOrderId);
         executions.forEach(execution -> execution.setStatus(ProcessExecutionStatus.resolve(
                 execution.getStartTime(), execution.getEndTime())));
+        loadParticipants(executions);
+        enrichPlanInfo(executions);
+        enrichPerformanceCount(executions);
         return executions;
+    }
+
+    /**
+     * 查询已完工（锁定）的工序执行记录
+     *
+     * @param from        完工日期起（可选）
+     * @param to          完工日期止（可选）
+     * @param workOrderId 工单ID（可选）
+     * @return 已完工记录列表（含参与人、计划信息与生成绩效数）
+     */
+    @Override
+    public List<WorkOrderProcessExecution> listCompleted(LocalDate from, LocalDate to, Long workOrderId) {
+        LocalDateTime fromTime = from == null ? null : from.atStartOfDay();
+        LocalDateTime toTime = to == null ? null : to.plusDays(1).atStartOfDay();
+        List<WorkOrderProcessExecution> executions =
+                baseMapper.selectCompletedWithDetails(workOrderId, fromTime, toTime);
+        if (CollectionUtils.isEmpty(executions)) {
+            return executions;
+        }
+        loadParticipants(executions);
+        enrichPlanInfo(executions);
+        enrichPerformanceCount(executions);
+        return executions;
+    }
+
+    /**
+     * 批量加载实际参与人
+     *
+     * @param executions 执行记录列表
+     */
+    private void loadParticipants(List<WorkOrderProcessExecution> executions) {
+        if (CollectionUtils.isEmpty(executions)) {
+            return;
+        }
+        List<Long> ids = executions.stream().map(WorkOrderProcessExecution::getId).toList();
+        Map<Long, List<WorkOrderProcessExecutionParticipant>> map =
+                participantMapper.selectByExecutionIdsWithPersonnel(ids).stream()
+                        .collect(Collectors.groupingBy(WorkOrderProcessExecutionParticipant::getExecutionId));
+        executions.forEach(e -> e.setParticipants(map.getOrDefault(e.getId(), List.of())));
+    }
+
+    /**
+     * 填充执行记录关联的排产计划与批次信息
+     * <p>批次优先；未拆批次时回退到工序计划</p>
+     *
+     * @param executions 执行记录列表
+     */
+    private void enrichPlanInfo(List<WorkOrderProcessExecution> executions) {
+        if (CollectionUtils.isEmpty(executions)) {
+            return;
+        }
+        Set<Long> planIds = executions.stream().map(WorkOrderProcessExecution::getPlanId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<Long> batchIds = executions.stream().map(WorkOrderProcessExecution::getPlanBatchId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<Long, WorkOrderProcessPlan> plans = planIds.isEmpty() ? Map.of()
+                : planMapper.selectBatchIds(planIds).stream()
+                .collect(Collectors.toMap(WorkOrderProcessPlan::getId, e -> e, (a, b) -> a));
+        Map<Long, WorkOrderProcessPlanBatch> batches = batchIds.isEmpty() ? Map.of()
+                : planBatchMapper.selectBatchIds(batchIds).stream()
+                .collect(Collectors.toMap(WorkOrderProcessPlanBatch::getId, e -> e, (a, b) -> a));
+        for (WorkOrderProcessExecution execution : executions) {
+            WorkOrderProcessPlan plan = execution.getPlanId() == null ? null : plans.get(execution.getPlanId());
+            WorkOrderProcessPlanBatch batch = execution.getPlanBatchId() == null
+                    ? null : batches.get(execution.getPlanBatchId());
+            if (batch != null) {
+                execution.setPlanBatchName(batch.getBatchName());
+                execution.setPlanStartTime(batch.getPlanStartTime() != null
+                        ? batch.getPlanStartTime() : plan == null ? null : plan.getPlanStartTime());
+                execution.setPlanEndTime(batch.getPlanEndTime() != null
+                        ? batch.getPlanEndTime() : plan == null ? null : plan.getPlanEndTime());
+                execution.setPlanDurationMinutes(batch.getPlanDurationMinutes() != null
+                        ? batch.getPlanDurationMinutes() : plan == null ? null : plan.getPlanDurationMinutes());
+                execution.setPlanQty(batch.getPlanQty() != null
+                        ? batch.getPlanQty() : plan == null ? null : plan.getPlanQty());
+            } else if (plan != null) {
+                execution.setPlanStartTime(plan.getPlanStartTime());
+                execution.setPlanEndTime(plan.getPlanEndTime());
+                execution.setPlanDurationMinutes(plan.getPlanDurationMinutes());
+                execution.setPlanQty(plan.getPlanQty());
+            }
+        }
+    }
+
+    /**
+     * 统计每条执行记录已生成的绩效记录数
+     *
+     * @param executions 执行记录列表
+     */
+    private void enrichPerformanceCount(List<WorkOrderProcessExecution> executions) {
+        if (CollectionUtils.isEmpty(executions)) {
+            return;
+        }
+        List<Long> ids = executions.stream().map(WorkOrderProcessExecution::getId).toList();
+        List<Map<String, Object>> rows = performanceRecordMapper.selectMaps(
+                new QueryWrapper<PerformanceRecord>()
+                        .select("execution_id", "COUNT(*) AS cnt")
+                        .in("execution_id", ids)
+                        .eq("record_status", 1)
+                        .groupBy("execution_id"));
+        Map<Long, Integer> counts = new HashMap<>();
+        for (Map<String, Object> row : rows) {
+            Object executionId = row.get("execution_id");
+            Object cnt = row.get("cnt");
+            if (executionId != null && cnt != null) {
+                counts.put(((Number) executionId).longValue(), ((Number) cnt).intValue());
+            }
+        }
+        executions.forEach(e -> e.setPerformanceRecordCount(counts.getOrDefault(e.getId(), 0)));
     }
 
     // endregion
 
-    // region 批量操作
+    // region 批量保存
     // ===================================
-    // 批量操作
+    // 批量保存
     // ===================================
 
     /**
-     * 批量保存工序执行记录
-     * <p>
-     * 使用事务保证数据一致性。为支持按行关联（如按行附件 file_info.business_id = 执行记录id），
-     * 采用原地更新保留ID的策略：入参中携带 id 且属于该工单的已有行执行更新（ID不变），
-     * 无 id 的行新增，数据库中未被入参覆盖的既有行被删除。
-     * </p>
-     * <p>
-     * 保存前先做设备使用校验（设备状态、使用时间冲突、维保日期冲突），
-     * 校验使用 READ_COMMITTED 隔离级别，配合设备行锁保证并发场景下的正确性。
-     * </p>
-     * <p>
-     * 工序状态统一由开始/结束时间推导并落库（开始+结束=已完成，仅开始=执行中，均无=待执行），
-     * 前端传入的 status 不生效。
-     * </p>
+     * 批量保存工序执行记录与实际参与人
      *
      * @param workOrderId 工单ID
-     * @param executions  工序执行记录列表（已有行须携带原 id，可为null或空列表将清空所有记录）
-     * @throws IllegalArgumentException 设备使用校验不通过
+     * @param executions  工序执行记录列表
      */
     @Override
     @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
@@ -95,7 +223,7 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
         // 1. 设备使用冲突校验（必须在任何写库操作之前）
         equipmentUsageConflictValidator.validate(workOrderId, executions);
 
-        // 2. 查询该工单现有记录（用于保留ID与计算被移除行）
+        // 2. 查询该工单现有记录（用于保留ID、锁定校验与计算被移除行）
         Map<Long, WorkOrderProcessExecution> existingMap = this.baseMapper.selectList(
                         new QueryWrapper<WorkOrderProcessExecution>().eq("work_order_id", workOrderId))
                 .stream()
@@ -107,45 +235,209 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
             for (WorkOrderProcessExecution execution : executions) {
                 execution.setWorkOrderId(workOrderId);
                 execution.setIsDeleted(0);
-                // 状态统一由时间推导，忽略前端传值：开始+结束=已完成，仅开始=执行中，均无=待执行
                 execution.setStatus(ProcessExecutionStatus.resolve(
                         execution.getStartTime(), execution.getEndTime()));
-                // 已有行：按 ID 原地更新，保留 id（按行附件可继续定位）
                 if (execution.getId() != null && existingMap.containsKey(execution.getId())) {
+                    WorkOrderProcessExecution old = existingMap.get(execution.getId());
+                    if (Integer.valueOf(1).equals(old.getLocked())) {
+                        throw new IllegalArgumentException("工序【" + old.getStepOrder() + "】已完工锁定，不能修改");
+                    }
                     incomingIds.add(execution.getId());
                     this.updateById(execution);
-                    // MyBatis-Plus 更新默认忽略 null 字段，需显式清空"房间/设备/开始/结束时间"，
-                    // 否则用户取消设备或清空时间后旧值会残留，导致错误的设备占用
+                    // 显式清空可能为空的字段，避免 MyBatis-Plus 忽略 null
                     this.lambdaUpdate()
                             .eq(WorkOrderProcessExecution::getId, execution.getId())
+                            .set(WorkOrderProcessExecution::getPlanId, execution.getPlanId())
+                            .set(WorkOrderProcessExecution::getPlanBatchId, execution.getPlanBatchId())
+                            .set(WorkOrderProcessExecution::getBatchNo, execution.getBatchNo())
+                            .set(WorkOrderProcessExecution::getTeamId, execution.getTeamId())
                             .set(WorkOrderProcessExecution::getRoomId, execution.getRoomId())
                             .set(WorkOrderProcessExecution::getEquipmentId, execution.getEquipmentId())
                             .set(WorkOrderProcessExecution::getStartTime, execution.getStartTime())
                             .set(WorkOrderProcessExecution::getEndTime, execution.getEndTime())
                             .update();
+                    saveParticipants(execution);
                 } else {
-                    // 新增行：清空 ID 交由自增生成
                     execution.setId(null);
                     execution.setVersion(1);
+                    execution.setLocked(0);
+                    execution.setCompletedTime(null);
                     toInsert.add(execution);
                 }
             }
-            if (!toInsert.isEmpty()) {
-                // 逐条写入，保证数据变更日志能记录每一行新增
-                for (WorkOrderProcessExecution execution : toInsert) {
-                    this.save(execution);
-                }
+            for (WorkOrderProcessExecution execution : toInsert) {
+                this.save(execution);
+                saveParticipants(execution);
             }
         }
 
-        // 被移除的既有行物理删除（入参中不存在的行）
+        // 3. 被移除的既有行：已锁定的不允许删除，其余物理删除
         List<Long> removedIds = existingMap.keySet().stream()
                 .filter(id -> !incomingIds.contains(id))
-                .collect(Collectors.toList());
+                .toList();
         for (Long removedId : removedIds) {
-            // 逐行删除并记录变更历史
+            WorkOrderProcessExecution old = existingMap.get(removedId);
+            if (Integer.valueOf(1).equals(old.getLocked())) {
+                throw new IllegalArgumentException("工序【" + old.getStepOrder() + "】已完工锁定，不能删除");
+            }
+            participantMapper.physicalDeleteByExecutionId(removedId);
             baseMapper.physicalDeleteById(removedId);
         }
+    }
+
+    // endregion
+
+    // region 完工
+    // ===================================
+    // 完工
+    // ===================================
+
+    /**
+     * 工序/批次完工：锁定执行记录并生成个人绩效
+     *
+     * @param executionId 工序执行记录ID
+     * @return 完工后的执行记录
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public WorkOrderProcessExecution complete(Long executionId) {
+        WorkOrderProcessExecution execution = this.getById(executionId);
+        if (execution == null) {
+            throw new IllegalArgumentException("工序执行记录不存在");
+        }
+        if (Integer.valueOf(1).equals(execution.getLocked())) {
+            throw new IllegalArgumentException("该工序已完工锁定");
+        }
+        if (execution.getStartTime() == null) {
+            throw new IllegalArgumentException("请先填写实际开始时间");
+        }
+        LocalDateTime end = execution.getEndTime() != null ? execution.getEndTime() : LocalDateTime.now();
+        if (!end.isAfter(execution.getStartTime())) {
+            end = execution.getStartTime().plusMinutes(1);
+        }
+        execution.setEndTime(end);
+        execution.setStatus(ProcessExecutionStatus.COMPLETED);
+        execution.setLocked(1);
+        execution.setCompletedTime(end);
+        this.updateById(execution);
+        this.lambdaUpdate()
+                .eq(WorkOrderProcessExecution::getId, executionId)
+                .set(WorkOrderProcessExecution::getEndTime, end)
+                .set(WorkOrderProcessExecution::getStatus, ProcessExecutionStatus.COMPLETED)
+                .set(WorkOrderProcessExecution::getLocked, 1)
+                .set(WorkOrderProcessExecution::getCompletedTime, end)
+                .update();
+        ensurePrimaryParticipant(execution);
+        long participantCount = participantMapper.selectCount(
+                new QueryWrapper<WorkOrderProcessExecutionParticipant>().eq("execution_id", executionId));
+        if (participantCount == 0) {
+            throw new IllegalArgumentException("未登记参与人，无法生成绩效；请先登记参与人");
+        }
+        performanceGenerationService.generateForExecution(executionId);
+        if (execution.getPlanBatchId() != null) {
+            WorkOrderProcessPlanBatch batch = planBatchMapper.selectById(execution.getPlanBatchId());
+            if (batch != null) {
+                batch.setStatus("已完工");
+                planBatchMapper.updateById(batch);
+            }
+        }
+        execution.setParticipants(participantMapper.selectByExecutionIdsWithPersonnel(List.of(executionId)));
+        return execution;
+    }
+
+    /**
+     * 没有显式参与人时，按主操作人补一条参与人记录
+     */
+    private void ensurePrimaryParticipant(WorkOrderProcessExecution execution) {
+        if (execution.getOperatorId() == null) {
+            return;
+        }
+        long count = participantMapper.selectCount(
+                new QueryWrapper<WorkOrderProcessExecutionParticipant>()
+                        .eq("execution_id", execution.getId()));
+        if (count > 0) {
+            return;
+        }
+        WorkOrderProcessExecutionParticipant participant = new WorkOrderProcessExecutionParticipant();
+        participant.setExecutionId(execution.getId());
+        participant.setPersonnelId(execution.getOperatorId());
+        participant.setWorkHours(durationHours(execution.getStartTime(), execution.getEndTime()));
+        participant.setCompletedQty(execution.getProcessQty());
+        participant.setIsPrimary(1);
+        participant.setIsDeleted(0);
+        participant.setVersion(0);
+        participantMapper.insert(participant);
+    }
+
+    // endregion
+
+    // region 参与人
+    // ===================================
+    // 参与人
+    // ===================================
+
+    /**
+     * 保存执行记录的参与人（显式传入时全量覆盖）
+     *
+     * @param execution 执行记录
+     */
+    private void saveParticipants(WorkOrderProcessExecution execution) {
+        List<WorkOrderProcessExecutionParticipant> participants = execution.getParticipants();
+        if (participants == null) {
+            ensurePrimaryParticipant(execution);
+            return;
+        }
+        if (participants.isEmpty()) {
+            participantMapper.physicalDeleteByExecutionId(execution.getId());
+            return;
+        }
+        Set<Long> personnelIds = new HashSet<>();
+        BigDecimal qtySum = BigDecimal.ZERO;
+        boolean allQtyPresent = true;
+        for (WorkOrderProcessExecutionParticipant participant : participants) {
+            if (participant.getPersonnelId() == null) {
+                throw new IllegalArgumentException("参与人必须关联人员档案");
+            }
+            if (!personnelIds.add(participant.getPersonnelId())) {
+                throw new IllegalArgumentException("参与人不能重复");
+            }
+            if (participant.getWorkHours() == null || participant.getWorkHours().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("参与人工作时间必须大于 0");
+            }
+            if (participant.getCompletedQty() == null) {
+                allQtyPresent = false;
+            } else {
+                if (participant.getCompletedQty().compareTo(BigDecimal.ZERO) < 0) {
+                    throw new IllegalArgumentException("参与人完成数量不能为负");
+                }
+                qtySum = qtySum.add(participant.getCompletedQty());
+            }
+        }
+        if (execution.getProcessQty() != null) {
+            if (!allQtyPresent) {
+                throw new IllegalArgumentException("请填写每位参与人的完成数量");
+            }
+            if (qtySum.compareTo(execution.getProcessQty()) != 0) {
+                throw new IllegalArgumentException("参与人完成数量合计 " + qtySum
+                        + " 必须等于实际数量 " + execution.getProcessQty());
+            }
+        }
+        participantMapper.physicalDeleteByExecutionId(execution.getId());
+        for (WorkOrderProcessExecutionParticipant participant : participants) {
+            participant.setId(null);
+            participant.setExecutionId(execution.getId());
+            participant.setIsDeleted(0);
+            participant.setVersion(0);
+            participantMapper.insert(participant);
+        }
+    }
+
+    private BigDecimal durationHours(LocalDateTime start, LocalDateTime end) {
+        if (start == null || end == null) {
+            return BigDecimal.ZERO;
+        }
+        long minutes = Duration.between(start, end).toMinutes();
+        return BigDecimal.valueOf(minutes).divide(BigDecimal.valueOf(60), 2, java.math.RoundingMode.HALF_UP);
     }
 
     // endregion

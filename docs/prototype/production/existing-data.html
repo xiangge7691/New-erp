@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>生产任务工序 · 现有数据展示</title>
+<style>
+:root{
+  --primary:#2f6fed; --primary-weak:#eaf1ff;
+  --green:#079455; --green-weak:#e7f6ee;
+  --amber:#dc6803; --amber-weak:#fef4e6;
+  --red:#d92d20; --red-weak:#fdeceb;
+  --text:#182230; --muted:#667085; --soft:#98a2b3;
+  --line:#e4e7ec; --line2:#eef1f5; --bg:#f5f7fb; --card:#fff;
+  --shadow:0 1px 2px rgba(16,24,40,.04),0 12px 30px rgba(16,24,40,.06);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:radial-gradient(1100px 520px at 80% -10%,#e8efff 0%,transparent 55%),var(--bg);
+  color:var(--text);font:13px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1280px;margin:0 auto;padding:32px 24px 64px}
+.brand{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.mark{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#2f6fed,#6d9bff);color:#fff;display:grid;place-items:center;font-weight:800;font-size:17px}
+.brand b{display:block;font-size:14px}
+.brand span{display:block;color:var(--soft);font-size:11.5px;margin-top:-1px}
+h1{margin:0;font-size:28px;letter-spacing:-.6px}
+.lead{margin:8px 0 0;color:var(--muted);max-width:900px}
+.badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.badge{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:13px;background:#fff;border:1px solid var(--line);font-size:11.5px;color:#475467}
+.badge i{width:6px;height:6px;border-radius:50%;background:var(--primary)}
+.badge.g i{background:var(--green)}.badge.a i{background:var(--amber)}.badge.r i{background:var(--red)}
+.banner{display:flex;gap:10px;align-items:flex-start;background:#fffbf5;border:1px solid #f5e2c4;border-radius:10px;padding:11px 14px;font-size:12px;color:#7a4a08;margin:20px 0 16px}
+.banner b{color:#b54708}
+.nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.nav a{font-size:12px;color:var(--primary);text-decoration:none;background:#fff;border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+.nav a:hover{border-color:#c9d9f8}
+.stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:18px 0}
+.stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow)}
+.stat .k{font-size:11.5px;color:var(--muted)}
+.stat .v{font-size:24px;font-weight:750;letter-spacing:-.5px;margin-top:4px}
+.stat .v small{font-size:12px;font-weight:600;color:var(--muted)}
+.stat .s{font-size:11px;color:var(--soft);margin-top:2px}
+.stat.bad .v{color:var(--red)}.stat.warn .v{color:var(--amber)}.stat.ok .v{color:var(--green)}
+.section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:24px 0 10px}
+.section-head h2{margin:0;font-size:17px}
+.section-head p{margin:3px 0 0;color:var(--muted);font-size:12px}
+.task-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.task{background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px 14px;box-shadow:var(--shadow);cursor:pointer;transition:.15s}
+.task:hover{border-color:#c9d9f8;transform:translateY(-1px)}
+.task.active{border-color:var(--primary);box-shadow:0 0 0 3px rgba(47,111,237,.10),var(--shadow)}
+.task .top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.task .code{font:11px ui-monospace,Menlo,Consolas,monospace;color:var(--soft)}
+.task h3{margin:3px 0 0;font-size:13.5px}
+.task .meta{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.6}
+.task .foot{display:flex;justify-content:space-between;gap:8px;margin-top:9px;padding-top:8px;border-top:1px dashed var(--line2);font-size:11px;color:var(--soft)}
+.task .foot b{color:var(--muted)}
+.pill{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:11px;font-size:11px;font-weight:600;white-space:nowrap}
+.pill::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor}
+.pill.green{background:var(--green-weak);color:var(--green)}
+.pill.blue{background:var(--primary-weak);color:var(--primary)}
+.pill.gray{background:#f2f4f7;color:#667085}
+.pill.amber{background:var(--amber-weak);color:var(--amber)}
+.pill.red{background:var(--red-weak);color:var(--red)}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);margin-top:16px;overflow:hidden}
+.card-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:16px 18px;border-bottom:1px solid var(--line2)}
+.card-head h3{margin:0;font-size:14px}
+.card-head p{margin:3px 0 0;color:var(--muted);font-size:11.5px}
+.card-head .tags{display:flex;gap:6px;flex-wrap:wrap}
+.table-wrap{overflow:auto}
+table{width:100%;border-collapse:collapse;min-width:1120px}
+th{text-align:left;font-size:11px;color:var(--soft);font-weight:600;letter-spacing:.3px;padding:10px 12px;background:#fbfcfe;border-bottom:1px solid var(--line2);white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid var(--line2);vertical-align:middle;font-size:12px}
+tbody tr:hover{background:#fafbff}
+tbody tr:last-child td{border-bottom:0}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px}
+.sub{color:var(--muted);font-size:11px}
+.tag{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:6px;background:#f2f4f7;color:#475467;font-size:10.5px;white-space:nowrap;margin:1px 2px 1px 0}
+.tag.red{background:var(--red-weak);color:var(--red)}
+.tag.amber{background:var(--amber-weak);color:#b54708}
+.tag.blue{background:var(--primary-weak);color:var(--primary)}
+.tag.green{background:var(--green-weak);color:var(--green)}
+.two-col{display:grid;grid-template-columns:1.15fr 1fr;gap:16px}
+@media (max-width:1180px){.stats{grid-template-columns:repeat(2,1fr)}.task-grid{grid-template-columns:repeat(2,1fr)}.two-col{grid-template-columns:1fr}}
+@media (max-width:760px){.wrap{padding:20px 14px 48px}.task-grid{grid-template-columns:1fr}}
+.gantt{padding:12px 16px 16px}
+.gantt-axis{display:flex;margin-left:176px;height:26px;position:relative;border-bottom:1px solid var(--line2);margin-bottom:6px}
+.gantt-axis span{position:absolute;top:4px;transform:translateX(-50%);font-size:10px;color:var(--soft);white-space:nowrap}
+.grow{display:flex;align-items:stretch;min-height:28px;border-bottom:1px solid var(--line2)}
+.grow:last-child{border-bottom:0}
+.glabel{width:176px;flex:0 0 176px;padding:5px 10px 5px 0;font-size:11.5px;display:flex;align-items:center;gap:6px;overflow:hidden}
+.glabel b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.glabel span{color:var(--soft);font-size:10px;flex:none}
+.gtrack{flex:1;position:relative;min-height:26px;background-image:repeating-linear-gradient(to right,transparent 0,transparent calc(25% - 1px),#f2f4f8 calc(25% - 1px),#f2f4f8 25%)}
+.gbar{position:absolute;top:4px;height:18px;border-radius:5px;background:#2f6fed;color:#fff;font-size:9.5px;display:flex;align-items:center;padding:0 5px;white-space:nowrap;overflow:hidden;min-width:3px;box-shadow:0 1px 2px rgba(16,24,40,.15)}
+.gbar.done{background:#079455}.gbar.run{background:#2f6fed}.gbar.none{background:#98a2b3}
+.legend{display:flex;gap:14px;flex-wrap:wrap;padding:10px 16px 0;font-size:11px;color:var(--muted)}
+.dot{width:9px;height:9px;border-radius:3px;display:inline-block;margin-right:4px;vertical-align:-1px}
+.health{padding:6px 16px 14px}
+.hitem{display:flex;gap:10px;padding:9px 0;border-bottom:1px dashed var(--line2)}
+.hitem:last-child{border-bottom:0}
+.hicon{width:20px;height:20px;border-radius:6px;display:grid;place-items:center;font-size:11px;font-weight:800;flex:none;margin-top:1px}
+.hicon.red{background:var(--red-weak);color:var(--red)}
+.hicon.amber{background:var(--amber-weak);color:var(--amber)}
+.hicon.gray{background:#f2f4f7;color:#667085}
+.hicon.green{background:var(--green-weak);color:var(--green)}
+.hitem b{font-size:12px}
+.hitem p{margin:2px 0 0;font-size:11px;color:var(--muted);line-height:1.55}
+.hitem .num{font-weight:700;color:var(--text)}
+.fields th,.fields td{white-space:normal}
+.fields td:first-child{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;color:#344054;width:260px}
+.empty{padding:40px 20px;text-align:center;color:var(--soft)}
+.empty b{display:block;color:var(--muted);margin-bottom:4px}
+footer{margin-top:26px;color:var(--soft);font-size:11px;line-height:1.8}
+footer b{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <div class="mark">现</div>
+    <div><b>生产管理 · 现有数据展示</b><span>work_order / work_order_process_execution / preparation_process_template</span></div>
+  </div>
+  <h1>生产任务工序 · 现有数据</h1>
+  <p class="lead">直接读取测试库现有数据：任务、工序执行、工序模板三类记录。页面只展示现有字段能表达的内容，并把缺失的排产、班组、批次与绩效字段单独标出来。</p>
+  <div class="badges">
+    <span class="badge g"><i></i><span id="bOrders">8</span> 个工单</span>
+    <span class="badge"><i></i><span id="bExecs">88</span> 条工序执行</span>
+    <span class="badge a"><i></i>标准工时未维护</span>
+    <span class="badge r"><i></i>计划起止字段缺失</span>
+    <span class="badge r"><i></i>人员未关联档案</span>
+  </div>
+  <div class="nav">
+    <a href="scheduling.html">查看目标态排产原型</a>
+    <a href="actual-record.html">查看目标态实际记录</a>
+    <a href="performance.html">查看目标态人员绩效</a>
+    <a href="index.html">原型入口</a>
+  </div>
+
+  <div class="banner"><span>⚠</span><div><b>数据口径：</b>现有 <code>work_order_process_execution</code> 的 <code>start_time/end_time</code> 是实际执行时间，不是计划时间；<code>preparation_process_template</code> 的标准工时和标准数量全部为空。因此本页展示的是“实际执行台账”，不能直接当作排产计划。</div></div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="section-head">
+    <div><h2>生产任务</h2><p>点击切换任务；状态、批号、数量来自 <code>work_order</code>。</p></div>
+    <span class="sub">按工单 ID 倒序</span>
+  </div>
+  <div class="task-grid" id="taskGrid"></div>
+
+  <div class="card">
+    <div class="card-head">
+      <div><h3 id="taskTitle">生产任务</h3><p id="taskSub"></p></div>
+      <div class="tags" id="taskTags"></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th style="width:42px">#</th><th>工序</th><th>标准工时</th><th>计划数量</th>
+          <th>实际起止</th><th>实际用时</th><th>操作人</th><th>房间</th><th>设备</th>
+          <th>加工数量</th><th>状态</th><th>数据标记</th>
+        </tr></thead>
+        <tbody id="procTbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="card-head"><div><h3>实际时间轴</h3><p>按工序执行的实际起止绘制；没有计划时间，所以不是排产甘特图。</p></div></div>
+      <div class="gantt" id="gantt"></div>
+      <div class="legend">
+        <span><i class="dot" style="background:#079455"></i>有开始和结束（已完成）</span>
+        <span><i class="dot" style="background:#2f6fed"></i>只有开始（执行中）</span>
+        <span><i class="dot" style="background:#98a2b3"></i>无时间</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div><h3>数据健康检查</h3><p>按真实数据统计，决定排产和绩效能不能直接做。</p></div></div>
+      <div class="health" id="health"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div><h3>字段对照：现有字段能展示什么</h3><p>目标态原型里的排产、班组、批次、绩效字段，在当前库中不存在。</p></div></div>
+    <div class="table-wrap">
+      <table class="fields">
+        <thead><tr><th>现有字段 / 表</th><th>现在能展示</th><th>缺口与影响</th></tr></thead>
+        <tbody>
+          <tr><td>work_order.current_status<br>config_date / config_complete_time</td><td>任务状态、生产开始与完成日期</td><td>没有“任务计划开始时间”，排产缺少顺排起点</td></tr>
+          <tr><td>work_order_process_execution.start_time / end_time</td><td>实际起止、实际用时</td><td>被状态推导当作实际值；没有独立的计划起止字段，写入未来计划会把工序误判为已完成</td></tr>
+          <tr><td>work_order_process_execution.step_order</td><td>工序顺序</td><td>没有唯一约束；现有 2 个工单第 9 步各重复 1 行，排产按 step 唯一建表会冲突</td></tr>
+          <tr><td>preparation_process_template.standard_duration / standard_qty</td><td>字段存在，可展示标准工时与标准数量</td><td>131 条模板中 0 条有值，无法按标准时长自动顺排</td></tr>
+          <tr><td>process_qty</td><td>实际加工数量</td><td>语义是实际数量；没有工序/批次的计划数量字段</td></tr>
+          <tr><td>operator_name / operator_id</td><td>操作人姓名</td><td>98 条执行记录 operator_id 全部为空，无法关联人员档案，无法按人生成绩效</td></tr>
+          <tr><td>room_id / equipment_id</td><td>实际使用的房间与设备</td><td>现有校验只覆盖设备时间冲突，没有房间冲突、班次冲突、工序顺序校验</td></tr>
+          <tr><td>无班组 / 班次表</td><td>—</td><td>无法做班组视图、班次校验，也无法表达“一个班组同时看多台设备”</td></tr>
+          <tr><td>无批次表</td><td>—</td><td>一道工序只能落一条执行记录，无法拆多个生产批次</td></tr>
+          <tr><td>production_process_record</td><td>字段可展示计划级工序记录</td><td>当前 0 行；与工单级执行记录并存，不能作为绩效的唯一数据源</td></tr>
+          <tr><td>无绩效 / 系数版本表</td><td>—</td><td>绩效工时、个人工作时间、工序/人员系数、版本快照都没有落点</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer>
+    <b>数据来源：</b><span id="source"></span>。快照时间 <span id="snapshot"></span>。<br/>
+    本页只读，不写数据库；演示数据来自测试库 192.168.5.100，未使用线上库 8.148.27.237。
+  </footer>
+</div>
+
+<script>
+const DATA = {"meta":{"source":"192.168.5.100 / erp_db","snapshot":"2026-11-16","tables":["work_order","work_order_process_execution","preparation_process_template","process_type","room_info","equipment"]},"workOrders":[{"work_order_id":470,"work_order_code":"GD202611110001","work_order_name":"益肺平喘丸7001盒","preparation_id":244,"preparation_code":"Z04-012","preparation_name":"益肺平喘丸","batch_qty":"7001.000","batch_number":"20261111","plan_id":317,"current_status":"已放行","config_date":"2026-11-11 00:00:00","config_complete_time":"2026-11-13 00:00:00","created_time":"2026-11-11 09:14:29"},{"work_order_id":469,"work_order_code":"GD202611090001","work_order_name":"强筋壮骨丸3500盒","preparation_id":242,"preparation_code":"Z04-010","preparation_name":"强筋壮骨丸","batch_qty":"3500.000","batch_number":"261101","plan_id":315,"current_status":"生产中","config_date":"2026-11-13 00:00:00","config_complete_time":null,"created_time":"2026-11-09 10:15:11"},{"work_order_id":468,"work_order_code":"GD202611040001","work_order_name":"活血通络丸7000盒","preparation_id":241,"preparation_code":"Z04-009","preparation_name":"活血通络丸","batch_qty":"7000.000","batch_number":"261003","plan_id":314,"current_status":"生产中","config_date":"2026-10-27 00:00:00","config_complete_time":null,"created_time":"2026-11-04 08:25:27"},{"work_order_id":467,"work_order_code":"GD202610200005","work_order_name":"桂附潜阳丸7000盒","preparation_id":238,"preparation_code":"Z04-006","preparation_name":"桂附潜阳丸","batch_qty":"7000.000","batch_number":"261002","plan_id":313,"current_status":"生产中","config_date":"2026-10-20 00:00:00","config_complete_time":null,"created_time":"2026-10-20 13:39:09"},{"work_order_id":466,"work_order_code":"GD202610200004","work_order_name":"益肺平喘丸7000盒","preparation_id":244,"preparation_code":"Z04-012","preparation_name":"益肺平喘丸","batch_qty":"7000.000","batch_number":"261001","plan_id":310,"current_status":"已入库","config_date":"2026-10-14 00:00:00","config_complete_time":"2026-10-20 00:00:00","created_time":"2026-10-20 13:34:48"},{"work_order_id":465,"work_order_code":"GD202610200003","work_order_name":"护肾排毒丸3500盒","preparation_id":239,"preparation_code":"Z04-007","preparation_name":"护肾排毒丸","batch_qty":"3500.000","batch_number":"260901","plan_id":308,"current_status":"已入库","config_date":"2026-09-22 00:00:00","config_complete_time":"2026-09-30 00:00:00","created_time":"2026-10-20 10:19:16"},{"work_order_id":463,"work_order_code":"GD202610200001","work_order_name":"疏肝养胃丸7000盒","preparation_id":243,"preparation_code":"Z04-011","preparation_name":"疏肝养胃丸","batch_qty":"7000.000","batch_number":"260901","plan_id":306,"current_status":"已入库","config_date":"2026-09-16 00:00:00","config_complete_time":"2026-09-24 00:00:00","created_time":"2026-10-20 08:05:47"},{"work_order_id":462,"work_order_code":"GD202610190001","work_order_name":"活血通络丸7000盒","preparation_id":241,"preparation_code":"Z04-009","preparation_name":"活血通络丸","batch_qty":"7000.000","batch_number":"260901","plan_id":307,"current_status":"已入库","config_date":"2026-09-08 00:00:00","config_complete_time":"2026-09-15 17:21:00","created_time":"2026-10-19 15:20:49"}],"executions":[{"id":386,"work_order_id":462,"step_order":1,"process_name":"干燥饮片","room_name":"干燥粉碎间","equipment_name":"热风循环烘箱","operator_id":null,"operator_name":"廖晟璋","start_time":"2026-09-08 09:12:00","end_time":"2026-09-08 20:00:00","process_qty":"220.660","status":"待执行"},{"id":387,"work_order_id":462,"step_order":2,"process_name":"粉碎","room_name":"干燥粉碎间","equipment_name":"卧式超细粉碎机组","operator_id":null,"operator_name":"廖晟璋","start_time":"2026-09-08 15:10:00","end_time":"2026-09-09 15:30:00","process_qty":"212.040","status":"待执行"},{"id":388,"work_order_id":462,"step_order":3,"process_name":"灭菌","room_name":"灭菌间","equipment_name":"卧式矩形压力蒸汽灭菌器","operator_id":null,"operator_name":"陈曜辉","start_time":"2026-09-10 08:51:00","end_time":"2026-09-10 15:46:00","process_qty":"209.780","status":"待执行"},{"id":389,"work_order_id":462,"step_order":4,"process_name":"炼蜜","room_name":"和料间","equipment_name":"可倾式夹层锅","operator_id":null,"operator_name":"谭秀凤","start_time":"2026-09-11 08:08:00","end_time":"2026-09-11 08:28:00","process_qty":"68.000","status":"待执行"},{"id":390,"work_order_id":462,"step_order":5,"process_name":"混合","room_name":"和料间","equipment_name":"槽形混合机","operator_id":null,"operator_name":"谭秀凤","start_time":"2026-09-11 08:41:00","end_time":"2026-09-12 10:26:00","process_qty":"209.780","status":"待执行"},{"id":391,"work_order_id":462,"step_order":7,"process_name":"制软材","room_name":"和料间","equipment_name":"高质量炼药机","operator_id":null,"operator_name":"谭秀凤","start_time":"2026-09-11 09:02:00","end_time":"2026-09-12 11:42:00","process_qty":"209.780","status":"待执行"},{"id":392,"work_order_id":462,"step_order":8,"process_name":"制丸","room_name":"制丸间","equipment_name":"全自动速控中药制丸机","operator_id":null,"operator_name":"陈曜辉","start_time":"2026-09-11 09:34:00","end_time":"2026-09-12 14:47:00","process_qty":"209.780","status":"待执行"},{"id":393,"work_order_id":462,"step_order":9,"process_name":"包衣","room_name":"抛光间","equipment_name":"包衣糖衣锅","operator_id":null,"operator_name":"陈曜辉","start_time":"2026-09-11 10:02:00","end_time":"2026-09-12 15:26:00","process_qty":"209.780","status":"待执行"},{"id":394,"work_order_id":462,"step_order":9,"process_name":"干燥（丸）","room_name":"制粒干燥间","equipment_name":"热风循环烘箱","operator_id":null,"operator_name":"陈曜辉","start_time":"2026-09-11 16:02:00","end_time":"2026-09-12 23:30:00","process_qty":"253.120","status":"待执行"},{"id":395,"work_order_id":462,"step_order":10,"process_name":"内包","room_name":"内包间","equipment_name":"自动包装机","operator_id":null,"operator_name":"夏维","start_time":"2026-09-14 09:06:00","end_time":"2026-09-14 18:40:00","process_qty":"253.120","status":"待执行"},{"id":396,"work_order_id":462,"step_order":11,"process_name":"包装","room_name":"外包间","equipment_name":"立式贴标机","operator_id":null,"operator_name":"张力","start_time":"2026-09-14 10:11:00","end_time":"2026-09-15 17:21:00","process_qty":"253.120","status":"待执行"},{"id":397,"work_order_id":463,"step_order":1,"process_name":"干燥饮片","room_name":"干燥粉碎间","equipment_name":"热风循环烘箱","operator_id":null,"operator_name":"廖晟璋","start_time":"2026-09-16 09:24:00","end_time":"2026-09-16 20:00:00","process_qty":"220.590","status":"待执行"},{"id":398,"work_order_id":463,"step_order":2,"process_name":"粉碎","room_name":"干燥粉碎间","equipment_name":"卧式超细粉碎机组","operator_id":null,"operator_name":"廖晟璋","start_time":"2026-09-16 15:14:00","end_time":"2026-09-17 15:29:00","process_qty":"211.030","status":"待执行"},{"id":399,"work_order_id":463,"step_order":3,"process_name":"灭菌","room_name":"灭菌间","equipment_name":"卧式矩形压力蒸汽灭菌器","operator_id":null,"operator_name":"陈曜辉","start_time":"2026-09-18 09:07:00","end_time":"2026-09-18 16:22:00","process_qty":"210.480","status":"待执行"},{"id":400,"work_order_id":463,"step_order":4,"process_name":"炼蜜","room_name":"炼蜜间","equipment_name":"可倾式夹层锅","operator_id":null,"operator_name":"谭秀凤","start_time":"2026-09-21 08:06:00","end_time":"2026-09-21 08:26:00","process_qty":"68.000","status":"待执行"},{"id":401,"work_order_id":463,"step_order":5,"process_name":"混合","room_name":"和料间","equipment_name":"槽形混合机","operator_id":null,"operator_name":"谭秀凤","start_time":"2026-09-21 08:38:00","end_time":"2026-09-22 10:40:00","process_qty":"210.480","status":"待执行"},{"id":402,"work_order_id":463,"step_order":6,"process_name":"制软材","room_name":"和料间","equipment_name":"高质量炼药机","operator_id":null,"operator_name":"谭秀凤","start_time":"2026-09-21 08:59:00","end_time":"2026-09-22 11:45:00","process_qty":"210.480","status":"待执行"},{"id":403,"work_order_id":463,"step_order":7,"process_name":"制丸","room_name":"制丸间","equipment_name":"全自动速控中药制丸机","operator_id":null,"operator_name":"陈曜辉","start_time":"2026-09-21 09:26:00","end_time":"2026-09-22 14:43:00","process_qty":"210.480","status":"待执行"},{"id":404,"work_order_id":463,"step_order":8,"process_name":"包衣","room_name":"抛光间","equipment_name":"包衣糖衣锅","operator_id":null,"operator_name":"陈曜辉","start_time":"2026-09-21 10:03:00","end_time":"2026-09-22 15:26:00","process_qty":"210.480","status":"待执行"},{"id":405,"work_order_id":463,"step_order":9,"process_name":"干燥（丸）","room_name":"制粒干燥间","equipment_name":"热风循环烘箱","operator_id":null,"operator_name":"陈曜辉","start_time":"2026-09-21 16:14:00","end_time":"2026-09-22 23:30:00","process_qty":"253.180","status":"待执行"},{"id":406,"work_order_id":463,"step_order":10,"process_name":"内包","room_name":"内包间","equipment_name":"自动包装机","operator_id":null,"operator_name":"夏维","start_time":"2026-09-23 09:01:00","end_time":"2026-09-23 17:54:00","process_qty":"253.180","status":"待执行"},{"id":407,"work_order_id":463,"step_order":11,"process_name":"包装","room_name":"外包间","equipment_name":"立式贴标机","operator_id":null,"operator_name":"张力","start_time":"2026-09-23 10:19:00","end_time":"2026-09-24 11:21:00","process_qty":"253.180","status":"待执行"},{"id":418,"work_order_id":465,"step_order":1,"process_name":"干燥饮片","room_name":"干燥粉碎间","equipment_name":"热风循环烘箱","operator_id":null,"operator_name":"廖晟璋","start_time":"2026-09-22 09:34:00","end_time":"2026-09-22 14:30:00","process_qty":"114.040","status":"待执行"},{"id":419,"work_order_id":465,"step_order":2,"process_name":"粉碎","room_name":"干燥粉碎间","equipment_name":"卧式超细粉碎机组","operator_id":null,"operator_name":"廖晟璋","start_time":"2026-09-23 09:34:00","end_time":"2026-09-23 14:30:00","process_qty":"109.720","status":"待执行"},{"id":420,"work_order_id":465,"step_order":3,"process_name":"灭菌","room_name":"灭菌间","equipment_name":"卧式矩形压力蒸汽灭菌器","operator_id":null,"operator_name":"廖晟璋","start_time":"2026-09-24 08:41:00","end_time":"2026-09-24 11:29:00","process_qty":"107.630","status":"待执行"},{"id":421,"work_order_id":465,"step_order":4,"process_name":"炼蜜","room_name":"炼蜜间","equipment_name":"可倾式夹层锅","operator_id":null,"operator_name":"谭秀凤","start_time":"2026-09-29 08:09:00","end_time":"2026-09-29 08:29:00","process_qty":"42.000","status":"待执行"},{"id":422,"work_order_id":465,"step_order":5,"process_name":"混合","room_name":"和料间","equipment_name":"槽形混合机","operator_id":null,"operator_name":"谭秀凤","start_time":"2026-09-29 08:45:00","end_time":"2026-09-29 10:43:00","process_qty":"107.630","status":"待执行"},{"id":423,"work_order_id":465,"step_order":6,"process_name":"制软材","room_name":"和料间","equipment_name":"高质量炼药机","operator_id":null,"operator_name":"谭秀凤","start_time":"2026-09-29 09:06:00","end_time":"2026-09-29 11:50:00","process_qty":"107.630","status":"待执行"},{"id":424,"work_order_id":465,"step_order":7,"process_name":"制丸","room_name":"制丸间","equipment_name":"全自动速控中药制丸机","operator_id":null,"operator_name":"陈曜辉","start_time":"2026-09-29 09:46:00","end_time":"2026-09-29 15:12:00","process_qty":"107.630","status":"待执行"},{"id":425,"work_order_id":465,"step_order":8,"process_name":"包衣","room_name":"抛光间","equipment_name":"包衣糖衣锅","operator_id":null,"operator_name":"陈曜辉","start_time":"2026-09-29 10:27:00","end_time":"2026-09-29 15:48:00","process_qty":"107.630","status":"待执行"},{"id":426,"work_order_id":465,"step_order":9,"process_name":"干燥（丸）","room_name":"制粒干燥间","equipment_name":"热风循环烘箱","operator_id":null,"operator_name":"陈曜辉","start_time":"2026-09-29 16:04:00","end_time":"2026-09-29 23:40:00","process_qty":"127.220","status":"待执行"},{"id":427,"work_order_id":465,"step_order":10,"process_name":"内包","room_name":"内包间","equipment_name":"自动包装机","operator_id":null,"operator_name":"夏维","start_time":"2026-09-30 09:37:00","end_time":"2026-09-30 14:28:00","process_qty":"127.220","status":"待执行"},{"id":428,"work_order_id":465,"step_order":11,"process_name":"包装","room_name":"外包间","equipment_name":"立式贴标机","operator_id":null,"operator_name":"张力","start_time":"2026-09-30 10:30:00","end_time":"2026-09-30 17:10:00","process_qty":"127.220","status":"待执行"},{"id":429,"work_order_id":466,"step_order":1,"process_name":"干燥饮片","room_name":"干燥粉碎间","equipment_name":"热风循环烘箱","operator_id":null,"operator_name":"廖晟璋    ","start_time":"2026-10-14 09:12:00","end_time":"2026-10-14 20:00:00","process_qty":"228.000","status":"待执行"},{"id":430,"work_order_id":466,"step_order":2,"process_name":"粉碎","room_name":"干燥粉碎间","equipment_name":"卧式超细粉碎机组","operator_id":null,"operator_name":"廖晟璋","start_time":"2026-10-14 15:13:00","end_time":"2026-10-15 15:09:00","process_qty":"218.450","status":"待执行"},{"id":431,"work_order_id":466,"step_order":3,"process_name":"灭菌","room_name":"灭菌间","equipment_name":"卧式矩形压力蒸汽灭菌器","operator_id":null,"operator_name":"陈曜辉","start_time":"2026-10-15 09:38:00","end_time":"2026-10-15 16:38:00","process_qty":"216.500","status":"待执行"},{"id":432,"work_order_id":466,"step_order":4,"process_name":"炼蜜","room_name":"炼蜜间","equipment_name":"可倾式夹层锅","operator_id":null,"operator_name":"谭秀凤","start_time":"2026-10-16 08:09:00","end_time":"2026-10-16 08:29:00","process_qty":"58.000","status":"待执行"},{"id":433,"work_order_id":466,"step_order":5,"process_name":"混合","room_name":"和料间","equipment_name":"槽形混合机","operator_id":null,"operator_name":"谭秀凤","start_time":"2026-10-16 08:43:00","end_time":"2026-10-17 10:26:00","process_qty":"210.500","status":"待执行"},{"id":434,"work_order_id":466,"step_order":6,"process_name":"制软材","room_name":"和料间","equipment_name":"高质量炼药机","operator_id":null,"operator_name":"廖晟璋","start_time":"2026-10-16 09:04:00","end_time":"2026-10-17 11:35:00","process_qty":"210.500","status":"待执行"},{"id":435,"work_order_id":466,"step_order":7,"process_name":"制丸","room_name":"制丸间","equipment_name":"全自动速控中药制丸机","operator_id":null,"operator_name":"陈曜辉","start_time":"2026-10-16 09:32:00","end_time":"2026-10-17 14:43:00","process_qty":null,"status":"待执行"},{"id":436,"work_order_id":466,"step_order":8,"process_name":"包衣","room_name":"抛光间","equipment_name":"包衣糖衣锅","operator_id":null,"operator_name":"陈曜辉","start_time":"2026-10-16 10:13:00","end_time":"2026-10-17 15:27:00","process_qty":null,"status":"待执行"},{"id":437,"work_order_id":466,"step_order":9,"process_name":"干燥（丸）","room_name":"制粒干燥间","equipment_name":"热风循环烘箱","operator_id":null,"operator_name":"陈曜辉","start_time":"2026-10-16 16:08:00","end_time":"2026-10-17 23:30:00","process_qty":"253.980","status":"待执行"},{"id":438,"work_order_id":466,"step_order":10,"process_name":"内包","room_name":"内包间","equipment_name":"自动包装机","operator_id":null,"operator_name":"夏维","start_time":"2026-10-19 09:19:00","end_time":"2026-10-19 17:46:00","process_qty":"253.980","status":"待执行"},{"id":439,"work_order_id":466,"step_order":11,"process_name":"包装","room_name":"外包间","equipment_name":"立式贴标机","operator_id":null,"operator_name":"张力","start_time":"2026-10-19 10:20:00","end_time":"2026-10-20 16:00:00","process_qty":null,"status":"待执行"},{"id":440,"work_order_id":467,"step_order":1,"process_name":"干燥饮片","room_name":"干燥粉碎间","equipment_name":"热风循环烘箱","operator_id":null,"operator_name":"廖晟璋","start_time":"2026-10-21 09:13:00","end_time":"2026-10-21 20:10:00","process_qty":null,"status":"已完成"},{"id":441,"work_order_id":467,"step_order":2,"process_name":"粉碎","room_name":"干燥粉碎间","equipment_name":"卧式超细粉碎机组","operator_id":null,"operator_name":"廖晟璋","start_time":"2026-10-21 15:24:00","end_time":"2026-10-22 15:58:00","process_qty":null,"status":"已完成"},{"id":442,"work_order_id":467,"step_order":3,"process_name":"灭菌","room_name":"灭菌间","equipment_name":"卧式矩形压力蒸汽灭菌器","operator_id":null,"operator_name":"夏维","start_time":"2026-10-22 14:29:00","end_time":"2026-10-23 11:47:00","process_qty":null,"status":"已完成"},{"id":443,"work_order_id":467,"step_order":4,"process_name":"炼蜜","room_name":"炼蜜间","equipment_name":"可倾式夹层锅","operator_id":null,"operator_name":"谭秀凤","start_time":"2026-10-23 08:06:00","end_time":"2026-10-23 08:26:00","process_qty":null,"status":"已完成"},{"id":444,"work_order_id":467,"step_order":5,"process_name":"混合","room_name":"和料间","equipment_name":"槽形混合机","operator_id":null,"operator_name":"谭秀凤","start_time":"2026-10-23 08:38:00","end_time":"2026-10-24 10:27:00","process_qty":null,"status":"已完成"},{"id":445,"work_order_id":467,"step_order":6,"process_name":"制软材","room_name":"和料间","equipment_name":"高质量炼药机","operator_id":null,"operator_name":"谭秀凤","start_time":"2026-10-23 08:59:00","end_time":"2026-10-24 11:48:00","process_qty":null,"status":"已完成"},{"id":446,"work_order_id":467,"step_order":7,"process_name":"制丸","room_name":"制丸间","equipment_name":"全自动速控中药制丸机","operator_id":null,"operator_name":"陈曜辉","start_time":"2026-10-23 09:26:00","end_time":"2026-10-24 15:20:00","process_qty":null,"status":"已完成"},{"id":447,"work_order_id":467,"step_order":8,"process_name":"包衣","room_name":"抛光间","equipment_name":"包衣糖衣锅","operator_id":null,"operator_name":"陈曜辉","start_time":"2026-10-23 10:14:00","end_time":"2026-10-24 16:03:00","process_qty":null,"status":"已完成"},{"id":448,"work_order_id":467,"step_order":9,"process_name":"干燥（丸）","room_name":"制粒干燥间","equipment_name":"热风循环烘箱","operator_id":null,"operator_name":"陈曜辉","start_time":"2026-10-23 16:26:00","end_time":"2026-10-24 23:30:00","process_qty":null,"status":"已完成"},{"id":449,"work_order_id":467,"step_order":10,"process_name":"内包","room_name":"内包间","equipment_name":"自动包装机","operator_id":null,"operator_name":"夏维","start_time":"2026-10-26 09:06:00","end_time":"2026-10-26 18:40:00","process_qty":null,"status":"已完成"},{"id":450,"work_order_id":467,"step_order":11,"process_name":"包装","room_name":"外包间","equipment_name":"立式贴标机","operator_id":null,"operator_name":"谢曼丽","start_time":"2026-10-26 10:17:00","end_time":"2026-10-27 10:32:00","process_qty":null,"status":"已完成"},{"id":451,"work_order_id":468,"step_order":1,"process_name":"干燥饮片","room_name":"干燥粉碎间","equipment_name":"热风循环烘箱","operator_id":null,"operator_name":"廖晟璋","start_time":"2026-10-27 09:14:00","end_time":"2026-10-27 20:00:00","process_qty":null,"status":"待执行"},{"id":452,"work_order_id":468,"step_order":2,"process_name":"粉碎","room_name":"干燥粉碎间","equipment_name":"卧式超细粉碎机组","operator_id":null,"operator_name":"廖晟璋","start_time":"2026-10-27 15:13:00","end_time":"2026-10-28 15:25:00","process_qty":null,"status":"待执行"},{"id":453,"work_order_id":468,"step_order":3,"process_name":"灭菌","room_name":"灭菌间","equipment_name":"卧式矩形压力蒸汽灭菌器","operator_id":null,"operator_name":"贺佐军","start_time":"2026-10-30 08:49:00","end_time":"2026-10-30 16:22:00","process_qty":null,"status":"待执行"},{"id":454,"work_order_id":468,"step_order":4,"process_name":"炼蜜","room_name":"和料间","equipment_name":"可倾式夹层锅","operator_id":null,"operator_name":"谭秀凤","start_time":"2026-11-05 08:04:00","end_time":"2026-11-05 08:24:00","process_qty":null,"status":"待执行"},{"id":455,"work_order_id":468,"step_order":5,"process_name":"混合","room_name":"和料间","equipment_name":"槽形混合机","operator_id":null,"operator_name":"谭秀凤","start_time":"2026-11-05 08:38:00","end_time":"2026-11-06 10:21:00","process_qty":null,"status":"待执行"},{"id":456,"work_order_id":468,"step_order":7,"process_name":"制软材","room_name":"和料间","equipment_name":"高质量炼药机","operator_id":null,"operator_name":"谭秀凤","start_time":"2026-11-05 08:59:00","end_time":"2026-11-06 11:37:00","process_qty":null,"status":"待执行"},{"id":457,"work_order_id":468,"step_order":8,"process_name":"制丸","room_name":"制丸间","equipment_name":"全自动速控中药制丸机","operator_id":null,"operator_name":"陈曜辉","start_time":"2026-11-05 09:28:00","end_time":"2026-11-06 14:51:00","process_qty":null,"status":"待执行"},{"id":458,"work_order_id":468,"step_order":9,"process_name":"包衣","room_name":"抛光间","equipment_name":"包衣糖衣锅","operator_id":null,"operator_name":"陈曜辉","start_time":"2026-11-05 10:06:00","end_time":"2026-11-06 15:32:00","process_qty":null,"status":"待执行"},{"id":459,"work_order_id":468,"step_order":9,"process_name":"干燥（丸）","room_name":"制粒干燥间","equipment_name":"热风循环烘箱","operator_id":null,"operator_name":"陈曜辉","start_time":"2026-11-05 15:57:00","end_time":"2026-11-06 23:30:00","process_qty":null,"status":"待执行"},{"id":460,"work_order_id":468,"step_order":10,"process_name":"内包","room_name":"内包间","equipment_name":"自动包装机","operator_id":null,"operator_name":"夏维","start_time":"2026-11-09 09:11:00","end_time":"2026-11-09 18:34:00","process_qty":null,"status":"待执行"},{"id":461,"work_order_id":468,"step_order":11,"process_name":"包装","room_name":"外包间","equipment_name":"立式贴标机","operator_id":null,"operator_name":"谢曼丽","start_time":"2026-11-09 10:02:00","end_time":"2026-11-09 19:35:00","process_qty":null,"status":"待执行"},{"id":462,"work_order_id":469,"step_order":1,"process_name":"干燥饮片","room_name":"干燥粉碎间","equipment_name":"热风循环烘箱","operator_id":null,"operator_name":"","start_time":null,"end_time":null,"process_qty":null,"status":"待执行"},{"id":463,"work_order_id":469,"step_order":2,"process_name":"粉碎","room_name":"干燥粉碎间","equipment_name":"卧式超细粉碎机组","operator_id":null,"operator_name":"","start_time":null,"end_time":null,"process_qty":null,"status":"待执行"},{"id":464,"work_order_id":469,"step_order":3,"process_name":"灭菌","room_name":"灭菌间","equipment_name":"卧式矩形压力蒸汽灭菌器","operator_id":null,"operator_name":"","start_time":null,"end_time":null,"process_qty":null,"status":"待执行"},{"id":465,"work_order_id":469,"step_order":4,"process_name":"炼蜜","room_name":"炼蜜间","equipment_name":"可倾式夹层锅","operator_id":null,"operator_name":"","start_time":null,"end_time":null,"process_qty":null,"status":"待执行"},{"id":466,"work_order_id":469,"step_order":5,"process_name":"混合","room_name":"和料间","equipment_name":"槽形混合机","operator_id":null,"operator_name":"","start_time":null,"end_time":null,"process_qty":null,"status":"待执行"},{"id":467,"work_order_id":469,"step_order":6,"process_name":"制软材","room_name":"和料间","equipment_name":"高质量炼药机","operator_id":null,"operator_name":"","start_time":null,"end_time":null,"process_qty":null,"status":"待执行"},{"id":468,"work_order_id":469,"step_order":7,"process_name":"制丸","room_name":"制丸间","equipment_name":"全自动速控中药制丸机","operator_id":null,"operator_name":"","start_time":null,"end_time":null,"process_qty":null,"status":"待执行"},{"id":469,"work_order_id":469,"step_order":8,"process_name":"包衣","room_name":"抛光间","equipment_name":"包衣糖衣锅","operator_id":null,"operator_name":"","start_time":null,"end_time":null,"process_qty":null,"status":"待执行"},{"id":470,"work_order_id":469,"step_order":9,"process_name":"干燥（丸）","room_name":"制粒干燥间","equipment_name":"热风循环烘箱","operator_id":null,"operator_name":"","start_time":null,"end_time":null,"process_qty":null,"status":"待执行"},{"id":471,"work_order_id":469,"step_order":10,"process_name":"内包","room_name":"内包间","equipment_name":"自动包装机","operator_id":null,"operator_name":"","start_time":null,"end_time":null,"process_qty":null,"status":"待执行"},{"id":472,"work_order_id":469,"step_order":11,"process_name":"包装","room_name":"外包间","equipment_name":"立式贴标机","operator_id":null,"operator_name":"","start_time":null,"end_time":null,"process_qty":null,"status":"待执行"},{"id":473,"work_order_id":470,"step_order":1,"process_name":"干燥饮片","room_name":"干燥粉碎间","equipment_name":"热风循环烘箱","operator_id":null,"operator_name":"测试1","start_time":"2026-11-11 01:00:00","end_time":"2026-11-11 02:00:00","process_qty":"100.000","status":"已完成"},{"id":474,"work_order_id":470,"step_order":2,"process_name":"粉碎","room_name":"干燥粉碎间","equipment_name":"卧式超细粉碎机组","operator_id":null,"operator_name":"测试2","start_time":"2026-11-11 02:00:00","end_time":"2026-11-11 04:00:00","process_qty":"120.000","status":"已完成"},{"id":475,"work_order_id":470,"step_order":3,"process_name":"灭菌","room_name":"灭菌间","equipment_name":"卧式矩形压力蒸汽灭菌器","operator_id":null,"operator_name":"测试3","start_time":"2026-11-11 04:00:00","end_time":"2026-11-11 06:00:00","process_qty":"100.000","status":"已完成"},{"id":476,"work_order_id":470,"step_order":4,"process_name":"炼蜜","room_name":"炼蜜间","equipment_name":"可倾式夹层锅","operator_id":null,"operator_name":"测试4","start_time":"2026-11-11 07:00:00","end_time":"2026-11-11 08:00:00","process_qty":"100.000","status":"已完成"},{"id":477,"work_order_id":470,"step_order":5,"process_name":"混合","room_name":"和料间","equipment_name":"槽形混合机","operator_id":null,"operator_name":"5","start_time":"2026-11-11 09:18:16","end_time":"2026-11-11 10:00:00","process_qty":"200.000","status":"已完成"},{"id":478,"work_order_id":470,"step_order":6,"process_name":"制软材","room_name":"和料间","equipment_name":"高质量炼药机","operator_id":null,"operator_name":"6","start_time":"2026-11-11 11:00:00","end_time":"2026-11-11 12:00:00","process_qty":"100.000","status":"已完成"},{"id":479,"work_order_id":470,"step_order":7,"process_name":"制丸","room_name":"制丸间","equipment_name":"全自动速控中药制丸机","operator_id":null,"operator_name":"7","start_time":"2026-11-11 13:00:00","end_time":"2026-11-11 14:18:16","process_qty":"111.000","status":"已完成"},{"id":480,"work_order_id":470,"step_order":8,"process_name":"包衣","room_name":"抛光间","equipment_name":"包衣糖衣锅","operator_id":null,"operator_name":"9","start_time":"2026-11-11 15:00:00","end_time":"2026-11-11 16:00:00","process_qty":"123.000","status":"已完成"},{"id":481,"work_order_id":470,"step_order":9,"process_name":"干燥（丸）","room_name":"制粒干燥间","equipment_name":"热风循环烘箱","operator_id":null,"operator_name":"10","start_time":"2026-11-11 17:00:00","end_time":"2026-11-11 18:00:00","process_qty":"123.000","status":"已完成"},{"id":482,"work_order_id":470,"step_order":10,"process_name":"内包","room_name":"内包间","equipment_name":"自动包装机","operator_id":null,"operator_name":"11","start_time":"2026-11-11 19:00:00","end_time":"2026-11-11 20:00:00","process_qty":"123.000","status":"已完成"},{"id":483,"work_order_id":470,"step_order":11,"process_name":"包装","room_name":"外包间","equipment_name":"立式贴标机","operator_id":null,"operator_name":"测试","start_time":"2026-11-11 21:00:00","end_time":"2026-11-11 22:00:00","process_qty":"145.000","status":"已完成"}],"templates":{"238":[{"step":1,"process":"干燥饮片","stdMin":null,"stdQty":null,"room":"干燥粉碎间","equip":null},{"step":2,"process":"粉碎","stdMin":null,"stdQty":null,"room":"干燥粉碎间","equip":"卧式超细粉碎机组"},{"step":3,"process":"灭菌","stdMin":null,"stdQty":null,"room":"灭菌间","equip":"卧式矩形压力蒸汽灭菌器"},{"step":4,"process":"炼蜜","stdMin":null,"stdQty":null,"room":"炼蜜间","equip":"可倾式夹层锅"},{"step":5,"process":"混合","stdMin":null,"stdQty":null,"room":"和料间","equip":"槽形混合机"},{"step":6,"process":"制软材","stdMin":null,"stdQty":null,"room":"和料间","equip":"高质量炼药机"},{"step":7,"process":"制丸","stdMin":null,"stdQty":null,"room":"制丸间","equip":"全自动速控中药制丸机"},{"step":8,"process":"包衣","stdMin":null,"stdQty":null,"room":"抛光间","equip":"包衣糖衣锅"},{"step":9,"process":"干燥（丸）","stdMin":null,"stdQty":null,"room":"制粒干燥间","equip":"热风循环烘箱"},{"step":10,"process":"内包","stdMin":null,"stdQty":null,"room":"内包间","equip":"自动包装机"},{"step":11,"process":"包装","stdMin":null,"stdQty":null,"room":"外包间","equip":"立式贴标机"}],"239":[{"step":1,"process":"干燥饮片","stdMin":null,"stdQty":null,"room":"干燥粉碎间","equip":null},{"step":2,"process":"粉碎","stdMin":null,"stdQty":null,"room":"干燥粉碎间","equip":"卧式超细粉碎机组"},{"step":3,"process":"灭菌","stdMin":null,"stdQty":null,"room":"灭菌间","equip":"卧式矩形压力蒸汽灭菌器"},{"step":4,"process":"炼蜜","stdMin":null,"stdQty":null,"room":"炼蜜间","equip":"可倾式夹层锅"},{"step":5,"process":"混合","stdMin":null,"stdQty":null,"room":"和料间","equip":"槽形混合机"},{"step":6,"process":"制软材","stdMin":null,"stdQty":null,"room":"和料间","equip":"高质量炼药机"},{"step":7,"process":"制丸","stdMin":null,"stdQty":null,"room":"制丸间","equip":"全自动速控中药制丸机"},{"step":8,"process":"包衣","stdMin":null,"stdQty":null,"room":"抛光间","equip":"包衣糖衣锅"},{"step":9,"process":"干燥（丸）","stdMin":null,"stdQty":null,"room":"制粒干燥间","equip":"热风循环烘箱"},{"step":10,"process":"内包","stdMin":null,"stdQty":null,"room":"内包间","equip":"自动包装机"},{"step":11,"process":"包装","stdMin":null,"stdQty":null,"room":"外包间","equip":"立式贴标机"}],"241":[{"step":1,"process":"干燥饮片","stdMin":null,"stdQty":null,"room":"干燥粉碎间","equip":null},{"step":2,"process":"粉碎","stdMin":null,"stdQty":null,"room":"干燥粉碎间","equip":"卧式超细粉碎机组"},{"step":3,"process":"灭菌","stdMin":null,"stdQty":null,"room":"灭菌间","equip":"卧式矩形压力蒸汽灭菌器"},{"step":4,"process":"炼蜜","stdMin":null,"stdQty":null,"room":"和料间","equip":null},{"step":5,"process":"混合","stdMin":null,"stdQty":null,"room":"和料间","equip":"槽形混合机"},{"step":7,"process":"制软材","stdMin":null,"stdQty":null,"room":"和料间","equip":"高质量炼药机"},{"step":8,"process":"制丸","stdMin":null,"stdQty":null,"room":"制丸间","equip":"全自动速控中药制丸机"},{"step":9,"process":"包衣","stdMin":null,"stdQty":null,"room":"抛光间","equip":"包衣糖衣锅"},{"step":10,"process":"内包","stdMin":null,"stdQty":null,"room":"内包间","equip":"自动包装机"},{"step":11,"process":"包装","stdMin":null,"stdQty":null,"room":"外包间","equip":"立式贴标机"}],"242":[{"step":1,"process":"干燥饮片","stdMin":null,"stdQty":null,"room":"干燥粉碎间","equip":null},{"step":2,"process":"粉碎","stdMin":null,"stdQty":null,"room":"干燥粉碎间","equip":"卧式超细粉碎机组"},{"step":3,"process":"灭菌","stdMin":null,"stdQty":null,"room":"灭菌间","equip":"卧式矩形压力蒸汽灭菌器"},{"step":4,"process":"炼蜜","stdMin":null,"stdQty":null,"room":"炼蜜间","equip":"可倾式夹层锅"},{"step":5,"process":"混合","stdMin":null,"stdQty":null,"room":"和料间","equip":"槽形混合机"},{"step":6,"process":"制软材","stdMin":null,"stdQty":null,"room":"和料间","equip":"高质量炼药机"},{"step":7,"process":"制丸","stdMin":null,"stdQty":null,"room":"制丸间","equip":"全自动速控中药制丸机"},{"step":8,"process":"包衣","stdMin":null,"stdQty":null,"room":"抛光间","equip":"包衣糖衣锅"},{"step":9,"process":"干燥（丸）","stdMin":null,"stdQty":null,"room":"制粒干燥间","equip":"热风循环烘箱"},{"step":10,"process":"内包","stdMin":null,"stdQty":null,"room":"内包间","equip":"自动包装机"},{"step":11,"process":"包装","stdMin":null,"stdQty":null,"room":"外包间","equip":"立式贴标机"}],"243":[{"step":1,"process":"干燥饮片","stdMin":null,"stdQty":null,"room":"干燥粉碎间","equip":null},{"step":2,"process":"粉碎","stdMin":null,"stdQty":null,"room":"干燥粉碎间","equip":"卧式超细粉碎机组"},{"step":3,"process":"灭菌","stdMin":null,"stdQty":null,"room":"灭菌间","equip":"卧式矩形压力蒸汽灭菌器"},{"step":4,"process":"炼蜜","stdMin":null,"stdQty":null,"room":"炼蜜间","equip":"可倾式夹层锅"},{"step":5,"process":"混合","stdMin":null,"stdQty":null,"room":"和料间","equip":"槽形混合机"},{"step":6,"process":"制软材","stdMin":null,"stdQty":null,"room":"和料间","equip":"高质量炼药机"},{"step":7,"process":"制丸","stdMin":null,"stdQty":null,"room":"制丸间","equip":"全自动速控中药制丸机"},{"step":8,"process":"包衣","stdMin":null,"stdQty":null,"room":"抛光间","equip":"包衣糖衣锅"},{"step":9,"process":"干燥（丸）","stdMin":null,"stdQty":null,"room":"制粒干燥间","equip":"热风循环烘箱"},{"step":10,"process":"内包","stdMin":null,"stdQty":null,"room":"内包间","equip":"自动包装机"},{"step":11,"process":"包装","stdMin":null,"stdQty":null,"room":"外包间","equip":"立式贴标机"}],"244":[{"step":1,"process":"干燥饮片","stdMin":null,"stdQty":null,"room":"干燥粉碎间","equip":"热风循环烘箱"},{"step":2,"process":"粉碎","stdMin":null,"stdQty":null,"room":"干燥粉碎间","equip":"卧式超细粉碎机组"},{"step":3,"process":"灭菌","stdMin":null,"stdQty":null,"room":"灭菌间","equip":"卧式矩形压力蒸汽灭菌器"},{"step":4,"process":"炼蜜","stdMin":null,"stdQty":null,"room":"炼蜜间","equip":"可倾式夹层锅"},{"step":5,"process":"混合","stdMin":null,"stdQty":null,"room":"和料间","equip":"槽形混合机"},{"step":6,"process":"制软材","stdMin":null,"stdQty":null,"room":"和料间","equip":"高质量炼药机"},{"step":7,"process":"制丸","stdMin":null,"stdQty":null,"room":"制丸间","equip":"全自动速控中药制丸机"},{"step":8,"process":"包衣","stdMin":null,"stdQty":null,"room":"抛光间","equip":"包衣糖衣锅"},{"step":9,"process":"干燥（丸）","stdMin":null,"stdQty":null,"room":"制粒干燥间","equip":"热风循环烘箱"},{"step":10,"process":"内包","stdMin":null,"stdQty":null,"room":"内包间","equip":"自动包装机"},{"step":11,"process":"包装","stdMin":null,"stdQty":null,"room":"外包间","equip":"立式贴标机"}]},"stats":{"orders":8,"executions":88,"templates":65,"stdMissing":65,"qtyMissing":65,"operatorIdMissing":88,"noTime":11,"duplicateSteps":2}};
+
+// region 工具
+// ===================================
+// 格式化与数据索引
+// ===================================
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(2,'0');
+const fmtQty = v => (v==null||v==='')?'—':Number(v).toLocaleString('zh-CN',{maximumFractionDigits:2});
+const fmtDate = v => v ? String(v).slice(0,16) : '—';
+function fmtTime(v){ if(!v) return '—'; const s=String(v); return s.slice(5,16); }
+function minutesOf(v){ if(!v) return null; const t=Date.parse(String(v).replace(' ','T')); return isNaN(t)?null:t; }
+function durationText(a,b){
+  if(!a||!b) return '—';
+  const m=Math.round((minutesOf(b)-minutesOf(a))/60000);
+  if(!isFinite(m)||m<0) return '—';
+  if(m<60) return m+' 分钟';
+  const h=Math.floor(m/60), mm=m%60;
+  return h+' 小时'+(mm?(' '+mm+' 分'):'');
+}
+function statusPill(s){
+  const map={'已放行':'green','生产中':'blue','已入库':'gray','已完成':'green','执行中':'blue','待执行':'gray'};
+  return `<span class="pill ${map[s]||'gray'}">${esc(s||'—')}</span>`;
+}
+const byWo = new Map();
+DATA.executions.forEach(e=>{ if(!byWo.has(e.work_order_id)) byWo.set(e.work_order_id,[]); byWo.get(e.work_order_id).push(e); });
+byWo.forEach(list=>list.sort((a,b)=>a.step_order-b.step_order || a.id-b.id));
+const tplByPrep = DATA.templates;
+function tplFor(prepId, step){
+  const list = tplByPrep[String(prepId)] || [];
+  return list.find(t=>t.step===step) || null;
+}
+function duplicateSteps(woId){
+  const c={}; (byWo.get(woId)||[]).forEach(e=>{ c[e.step_order]=(c[e.step_order]||0)+1; });
+  return new Set(Object.keys(c).filter(k=>c[k]>1).map(Number));
+}
+let currentId = DATA.workOrders[0] ? DATA.workOrders[0].work_order_id : null;
+// endregion
+
+// region 统计与任务卡片
+// ===================================
+// 顶部指标与任务切换
+// ===================================
+function renderStats(){
+  const S=DATA.stats;
+  const stats=[
+    {k:'生产任务',v:S.orders,s:'work_order',cls:''},
+    {k:'工序执行记录',v:S.executions,s:'work_order_process_execution',cls:''},
+    {k:'工序模板',v:S.templates,s:'preparation_process_template',cls:''},
+    {k:'有标准工时',v:S.templates-S.stdMissing+' / '+S.templates,s:'无法按标准时长顺排',cls:'bad'},
+    {k:'人员已关联档案',v:(S.executions-S.operatorIdMissing)+' / '+S.executions,s:'operator_id 全部为空',cls:'bad'}
+  ];
+  document.getElementById('stats').innerHTML=stats.map(x=>`
+    <div class="stat ${x.cls}"><div class="k">${x.k}</div><div class="v">${x.v}</div><div class="s">${x.s}</div></div>`).join('');
+  document.getElementById('bOrders').textContent=S.orders;
+  document.getElementById('bExecs').textContent=S.executions;
+}
+function renderTasks(){
+  document.getElementById('taskGrid').innerHTML=DATA.workOrders.map(w=>{
+    const list=byWo.get(w.work_order_id)||[];
+    const noTime=list.filter(e=>!e.start_time||!e.end_time).length;
+    return `<div class="task ${w.work_order_id===currentId?'active':''}" onclick="selectTask(${w.work_order_id})">
+      <div class="top">
+        <div><div class="code">${esc(w.work_order_code)}</div><h3>${esc(w.preparation_name)}</h3>
+          <div class="meta">批号 ${esc(w.batch_number||'—')} · ${fmtQty(w.batch_qty)} 件<br/>计划单 #${esc(w.plan_id)} · 建单 ${esc(String(w.created_time||'').slice(0,10))}</div></div>
+        ${statusPill(w.current_status)}
+      </div>
+      <div class="foot"><span>${list.length} 道工序</span><span>${noTime?`<b style="color:var(--red)">${noTime} 道无实际时间</b>`:'实际时间齐全'}</span></div>
+    </div>`;
+  }).join('');
+}
+function selectTask(id){ currentId=id; renderTasks(); renderTask(); renderGantt(); }
+// endregion
+
+// region 工序表
+// ===================================
+// 按工单展示模板与实际执行
+// ===================================
+function renderTask(){
+  const w=DATA.workOrders.find(x=>x.work_order_id===currentId);
+  if(!w) return;
+  const list=byWo.get(w.work_order_id)||[];
+  document.getElementById('taskTitle').textContent=`${w.preparation_name} · ${w.work_order_code}`;
+  document.getElementById('taskSub').textContent=`批号 ${w.batch_number||'—'} · 数量 ${fmtQty(w.batch_qty)} · 计划单 #${w.plan_id} · 状态 ${w.current_status}`;
+  document.getElementById('taskTags').innerHTML=`
+    <span class="tag blue">${list.length} 道工序</span>
+    <span class="tag ${w.config_date?'green':'amber'}">生产日期 ${esc(String(w.config_date||'—').slice(0,10))}</span>
+    <span class="tag ${w.config_complete_time?'green':'amber'}">完成日期 ${esc(String(w.config_complete_time||'—').slice(0,10))}</span>`;
+  const dup=duplicateSteps(w.work_order_id);
+  document.getElementById('procTbody').innerHTML=list.map((e,i)=>{
+    const tpl=tplFor(w.preparation_id,e.step_order);
+    const std=tpl&&tpl.stdMin!=null?tpl.stdMin+' 分钟':'—';
+    const stdQty=tpl&&tpl.stdQty!=null?fmtQty(tpl.stdQty):'—';
+    const noTime=!e.start_time||!e.end_time;
+    const statusLag=!!e.start_time&&!!e.end_time&&e.status==='待执行';
+    const tags=[];
+    if(!tpl) tags.push('<span class="tag amber">无对应模板</span>');
+    else if(tpl.stdMin==null) tags.push('<span class="tag amber">无标准工时</span>');
+    if(noTime) tags.push('<span class="tag gray">无实际时间</span>');
+    if(dup.has(e.step_order)) tags.push('<span class="tag red">重复步骤</span>');
+    if(e.process_qty==null) tags.push('<span class="tag amber">无加工数量</span>');
+    if(statusLag) tags.push('<span class="tag red">状态滞后</span>');
+    if(e.operator_id==null) tags.push('<span class="tag gray">人员未关联</span>');
+    return `<tr>
+      <td class="sub">${e.step_order}</td>
+      <td><b>${esc(e.process_name)}</b>${tpl&&tpl.process!==e.process_name?`<div class="sub">模板：${esc(tpl.process)}</div>`:''}</td>
+      <td class="mono">${std}</td>
+      <td class="mono">${stdQty}</td>
+      <td class="mono">${e.start_time?esc(fmtDate(e.start_time)):'—'}<br/>${e.end_time?esc(fmtDate(e.end_time)):'—'}</td>
+      <td class="mono">${durationText(e.start_time,e.end_time)}</td>
+      <td>${esc(e.operator_name||'—')}${e.operator_id==null?'<div class="sub">未关联档案</div>':''}</td>
+      <td>${esc(e.room_name||'—')}</td>
+      <td>${esc(e.equipment_name||'—')}</td>
+      <td class="mono">${fmtQty(e.process_qty)}</td>
+      <td>${statusPill(e.status)}</td>
+      <td>${tags.join('')||'<span class="tag green">正常</span>'}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="12"><div class="empty"><b>该工单没有工序执行记录</b></div></td></tr>';
+}
+// endregion
+
+// region 时间轴
+// ===================================
+// 按实际起止绘制
+// ===================================
+function renderGantt(){
+  const w=DATA.workOrders.find(x=>x.work_order_id===currentId);
+  const list=(byWo.get(w.work_order_id)||[]).filter(e=>e.start_time&&e.end_time);
+  const box=document.getElementById('gantt');
+  if(!list.length){
+    box.innerHTML=`<div class="empty"><b>没有可绘制的实际时间</b>该工单的工序执行记录尚未填写开始/结束时间；现有数据也没有计划起止字段，无法生成排产甘特图。</div>`;
+    return;
+  }
+  const starts=list.map(e=>minutesOf(e.start_time)), ends=list.map(e=>minutesOf(e.end_time));
+  const min=Math.min(...starts), max=Math.max(...ends);
+  const span=Math.max(max-min,1);
+  const ticks=[]; const tickCount=4;
+  for(let i=0;i<=tickCount;i++){
+    const p=min+span*i/tickCount;
+    const d=new Date(p);
+    ticks.push(`<span style="left:${i/tickCount*100}%">${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}</span>`);
+  }
+  let html=`<div class="gantt-axis">${ticks.join('')}</div>`;
+  (byWo.get(w.work_order_id)||[]).forEach(e=>{
+    const hasStart=!!e.start_time, hasEnd=!!e.end_time;
+    let bar='';
+    if(hasStart&&hasEnd){
+      const s=minutesOf(e.start_time), en=minutesOf(e.end_time);
+      const left=(s-min)/span*100, width=Math.max((en-s)/span*100,1.2);
+      bar=`<div class="gbar done" style="left:${left}%;width:${width}%" title="${esc(e.process_name)} ${esc(e.start_time)} → ${esc(e.end_time)}">${durationText(e.start_time,e.end_time)}</div>`;
+    }else if(hasStart){
+      const s=minutesOf(e.start_time);
+      const left=(s-min)/span*100, width=Math.max((max-s)/span*100,1.2);
+      bar=`<div class="gbar run" style="left:${left}%;width:${width}%" title="${esc(e.process_name)} 开始于 ${esc(e.start_time)}，未结束">执行中</div>`;
+    }else{
+      bar=`<span class="tag gray" style="position:absolute;left:0;top:4px">无时间</span>`;
+    }
+    html+=`<div class="grow"><div class="glabel"><span>${e.step_order}</span><b title="${esc(e.process_name)}">${esc(e.process_name)}</b></div><div class="gtrack">${bar}</div></div>`;
+  });
+  box.innerHTML=html;
+}
+// endregion
+
+// region 健康检查
+// ===================================
+// 现有数据缺口
+// ===================================
+function renderHealth(){
+  const S=DATA.stats;
+  const statusLag=DATA.executions.filter(e=>e.start_time&&e.end_time&&e.status==='待执行').length;
+  const items=[
+    {cls:'red',icon:'!',title:'标准工时未维护',num:S.stdMissing+' / '+S.templates,text:'工序模板的 standard_duration 全为空，无法按标准时长顺排、自动算计划结束时间。'},
+    {cls:'red',icon:'!',title:'计划数量未维护',num:S.qtyMissing+' / '+S.templates,text:'standard_qty 全为空，工序计划数量只能默认取任务数量，无法按工序维护。'},
+    {cls:'red',icon:'!',title:'没有计划的起止字段',num:'0',text:'执行表的 start_time/end_time 是实际值；排产需要的计划起止没有落库位置。'},
+    {cls:'red',icon:'!',title:'人员未关联档案',num:S.operatorIdMissing+' / '+S.executions,text:'operator_id 全为空，只有 operator_name 文本，绩效无法按人归集，也无法校验人员班次。'},
+    {cls:'red',icon:'!',title:'无班组 / 班次表',num:'—',text:'无法做班组视图与班次冲突；也无法表达一个班组同一时段看多台设备。'},
+    {cls:'red',icon:'!',title:'无批次表',num:'—',text:'一道工序只有一条执行记录，无法拆多个生产批次。'},
+    {cls:'amber',icon:'!',title:'工序顺序重复',num:S.duplicateSteps+' 个工单',text:'work_order_process_execution 没有 (工单, step_order) 唯一约束，现有数据已出现重复步骤。'},
+    {cls:'amber',icon:'!',title:'状态与实际时间不一致',num:statusLag+' 条',text:'已有实际起止但 status 仍为“待执行”；如果直接用现有状态做进度，会显示错误。'},
+    {cls:'gray',icon:'·',title:'计划级实际记录为空',num:'0 行',text:'production_process_record 没有数据；实际记录目前只在工单级执行表里。'},
+    {cls:'green',icon:'✓',title:'可展示的内容',num:'任务 / 工序 / 实际时间 / 数量',text:'房间、设备、操作人姓名、实际起止与实际用时都有值，可以支撑实际执行台账。'}
+  ];
+  document.getElementById('health').innerHTML=items.map(x=>`
+    <div class="hitem"><div class="hicon ${x.cls}">${x.icon}</div><div><b>${x.title} <span class="num">${x.num}</span></b><p>${x.text}</p></div></div>`).join('');
+}
+// endregion
+
+// region 初始化
+// ===================================
+// 页面渲染
+// ===================================
+document.getElementById('source').textContent=DATA.meta.source;
+document.getElementById('snapshot').textContent=DATA.meta.snapshot;
+renderStats();
+renderTasks();
+renderTask();
+renderGantt();
+renderHealth();
+// endregion
+</script>
+</body>
+</html>

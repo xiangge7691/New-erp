@@ -36,6 +36,24 @@ public class WorkOrderProcessExecution extends AuditEntity {
     private Long workOrderId;
 
     /**
+     * 排产计划行ID
+     */
+    @TableField(value = "plan_id")
+    private Long planId;
+
+    /**
+     * 排产批次ID
+     */
+    @TableField(value = "plan_batch_id")
+    private Long planBatchId;
+
+    /**
+     * 批次序号
+     */
+    @TableField(value = "batch_no")
+    private Integer batchNo;
+
+    /**
      * 工序类型ID
      */
     @TableField(value = "process_type_id")
@@ -52,6 +70,12 @@ public class WorkOrderProcessExecution extends AuditEntity {
      */
     @TableField(value = "equipment_id")
     private Integer equipmentId;
+
+    /**
+     * 实际班组ID
+     */
+    @TableField(value = "team_id")
+    private Long teamId;
 
     /**
      * 工序顺序
@@ -111,6 +135,18 @@ public class WorkOrderProcessExecution extends AuditEntity {
      */
     @TableField(value = "status")
     private String status;
+
+    /**
+     * 是否已锁定（完工后锁定，禁止再修改）
+     */
+    @TableField(value = "locked")
+    private Integer locked;
+
+    /**
+     * 完工时间
+     */
+    @TableField(value = "completed_time")
+    private LocalDateTime completedTime;
 
     /**
      * 备注
@@ -180,5 +216,66 @@ public class WorkOrderProcessExecution extends AuditEntity {
     @TableField(exist = false)
     private Long templateId;
 
+    /**
+     * 工单编号（关联work_order表）
+     */
+    @TableField(exist = false)
+    private String workOrderCode;
+
+    /**
+     * 制剂名称（关联work_order表）
+     */
+    @TableField(exist = false)
+    private String preparationName;
+
+    /**
+     * 批号（关联work_order表）
+     */
+    @TableField(exist = false)
+    private String batchNumber;
+
+    /**
+     * 排产批次名称（关联work_order_process_plan_batch表）
+     */
+    @TableField(exist = false)
+    private String planBatchName;
+
+    /**
+     * 计划开始时间（批次优先，无批次时取工序计划）
+     */
+    @TableField(exist = false)
+    private LocalDateTime planStartTime;
+
+    /**
+     * 计划结束时间（批次优先，无批次时取工序计划）
+     */
+    @TableField(exist = false)
+    private LocalDateTime planEndTime;
+
+    /**
+     * 计划用时（分钟，批次优先，无批次时取工序计划）
+     */
+    @TableField(exist = false)
+    private Integer planDurationMinutes;
+
+    /**
+     * 计划数量（批次优先，无批次时取工序计划）
+     */
+    @TableField(exist = false)
+    private BigDecimal planQty;
+
+    /**
+     * 该执行记录已生成的绩效记录数
+     */
+    @TableField(exist = false)
+    private Integer performanceRecordCount;
+
     // endregion
+
+    /**
+     * 实际参与人（不映射数据库）
+     */
+    @TableField(exist = false)
+    private java.util.List<WorkOrderProcessExecutionParticipant> participants;
+
 }

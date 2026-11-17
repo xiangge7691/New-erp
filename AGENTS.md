@@ -279,7 +279,7 @@ softDeleteCleanHelper.cleanByUniqueField(baseMapper, "unique_field", uniqueValue
 
 ### 数据测试环境约定（重要）
 - **永远不要在 `8.148.27.237` 的数据库中添加测试数据进行测试**（该库为线上数据，禁止写入）
-- 进行数据测试时统一使用 `8.134.48.54` 的数据库
+- 进行数据测试时统一使用 `192.168.5.100` 的 `erp_db` 数据库（连接账号见 `application.yml`）
 
 ## 测试
 - 测试文件位于 `src/test/java`

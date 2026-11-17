@@ -66,6 +66,12 @@ public class ProcessType extends AuditEntity {
     private Integer processStatus;
 
     /**
+     * 工序系数（当前生效值，范围 0.5-2.0）
+     */
+    @TableField(value = "coefficient")
+    private java.math.BigDecimal coefficient;
+
+    /**
      * 是否已删除
      */
     @TableField(value = "is_deleted")

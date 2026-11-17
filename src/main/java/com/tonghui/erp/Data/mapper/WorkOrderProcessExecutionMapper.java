@@ -68,6 +68,18 @@ public interface WorkOrderProcessExecutionMapper extends BaseMapper<WorkOrderPro
     List<WorkOrderProcessExecution> selectByWorkOrderIdWithDetails(@Param("workOrderId") Long workOrderId);
 
     /**
+     * 查询已完工（锁定）的工序执行记录（含关联表详情）
+     *
+     * @param workOrderId 工单ID（可选）
+     * @param from        完工时间起（可选）
+     * @param to          完工时间止（可选，不含）
+     * @return 已完工的工序执行记录列表
+     */
+    List<WorkOrderProcessExecution> selectCompletedWithDetails(@Param("workOrderId") Long workOrderId,
+                                                               @Param("from") LocalDateTime from,
+                                                               @Param("to") LocalDateTime to);
+
+    /**
      * 查询指定工单当前未删除的工序执行记录ID
      * <p>
      * 批量保存采用"提交全量覆盖"语义：未出现在入参中的既有行将被删除，

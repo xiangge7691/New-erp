@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>实际记录 · PC 端原型</title>
+<style>
+:root{
+  --primary:#2f6fed; --primary-weak:#eaf1ff; --primary-dark:#1f5bd7;
+  --green:#079455; --green-weak:#e7f6ee;
+  --amber:#dc6803; --amber-weak:#fef4e6;
+  --red:#d92d20; --red-weak:#fdeceb;
+  --text:#182230; --muted:#667085; --soft:#98a2b3;
+  --line:#e4e7ec; --line2:#eef1f5; --bg:#f5f7fb; --card:#fff;
+  --radius:14px; --shadow:0 1px 2px rgba(16,24,40,.04), 0 10px 28px rgba(16,24,40,.05);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:13px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:inherit}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:#d6dce6;border-radius:4px}
+
+/* 布局 */
+.app{display:flex;min-height:100vh}
+.sidebar{position:fixed;inset:0 auto 0 0;width:222px;background:#fff;border-right:1px solid var(--line);display:flex;flex-direction:column;z-index:10}
+.brand{height:64px;display:flex;align-items:center;gap:10px;padding:0 20px;border-bottom:1px solid var(--line2)}
+.brand-mark{width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#07865a,#20a97a);color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px}
+.brand-name{font-size:15px;font-weight:700;letter-spacing:.2px}
+.brand-sub{font-size:11px;color:var(--soft);margin-top:-2px}
+.nav{padding:14px 12px;flex:1;overflow:auto}
+.nav-label{font-size:11px;color:var(--soft);padding:8px 10px 6px;letter-spacing:.6px}
+.nav-item{display:flex;align-items:center;gap:10px;height:40px;padding:0 12px;margin:2px 0;border-radius:9px;color:var(--muted);font-size:13.5px;cursor:pointer;user-select:none;text-decoration:none}
+.nav-item:hover{background:#f7f9fc;color:var(--text)}
+.nav-item.active{background:var(--primary-weak);color:var(--primary);font-weight:600}
+.nav-dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.65}
+.nav-badge{margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--green);color:#fff;font-size:11px;display:grid;place-items:center;font-weight:600}
+.sidebar-foot{border-top:1px solid var(--line2);padding:14px 18px;font-size:11.5px;color:var(--soft)}
+.sidebar-foot b{color:var(--muted);font-weight:600}
+.main{margin-left:222px;flex:1;min-width:0;padding:0 28px 64px}
+.topbar{height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:8;background:rgba(245,247,251,.86);backdrop-filter:blur(8px)}
+.crumb{font-size:12.5px;color:var(--soft)}
+.crumb b{color:var(--text);font-weight:600}
+.top-actions{display:flex;align-items:center;gap:10px}
+.avatar{width:32px;height:32px;border-radius:50%;background:#dfe8ff;color:var(--primary);display:grid;place-items:center;font-weight:700;font-size:12px}
+
+/* 通用 */
+.view{display:none}
+.view.active{display:block}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:2px 0 16px}
+.page-head h1{margin:0;font-size:22px;font-weight:700;letter-spacing:-.2px}
+.page-head p{margin:5px 0 0;color:var(--muted);font-size:12.5px}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{height:34px;padding:0 14px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--text);font-size:12.5px;display:inline-flex;align-items:center;gap:6px;transition:.15s;white-space:nowrap;text-decoration:none}
+.btn:hover{border-color:#c9d2e0;background:#fbfcfe}
+.btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+.btn.primary:hover{background:var(--primary-dark);border-color:var(--primary-dark)}
+.btn.green{background:var(--green);border-color:var(--green);color:#fff}
+.btn.green:hover{background:#067a49;border-color:#067a49}
+.btn.sm{height:28px;padding:0 10px;font-size:12px;border-radius:7px}
+.link{background:none;border:0;color:var(--primary);padding:0;font-size:12.5px;text-decoration:none}
+.link.danger{color:var(--red)}
+.input,select.input,textarea.input{height:34px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:0 11px;font-size:12.5px;outline:none}
+textarea.input{height:auto;padding:9px 11px;resize:vertical}
+.input:focus{border-color:#9db8f5;box-shadow:0 0 0 3px rgba(47,111,237,.10)}
+.input.sm{height:28px;font-size:12px;padding:0 8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:16px}
+.card-head{padding:16px 18px;border-bottom:1px solid var(--line2);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.card-head h3{margin:0;font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.card-head p{margin:3px 0 0;font-size:12px;color:var(--muted)}
+.stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:16px}
+.stat{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow)}
+.stat .k{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.stat .v{font-size:26px;font-weight:750;letter-spacing:-.6px;margin-top:6px}
+.stat .v small{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:0}
+.stat .s{font-size:11.5px;color:var(--soft);margin-top:4px}
+.stat .s b{color:var(--green);font-weight:600}
+.stat .s b.warn{color:var(--amber)}
+.task-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:16px}
+.task-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow);cursor:pointer;transition:.15s}
+.task-card:hover{border-color:#c9d9f8}
+.task-card.active{border-color:var(--primary);box-shadow:0 0 0 3px rgba(47,111,237,.10),var(--shadow)}
+.task-card .tc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.task-card .tc-code{font-size:11px;color:var(--soft);font-family:ui-monospace,Menlo,Consolas,monospace}
+.task-card h4{margin:3px 0 0;font-size:14px}
+.task-card .tc-meta{font-size:11.5px;color:var(--muted);margin-top:3px}
+.task-card .tc-foot{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:11.5px;color:var(--soft)}
+.task-card .tc-foot b{color:var(--muted);font-weight:600}
+.banner{display:flex;gap:10px;align-items:flex-start;background:#f7faff;border:1px solid #dbe6fb;border-radius:10px;padding:11px 14px;font-size:12px;color:#475467;margin:0 0 16px}
+.banner b{color:var(--primary)}
+.banner.green{background:#f6fdf9;border-color:#cdecd9;color:#245c3d}
+.banner.green b{color:var(--green)}
+.pill{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:12px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.pill.gray{background:#f2f4f7;color:#667085}
+.pill.blue{background:var(--primary-weak);color:var(--primary)}
+.pill.green{background:var(--green-weak);color:var(--green)}
+.pill.amber{background:var(--amber-weak);color:var(--amber)}
+.tag{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:6px;background:#f2f4f7;color:#475467;font-size:11px;white-space:nowrap}
+.tag.blue{background:var(--primary-weak);color:var(--primary)}
+.tag.green{background:var(--green-weak);color:var(--green)}
+.tag.warn{background:var(--amber-weak);color:#b54708}
+.chip{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:11px;background:#f2f4f7;color:#475467;font-size:11px;margin:1px 2px 1px 0}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+.sub{color:var(--muted);font-size:12px}
+.tscroll{overflow-x:auto}
+.tscroll table{min-width:1080px}
+.tscroll th,.tscroll td{white-space:nowrap;padding-left:10px;padding-right:10px}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:11.5px;color:var(--soft);font-weight:600;letter-spacing:.3px;padding:11px 14px;background:#fbfcfe;border-bottom:1px solid var(--line2);white-space:nowrap}
+td{padding:12px 14px;border-bottom:1px solid var(--line2);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+tbody tr:hover{background:#fafbff}
+.empty{padding:56px 20px;text-align:center;color:var(--soft)}
+.empty b{display:block;color:var(--muted);margin-bottom:4px}
+.proc-row{cursor:pointer}
+.proc-row.open .caret{transform:rotate(90deg);background:var(--primary-weak);color:var(--primary)}
+.caret{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:5px;background:#eef1f5;color:var(--muted);font-size:9px;margin-right:7px;transition:.15s;vertical-align:1px}
+.expand-row td{padding:0;background:#fafbff;border-bottom:1px solid var(--line2)}
+.expand-inner{padding:8px 18px 18px 44px}
+
+/* 批次 */
+.batch-block{border:1px solid var(--line);border-radius:11px;background:#fff;margin-top:12px;overflow:hidden}
+.batch-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;background:#fbfcfe;border-bottom:1px solid var(--line2);flex-wrap:wrap}
+.batch-head .bh-left{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.batch-head .bh-left b{font-size:12.5px}
+.batch-head .bh-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.edit-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;padding:14px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:11px;color:var(--soft)}
+.field .input{width:100%}
+.read-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;padding:14px;background:#fcfdff}
+.read-grid .k{display:block;font-size:11px;color:var(--soft)}
+.read-grid .v{display:block;font-size:12px;font-weight:600;margin-top:3px}
+.part-head{display:flex;align-items:center;justify-content:space-between;padding:0 14px 8px;font-size:12px;font-weight:650;color:var(--muted)}
+.part-table{width:100%;border-collapse:collapse}
+.part-table th{font-size:10.5px;padding:7px 12px;background:#fff}
+.part-table td{padding:7px 12px;font-size:12px}
+.part-table tbody tr:hover{background:#fcfdff}
+.batch-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 14px;border-top:1px solid var(--line2);background:#fbfcfe;flex-wrap:wrap}
+.balance{font-size:11.5px;color:var(--muted)}
+.balance b{color:var(--text)}
+.balance.ok b{color:var(--green)}
+.balance.bad{color:var(--red)}
+.balance.bad b{color:var(--red)}
+.locked-note{font-size:11.5px;color:var(--green);display:flex;align-items:center;gap:6px}
+@media (max-width:1200px){.stat-grid{grid-template-columns:1fr 1fr}.task-cards{grid-template-columns:1fr}.edit-grid,.read-grid{grid-template-columns:1fr 1fr}}
+@media (max-width:900px){.sidebar{display:none}.main{margin-left:0;padding:0 16px 48px}}
+
+/* 弹窗 / 提示 */
+.modal-mask{position:fixed;inset:0;background:rgba(16,24,40,.38);display:none;align-items:center;justify-content:center;z-index:50;padding:24px}
+.modal-mask.show{display:flex}
+.modal{width:600px;max-width:94vw;max-height:90vh;background:#fff;border-radius:16px;box-shadow:0 30px 80px rgba(16,24,40,.28);display:flex;flex-direction:column;overflow:hidden}
+.modal-head{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.modal-head h3{margin:0;font-size:16px}
+.modal-head p{margin:4px 0 0;color:var(--muted);font-size:12px}
+.modal-body{padding:20px 22px;overflow:auto}
+.modal-foot{padding:14px 22px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px;background:#fbfcfe}
+.icon-btn{width:32px;height:32px;border:1px solid var(--line);border-radius:8px;background:#fff;display:grid;place-items:center;color:var(--muted);flex:0 0 32px}
+.summary-list{display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;font-size:12.5px}
+.summary-list .k{display:block;font-size:11px;color:var(--soft)}
+.summary-list .v{display:block;font-weight:600;margin-top:2px}
+.hint{font-size:11.5px;color:var(--soft);line-height:1.6}
+.toast{position:fixed;left:50%;bottom:34px;transform:translate(-50%,20px);background:#182230;color:#fff;padding:10px 18px;border-radius:10px;font-size:12.5px;opacity:0;pointer-events:none;transition:.22s;z-index:80;box-shadow:0 12px 30px rgba(16,24,40,.28)}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">记</div>
+      <div><div class="brand-name">生产执行</div><div class="brand-sub">实际记录 · 原型</div></div>
+    </div>
+    <nav class="nav">
+      <div class="nav-label">生产执行</div>
+      <div class="nav-item active" data-view="records" onclick="go('records')"><span class="nav-dot"></span>实际记录</div>
+      <div class="nav-item" data-view="completed" onclick="go('completed')"><span class="nav-dot"></span>完工记录<span class="nav-badge" id="doneBadge">0</span></div>
+      <div class="nav-label" style="margin-top:10px">关联原型</div>
+      <a class="nav-item" href="scheduling.html"><span class="nav-dot"></span>工序排产</a>
+      <a class="nav-item" href="performance.html"><span class="nav-dot"></span>人员绩效</a>
+      <a class="nav-item" href="index.html"><span class="nav-dot"></span>原型入口</a>
+      <div class="nav-label" style="margin-top:10px">说明</div>
+      <div class="nav-item" data-view="notes" onclick="go('notes')"><span class="nav-dot"></span>原型说明</div>
+    </nav>
+    <div class="sidebar-foot"><b>灌装一班</b> · 张伟<br/>2026-11-14 白班</div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="crumb">生产执行 / <b id="crumb">实际记录</b></div>
+      <div class="top-actions">
+        <button class="btn sm" onclick="renderAll();toast('已刷新实际记录（演示）')">刷新</button>
+        <div class="avatar">张</div>
+      </div>
+    </div>
+
+    <!-- 实际记录 -->
+    <section id="view-records" class="view active">
+      <div class="page-head">
+        <div>
+          <h1>实际记录</h1>
+          <p>按生产任务、工序、批次登记实际生产；完工后按参与人生成绩效记录。</p>
+        </div>
+        <div class="toolbar">
+          <input class="input" type="date" value="2026-11-14" />
+          <a class="btn" href="performance.html">查看绩效</a>
+          <button class="btn primary" onclick="saveAllDrafts()">保存全部草稿</button>
+        </div>
+      </div>
+
+      <div class="stat-grid" id="statGrid"></div>
+      <div class="task-cards" id="taskCards"></div>
+
+      <div class="banner green"><span>✓</span><div><b>记录规则：</b>计划时间仅作参考，实际以本页登记为准；同一批次内参与人完成数量合计必须等于批次实际数量；批次完工后实际记录锁定，并按参与人逐人生成绩效记录。</div></div>
+
+      <div class="card">
+        <div class="card-head">
+          <div><h3 id="taskTitle">生产任务</h3><p id="taskSub">选择任务查看工序与批次</p></div>
+          <div class="toolbar">
+            <span class="tag" id="taskDateTag">2026-11-14</span>
+            <span class="pill green" id="taskStatusTag">生产中</span>
+          </div>
+        </div>
+        <div class="tscroll">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:210px">工序</th><th>计划起止</th><th>实际起止</th><th>计划 / 实际数量</th>
+                <th>设备 / 房间</th><th>批次</th><th>参与人</th><th>状态</th><th style="width:90px">操作</th>
+              </tr>
+            </thead>
+            <tbody id="procTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 完工记录 -->
+    <section id="view-completed" class="view">
+      <div class="page-head">
+        <div>
+          <h1>完工记录</h1>
+          <p>已完工批次及其生成的个人绩效记录；实际记录锁定后在此查看。</p>
+        </div>
+        <div class="toolbar">
+          <input class="input" type="date" value="2026-11-14" />
+          <button class="btn" onclick="toast('已导出完工记录（演示）')">导出</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="tscroll">
+          <table>
+            <thead><tr><th>生产任务 / 批号</th><th>制剂</th><th>工序</th><th>批次</th><th>计划起止</th><th>实际起止</th><th>实际数量</th><th>参与人</th><th>生成绩效</th><th>操作</th></tr></thead>
+            <tbody id="completedTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 原型说明 -->
+    <section id="view-notes" class="view">
+      <div class="page-head"><div><h1>原型说明</h1><p>用于评审实际记录、批次与绩效生成的交互；数据均为演示数据。</p></div></div>
+      <div class="card" style="padding:22px 24px">
+        <h3 style="margin-top:0">一、页面职责</h3>
+        <p class="sub">排产页只维护计划时间、批次、班组与人员；本页只维护实际执行数据。实际开始/结束、实际数量、实际房间与设备以本页为准，计划时间仅作参考。</p>
+        <h3>二、批次与参与人</h3>
+        <p class="sub">一道工序可拆多个生产批次，每个批次独立登记实际起止与实际数量。参与人来自班组或单独添加，逐人登记参与工时与完成数量；同一批次内参与人完成数量合计必须等于批次实际数量，不等时不允许完工。平均分配按人数均分，尾差补至最后一人。</p>
+        <h3>三、完工与绩效</h3>
+        <p class="sub">批次完工时校验实际时间、实际数量与参与人数量平衡；通过后锁定该批次实际记录，并按参与人逐人生成绩效记录。绩效时长默认等于该参与人在本批次的参与工时，工序实际时长取批次实际时长；工序系数、人员系数与版本按完工时快照。</p>
+        <h3>四、与绩效页的关系</h3>
+        <p class="sub">绩效页只读取本页完工后生成的记录，修改绩效时长、手动补录与作废都不回写工序实际数据。未完工批次不生成绩效记录。</p>
+        <h3>五、校验边界</h3>
+        <p class="sub">原型中的保存、完工、生成绩效均为交互演示；实际时间重叠、数量平衡、权限、批次状态与重复完工等最终校验以后端接口为准，前端按返回结果提示。</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="modal-mask" id="modalMask" onclick="if(event.target===this)closeModal()"><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// region 基础交互
+// ===================================
+// 视图切换、弹窗与提示
+// ===================================
+const crumbMap = {records:'实际记录',completed:'完工记录',notes:'原型说明'};
+function go(v){
+  document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active', x.id==='view-'+v));
+  document.querySelectorAll('.nav-item[data-view]').forEach(x=>x.classList.toggle('active', x.dataset.view===v));
+  document.getElementById('crumb').textContent = crumbMap[v]||'';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function openModal(title, sub, body, foot){
+  const m = document.getElementById('modal');
+  m.innerHTML = `<div class="modal-head"><div><h3>${title}</h3>${sub?`<p>${sub}</p>`:''}</div><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">${body}</div><div class="modal-foot">${foot||'<button class="btn" onclick="closeModal()">取消</button>'}</div>`;
+  document.getElementById('modalMask').classList.add('show');
+}
+function closeModal(){ document.getElementById('modalMask').classList.remove('show'); }
+let toastTimer;
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 2300);
+}
+const fmt = n => (n==null||n==='')?'—':Number(n).toLocaleString();
+// endregion
+
+// region 演示数据
+// ===================================
+// 人员、生产任务、工序与批次
+// ===================================
+const people = {
+  '张伟': {team:'灌装一班'},
+  '李娜': {team:'灌装一班'},
+  '王强': {team:'灌装一班'},
+  '陈静': {team:'配制一班'},
+  '刘洋': {team:'配制一班'},
+  '赵磊': {team:'灭菌班'},
+  '孙敏': {team:'灯检班'},
+  '周涛': {team:'包装二班'}
+};
+
+const tasks = [
+  {
+    code:'RW-20261114-001', product:'复方甘草口服溶液', batch:'20261114A', qty:200000,
+    date:'2026-11-14', status:'生产中',
+    processes:[
+      {id:'a1', name:'称量配料', planStart:'08:00', planEnd:'09:00', planQty:200000, eq:'电子秤 E-01', room:'配料间', batches:[
+        {no:1, planStart:'08:00', planEnd:'09:00', planQty:200000, start:'08:05', end:'09:10', qty:198000, eq:'电子秤 E-01', room:'配料间', status:'completed', generated:1,
+          participants:[{name:'刘洋', hours:1.08, qty:198000, primary:true}]}
+      ]},
+      {id:'a2', name:'配制', planStart:'09:00', planEnd:'12:00', planQty:200000, eq:'配制罐 R-201', room:'配制间', batches:[
+        {no:1, planStart:'09:00', planEnd:'12:00', planQty:200000, start:'09:15', end:'12:05', qty:196000, eq:'配制罐 R-201', room:'配制间', status:'completed', generated:2,
+          participants:[{name:'刘洋', hours:2.83, qty:98000, primary:true},{name:'陈静', hours:1.90, qty:98000, primary:false}]}
+      ]},
+      {id:'a3', name:'灌装', planStart:'12:00', planEnd:'16:00', planQty:200000, eq:'灌装机 F-301', room:'灌装间', batches:[
+        {no:1, planStart:'12:00', planEnd:'14:00', planQty:100000, start:'12:10', end:'14:05', qty:100000, eq:'灌装机 F-301', room:'灌装间', status:'completed', generated:2,
+          participants:[{name:'张伟', hours:1.92, qty:50000, primary:true},{name:'李娜', hours:1.40, qty:50000, primary:false}]},
+        {no:2, planStart:'14:00', planEnd:'16:00', planQty:100000, start:'14:20', end:'', qty:98000, eq:'灌装机 F-301', room:'灌装间', status:'in_progress', generated:0,
+          participants:[{name:'王强', hours:2.17, qty:50000, primary:true},{name:'陈静', hours:1.80, qty:48000, primary:false}]}
+      ]},
+      {id:'a4', name:'灭菌', planStart:'16:00', planEnd:'18:00', planQty:200000, eq:'灭菌柜 S-102', room:'灭菌间', batches:[
+        {no:1, planStart:'16:00', planEnd:'18:00', planQty:200000, start:'', end:'', qty:null, eq:'灭菌柜 S-102', room:'灭菌间', status:'pending', generated:0,
+          participants:[{name:'赵磊', hours:null, qty:null, primary:true}]}
+      ]},
+      {id:'a5', name:'灯检', planStart:'18:00', planEnd:'20:00', planQty:200000, eq:'灯检台 L-01', room:'灯检间', batches:[
+        {no:1, planStart:'18:00', planEnd:'20:00', planQty:200000, start:'', end:'', qty:null, eq:'灯检台 L-01', room:'灯检间', status:'pending', generated:0,
+          participants:[{name:'周涛', hours:null, qty:null, primary:true},{name:'孙敏', hours:null, qty:null, primary:false}]}
+      ]},
+      {id:'a6', name:'包装', planStart:'明日 08:00', planEnd:'明日 13:00', planQty:200000, eq:'包装线 P-401', room:'包装间', batches:[
+        {no:1, planStart:'明日 08:00', planEnd:'明日 13:00', planQty:200000, start:'', end:'', qty:null, eq:'包装线 P-401', room:'包装间', status:'pending', generated:0,
+          participants:[{name:'周涛', hours:null, qty:null, primary:true},{name:'孙敏', hours:null, qty:null, primary:false}]}
+      ]}
+    ]
+  },
+  {
+    code:'RW-20261114-002', product:'维生素C片', batch:'20261114B', qty:120000,
+    date:'2026-11-13', status:'生产中',
+    processes:[
+      {id:'b1', name:'称量配料', planStart:'08:30', planEnd:'09:30', planQty:120000, eq:'电子秤 E-02', room:'配料间', batches:[
+        {no:1, planStart:'08:30', planEnd:'09:30', planQty:120000, start:'08:35', end:'09:35', qty:120000, eq:'电子秤 E-02', room:'配料间', status:'completed', generated:1,
+          participants:[{name:'张伟', hours:1.0, qty:120000, primary:true}]}
+      ]},
+      {id:'b2', name:'制粒', planStart:'09:45', planEnd:'12:45', planQty:120000, eq:'制粒机 G-101', room:'制粒间', batches:[
+        {no:1, planStart:'09:45', planEnd:'12:45', planQty:120000, start:'09:50', end:'12:50', qty:118000, eq:'制粒机 G-101', room:'制粒间', status:'completed', generated:2,
+          participants:[{name:'陈静', hours:3.0, qty:59000, primary:true},{name:'李娜', hours:2.40, qty:59000, primary:false}]}
+      ]},
+      {id:'b3', name:'压片', planStart:'13:00', planEnd:'17:00', planQty:120000, eq:'压片机 T-201', room:'压片间', batches:[
+        {no:1, planStart:'13:00', planEnd:'17:00', planQty:120000, start:'13:10', end:'17:05', qty:117000, eq:'压片机 T-201', room:'压片间', status:'completed', generated:2,
+          participants:[{name:'张伟', hours:3.92, qty:58500, primary:true},{name:'孙敏', hours:3.00, qty:58500, primary:false}]}
+      ]},
+      {id:'b4', name:'包衣', planStart:'17:10', planEnd:'19:30', planQty:120000, eq:'包衣机 C-301', room:'包衣间', batches:[
+        {no:1, planStart:'17:10', planEnd:'19:30', planQty:120000, start:'17:20', end:'19:40', qty:116000, eq:'包衣机 C-301', room:'包衣间', status:'completed', generated:1,
+          participants:[{name:'王强', hours:2.33, qty:116000, primary:true}]}
+      ]},
+      {id:'b5', name:'包装', planStart:'明日 08:00', planEnd:'明日 13:00', planQty:120000, eq:'包装线 P-402', room:'包装间', batches:[
+        {no:1, planStart:'明日 08:00', planEnd:'明日 13:00', planQty:120000, start:'', end:'', qty:null, eq:'包装线 P-402', room:'包装间', status:'pending', generated:0,
+          participants:[{name:'周涛', hours:null, qty:null, primary:true}]}
+      ]}
+    ]
+  },
+  {
+    code:'RW-20261113-006', product:'板蓝根颗粒', batch:'20261113C', qty:80000,
+    date:'2026-11-12', status:'生产中',
+    processes:[
+      {id:'c1', name:'称量配料', planStart:'09:00', planEnd:'10:00', planQty:80000, eq:'电子秤 E-03', room:'配料间', batches:[
+        {no:1, planStart:'09:00', planEnd:'10:00', planQty:80000, start:'09:05', end:'10:05', qty:80000, eq:'电子秤 E-03', room:'配料间', status:'completed', generated:1,
+          participants:[{name:'赵磊', hours:1.0, qty:80000, primary:true}]}
+      ]},
+      {id:'c2', name:'制粒', planStart:'10:00', planEnd:'13:00', planQty:80000, eq:'制粒机 G-102', room:'制粒间', batches:[
+        {no:1, planStart:'10:00', planEnd:'13:00', planQty:80000, start:'10:10', end:'13:10', qty:79000, eq:'制粒机 G-102', room:'制粒间', status:'completed', generated:2,
+          participants:[{name:'陈静', hours:3.0, qty:39500, primary:true},{name:'王强', hours:3.0, qty:39500, primary:false}]}
+      ]},
+      {id:'c3', name:'灌装', planStart:'13:00', planEnd:'17:00', planQty:80000, eq:'灌装机 F-301', room:'灌装间', batches:[
+        {no:1, planStart:'13:00', planEnd:'17:00', planQty:80000, start:'13:10', end:'17:20', qty:78000, eq:'灌装机 F-301', room:'灌装间', status:'completed', generated:2,
+          participants:[{name:'张伟', hours:4.17, qty:39000, primary:true},{name:'李娜', hours:4.17, qty:39000, primary:false}]}
+      ]},
+      {id:'c4', name:'灭菌', planStart:'17:20', planEnd:'19:20', planQty:80000, eq:'灭菌柜 S-102', room:'灭菌间', batches:[
+        {no:1, planStart:'17:20', planEnd:'19:20', planQty:80000, start:'', end:'', qty:null, eq:'灭菌柜 S-102', room:'灭菌间', status:'pending', generated:0,
+          participants:[{name:'赵磊', hours:null, qty:null, primary:true}]}
+      ]}
+    ]
+  }
+];
+
+let curTask = 0;
+let expanded = new Set(['a3']);
+// endregion
+
+// region 计算辅助
+// ===================================
+// 工序状态与批次汇总
+// ===================================
+function findProc(pid){
+  for(const t of tasks){ const p = t.processes.find(x=>x.id===pid); if(p) return p; }
+  return null;
+}
+function findTaskByProc(pid){
+  return tasks.find(t=>t.processes.some(p=>p.id===pid));
+}
+function procStatus(p){
+  const s = p.batches.map(b=>b.status);
+  if(s.every(x=>x==='completed')) return 'completed';
+  if(s.some(x=>x==='completed'||x==='in_progress')) return 'in_progress';
+  return 'pending';
+}
+function procActual(p){
+  const started = p.batches.filter(b=>b.start);
+  if(!started.length) return {start:'—', end:'—', qty:null};
+  const start = started[0].start;
+  const allDone = p.batches.every(b=>b.status==='completed');
+  const end = allDone ? (p.batches[p.batches.length-1].end || '—') : '进行中';
+  const qty = p.batches.reduce((s,b)=>s+(Number(b.qty)||0),0);
+  return {start, end, qty: qty||null};
+}
+function allBatches(){
+  const list = [];
+  tasks.forEach(t=>t.processes.forEach(p=>p.batches.forEach(b=>list.push({t,p,b}))));
+  return list;
+}
+function statusPill(status){
+  if(status==='completed') return '<span class="pill green">已完工</span>';
+  if(status==='in_progress') return '<span class="pill blue">进行中</span>';
+  return '<span class="pill gray">待开工</span>';
+}
+function batchLabel(p,b){ return p.batches.length>1 ? '批次 '+b.no : '生产记录'; }
+// endregion
+
+// region 实际记录
+// ===================================
+// 任务卡片、工序表与批次编辑
+// ===================================
+function renderStats(){
+  const all = allBatches();
+  const inProg = all.filter(x=>x.b.status==='in_progress').length;
+  const pending = all.filter(x=>x.b.status==='pending').length;
+  const done = all.filter(x=>x.b.status==='completed').length;
+  document.getElementById('statGrid').innerHTML = `
+    <div class="stat"><div class="k">生产中任务</div><div class="v">${tasks.length} <small>个</small></div><div class="s">今日与在制批次</div></div>
+    <div class="stat"><div class="k">进行中批次</div><div class="v">${inProg} <small>个</small></div><div class="s"><b class="warn">待完工 ${pending} 个</b></div></div>
+    <div class="stat"><div class="k">已完工批次</div><div class="v">${done} <small>个</small></div><div class="s">已按参与人生成绩效</div></div>
+    <div class="stat"><div class="k">参与人记录</div><div class="v">${all.reduce((s,x)=>s+x.b.participants.length,0)} <small>条</small></div><div class="s">批次 × 参与人</div></div>`;
+  document.getElementById('doneBadge').textContent = done;
+}
+function renderTaskCards(){
+  document.getElementById('taskCards').innerHTML = tasks.map((t,i)=>`
+    <div class="task-card ${i===curTask?'active':''}" onclick="selectTask(${i})">
+      <div class="tc-top">
+        <div><div class="tc-code">${t.code}</div><h4>${t.product}</h4><div class="tc-meta">批号 ${t.batch} · ${fmt(t.qty)} 件</div></div>
+        <span class="pill ${t.status==='生产中'?'green':'gray'}">${t.status}</span>
+      </div>
+      <div class="tc-foot"><span>记录日期 <b>${t.date}</b></span><span>${t.processes.length} 道工序</span></div>
+    </div>`).join('');
+}
+function selectTask(i){
+  curTask = i;
+  const t = tasks[i];
+  const firstOpen = t.processes.find(p=>procStatus(p)!=='completed') || t.processes[0];
+  expanded = new Set(firstOpen?[firstOpen.id]:[]);
+  renderTaskCards();
+  renderRecords();
+}
+function renderRecords(){
+  const t = tasks[curTask];
+  document.getElementById('taskTitle').textContent = `${t.code} · ${t.product}`;
+  document.getElementById('taskSub').textContent = `批号 ${t.batch} · 数量 ${fmt(t.qty)} 件 · 计划开始 ${t.date} 08:00`;
+  document.getElementById('taskDateTag').textContent = t.date;
+  const tag = document.getElementById('taskStatusTag');
+  tag.className = 'pill '+(t.status==='生产中'?'green':'gray');
+  tag.textContent = t.status;
+
+  const rows = t.processes.map(p=>{
+    const status = procStatus(p);
+    const a = procActual(p);
+    const partCount = p.batches.reduce((s,b)=>s+b.participants.length,0);
+    const open = expanded.has(p.id);
+    return `<tr class="proc-row ${open?'open':''}" onclick="toggleProc('${p.id}')">
+      <td><span class="caret">▶</span><b>${p.name}</b>${p.batches.length>1?` <span class="tag blue">拆 ${p.batches.length} 次</span>`:''}
+        <div class="sub" style="margin-left:25px">${p.batches.length} 个批次</div></td>
+      <td class="mono">${p.planStart}–${p.planEnd}</td>
+      <td class="mono">${a.start}–${a.end}</td>
+      <td class="mono">${fmt(p.planQty)} / ${fmt(a.qty)}</td>
+      <td>${p.eq}<div class="sub">${p.room}</div></td>
+      <td>${p.batches.length} 个</td>
+      <td><span class="chip">${partCount} 人</span></td>
+      <td>${statusPill(status)}</td>
+      <td onclick="event.stopPropagation()"><button class="link" onclick="toggleProc('${p.id}')">${open?'收起':'展开'}</button></td>
+    </tr>
+    ${open?`<tr class="expand-row"><td colspan="9"><div class="expand-inner">${p.batches.map(b=>batchBlock(p,b)).join('')}</div></td></tr>`:''}`;
+  }).join('');
+  document.getElementById('procTbody').innerHTML = rows || `<tr><td colspan="9"><div class="empty"><b>暂无工序</b>该任务尚未绑定工序模板</div></td></tr>`;
+}
+function toggleProc(id){
+  if(expanded.has(id)) expanded.delete(id); else expanded.add(id);
+  renderRecords();
+}
+function participantRowHtml(part){
+  return `<tr class="part-row">
+    <td><select class="input sm p-name" onchange="syncParticipantTeam(this)">${Object.keys(people).map(n=>`<option ${n===part.name?'selected':''}>${n}</option>`).join('')}</select></td>
+    <td><span class="sub p-team">${part.name?people[part.name].team:'—'}</span></td>
+    <td><input class="input sm p-hours" type="number" step="0.01" value="${part.hours==null?'':part.hours}" placeholder="小时"/></td>
+    <td><input class="input sm p-qty" type="number" value="${part.qty==null?'':part.qty}" placeholder="件" oninput="updateBalance(this)"/></td>
+    <td style="text-align:center"><input type="checkbox" class="p-primary" ${part.primary?'checked':''}/></td>
+    <td><button class="link danger" onclick="removeParticipant(this)">移除</button></td>
+  </tr>`;
+}
+function batchBlock(p,b){
+  const editable = b.status!=='completed';
+  const label = batchLabel(p,b);
+  const head = `<div class="batch-head">
+    <div class="bh-left"><b>${label}</b><span class="sub mono">计划 ${b.planStart}–${b.planEnd}</span><span class="tag">计划 ${fmt(b.planQty)}</span></div>
+    <div class="bh-right">${statusPill(b.status)}${b.status==='completed'?`<span class="tag green">已生成绩效 ${b.generated} 条</span>`:''}</div>
+  </div>`;
+  if(!editable){
+    return `<div class="batch-block" data-pid="${p.id}" data-bno="${b.no}">${head}
+      <div class="read-grid">
+        <div><span class="k">实际起止</span><span class="v mono">${b.start||'—'}–${b.end||'—'}</span></div>
+        <div><span class="k">实际数量</span><span class="v mono">${fmt(b.qty)}</span></div>
+        <div><span class="k">设备</span><span class="v">${b.eq||'—'}</span></div>
+        <div><span class="k">房间</span><span class="v">${b.room||'—'}</span></div>
+        <div><span class="k">参与人数</span><span class="v">${b.participants.length} 人</span></div>
+      </div>
+      <table class="part-table">
+        <thead><tr><th>姓名</th><th>班组</th><th>参与工时</th><th>完成数量</th><th>主操作</th></tr></thead>
+        <tbody>${b.participants.map(part=>`<tr><td><b>${part.name}</b></td><td class="sub">${people[part.name].team}</td><td class="mono">${part.hours==null?'—':part.hours.toFixed(2)+' h'}</td><td class="mono">${fmt(part.qty)}</td><td>${part.primary?'<span class="tag green">主操作</span>':'—'}</td></tr>`).join('')}</tbody>
+      </table>
+      <div class="batch-foot"><div class="balance ok">参与人合计 <b>${fmt(b.participants.reduce((s,x)=>s+(Number(x.qty)||0),0))}</b> / 批次实际数量 <b>${fmt(b.qty)}</b> ✓</div>
+        <div class="toolbar"><span class="locked-note">🔒 已完工，实际记录锁定</span><a class="btn sm" href="performance.html">查看绩效</a></div></div>
+    </div>`;
+  }
+  return `<div class="batch-block" data-pid="${p.id}" data-bno="${b.no}">${head}
+    <div class="edit-grid">
+      <div class="field"><label>实际开始</label><input class="input sm b-start" value="${b.start||''}" placeholder="HH:mm"/></div>
+      <div class="field"><label>实际结束</label><input class="input sm b-end" value="${b.end||''}" placeholder="HH:mm"/></div>
+      <div class="field"><label>实际数量</label><input class="input sm b-qty" type="number" value="${b.qty==null?'':b.qty}" oninput="updateBalance(this)"/></div>
+      <div class="field"><label>设备</label><input class="input sm b-eq" value="${b.eq||''}"/></div>
+      <div class="field"><label>房间</label><input class="input sm b-room" value="${b.room||''}"/></div>
+    </div>
+    <div class="part-head"><span>参与人</span><span class="sub">逐人登记参与工时与完成数量；合计须等于批次实际数量</span></div>
+    <table class="part-table">
+      <thead><tr><th>姓名</th><th>班组</th><th>参与工时</th><th>完成数量</th><th>主操作</th><th>操作</th></tr></thead>
+      <tbody>${b.participants.map(part=>participantRowHtml(part)).join('')}</tbody>
+    </table>
+    <div class="batch-foot">
+      <div class="balance" data-balance>计算中…</div>
+      <div class="toolbar">
+        <button class="btn sm" onclick="addParticipant('${p.id}',${b.no})">＋ 添加参与人</button>
+        <button class="btn sm" onclick="averageAllocate(this)">平均分配</button>
+        <button class="btn sm" onclick="saveBatch('${p.id}',${b.no})">保存草稿</button>
+        <button class="btn sm primary" onclick="completeBatch('${p.id}',${b.no})">完工</button>
+      </div>
+    </div>
+  </div>`;
+}
+function syncParticipantTeam(sel){
+  const row = sel.closest('tr');
+  row.querySelector('.p-team').textContent = people[sel.value].team;
+}
+function updateBalance(el){
+  const block = el.closest && el.closest('.batch-block') ? el.closest('.batch-block') : el;
+  if(!block || !block.querySelector) return;
+  const qtyEl = block.querySelector('.b-qty');
+  if(!qtyEl) return;
+  const qty = Number(qtyEl.value)||0;
+  const sum = [...block.querySelectorAll('.p-qty')].reduce((s,i)=>s+(Number(i.value)||0),0);
+  const target = block.querySelector('[data-balance]');
+  if(!target) return;
+  const ok = qty>0 && sum===qty;
+  target.className = 'balance '+(ok?'ok':'bad');
+  target.innerHTML = `参与人合计 <b>${sum.toLocaleString()}</b> / 批次实际数量 <b>${qty.toLocaleString()}</b> ${ok?'✓':'✗ 数量不平'}`;
+}
+function addParticipant(pid,bno){
+  const block = document.querySelector(`.batch-block[data-pid="${pid}"][data-bno="${bno}"]`);
+  if(!block) return;
+  const tbody = block.querySelector('.part-table tbody');
+  const used = [...tbody.querySelectorAll('.p-name')].map(s=>s.value);
+  const name = Object.keys(people).find(n=>!used.includes(n)) || Object.keys(people)[0];
+  tbody.insertAdjacentHTML('beforeend', participantRowHtml({name, hours:null, qty:null, primary:false}));
+  updateBalance(block);
+}
+function removeParticipant(btn){
+  const block = btn.closest('.batch-block');
+  btn.closest('tr').remove();
+  updateBalance(block);
+}
+function averageAllocate(btn){
+  const block = btn.closest('.batch-block');
+  const qty = Number(block.querySelector('.b-qty').value)||0;
+  const rows = [...block.querySelectorAll('.part-row')];
+  if(!rows.length){ toast('请先添加参与人'); return; }
+  if(!(qty>0)){ toast('请先填写实际数量'); return; }
+  const base = Math.floor(qty/rows.length);
+  const rem = qty - base*rows.length;
+  rows.forEach((row,i)=>{
+    row.querySelector('.p-qty').value = base + (i===rows.length-1?rem:0);
+  });
+  updateBalance(block);
+}
+function collectBatch(block){
+  return {
+    start: block.querySelector('.b-start').value.trim(),
+    end: block.querySelector('.b-end').value.trim(),
+    qty: Number(block.querySelector('.b-qty').value)||0,
+    eq: block.querySelector('.b-eq').value.trim(),
+    room: block.querySelector('.b-room').value.trim(),
+    participants: [...block.querySelectorAll('.part-row')].map(row=>({
+      name: row.querySelector('.p-name').value,
+      hours: Number(row.querySelector('.p-hours').value)||0,
+      qty: Number(row.querySelector('.p-qty').value)||0,
+      primary: row.querySelector('.p-primary').checked
+    }))
+  };
+}
+function validateBatch(data){
+  if(!data.start) return '请填写实际开始时间';
+  if(!data.end) return '请填写实际结束时间';
+  if(data.end <= data.start) return '实际结束时间必须晚于实际开始时间';
+  if(!(data.qty>0)) return '请填写大于 0 的实际数量';
+  if(!data.participants.length) return '请至少登记一名参与人';
+  const names = data.participants.map(p=>p.name);
+  if(new Set(names).size!==names.length) return '参与人不能重复，请检查姓名';
+  for(const p of data.participants){
+    if(!(p.hours>0)) return `请填写参与人【${p.name}】的参与工时`;
+    if(p.qty<0) return `参与人【${p.name}】的完成数量不能为负`;
+  }
+  const sum = data.participants.reduce((s,p)=>s+p.qty,0);
+  if(sum!==data.qty) return `参与人完成数量合计 ${sum.toLocaleString()} 与批次实际数量 ${data.qty.toLocaleString()} 不一致`;
+  return '';
+}
+function saveBatch(pid,bno){
+  const block = document.querySelector(`.batch-block[data-pid="${pid}"][data-bno="${bno}"]`);
+  if(!block) return;
+  const data = collectBatch(block);
+  const p = findProc(pid); const b = p.batches.find(x=>x.no===bno);
+  Object.assign(b, data);
+  if(b.status==='pending' && b.start) b.status = 'in_progress';
+  renderAll();
+  toast('批次草稿已保存（演示）');
+}
+function saveAllDrafts(){
+  const blocks = [...document.querySelectorAll('.batch-block')].filter(b=>{
+    const start = b.querySelector('.b-start');
+    const qty = b.querySelector('.b-qty');
+    return start && (start.value.trim() || Number(qty && qty.value)>0);
+  });
+  if(!blocks.length){ toast('当前没有可保存的批次'); return; }
+  blocks.forEach(block=>{
+    const pid = block.dataset.pid;
+    const bno = Number(block.dataset.bno);
+    const p = findProc(pid);
+    const b = p.batches.find(x=>x.no===bno);
+    Object.assign(b, collectBatch(block));
+    if(b.status==='pending' && b.start) b.status = 'in_progress';
+  });
+  renderAll();
+  toast(`已保存当前展开的 ${blocks.length} 个批次草稿（演示）`);
+}
+function completeBatch(pid,bno){
+  const block = document.querySelector(`.batch-block[data-pid="${pid}"][data-bno="${bno}"]`);
+  if(!block) return;
+  const data = collectBatch(block);
+  const err = validateBatch(data);
+  if(err){ toast(err); return; }
+  const p = findProc(pid); const b = p.batches.find(x=>x.no===bno);
+  window.__completeCtx = {pid,bno,data};
+  openModal('确认完工', `${p.name} · ${batchLabel(p,b)}`, `
+    <div class="summary-list">
+      <div><span class="k">实际起止</span><span class="v mono">${data.start}–${data.end}</span></div>
+      <div><span class="k">实际数量</span><span class="v mono">${data.qty.toLocaleString()}</span></div>
+      <div><span class="k">参与人</span><span class="v">${data.participants.map(x=>x.name).join('、')}</span></div>
+      <div><span class="k">将生成绩效</span><span class="v">${data.participants.length} 条</span></div>
+    </div>
+    <div class="banner" style="margin:16px 0 0"><span>ℹ</span><div>完工后本批次实际记录锁定，并按参与人逐人生成绩效记录；绩效时长默认等于参与工时，系数按完工时生效版本快照。</div></div>`,
+    `<button class="btn" onclick="closeModal()">取消</button><button class="btn green" onclick="confirmComplete()">确认完工</button>`);
+}
+function confirmComplete(){
+  const ctx = window.__completeCtx; if(!ctx) return;
+  const p = findProc(ctx.pid);
+  const b = p.batches.find(x=>x.no===ctx.bno);
+  Object.assign(b, ctx.data);
+  b.status = 'completed';
+  b.generated = b.participants.length;
+  closeModal();
+  expanded.add(ctx.pid);
+  renderAll();
+  toast(`批次已完工，已生成 ${b.generated} 条个人绩效记录（演示）`);
+}
+function renderCompleted(){
+  const rows = [];
+  tasks.forEach(t=>t.processes.forEach(p=>p.batches.filter(b=>b.status==='completed').forEach(b=>rows.push({t,p,b}))));
+  document.getElementById('completedTbody').innerHTML = rows.map(({t,p,b})=>`
+    <tr>
+      <td><div class="mono">${t.code}</div><div class="sub">${t.batch}</div></td>
+      <td>${t.product}</td>
+      <td><b>${p.name}</b></td>
+      <td>${batchLabel(p,b)}</td>
+      <td class="mono">${b.planStart}–${b.planEnd}</td>
+      <td class="mono">${b.start}–${b.end}</td>
+      <td class="mono">${fmt(b.qty)}</td>
+      <td>${b.participants.map(x=>`<span class="chip">${x.name}</span>`).join('')}</td>
+      <td><span class="tag green">${b.generated} 条</span></td>
+      <td><a class="link" href="performance.html">查看绩效</a></td>
+    </tr>`).join('') || `<tr><td colspan="10"><div class="empty"><b>暂无完工记录</b>批次完工后会出现在这里</div></td></tr>`;
+}
+// endregion
+
+// region 页面初始化
+// ===================================
+// 初次渲染
+// ===================================
+function renderAll(){
+  renderStats();
+  renderTaskCards();
+  renderRecords();
+  renderCompleted();
+  // 初始化每个可编辑批次的平衡提示
+  document.querySelectorAll('.batch-block [data-balance]').forEach(el=>updateBalance(el));
+}
+renderAll();
+// endregion
+</script>
+</body>
+</html>

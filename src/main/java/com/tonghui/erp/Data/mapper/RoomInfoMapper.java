@@ -4,6 +4,7 @@ import com.tonghui.erp.Data.Entity.RoomInfo;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 /**
  * 房间信息数据访问Mapper接口
@@ -27,8 +28,13 @@ public interface RoomInfoMapper extends BaseMapper<RoomInfo> {
      */
     @Delete("DELETE FROM room_info WHERE room_name = #{roomName} AND is_deleted = 1")
     int physicalDeleteByRoomName(@Param("roomName") String roomName);
+
+    /**
+     * 按房间ID加行锁（排产冲突校验并发控制）
+     *
+     * @param roomId 房间ID
+     * @return 房间信息
+     */
+    @Select("SELECT * FROM room_info WHERE room_id = #{roomId} AND is_deleted = 0 FOR UPDATE")
+    RoomInfo selectByIdForUpdate(@Param("roomId") Integer roomId);
 }
-
-
-
-
