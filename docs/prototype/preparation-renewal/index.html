@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>制剂续展文件 · PC 端设计稿</title>
+<style>
+:root{
+  --primary:#2f6fed; --primary-weak:#eaf1ff; --primary-dark:#1f5bd7;
+  --green:#079455; --green-weak:#e7f6ee;
+  --amber:#dc6803; --amber-weak:#fef4e6;
+  --red:#d92d20; --red-weak:#fdeceb;
+  --text:#182230; --muted:#667085; --soft:#98a2b3;
+  --line:#e4e7ec; --line2:#eef1f5; --bg:#f5f7fb; --card:#fff;
+  --radius:14px; --radius-sm:9px;
+  --shadow:0 1px 2px rgba(16,24,40,.04), 0 10px 28px rgba(16,24,40,.05);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:13px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+body.drawer-open{overflow:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:#d6dce6;border-radius:4px}
+
+/* ============ 应用外壳 ============ */
+.app{display:flex;min-height:100vh}
+.sidebar{position:fixed;inset:0 auto 0 0;width:222px;background:#fff;border-right:1px solid var(--line);display:flex;flex-direction:column;z-index:10}
+.brand{height:64px;display:flex;align-items:center;gap:10px;padding:0 20px;border-bottom:1px solid var(--line2)}
+.brand-mark{width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#2f6fed,#6d9bff);color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px}
+.brand-name{font-size:15px;font-weight:700;letter-spacing:.2px}
+.brand-sub{font-size:11px;color:var(--soft);margin-top:-2px}
+.nav{padding:14px 12px;flex:1;overflow:auto}
+.nav-label{font-size:11px;color:var(--soft);padding:12px 10px 6px;letter-spacing:.6px}
+.nav-item{display:flex;align-items:center;gap:10px;height:40px;padding:0 12px;margin:2px 0;border-radius:9px;color:var(--muted);font-size:13.5px;cursor:pointer;user-select:none;text-decoration:none}
+.nav-item:hover{background:#f7f9fc;color:var(--text)}
+.nav-item.active{background:var(--primary-weak);color:var(--primary);font-weight:600}
+.nav-dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.65}
+.nav-badge{margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--primary);color:#fff;font-size:11px;display:grid;place-items:center;font-weight:600}
+.sidebar-foot{border-top:1px solid var(--line2);padding:14px 18px;font-size:11.5px;color:var(--soft)}
+.sidebar-foot b{color:var(--muted);font-weight:600}
+.main{margin-left:222px;flex:1;min-width:0;padding:0 28px 64px}
+.topbar{height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:8;background:rgba(245,247,251,.86);backdrop-filter:blur(8px)}
+.crumb{font-size:12.5px;color:var(--soft)}
+.crumb b{color:var(--text);font-weight:600}
+.top-actions{display:flex;align-items:center;gap:10px}
+.avatar{width:32px;height:32px;border-radius:50%;background:#dfe8ff;color:var(--primary);display:grid;place-items:center;font-weight:700;font-size:12px}
+
+/* ============ 通用控件 ============ */
+.btn{height:34px;padding:0 14px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--text);font-size:12.5px;display:inline-flex;align-items:center;gap:6px;transition:.15s;text-decoration:none;white-space:nowrap}
+.btn:hover{border-color:#c9d2e0;background:#fbfcfe}
+.btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+.btn.primary:hover{background:var(--primary-dark);border-color:var(--primary-dark)}
+.btn.sm{height:28px;padding:0 10px;font-size:12px;border-radius:7px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.primary:disabled:hover{background:var(--primary);border-color:var(--primary)}
+.link{border:0;background:none;padding:0;color:var(--primary);font-size:12.5px;cursor:pointer}
+.link:hover{text-decoration:underline}
+.link.danger{color:var(--red)}
+.chip{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:11px;font-size:11.5px;font-weight:600;background:#f2f4f7;color:var(--muted)}
+.chip i{width:6px;height:6px;border-radius:50%;background:currentColor;display:block}
+.chip.green{background:var(--green-weak);color:var(--green)}
+.chip.amber{background:var(--amber-weak);color:var(--amber)}
+.chip.red{background:var(--red-weak);color:var(--red)}
+.chip.blue{background:var(--primary-weak);color:var(--primary)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+
+/* ============ 制剂列表页 ============ */
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:2px 0 16px}
+.page-head h1{margin:0;font-size:22px;font-weight:700;letter-spacing:-.2px}
+.page-head p{margin:5px 0 0;color:var(--muted);font-size:12.5px}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.filters{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr auto;gap:10px;padding:14px 16px;margin-bottom:14px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:11.5px;color:var(--soft)}
+.field input,.field select{height:34px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:0 10px;font-size:12.5px;outline:none}
+.field input:focus,.field select:focus{border-color:#9db9f2;box-shadow:0 0 0 3px rgba(47,111,237,.1)}
+.table-card{overflow:hidden}
+table{width:100%;border-collapse:collapse}
+th,td{padding:12px 14px;text-align:left;border-bottom:1px solid var(--line2);vertical-align:middle}
+th{background:#fbfcfe;color:var(--soft);font-size:11.5px;font-weight:600;letter-spacing:.2px;white-space:nowrap}
+td{font-size:12.5px}
+tbody tr:hover{background:#fbfdff}
+tbody tr:last-child td{border-bottom:0}
+.name-cell b{display:block;font-size:13px;font-weight:600}
+.name-cell span{display:block;color:var(--soft);font-size:11.5px;margin-top:1px}
+.row-actions{display:flex;gap:12px;align-items:center;white-space:nowrap}
+.row-highlight td{background:#f5f9ff}
+.row-highlight:hover td{background:#eef5ff}
+
+/* ============ 抽屉 ============ */
+.overlay{position:fixed;inset:0;background:rgba(16,24,40,.38);opacity:0;pointer-events:none;transition:opacity .2s;z-index:40}
+.overlay.show{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(980px,100vw);background:#fff;z-index:50;display:flex;flex-direction:column;box-shadow:-16px 0 48px rgba(16,24,40,.16);transform:translateX(102%);transition:transform .24s cubic-bezier(.22,.61,.36,1)}
+.drawer.show{transform:translateX(0)}
+.drawer-head{padding:18px 22px 14px;border-bottom:1px solid var(--line2);display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+.drawer-title{font-size:19px;font-weight:700;letter-spacing:-.2px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.code{font-size:11.5px;font-weight:600;color:var(--primary);background:var(--primary-weak);border-radius:6px;padding:2px 7px;letter-spacing:.3px}
+.drawer-sub{color:var(--muted);font-size:12px;margin-top:5px}
+.drawer-chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
+.icon-btn{width:32px;height:32px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--muted);display:grid;place-items:center;font-size:15px;line-height:1}
+.icon-btn:hover{background:#f7f9fc;color:var(--text)}
+.tabs{display:flex;gap:4px;padding:0 18px;border-bottom:1px solid var(--line);overflow-x:auto;flex:0 0 auto}
+.tab{height:44px;padding:0 13px;border:0;background:none;color:var(--muted);font-size:13px;position:relative;white-space:nowrap;display:inline-flex;align-items:center;gap:7px}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--primary);font-weight:600}
+.tab.active::after{content:"";position:absolute;left:10px;right:10px;bottom:-1px;height:2px;border-radius:2px;background:var(--primary)}
+.tab-badge{min-width:19px;height:19px;padding:0 5px;border-radius:10px;background:var(--primary-weak);color:var(--primary);font-size:10.5px;display:grid;place-items:center;font-weight:700}
+.tab-panels{flex:1;min-height:0;display:flex;flex-direction:column}
+.panel{display:none;flex:1;min-height:0;overflow:auto;padding:18px 22px 24px}
+.panel.active{display:block}
+.panel.active[data-panel="renewal"]{display:flex;flex-direction:column;overflow:hidden;padding:0}
+.panel-placeholder{height:100%;display:grid;place-items:center;color:var(--soft);font-size:13px;text-align:center;line-height:1.8}
+.basic-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 28px}
+.basic-item{border-bottom:1px dashed var(--line2);padding:8px 0;display:flex;justify-content:space-between;gap:16px;font-size:12.5px}
+.basic-item span{color:var(--soft)}
+.basic-item b{font-weight:600;text-align:right}
+
+/* ============ 续展文件 ============ */
+.renewal-top{padding:16px 22px 12px;border-bottom:1px solid var(--line2);flex:0 0 auto}
+.design-notes{display:none;background:#f7faff;border:1px solid #d9e6ff;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#3b5b96;line-height:1.7}
+.design-notes.show{display:block}
+.design-notes b{color:#1f4fa8;margin-right:6px}
+.design-notes ol{margin:4px 0 0;padding-left:18px}
+.remark-card{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff}
+.remark-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:7px}
+.remark-head label{font-size:12.5px;font-weight:600}
+.remark-head .counter{font-size:11.5px;color:var(--soft);font-variant-numeric:tabular-nums}
+.remark-card textarea{width:100%;height:62px;resize:vertical;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12.5px;line-height:1.65;outline:none;background:#fbfcfe}
+.remark-card textarea:focus{border-color:#9db9f2;background:#fff;box-shadow:0 0 0 3px rgba(47,111,237,.08)}
+.remark-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px}
+.hint{font-size:11.5px;color:var(--soft)}
+.renewal-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:12px;flex-wrap:wrap}
+.progress-summary{font-size:12.5px;color:var(--muted)}
+.progress-summary b{font-size:17px;color:var(--text);margin-right:2px}
+.renewal-layout{flex:1;min-height:0;display:flex;border-top:1px solid var(--line2)}
+.kind-nav{width:234px;flex:0 0 234px;border-right:1px solid var(--line2);padding:12px 10px;overflow:auto;background:#fbfcfe}
+.kind-nav-item{width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border:0;border-radius:8px;background:none;text-align:left;color:var(--muted);font-size:12.5px;line-height:1.4;margin-bottom:2px}
+.kind-nav-item:hover{background:#f1f5fc;color:var(--text)}
+.kind-nav-item.active{background:var(--primary-weak);color:var(--primary);font-weight:600}
+.kind-nav-item .idx{width:22px;flex:0 0 22px;font-size:11px;font-weight:700;color:var(--soft);font-variant-numeric:tabular-nums}
+.kind-nav-item.active .idx{color:var(--primary)}
+.kind-nav-item .txt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kind-nav-item .num{flex:0 0 auto;min-width:20px;height:18px;padding:0 5px;border-radius:9px;background:#fff;border:1px solid var(--line);font-size:10.5px;display:grid;place-items:center;color:var(--soft);font-variant-numeric:tabular-nums}
+.kind-nav-item .num.has{background:var(--green-weak);border-color:transparent;color:var(--green);font-weight:700}
+.kind-nav-item.active .num{background:#fff}
+.kind-list{flex:1;min-width:0;overflow:auto;padding:14px 18px 32px;background:#fbfcfe}
+.group{background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px 15px 14px;margin-bottom:12px;scroll-margin-top:10px}
+.group-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:9px}
+.group-title{display:flex;align-items:center;gap:9px;min-width:0}
+.group-index{width:24px;height:24px;flex:0 0 24px;border-radius:7px;background:var(--primary-weak);color:var(--primary);display:grid;place-items:center;font-size:11px;font-weight:700;font-variant-numeric:tabular-nums}
+.group-title h3{margin:0;font-size:13.5px;font-weight:600;letter-spacing:.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.count{font-size:11.5px;color:var(--green);background:var(--green-weak);border-radius:9px;padding:2px 7px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.count.muted{color:var(--soft);background:#f2f4f7}
+.file-list{display:flex;flex-direction:column;gap:1px;border:1px solid var(--line2);border-radius:9px;overflow:hidden;background:var(--line2)}
+.file-row{display:flex;align-items:center;gap:11px;padding:9px 11px;background:#fff}
+.file-row:hover{background:#fbfdff}
+.file-ico{width:34px;height:34px;flex:0 0 34px;border-radius:8px;display:grid;place-items:center;font-size:9px;font-weight:800;letter-spacing:.4px}
+.file-ico.pdf{background:var(--red-weak);color:var(--red)}
+.file-ico.doc{background:var(--primary-weak);color:var(--primary)}
+.file-ico.xls{background:var(--green-weak);color:var(--green)}
+.file-ico.img{background:#f4ecff;color:#7a5af8}
+.file-ico.zip{background:var(--amber-weak);color:var(--amber)}
+.file-ico.other{background:#f2f4f7;color:var(--muted)}
+.file-main{flex:1;min-width:0}
+.file-name{font-size:12.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.file-meta{font-size:11px;color:var(--soft);margin-top:1px}
+.file-actions{display:flex;gap:11px;flex:0 0 auto}
+.empty{border:1px dashed #d6dce6;border-radius:9px;min-height:56px;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;padding:8px 12px;color:var(--soft);font-size:12px;background:#fcfdff}
+.empty span{color:#b0b8c4;font-size:11px}
+
+/* ============ 提示 ============ */
+.toast-wrap{position:fixed;left:50%;bottom:34px;transform:translateX(-50%);z-index:90;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+.toast{background:#182230;color:#fff;border-radius:9px;padding:9px 16px;font-size:12.5px;box-shadow:0 10px 28px rgba(16,24,40,.22);opacity:0;transform:translateY(8px);transition:.2s;max-width:min(560px,90vw)}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.success{background:#066e46}
+.toast.warn{background:#a15c00}
+
+/* ============ 响应式 ============ */
+@media (max-width:1180px){
+  .sidebar{display:none}
+  .main{margin-left:0}
+}
+@media (max-width:900px){
+  .filters{grid-template-columns:1fr 1fr}
+  .drawer{width:100vw}
+  .basic-grid{grid-template-columns:1fr}
+  .renewal-layout{flex-direction:column}
+  .kind-nav{width:auto;flex:0 0 auto;display:flex;gap:6px;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line2);padding:9px 12px}
+  .kind-nav-item{width:auto;flex:0 0 auto;white-space:nowrap;margin-bottom:0}
+  .kind-nav-item .txt{max-width:110px}
+  .kind-list{padding:12px}
+}
+@media (max-width:620px){
+  .filters{grid-template-columns:1fr}
+  .main{padding:0 14px 48px}
+  .drawer-head,.renewal-top{padding-left:14px;padding-right:14px}
+  .file-actions{gap:8px}
+  .file-meta{font-size:10.5px}
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">T</div>
+      <div>
+        <div class="brand-name">同辉制药 ERP</div>
+        <div class="brand-sub">质量管理 · 制剂管理</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <div class="nav-item"><span class="nav-dot"></span>工作台</div>
+      <div class="nav-label">基础与生产</div>
+      <div class="nav-item"><span class="nav-dot"></span>基础数据</div>
+      <div class="nav-item active"><span class="nav-dot"></span>制剂管理<span class="nav-badge">6</span></div>
+      <div class="nav-item"><span class="nav-dot"></span>生产管理</div>
+      <div class="nav-item"><span class="nav-dot"></span>库存管理</div>
+      <div class="nav-label">质量与设备</div>
+      <div class="nav-item"><span class="nav-dot"></span>质量管理</div>
+      <div class="nav-item"><span class="nav-dot"></span>设备管理</div>
+      <div class="nav-item"><span class="nav-dot"></span>车间环境</div>
+      <div class="nav-label">系统</div>
+      <div class="nav-item"><span class="nav-dot"></span>审批管理</div>
+      <div class="nav-item"><span class="nav-dot"></span>系统设置</div>
+    </nav>
+    <div class="sidebar-foot"><b>当前用户</b> · 质量管理<br/>续展文件设计稿 v1.0</div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="crumb">基础数据 / <b>制剂管理</b></div>
+      <div class="top-actions">
+        <button class="btn" onclick="toggleNotes()">设计说明</button>
+        <div class="avatar">质</div>
+      </div>
+    </div>
+
+    <div class="page-head">
+      <div>
+        <h1>制剂管理</h1>
+        <p>维护制剂基础信息、处方、工序模板与续展材料；点击「续展文件」查看本次设计稿。</p>
+      </div>
+      <div class="toolbar">
+        <button class="btn">导出</button>
+        <button class="btn primary">+ 新增制剂</button>
+      </div>
+    </div>
+
+    <div class="filters card">
+      <div class="field"><label>关键字</label><input placeholder="制剂编码 / 制剂品名" /></div>
+      <div class="field"><label>剂型大类</label><select><option>全部</option><option>口服液</option><option>丸剂</option><option>散剂</option></select></div>
+      <div class="field"><label>批件状态</label><select><option>全部</option><option>即将到期</option><option>已过期</option></select></div>
+      <div class="field"><label>状态</label><select><option>全部</option><option>启用</option><option>禁用</option></select></div>
+      <div class="field"><label>&nbsp;</label><button class="btn primary">查询</button></div>
+    </div>
+
+    <div class="card table-card">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:24%">制剂</th>
+            <th>规格</th>
+            <th>剂型</th>
+            <th>注册批件期限</th>
+            <th>委托配制批件期限</th>
+            <th>状态</th>
+            <th style="width:190px">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="name-cell"><b>疏肝养胃丸</b><span>Z04-011</span></td>
+            <td>每50丸重6g</td>
+            <td>丸剂</td>
+            <td><span class="chip green"><i></i>2027-05-20</span></td>
+            <td><span class="chip green"><i></i>2027-03-15</span></td>
+            <td><span class="chip blue">启用</span></td>
+            <td><div class="row-actions"><button class="link">详情</button><button class="link" onclick="openDrawer()">续展文件</button><button class="link">编辑</button></div></td>
+          </tr>
+          <tr class="row-highlight">
+            <td class="name-cell"><b>益智健脑口服液</b><span>Z04-012</span></td>
+            <td>每支装10ml</td>
+            <td>口服液</td>
+            <td><span class="chip amber"><i></i>2027-03-15 · 剩余 121 天</span></td>
+            <td><span class="chip amber"><i></i>2026-12-31 · 剩余 47 天</span></td>
+            <td><span class="chip blue">启用</span></td>
+            <td><div class="row-actions"><button class="link">详情</button><button class="link" onclick="openDrawer()">续展文件</button><button class="link">编辑</button></div></td>
+          </tr>
+          <tr>
+            <td class="name-cell"><b>参苓白术散</b><span>Z03-008</span></td>
+            <td>每袋装6g</td>
+            <td>散剂</td>
+            <td><span class="chip red"><i></i>2026-10-31 · 已过期</span></td>
+            <td><span class="chip amber"><i></i>2026-11-30 · 剩余 16 天</span></td>
+            <td><span class="chip blue">启用</span></td>
+            <td><div class="row-actions"><button class="link">详情</button><button class="link" onclick="openDrawer()">续展文件</button><button class="link">编辑</button></div></td>
+          </tr>
+          <tr>
+            <td class="name-cell"><b>清热解毒颗粒</b><span>Z02-006</span></td>
+            <td>每袋装10g</td>
+            <td>颗粒剂</td>
+            <td><span class="chip green"><i></i>2028-01-10</span></td>
+            <td><span class="chip green"><i></i>2027-08-20</span></td>
+            <td><span class="chip blue">启用</span></td>
+            <td><div class="row-actions"><button class="link">详情</button><button class="link" onclick="openDrawer()">续展文件</button><button class="link">编辑</button></div></td>
+          </tr>
+          <tr>
+            <td class="name-cell"><b>安神补脑液</b><span>Z01-003</span></td>
+            <td>每支装10ml</td>
+            <td>口服液</td>
+            <td><span class="chip green"><i></i>2027-12-01</span></td>
+            <td><span class="chip green"><i></i>2027-06-30</span></td>
+            <td><span class="chip">停用</span></td>
+            <td><div class="row-actions"><button class="link">详情</button><button class="link" onclick="openDrawer()">续展文件</button><button class="link">编辑</button></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- 抽屉 -->
+<div class="overlay" id="overlay" onclick="closeDrawer()"></div>
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <header class="drawer-head">
+    <div>
+      <div class="drawer-title">益智健脑口服液 <span class="code">Z04-012</span></div>
+      <div class="drawer-sub">每支装10ml · 口服液 · 生产单位：制剂一车间</div>
+      <div class="drawer-chips">
+        <span class="chip amber"><i></i>注册批件 2027-03-15 · 剩余 121 天</span>
+        <span class="chip amber"><i></i>委托配制批件 2026-12-31 · 剩余 47 天</span>
+        <span class="chip blue">启用</span>
+      </div>
+    </div>
+    <button class="icon-btn" onclick="closeDrawer()" aria-label="关闭">✕</button>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button class="tab" data-tab="basic">基本信息</button>
+    <button class="tab" data-tab="formula">配方</button>
+    <button class="tab" data-tab="process">工序模板</button>
+    <button class="tab" data-tab="docs">文档</button>
+    <button class="tab" data-tab="attachments">附件</button>
+    <button class="tab active" data-tab="renewal">续展文件 <span class="tab-badge" id="tabBadge">8</span></button>
+  </nav>
+
+  <div class="tab-panels">
+    <section class="panel" data-panel="basic">
+      <div class="basic-grid">
+        <div class="basic-item"><span>制剂编码</span><b>Z04-012</b></div>
+        <div class="basic-item"><span>制剂品名</span><b>益智健脑口服液</b></div>
+        <div class="basic-item"><span>规格</span><b>每支装10ml</b></div>
+        <div class="basic-item"><span>剂型</span><b>口服液</b></div>
+        <div class="basic-item"><span>单位名称</span><b>同辉制药有限公司</b></div>
+        <div class="basic-item"><span>生产单位</span><b>制剂一车间</b></div>
+        <div class="basic-item"><span>注册批件期限</span><b>2027-03-15</b></div>
+        <div class="basic-item"><span>委托配制批件期限</span><b>2026-12-31</b></div>
+        <div class="basic-item"><span>功能主治</span><b>益气养血，健脑安神</b></div>
+        <div class="basic-item"><span>状态</span><b>启用</b></div>
+      </div>
+    </section>
+    <section class="panel" data-panel="formula"><div class="panel-placeholder">配方明细（本次设计稿不展开）</div></section>
+    <section class="panel" data-panel="process"><div class="panel-placeholder">工序模板（本次设计稿不展开）</div></section>
+    <section class="panel" data-panel="docs"><div class="panel-placeholder">制剂文档（本次设计稿不展开）</div></section>
+    <section class="panel" data-panel="attachments"><div class="panel-placeholder">制剂附件 · 9 个固定槽位<br/>续展材料已独立到「续展文件」选项卡，不与本页混用</div></section>
+
+    <section class="panel active" data-panel="renewal">
+      <div class="renewal-top">
+        <div class="design-notes" id="designNotes">
+          <b>设计说明</b>
+          <ol>
+            <li>10 类材料固定分组，空分组保留上传入口，避免用户遗漏申报材料。</li>
+            <li>续展备注独立保存，不与制剂主表单整单保存互相覆盖。</li>
+            <li>打包下载固定生成 10 个文件夹，空类型也保留目录，重名文件自动加序号。</li>
+            <li>新建未保存制剂没有 ID，此时禁用上传，保存主表后再维护续展文件。</li>
+          </ol>
+        </div>
+
+        <div class="remark-card">
+          <div class="remark-head">
+            <label for="remarkInput">续展备注</label>
+            <span class="counter" id="remarkCount">0 / 1000</span>
+          </div>
+          <textarea id="remarkInput" maxlength="1000" placeholder="记录续展进度、缺件说明、受理编号等">注册批件 2027-03-15 到期，委托配制批件 2026-12-31 到期；已于 2026-11 启动续展，待补齐前次配制质量总结与授权委托书。</textarea>
+          <div class="remark-foot">
+            <span class="hint">仅本制剂的续展申报说明，最长 1000 字</span>
+            <button class="btn sm" onclick="saveRemark()">保存备注</button>
+          </div>
+        </div>
+
+        <div class="renewal-toolbar">
+          <div class="progress-summary"><b id="totalFiles">8</b> 个文件 · 共 10 类材料</div>
+          <div class="toolbar">
+            <button class="btn sm" onclick="toggleNotes()">设计说明</button>
+            <button class="btn sm" onclick="refreshMock()">刷新</button>
+            <button class="btn primary" id="downloadBtn" onclick="downloadZip()">⤓ 打包下载</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="renewal-layout">
+        <nav class="kind-nav" id="kindNav"></nav>
+        <div class="kind-list" id="kindList"></div>
+      </div>
+    </section>
+  </div>
+</aside>
+
+<input type="file" id="filePicker" multiple hidden onchange="onFilesPicked(event)" />
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+// ===================================
+// 数据与常量
+// ===================================
+const KINDS = [
+  { code: 'RENEWAL_APPLICATION_FORM', label: '委托配制备案申请表', max: 10 },
+  { code: 'RENEWAL_COMMISSIONER_APPROVAL', label: '委托方批准证明文件及许可证', max: 10 },
+  { code: 'RENEWAL_MANUFACTURER_LICENSE_GMP', label: '受托方药品生产许可证及GMP证书', max: 10 },
+  { code: 'RENEWAL_PREVIOUS_FILING', label: '前次备案件或公告', max: 10 },
+  { code: 'RENEWAL_PREVIOUS_PERIOD_SUMMARY', label: '前次配制及质量情况总结', max: 10 },
+  { code: 'RENEWAL_CHANGE_PROOF', label: '与前次备案变化的证明文件', max: 10 },
+  { code: 'RENEWAL_COMMISSION_CONTRACT', label: '委托配制合同', max: 10 },
+  { code: 'RENEWAL_AUTHENTICITY_DECLARATION', label: '申请材料真实性自我保证声明', max: 10 },
+  { code: 'RENEWAL_AUTHORIZATION_LETTER', label: '授权委托书', max: 10 },
+  { code: 'RENEWAL_OTHER', label: '其他文件', max: -1 }
+]
+
+function mockFile(name, size, time) {
+  return { name, size, time, ext: (name.split('.').pop() || '').toLowerCase() }
+}
+
+const state = {
+  files: {
+    RENEWAL_APPLICATION_FORM: [
+      mockFile('备案申请表_2026.pdf', 1258291, '2026-11-14 10:58'),
+      mockFile('备案申请表_扫描件.pdf', 3565158, '2026-11-13 16:20')
+    ],
+    RENEWAL_COMMISSIONER_APPROVAL: [
+      mockFile('医疗机构制剂许可证.pdf', 880640, '2026-11-13 15:02')
+    ],
+    RENEWAL_MANUFACTURER_LICENSE_GMP: [
+      mockFile('药品生产许可证.pdf', 1153434, '2026-11-13 15:03'),
+      mockFile('GMP证书.pdf', 798720, '2026-11-13 15:03')
+    ],
+    RENEWAL_PREVIOUS_FILING: [
+      mockFile('委托配制备案件_2024.pdf', 2306867, '2026-11-12 09:40')
+    ],
+    RENEWAL_PREVIOUS_PERIOD_SUMMARY: [],
+    RENEWAL_CHANGE_PROOF: [],
+    RENEWAL_COMMISSION_CONTRACT: [
+      mockFile('委托配制合同_2026.pdf', 4823449, '2026-11-12 09:42')
+    ],
+    RENEWAL_AUTHENTICITY_DECLARATION: [],
+    RENEWAL_AUTHORIZATION_LETTER: [],
+    RENEWAL_OTHER: [
+      mockFile('补充说明.docx', 327680, '2026-11-12 10:15')
+    ]
+  }
+}
+
+let currentKind = null
+
+// ===================================
+// 渲染
+// ===================================
+const kindNav = document.getElementById('kindNav')
+const kindList = document.getElementById('kindList')
+const remarkInput = document.getElementById('remarkInput')
+const remarkCount = document.getElementById('remarkCount')
+
+function countOf(code) {
+  return (state.files[code] || []).length
+}
+
+function totalFiles() {
+  return KINDS.reduce((sum, kind) => sum + countOf(kind.code), 0)
+}
+
+function renderNav() {
+  kindNav.innerHTML = KINDS.map((kind, index) => {
+    const count = countOf(kind.code)
+    return `
+      <button class="kind-nav-item" data-nav="${kind.code}">
+        <span class="idx">${String(index + 1).padStart(2, '0')}</span>
+        <span class="txt" title="${kind.label}">${kind.label}</span>
+        <span class="num ${count ? 'has' : ''}">${count}</span>
+      </button>`
+  }).join('')
+}
+
+function iconClass(ext) {
+  if (ext === 'pdf') return 'pdf'
+  if (ext === 'doc' || ext === 'docx') return 'doc'
+  if (ext === 'xls' || ext === 'xlsx') return 'xls'
+  if (['png', 'jpg', 'jpeg', 'gif', 'bmp'].includes(ext)) return 'img'
+  if (ext === 'zip' || ext === 'rar') return 'zip'
+  return 'other'
+}
+
+function iconText(ext) {
+  if (!ext) return 'FILE'
+  return ext.length > 4 ? ext.slice(0, 4).toUpperCase() : ext.toUpperCase()
+}
+
+function formatSize(bytes) {
+  if (!bytes && bytes !== 0) return '-'
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  return (bytes / 1024 / 1024).toFixed(1) + ' MB'
+}
+
+function esc(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function fileRow(kind, file, index) {
+  return `
+    <div class="file-row">
+      <span class="file-ico ${iconClass(file.ext)}">${iconText(file.ext)}</span>
+      <div class="file-main">
+        <div class="file-name" title="${esc(file.name)}">${esc(file.name)}</div>
+        <div class="file-meta">${formatSize(file.size)} · 上传于 ${esc(file.time)}</div>
+      </div>
+      <div class="file-actions">
+        <button class="link" data-action="preview" data-name="${esc(file.name)}">预览</button>
+        <button class="link" data-action="download" data-name="${esc(file.name)}">下载</button>
+        <button class="link danger" data-action="remove" data-code="${kind.code}" data-index="${index}">删除</button>
+      </div>
+    </div>`
+}
+
+function renderGroups() {
+  kindList.innerHTML = KINDS.map((kind, index) => {
+    const files = state.files[kind.code] || []
+    const reached = kind.max >= 0 && files.length >= kind.max
+    const countText = kind.max >= 0 ? `${files.length} / ${kind.max}` : `${files.length} · 不限`
+    return `
+      <article class="group" id="group-${kind.code}">
+        <div class="group-head">
+          <div class="group-title">
+            <span class="group-index">${String(index + 1).padStart(2, '0')}</span>
+            <h3>${kind.label}</h3>
+            <span class="count ${files.length ? '' : 'muted'}">${countText}</span>
+          </div>
+          <button class="btn sm" data-action="upload" data-code="${kind.code}" ${reached ? 'disabled' : ''}>
+            + 上传文件
+          </button>
+        </div>
+        ${files.length
+          ? `<div class="file-list">${files.map((file, i) => fileRow(kind, file, i)).join('')}</div>`
+          : `<div class="empty">
+               暂无文件
+               <button class="link" data-action="upload" data-code="${kind.code}">立即上传</button>
+               <span>支持 PDF / Word / Excel / 图片 / 压缩包，单文件 ≤ 100MB</span>
+             </div>`}
+      </article>`
+  }).join('')
+}
+
+function renderTotals() {
+  const total = totalFiles()
+  document.getElementById('totalFiles').textContent = total
+  document.getElementById('tabBadge').textContent = total
+}
+
+function updateRemarkCount() {
+  remarkCount.textContent = `${remarkInput.value.length} / 1000`
+}
+
+function renderAll() {
+  renderNav()
+  renderGroups()
+  renderTotals()
+  updateRemarkCount()
+  syncActiveNav()
+}
+
+// ===================================
+// 交互
+// ===================================
+function openDrawer() {
+  document.getElementById('overlay').classList.add('show')
+  document.getElementById('drawer').classList.add('show')
+  document.getElementById('drawer').setAttribute('aria-hidden', 'false')
+  document.body.classList.add('drawer-open')
+}
+
+function closeDrawer() {
+  document.getElementById('overlay').classList.remove('show')
+  document.getElementById('drawer').classList.remove('show')
+  document.getElementById('drawer').setAttribute('aria-hidden', 'true')
+  document.body.classList.remove('drawer-open')
+}
+
+function toggleNotes() {
+  document.getElementById('designNotes').classList.toggle('show')
+}
+
+document.querySelectorAll('#tabs .tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('#tabs .tab').forEach(item => item.classList.toggle('active', item === tab))
+    const name = tab.dataset.tab
+    document.querySelectorAll('.panel').forEach(panel => {
+      panel.classList.toggle('active', panel.dataset.panel === name)
+    })
+  })
+})
+
+kindNav.addEventListener('click', event => {
+  const button = event.target.closest('[data-nav]')
+  if (!button) return
+  scrollToGroup(button.dataset.nav)
+})
+
+function groupTop(element) {
+  return element.getBoundingClientRect().top - kindList.getBoundingClientRect().top + kindList.scrollTop
+}
+
+function scrollToGroup(code) {
+  const target = document.getElementById('group-' + code)
+  if (!target) return
+  kindList.scrollTo({ top: Math.max(0, groupTop(target) - 8), behavior: 'smooth' })
+  setActiveNav(code)
+}
+
+function setActiveNav(code) {
+  kindNav.querySelectorAll('.kind-nav-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.nav === code)
+  })
+}
+
+function syncActiveNav() {
+  if (kindList.scrollTop + kindList.clientHeight >= kindList.scrollHeight - 2) {
+    setActiveNav(KINDS[KINDS.length - 1].code)
+    return
+  }
+  const scrollTop = kindList.scrollTop + 20
+  let current = KINDS[0].code
+  for (const kind of KINDS) {
+    const element = document.getElementById('group-' + kind.code)
+    if (element && groupTop(element) <= scrollTop) current = kind.code
+  }
+  setActiveNav(current)
+}
+
+kindList.addEventListener('scroll', syncActiveNav)
+
+kindList.addEventListener('click', event => {
+  const button = event.target.closest('[data-action]')
+  if (!button) return
+  const action = button.dataset.action
+  if (action === 'upload') {
+    pickFiles(button.dataset.code)
+  } else if (action === 'remove') {
+    removeFile(button.dataset.code, Number(button.dataset.index))
+  } else if (action === 'preview') {
+    toast('预览「' + button.dataset.name + '」（原型模拟）')
+  } else if (action === 'download') {
+    toast('下载「' + button.dataset.name + '」（原型模拟）')
+  }
+})
+
+function pickFiles(code) {
+  const kind = KINDS.find(item => item.code === code)
+  if (!kind) return
+  if (kind.max >= 0 && countOf(code) >= kind.max) {
+    toast('「' + kind.label + '」最多上传 ' + kind.max + ' 个文件', 'warn')
+    return
+  }
+  currentKind = code
+  const picker = document.getElementById('filePicker')
+  picker.value = ''
+  picker.click()
+}
+
+function onFilesPicked(event) {
+  const code = currentKind
+  if (!code) return
+  const kind = KINDS.find(item => item.code === code)
+  const selected = Array.from(event.target.files || [])
+  if (!selected.length) return
+
+  const list = state.files[code] || (state.files[code] = [])
+  let added = 0
+  for (const file of selected) {
+    if (kind.max >= 0 && list.length >= kind.max) {
+      toast('「' + kind.label + '」最多上传 ' + kind.max + ' 个文件', 'warn')
+      break
+    }
+    list.push(mockFile(file.name, file.size, nowText()))
+    added++
+  }
+  renderAll()
+  if (added > 0) toast('已添加 ' + added + ' 个文件（原型模拟）', 'success')
+}
+
+function removeFile(code, index) {
+  const list = state.files[code] || []
+  if (!list[index]) return
+  const removed = list.splice(index, 1)[0]
+  renderAll()
+  toast('已删除「' + removed.name + '」（原型模拟）')
+}
+
+function nowText() {
+  const now = new Date()
+  const pad = value => String(value).padStart(2, '0')
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`
+}
+
+function saveRemark() {
+  toast('续展备注已保存（原型模拟）', 'success')
+}
+
+function refreshMock() {
+  renderAll()
+  toast('已刷新续展文件（原型模拟）')
+}
+
+function downloadZip() {
+  const button = document.getElementById('downloadBtn')
+  if (button.disabled) return
+  const original = button.innerHTML
+  button.disabled = true
+  button.innerHTML = '正在打包…'
+  toast('正在生成：益智健脑口服液续展文件.zip')
+  setTimeout(() => {
+    button.disabled = false
+    button.innerHTML = original
+    toast('已生成包含 10 个文件夹的续展文件包（原型模拟）', 'success')
+  }, 900)
+}
+
+remarkInput.addEventListener('input', updateRemarkCount)
+
+// ===================================
+// 轻提示
+// ===================================
+function toast(message, type) {
+  const wrap = document.getElementById('toastWrap')
+  const item = document.createElement('div')
+  item.className = 'toast' + (type ? ' ' + type : '')
+  item.textContent = message
+  wrap.appendChild(item)
+  requestAnimationFrame(() => item.classList.add('show'))
+  setTimeout(() => {
+    item.classList.remove('show')
+    setTimeout(() => item.remove(), 220)
+  }, 2200)
+}
+
+// ===================================
+// 初始化
+// ===================================
+renderAll()
+openDrawer()
+</script>
+</body>
+</html>

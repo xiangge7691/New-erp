@@ -297,7 +297,7 @@ const docs = {
       {id:3, code:'Z055', name:'川芎', batch:'260601', qty:14.71, unit:'千克', expiry:'2029-05-31', location:'A-02-03', inCode:'in2026111300003', scanned:false},
       {id:4, code:'Z013', name:'桃仁', batch:'251101', qty:14.71, unit:'千克', expiry:'2029-01-18', location:'A-03-01', inCode:'in2026111300004', scanned:false},
       {id:5, code:'Z069', name:'蜈蚣（kg）', batch:'260701', qty:7.36, unit:'千克', expiry:'2029-06-30', location:'B-01-02', inCode:'in2026111300005', scanned:false},
-      {id:6, code:'Z067', name:'全蝎', batch:'260401', qty:7.36, unit:'千克', expiry:'2029-04-12', location:'B-01-04', inCode:'in2026111300006', scanned:false}
+      {id:6, code:'Z067', name:'全蝎', batch:'260401', qty:7.36, unit:'千克', expiry:'2025-11-30', location:'B-01-04', inCode:'in2026111300006', scanned:false}
     ]
   },
   outbound: {
@@ -310,6 +310,14 @@ const docs = {
       {id:4, code:'Z013', name:'桃仁', batch:'251101', qty:14.71, unit:'千克', inCode:'in2026111300004', scanned:false},
       {id:5, code:'Z069', name:'蜈蚣（kg）', batch:'260701', qty:7.36, unit:'千克', inCode:'in2026111300005', scanned:false},
       {id:6, code:'Z067', name:'全蝎', batch:'260401', qty:7.36, unit:'千克', inCode:'in2026111300006', scanned:false}
+    ]
+  },
+  blocked: {
+    id:'OUT202611130003', type:'生产领料出库', source:'SCLL-20261113-009', warehouse:'原料仓库',
+    purpose:'疏肝养胃丸', packageCode:'pk2026111300003', qtyLocked:true, status:'草稿',
+    lines:[
+      {id:1, code:'Z077', name:'过期药材（演示）', batch:'241201', qty:5, unit:'千克', inCode:'in2026111300091', expiry:'2025-12-31', available:5, scanned:false},
+      {id:2, code:'Z078', name:'库存不足药材（演示）', batch:'260101', qty:10, unit:'千克', inCode:'in2026111300092', expiry:'2029-01-01', available:6, scanned:false}
     ]
   },
   return: {
@@ -331,7 +339,12 @@ const state = {
   signed:false,
   lastScan:null,
   scanPaused:false,
-  scanTimer:null
+  scanTimer:null,
+  online:true,
+  scanQueue:[],
+  reprints:[],
+  manualEntries:[],
+  deviceRegistered:true
 };
 
 /* =========================================================
@@ -406,6 +419,18 @@ function allScanned(){
 function go(screen){ state.screen = screen; render(); }
 function setTab(tab){ state.tab = tab; state.screen = 'home'; render(); }
 function goInboundTasks(){ state.tab = 'tasks'; state.taskTab = 'inbound'; state.screen = 'home'; render(); }
+function setOnline(v){
+  state.online = v;
+  if(v && state.scanQueue.length){
+    const n = state.scanQueue.length;
+    state.scanQueue = [];
+    toast('网络已恢复，已同步 '+n+' 条扫码记录','ok');
+  }else if(!v){
+    toast('网络不可用，扫码记录将暂存本机','warn');
+  }
+  render();
+}
+function toggleDevice(){ state.deviceRegistered = !state.deviceRegistered; render(); }
 
 /* =========================================================
  * 图标
@@ -447,17 +472,18 @@ function loginView(){
       </div>
       <div class="device-card">
         <div class="device-icon">${icons.box}</div>
-        <div><b>PDA-A03</b><div class="sub">优博讯 i6310 · 已登记</div></div>
-        <div class="ok">已绑定</div>
+        <div><b>${state.deviceRegistered?'PDA-A03':'PDA-A09'}</b><div class="sub">${state.deviceRegistered?'优博讯 i6310 · 已登记':'未登记设备 · 禁止作业'}</div></div>
+        ${state.deviceRegistered?'<div class="ok">已绑定</div>':'<div style="margin-left:auto;color:var(--red);font-size:11.5px;font-weight:700">未登记</div>'}
       </div>
+      <div style="text-align:center;margin-top:8px"><button class="link" onclick="toggleDevice()">切换为${state.deviceRegistered?'未登记设备':'已登记设备'}（演示）</button></div>
       <div class="login-form">
         <div class="field"><label>账号</label><input value="taoxinwen" /></div>
         <div class="field"><label>密码</label><input type="password" value="123456" /></div>
-        <button class="btn primary block" onclick="go('home')" style="margin-top:6px">登录</button>
+        <button class="btn primary block" ${state.deviceRegistered?'':'disabled'} onclick="go('home')" style="margin-top:6px">登录</button>
       </div>
       <div class="login-note">
         <b>设备说明</b><br/>
-        未登记设备不能作业；设备与使用人绑定。当前设备：PDA-A03 → 陶新文（库管）。
+        未登记设备不能作业；设备与使用人绑定。当前设备：${state.deviceRegistered?'PDA-A03 → 陶新文（库管）':'PDA-A09（未登记，不能登录）'}。
       </div>
     </div>
   </div>`;
@@ -473,6 +499,7 @@ function shellView(){
   return `
   <div class="screen">
     ${body}
+    ${state.online?'':'<div style="background:#92400e;color:#fff;font-size:11px;padding:6px 16px;text-align:center">网络不可用 · 扫码记录暂存本机，恢复后自动提交</div>'}
     <div class="tabbar">
       <button class="${tab==='home'?'active':''}" onclick="setTab('home')">${icons.home}<span>首页</span></button>
       <button class="${tab==='tasks'?'active':''}" onclick="setTab('tasks')">${icons.task}<span>任务</span></button>
@@ -540,7 +567,7 @@ function taskCard(d, kind){
   const status = d.status || (kind==='inbound'?'待入库':kind==='outbound'?'草稿':'草稿');
   const pendingPrint = kind==='inbound' && status==='待打印入库码';
   const finished = ['已入库','已出库','已退库'].includes(status);
-  const pillClass = pendingPrint ? 'amber' : finished ? 'green' : (status==='待入库' || kind==='outbound') ? 'blue' : 'gray';
+  const pillClass = pendingPrint ? 'amber' : finished ? 'green' : (status==='待入库' || kind==='outbound' || kind==='blocked') ? 'blue' : 'gray';
   const progress = pendingPrint
     ? `待打印 ${total + (d.packageCode ? 1 : 0)} 张标签`
     : `${total} 种物料 · 已扫 ${done}/${total}`;
@@ -568,7 +595,7 @@ function tasksView(){
   <div class="content">
     <div class="seg">
       <button class="${state.taskTab==='inbound'?'active':''}" onclick="state.taskTab='inbound';render()">入库 1</button>
-      <button class="${state.taskTab==='outbound'?'active':''}" onclick="state.taskTab='outbound';render()">出库 2</button>
+      <button class="${state.taskTab==='outbound'?'active':''}" onclick="state.taskTab='outbound';render()">出库 3</button>
       <button class="${state.taskTab==='return'?'active':''}" onclick="state.taskTab='return';render()">退库 1</button>
     </div>
     ${state.taskTab==='inbound'?`
@@ -579,10 +606,11 @@ function tasksView(){
     `:state.taskTab==='outbound'?`
       ${taskCard(docs.outbound,'outbound')}
       ${taskCard({...docs.outbound,id:'OUT202611130002',type:'销售出库',source:'—',warehouse:'成品仓库'},'outbound')}
+      ${taskCard(docs.blocked,'blocked')}
     `:`
       ${taskCard(docs.return,'return')}
     `}
-    <div class="hint">生产领料推送的出库单数量已锁定，只能核对，不能改数量。</div>
+    <div class="hint">生产领料推送的出库单数量已锁定，只能核对，不能改数量。过期批次与可用量不足的批次会被拦截（第三张卡用于演示）。</div>
   </div>`;
 }
 
@@ -593,7 +621,7 @@ function openWork(kind){
   if(['已入库','已出库','已退库'].includes(d.status)){ toast('该单已完成','warn'); return; }
   state.current = kind;
   state.screen = 'work';
-  state.mode = kind === 'return' ? 'line' : 'package';
+  state.mode = (kind === 'return' || kind === 'blocked') ? 'line' : 'package';
   state.lastScan = null;
   state.scanPaused = false;
   render();
@@ -611,10 +639,10 @@ function workView(){
   const done = scannedCount();
   const pct = Math.round(done/total*100);
   const kind = state.current;
-  const status = d.status || (kind==='inbound'?'待入库':kind==='outbound'?'草稿':'草稿');
-  const statusClass = status==='待入库'?'blue':status==='已入库'?'green':status==='草稿'?(kind==='outbound'?'blue':'gray'):'gray';
-  const title = kind==='inbound'?'入库作业':kind==='outbound'?'出库作业':'退库作业';
-  const actionText = kind==='inbound'?'确认入库':kind==='outbound'?'确认出库':'确认退库';
+  const status = d.status || (kind==='inbound'?'待入库':(kind==='outbound'||kind==='blocked')?'草稿':'草稿');
+  const statusClass = status==='待入库'?'blue':status==='已入库'?'green':status==='草稿'?((kind==='outbound'||kind==='blocked')?'blue':'gray'):'gray';
+  const title = kind==='inbound'?'入库作业':kind==='blocked'?'出库作业（异常演示）':kind==='outbound'?'出库作业':'退库作业';
+  const actionText = kind==='inbound'?'确认入库':(kind==='outbound'||kind==='blocked')?'确认出库':'确认退库';
   return `
   <div class="screen">
     <div class="appbar">
@@ -636,9 +664,11 @@ function workView(){
         </div>
       </div>
 
+      ${state.online?'':`<div class="card pad" style="margin-bottom:12px;border-color:#f3d7b5;background:#fffaf3"><div style="font-size:12px;color:#92400e"><b>网络不可用</b> · 扫码记录暂存本机（${state.scanQueue.length} 条），恢复网络后自动提交。</div></div>`}
+
       ${d.qtyLocked?`<div class="card pad" style="margin-bottom:12px;border-color:#f3d7b5;background:#fffaf3"><div style="font-size:12px;color:#92400e"><b>数量已锁定</b> · 该单由生产领料推送，扫码只核对物料与批次，不能改数量。</div></div>`:''}
 
-      ${kind==='return' ? '' : `<div class="seg">
+      ${(kind==='return'||kind==='blocked') ? '' : `<div class="seg">
         <button class="${state.mode==='package'?'active':''}" onclick="state.mode='package';render()">整包扫码</button>
         <button class="${state.mode==='line'?'active':''}" onclick="state.mode='line';render()">逐条扫码</button>
       </div>`}
@@ -660,7 +690,7 @@ function workView(){
           <button class="link" onclick="simulateScan()">模拟扫码（演示）</button>
         </div>
         <div class="last-scan" id="lastScan">${state.lastScan ? `最近扫码：<b>${esc(state.lastScan.code)}</b> · ${esc(state.lastScan.msg)}` : '最近扫码：—'}</div>
-        <a class="manual" onclick="toast('标签破损可申请补打，或由主管授权手工录入','warn')">标签无法识别？补打 / 手工录入</a>
+        <a class="manual" onclick="openManualEntrySheet()">标签无法识别？补打 / 主管授权手工录入</a>
       </div>
 
       <div class="progress-card">
@@ -896,7 +926,7 @@ function lineCard(l, i){
     <div class="line-main">
       <b>${l.name}</b>
       <div class="sub mono">${l.code} · 批号 ${l.batch}</div>
-      <div class="qty">应扫 <b>${l.qty} ${l.unit}</b>${l.expiry ? ' · 效期 '+l.expiry : ''}</div>
+      <div class="qty">应扫 <b>${l.qty} ${l.unit}</b>${l.expiry ? ' · 效期 '+l.expiry : ''}${l.available!=null ? ' · 可用 '+l.available : ''}${l.manual ? ' · <span style="color:#b54708">手工录入</span>' : ''}</div>
     </div>
     <div class="line-status">${l.scanned?'<div class="check-ico">✓</div>':'<span class="pill gray">待扫</span>'}</div>
   </div>`;
@@ -920,48 +950,76 @@ function parseScan(raw){
   return { type:'unknown', code:s };
 }
 
+function lineIssue(line, kind){
+  const today = '2026-11-13';
+  if(!line) return '';
+  if(kind==='inbound'){
+    if(line.expiry && line.expiry < today) return 'warn:批次已过期，请复核后入库';
+    return '';
+  }
+  if(line.expiry && line.expiry < today) return 'err:批次已过期，不能出库';
+  if(line.available!=null && Number(line.qty) > Number(line.available)) return 'err:可用数量不足（可用 '+line.available+'）';
+  return '';
+}
 function handleScan(raw){
   const d = doc();
   const text = String(raw || '').trim();
   if (!text) return;
   clearTimeout(state.scanTimer);
   const parsed = parseScan(text);
+  const kind = state.current;
+  const isOut = kind==='outbound' || kind==='blocked';
   let ok = false, msg = '';
 
   if (parsed.type === 'package') {
     if (!d.packageCode) msg = '当前单据没有包码，请逐条扫入库码';
     else if (parsed.code !== d.packageCode) msg = '包码不属于当前单据';
     else if (allScanned()) msg = '该包已全部扫描，不重复计数';
-    else {
+    else if (isOut){
+      const bad = d.lines.find(l=>lineIssue(l,kind).startsWith('err'));
+      if(bad){
+        msg = lineIssue(bad,kind).slice(4)+'：'+bad.name;
+      }else{
+        d.lines.forEach(l => l.scanned = true);
+        ok = true;
+        msg = '整包扫码成功，共 ' + d.lines.length + ' 种物料';
+      }
+    }else{
       d.lines.forEach(l => l.scanned = true);
       ok = true;
-      msg = '整包扫码成功，共 ' + d.lines.length + ' 种物料';
+      const expired = d.lines.find(l=>lineIssue(l,'inbound').startsWith('warn'));
+      msg = expired ? '整包扫码成功；'+expired.name+' 批次已过期，请复核' : '整包扫码成功，共 ' + d.lines.length + ' 种物料';
     }
   } else if (parsed.type === 'inbound') {
     const line = d.lines.find(l => l.inCode && l.inCode.toLowerCase() === parsed.code.toLowerCase());
     if (!line) msg = '入库码不属于当前单据';
     else if (line.scanned) msg = '该码已扫描，不重复计数';
     else {
-      line.scanned = true;
-      ok = true;
-      msg = '扫码成功：' + line.name + ' · 批次 ' + line.batch;
+      const issue = lineIssue(line, kind);
+      if(issue.startsWith('err')){
+        msg = issue.slice(4)+'：'+line.name;
+      }else{
+        line.scanned = true;
+        ok = true;
+        msg = '扫码成功：' + line.name + ' · 批次 ' + line.batch;
+        if(issue.startsWith('warn')) msg += '（'+issue.slice(5)+'）';
+      }
     }
   } else {
-    const key = parsed.code.toLowerCase();
-    const matches = d.lines.filter(l =>
-      (l.code && l.code.toLowerCase() === key) || (l.batch && l.batch.toLowerCase() === key));
-    if (!matches.length) msg = '无法识别的条码';
-    else if (matches.length > 1) msg = '匹配到多行，请扫描入库码';
-    else if (matches[0].scanned) msg = '该物料已扫描，不重复计数';
-    else {
-      matches[0].scanned = true;
-      ok = true;
-      msg = '扫码成功：' + matches[0].name;
+    // 物料码仅作物料档案标识，不参与扫码
+    if(d.lines.some(l=>l.code && l.code.toLowerCase()===parsed.code.toLowerCase())){
+      msg = '物料码仅作物料档案标识，请扫描入库码或包码';
+    }else{
+      msg = '无法识别的条码';
     }
   }
 
+  if(ok && !state.online){
+    state.scanQueue.push({code:text, time:new Date().toLocaleTimeString('zh-CN',{hour12:false})});
+    msg += '（离线暂存，恢复网络后提交）';
+  }
   state.lastScan = { code:text, ok, msg, time:new Date().toLocaleTimeString('zh-CN', { hour12:false }) };
-  toast(msg, ok ? 'ok' : 'err');
+  toast(msg, ok ? (state.online ? 'ok' : 'warn') : 'err');
   beep(ok);
   updateWorkUI();
 }
@@ -1074,11 +1132,12 @@ function esc(s){
 
 /* ---------- 签名弹层 ---------- */
 function openSignSheet(){
+  if(!state.online){ toast('网络不可用，请恢复后继续','err'); return; }
   state.scanPaused = true;
   const d = doc();
   const kind = state.current;
-  const label = kind==='inbound'?'确认入库':kind==='outbound'?'确认出库':'确认退库';
-  const effect = kind==='inbound'?'确认后一次性增加库存':kind==='outbound'?'确认后一次性扣减库存':'确认后回增库存';
+  const label = kind==='inbound'?'确认入库':(kind==='outbound'||kind==='blocked')?'确认出库':'确认退库';
+  const effect = kind==='inbound'?'确认后一次性增加库存':(kind==='outbound'||kind==='blocked')?'确认后一次性扣减库存':'确认后回增库存';
   const wrap = document.createElement('div');
   wrap.className = 'sheet-wrap open';
   wrap.id = 'sheet';
@@ -1109,11 +1168,12 @@ function closeSheet(){
   setTimeout(focusScanInput, 120);
 }
 function doConfirm(){
+  if(!state.online){ toast('网络不可用，请恢复后继续','err'); return; }
   const pwd = document.getElementById('pdaPwd');
   if (!pwd || !pwd.value.trim()){ toast('请输入签名密码', 'warn'); pwd && pwd.focus(); return; }
   closeSheet();
   const d = doc();
-  d.status = state.current==='inbound' ? '已入库' : state.current==='outbound' ? '已出库' : '已退库';
+  d.status = state.current==='inbound' ? '已入库' : (state.current==='outbound'||state.current==='blocked') ? '已出库' : '已退库';
   state.scanPaused = false;
   state.signed = true;
   go('success');
@@ -1123,7 +1183,7 @@ function doConfirm(){
 function successView(){
   const d = doc();
   const kind = state.current;
-  const label = kind==='inbound'?'入库':kind==='outbound'?'出库':'退库';
+  const label = kind==='inbound'?'入库':(kind==='outbound'||kind==='blocked')?'出库':'退库';
   return `
   <div class="screen">
     <div class="success">
@@ -1161,11 +1221,84 @@ function reprintView(){
         <div class="code-card">
           <div class="qrbox">${qrSvg(qrContent('IC', l.inCode),54)}</div>
           <div><b>${l.name}</b><div class="sub mono">${l.inCode} · 批号 ${l.batch}</div></div>
-          <button class="btn sm" onclick="toast('补打需填写原因（原型）','warn')">补打</button>
+          <button class="btn sm" onclick="openReprintSheet('${l.inCode}','${l.name}')">补打</button>
         </div>`).join('')}
       <div class="hint">标签破损、无法识别时先补打；补打失败可由主管授权手工录入并记录原因。</div>
     </div>
   </div>`;
+}
+
+function openReprintSheet(code,name){
+  state.scanPaused = true;
+  const wrap = document.createElement('div');
+  wrap.className = 'sheet-wrap open';
+  wrap.id = 'sheet';
+  wrap.innerHTML = `
+    <div class="sheet-mask" onclick="closeSheet()"></div>
+    <div class="sheet">
+      <div class="handle"></div>
+      <h3>补打标签</h3>
+      <p class="sub">${name} · ${code}</p>
+      <div class="summary">补打复用原码，不生成新编码；需填写原因，记录操作人、设备与时间。</div>
+      <div class="field"><label>补打原因</label>
+        <textarea id="reprintReason" style="width:100%;height:84px;border:1px solid var(--line);border-radius:12px;padding:10px 13px;font:inherit;outline:none" placeholder="如：标签破损 / 脱落"></textarea></div>
+      <div class="actions"><button class="btn" onclick="closeSheet()">取消</button><button class="btn primary" onclick="doReprint('${code}','${name}')">确认补打</button></div>
+    </div>`;
+  document.getElementById('app').appendChild(wrap);
+  setTimeout(()=>{ const el = document.getElementById('reprintReason'); if(el) el.focus(); }, 120);
+}
+function doReprint(code,name){
+  const el = document.getElementById('reprintReason');
+  const reason = ((el && el.value) || '').trim();
+  if(!reason){ toast('请填写补打原因','warn'); return; }
+  state.reprints.unshift({code, name, reason, time:'11:32', op:'陶新文', device:'PDA-A03'});
+  closeSheet();
+  render();
+  toast('补打已记录，可在作业记录中追溯','ok');
+}
+
+/* ---------- 手工录入（主管授权） ---------- */
+function openManualEntrySheet(){
+  state.scanPaused = true;
+  const wrap = document.createElement('div');
+  wrap.className = 'sheet-wrap open';
+  wrap.id = 'sheet';
+  wrap.innerHTML = `
+    <div class="sheet-mask" onclick="closeSheet()"></div>
+    <div class="sheet">
+      <div class="handle"></div>
+      <h3>手工录入</h3>
+      <p class="sub">标签无法识别或补打失败时使用，须主管临时授权并填写原因。</p>
+      <div class="summary">手工录入不改变数量，只标记该行已核对；操作账号、设备、授权人与原因都会留痕。</div>
+      <div class="field"><label>主管授权</label>
+        <select id="manualAuth" style="width:100%;height:48px;border:1px solid var(--line);border-radius:12px;padding:0 13px;font:inherit">
+          <option>王主任</option><option>李主管</option>
+        </select></div>
+      <div class="field"><label>手工录入原因</label>
+        <textarea id="manualReason" style="width:100%;height:74px;border:1px solid var(--line);border-radius:12px;padding:10px 13px;font:inherit;outline:none" placeholder="如：标签破损且补打失败"></textarea></div>
+      <div class="field"><label>入库码 / 物料编码</label>
+        <input id="manualCode" placeholder="输入要核对的入库码或物料编码" /></div>
+      <div class="actions"><button class="btn" onclick="closeSheet()">取消</button><button class="btn primary" onclick="doManualEntry()">确认录入</button></div>
+    </div>`;
+  document.getElementById('app').appendChild(wrap);
+  setTimeout(()=>{ const el = document.getElementById('manualCode'); if(el) el.focus(); }, 120);
+}
+function doManualEntry(){
+  const authorizer = (document.getElementById('manualAuth')||{}).value || '';
+  const reason = ((document.getElementById('manualReason')||{}).value || '').trim();
+  const code = ((document.getElementById('manualCode')||{}).value || '').trim();
+  if(!reason){ toast('请填写手工录入原因','warn'); return; }
+  if(!code){ toast('请输入入库码或物料编码','warn'); return; }
+  const d = doc();
+  const line = d.lines.find(l=>!l.scanned && (l.inCode===code || l.code===code || l.name===code));
+  if(!line){ toast('未找到可核对的明细行','err'); return; }
+  line.scanned = true;
+  line.manual = true;
+  state.manualEntries.unshift({code, name:line.name, reason, authorizer, time:'11:34'});
+  state.lastScan = {code, ok:true, msg:'手工录入（授权：'+authorizer+'）', time:'11:34'};
+  closeSheet();
+  updateWorkUI();
+  toast('已手工录入：'+line.name+'（授权：'+authorizer+'）','ok');
 }
 
 /* ---------- 记录 ---------- */
@@ -1176,18 +1309,26 @@ function recordsView(){
     <div class="record">
       <div class="top"><b class="mono">IN202611130001</b><span class="pill green">已入库</span></div>
       <div class="sub">采购入库 · 6 种物料 · 94.06 千克</div>
-      <div class="lines">11:26 整单确认 · 作业签名 陶新文<br/>扫码方式：整包扫码（pk2026111300001）</div>
+      <div class="lines">11:26 整单确认 · 作业签名 陶新文 · PDA-A03 · 账号 taoxinwen<br/>扫码方式：整包扫码（pk2026111300001）</div>
     </div>
     <div class="record">
       <div class="top"><b class="mono">OUT202611130001</b><span class="pill green">已出库</span></div>
       <div class="sub">生产领料出库 · 6 种物料 · 94.06 千克</div>
-      <div class="lines">10:42 整单确认 · 作业签名 陶新文<br/>扫码方式：逐条扫码</div>
+      <div class="lines">10:42 整单确认 · 作业签名 陶新文 · PDA-A03 · 账号 taoxinwen<br/>扫码方式：逐条扫码</div>
     </div>
     <div class="record">
       <div class="top"><b class="mono">TK-20261113001</b><span class="pill green">已退库</span></div>
       <div class="sub">退库 · 2 种物料 · 3.50 千克</div>
-      <div class="lines">09:18 整单确认 · 作业签名 陶新文</div>
+      <div class="lines">09:18 整单确认 · 作业签名 陶新文 · PDA-A03 · 账号 taoxinwen</div>
     </div>
+    ${state.manualEntries.length?`<div class="record">
+      <div class="top"><b>手工录入</b><span class="pill amber">授权</span></div>
+      <div class="lines">${state.manualEntries.map(m=>`${m.time} ${m.name} · 码 ${m.code} · 授权 ${m.authorizer} · 原因：${m.reason}`).join('<br/>')}</div>
+    </div>`:''}
+    ${state.reprints.length?`<div class="record">
+      <div class="top"><b>补打记录</b><span class="pill amber">补打</span></div>
+      <div class="lines">${state.reprints.map(r=>`${r.time} ${r.name} · ${r.code} · 原因：${r.reason} · ${r.op} · ${r.device}`).join('<br/>')}</div>
+    </div>`:''}
     <div class="hint">每笔记录可追溯操作账号、PDA 设备编号、时间与入库码。</div>
   </div>`;
 }
@@ -1202,7 +1343,8 @@ function profileView(){
       <div><b>陶新文</b><div class="sub">库管 · 原料仓库</div></div>
     </div>
     <div class="list-card">
-      <div class="list-row"><div class="ico">${icons.box}</div>当前设备<div class="arrow">PDA-A03 ›</div></div>
+      <div class="list-row" onclick="setOnline(!state.online)"><div class="ico">${icons.record}</div>网络状态<div class="arrow" style="color:${state.online?'var(--green)':'var(--red)'}">${state.online?'在线（点击模拟断网）':'离线（点击恢复网络）'} ›</div></div>
+      <div class="list-row"><div class="ico">${icons.box}</div>当前设备<div class="arrow">${state.deviceRegistered?'PDA-A03':'PDA-A09（未登记）'} ›</div></div>
       <div class="list-row"><div class="ico">${icons.task}</div>作业权限<div class="arrow">入库 / 出库 / 退库 ›</div></div>
       <div class="list-row"><div class="ico">${icons.print}</div>标签打印<div class="arrow">已连接 ›</div></div>
       <div class="list-row"><div class="ico">${icons.user}</div>切换账号<div class="arrow">›</div></div>
