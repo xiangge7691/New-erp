@@ -95,7 +95,7 @@ h1{margin:0;font-size:34px;letter-spacing:-.8px;line-height:1.25}
   </div>
   <h1>工序排产 · 实际记录 · 人员绩效</h1>
   <p class="lead">以生产任务的工序为核心：排产侧按标准时长顺排、校验资源与人员冲突，并支持把一道工序拆成多次生产；实际记录侧按批次登记实际起止、数量与参与人；绩效侧以「工序 × 批次 × 人」为记录来源，统计一段时间内每人的参与工序、时长与计件产量。</p>
-  <p class="lead" style="margin-top:8px"><a href="existing-data.html" style="color:var(--primary);font-weight:600">查看按现有库数据生成的生产任务工序展示 →</a> · <a href="backend/index.html" style="color:var(--primary);font-weight:600">查看与后端接口对齐的原型 →</a> · <a href="../../frontend-implementation-guide-scheduling-performance.md" style="color:var(--primary);font-weight:600">前端实现指导 →</a></p>
+  <p class="lead" style="margin-top:8px"><a href="existing-data.html" style="color:var(--primary);font-weight:600">查看按现有库数据生成的生产任务工序展示 →</a> · <a href="backend/index.html" style="color:var(--primary);font-weight:600">查看与后端接口对齐的原型 →</a> · <a href="../pda-warehouse/pda.html?role=worker" style="color:var(--primary);font-weight:600">PDA 端（工序执行）→</a> · <a href="../../frontend-implementation-guide-scheduling-performance.md" style="color:var(--primary);font-weight:600">前端实现指导 →</a></p>
   <div class="badges">
     <span class="badge"><i></i>工序可拆分多次生产</span>
     <span class="badge green"><i></i>批次参与人数量平衡</span>
@@ -125,7 +125,7 @@ h1{margin:0;font-size:34px;letter-spacing:-.8px;line-height:1.25}
       </div>
       <div class="tag">Scheduling</div>
       <h2>工序排产</h2>
-      <p>任务维度顺排各工序计划时间，工序可拆分多个生产批次并分别指派班组与人员；设备、房间、班次、工序顺序、批次时段与批次数量六类冲突校验，存在冲突时不可正式保存，保存失败按需展示冲突明细与推荐时段。角色按钮为原型演示，后端暂未做接口级权限。</p>
+      <p>在现有生产任务页内为工序维护计划时间：排产为可选参考，填写计划时间即「已排产」，留空不影响任务流程；工序可拆分多个生产批次，班组仅用于快捷勾选人员；设备、房间、人员、工序顺序、批次时段与批次数量六类冲突校验，存在冲突时不可正式保存。角色按钮为原型演示，后端暂未做接口级权限。</p>
       <div class="go">进入原型 <span>→</span></div>
     </a>
 
@@ -186,7 +186,7 @@ h1{margin:0;font-size:34px;letter-spacing:-.8px;line-height:1.25}
     <div class="steps">
       <div class="step"><i>1</i><b>选择生产任务</b><span>按任务计划开始时间顺排</span></div>
       <div class="step"><i>2</i><b>工序拆分批次</b><span>一次工序可拆多次生产</span></div>
-      <div class="step"><i>3</i><b>指派班组 / 人员</b><span>批次级登记参与人</span></div>
+      <div class="step"><i>3</i><b>选择人员</b><span>班组仅作快捷勾选</span></div>
       <div class="step"><i>4</i><b>冲突校验</b><span>资源跨任务比对</span></div>
       <div class="step"><i>5</i><b>实际记录</b><span>按批次登记实际数据</span></div>
       <div class="step"><i>6</i><b>批次完工</b><span>数量平衡后锁定</span></div>

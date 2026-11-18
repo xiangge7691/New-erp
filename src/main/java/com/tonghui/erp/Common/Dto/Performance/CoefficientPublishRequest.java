@@ -11,7 +11,7 @@ import java.util.Map;
 @Data
 public class CoefficientPublishRequest {
 
-    /** 调整说明，必填 */
+    /** 版本备注（选填） */
     private String note;
 
     /** 工序系数：工序类型ID -> 系数 */

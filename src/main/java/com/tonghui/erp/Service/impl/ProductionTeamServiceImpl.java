@@ -55,18 +55,14 @@ public class ProductionTeamServiceImpl extends ServiceImpl<ProductionTeamMapper,
      * 查询班组列表
      *
      * @param keyword 班组编码/名称关键字
-     * @param status  状态：0停用/1启用，为空查全部
      * @return 班组列表（含成员数量）
      */
     @Override
-    public List<ProductionTeam> listTeams(String keyword, Integer status) {
+    public List<ProductionTeam> listTeams(String keyword) {
         LambdaQueryWrapper<ProductionTeam> wrapper = new LambdaQueryWrapper<>();
         if (StringUtils.hasText(keyword)) {
             wrapper.and(q -> q.like(ProductionTeam::getTeamCode, keyword)
                     .or().like(ProductionTeam::getTeamName, keyword));
-        }
-        if (status != null) {
-            wrapper.eq(ProductionTeam::getStatus, status);
         }
         wrapper.orderByAsc(ProductionTeam::getTeamCode);
         List<ProductionTeam> teams = this.list(wrapper);
@@ -115,10 +111,16 @@ public class ProductionTeamServiceImpl extends ServiceImpl<ProductionTeamMapper,
      */
     @Override
     public List<ProductionTeam> listActive() {
-        return this.lambdaQuery()
-                .eq(ProductionTeam::getStatus, 1)
+        List<ProductionTeam> teams = this.lambdaQuery()
                 .orderByAsc(ProductionTeam::getTeamCode)
                 .list();
+        for (ProductionTeam team : teams) {
+            List<ProductionTeamMember> members = teamMemberMapper.selectByTeamIdWithPersonnel(team.getId());
+            team.setMemberCount(members.size());
+            team.setMemberIds(members.stream().map(ProductionTeamMember::getPersonnelId).toList());
+            team.setMembers(members);
+        }
+        return teams;
     }
 
     // endregion
@@ -140,9 +142,6 @@ public class ProductionTeamServiceImpl extends ServiceImpl<ProductionTeamMapper,
         normalizeAndValidate(team, null);
         if (!StringUtils.hasText(team.getTeamCode())) {
             team.setTeamCode("BZ" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));
-        }
-        if (team.getStatus() == null) {
-            team.setStatus(1);
         }
         // 基础数据允许复用已软删的编码/名称，先物理清理冲突行
         softDeleteCleanHelper.cleanByUniqueField(baseMapper, "team_code", team.getTeamCode());
@@ -168,9 +167,6 @@ public class ProductionTeamServiceImpl extends ServiceImpl<ProductionTeamMapper,
         }
         team.setId(id);
         normalizeAndValidate(team, id);
-        if (team.getStatus() == null) {
-            team.setStatus(existing.getStatus());
-        }
         softDeleteCleanHelper.cleanByUniqueField(baseMapper, "team_code", team.getTeamCode());
         softDeleteCleanHelper.cleanByUniqueField(baseMapper, "team_name", team.getTeamName());
         this.updateById(team);
@@ -178,27 +174,6 @@ public class ProductionTeamServiceImpl extends ServiceImpl<ProductionTeamMapper,
             saveMembers(id, team.getMemberIds());
         }
         return getTeamDetail(id);
-    }
-
-    /**
-     * 启用/停用班组
-     *
-     * @param id     班组ID
-     * @param status 状态：0停用/1启用
-     * @return 修改后的班组
-     */
-    @Override
-    public ProductionTeam changeStatus(Long id, Integer status) {
-        ProductionTeam team = this.getById(id);
-        if (team == null) {
-            throw new IllegalArgumentException("班组不存在");
-        }
-        if (status == null || (status != 0 && status != 1)) {
-            throw new IllegalArgumentException("状态只能为 0 或 1");
-        }
-        team.setStatus(status);
-        this.updateById(team);
-        return team;
     }
 
     /**

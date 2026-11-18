@@ -14,10 +14,9 @@ public interface ProductionTeamService extends IService<ProductionTeam> {
      * 查询班组列表
      *
      * @param keyword 班组编码/名称关键字
-     * @param status  状态：0停用/1启用，为空查全部
      * @return 班组列表（含成员数量）
      */
-    List<ProductionTeam> listTeams(String keyword, Integer status);
+    List<ProductionTeam> listTeams(String keyword);
 
     /**
      * 查询班组详情（含成员）
@@ -53,18 +52,9 @@ public interface ProductionTeamService extends IService<ProductionTeam> {
     ProductionTeam updateTeam(Long id, ProductionTeam team);
 
     /**
-     * 启用/停用班组
+     * 查询全部班组（含成员明细），用于排产/实际生产按班组快捷选人
      *
-     * @param id     班组ID
-     * @param status 状态：0停用/1启用
-     * @return 修改后的班组
-     */
-    ProductionTeam changeStatus(Long id, Integer status);
-
-    /**
-     * 查询启用班组
-     *
-     * @return 启用班组列表
+     * @return 班组列表（含成员）
      */
     List<ProductionTeam> listActive();
 }

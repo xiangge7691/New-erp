@@ -48,18 +48,6 @@ public class ProductionTeam extends AuditEntity {
     private String teamName;
 
     /**
-     * 所属车间
-     */
-    @TableField(value = "workshop")
-    private String workshop;
-
-    /**
-     * 状态：0停用/1启用
-     */
-    @TableField(value = "status")
-    private Integer status;
-
-    /**
      * 备注
      */
     @TableField(value = "remark")
@@ -109,6 +97,12 @@ public class ProductionTeam extends AuditEntity {
      */
     @TableField(exist = false)
     private java.util.List<Long> memberIds;
+
+    /**
+     * 成员明细（含人员姓名、工号），用于排产/实际生产按班组快捷选人
+     */
+    @TableField(exist = false)
+    private java.util.List<ProductionTeamMember> members;
 
     // endregion
 }

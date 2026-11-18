@@ -29,12 +29,13 @@ public interface PerformanceService {
      * @param source         记录来源
      * @param modifiedStatus 修改状态
      * @param recordStatus   记录状态
+     * @param keyword        工单号/工单名称/制剂名称/批号/计划名称/计划编号关键字
      * @param pageRequest    分页参数
      * @return 绩效记录分页
      */
     PagedResult<PerformanceRecord> query(LocalDate from, LocalDate to, Long personnelId, Long workOrderId,
                                          Long teamId, String source, Integer modifiedStatus, Integer recordStatus,
-                                         PageRequestDto pageRequest);
+                                         String keyword, PageRequestDto pageRequest);
 
     /**
      * 修改绩效时长

@@ -14,6 +14,7 @@ import com.tonghui.erp.Service.WorkOrderScheduleService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -51,15 +52,22 @@ public class WorkOrderScheduleController extends BaseController {
      * 查询未完成工单的排产任务列表
      *
      * 示例请求：
-     * GET /api/scheduling/tasks?keyword=GD2026
+     * GET /api/scheduling/tasks?keyword=GD2026&status=生产中&configFrom=2026-11-01&configTo=2026-11-30
      *
-     * @param keyword 工单编号/制剂名称关键字
-     * @return 任务列表（含工序数、冲突数、是否已保存）
+     * @param keyword    工单编号/工单名称/制剂名称/计划名称/计划编号/批号关键字
+     * @param status     生产状态：待生产/生产中/已完工，为空查全部
+     * @param configFrom 配置日期起
+     * @param configTo   配置日期止
+     * @return 任务列表（含工序数、已排产工序数、冲突数、是否已保存）
      */
     @GetMapping("/tasks")
-    public ApiResponse<List<ScheduleTaskDto>> tasks(@RequestParam(required = false) String keyword) {
+    public ApiResponse<List<ScheduleTaskDto>> tasks(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate configFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate configTo) {
         try {
-            return success(scheduleService.listTasks(keyword));
+            return success(scheduleService.listTasks(keyword, status, configFrom, configTo));
         } catch (Exception ex) {
             return exception(ex, "查询排产任务");
         }

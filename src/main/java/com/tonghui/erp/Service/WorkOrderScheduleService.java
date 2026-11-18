@@ -21,7 +21,8 @@ public interface WorkOrderScheduleService {
      * @param keyword 工单编号/制剂名称关键字
      * @return 任务列表
      */
-    List<ScheduleTaskDto> listTasks(String keyword);
+    List<ScheduleTaskDto> listTasks(String keyword, String status,
+                                    java.time.LocalDate configFrom, java.time.LocalDate configTo);
 
     /**
      * 查询单个工单的排产详情

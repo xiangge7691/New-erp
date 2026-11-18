@@ -1,429 +1,215 @@
-# 工序排产模块 · 前端对接文档
+# 生产任务 · 工序排产 / 实际生产 前端对接文档
 
-> 后端：已完成排产计划表、批次表、计划参与人表、班组班次表及 `/api/scheduling/*`、`/api/production-teams/*`、`/api/production-shifts/*` 接口  
-> 测试库：`192.168.5.100 / erp_db`  
-> 后端对接 HTML：[backend/scheduling.html](prototype/production/backend/scheduling.html)  
-> 目标态交互 HTML：[scheduling.html](prototype/production/scheduling.html)  
-> 全模块指导：[frontend-implementation-guide-scheduling-performance.md](frontend-implementation-guide-scheduling-performance.md)
+> 更新日期：2026-11-18  
+> 测试库：`192.168.5.100 / erp_db`（禁止向 `8.148.27.237` 写测试数据）  
+> 目标态原型：[scheduling.html](prototype/production/scheduling.html)（PC 端）、[backend/scheduling.html](prototype/production/backend/scheduling.html)  
+> 绩效原型：[performance.html](prototype/production/performance.html)
 
----
-
-## 1. 页面范围
-
-排产模块对应一张页面 `/production_scheduling`，内部沿用之前原型的视图切换：
-
-- **排产总览**：全部未完成任务的工序占用、任务概览、设备占用与甘特图（按任务/设备/房间）；冲突只在正式保存失败时以抽屉展示，不做常驻冲突清单。
-- **任务排产**：任务卡片、工序计划表、批次拆分、保存草稿/正式保存。
-- **工序看板**：逐工序计划/实际对照，按任务/设备/房间/班组/状态筛选。
-- **班组与班次**：班组、成员、班次维护；排产选择班组带入成员。
-- **原型说明**：规则、校验边界、接口说明。
-
-实际执行和人员绩效是独立页面，不在本模块内。
+本文档对应本轮的页面调整：**生产任务改为「外层列表页 + 任务详情页」**，详情页新增「排产」「实际生产」两个页签，甘特图放在列表页顶部；排产可选、班组仅作人员快捷分组、班次模块下线。
 
 ---
 
-## 2. 后端接口
+## 1. 页面结构
+
+### 1.1 生产任务列表页（外层）
+
+```
+生产任务
+├─ 排产甘特图（按任务 / 按设备 / 按房间）
+├─ 筛选：状态 / 关键字 / 配置日期范围｜搜索 / 重置
+└─ 页签：生产任务列表 / 平均生产用时
+   ├─ ＋ 新增任务
+   └─ 表格：生产任务编号、生产任务名称、计划名称、批号、制剂名称、计划数量、
+            配置日期、生产用时（小时）、当前状态、操作
+```
+
+- 点击「生产任务编号」进入任务详情页。
+- 甘特图只出现在列表页，详情页不重复展示。
+
+### 1.2 生产任务详情页
+
+```
+← 返回列表    生产任务详情 - {workOrderCode}
+页签：生产任务详情 / 变更历史 / 排产 / 实际生产
+```
+
+- **生产任务详情**：任务字段表（任务名称、生产任务编号、关联计划、当前状态、制剂名称、加工类型、计划数量、批号、配置日期、成品数量、得率等）+ **只读生产工序表**。
+  工序表列：工序名称、配置室、使用设备、关键工艺参数、计划起止、实际起止、操作人、加工数量、**排产**、**生产**、备注、操作。
+  - 排产：`已排产 / 未排产`（计划起止是否填写）。
+  - 生产：`未生产 / 生产中 / 已生产`（按实际执行起止推导）。
+- **变更历史**：留空或对接变更日志接口。
+- **排产**：检查冲突 / 自动顺排 / 保存排产 / 拆分工序；排产表按工序+批次展开。
+- **实际生产**：按工序+批次登记实际开始、结束、数量、参与人；完工后锁定。
+
+---
+
+## 2. 接口清单
 
 ### 2.1 排产
 
 | 方法 | 路径 | 用途 |
 |---|---|---|
-| GET | `/api/scheduling/tasks?keyword=` | 未完成工单排产任务列表 |
-| GET | `/api/scheduling/tasks/{workOrderId}` | 排产详情：计划 + 模板 + 实际 + 冲突 |
-| POST | `/api/scheduling/tasks/{workOrderId}/auto-plan` | 按模板标准工时自动顺排，保存草稿 |
+| GET | `/api/scheduling/tasks?keyword=&status=&configFrom=&configTo=` | 生产任务列表（含生产状态、生产用时、已排产工序数） |
+| GET | `/api/scheduling/tasks/{workOrderId}` | 任务详情：工单信息 + 工序计划 + 批次 + 实际 + 冲突 |
+| POST | `/api/scheduling/tasks/{workOrderId}/auto-plan` | 按模板标准工时自动顺排（存草稿） |
 | PUT | `/api/scheduling/tasks/{workOrderId}/plan` | 保存草稿（允许冲突） |
-| POST | `/api/scheduling/tasks/{workOrderId}/plan/save` | 正式保存（有冲突拒绝） |
+| POST | `/api/scheduling/tasks/{workOrderId}/plan/save` | 正式保存；有冲突返回 `saved=false` + `conflicts` |
 | POST | `/api/scheduling/tasks/{workOrderId}/conflicts/check` | 当前任务冲突检查 |
-| POST | `/api/scheduling/plans/{planId}/split` | 拆分工序批次 |
-| GET | `/api/scheduling/gantt?view=task|equipment|room&from=&to=` | 甘特图数据 |
+| POST | `/api/scheduling/plans/{planId}/split` | 拆分工序为多个批次 |
+| GET | `/api/scheduling/gantt?view=task|equipment|room&from=&to=` | 甘特图数据（含草稿、制剂名、计划号、批次名） |
 
-### 2.2 班组与班次
+**列表查询参数**
+
+- `keyword`：工单编号 / 工单名称 / 制剂编码 / 制剂名称 / 计划名称 / 计划编号 / 批号，模糊匹配。
+- `status`：`待生产` / `生产中` / `已完工`，按执行记录推导。
+- `configFrom` / `configTo`：`yyyy-MM-dd`，对应工单配置日期。
+
+### 2.2 班组（无班次）
 
 | 方法 | 路径 | 用途 |
 |---|---|---|
-| GET | `/api/production-teams?keyword=&status=` | 班组列表 |
-| GET | `/api/production-teams/active` | 启用班组 |
-| GET | `/api/production-teams/{id}` | 班组详情 |
-| GET | `/api/production-teams/{id}/members` | 班组成员 |
-| POST | `/api/production-teams` | 新建班组，`memberIds` 全量提交 |
+| GET | `/api/production-teams?keyword=` | 班组列表（含成员数量） |
+| GET | `/api/production-teams/active` | 全部班组 + 成员明细（id、姓名、工号），用于快捷选人 |
+| GET | `/api/production-teams/{id}/members` | 单个班组成员 |
+| POST | `/api/production-teams` | 新建班组（teamName + memberIds） |
 | PUT | `/api/production-teams/{id}` | 修改班组 |
-| PUT | `/api/production-teams/{id}/status?status=0` | 启停班组 |
-| GET | `/api/production-shifts?keyword=&status=` | 班次列表 |
-| GET | `/api/production-shifts/by-team/{teamId}` | 班组适用班次 |
-| POST | `/api/production-shifts` | 新建班次，`teamIds` 全量提交 |
-| PUT | `/api/production-shifts/{id}` | 修改班次 |
-| PUT | `/api/production-shifts/{id}/status?status=0` | 启停班次 |
 
-> 接口需要 JWT：`Authorization: Bearer <token>`。  
-> 当前后端只校验 JWT，**没有接口级 RBAC**；前端角色切换/按钮隐藏不能替代后端权限。
+> 班组已去掉「所属车间」「启用/停用」，班次相关接口与表已删除。
 
----
+### 2.3 实际生产（工序执行）
 
-## 3. TypeScript 类型
-
-```ts
-export interface ScheduleTaskDto {
-  workOrderId: number
-  workOrderCode: string
-  preparationName: string
-  batchNumber: string
-  batchQty: number
-  currentStatus: string
-  planStartTime?: string | null
-  processCount: number
-  conflictCount: number
-  saved: boolean
-}
-
-export interface PlanParticipantDto {
-  personnelId: number
-  personnelName?: string
-  isPrimary?: number
-}
-
-export interface PlanBatchDto {
-  id?: number
-  batchNo: number
-  batchName?: string | null
-  planStartTime?: string | null
-  planEndTime?: string | null
-  planDurationMinutes?: number | null
-  planQty: number
-  roomId?: number | null
-  roomName?: string | null
-  equipmentId?: number | null
-  equipmentName?: string | null
-  teamId?: number | null
-  teamName?: string | null
-  status?: string
-  participants?: PlanParticipantDto[]
-  /* 实际对照 */
-  actualStartTime?: string | null
-  actualEndTime?: string | null
-  actualStatus?: string | null
-  actualQty?: number | null
-  executionId?: number | null
-  locked?: number | null
-}
-
-export interface ScheduleConflictDto {
-  type: '设备占用' | '房间占用' | '人员班次' | '工序顺序' | '批次重叠' | '批次数量'
-  workOrderId?: number
-  workOrderCode?: string
-  planId?: number
-  batchId?: number | null
-  stepOrder?: number
-  processName?: string
-  startTime?: string
-  endTime?: string
-  message: string
-  otherWorkOrderId?: number
-  otherWorkOrderCode?: string
-  recommendedStartTime?: string | null
-  recommendedEndTime?: string | null
-}
-
-export interface ProcessScheduleDto {
-  planId?: number | null
-  workOrderId: number
-  processTypeId: number
-  processName: string
-  stepOrder: number
-  templateId?: number | null
-  standardDuration?: number | null
-  standardQty?: number | null
-  planStartTime?: string | null
-  planEndTime?: string | null
-  planDurationMinutes?: number | null
-  planQty?: number | null
-  roomId?: number | null
-  roomName?: string | null
-  equipmentId?: number | null
-  equipmentName?: string | null
-  teamId?: number | null
-  teamName?: string | null
-  status: string
-  batches?: PlanBatchDto[]
-  participants?: PlanParticipantDto[]
-  actualStartTime?: string | null
-  actualEndTime?: string | null
-  actualStatus?: string | null
-  actualQty?: number | null
-  executionId?: number | null
-  conflicts?: ScheduleConflictDto[]
-}
-
-export interface ScheduleDetailDto {
-  workOrderId: number
-  workOrderCode: string
-  preparationName: string
-  batchNumber: string
-  batchQty: number
-  currentStatus: string
-  planStartTime?: string | null
-  processes: ProcessScheduleDto[]
-  conflicts: ScheduleConflictDto[]
-}
-
-export interface ProcessPlanSaveDto {
-  planId?: number | null
-  processTypeId: number
-  stepOrder: number
-  templateId?: number | null
-  planStartTime?: string | null
-  planEndTime?: string | null
-  planQty?: number | null
-  roomId?: number | null
-  equipmentId?: number | null
-  teamId?: number | null
-  remark?: string
-  batches?: PlanBatchDto[]
-  participants?: PlanParticipantDto[]
-}
-
-export interface ScheduleSaveRequest {
-  workOrderId: number
-  processes: ProcessPlanSaveDto[]
-}
-
-export interface ScheduleSaveResult {
-  saved: boolean
-  conflicts: ScheduleConflictDto[]
-  processes: ProcessScheduleDto[]
-}
-```
-
----
-
-## 4. API 模块
-
-```ts
-// src/api/production-scheduling.ts
-import request from '@/utils/http'
-
-export const fetchSchedulingTasks = (keyword?: string) =>
-  request.get<ScheduleTaskDto[]>({ url: '/api/scheduling/tasks', params: { keyword } })
-
-export const fetchSchedulingDetail = (workOrderId: number) =>
-  request.get<ScheduleDetailDto>({ url: `/api/scheduling/tasks/${workOrderId}` })
-
-export const autoPlan = (workOrderId: number) =>
-  request.post<ScheduleDetailDto>({ url: `/api/scheduling/tasks/${workOrderId}/auto-plan` })
-
-export const saveScheduleDraft = (workOrderId: number, data: ScheduleSaveRequest) =>
-  request.put<ScheduleSaveResult>({ url: `/api/scheduling/tasks/${workOrderId}/plan`, data })
-
-export const checkConflicts = (workOrderId: number) =>
-  request.post<ScheduleConflictDto[]>({ url: `/api/scheduling/tasks/${workOrderId}/conflicts/check` })
-
-export const splitPlan = (planId: number, data: PlanBatchDto[]) =>
-  request.post<ScheduleSaveResult>({ url: `/api/scheduling/plans/${planId}/split`, data })
-
-export const fetchGantt = (params: {
-  view: 'task' | 'equipment' | 'room'
-  from: string
-  to: string
-}) => request.get<GanttItemDto[]>({ url: '/api/scheduling/gantt', params })
-```
-
-### 4.1 正式保存的 400 冲突
-
-后端正式保存冲突返回：
-
-```json
-{
-  "code": 400,
-  "message": "存在 2 项冲突，排产未保存",
-  "data": {
-    "saved": false,
-    "conflicts": [ { "type": "设备占用", "message": "...", "recommendedStartTime": "..." } ],
-    "processes": []
-  }
-}
-```
-
-现有 `src/utils/http` 抛 `HttpError` 时默认不带 `data`，需要补：
-
-```ts
-function createHttpError(message: string, code: number, data?: unknown) {
-  return new HttpError(message, code, { data })
-}
-// 拦截器：
-throw createHttpError(message || $t('httpMsg.requestFailed'), code, data)
-```
-
-API 层：
-
-```ts
-export async function saveScheduleFormal(workOrderId: number, data: ScheduleSaveRequest) {
-  try {
-    return await request.post<ScheduleSaveResult>({
-      url: `/api/scheduling/tasks/${workOrderId}/plan/save`,
-      data,
-      showErrorMessage: false
-    })
-  } catch (e) {
-    if (e instanceof HttpError && e.code === 400 && e.data) {
-      return e.data as ScheduleSaveResult
-    }
-    throw e
-  }
-}
-```
-
-页面拿到 `saved=false` 时不要关闭页面，直接打开冲突抽屉。
-
----
-
-## 5. 页面字段映射
-
-### 5.1 任务卡片
-
-| 页面字段 | 后端字段 |
-|---|---|
-| 工单编号 | `workOrderCode` |
-| 制剂名称 | `preparationName` |
-| 批号 | `batchNumber` |
-| 批量 | `batchQty` |
-| 状态 | `currentStatus` |
-| 计划开始 | `planStartTime` |
-| 工序数 | `processCount` |
-| 冲突数 | `conflictCount` |
-| 已保存 | `saved` |
-
-### 5.2 工序表
-
-| 页面列 | 后端字段 |
-|---|---|
-| 工序 | `processName` / `stepOrder` |
-| 标准工时 | `standardDuration`（模板未维护时为空） |
-| 计划起止 | `planStartTime` / `planEndTime` |
-| 计划用时 | `planDurationMinutes` |
-| 计划数量 | `planQty` |
-| 设备/房间 | `equipmentId/equipmentName`、`roomId/roomName` |
-| 班组 | `teamId/teamName` |
-| 操作人 | `participants[]` |
-| 批次 | `batches[]` |
-| 计划状态 | `status`（草稿/已保存/需重排） |
-| 冲突 | `conflicts[]` |
-| 实际对照 | `actualStartTime/actualEndTime/actualStatus/actualQty/executionId` |
-| 批次实际对照 | `batches[].actualStartTime/actualEndTime/actualStatus/actualQty/executionId/locked` |
-
-> 实际起止与数量来自 `work_order_process_execution`，通过 `plan_id` / `plan_batch_id` 关联；排产页只读展示，不修改实际记录。拆分批次时，工序级实际值按批次汇总（最早开始、最晚结束、数量合计）。
-
-### 5.3 批次
-
-`batches[].batchNo / batchName / planStartTime / planEndTime / planQty / roomId / equipmentId / teamId / participants`。  
-批次数量合计必须等于工序的 `planQty`。
-
-### 5.4 冲突
-
-`type / processName / stepOrder / startTime / endTime / message / otherWorkOrderCode / recommendedStartTime / recommendedEndTime`。
-
----
-
-## 6. 页面数据流
-
-### 6.1 初始化
-
-1. `fetchSchedulingTasks()` 渲染任务卡片；`conflictCount` 显示红点，`saved` 显示是否已正式保存。
-2. 默认选中第一个任务，`fetchSchedulingDetail(workOrderId)`。
-3. 工序表直接使用 `processes`；有 `batches` 的行显示“拆 N 批”。
-
-### 6.2 编辑与保存
-
-- 所有编辑只改本地 `processes`，不每改一个字段就请求后端。
-- **保存草稿**：`saveScheduleDraft`，允许 `conflicts` 非空，用于逐步调整。
-- **正式保存**：`saveScheduleFormal`。
-  - `saved=true`：提示成功并刷新详情。
-  - `saved=false`：打开冲突抽屉；每条冲突显示类型、工序、时段、消息、推荐时段。
-  - “套用推荐”只修改本地对应工序/批次的计划起止，重新保存时后端会再次全量校验。
-
-### 6.3 自动顺排
-
-- 调 `autoPlan`。
-- 后端要求：
-  - 工单有 `planStartTime`；
-  - 该制剂的所有工序模板都有 `standardDuration > 0`。
-- 任一条件不满足返回 400，页面提示具体工序或“工单未设置计划开始时间”，不要静默失败。
-- 当前测试库 65 条工序模板的标准工时全部为空，自动顺排会直接 400，这是数据前置条件，不是前端 bug。
-
-### 6.4 拆批次
-
-- 打开批次弹窗，填写批次号、时间、数量、班组/人员。
-- 前端先校验数量合计等于工序 `planQty`，再调 `splitPlan(planId, batches)`。
-- 后端也会校验数量和批次重叠；冲突时返回 `saved=false`。
-
-### 6.5 甘特图
-
-- `fetchGantt({ view, from, to })`。
-- `groupKey` 在 task 视图是工单编号，在 equipment/room 视图是设备/房间名称；`conflict=true` 的条目红色。
-
-### 6.6 班组班次
-
-- 班组列表 `GET /api/production-teams`；新建/修改时提交 `memberIds`。
-- 班次 `GET /api/production-shifts`；新建/修改提交 `teamIds`，时间格式 `HH:mm:ss`。
-- 排产选择班组时，后端在 `participants` 为空时会自动带入班组成员；前端也可以显式传参与人。
-- 同一班组同一时段可以负责多台设备，不要做班组互斥校验。
-
----
-
-## 7. 前端校验（后端仍会再校验）
-
-- 首道工序计划开始不得早于工单 `planStartTime`。
-- 后道工序计划开始不得早于紧前工序计划开始；**允许时段重叠**。
-- 正式保存时每道工序必须有计划起止，或所有批次有计划起止。
-- 计划结束必须晚于计划开始。
-- 批次数量合计 = 工序计划数量；批次时段不得重叠。
-- 设备、房间、班组有值时才参与对应冲突校验。
-- 同一工单内 `stepOrder` 不允许重复。
-
----
-
-## 8. 错误处理
-
-| 场景 | 后端 | 前端 |
+| 方法 | 路径 | 用途 |
 |---|---|---|
-| 正式保存有冲突 | 400 + `data.conflicts` | 打开冲突抽屉，保留当前编辑 |
-| 自动顺排标准工时缺失 | 400 | 提示具体工序，引导补录模板 |
-| 工单无计划开始时间 | 400 | 提示先维护工单计划开始时间 |
-| 首道工序早于任务开始 | 400 | 表单校验拦截 |
-| 批次数量不平 | 400 | 弹窗内红字提示，禁止提交 |
-| 批次时段重叠 | 400 | 冲突抽屉/表单提示 |
-| 401 | 未登录 | 走现有登出逻辑 |
+| GET | `/api/work-order-process-execution/by-work-order/{workOrderId}` | 查询工单执行记录（含参与人） |
+| POST | `/api/work-order-process-execution/batch?workOrderId=` | 批量保存执行记录（开始/结束/数量/参与人；带 planId、planBatchId、batchNo） |
+| POST | `/api/work-order-process-execution/{executionId}/complete` | 完工：锁定记录并生成人员绩效 |
+| GET | `/api/work-order-process-execution/completed` | 完工记录列表 |
+| GET | `/api/work-order-process-execution/completed/export` | 完工记录导出 |
+
+### 2.4 绩效（受本轮原型影响）
+
+> 绩效页的完整对接说明（总览聚合、工序/人员粒度、系数版本、补录与导出）见 [performance-module-frontend-integration.md](performance-module-frontend-integration.md)。
+
+| 方法 | 路径 | 变更 |
+|---|---|---|
+| GET | `/api/performance/process-view` | `workOrderId` 改为可选；新增 `keyword`、`source`、`modifiedStatus`、`recordStatus`（不传=全部状态） |
+| GET | `/api/performance/records` | 新增 `keyword` |
+| PUT | `/api/performance/records/{id}` | 返回 `originalPerformanceHours`（首次修改前的绩效时长） |
+| POST | `/api/performance/coefficient-versions` | `note` 改为选填（版本备注） |
+| GET | `/api/performance/export` | 新增 `keyword`；导出列合并为「工时（绩效时长）」 |
+| GET | `/api/performance/aggregate` | 保留接口，前端不再调用（班组与品种页已删除） |
 
 ---
 
-## 9. 当前后端边界
+## 3. 关键字段
 
-已完成：
+### 3.1 任务列表（`ScheduleTaskDto`）
 
-- 排产计划、批次、计划参与人表与接口。
-- 设备/房间/班次/工序顺序/批次冲突校验。
-- 草稿/正式保存；正式保存冲突拒绝。
-- 拆批次、甘特图、班组班次 CRUD。
-- 排产结果与实际执行通过 `plan_id/plan_batch_id` 关联。
-- 批次级参与人保存到 `work_order_process_plan_participant.batch_id`，前端在 `batches[].participants` 传入即可。
-- 工序与批次 DTO 返回实际起止、实际数量、执行记录 ID 和锁定状态，排产看板可直接对照计划与实际。
+| 字段 | 说明 |
+|---|---|
+| `workOrderId` / `workOrderCode` / `workOrderName` | 生产任务主键、编号、名称 |
+| `planId` / `planName` / `planNumber` | 关联生产计划 |
+| `preparationName` / `batchNumber` / `batchQty` | 制剂、批号、批量 |
+| `configDate` | 配置日期 |
+| `currentStatus` | 工单原状态（保留展示兼容） |
+| `productionStatus` | **生产状态**：待生产/生产中/已完工（执行推导） |
+| `productionDurationHours` | 生产用时（小时），优先取工单统计值 |
+| `processCount` / `scheduledProcessCount` | 工序数 / 已排产工序数 |
+| `conflictCount` / `saved` | 冲突数 / 是否已保存排产 |
 
-仍需注意：
+### 3.2 排产工序（`ProcessScheduleDto`）
 
-1. **标准工时数据为空**：自动顺排不可用，需业务补录 `preparation_process_template.standard_duration`。
-2. **“需重排”状态**：字段存在，但外部变更触发重算并标记“需重排”的规则尚未实现；当前只有保存草稿/正式保存会改变状态。
-3. **RBAC**：接口只校验 JWT，没有按生产主管/主任/班组长拦截。
-4. **测试库部分工单 `plan_start_time` 为空**：排产详情会返回 null，自动顺排会 400。
+| 字段 | 说明 |
+|---|---|
+| `scheduled` | **是否已排产**（计划起止均已填写；为 false 时不影响流程） |
+| `status` | 保存状态：草稿 / 已保存 |
+| `planStartTime` / `planEndTime` / `planDurationMinutes` | 计划时间，可为空 |
+| `planQty` / `roomId` / `roomName` / `equipmentId` / `equipmentName` | 计划数量与资源 |
+| `teamId` / `teamName` / `participants` | 计划班组（选填）与参与人 |
+| `batches[]` | 拆分批次；每个批次 `scheduled`、计划起止、数量、参与人、实际对照 |
+| `actualStartTime` / `actualEndTime` / `actualStatus` / `actualQty` / `executionId` | 实际执行对照 |
+
+### 3.3 甘特图（`GanttItemDto`）
+
+新增 `preparationName`、`planNumber`、`batchNumber`、`batchName`；`view=equipment|room` 时前端色块显示「制剂名称 / 生产任务号」两行。**草稿也会返回**（只要有计划起止）。
+
+### 3.4 绩效记录
+
+新增 `originalPerformanceHours`（首次修改前的绩效时长）。修改后：
+- `performanceHours` = 修改后时长；
+- `originalPerformanceHours` = 原始时长；
+- `performanceHoursTotal` = 绩效时长 × 工序系数 × 人员系数（按快照）；
+- `updatedByName` / `updatedTime` 为最后修改人与时间。
+
+红色「绩效工时」点击后展示：修改前/后绩效时长、修改原因（`note`）、修改人、修改时间。
 
 ---
 
-## 10. 联调验收清单
+## 4. 业务规则
 
-- [ ] 任务列表能显示未完成工单、工序数、冲突数、是否已保存。
-- [ ] 选择任务能加载计划、模板、实际与冲突。
-- [ ] 保存草稿成功，允许冲突残留。
-- [ ] 正式保存有冲突时返回 400，页面能列出冲突与推荐时段，不关闭页面。
-- [ ] 冲突全部消除后正式保存成功，`saved=true`。
-- [ ] 拆批次数量合计校验、批次时段校验生效。
-- [ ] 自动顺排缺标准工时时能显示后端 400 文案。
-- [ ] 甘特图按任务/设备/房间切换，冲突标红。
-- [ ] 班组、成员、班次可维护；排产选择班组能带入成员。
-- [ ] 同一班组可同时排多台设备，不报人员冲突。
+1. **排产可选**：计划开始/结束为空即未排产；正式保存同样允许，未排产工序不参与冲突校验、不进甘特图，不影响生产任务流程。
+2. **排产标记 ≠ 流程状态**：列表/详情的「已排产 / 未排产 / 部分排产」只是“是否填写计划时间”的标识；生产状态由实际执行推导。
+3. **冲突规则**：设备占用、房间占用、人员冲突（同一人同一时段被安排到不同工序）、工序顺序、批次数量、批次重叠。**班次校验已删除**，班组不参与冲突判断。
+4. **班组快捷选人**：选择班组只勾选成员，之后可逐人增减；排产保存到计划参与人，实际生产保存到执行参与人。
+5. **实际生产**：执行记录按工序/批次保存；`complete` 后锁定，不可再改，并生成人员绩效。
+6. **修改留痕**：首次修改绩效时长时写入 `original_performance_hours`，后续修改不再覆盖；修改备注必填。
+7. **系数版本**：工序系数 + 人员系数整体发布，备注选填；发布后不可撤销。
+
+---
+
+## 5. 前端对接建议
+
+### 5.1 列表页
+
+- 页面进入调用 `GET /api/scheduling/tasks`（可不传参数），状态筛选映射 `status`，关键字映射 `keyword`，配置日期映射 `configFrom/configTo`。
+- 甘特图调用 `GET /api/scheduling/gantt?view=...&from=...&to=...`，默认展示草稿；色块 `preparationName` + `workOrderCode` 两行。
+- 行点击进入详情（`GET /api/scheduling/tasks/{id}`）。
+
+### 5.2 详情页
+
+- 「生产任务详情」用详情接口的工单字段 + `processes[].scheduled`、`actualStatus` 渲染只读工序表。
+- 「排产」页签：
+  - 调整工序：`PUT /plan` 保存草稿，`POST /plan/save` 正式保存；
+  - 拆批次：`POST /plans/{planId}/split`（批次参与人字段 `batches[].participants`）；
+  - 班组快捷选人：`GET /api/production-teams/active` 取成员，勾选后写入 `participants`。
+- 「实际生产」页签：
+  - 保存执行：`POST /api/work-order-process-execution/batch?workOrderId=`；
+  - 完工：`POST /api/work-order-process-execution/{executionId}/complete`；
+  - 参与人同样可按 `production-teams/active` 快捷选择。
+
+### 5.3 绩效页
+
+- 工序粒度：`GET /api/performance/process-view?from=&to=&keyword=&teamId=&source=&modifiedStatus=&recordStatus=`（`workOrderId` 可不传）。
+- 人员粒度：`GET /api/performance/person-view?personnelId=&from=&to=`。
+- 工时列展示 `performanceHours`（列名「工时（绩效时长）」）；红色绩效工时点击展示修改明细（`originalPerformanceHours`、`note`、`updatedByName`、`updatedTime`）。
+- 系数版本：`POST /api/performance/coefficient-versions`，`note` 可不传。
+
+---
+
+## 6. 数据库迁移
+
+执行脚本：
+
+```
+src/main/resources/Data/migration/20261118_scheduling_alignment.sql
+```
+
+内容：
+1. `performance_record` 增加 `original_performance_hours`；
+2. 删除 `production_shift`、`production_shift_team`；
+3. `production_team` 删除 `workshop`、`status` 字段及 `idx_team_status` 索引。
+
+回滚脚本：`20261118_scheduling_alignment_rollback.sql`（班次表需从 20261116 脚本重建）。
+
+> 注意：脚本需在测试库 `192.168.5.100 / erp_db` 执行；生产库执行前请备份并评估。
+
+---
+
+## 7. 原型与文档对照
+
+| 内容 | 文件 |
+|---|---|
+| 生产任务列表 + 详情（排产/实际生产） | `docs/prototype/production/scheduling.html` |
+| 后端对接版（含接口备注） | `docs/prototype/production/backend/scheduling.html` |
+| 人员绩效（工时合并、修改明细、系数页签） | `docs/prototype/production/performance.html` |
+| 详细前端实现指导 | `docs/frontend-implementation-guide-scheduling-performance.md` |

@@ -1,12 +1,12 @@
 package com.tonghui.erp.Service;
 
-import com.tonghui.erp.Data.Entity.ProductionShift;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessPlan;
+import com.tonghui.erp.Data.Entity.WorkOrderProcessPlanParticipant;
 import com.tonghui.erp.Data.mapper.EquipmentMapper;
-import com.tonghui.erp.Data.mapper.ProductionShiftMapper;
 import com.tonghui.erp.Data.mapper.RoomInfoMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessPlanBatchMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessPlanMapper;
+import com.tonghui.erp.Data.mapper.WorkOrderProcessPlanParticipantMapper;
 import com.tonghui.erp.Service.impl.ScheduleConflictService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,7 +17,6 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,7 +38,7 @@ class ScheduleConflictServiceTest {
     @Mock
     private WorkOrderProcessPlanBatchMapper batchMapper;
     @Mock
-    private ProductionShiftMapper shiftMapper;
+    private WorkOrderProcessPlanParticipantMapper participantMapper;
     @Mock
     private EquipmentMapper equipmentMapper;
     @Mock
@@ -55,7 +54,6 @@ class ScheduleConflictServiceTest {
     void shouldReportSequenceConflictWhenNextStartsEarlier() {
         when(planMapper.selectOverlappingSavedPlans(any(), any(), anyLong())).thenReturn(List.of());
         when(batchMapper.selectByPlanIds(any())).thenReturn(List.of());
-        when(shiftMapper.selectActiveByTeamId(anyLong())).thenReturn(List.of());
 
         WorkOrderProcessPlan first = plan(1, 1, "2026-11-20T08:00:00", "2026-11-20T09:00:00");
         WorkOrderProcessPlan second = plan(2, 2, "2026-11-20T07:30:00", "2026-11-20T08:30:00");
@@ -72,7 +70,6 @@ class ScheduleConflictServiceTest {
     void shouldAllowOverlappingTimeWhenNextStartsLater() {
         when(planMapper.selectOverlappingSavedPlans(any(), any(), anyLong())).thenReturn(List.of());
         when(batchMapper.selectByPlanIds(any())).thenReturn(List.of());
-        when(shiftMapper.selectActiveByTeamId(anyLong())).thenReturn(List.of());
 
         WorkOrderProcessPlan first = plan(1, 1, "2026-11-20T08:00:00", "2026-11-20T09:00:00");
         WorkOrderProcessPlan second = plan(2, 2, "2026-11-20T08:30:00", "2026-11-20T09:30:00");
@@ -89,7 +86,6 @@ class ScheduleConflictServiceTest {
     void shouldReportEquipmentConflict() {
         when(planMapper.selectOverlappingSavedPlans(any(), any(), anyLong())).thenReturn(List.of());
         when(batchMapper.selectByPlanIds(any())).thenReturn(List.of());
-        when(shiftMapper.selectActiveByTeamId(anyLong())).thenReturn(List.of());
 
         WorkOrderProcessPlan first = plan(1, 1, "2026-11-20T08:00:00", "2026-11-20T09:00:00");
         WorkOrderProcessPlan second = plan(2, 2, "2026-11-20T08:30:00", "2026-11-20T09:30:00");
@@ -104,25 +100,46 @@ class ScheduleConflictServiceTest {
     }
 
     /**
-     * 班组班次不覆盖计划时段：应报人员班次
+     * 同一人在同一时段被安排到两道工序：应报人员冲突
      */
     @Test
-    void shouldReportShiftConflict() {
+    void shouldReportPersonConflictWhenSamePersonOverlaps() {
         when(planMapper.selectOverlappingSavedPlans(any(), any(), anyLong())).thenReturn(List.of());
         when(batchMapper.selectByPlanIds(any())).thenReturn(List.of());
-        ProductionShift shift = new ProductionShift();
-        shift.setShiftName("早班");
-        shift.setStartTime(LocalTime.of(8, 0));
-        shift.setEndTime(LocalTime.of(17, 0));
-        when(shiftMapper.selectActiveByTeamId(1L)).thenReturn(List.of(shift));
 
-        WorkOrderProcessPlan plan = plan(1, 1, "2026-11-20T18:00:00", "2026-11-20T20:00:00");
-        plan.setTeamId(1L);
-        plan.setTeamName("灌装一班");
+        WorkOrderProcessPlan first = plan(1, 1, "2026-11-20T08:00:00", "2026-11-20T10:00:00");
+        WorkOrderProcessPlan second = plan(2, 2, "2026-11-20T09:00:00", "2026-11-20T11:00:00");
+        List<WorkOrderProcessPlanParticipant> participants = List.of(
+                participant(1L, 71L), participant(2L, 71L));
 
-        var conflicts = conflictService.check(1L, new ArrayList<>(List.of(plan)), List.of());
+        var conflicts = conflictService.check(1L, new ArrayList<>(List.of(first, second)),
+                List.of(), participants);
 
-        assertTrue(conflicts.stream().anyMatch(c -> "人员班次".equals(c.getType())));
+        assertTrue(conflicts.stream().anyMatch(c -> "人员冲突".equals(c.getType())));
+    }
+
+    /**
+     * 未排产工序（计划起止为空）：不参与冲突校验
+     */
+    @Test
+    void shouldIgnoreUnscheduledProcess() {
+        when(planMapper.selectOverlappingSavedPlans(any(), any(), anyLong())).thenReturn(List.of());
+        when(batchMapper.selectByPlanIds(any())).thenReturn(List.of());
+
+        WorkOrderProcessPlan unscheduled = plan(1, 1, "2026-11-20T08:00:00", "2026-11-20T09:00:00");
+        unscheduled.setPlanStartTime(null);
+        unscheduled.setPlanEndTime(null);
+
+        var conflicts = conflictService.check(1L, new ArrayList<>(List.of(unscheduled)), List.of());
+
+        assertEquals(0, conflicts.size());
+    }
+
+    private WorkOrderProcessPlanParticipant participant(Long planId, Long personnelId) {
+        WorkOrderProcessPlanParticipant participant = new WorkOrderProcessPlanParticipant();
+        participant.setPlanId(planId);
+        participant.setPersonnelId(personnelId);
+        return participant;
     }
 
     private WorkOrderProcessPlan plan(long id, int step, String start, String end) {

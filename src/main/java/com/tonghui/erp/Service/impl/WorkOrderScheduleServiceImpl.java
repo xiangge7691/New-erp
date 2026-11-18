@@ -14,6 +14,7 @@ import com.tonghui.erp.Common.Dto.Scheduling.ScheduleSaveResult;
 import com.tonghui.erp.Common.Dto.Scheduling.ScheduleTaskDto;
 import com.tonghui.erp.Data.Entity.PreparationProcessTemplate;
 import com.tonghui.erp.Data.Entity.ProcessType;
+import com.tonghui.erp.Data.Entity.ProductionPlan;
 import com.tonghui.erp.Data.Entity.ProductionTeam;
 import com.tonghui.erp.Data.Entity.WorkOrder;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessExecution;
@@ -23,6 +24,7 @@ import com.tonghui.erp.Data.Entity.WorkOrderProcessPlanParticipant;
 import com.tonghui.erp.Data.mapper.EquipmentMapper;
 import com.tonghui.erp.Data.mapper.PreparationProcessTemplateMapper;
 import com.tonghui.erp.Data.mapper.ProcessTypeMapper;
+import com.tonghui.erp.Data.mapper.ProductionPlanMapper;
 import com.tonghui.erp.Data.mapper.ProductionTeamMapper;
 import com.tonghui.erp.Data.mapper.ProductionTeamMemberMapper;
 import com.tonghui.erp.Data.mapper.RoomInfoMapper;
@@ -39,7 +41,9 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -79,6 +83,10 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
     /** 班组 Mapper */
     @Autowired
     private ProductionTeamMapper teamMapper;
+
+    /** 生产计划 Mapper（计划编号查询） */
+    @Autowired
+    private ProductionPlanMapper productionPlanMapper;
 
     /** 班组成员 Mapper */
     @Autowired
@@ -122,29 +130,74 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
     /**
      * 查询未完成工单的排产任务列表
      *
-     * @param keyword 工单编号/制剂名称关键字
+     * @param keyword    工单编号/名称、制剂编码/名称、计划名称/编号、批号关键字
+     * @param status     生产状态：待生产/生产中/已完工
+     * @param configFrom 配置日期起
+     * @param configTo   配置日期止
      * @return 任务列表
      */
     @Override
-    public List<ScheduleTaskDto> listTasks(String keyword) {
+    public List<ScheduleTaskDto> listTasks(String keyword, String status,
+                                           LocalDate configFrom, LocalDate configTo) {
         LambdaQueryWrapper<WorkOrder> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(WorkOrder::getIsDeleted, 0)
                 .notIn(WorkOrder::getCurrentStatus, "已入库", "已放行", "已归档");
         if (StringUtils.hasText(keyword)) {
-            wrapper.and(q -> q.like(WorkOrder::getWorkOrderCode, keyword)
-                    .or().like(WorkOrder::getPreparationName, keyword));
+            // 计划编号在 production_plan 表，先按编号匹配计划ID
+            final List<Integer> matchedPlanIds = productionPlanMapper.selectList(
+                            new LambdaQueryWrapper<ProductionPlan>()
+                                    .like(ProductionPlan::getPlanNumber, keyword))
+                    .stream().map(ProductionPlan::getId).toList();
+            wrapper.and(q -> {
+                q.like(WorkOrder::getWorkOrderCode, keyword)
+                        .or().like(WorkOrder::getWorkOrderName, keyword)
+                        .or().like(WorkOrder::getPreparationCode, keyword)
+                        .or().like(WorkOrder::getPreparationName, keyword)
+                        .or().like(WorkOrder::getPlanName, keyword)
+                        .or().like(WorkOrder::getBatchNumber, keyword);
+                if (!matchedPlanIds.isEmpty()) {
+                    q.or().in(WorkOrder::getPlanId, matchedPlanIds);
+                }
+            });
+        }
+        if (configFrom != null) {
+            wrapper.ge(WorkOrder::getConfigDate, configFrom.atStartOfDay());
+        }
+        if (configTo != null) {
+            wrapper.le(WorkOrder::getConfigDate, configTo.atTime(23, 59, 59));
         }
         wrapper.orderByDesc(WorkOrder::getPlanStartTime).orderByDesc(WorkOrder::getWorkOrderId);
         List<WorkOrder> orders = workOrderMapper.selectList(wrapper);
+        if (CollectionUtils.isEmpty(orders)) {
+            return List.of();
+        }
+        List<Long> orderIds = orders.stream().map(WorkOrder::getWorkOrderId).toList();
+        Map<Long, String> planNumberMap = new HashMap<>();
+        List<Integer> planIds = orders.stream().map(WorkOrder::getPlanId)
+                .filter(Objects::nonNull).distinct().map(Long::intValue).toList();
+        if (!planIds.isEmpty()) {
+            productionPlanMapper.selectBatchIds(planIds)
+                    .forEach(plan -> planNumberMap.put(plan.getId().longValue(), plan.getPlanNumber()));
+        }
+        Map<Long, List<WorkOrderProcessExecution>> execMap = executionMapper.selectList(
+                        new LambdaQueryWrapper<WorkOrderProcessExecution>()
+                                .in(WorkOrderProcessExecution::getWorkOrderId, orderIds)
+                                .eq(WorkOrderProcessExecution::getIsDeleted, 0))
+                .stream().collect(Collectors.groupingBy(WorkOrderProcessExecution::getWorkOrderId));
         List<ScheduleTaskDto> result = new ArrayList<>();
         for (WorkOrder order : orders) {
             ScheduleTaskDto dto = new ScheduleTaskDto();
             dto.setWorkOrderId(order.getWorkOrderId());
             dto.setWorkOrderCode(order.getWorkOrderCode());
+            dto.setWorkOrderName(order.getWorkOrderName());
             dto.setPreparationName(order.getPreparationName());
+            dto.setPlanId(order.getPlanId());
+            dto.setPlanName(order.getPlanName());
+            dto.setPlanNumber(order.getPlanId() == null ? null : planNumberMap.get(order.getPlanId()));
             dto.setBatchNumber(order.getBatchNumber());
             dto.setBatchQty(order.getBatchQty());
             dto.setCurrentStatus(order.getCurrentStatus());
+            dto.setConfigDate(order.getConfigDate());
             dto.setPlanStartTime(order.getPlanStartTime());
             List<WorkOrderProcessPlan> plans = planMapper.selectByWorkOrderIdWithDetails(order.getWorkOrderId());
             int processCount = plans.size();
@@ -154,11 +207,64 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
                                 .eq(PreparationProcessTemplate::getPreparationId, order.getPreparationId())));
             }
             dto.setProcessCount(processCount);
+            dto.setScheduledProcessCount((int) plans.stream()
+                    .filter(p -> p.getPlanStartTime() != null && p.getPlanEndTime() != null)
+                    .count());
             dto.setConflictCount(conflictCount(order.getWorkOrderId(), plans));
             dto.setSaved(plans.stream().anyMatch(p -> "已保存".equals(p.getStatus())));
-            result.add(dto);
+            List<WorkOrderProcessExecution> executions =
+                    execMap.getOrDefault(order.getWorkOrderId(), List.of());
+            String productionStatus = productionStatus(executions, processCount);
+            dto.setProductionStatus(productionStatus);
+            dto.setProductionDurationHours(productionHours(order, executions));
+            if (!StringUtils.hasText(status) || status.equals(productionStatus)) {
+                result.add(dto);
+            }
         }
         return result;
+    }
+
+    /**
+     * 按执行记录推导生产状态
+     */
+    private String productionStatus(List<WorkOrderProcessExecution> executions, int processCount) {
+        if (CollectionUtils.isEmpty(executions)) {
+            return "待生产";
+        }
+        Set<Integer> started = new HashSet<>();
+        Set<Integer> completed = new HashSet<>();
+        for (WorkOrderProcessExecution execution : executions) {
+            if (execution.getStepOrder() == null) {
+                continue;
+            }
+            if (execution.getStartTime() != null) {
+                started.add(execution.getStepOrder());
+            }
+            if (execution.getEndTime() != null
+                    || ProcessExecutionStatus.COMPLETED.equals(execution.getStatus())) {
+                completed.add(execution.getStepOrder());
+            }
+        }
+        if (processCount > 0 && completed.size() >= processCount) {
+            return "已完工";
+        }
+        return started.isEmpty() ? "待生产" : "生产中";
+    }
+
+    /**
+     * 生产用时：优先取工单上已统计的时长，否则按执行记录起止累加
+     */
+    private BigDecimal productionHours(WorkOrder order, List<WorkOrderProcessExecution> executions) {
+        if (order.getProductionDurationHours() != null) {
+            return order.getProductionDurationHours();
+        }
+        long minutes = executions.stream()
+                .filter(e -> e.getStartTime() != null && e.getEndTime() != null)
+                .mapToLong(e -> Math.max(Duration.between(e.getStartTime(), e.getEndTime()).toMinutes(), 0))
+                .sum();
+        return minutes > 0
+                ? BigDecimal.valueOf(minutes).divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP)
+                : null;
     }
 
     /**
@@ -195,10 +301,15 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
         ScheduleDetailDto detail = new ScheduleDetailDto();
         detail.setWorkOrderId(order.getWorkOrderId());
         detail.setWorkOrderCode(order.getWorkOrderCode());
+        detail.setWorkOrderName(order.getWorkOrderName());
         detail.setPreparationName(order.getPreparationName());
+        detail.setPlanId(order.getPlanId());
+        detail.setPlanName(order.getPlanName());
+        detail.setPlanNumber(planNumberOf(order.getPlanId()));
         detail.setBatchNumber(order.getBatchNumber());
         detail.setBatchQty(order.getBatchQty());
         detail.setCurrentStatus(order.getCurrentStatus());
+        detail.setConfigDate(order.getConfigDate());
         detail.setPlanStartTime(order.getPlanStartTime());
 
         List<WorkOrderProcessPlan> plans = planMapper.selectByWorkOrderIdWithDetails(workOrderId);
@@ -232,6 +343,9 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
         }
         processes.sort(Comparator.comparing(ProcessScheduleDto::getStepOrder,
                 Comparator.nullsLast(Integer::compareTo)));
+        List<WorkOrderProcessExecution> allExecutions = executionMap.values().stream()
+                .flatMap(List::stream).toList();
+        detail.setProductionStatus(productionStatus(allExecutions, processes.size()));
         detail.setProcesses(processes);
         detail.setConflicts(conflicts);
         return detail;
@@ -258,6 +372,7 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
             dto.setEquipmentId(template.getEquipmentId());
             dto.setEquipmentName(template.getEquipmentId() == null ? null : equipmentName(template.getEquipmentId()));
             dto.setStatus("草稿");
+            dto.setScheduled(false);
             result.add(dto);
         }
         return result;
@@ -320,6 +435,9 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
         dto.setTeamId(plan.getTeamId());
         dto.setTeamName(plan.getTeamName());
         dto.setStatus(plan.getStatus());
+        boolean batchesScheduled = !CollectionUtils.isEmpty(batches) && batches.stream()
+                .allMatch(b -> b.getPlanStartTime() != null && b.getPlanEndTime() != null);
+        dto.setScheduled((plan.getPlanStartTime() != null && plan.getPlanEndTime() != null) || batchesScheduled);
         dto.setRemark(plan.getRemark());
         dto.setBatches(toBatchDtos(batches, participants, executions));
         dto.setParticipants(toParticipantDtos(participants, null));
@@ -350,6 +468,7 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
                     dto.setTeamId(b.getTeamId());
                     dto.setTeamName(b.getTeamName());
                     dto.setStatus(b.getStatus());
+                    dto.setScheduled(b.getPlanStartTime() != null && b.getPlanEndTime() != null);
                     dto.setParticipants(toParticipantDtos(participants, b.getId()));
                     executions.stream()
                             .filter(e -> Objects.equals(e.getPlanBatchId(), b.getId())
@@ -509,9 +628,7 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
             batchMap.put(plan.getId(), batches);
             List<WorkOrderProcessPlanParticipant> participants = buildParticipants(plan, dto.getParticipants());
             participantMap.put(plan.getId(), participants);
-            if (formal) {
-                requirePlanTime(plan, batches);
-            }
+            // 排产为可选参考：计划起止为空即未排产，正式保存同样允许，不影响任务流程
         }
 
         WorkOrderProcessPlan first = plans.get(0);
@@ -523,7 +640,8 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
         if (formal) {
             conflictService.lockResources(plans, allBatches);
         }
-        List<ScheduleConflictDto> conflicts = conflictService.check(workOrderId, plans, allBatches);
+        List<ScheduleConflictDto> conflicts = conflictService.check(workOrderId, plans, allBatches,
+                participantMap.values().stream().flatMap(List::stream).toList());
         if (formal && !conflicts.isEmpty()) {
             ScheduleSaveResult result = new ScheduleSaveResult();
             result.setSaved(false);
@@ -745,7 +863,6 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
     public List<GanttItemDto> gantt(String view, LocalDateTime from, LocalDateTime to) {
         LambdaQueryWrapper<WorkOrderProcessPlan> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(WorkOrderProcessPlan::getIsDeleted, 0)
-                .ne(WorkOrderProcessPlan::getStatus, "草稿")
                 .isNotNull(WorkOrderProcessPlan::getPlanStartTime)
                 .isNotNull(WorkOrderProcessPlan::getPlanEndTime)
                 .lt(WorkOrderProcessPlan::getPlanStartTime, to)
@@ -755,6 +872,11 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
         if (CollectionUtils.isEmpty(plans)) {
             return List.of();
         }
+        List<Long> workOrderIds = plans.stream().map(WorkOrderProcessPlan::getWorkOrderId).distinct().toList();
+        Map<Long, WorkOrder> orderMap = workOrderMapper.selectBatchIds(workOrderIds).stream()
+                .collect(Collectors.toMap(WorkOrder::getWorkOrderId, Function.identity(), (a, b) -> a));
+        Map<Long, String> planNumberByOrder = new HashMap<>();
+        orderMap.forEach((orderId, order) -> planNumberByOrder.put(orderId, planNumberOf(order.getPlanId())));
         Map<Long, WorkOrderProcessPlan> detailMap = new HashMap<>();
         plans.stream().map(WorkOrderProcessPlan::getWorkOrderId).distinct()
                 .forEach(id -> planMapper.selectByWorkOrderIdWithDetails(id).forEach(p -> detailMap.put(p.getId(), p)));
@@ -783,12 +905,15 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
         }
         List<GanttItemDto> result = new ArrayList<>();
         for (WorkOrderProcessPlan plan : plans) {
+            WorkOrder order = orderMap.get(plan.getWorkOrderId());
             List<WorkOrderProcessPlanBatch> batches = batchMap.get(plan.getId());
             if (CollectionUtils.isEmpty(batches)) {
-                result.add(toGantt(plan, null, null, null, null, view, conflictPlans));
+                result.add(toGantt(plan, null, order, view, conflictPlans,
+                        planNumberByOrder.get(plan.getWorkOrderId())));
             } else {
                 for (WorkOrderProcessPlanBatch batch : batches) {
-                    result.add(toGantt(plan, batch, null, null, null, view, conflictPlans));
+                    result.add(toGantt(plan, batch, order, view, conflictPlans,
+                            planNumberByOrder.get(plan.getWorkOrderId())));
                 }
             }
         }
@@ -796,12 +921,18 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
     }
 
     private GanttItemDto toGantt(WorkOrderProcessPlan plan, WorkOrderProcessPlanBatch batch,
-                                 String ignore1, String ignore2, String ignore3, String view,
-                                 Set<Long> conflictPlans) {
+                                 WorkOrder order, String view, Set<Long> conflictPlans,
+                                 String planNumber) {
         GanttItemDto dto = new GanttItemDto();
         dto.setView(view);
         dto.setWorkOrderId(plan.getWorkOrderId());
         dto.setWorkOrderCode(plan.getWorkOrderCode());
+        if (order != null) {
+            dto.setPreparationName(order.getPreparationName());
+            dto.setPlanNumber(planNumber);
+            dto.setBatchNumber(order.getBatchNumber());
+        }
+        dto.setBatchName(batch == null ? null : batch.getBatchName());
         dto.setProcessName(plan.getProcessTypeName());
         dto.setStepOrder(plan.getStepOrder());
         dto.setStartTime(batch != null ? batch.getPlanStartTime() : plan.getPlanStartTime());
@@ -914,18 +1045,16 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
         }
     }
 
-    private void requirePlanTime(WorkOrderProcessPlan plan, List<WorkOrderProcessPlanBatch> batches) {
-        if (plan.getPlanStartTime() != null && plan.getPlanEndTime() != null) {
-            return;
+    /** 生产计划编号（work_order.plan_number 为非表字段，需查 production_plan） */
+    private String planNumberOf(Long planId) {
+        if (planId == null) {
+            return null;
         }
-        if (CollectionUtils.isEmpty(batches) || batches.stream()
-                .anyMatch(b -> b.getPlanStartTime() == null || b.getPlanEndTime() == null)) {
-            throw new IllegalArgumentException("正式保存时工序 " + plan.getStepOrder() + " 必须填写计划起止时间");
-        }
+        ProductionPlan plan = productionPlanMapper.selectById(planId.intValue());
+        return plan == null ? null : plan.getPlanNumber();
     }
 
-    private String processName(Long processTypeId, String fallback) {
-        if (processTypeId == null) {
+    private String processName(Long processTypeId, String fallback) {        if (processTypeId == null) {
             return fallback;
         }
         ProcessType type = processTypeMapper.selectById(processTypeId);

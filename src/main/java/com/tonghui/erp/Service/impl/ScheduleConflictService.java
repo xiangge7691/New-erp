@@ -1,25 +1,22 @@
 package com.tonghui.erp.Service.impl;
 
 import com.tonghui.erp.Common.Dto.Scheduling.ScheduleConflictDto;
-import com.tonghui.erp.Data.Entity.ProductionShift;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessPlan;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessPlanBatch;
+import com.tonghui.erp.Data.Entity.WorkOrderProcessPlanParticipant;
 import com.tonghui.erp.Data.mapper.EquipmentMapper;
-import com.tonghui.erp.Data.mapper.ProductionShiftMapper;
 import com.tonghui.erp.Data.mapper.RoomInfoMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessPlanBatchMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessPlanMapper;
+import com.tonghui.erp.Data.mapper.WorkOrderProcessPlanParticipantMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
 import java.time.Duration;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -30,9 +27,9 @@ import java.util.stream.Collectors;
 /**
  * 排产冲突校验服务
  * <p>
- * 校验设备、房间、人员班次、工序顺序与批次重叠。规则：
+ * 校验设备、房间、人员、工序顺序与批次重叠。规则：
  * 后道工序计划开始不早于紧道工序计划开始，允许时段重叠；
- * 同一班组可同时看多台设备，班组不作为互斥资源；
+ * 同一人同一时段被安排到不同工序视为人员冲突，班组仅作快捷选人分组；
  * 未保存的草稿允许存在冲突，正式保存必须无冲突。
  * </p>
  */
@@ -52,9 +49,9 @@ public class ScheduleConflictService {
     @Autowired
     private WorkOrderProcessPlanBatchMapper batchMapper;
 
-    /** 班次 Mapper */
+    /** 计划参与人 Mapper */
     @Autowired
-    private ProductionShiftMapper shiftMapper;
+    private WorkOrderProcessPlanParticipantMapper participantMapper;
 
     /** 设备 Mapper（行锁） */
     @Autowired
@@ -79,7 +76,8 @@ public class ScheduleConflictService {
                         LocalDateTime start, LocalDateTime end,
                         Integer equipmentId, String equipmentName,
                         Integer roomId, String roomName,
-                        Long teamId, String teamName) {
+                        Long teamId, String teamName,
+                        List<Long> personnelIds) {
     }
 
     // endregion
@@ -99,6 +97,29 @@ public class ScheduleConflictService {
      */
     public List<ScheduleConflictDto> check(Long workOrderId, List<WorkOrderProcessPlan> plans,
                                            List<WorkOrderProcessPlanBatch> batches) {
+        // 已落库的计划：按计划ID加载参与人，供人员冲突校验
+        List<Long> persistedPlanIds = plans.stream()
+                .map(WorkOrderProcessPlan::getId)
+                .filter(id -> id != null && id > 0)
+                .distinct()
+                .toList();
+        List<WorkOrderProcessPlanParticipant> participants = persistedPlanIds.isEmpty()
+                ? List.of() : participantMapper.selectByPlanIdsWithPersonnel(persistedPlanIds);
+        return check(workOrderId, plans, batches, participants);
+    }
+
+    /**
+     * 校验一个工单的排产计划（含待保存的计划参与人）
+     *
+     * @param workOrderId          工单ID
+     * @param plans                待保存的计划行
+     * @param batches              待保存的批次
+     * @param incomingParticipants 待保存的计划参与人
+     * @return 冲突列表，空表示无冲突
+     */
+    public List<ScheduleConflictDto> check(Long workOrderId, List<WorkOrderProcessPlan> plans,
+                                           List<WorkOrderProcessPlanBatch> batches,
+                                           List<WorkOrderProcessPlanParticipant> incomingParticipants) {
         List<ScheduleConflictDto> conflicts = new ArrayList<>();
         if (CollectionUtils.isEmpty(plans)) {
             return conflicts;
@@ -151,7 +172,7 @@ public class ScheduleConflictService {
         }
 
         // 3. 组装本批比对单元
-        List<Item> incoming = buildItems(plans, batchMap);
+        List<Item> incoming = buildItems(plans, batchMap, incomingParticipants);
         // 4. 数据库内已保存计划
         List<Item> saved = loadSavedItems(workOrderId, plans, batches);
         List<Item> all = new ArrayList<>(incoming);
@@ -160,8 +181,8 @@ public class ScheduleConflictService {
         // 5. 设备与房间冲突
         checkResourceConflicts(incoming, saved, all, conflicts);
 
-        // 6. 人员班次冲突
-        checkShiftConflicts(incoming, conflicts);
+        // 6. 人员冲突：同一人在同一时段被安排到不同工序
+        checkPersonConflicts(incoming, saved, conflicts);
 
         return conflicts;
     }
@@ -315,58 +336,49 @@ public class ScheduleConflictService {
 
     // endregion
 
-    // region 班次冲突
+    // region 人员冲突
     // ===================================
-    // 班次冲突
+    // 人员冲突
     // ===================================
 
     /**
-     * 校验班组班次是否覆盖计划时段
+     * 校验人员冲突：同一人在同一时段被安排到不同工序（含其他工单已保存计划）
      */
-    private void checkShiftConflicts(List<Item> incoming, List<ScheduleConflictDto> conflicts) {
-        Map<Long, List<ProductionShift>> shiftCache = new HashMap<>();
-        for (Item item : incoming) {
-            if (item.teamId() == null || item.start() == null || item.end() == null) {
-                continue;
+    private void checkPersonConflicts(List<Item> incoming, List<Item> saved, List<ScheduleConflictDto> conflicts) {
+        for (int i = 0; i < incoming.size(); i++) {
+            Item a = incoming.get(i);
+            for (int j = i + 1; j < incoming.size(); j++) {
+                addPersonConflict(a, incoming.get(j), conflicts);
             }
-            List<ProductionShift> shifts = shiftCache.computeIfAbsent(item.teamId(),
-                    id -> shiftMapper.selectActiveByTeamId(id));
-            if (CollectionUtils.isEmpty(shifts)) {
-                continue;
-            }
-            boolean covered = shifts.stream().anyMatch(s -> withinShift(item.start(), item.end(), s));
-            if (!covered) {
-                conflicts.add(conflict("人员班次", item.planId(), item.batchId(), item.stepOrder(),
-                        item.processName(), item.workOrderId(), item.workOrderCode(), item.start(), item.end(),
-                        "班组【" + safe(item.teamName()) + "】在 " + item.start() + " ~ " + item.end()
-                                + " 不在有效班次内"));
+            for (Item b : saved) {
+                addPersonConflict(a, b, conflicts);
             }
         }
     }
 
     /**
-     * 判断计划时段是否落在班次内，支持跨日班次
+     * 两条排产单元的人员重叠冲突
      */
-    private boolean withinShift(LocalDateTime start, LocalDateTime end, ProductionShift shift) {
-        LocalTime shiftStart = shift.getStartTime();
-        LocalTime shiftEnd = shift.getEndTime();
-        if (shiftStart == null || shiftEnd == null) {
-            return true;
+    private void addPersonConflict(Item a, Item b, List<ScheduleConflictDto> conflicts) {
+        if (a.start() == null || a.end() == null || b.start() == null || b.end() == null) {
+            return;
         }
-        int startMin = shiftStart.getHour() * 60 + shiftStart.getMinute();
-        int endMin = shiftEnd.getHour() * 60 + shiftEnd.getMinute();
-        if (endMin <= startMin) {
-            endMin += 24 * 60;
+        if (CollectionUtils.isEmpty(a.personnelIds()) || CollectionUtils.isEmpty(b.personnelIds())) {
+            return;
         }
-        LocalDate date = start.toLocalDate();
-        for (int offset = -1; offset <= 1; offset++) {
-            LocalDateTime windowStart = date.plusDays(offset).atStartOfDay().plusMinutes(startMin);
-            LocalDateTime windowEnd = date.plusDays(offset).atStartOfDay().plusMinutes(endMin);
-            if (!start.isBefore(windowStart) && !end.isAfter(windowEnd)) {
-                return true;
-            }
+        if (!overlap(a.start(), a.end(), b.start(), b.end())) {
+            return;
         }
-        return false;
+        if (a.personnelIds().stream().noneMatch(b.personnelIds()::contains)) {
+            return;
+        }
+        ScheduleConflictDto c = conflict("人员冲突", a.planId(), a.batchId(), a.stepOrder(), a.processName(),
+                a.workOrderId(), a.workOrderCode(), a.start(), a.end(),
+                "操作人与 " + b.workOrderCode() + " 工序【" + b.processName() + "】人员重叠（"
+                        + b.start() + " ~ " + b.end() + "）");
+        c.setOtherWorkOrderId(b.workOrderId());
+        c.setOtherWorkOrderCode(b.workOrderCode());
+        conflicts.add(c);
     }
 
     // endregion
@@ -406,13 +418,15 @@ public class ScheduleConflictService {
         List<Long> savedIds = savedPlans.stream().map(WorkOrderProcessPlan::getId).toList();
         Map<Long, List<WorkOrderProcessPlanBatch>> savedBatches = batchMapper.selectByPlanIds(savedIds).stream()
                 .collect(Collectors.groupingBy(WorkOrderProcessPlanBatch::getPlanId));
+        List<WorkOrderProcessPlanParticipant> savedParticipants =
+                participantMapper.selectByPlanIdsWithPersonnel(savedIds);
         List<Item> items = new ArrayList<>();
         for (WorkOrderProcessPlan plan : savedPlans) {
             List<WorkOrderProcessPlanBatch> list = savedBatches.get(plan.getId());
             if (CollectionUtils.isEmpty(list)) {
-                items.add(toItem(plan, null));
+                items.add(toItem(plan, null, savedParticipants));
             } else {
-                list.forEach(b -> items.add(toItem(plan, b)));
+                list.forEach(b -> items.add(toItem(plan, b, savedParticipants)));
             }
         }
         return items;
@@ -422,27 +436,30 @@ public class ScheduleConflictService {
      * 把待保存的计划与批次组装为比对单元
      */
     private List<Item> buildItems(List<WorkOrderProcessPlan> plans,
-                                  Map<Long, List<WorkOrderProcessPlanBatch>> batchMap) {
+                                  Map<Long, List<WorkOrderProcessPlanBatch>> batchMap,
+                                  List<WorkOrderProcessPlanParticipant> participants) {
         List<Item> items = new ArrayList<>();
         for (WorkOrderProcessPlan plan : plans) {
             List<WorkOrderProcessPlanBatch> list = batchMap.get(plan.getId());
             if (CollectionUtils.isEmpty(list)) {
-                items.add(toItem(plan, null));
+                items.add(toItem(plan, null, participants));
             } else {
-                list.forEach(b -> items.add(toItem(plan, b)));
+                list.forEach(b -> items.add(toItem(plan, b, participants)));
             }
         }
         return items;
     }
 
-    private Item toItem(WorkOrderProcessPlan plan, WorkOrderProcessPlanBatch batch) {
+    private Item toItem(WorkOrderProcessPlan plan, WorkOrderProcessPlanBatch batch,
+                        List<WorkOrderProcessPlanParticipant> participants) {
         if (batch == null) {
             return new Item(plan.getId(), null, plan.getStepOrder(), safeName(plan),
                     plan.getWorkOrderId(), plan.getWorkOrderCode(),
                     plan.getPlanStartTime(), plan.getPlanEndTime(),
                     plan.getEquipmentId(), plan.getEquipmentName(),
                     plan.getRoomId(), plan.getRoomName(),
-                    plan.getTeamId(), plan.getTeamName());
+                    plan.getTeamId(), plan.getTeamName(),
+                    personnelIdsOf(participants, plan.getId(), null));
         }
         return new Item(plan.getId(), batch.getId(), plan.getStepOrder(), safeName(plan),
                 plan.getWorkOrderId(), plan.getWorkOrderCode(),
@@ -452,7 +469,27 @@ public class ScheduleConflictService {
                 batch.getRoomId() != null ? batch.getRoomId() : plan.getRoomId(),
                 batch.getRoomName() != null ? batch.getRoomName() : plan.getRoomName(),
                 batch.getTeamId() != null ? batch.getTeamId() : plan.getTeamId(),
-                batch.getTeamName() != null ? batch.getTeamName() : plan.getTeamName());
+                batch.getTeamName() != null ? batch.getTeamName() : plan.getTeamName(),
+                personnelIdsOf(participants, plan.getId(), batch.getId()));
+    }
+
+    /**
+     * 取计划/批次的参与人ID：计划级参与人适用于其下全部批次
+     */
+    private List<Long> personnelIdsOf(List<WorkOrderProcessPlanParticipant> participants,
+                                      Long planId, Long batchId) {
+        if (CollectionUtils.isEmpty(participants)) {
+            return List.of();
+        }
+        return participants.stream()
+                .filter(p -> Objects.equals(p.getPlanId(), planId))
+                .filter(p -> batchId == null
+                        ? p.getBatchId() == null
+                        : (p.getBatchId() == null || Objects.equals(p.getBatchId(), batchId)))
+                .map(WorkOrderProcessPlanParticipant::getPersonnelId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
     }
 
     private LocalDateTime effectiveStart(WorkOrderProcessPlan plan, List<WorkOrderProcessPlanBatch> batches) {

@@ -6,6 +6,8 @@
 > 配套 HTML：[后端对接原型入口](prototype/production/backend/index.html)  
 > 本文只描述前端如何接现有后端，不涉及 PRD 修改。
 
+> **2026-11-18 变更提示**：生产任务与排产合并为「外层生产任务列表（顶部甘特图）+ 任务详情（详情/变更历史/排产/实际生产页签）」；排产改为可选、班组仅作人员快捷分组、班次模块删除、人员冲突改为同一人时段重叠、绩效支持关键字搜索与修改前值留痕。最新接口与字段以 [scheduling-module-frontend-integration.md](scheduling-module-frontend-integration.md) 为准，本文中涉及的班次、工序看板与独立实际记录页内容不再适用。
+
 ---
 
 ## 0. 交付物
@@ -16,6 +18,7 @@
 | 工序排产 HTML | `docs/prototype/production/backend/scheduling.html` | 任务、工序计划、批次、甘特、班组班次 |
 | 实际记录 HTML | `docs/prototype/production/backend/actual-record.html` | 批次实际起止/数量、参与人、完工、完工记录 |
 | 人员绩效 HTML | `docs/prototype/production/backend/performance.html` | 工序/人员粒度、汇总、系数版本、补录与作废 |
+| 工序执行 PDA 原型 | `docs/prototype/pda-warehouse/pda.html?role=worker` | 操作工角色：任务—工序两级、开始/结束打点、设备占用校验、逐人数量、照片、暂存/提交只读 |
 | 前端对接 MD | `docs/frontend-implementation-guide-scheduling-performance.md` | 本文，三模块统一对接说明 |
 
 HTML 是“按后端接口与字段重构”的交互原型，页面里的演示数据用于评审交互，接入时以本文接口和字段为准。

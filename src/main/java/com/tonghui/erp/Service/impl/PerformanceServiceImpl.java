@@ -20,6 +20,7 @@ import com.tonghui.erp.Data.Entity.ProcessType;
 import com.tonghui.erp.Data.Entity.ProductionTeam;
 import com.tonghui.erp.Data.Entity.ProductionTeamMember;
 import com.tonghui.erp.Data.Entity.User;
+import com.tonghui.erp.Data.Entity.ProductionPlan;
 import com.tonghui.erp.Data.Entity.WorkOrder;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessPlan;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessPlanBatch;
@@ -33,6 +34,7 @@ import com.tonghui.erp.Data.mapper.ProcessTypeMapper;
 import com.tonghui.erp.Data.mapper.ProductionTeamMapper;
 import com.tonghui.erp.Data.mapper.ProductionTeamMemberMapper;
 import com.tonghui.erp.Data.mapper.UserMapper;
+import com.tonghui.erp.Data.mapper.ProductionPlanMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessExecutionMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessPlanBatchMapper;
@@ -95,6 +97,10 @@ public class PerformanceServiceImpl implements PerformanceService {
     @Autowired
     private WorkOrderMapper workOrderMapper;
 
+    /** 生产计划 Mapper（计划编号关键字匹配） */
+    @Autowired
+    private ProductionPlanMapper productionPlanMapper;
+
     /** 工序类型 Mapper */
     @Autowired
     private ProcessTypeMapper processTypeMapper;
@@ -136,7 +142,7 @@ public class PerformanceServiceImpl implements PerformanceService {
     @Override
     public PagedResult<PerformanceRecord> query(LocalDate from, LocalDate to, Long personnelId, Long workOrderId,
                                                 Long teamId, String source, Integer modifiedStatus,
-                                                Integer recordStatus, PageRequestDto pageRequest) {
+                                                Integer recordStatus, String keyword, PageRequestDto pageRequest) {
         if (pageRequest == null) {
             pageRequest = new PageRequestDto();
         }
@@ -146,6 +152,30 @@ public class PerformanceServiceImpl implements PerformanceService {
         if (to != null) wrapper.le(PerformanceRecord::getPerformanceDate, to);
         if (personnelId != null) wrapper.eq(PerformanceRecord::getPersonnelId, personnelId);
         if (workOrderId != null) wrapper.eq(PerformanceRecord::getWorkOrderId, workOrderId);
+        if (StringUtils.hasText(keyword)) {
+            final List<Integer> matchedPlanIds = productionPlanMapper.selectList(
+                            new LambdaQueryWrapper<ProductionPlan>()
+                                    .like(ProductionPlan::getPlanNumber, keyword))
+                    .stream().map(ProductionPlan::getId).toList();
+            LambdaQueryWrapper<WorkOrder> orderWrapper = new LambdaQueryWrapper<>();
+            orderWrapper.and(q -> {
+                q.like(WorkOrder::getWorkOrderCode, keyword)
+                        .or().like(WorkOrder::getWorkOrderName, keyword)
+                        .or().like(WorkOrder::getPreparationCode, keyword)
+                        .or().like(WorkOrder::getPreparationName, keyword)
+                        .or().like(WorkOrder::getPlanName, keyword)
+                        .or().like(WorkOrder::getBatchNumber, keyword);
+                if (!matchedPlanIds.isEmpty()) {
+                    q.or().in(WorkOrder::getPlanId, matchedPlanIds);
+                }
+            });
+            List<Long> orderIds = workOrderMapper.selectList(orderWrapper).stream()
+                    .map(WorkOrder::getWorkOrderId).toList();
+            if (CollectionUtils.isEmpty(orderIds)) {
+                return PagedResult.empty();
+            }
+            wrapper.in(PerformanceRecord::getWorkOrderId, orderIds);
+        }
         if (teamId != null) {
             Set<Long> memberIds = teamMemberMapper.selectList(
                             new LambdaQueryWrapper<ProductionTeamMember>()
@@ -288,6 +318,9 @@ public class PerformanceServiceImpl implements PerformanceService {
         if (!StringUtils.hasText(request.getNote())) {
             throw new IllegalArgumentException("修改备注必填");
         }
+        if (record.getOriginalPerformanceHours() == null) {
+            record.setOriginalPerformanceHours(record.getPerformanceHours());
+        }
         record.setPerformanceHours(scale2(request.getPerformanceHours()));
         if ("手动添加".equals(record.getSource()) && request.getCompletedQty() != null) {
             record.setCompletedQty(request.getCompletedQty());
@@ -355,6 +388,16 @@ public class PerformanceServiceImpl implements PerformanceService {
             record.setPlanBatchId(request.getPlanBatchId());
             record.setBatchNo(batch == null ? null : batch.getBatchNo());
             applyCoefficientSnapshot(record);
+            if (!Boolean.TRUE.equals(request.getAllowDuplicate())) {
+                Long exists = recordMapper.selectCount(new LambdaQueryWrapper<PerformanceRecord>()
+                        .eq(PerformanceRecord::getPersonnelId, record.getPersonnelId())
+                        .eq(PerformanceRecord::getWorkOrderId, record.getWorkOrderId())
+                        .eq(PerformanceRecord::getProcessTypeId, record.getProcessTypeId())
+                        .eq(PerformanceRecord::getRecordStatus, 1));
+                if (exists != null && exists > 0) {
+                    throw new IllegalArgumentException("该人对同一生产任务同一工序已有记录；确认继续添加请在原因确认后传 allowDuplicate=true");
+                }
+            }
         } else {
             record.setProcessActualHours(null);
             record.setProcessCoefficient(null);
@@ -438,8 +481,20 @@ public class PerformanceServiceImpl implements PerformanceService {
      */
     @Override
     public List<PerformanceCoefficientVersion> listVersions() {
-        return versionMapper.selectList(new LambdaQueryWrapper<PerformanceCoefficientVersion>()
-                .orderByDesc(PerformanceCoefficientVersion::getId));
+        List<PerformanceCoefficientVersion> versions = versionMapper.selectList(
+                new LambdaQueryWrapper<PerformanceCoefficientVersion>()
+                        .orderByDesc(PerformanceCoefficientVersion::getId));
+        Set<Long> operatorIds = versions.stream().map(PerformanceCoefficientVersion::getOperatorId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        if (!operatorIds.isEmpty()) {
+            Map<Long, User> users = userMapper.selectBatchIds(operatorIds).stream()
+                    .collect(Collectors.toMap(User::getUserId, Function.identity(), (a, b) -> a));
+            versions.forEach(v -> {
+                User user = v.getOperatorId() == null ? null : users.get(v.getOperatorId());
+                v.setOperatorName(user == null ? null : user.getUserName());
+            });
+        }
+        return versions;
     }
 
     /**
@@ -448,8 +503,8 @@ public class PerformanceServiceImpl implements PerformanceService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public PerformanceCoefficientVersion publish(CoefficientPublishRequest request) {
-        if (request == null || !StringUtils.hasText(request.getNote())) {
-            throw new IllegalArgumentException("调整说明必填");
+        if (request == null) {
+            throw new IllegalArgumentException("发布参数不能为空");
         }
         validateRange(request.getProcessCoefficients(), "工序");
         validateRange(request.getPersonCoefficients(), "人员");
@@ -465,7 +520,7 @@ public class PerformanceServiceImpl implements PerformanceService {
         version.setVersionNo(versionNo);
         version.setEffectiveTime(LocalDateTime.now());
         version.setOperatorId(EntityUtils.getCurrentUserId());
-        version.setNote(request.getNote().trim());
+        version.setNote(StringUtils.hasText(request.getNote()) ? request.getNote().trim() : null);
         version.setStatus("生效");
         version.setIsDeleted(0);
         version.setVersion(0);
@@ -519,6 +574,10 @@ public class PerformanceServiceImpl implements PerformanceService {
         detail.setVersionNo(version.getVersionNo());
         detail.setEffectiveTime(version.getEffectiveTime());
         detail.setOperatorId(version.getOperatorId());
+        if (version.getOperatorId() != null) {
+            User operator = userMapper.selectById(version.getOperatorId());
+            detail.setOperatorName(operator == null ? null : operator.getUserName());
+        }
         detail.setNote(version.getNote());
         detail.setStatus(version.getStatus());
         List<PerformanceProcessCoefficient> processRows = processCoefficientMapper.selectList(

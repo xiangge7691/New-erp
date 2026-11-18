@@ -56,10 +56,10 @@ public class PerformanceController extends BaseController {
     // ===================================
 
     /**
-     * 分页查询绩效记录
+     * 分页查询绩效记录（支持关键字与工序粒度跨任务查询）
      *
      * 示例请求：
-     * GET /api/performance/records?from=2026-11-01&to=2026-11-30&personnelId=71&source=系统生成&modifiedStatus=1&recordStatus=1&pageIndex=0&pageSize=20
+     * GET /api/performance/records?from=2026-11-01&to=2026-11-30&personnelId=71&source=系统生成&modifiedStatus=1&recordStatus=1&keyword=板蓝根&pageIndex=0&pageSize=20
      *
      * @param from          绩效归属日期起
      * @param to            绩效归属日期止
@@ -69,6 +69,7 @@ public class PerformanceController extends BaseController {
      * @param source        记录来源：系统生成/手动添加
      * @param modifiedStatus 修改状态：0未修改/1已修改
      * @param recordStatus  记录状态：1正常/0作废
+     * @param keyword       工单号/工单名称/制剂名称/批号/计划名称/计划编号关键字
      * @param pageRequest   分页参数
      * @return 绩效记录分页
      */
@@ -82,37 +83,47 @@ public class PerformanceController extends BaseController {
             @RequestParam(required = false) String source,
             @RequestParam(required = false) Integer modifiedStatus,
             @RequestParam(required = false) Integer recordStatus,
+            @RequestParam(required = false) String keyword,
             @ModelAttribute PageRequestDto pageRequest) {
         try {
             return success(performanceService.query(from, to, personnelId, workOrderId, teamId, source,
-                    modifiedStatus, recordStatus, pageRequest));
+                    modifiedStatus, recordStatus, keyword, pageRequest));
         } catch (Exception ex) {
             return exception(ex, "查询绩效记录");
         }
     }
 
     /**
-     * 工序粒度数据：按工单查询
+     * 工序粒度数据：可按工单或全部工单查询
      *
      * 示例请求：
-     * GET /api/performance/process-view?workOrderId=470&from=2026-11-01&to=2026-11-30
+     * GET /api/performance/process-view?from=2026-11-01&to=2026-11-30&keyword=板蓝根&teamId=3
      *
-     * @param workOrderId 工单ID
-     * @param teamId      班组ID（可选）
-     * @param from        起始日期
-     * @param to          结束日期
-     * @param pageRequest 分页参数
+     * @param workOrderId    工单ID（可选，不传则查全部任务）
+     * @param teamId         班组ID（可选）
+     * @param from           起始日期
+     * @param to             结束日期
+     * @param source         记录来源（可选）
+     * @param modifiedStatus 修改状态（可选）
+     * @param recordStatus   记录状态（可选，默认仅正常）
+     * @param keyword        制剂/批号/工单号等关键字
+     * @param pageRequest    分页参数
      * @return 绩效记录分页
      */
     @GetMapping("/process-view")
     public ApiResponse<PagedResult<PerformanceRecord>> processView(
-            @RequestParam Long workOrderId,
+            @RequestParam(required = false) Long workOrderId,
             @RequestParam(required = false) Long teamId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) String source,
+            @RequestParam(required = false) Integer modifiedStatus,
+            @RequestParam(required = false) Integer recordStatus,
+            @RequestParam(required = false) String keyword,
             @ModelAttribute PageRequestDto pageRequest) {
         try {
-            return success(performanceService.query(from, to, null, workOrderId, teamId, null, null, 1, pageRequest));
+            return success(performanceService.query(from, to, null, workOrderId, teamId, source,
+                    modifiedStatus, recordStatus, keyword, pageRequest));
         } catch (Exception ex) {
             return exception(ex, "查询工序粒度绩效");
         }
@@ -124,7 +135,7 @@ public class PerformanceController extends BaseController {
      * 示例请求：
      * GET /api/performance/person-view?personnelId=71&from=2026-11-01&to=2026-11-30
      *
-     * @param personnelId 人员档案ID
+     * @param personnelId 人员档案ID（可选，不传则查全部人员）
      * @param from        起始日期
      * @param to          结束日期
      * @param pageRequest 分页参数
@@ -132,12 +143,12 @@ public class PerformanceController extends BaseController {
      */
     @GetMapping("/person-view")
     public ApiResponse<PagedResult<PerformanceRecord>> personView(
-            @RequestParam Long personnelId,
+            @RequestParam(required = false) Long personnelId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @ModelAttribute PageRequestDto pageRequest) {
         try {
-            return success(performanceService.query(from, to, personnelId, null, null, null, null, 1, pageRequest));
+            return success(performanceService.query(from, to, personnelId, null, null, null, null, null, null, pageRequest));
         } catch (Exception ex) {
             return exception(ex, "查询人员粒度绩效");
         }
@@ -326,11 +337,16 @@ public class PerformanceController extends BaseController {
      * 导出绩效明细 Excel
      *
      * 示例请求：
-     * GET /api/performance/export?from=2026-11-01&to=2026-11-30&personnelId=71
+     * GET /api/performance/export?from=2026-11-01&to=2026-11-30&personnelId=71&keyword=板蓝根
      *
      * @param from        起始日期
      * @param to          结束日期
      * @param personnelId 人员档案ID（可选）
+     * @param keyword     关键字（可选）
+     * @param teamId      班组ID（可选）
+     * @param source      记录来源（可选）
+     * @param modifiedStatus 修改状态（可选）
+     * @param recordStatus   记录状态（可选，1正常/0作废）
      * @param response    HTTP响应
      */
     @OperationLog(module = "人员绩效", type = OperationType.EXPORT, desc = "导出绩效明细")
@@ -339,16 +355,21 @@ public class PerformanceController extends BaseController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) Long personnelId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long teamId,
+            @RequestParam(required = false) String source,
+            @RequestParam(required = false) Integer modifiedStatus,
+            @RequestParam(required = false) Integer recordStatus,
             HttpServletResponse response) throws IOException {
         PageRequestDto pageRequest = new PageRequestDto();
         pageRequest.setPageIndex(-1);
         pageRequest.setPageSize(-1);
         List<PerformanceRecord> records = performanceService.query(from, to, personnelId, null,
-                null, null, null, 1, pageRequest).getItems();
+                teamId, source, modifiedStatus, recordStatus, keyword, pageRequest).getItems();
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("人员绩效");
             String[] headers = {"人员", "班组", "绩效归属日期", "生产任务", "制剂", "批号", "工序", "批次",
-                    "计划起止", "实际起止", "工序实际时长", "工作时间", "绩效时长", "绩效工时", "完成数量",
+                    "计划起止", "实际起止", "工序实际时长", "工时（绩效时长）", "绩效工时", "完成数量",
                     "计算方式", "记录来源", "修改状态", "备注", "修改人", "修改时间"};
             Row head = sheet.createRow(0);
             for (int i = 0; i < headers.length; i++) {
@@ -369,7 +390,6 @@ public class PerformanceController extends BaseController {
                 row.createCell(c++).setCellValue(period(record.getPlanStartTime(), record.getPlanEndTime()));
                 row.createCell(c++).setCellValue(period(record.getActualStartTime(), record.getActualEndTime()));
                 setDecimal(row.createCell(c++), record.getProcessActualHours());
-                setDecimal(row.createCell(c++), record.getWorkHours());
                 setDecimal(row.createCell(c++), record.getPerformanceHours());
                 setDecimal(row.createCell(c++), record.getPerformanceHoursTotal());
                 setDecimal(row.createCell(c++), record.getCompletedQty());

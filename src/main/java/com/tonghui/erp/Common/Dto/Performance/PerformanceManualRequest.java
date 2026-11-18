@@ -40,4 +40,7 @@ public class PerformanceManualRequest {
 
     /** 计算方式：按系数计算/直接计入 */
     private String calcMode;
+
+    /** 已存在记录时是否确认继续添加（前端二次确认后传 true） */
+    private Boolean allowDuplicate;
 }

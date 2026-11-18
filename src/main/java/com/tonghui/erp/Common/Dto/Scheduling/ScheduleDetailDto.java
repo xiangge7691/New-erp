@@ -18,8 +18,20 @@ public class ScheduleDetailDto {
     /** 工单编号 */
     private String workOrderCode;
 
+    /** 工单名称 */
+    private String workOrderName;
+
     /** 制剂名称 */
     private String preparationName;
+
+    /** 生产计划ID */
+    private Long planId;
+
+    /** 生产计划名称 */
+    private String planName;
+
+    /** 生产计划编号 */
+    private String planNumber;
 
     /** 批号 */
     private String batchNumber;
@@ -29,6 +41,12 @@ public class ScheduleDetailDto {
 
     /** 工单状态 */
     private String currentStatus;
+
+    /** 生产状态（按执行记录推导：待生产/生产中/已完工） */
+    private String productionStatus;
+
+    /** 配置日期 */
+    private LocalDateTime configDate;
 
     /** 任务计划开始时间 */
     private LocalDateTime planStartTime;

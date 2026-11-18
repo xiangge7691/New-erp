@@ -25,6 +25,9 @@ public class CoefficientVersionDetail {
     /** 操作人ID */
     private Long operatorId;
 
+    /** 操作人姓名 */
+    private String operatorName;
+
     /** 调整说明 */
     private String note;
 

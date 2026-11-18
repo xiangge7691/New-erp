@@ -69,6 +69,9 @@ public class ProcessScheduleDto {
     /** 计划状态：草稿/已保存/需重排 */
     private String status;
 
+    /** 是否已排产：计划起止均已填写（为空即未排产，不影响流程） */
+    private Boolean scheduled;
+
     /** 备注 */
     private String remark;
 

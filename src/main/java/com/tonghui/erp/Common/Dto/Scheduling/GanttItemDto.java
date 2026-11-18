@@ -22,6 +22,18 @@ public class GanttItemDto {
     /** 工单编号 */
     private String workOrderCode;
 
+    /** 生产计划编号 */
+    private String planNumber;
+
+    /** 制剂名称 */
+    private String preparationName;
+
+    /** 批号 */
+    private String batchNumber;
+
+    /** 批次名称 */
+    private String batchName;
+
     /** 工序名称 */
     private String processName;
 

@@ -67,6 +67,12 @@ public class PerformanceCoefficientVersion extends AuditEntity {
     @TableField(value = "status")
     private String status;
 
+    /**
+     * 操作人姓名（非表字段，列表展示用）
+     */
+    @TableField(exist = false)
+    private String operatorName;
+
     // endregion
 
     // region 状态与审计字段

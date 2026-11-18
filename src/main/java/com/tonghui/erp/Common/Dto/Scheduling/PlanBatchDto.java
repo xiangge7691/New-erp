@@ -54,6 +54,9 @@ public class PlanBatchDto {
     /** 状态 */
     private String status;
 
+    /** 是否已排产：计划起止均已填写 */
+    private Boolean scheduled;
+
     /** 实际开始时间 */
     private LocalDateTime actualStartTime;
 
