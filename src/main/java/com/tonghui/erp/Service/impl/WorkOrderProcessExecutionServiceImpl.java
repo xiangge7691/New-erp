@@ -89,6 +89,15 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
         List<WorkOrderProcessExecution> executions = baseMapper.selectByWorkOrderIdWithDetails(workOrderId);
         executions.forEach(execution -> execution.setStatus(ProcessExecutionStatus.resolve(
                 execution.getStartTime(), execution.getEndTime())));
+        executions.forEach(execution -> {
+            // 历史数据可能只填了结束时间、未走完工锁定：按实际结束时间视为已完工
+            if (execution.getCompletedTime() == null) {
+                execution.setCompletedTime(execution.getEndTime());
+            }
+            if (execution.getEndTime() != null) {
+                execution.setStatus(ProcessExecutionStatus.COMPLETED);
+            }
+        });
         loadParticipants(executions);
         enrichPlanInfo(executions);
         enrichPerformanceCount(executions);

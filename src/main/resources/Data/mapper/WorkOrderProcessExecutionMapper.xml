@@ -85,17 +85,18 @@
         LEFT JOIN equipment eq ON e.equipment_id = eq.equipment_id AND eq.is_deleted = 0
         LEFT JOIN work_order wo ON e.work_order_id = wo.work_order_id AND wo.is_deleted = 0
         WHERE e.is_deleted = 0
-          AND e.locked = 1
+          <!-- 完工以实际结束时间为准：历史数据可能未走完工锁定，completed_time 为空 -->
+          AND e.end_time IS NOT NULL
         <if test="workOrderId != null">
           AND e.work_order_id = #{workOrderId}
         </if>
         <if test="from != null">
-          AND e.completed_time &gt;= #{from}
+          AND COALESCE(e.completed_time, e.end_time) &gt;= #{from}
         </if>
         <if test="to != null">
-          AND e.completed_time &lt; #{to}
+          AND COALESCE(e.completed_time, e.end_time) &lt; #{to}
         </if>
-        ORDER BY e.completed_time DESC, e.id DESC
+        ORDER BY COALESCE(e.completed_time, e.end_time) DESC, e.id DESC
     </select>
 
     <!-- 查询指定工单当前未删除的工序执行记录ID（用于冲突校验时排除本工单既有行） -->

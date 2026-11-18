@@ -24,12 +24,16 @@ class SchedulingQuerySmokeTest {
     @Autowired
     private PerformanceService performanceService;
 
+    @Autowired
+    private WorkOrderProcessExecutionService executionService;
+
     @Test
     void queriesShouldRunAgainstTestDatabase() {
         assertDoesNotThrow(() -> scheduleService.listTasks(null, null, null, null));
         assertDoesNotThrow(() -> scheduleService.gantt("task",
                 LocalDate.now().minusDays(30).atStartOfDay(), LocalDate.now().plusDays(1).atStartOfDay()));
         assertDoesNotThrow(() -> teamService.listActive());
+        assertDoesNotThrow(() -> executionService.listCompleted(null, null, null));
 
         PageRequestDto pageRequest = new PageRequestDto();
         pageRequest.setPageIndex(0);
