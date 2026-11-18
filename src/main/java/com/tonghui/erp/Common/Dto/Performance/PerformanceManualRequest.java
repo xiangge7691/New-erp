@@ -23,6 +23,9 @@ public class PerformanceManualRequest {
     /** 关联排产批次ID，可为空 */
     private Long planBatchId;
 
+    /** 关联实际执行记录ID，可为空；未排产工单按完工执行记录补录时使用 */
+    private Long executionId;
+
     /** 绩效归属日期 */
     private LocalDate performanceDate;
 

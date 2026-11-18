@@ -50,6 +50,7 @@ import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -361,7 +362,8 @@ public class PerformanceServiceImpl implements PerformanceService {
         if (person == null) {
             throw new IllegalArgumentException("人员档案不存在");
         }
-        boolean linked = request.getWorkOrderId() != null || request.getPlanBatchId() != null;
+        boolean linked = request.getWorkOrderId() != null || request.getPlanBatchId() != null
+                || request.getExecutionId() != null;
         String calcMode = StringUtils.hasText(request.getCalcMode()) ? request.getCalcMode()
                 : (linked ? "按系数计算" : "直接计入");
         PerformanceRecord record = new PerformanceRecord();
@@ -377,19 +379,33 @@ public class PerformanceServiceImpl implements PerformanceService {
         record.setRecordStatus(1);
         record.setCalcMode(calcMode);
         if (linked) {
-            WorkOrderProcessPlanBatch batch = request.getPlanBatchId() == null ? null
-                    : planBatchMapper.selectById(request.getPlanBatchId());
-            WorkOrderProcessPlan plan = batch == null ? findPlanByWorkOrder(request.getWorkOrderId(),
-                    request.getProcessTypeId()) : planMapper.selectById(batch.getPlanId());
-            if (plan == null) {
-                throw new IllegalArgumentException("关联的工序计划不存在");
+            // 人员绩效以实际执行为准：关联已完工的工序执行记录
+            WorkOrderProcessExecution execution = resolveCompletedExecution(request);
+            if (execution == null) {
+                throw new IllegalArgumentException("未找到已完工的工序执行记录，无法关联补录");
             }
-            record.setWorkOrderId(plan.getWorkOrderId());
-            record.setProcessTypeId(request.getProcessTypeId() != null ? request.getProcessTypeId() : plan.getProcessTypeId());
-            record.setPlanId(plan.getId());
-            record.setPlanBatchId(request.getPlanBatchId());
-            record.setBatchNo(batch == null ? null : batch.getBatchNo());
+            if (execution.getEndTime() == null) {
+                throw new IllegalArgumentException("只能关联已完工的工序执行记录");
+            }
+            record.setWorkOrderId(execution.getWorkOrderId());
+            record.setProcessTypeId(execution.getProcessTypeId());
+            record.setPlanId(execution.getPlanId());
+            record.setPlanBatchId(execution.getPlanBatchId());
+            record.setBatchNo(execution.getBatchNo());
+            if (execution.getStartTime() != null && execution.getEndTime() != null) {
+                long minutes = Math.max(Duration.between(execution.getStartTime(), execution.getEndTime()).toMinutes(), 0);
+                record.setProcessActualHours(BigDecimal.valueOf(minutes)
+                        .divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP));
+            }
             applyCoefficientSnapshot(record);
+            // 同一执行记录同一人已有系统记录时，补录记录不再挂 executionId，避免唯一键冲突
+            Long execPersonCount = recordMapper.selectCount(new LambdaQueryWrapper<PerformanceRecord>()
+                    .eq(PerformanceRecord::getExecutionId, execution.getId())
+                    .eq(PerformanceRecord::getPersonnelId, record.getPersonnelId())
+                    .eq(PerformanceRecord::getRecordStatus, 1));
+            if (execPersonCount == null || execPersonCount == 0) {
+                record.setExecutionId(execution.getId());
+            }
             if (!Boolean.TRUE.equals(request.getAllowDuplicate())) {
                 Long exists = recordMapper.selectCount(new LambdaQueryWrapper<PerformanceRecord>()
                         .eq(PerformanceRecord::getPersonnelId, record.getPersonnelId())
@@ -435,17 +451,34 @@ public class PerformanceServiceImpl implements PerformanceService {
         return record;
     }
 
-    private WorkOrderProcessPlan findPlanByWorkOrder(Long workOrderId, Long processTypeId) {
-        if (workOrderId == null) {
+    /**
+     * 查找可关联的已完工执行记录：优先指定 executionId，否则按工单+工序取最近完工的一条
+     */
+    private WorkOrderProcessExecution resolveCompletedExecution(PerformanceManualRequest request) {
+        if (request.getExecutionId() != null) {
+            WorkOrderProcessExecution execution = executionMapper.selectById(request.getExecutionId());
+            if (execution == null || Integer.valueOf(1).equals(execution.getIsDeleted())) {
+                return null;
+            }
+            if (request.getWorkOrderId() != null && !request.getWorkOrderId().equals(execution.getWorkOrderId())) {
+                return null;
+            }
+            if (request.getProcessTypeId() != null && !request.getProcessTypeId().equals(execution.getProcessTypeId())) {
+                return null;
+            }
+            return execution;
+        }
+        if (request.getWorkOrderId() == null && request.getPlanBatchId() == null) {
             return null;
         }
-        LambdaQueryWrapper<WorkOrderProcessPlan> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(WorkOrderProcessPlan::getWorkOrderId, workOrderId);
-        if (processTypeId != null) {
-            wrapper.eq(WorkOrderProcessPlan::getProcessTypeId, processTypeId);
-        }
-        wrapper.orderByAsc(WorkOrderProcessPlan::getStepOrder).last("LIMIT 1");
-        return planMapper.selectOne(wrapper);
+        return executionMapper.selectOne(new LambdaQueryWrapper<WorkOrderProcessExecution>()
+                .eq(request.getWorkOrderId() != null, WorkOrderProcessExecution::getWorkOrderId, request.getWorkOrderId())
+                .eq(request.getProcessTypeId() != null, WorkOrderProcessExecution::getProcessTypeId, request.getProcessTypeId())
+                .eq(request.getPlanBatchId() != null, WorkOrderProcessExecution::getPlanBatchId, request.getPlanBatchId())
+                .eq(WorkOrderProcessExecution::getIsDeleted, 0)
+                .isNotNull(WorkOrderProcessExecution::getEndTime)
+                .orderByDesc(WorkOrderProcessExecution::getEndTime)
+                .last("LIMIT 1"));
     }
 
     /**

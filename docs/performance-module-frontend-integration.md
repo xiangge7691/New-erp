@@ -134,17 +134,18 @@
     "personnelId": 71,
     "performanceDate": "2026-11-14",
     "calcMode": "按系数计算",
-    "workOrderId": 470,
-    "processTypeId": 189,
-    "planBatchId": 1201,
+    "executionId": 394,
+    "workOrderId": 462,
+    "processTypeId": 92,
     "performanceHours": 2.0,
     "completedQty": 50000,
     "note": "补录遗漏参与",
     "allowDuplicate": false
   }
   ```
+  - 人员绩效以**实际执行**为准：关联已完工工序时传 `executionId`（推荐）；只传 `workOrderId + processTypeId`（可加 `planBatchId`）时，后端取该工序最近一条已完工执行记录；
+  - 执行记录的 `planId / planBatchId / batchNo / 实际时长` 会带到绩效记录；找不到已完工执行记录时接口返回“未找到已完工的工序执行记录”；
   - 只写时长时传 `calcMode=直接计入`，不传任务/工序；
-  - 关联工序时后端带出实际时长与系数快照；
   - **重复补录**：同一人、同一工单、同一工序已有正常记录且 `allowDuplicate` 不为 true 时，接口返回错误“已有记录”；前端弹出确认框填写原因后，带 `allowDuplicate=true` 重新提交。
 - **作废**：`POST /api/performance/records/{id}/void?note=原因`；仅手动记录可作废。
 
