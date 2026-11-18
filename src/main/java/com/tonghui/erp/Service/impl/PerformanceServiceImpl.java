@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tonghui.erp.Common.Dto.PageRequestDto;
 import com.tonghui.erp.Common.Dto.PagedResult;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.tonghui.erp.Common.Dto.Performance.CoefficientPublishRequest;
 import com.tonghui.erp.Common.Dto.Performance.CoefficientVersionDetail;
 import com.tonghui.erp.Common.Dto.Performance.PerformanceManualRequest;
@@ -41,6 +42,7 @@ import com.tonghui.erp.Data.mapper.WorkOrderProcessPlanBatchMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessPlanMapper;
 import com.tonghui.erp.Service.PerformanceService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -506,8 +508,29 @@ public class PerformanceServiceImpl implements PerformanceService {
         if (request == null) {
             throw new IllegalArgumentException("发布参数不能为空");
         }
-        validateRange(request.getProcessCoefficients(), "工序");
-        validateRange(request.getPersonCoefficients(), "人员");
+        // 兼容两种提交方式：id -> 系数 映射，或明细数组
+        Map<Long, BigDecimal> processCoefficients = parseCoefficientNode(
+                request.getProcessCoefficients(), "工序类型ID");
+        if (request.getProcessItems() != null) {
+            for (ProcessCoefficientItem item : request.getProcessItems()) {
+                if (item != null && item.getProcessTypeId() != null && item.getCoefficient() != null
+                        && !processCoefficients.containsKey(item.getProcessTypeId())) {
+                    processCoefficients.put(item.getProcessTypeId(), item.getCoefficient());
+                }
+            }
+        }
+        Map<Long, BigDecimal> personCoefficients = parseCoefficientNode(
+                request.getPersonCoefficients(), "人员档案ID");
+        if (request.getPersonItems() != null) {
+            for (PersonCoefficientItem item : request.getPersonItems()) {
+                if (item != null && item.getPersonnelId() != null && item.getCoefficient() != null
+                        && !personCoefficients.containsKey(item.getPersonnelId())) {
+                    personCoefficients.put(item.getPersonnelId(), item.getCoefficient());
+                }
+            }
+        }
+        validateRange(processCoefficients, "工序");
+        validateRange(personCoefficients, "人员");
         List<PerformanceCoefficientVersion> versions = listVersions();
         versions.forEach(v -> {
             if ("生效".equals(v.getStatus())) {
@@ -520,17 +543,27 @@ public class PerformanceServiceImpl implements PerformanceService {
         version.setVersionNo(versionNo);
         version.setEffectiveTime(LocalDateTime.now());
         version.setOperatorId(EntityUtils.getCurrentUserId());
-        version.setNote(StringUtils.hasText(request.getNote()) ? request.getNote().trim() : null);
+        String note = StringUtils.hasText(request.getNote()) ? request.getNote().trim() : null;
+        if (note != null && note.length() > 500) {
+            note = note.substring(0, 500);
+        }
+        version.setNote(note);
         version.setStatus("生效");
         version.setIsDeleted(0);
         version.setVersion(0);
-        versionMapper.insert(version);
+        try {
+            versionMapper.insert(version);
+        } catch (DuplicateKeyException ex) {
+            // 并发或历史软删除记录占用版本号时顺延重试一次
+            int next = Integer.parseInt(versionNo.substring(1)) + 1;
+            version.setVersionNo("V" + next);
+            versionMapper.insert(version);
+        }
 
         List<ProcessType> processTypes = processTypeMapper.selectList(null);
         for (ProcessType processType : processTypes) {
-            BigDecimal coef = request.getProcessCoefficients() != null
-                    && request.getProcessCoefficients().get(processType.getProcessId()) != null
-                    ? request.getProcessCoefficients().get(processType.getProcessId())
+            BigDecimal coef = processCoefficients.get(processType.getProcessId().longValue()) != null
+                    ? processCoefficients.get(processType.getProcessId().longValue())
                     : (processType.getCoefficient() != null ? processType.getCoefficient() : BigDecimal.ONE);
             PerformanceProcessCoefficient entity = new PerformanceProcessCoefficient();
             entity.setVersionId(version.getId());
@@ -545,9 +578,8 @@ public class PerformanceServiceImpl implements PerformanceService {
         List<PersonnelFile> personnel = personnelFileMapper.selectList(
                 new LambdaQueryWrapper<PersonnelFile>().eq(PersonnelFile::getStatus, 1));
         for (PersonnelFile person : personnel) {
-            BigDecimal coef = request.getPersonCoefficients() != null
-                    && request.getPersonCoefficients().get(person.getPersonnelFileId()) != null
-                    ? request.getPersonCoefficients().get(person.getPersonnelFileId())
+            BigDecimal coef = personCoefficients.get(person.getPersonnelFileId()) != null
+                    ? personCoefficients.get(person.getPersonnelFileId())
                     : personCoefficient(versions.isEmpty() ? null : versions.get(0), person.getPersonnelFileId());
             PerformancePersonCoefficient entity = new PerformancePersonCoefficient();
             entity.setVersionId(version.getId());
@@ -639,6 +671,10 @@ public class PerformanceServiceImpl implements PerformanceService {
 
     private String nextVersionNo(List<PerformanceCoefficientVersion> versions) {
         int max = 0;
+        Integer dbMax = versionMapper.maxVersionNumber();
+        if (dbMax != null) {
+            max = dbMax;
+        }
         for (PerformanceCoefficientVersion version : versions) {
             String no = version.getVersionNo();
             if (no != null && no.startsWith("V")) {
@@ -651,13 +687,113 @@ public class PerformanceServiceImpl implements PerformanceService {
         return "V" + (max + 1);
     }
 
+    /**
+     * 解析系数 JSON：兼容 {"id": 系数} 与 [{id字段, coefficient}] 两种结构；
+     * 键也兼容工序编码、人员工号，值兼容数字与数字字符串
+     */
+    private Map<Long, BigDecimal> parseCoefficientNode(JsonNode node, String idLabel) {
+        Map<Long, BigDecimal> result = new LinkedHashMap<>();
+        if (node == null || node.isNull()) {
+            return result;
+        }
+        boolean process = "工序类型ID".equals(idLabel);
+        if (node.isObject()) {
+            node.fields().forEachRemaining(entry -> {
+                BigDecimal value = decimalValue(entry.getValue());
+                if (value == null) {
+                    return;
+                }
+                result.put(resolveCoefficientId(entry.getKey(), process), value);
+            });
+            return result;
+        }
+        if (node.isArray()) {
+            String[] idFields = process
+                    ? new String[]{"processTypeId", "processId", "id"}
+                    : new String[]{"personnelId", "personnelFileId", "id"};
+            for (JsonNode item : node) {
+                JsonNode idNode = null;
+                for (String field : idFields) {
+                    idNode = item.get(field);
+                    if (idNode != null && !idNode.isNull()) {
+                        break;
+                    }
+                }
+                BigDecimal value = decimalValue(item.get("coefficient"));
+                if (idNode == null || idNode.isNull() || value == null) {
+                    continue;
+                }
+                if (idNode.isNumber()) {
+                    result.put(idNode.asLong(), value);
+                } else {
+                    result.put(resolveCoefficientId(idNode.asText(), process), value);
+                }
+            }
+            return result;
+        }
+        throw new IllegalArgumentException("系数格式不正确：应为对象或数组");
+    }
+
+    /**
+     * 数字/数字字符串转 BigDecimal
+     */
+    private BigDecimal decimalValue(JsonNode node) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        if (node.isNumber()) {
+            return node.decimalValue();
+        }
+        if (node.isTextual()) {
+            try {
+                return new BigDecimal(node.asText().trim());
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 把系数键解析为ID：优先按ID，其次按工序编码/人员工号匹配
+     */
+    private Long resolveCoefficientId(String key, boolean process) {
+        if (!StringUtils.hasText(key)) {
+            throw new IllegalArgumentException(process ? "工序系数键不能为空" : "人员系数键不能为空");
+        }
+        String text = key.trim();
+        try {
+            return Long.valueOf(text);
+        } catch (NumberFormatException ignored) {
+            // 继续按编码匹配
+        }
+        if (process) {
+            ProcessType type = processTypeMapper.selectOne(new LambdaQueryWrapper<ProcessType>()
+                    .eq(ProcessType::getProcessCode, text).last("LIMIT 1"));
+            if (type != null) {
+                return type.getProcessId().longValue();
+            }
+            throw new IllegalArgumentException("未找到工序编码：" + text);
+        }
+        PersonnelFile person = personnelFileMapper.selectOne(new LambdaQueryWrapper<PersonnelFile>()
+                .eq(PersonnelFile::getEmployeeNo, text).last("LIMIT 1"));
+        if (person != null) {
+            return person.getPersonnelFileId();
+        }
+        throw new IllegalArgumentException("未找到人员工号：" + text);
+    }
+
     private void validateRange(Map<Long, BigDecimal> coefficients, String label) {
         if (coefficients == null) {
             return;
         }
         for (Map.Entry<Long, BigDecimal> entry : coefficients.entrySet()) {
             BigDecimal value = entry.getValue();
-            if (value == null || value.compareTo(new BigDecimal("0.5")) < 0
+            // 空值表示该项不修改，沿用现有系数
+            if (value == null) {
+                continue;
+            }
+            if (value.compareTo(new BigDecimal("0.5")) < 0
                     || value.compareTo(new BigDecimal("2.0")) > 0) {
                 throw new IllegalArgumentException(label + "系数必须在 0.5–2.0 之间：" + entry.getKey());
             }

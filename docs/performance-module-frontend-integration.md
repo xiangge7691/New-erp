@@ -113,8 +113,9 @@
      "personCoefficients": { "71": 1.05 }
    }
    ```
-   - 工序系数 key 为 `processTypeId`，人员系数 key 为 `personnelId`；
-   - 未提交的项按当前工序/人员已有系数保留；
+   - 工序系数 key 为 `processTypeId`，人员系数 key 为 `personnelId`；也兼容工序编码、人员工号；
+   - `processCoefficients` / `personCoefficients` 既可以是对象（ID→系数），也可以是明细数组（`{processTypeId, coefficient}` / `{personnelId, coefficient}`）；
+   - 系数为空（null）表示该项不修改；未提交的项按当前工序/人员已有系数保留；
    - 后端会归档旧版本、生成新版本号并写系数快照，前端做二次确认即可。
 5. 版本历史：列表 + 「查看系数」用版本详情展示，只读。
 
