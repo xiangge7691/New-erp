@@ -56,7 +56,7 @@
 | POST | `/api/scheduling/tasks/{workOrderId}/plan/save` | 正式保存；有冲突返回 `saved=false` + `conflicts` |
 | POST | `/api/scheduling/tasks/{workOrderId}/conflicts/check` | 当前任务冲突检查 |
 | POST | `/api/scheduling/plans/{planId}/split` | 拆分工序为多个批次 |
-| GET | `/api/scheduling/gantt?view=task|equipment|room&from=&to=` | 甘特图数据（含草稿、制剂名、计划号、批次名） |
+| GET | `/api/scheduling/gantt?view=task|equipment|room&from=&to=` | 甘特图数据（含草稿、制剂名、计划号、批次名）；`from/to` 支持 `yyyy-MM-dd HH:mm:ss` 或 ISO `yyyy-MM-ddTHH:mm:ss` |
 
 **列表查询参数**
 

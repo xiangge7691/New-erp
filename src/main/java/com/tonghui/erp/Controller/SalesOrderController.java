@@ -206,8 +206,8 @@ public class SalesOrderController extends BaseCrudController<SalesOrder, SalesOr
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) Long customerId,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss", fallbackPatterns = {"yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd HH:mm"}) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss", fallbackPatterns = {"yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd HH:mm"}) LocalDateTime endDate,
             @RequestParam(defaultValue = "0") int pageIndex,
             @RequestParam(defaultValue = "20") int pageSize) {
         try {
@@ -286,8 +286,8 @@ public class SalesOrderController extends BaseCrudController<SalesOrder, SalesOr
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) Long customerId,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss", fallbackPatterns = {"yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd HH:mm"}) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss", fallbackPatterns = {"yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd HH:mm"}) LocalDateTime endDate) {
         try {
             BigDecimal[] stats = salesOrderService.getStatistics(keyword, status, customerId, startDate, endDate);
             Map<String, Object> result = new HashMap<>();

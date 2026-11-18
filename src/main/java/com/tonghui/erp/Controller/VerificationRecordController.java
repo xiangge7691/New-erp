@@ -170,14 +170,14 @@ public class VerificationRecordController extends BaseCrudController<Verificatio
     @GetMapping("/search")
     public ApiResponse<PagedResult<VerificationRecord>> queryVerificationRecords(VerificationRecord verificationRecord,
                                                                                    @RequestParam(required = false) String keyword,
-                                                                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime executeDateStart,
-                                                                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime executeDateEnd,
-                                                                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime nextVerifyDateStart,
-                                                                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime nextVerifyDateEnd,
-                                                                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime createdTimeStart,
-                                                                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime createdTimeEnd,
-                                                                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime updatedTimeStart,
-                                                                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime updatedTimeEnd,
+                                                                                   @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss", fallbackPatterns = {"yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd HH:mm"}) LocalDateTime executeDateStart,
+                                                                                   @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss", fallbackPatterns = {"yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd HH:mm"}) LocalDateTime executeDateEnd,
+                                                                                   @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss", fallbackPatterns = {"yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd HH:mm"}) LocalDateTime nextVerifyDateStart,
+                                                                                   @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss", fallbackPatterns = {"yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd HH:mm"}) LocalDateTime nextVerifyDateEnd,
+                                                                                   @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss", fallbackPatterns = {"yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd HH:mm"}) LocalDateTime createdTimeStart,
+                                                                                   @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss", fallbackPatterns = {"yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd HH:mm"}) LocalDateTime createdTimeEnd,
+                                                                                   @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss", fallbackPatterns = {"yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd HH:mm"}) LocalDateTime updatedTimeStart,
+                                                                                   @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss", fallbackPatterns = {"yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd HH:mm"}) LocalDateTime updatedTimeEnd,
                                                                                    @RequestParam int pageIndex,
                                                                                    @RequestParam int pageSize) {
         try {

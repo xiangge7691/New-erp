@@ -163,8 +163,8 @@ public class SupplierAuditController extends BaseCrudController<SupplierAudit, S
      */
     @GetMapping("/search")
     public ApiResponse<PagedResult<SupplierAudit>> querySupplierAudits(SupplierAudit supplierAudit,
-                                                                       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime auditDateStart,
-                                                                       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime auditDateEnd,
+                                                                       @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss", fallbackPatterns = {"yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd HH:mm"}) LocalDateTime auditDateStart,
+                                                                       @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss", fallbackPatterns = {"yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd HH:mm"}) LocalDateTime auditDateEnd,
                                                                        @RequestParam int pageIndex,
                                                                        @RequestParam int pageSize) {
         try {

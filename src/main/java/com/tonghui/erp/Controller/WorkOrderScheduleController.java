@@ -124,8 +124,8 @@ public class WorkOrderScheduleController extends BaseController {
     @GetMapping("/gantt")
     public ApiResponse<List<GanttItemDto>> gantt(
             @RequestParam(defaultValue = "task") String view,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to) {
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss", fallbackPatterns = {"yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd HH:mm"}) LocalDateTime from,
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss", fallbackPatterns = {"yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd HH:mm"}) LocalDateTime to) {
         try {
             return success(scheduleService.gantt(view, from, to));
         } catch (Exception ex) {

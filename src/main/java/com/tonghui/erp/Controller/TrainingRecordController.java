@@ -163,8 +163,8 @@ public class TrainingRecordController extends BaseCrudController<TrainingRecord,
     @GetMapping("/search")
     public ApiResponse<PagedResult<TrainingRecord>> queryTrainingRecords(TrainingRecord trainingRecord,
                                                                          @RequestParam(required = false) String keyword,
-                                                                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime trainingDateStart,
-                                                                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime trainingDateEnd,
+                                                                         @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss", fallbackPatterns = {"yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd HH:mm"}) LocalDateTime trainingDateStart,
+                                                                         @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss", fallbackPatterns = {"yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd HH:mm"}) LocalDateTime trainingDateEnd,
                                                                          @RequestParam int pageIndex,
                                                                          @RequestParam int pageSize) {
         try {
