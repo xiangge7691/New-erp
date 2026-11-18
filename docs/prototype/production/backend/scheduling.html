@@ -351,7 +351,7 @@ tr.batch-tr td{padding:0;background:#fafbff;border-bottom:1px solid var(--line2)
         <div class="gantt-legend">
           <span><i class="legend-dot" style="background:#2f6fed"></i>工序计划</span>
           <span><i class="legend-dot red"></i>冲突</span>
-          <span><i class="legend-dot gray"></i>时间轴 08:00–20:00</span>
+          <span><i class="legend-dot gray"></i>时间轴 2026-11-14 08:00–20:00</span>
           <span style="margin-left:auto">拆分批次以连续色块表示</span>
         </div>
       </div>
@@ -647,31 +647,60 @@ const FOREMAN_TEAM = '灌装一班';
 let currentRole = 'planner';
 let conflicts = [];
 
-/** 把 "08:00" / "明日 08:00" / "后天 08:00" 转成绝对分钟 */
+/** 原型基准日期：页面演示数据均以此日期为第 0 天 */
+const BASE_DATE = '2026-11-14';
+/** 日期字符串加天数（yyyy-MM-dd） */
+function addDaysYmd(dateStr, days){
+  const parts = dateStr.split('-').map(Number);
+  const d = new Date(Date.UTC(parts[0], parts[1]-1, parts[2] + days));
+  return d.toISOString().slice(0,10);
+}
+/** 两个日期相差天数（yyyy-MM-dd） */
+function dayDiff(fromYmd, toYmd){
+  const a = new Date(fromYmd + 'T00:00:00Z').getTime();
+  const b = new Date(toYmd + 'T00:00:00Z').getTime();
+  return Math.round((b-a)/86400000);
+}
+/** 把 "2026-11-14 08:00" / "08:00" / "明日 08:00" 转成绝对分钟 */
 function absMin(v){
   let s = String(v==null?'':v).trim();
   let day = 0;
-  const m = s.match(/^(明日|后天)\s*/);
-  if(m){ day = m[1]==='明日' ? 1 : 2; s = s.slice(m[0].length); }
+  const full = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})/);
+  if(full){
+    day = dayDiff(BASE_DATE, `${full[1]}-${full[2]}-${full[3]}`);
+    s = `${full[4]}:${full[5]}`;
+  }else{
+    const m = s.match(/^(明日|后天)\s*/);
+    if(m){ day = m[1]==='明日' ? 1 : 2; s = s.slice(m[0].length); }
+  }
   const t = s.match(/(\d{1,2}):(\d{2})/);
   if(!t) return null;
   return day*1440 + Number(t[1])*60 + Number(t[2]);
 }
-/** 把绝对分钟格式化回页面时间 */
+/** 把绝对分钟格式化为完整日期时间：yyyy-MM-dd HH:mm */
 function fmtMin(v){
   const day = Math.floor(v/1440);
   const rest = ((v%1440)+1440)%1440;
   const hh = String(Math.floor(rest/60)).padStart(2,'0');
   const mm = String(rest%60).padStart(2,'0');
-  const pre = day===0 ? '' : day===1 ? '明日 ' : '后天 ';
-  return pre+hh+':'+mm;
+  return addDaysYmd(BASE_DATE, day) + ' ' + hh + ':' + mm;
 }
-/** 时段展示：同一天时省略第二个日期前缀 */
+/** 时段展示：同一天时省略第二个日期 */
 function fmtRange(s,e){
   const a = fmtMin(s), b = fmtMin(e);
-  const sp = a.indexOf(' ');
-  if(sp>0 && b.startsWith(a.slice(0,sp+1))) return a+'–'+b.slice(sp+1);
+  if(a.slice(0,10) === b.slice(0,10)) return a+'–'+b.slice(11);
   return a+'–'+b;
+}
+/** 原始时间值转完整日期时间 */
+function toFull(v){ const m = absMin(v); return m==null ? '' : fmtMin(m); }
+/** 起止原始值展示为完整日期区间 */
+function rangeText(s,e){
+  if(s==null || s==='') return '—';
+  const a = absMin(s);
+  if(a==null) return String(s) + (e?('–'+e):'');
+  if(e==null || e==='') return fmtMin(a)+'–进行中';
+  const b = absMin(e);
+  return b==null ? fmtMin(a)+'–'+e : fmtRange(a,b);
 }
 /** 统一把数组或顿号分隔字符串转成人员数组 */
 function peopleList(v){
@@ -777,14 +806,14 @@ function computeConflicts(){
       out.push({
         type:'设备占用', task:A.task, product:A.product, proc:A.proc,
         key:A.key, otherKey:B.key, otherTask:B.task, start:A.ps, end:A.pe,
-        object:`${A.eq} 与 ${B.task} ${B.proc}（${B.ps}–${B.pe}）重叠`
+        object:`${A.eq} 与 ${B.task} ${B.proc}（${rangeText(B.ps,B.pe)}）重叠`
       });
     }
     if(A.room && B.room && A.room===B.room){
       out.push({
         type:'房间占用', task:A.task, product:A.product, proc:A.proc,
         key:A.key, otherKey:B.key, otherTask:B.task, start:A.ps, end:A.pe,
-        object:`${A.room} 与 ${B.task} ${B.proc}（${B.ps}–${B.pe}）重叠`
+        object:`${A.room} 与 ${B.task} ${B.proc}（${rangeText(B.ps,B.pe)}）重叠`
       });
     }
   }
@@ -799,7 +828,7 @@ function computeConflicts(){
       out.push({
         type:'人员冲突', task:A.task, product:A.product, proc:A.proc,
         key:A.key, otherKey:B.key, otherTask:B.task, start:A.ps, end:A.pe,
-        object:`${shared.join('、')} 在 ${A.ps}–${A.pe} 同时被安排到 ${B.task} ${B.proc}（${B.ps}–${B.pe}）`
+        object:`${shared.join('、')} 在 ${rangeText(A.ps,A.pe)} 同时被安排到 ${B.task} ${B.proc}（${rangeText(B.ps,B.pe)}）`
       });
     }
   }
@@ -1015,7 +1044,7 @@ function renderGantt(){
   });
   let html = `<div class="gantt-head"><div class="gantt-label">${ganttMode==='task'?'生产任务':ganttMode==='eq'?'设备':'房间'}</div><div class="gantt-track head">`;
   for(let h=G_START; h<=G_END; h+=2){
-    html += `<span class="ghour" style="left:${(h-G_START)/(G_END-G_START)*100}%">${String(h).padStart(2,'0')}:00</span>`;
+    html += `<span class="ghour" style="left:${(h-G_START)/(G_END-G_START)*100}%">${BASE_DATE} ${String(h).padStart(2,'0')}:00</span>`;
   }
   html += `</div></div>`;
 
@@ -1036,7 +1065,7 @@ function renderGantt(){
       const width = (it.e-it.s)/(G_END*60-G_START*60)*100;
       const bad = isItemConflict(it);
       const cls = 'gbar '+(it.color||'c0')+(bad?' conflict':'')+(ganttMode==='task'?'':' two-line');
-      const title = `${it.product} · ${it.task} · ${it.proc} ${it.ps}–${it.pe}${bad?'（冲突）':''}`;
+      const title = `${it.product} · ${it.task} · ${it.proc} ${rangeText(it.ps,it.pe)}${bad?'（冲突）':''}`;
       const inner = ganttMode==='task'
         ? `<span>${it.proc}</span>`
         : `<span class="t1">${escHtml(it.product)}</span><span class="t2">${it.task}</span>`;
@@ -1061,7 +1090,7 @@ function openProcDrawer(key){
         <div><span class="k">生产任务</span><span class="v mono">${it.task}</span></div>
         <div><span class="k">制剂 / 批号</span><span class="v">${it.product} · ${it.batchCode}</span></div>
         <div><span class="k">阶段 / 批次</span><span class="v">${it.proc}</span></div>
-        <div><span class="k">计划时段</span><span class="v mono">${it.ps}–${it.pe}（${((it.e-it.s)/60).toFixed(1)} 小时）</span></div>
+        <div><span class="k">计划时段</span><span class="v mono">${rangeText(it.ps,it.pe)}（${((it.e-it.s)/60).toFixed(1)} 小时）</span></div>
         <div><span class="k">排产标记</span><span class="v"><span class="pill ${isScheduledProc(p)?'green':'gray'}">${isScheduledProc(p)?'已排产':'未排产'}</span></span></div>
         <div><span class="k">计划数量</span><span class="v mono">${fmtNum(p.batches&&it.batch!=null?p.batches[it.batch].qty:p.qty)}</span></div>
       </div>
@@ -1078,7 +1107,7 @@ function openProcDrawer(key){
     p.batches.forEach((b,i)=>{
       const cs = batchConflictList(p.id,i);
       body += `<div class="batch-card"><div class="bc-top"><span class="bc-name">${b.name}</span><span class="tag ${cs.length?'red':'blue'}">${fmtNum(b.qty)} 件${cs.length?' · 冲突':''}</span></div>
-        <div class="bc-rows"><span>时段</span><b class="mono">${b.ps}–${b.pe}</b><span>参与人</span><b>${b.people}</b></div></div>`;
+        <div class="bc-rows"><span>时段</span><b class="mono">${rangeText(b.ps,b.pe)}</b><span>参与人</span><b>${b.people}</b></div></div>`;
     });
     body += `</div><div class="batch-foot"><span>批次数量合计</span><b>${fmtNum(p.batches.reduce((s,b)=>s+Number((b.qty+'')||0),0))} / ${fmtNum(p.qty)} ✓</b></div></div>`;
   }
@@ -1112,7 +1141,7 @@ function openConflictDrawer(){
     list.forEach(c=>{
       const i = conflicts.indexOf(c);
       body += `<div class="conflict-box" style="margin-bottom:10px">
-        <div class="cb-title">${c.task} · ${c.proc} · ${c.start}–${c.end}</div>
+        <div class="cb-title">${c.task} · ${c.proc} · ${rangeText(c.start,c.end)}</div>
         <div>${c.object}</div>
         <div class="reco"><span>推荐：<b>${planText(c)}</b></span>${planFor(c)?`<button class="btn sm primary edit-only" onclick="applyConflict(${i})">一键替换</button>`:'<span class="tag">需手工调整</span>'}</div>
       </div>`;
@@ -1132,7 +1161,7 @@ function renderOverviewPanels(){
         <td><b class="mono">${t.code}</b><div class="sub">生产计划 ${t.planNo||'—'}</div></td>
         <td><b>${escHtml(t.name)}</b></td>
         <td class="mono">${t.batch}</td>
-        <td class="mono">${t.start.slice(5)}</td>
+        <td class="mono">${t.start}</td>
         <td><span class="pill ${m.cls}">${m.text}</span><div class="sub">${cs?`<span style="color:var(--red)">${cs} 项冲突</span> · `:''}${t.saved?'已保存':'未保存'}</div></td>
       </tr>`;
     }).join('');
@@ -1291,13 +1320,13 @@ function renderTaskCards(){
     const act = procActualRange(p);
     const sched = isScheduledProc(p);
     const prod = procProduced(p);
-    const actText = act.end ? `${fmtT(act.start)}–${act.end}` : (act.start ? `${act.start}–进行中` : '—');
+    const actText = (act.start||act.end) ? rangeText(act.start,act.end) : '—';
     return `<tr>
       <td><b>${escHtml(p.name)}</b>${p.batches?` <span class="tag blue">拆 ${p.batches.length} 次</span>`:''}</td>
       <td>${p.room||'—'}</td>
       <td>${p.eq||'—'}</td>
       <td class="sub">${p.param||'按工艺规程执行'}</td>
-      <td class="mono">${isScheduledProc(p)?`${p.ps}–${p.pe}`:'—'}</td>
+      <td class="mono">${isScheduledProc(p)?rangeText(p.ps,p.pe):'—'}</td>
       <td class="mono">${act.start?`<span class="hl">${actText}</span>`:actText}</td>
       <td>${peopleList(p.people).map(x=>`<span class="chip">${x}</span>`).join('')}</td>
       <td class="mono">${fmtNum(p.qty)}</td>
@@ -1409,7 +1438,7 @@ function execOf(r){
   };
 }
 function execPillCls(status){ return status==='生产中'?'green':status==='已完工'?'gray':'blue'; }
-function nowHHmm(){ return new Date().toTimeString().slice(0,5); }
+function nowHHmm(){ return BASE_DATE + ' ' + new Date().toTimeString().slice(0,5); }
 function startActual(key){
   const r = findTaskRow(key); if(!r) return;
   const src = r.b || r.p;
@@ -1513,9 +1542,9 @@ function openActualModal(key){
   const body = `
     <div class="form-grid">
       <div class="field"><label>工序</label><input class="input" value="${r.p.name}${r.b?' · '+(r.b.name||('批次 '+(r.bidx+1))):''}" disabled /></div>
-      <div class="field"><label>计划起止（参考）</label><input class="input" value="${fmtT(src.ps)}–${fmtT(src.pe)}" disabled /></div>
-      <div class="field"><label>实际开始</label><input class="input" id="actStart" value="${src.actualStart||''}" placeholder="HH:mm 或 明日 HH:mm" /></div>
-      <div class="field"><label>实际结束（留空表示生产中）</label><input class="input" id="actEnd" value="${src.actualEnd||''}" placeholder="留空 = 进行中" /></div>
+      <div class="field"><label>计划起止（参考）</label><input class="input" value="${rangeText(src.ps,src.pe)}" disabled /></div>
+      <div class="field"><label>实际开始</label><input class="input" id="actStart" value="${toFull(src.actualStart)}" placeholder="yyyy-MM-dd HH:mm" /></div>
+      <div class="field"><label>实际结束（留空表示生产中）</label><input class="input" id="actEnd" value="${toFull(src.actualEnd)}" placeholder="留空 = 进行中" /></div>
       <div class="field"><label>实际数量</label><input class="input" id="actQty" type="number" value="${src.actualQty==null?'':src.actualQty}" /></div>
       <div class="field"><label>班组（快捷选人）</label>
         <select class="input" id="actTeam" onchange="applyActualTeam(this.value)">
@@ -1536,12 +1565,12 @@ function saveActual(){
   const end = document.getElementById('actEnd').value.trim();
   const qty = document.getElementById('actQty').value;
   const people = document.getElementById('actPeople').value.trim();
-  if(start && absMin(start)==null){ toast('实际开始格式应为 HH:mm 或 明日 HH:mm','warn'); return; }
-  if(end && absMin(end)==null){ toast('实际结束格式应为 HH:mm 或 明日 HH:mm','warn'); return; }
+  if(start && absMin(start)==null){ toast('实际开始格式应为 yyyy-MM-dd HH:mm','warn'); return; }
+  if(end && absMin(end)==null){ toast('实际结束格式应为 yyyy-MM-dd HH:mm','warn'); return; }
   if(start && end && absMin(end)<=absMin(start)){ toast('实际结束必须晚于实际开始','warn'); return; }
   if(!start && end){ toast('请先填写实际开始时间','warn'); return; }
-  src.actualStart = start || null;
-  src.actualEnd = end || null;
+  src.actualStart = start ? fmtMin(absMin(start)) : null;
+  src.actualEnd = end ? fmtMin(absMin(end)) : null;
   src.actualQty = qty===''?null:Number(qty);
   src.actualPeople = peopleList(people);
   src.execStatus = end ? '已完工' : (start ? '生产中' : '');
@@ -1558,8 +1587,8 @@ function planRowHtml(r){
   const status = ex.status || '待开工';
   const planPeople = peopleList(r.b ? r.b.people : r.p.people);
   const planQty = src.qty!=null ? src.qty : r.p.qty;
-  const planText = sched ? `${src.ps}–${src.pe}` : '—';
-  const actualText = ex.end ? `${fmtT(ex.start)}–${ex.end}` : (ex.start ? `${ex.start}–进行中` : '—');
+  const planText = sched ? rangeText(src.ps,src.pe) : '—';
+  const actualText = (ex.start||ex.end) ? rangeText(ex.start,ex.end) : '—';
   const ops = `<button class="link edit-only" onclick="openPickPeople('${rowKey(r)}','plan')">选人</button>
     <button class="link edit-only" style="margin-left:8px" onclick="openAdjustModal('${r.p.id}')">调整</button>${r.b?'':`<button class="link edit-only" style="margin-left:8px" onclick="openSplitModal('${r.p.id}')">拆分</button>`}`;
   return `<tr>
@@ -1581,8 +1610,8 @@ function actualRowHtml(r){
   const ex = execOf(r);
   const status = ex.status || '待开工';
   const planQty = src.qty!=null ? src.qty : r.p.qty;
-  const planText = (absMin(src.ps)!=null && absMin(src.pe)!=null) ? `${src.ps}–${src.pe}` : '—';
-  const actualText = ex.end ? `${fmtT(ex.start)}–${ex.end}` : (ex.start ? `${ex.start}–进行中` : '—');
+  const planText = (absMin(src.ps)!=null && absMin(src.pe)!=null) ? rangeText(src.ps,src.pe) : '—';
+  const actualText = (ex.start||ex.end) ? rangeText(ex.start,ex.end) : '—';
   const people = ex.people.length ? ex.people : peopleList(r.b ? r.b.people : r.p.people);
   return `<tr>
     <td><b>${escHtml(r.p.name)}</b>${r.b?` <span class="tag blue">${escHtml(r.b.name||('批次 '+(r.bidx+1)))}</span>`:''}</td>
@@ -1665,8 +1694,8 @@ function openAdjustModal(id){
     <div class="form-grid">
       <div class="field"><label>工序</label><input class="input" value="${p.name}" disabled /></div>
       <div class="field"><label>标准时长（分钟）</label><input class="input" value="${p.std}" disabled /></div>
-      <div class="field"><label>计划开始</label><input class="input" id="adjPs" value="${p.ps||''}" placeholder="选填，留空为未排产" /></div>
-      <div class="field"><label>计划结束</label><input class="input" id="adjPe" value="${p.pe||''}" placeholder="选填，留空为未排产" /></div>
+      <div class="field"><label>计划开始</label><input class="input" id="adjPs" value="${toFull(p.ps)}" placeholder="选填，格式 yyyy-MM-dd HH:mm" /></div>
+      <div class="field"><label>计划结束</label><input class="input" id="adjPe" value="${toFull(p.pe)}" placeholder="选填，格式 yyyy-MM-dd HH:mm" /></div>
       <div class="field"><label>计划数量</label><input class="input" id="adjQty" type="number" value="${p.qty}" /></div>
       <div class="field"><label>设备</label><input class="input" id="adjEq" value="${p.eq}" /></div>
       <div class="field"><label>房间</label><input class="input" id="adjRoom" value="${p.room}" /></div>
@@ -1699,7 +1728,7 @@ function saveAdjust(id){
   const unscheduled = ps==='' && pe==='';
   if(!unscheduled){
     if(ps==='' || pe===''){ toast('计划开始与结束需同时填写，或同时留空','warn'); return; }
-    if(psMin==null || peMin==null){ toast('时间格式应为 HH:mm 或 明日 HH:mm','warn'); return; }
+    if(psMin==null || peMin==null){ toast('时间格式应为 yyyy-MM-dd HH:mm','warn'); return; }
     if(peMin<=psMin){ toast('计划结束必须晚于计划开始','warn'); return; }
     const idx = t.procs.indexOf(p);
     if(idx===0 && psMin<absMin(t.start)){ toast('首道工序计划开始不得早于任务计划开始','warn'); return; }
@@ -1715,7 +1744,7 @@ function saveAdjust(id){
       p.batches.forEach(b=>{ b.ps = null; b.pe = null; });
     }
   }else{
-    p.ps = ps; p.pe = pe; p.dur = peMin-psMin;
+    p.ps = fmtMin(psMin); p.pe = fmtMin(peMin); p.dur = peMin-psMin;
   }
   p.qty = qty;
   p.eq = document.getElementById('adjEq').value.trim();
@@ -1761,8 +1790,8 @@ function openSplitModal(id){
 function splitRow(b,i){
   return `<div class="split-row">
     <input class="input sm" value="${b.name||('批次 '+(i+1))}" />
-    <input class="input sm" value="${b.ps||''}" placeholder="选填" />
-    <input class="input sm" value="${b.pe||''}" placeholder="选填" />
+    <input class="input sm" value="${toFull(b.ps)}" placeholder="yyyy-MM-dd HH:mm" />
+    <input class="input sm" value="${toFull(b.pe)}" placeholder="yyyy-MM-dd HH:mm" />
     <input class="input sm qty" type="number" value="${b.qty}" oninput="updateSplitTotal()" />
     <input class="input sm" value="${b.people||''}" />
     <button class="icon-btn" style="width:28px;height:28px;flex:0 0 28px" onclick="this.closest('.split-row').remove();updateSplitTotal()">✕</button>
@@ -1797,7 +1826,9 @@ function saveSplit(id){
       throw new Error('批次 '+(i+1)+' 的计划结束必须晚于开始（或同时留空）');
     }
     return {
-      name: r.children[0].value, ps: bothEmpty?null:ps, pe: bothEmpty?null:pe,
+      name: r.children[0].value,
+      ps: bothEmpty?null:fmtMin(absMin(ps)),
+      pe: bothEmpty?null:fmtMin(absMin(pe)),
       qty: Number(r.children[3].value)||0, eq: ctx.p.eq, room: ctx.p.room,
       people: r.children[4].value
     };
