@@ -225,6 +225,9 @@ public class PdaProductionServiceImpl implements PdaProductionService {
         dto.setPlanEndTime(execution.getPlanEndTime());
         dto.setPlanQty(execution.getPlanQty() != null
                 ? execution.getPlanQty() : execution.getProcessQty());
+        dto.setUnitId(execution.getUnitId());
+        dto.setUnitName(execution.getUnitName());
+        dto.setUnitSymbol(execution.getUnitSymbol());
         dto.setEquipmentId(execution.getEquipmentId());
         dto.setEquipmentName(execution.getEquipmentName());
         dto.setRoomId(execution.getRoomId());
@@ -372,10 +375,13 @@ public class PdaProductionServiceImpl implements PdaProductionService {
     }
 
     @Override
-    public List<PdaOptionDto> equipmentOptions(String keyword) {
+    public List<PdaOptionDto> equipmentOptions(String keyword, Integer roomId) {
         LambdaQueryWrapper<Equipment> wrapper = new LambdaQueryWrapper<Equipment>()
                 .eq(Equipment::getIsDeleted, 0)
                 .eq(Equipment::getEquipmentStatus, EquipmentStatus.NORMAL);
+        if (roomId != null) {
+            wrapper.eq(Equipment::getRoomId, roomId);
+        }
         if (StringUtils.hasText(keyword)) {
             wrapper.and(q -> q.like(Equipment::getEquipmentName, keyword)
                     .or().like(Equipment::getFixedAssetCode, keyword));
@@ -391,6 +397,7 @@ public class PdaProductionServiceImpl implements PdaProductionService {
             dto.setId(equipment.getEquipmentId() == null ? null : equipment.getEquipmentId().longValue());
             dto.setName(equipment.getEquipmentName());
             dto.setCode(equipment.getFixedAssetCode());
+            dto.setRoomId(equipment.getRoomId());
             List<WorkOrderProcessExecution> open =
                     openMap.getOrDefault(equipment.getEquipmentId(), List.of());
             dto.setOccupied(!open.isEmpty());
@@ -442,9 +449,9 @@ public class PdaProductionServiceImpl implements PdaProductionService {
                 ? request.getEquipmentId() : execution.getEquipmentId();
         Equipment equipment = requireEquipment(equipmentId);
         LocalDateTime now = nowMinute();
-        assertPreviousStarted(execution, now);
         assertEquipmentFree(execution, equipment, now, now);
         execution.setEquipmentId(equipment.getEquipmentId());
+        execution.setRoomId(equipment.getRoomId());
         execution.setStartTime(now);
         execution.setEndTime(null);
         execution.setManualTime(0);
@@ -599,7 +606,12 @@ public class PdaProductionServiceImpl implements PdaProductionService {
         Equipment equipment = null;
         if (start != null) {
             equipment = requireEquipment(request.getEquipmentId());
-            assertPreviousStarted(execution, start);
+            if (request.getRoomId() == null) {
+                request.setRoomId(equipment.getRoomId());
+            } else if (equipment.getRoomId() != null
+                    && !request.getRoomId().equals(equipment.getRoomId())) {
+                throw new IllegalArgumentException("所选设备不属于当前配置室");
+            }
             assertEquipmentFree(execution, equipment, start,
                     end == null ? now : end);
         }
@@ -644,6 +656,7 @@ public class PdaProductionServiceImpl implements PdaProductionService {
 
     private void applyFields(WorkOrderProcessExecution execution, PdaExecutionSaveRequest request) {
         execution.setEquipmentId(request.getEquipmentId());
+        execution.setRoomId(request.getRoomId());
         execution.setStartTime(request.getStartTime());
         execution.setEndTime(request.getEndTime());
         execution.setManualTime(Boolean.TRUE.equals(request.getManualTime()) ? 1 : 0);
@@ -662,30 +675,6 @@ public class PdaProductionServiceImpl implements PdaProductionService {
         User user = userId == null ? null : userMapper.selectById(userId);
         if (user != null) {
             execution.setOperatorName(user.getUserName());
-        }
-    }
-
-    private void assertPreviousStarted(WorkOrderProcessExecution execution, LocalDateTime start) {
-        if (execution.getStepOrder() == null) {
-            return;
-        }
-        List<WorkOrderProcessExecution> previous = executionService.list(
-                new QueryWrapper<WorkOrderProcessExecution>()
-                        .eq("work_order_id", execution.getWorkOrderId())
-                        .lt("step_order", execution.getStepOrder())
-                        .eq("is_deleted", 0)
-                        .orderByDesc("step_order")
-                        .orderByDesc("batch_no"));
-        if (previous.isEmpty()) {
-            return;
-        }
-        WorkOrderProcessExecution prev = previous.get(0);
-        if (prev.getStartTime() == null) {
-            throw new IllegalArgumentException("紧前工序「" + safeProcessName(prev) + "」尚未开始，不能开始本工序");
-        }
-        if (start.isBefore(prev.getStartTime())) {
-            throw new IllegalArgumentException("开始时间不得早于紧前工序「"
-                    + safeProcessName(prev) + "」的开始时间");
         }
     }
 
@@ -729,8 +718,7 @@ public class PdaProductionServiceImpl implements PdaProductionService {
         if (StringUtils.hasText(execution.getProcessTypeName())) {
             return execution.getProcessTypeName();
         }
-        return execution.getProcessTypeId() == null
-                ? "工序" : "工序#" + execution.getProcessTypeId();
+        return "未命名工序";
     }
 
     private void saveParticipants(WorkOrderProcessExecution execution,

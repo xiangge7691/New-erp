@@ -501,7 +501,7 @@ tr.batch-tr td{padding:0;background:#fafbff;border-bottom:1px solid var(--line2)
         <h3>二、排产是可选的</h3>
         <p class="sub">每个生产任务可以选择排产，也可以不排产：工序填写了计划开始/结束即视为「已排产」，留空即「未排产」。未排产工序不参与排产、冲突校验与甘特图展示，也<b>不影响生产任务流程与后续执行</b>；排产结果仅作为生产安排的参考。页面上的排产标记（已排产/部分排产/未排产）只是「是否有计划时间」的标识，不是任务流程状态。</p>
         <h3>三、拆分多次生产（本期重点）</h3>
-        <p class="sub">一道工序可以拆成多个生产批次。每个批次独立维护计划起止、计划数量、设备、房间与操作人。批次数量合计必须等于工序计划数量，否则不允许保存。拆分后甘特图按批次显示连续色块；绩效模块按批次分别登记参与人与时长。</p>
+        <p class="sub">一道工序可以拆成多个生产批次。每个批次独立维护计划起止、计划数量、设备、房间与操作人。批次数量合计不强制等于工序计划数量，可按实际生产安排拆分。拆分后甘特图按批次显示连续色块；绩效模块按批次分别登记参与人与时长。</p>
         <h3>四、顺排与调整</h3>
         <p class="sub">首道工序不早于任务计划开始时间；后续工序只需计划开始不早于紧前工序的计划开始，<b>允许工序时段重叠</b>，不要求晚于紧前工序结束。例如第一项 08:00–09:00、第二项 08:30–09:30 是合法排法。手工修改某道工序的计划起止只重算本工序计划用时，不联动其他工序。前道超期时后续计划不顺延，由排产员决定是否逐条调整。计划开始/结束均为选填，可随时清空恢复为未排产。</p>
         <h3>五、冲突检测</h3>
@@ -513,7 +513,7 @@ tr.batch-tr td{padding:0;background:#fafbff;border-bottom:1px solid var(--line2)
         <h3>八、与生产任务联动</h3>
         <p class="sub">排产结果写入独立的排产计划表和批次表（work_order_process_plan / work_order_process_plan_batch），不回写 work_order 的工序字段；实际执行仍使用 work_order_process_execution，通过 plan_id / plan_batch_id 与排产关联。生产任务详情「实际生产」页签与只读工序表上的实际起止、实际数量来自执行记录，未完工时显示为空；未排产工序的计划起止显示为「—」。</p>
         <h3>九、校验边界</h3>
-        <p class="sub">原型中的保存、拆分、套用推荐时段等均为交互演示；设备/房间占用、人员重叠、工序顺序与批次数量合计等校验在前端同样生效：<b>存在冲突时保存会被拒绝</b>。演示数据初始无冲突；如需演示保存被拒，可在调整工序时制造时段、设备、房间或人员重叠，正式保存会打开冲突明细抽屉。</p>
+        <p class="sub">原型中的保存、拆分、套用推荐时段等均为交互演示；设备/房间占用、人员重叠、工序顺序与批次时段等校验在前端同样生效：<b>存在冲突时保存会被拒绝</b>。演示数据初始无冲突；如需演示保存被拒，可在调整工序时制造时段、设备、房间或人员重叠，正式保存会打开冲突明细抽屉。</p>
         <h3>十、后端接口对接</h3>
         <p class="sub">本页字段与后端 DTO 一致：任务 workOrderId / workOrderCode / preparationName / batchNumber / batchQty / currentStatus / planStartTime / processCount / conflictCount / saved；工序 planId / processTypeId / stepOrder / planStartTime / planEndTime / planQty / roomId / equipmentId / teamId / status，以及实际对照 actualStartTime / actualEndTime / actualStatus / actualQty / executionId；批次 batches[] 含 id / batchNo / batchName / planStartTime / planEndTime / planQty / roomId / equipmentId / teamId / status，以及实际对照 actualStartTime / actualEndTime / actualStatus / actualQty / executionId / locked；冲突 conflicts[]。接口：GET /api/scheduling/tasks；GET /api/scheduling/tasks/{workOrderId}；POST /api/scheduling/tasks/{id}/auto-plan；PUT /api/scheduling/tasks/{id}/plan（草稿）；POST /api/scheduling/tasks/{id}/plan/save（正式保存，冲突返回 400 + data.conflicts）；POST /api/scheduling/plans/{planId}/split；GET /api/scheduling/gantt。计划开始/结束未填写时按「未排产」处理，不作为流程校验条件。自动顺排依赖工序模板 standard_duration，当前为空会返回 400。</p>
       </div>
@@ -1770,7 +1770,7 @@ function openSplitModal(id){
   window.__splitCtx = {id, p};
   let rows = batches.map((b,i)=>splitRow(b,i)).join('');
   const body = `
-    <div class="banner"><span>ℹ</span><div><b>拆分规则：</b>每个批次独立安排计划时间与参与人，批次数量合计必须等于工序计划数量，批次时段不得重叠。保存后立即重算冲突；存在冲突时排产不能保存。</div></div>
+    <div class="banner"><span>ℹ</span><div><b>拆分规则：</b>每个批次独立安排计划时间与参与人，批次数量合计不强制等于工序计划数量，批次时段不得重叠。保存后立即重算冲突；存在冲突时排产不能保存。</div></div>
     <div class="filters" style="border:0;padding:0 0 10px">
       <span class="sub">按班组快捷填入操作人</span>
       <select class="input sm" onchange="applySplitTeam(this.value)">
@@ -1816,7 +1816,6 @@ function saveSplit(id){
   const ctx = window.__splitCtx;
   if(!ctx) return;
   const qty = [...document.querySelectorAll('#splitRows .qty')].reduce((s,el)=>s+(Number(el.value)||0),0);
-  if(qty !== ctx.p.qty){ toast('批次数量合计必须等于工序计划数量','warn'); return; }
   const rows = [...document.querySelectorAll('#splitRows .split-row')];
   const batches = rows.map((r,i)=>{
     const ps = r.children[1].value.trim();
@@ -1851,7 +1850,7 @@ function openBatchHelp(){
     <div class="sec"><h4>要点</h4>
       <ul class="sub" style="margin:0;padding-left:18px;line-height:1.9">
         <li>拆分后每个批次有自己的计划起止、计划数量、设备、房间与操作人；班组非必填，仅用于快捷勾选人员。</li>
-        <li>批次数量合计必须等于工序计划数量，不等时不允许保存。</li>
+        <li>批次数量合计不强制等于工序计划数量，可按实际生产安排拆分。</li>
         <li>设备与房间冲突按批次时段参与全任务比对，批次之间也互为占用，批次时段不得重叠。</li>
         <li>生产执行时按批次登记参与人与完成数量，绩效按批次生成个人记录。</li>
         <li>拆分只影响当前工序，不联动前后工序计划时间；存在冲突时排产不能保存。</li>

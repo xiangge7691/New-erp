@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.Data;
@@ -25,8 +26,10 @@ public class WorkOrderProcessExecution extends AuditEntity {
 
     /**
      * 主键ID
+     * <p>兼容「实际生产」页签按排产详情回传的 executionId</p>
      */
     @TableId(value = "id", type = IdType.AUTO)
+    @JsonAlias("executionId")
     private Long id;
 
     /**
@@ -104,21 +107,33 @@ public class WorkOrderProcessExecution extends AuditEntity {
 
     /**
      * 开始时间
+     * <p>兼容「实际生产」页签的 actualStartTime 字段</p>
      */
     @TableField(value = "start_time")
+    @JsonAlias("actualStartTime")
     private LocalDateTime startTime;
 
     /**
      * 结束时间
+     * <p>兼容「实际生产」页签的 actualEndTime 字段</p>
      */
     @TableField(value = "end_time")
+    @JsonAlias("actualEndTime")
     private LocalDateTime endTime;
 
     /**
      * 加工数量
+     * <p>兼容「实际生产」页签的 actualQty 字段</p>
      */
     @TableField(value = "process_qty")
+    @JsonAlias("actualQty")
     private BigDecimal processQty;
+
+    /**
+     * 计量单位ID（快照自工序模板）
+     */
+    @TableField(value = "unit_id")
+    private Long unitId;
 
     /**
      * 关键工艺参数
@@ -251,6 +266,12 @@ public class WorkOrderProcessExecution extends AuditEntity {
      */
     @TableField(exist = false)
     private String unitName;
+
+    /**
+     * 计量单位符号（如 kg）
+     */
+    @TableField(exist = false)
+    private String unitSymbol;
 
     /**
      * 制剂工序模版ID（关联preparation_process_template表，按制剂+工序类型+工序顺序匹配）

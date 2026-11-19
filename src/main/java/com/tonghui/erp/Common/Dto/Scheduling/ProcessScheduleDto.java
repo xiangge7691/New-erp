@@ -48,6 +48,15 @@ public class ProcessScheduleDto {
     /** 计划数量 */
     private BigDecimal planQty;
 
+    /** 计量单位ID */
+    private Long unitId;
+
+    /** 计量单位名称（如：千克） */
+    private String unitName;
+
+    /** 计量单位符号（如：kg） */
+    private String unitSymbol;
+
     /** 计划房间ID */
     private Integer roomId;
 

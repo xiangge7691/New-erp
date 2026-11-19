@@ -713,6 +713,7 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
             exec.setProcessTypeId(template.getProcessTypeId());
             exec.setStepOrder(template.getStepOrder());
             exec.setProcessQty(template.getStandardQty());
+            exec.setUnitId(template.getUnitId());
             exec.setKeyProcessParams(template.getKeyProcessParams());
             exec.setRemark(template.getRemark());
 

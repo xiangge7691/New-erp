@@ -16,6 +16,7 @@ import com.tonghui.erp.Data.Entity.PreparationProcessTemplate;
 import com.tonghui.erp.Data.Entity.ProcessType;
 import com.tonghui.erp.Data.Entity.ProductionPlan;
 import com.tonghui.erp.Data.Entity.ProductionTeam;
+import com.tonghui.erp.Data.Entity.Unit;
 import com.tonghui.erp.Data.Entity.WorkOrder;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessExecution;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessPlan;
@@ -28,6 +29,7 @@ import com.tonghui.erp.Data.mapper.ProductionPlanMapper;
 import com.tonghui.erp.Data.mapper.ProductionTeamMapper;
 import com.tonghui.erp.Data.mapper.ProductionTeamMemberMapper;
 import com.tonghui.erp.Data.mapper.RoomInfoMapper;
+import com.tonghui.erp.Data.mapper.UnitMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessExecutionMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessPlanBatchMapper;
@@ -115,6 +117,10 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
     /** 设备 Mapper */
     @Autowired
     private EquipmentMapper equipmentMapper;
+
+    /** 计量单位 Mapper */
+    @Autowired
+    private UnitMapper unitMapper;
 
     /** 冲突校验服务 */
     @Autowired
@@ -208,7 +214,7 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
             }
             dto.setProcessCount(processCount);
             dto.setScheduledProcessCount((int) plans.stream()
-                    .filter(p -> p.getPlanStartTime() != null && p.getPlanEndTime() != null)
+                    .filter(p -> p.getScheduled() != null && p.getScheduled() == 1)
                     .count());
             dto.setConflictCount(conflictCount(order.getWorkOrderId(), plans));
             dto.setSaved(plans.stream().anyMatch(p -> "已保存".equals(p.getStatus())));
@@ -330,13 +336,19 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
             Map<Long, List<WorkOrderProcessPlanParticipant>> participantMap =
                     participantMapper.selectByPlanIdsWithPersonnel(planIds).stream()
                             .collect(Collectors.groupingBy(WorkOrderProcessPlanParticipant::getPlanId));
+            Map<Long, Unit> unitMap = loadUnits(java.util.stream.Stream.concat(
+                            plans.stream().map(WorkOrderProcessPlan::getUnitId),
+                            batchMap.values().stream().flatMap(List::stream)
+                                    .map(WorkOrderProcessPlanBatch::getUnitId))
+                    .toList());
             conflicts = conflictService.check(workOrderId, new ArrayList<>(plans),
                     batchMap.values().stream().flatMap(List::stream).toList());
             Map<Long, List<ScheduleConflictDto>> conflictMap = conflicts.stream()
                     .collect(Collectors.groupingBy(ScheduleConflictDto::getPlanId));
             for (WorkOrderProcessPlan plan : plans) {
                 ProcessScheduleDto dto = toProcessDto(plan, batchMap.get(plan.getId()),
-                        participantMap.get(plan.getId()), executionMap.getOrDefault(plan.getStepOrder(), List.of()));
+                        participantMap.get(plan.getId()),
+                        executionMap.getOrDefault(plan.getStepOrder(), List.of()), unitMap);
                 dto.setConflicts(conflictMap.getOrDefault(plan.getId(), List.of()));
                 processes.add(dto);
             }
@@ -356,6 +368,8 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
      */
     private List<ProcessScheduleDto> buildTemplateProcesses(WorkOrder order) {
         List<PreparationProcessTemplate> templates = loadTemplates(order.getPreparationId());
+        Map<Long, Unit> unitMap = loadUnits(templates.stream()
+                .map(PreparationProcessTemplate::getUnitId).toList());
         List<ProcessScheduleDto> result = new ArrayList<>();
         for (PreparationProcessTemplate template : templates) {
             ProcessScheduleDto dto = new ProcessScheduleDto();
@@ -367,6 +381,7 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
             dto.setStandardDuration(template.getStandardDuration());
             dto.setStandardQty(template.getStandardQty());
             dto.setPlanQty(order.getBatchQty());
+            fillUnit(dto, template.getUnitId(), unitMap);
             dto.setRoomId(template.getRoomId());
             dto.setRoomName(template.getRoomId() == null ? null : roomName(template.getRoomId()));
             dto.setEquipmentId(template.getEquipmentId());
@@ -416,7 +431,8 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
     private ProcessScheduleDto toProcessDto(WorkOrderProcessPlan plan,
                                             List<WorkOrderProcessPlanBatch> batches,
                                             List<WorkOrderProcessPlanParticipant> participants,
-                                            List<WorkOrderProcessExecution> executions) {
+                                            List<WorkOrderProcessExecution> executions,
+                                            Map<Long, Unit> unitMap) {
         ProcessScheduleDto dto = new ProcessScheduleDto();
         dto.setPlanId(plan.getId());
         dto.setWorkOrderId(plan.getWorkOrderId());
@@ -428,6 +444,7 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
         dto.setPlanEndTime(plan.getPlanEndTime());
         dto.setPlanDurationMinutes(plan.getPlanDurationMinutes());
         dto.setPlanQty(plan.getPlanQty());
+        fillUnit(dto, plan.getUnitId(), unitMap);
         dto.setRoomId(plan.getRoomId());
         dto.setRoomName(plan.getRoomName());
         dto.setEquipmentId(plan.getEquipmentId());
@@ -435,11 +452,10 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
         dto.setTeamId(plan.getTeamId());
         dto.setTeamName(plan.getTeamName());
         dto.setStatus(plan.getStatus());
-        boolean batchesScheduled = !CollectionUtils.isEmpty(batches) && batches.stream()
-                .allMatch(b -> b.getPlanStartTime() != null && b.getPlanEndTime() != null);
-        dto.setScheduled((plan.getPlanStartTime() != null && plan.getPlanEndTime() != null) || batchesScheduled);
+        // 是否已排产以保存时前端传入的值为准，不再按计划起止时间推算
+        dto.setScheduled(plan.getScheduled() != null && plan.getScheduled() == 1);
         dto.setRemark(plan.getRemark());
-        dto.setBatches(toBatchDtos(batches, participants, executions));
+        dto.setBatches(toBatchDtos(batches, participants, executions, unitMap));
         dto.setParticipants(toParticipantDtos(participants, null));
         applyActual(dto, executions);
         return dto;
@@ -447,7 +463,8 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
 
     private List<PlanBatchDto> toBatchDtos(List<WorkOrderProcessPlanBatch> batches,
                                            List<WorkOrderProcessPlanParticipant> participants,
-                                           List<WorkOrderProcessExecution> executions) {
+                                           List<WorkOrderProcessExecution> executions,
+                                           Map<Long, Unit> unitMap) {
         if (CollectionUtils.isEmpty(batches)) {
             return List.of();
         }
@@ -461,6 +478,7 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
                     dto.setPlanEndTime(b.getPlanEndTime());
                     dto.setPlanDurationMinutes(b.getPlanDurationMinutes());
                     dto.setPlanQty(b.getPlanQty());
+                    fillUnit(dto, b.getUnitId(), unitMap);
                     dto.setRoomId(b.getRoomId());
                     dto.setRoomName(b.getRoomName());
                     dto.setEquipmentId(b.getEquipmentId());
@@ -468,7 +486,8 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
                     dto.setTeamId(b.getTeamId());
                     dto.setTeamName(b.getTeamName());
                     dto.setStatus(b.getStatus());
-                    dto.setScheduled(b.getPlanStartTime() != null && b.getPlanEndTime() != null);
+                    // 批次是否已排产同样以保存时前端传入的值为准
+                    dto.setScheduled(b.getScheduled() != null && b.getScheduled() == 1);
                     dto.setParticipants(toParticipantDtos(participants, b.getId()));
                     executions.stream()
                             .filter(e -> Objects.equals(e.getPlanBatchId(), b.getId())
@@ -545,6 +564,9 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
             dto.setPlanQty(order.getBatchQty());
             dto.setRoomId(template.getRoomId());
             dto.setEquipmentId(template.getEquipmentId());
+            dto.setUnitId(template.getUnitId());
+            // 自动顺排已为各工序安排计划时间，按已排产保存
+            dto.setScheduled(true);
             processDtos.add(dto);
             cursor = cursor.plusMinutes(template.getStandardDuration());
         }
@@ -602,6 +624,14 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
             plan.setProcessTypeId(dto.getProcessTypeId());
             plan.setTemplateId(dto.getTemplateId());
             plan.setStepOrder(dto.getStepOrder());
+            // 计量单位：优先取前端传值，未传时按工序模板补齐
+            plan.setUnitId(dto.getUnitId());
+            if (plan.getUnitId() == null && dto.getTemplateId() != null) {
+                PreparationProcessTemplate template = templateMapper.selectById(dto.getTemplateId());
+                if (template != null) {
+                    plan.setUnitId(template.getUnitId());
+                }
+            }
             plan.setPlanStartTime(dto.getPlanStartTime());
             plan.setPlanEndTime(dto.getPlanEndTime());
             plan.setPlanDurationMinutes(dto.getPlanStartTime() != null && dto.getPlanEndTime() != null
@@ -611,6 +641,8 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
             plan.setEquipmentId(dto.getEquipmentId());
             plan.setTeamId(dto.getTeamId());
             plan.setRemark(dto.getRemark());
+            // 是否已排产由前端传参决定，后端不按计划起止时间推算
+            plan.setScheduled(dto.getScheduled() == null ? null : (dto.getScheduled() ? 1 : 0));
             plan.setStatus("草稿");
             plan.setWorkOrderCode(order.getWorkOrderCode());
             plan.setProcessTypeName(processName(dto.getProcessTypeId(), null));
@@ -674,7 +706,6 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
         if (CollectionUtils.isEmpty(batches)) {
             throw new IllegalArgumentException("批次不能为空");
         }
-        BigDecimal sum = BigDecimal.ZERO;
         Set<Integer> batchNos = new HashSet<>();
         for (PlanBatchDto dto : batches) {
             if (dto.getBatchNo() == null || !batchNos.add(dto.getBatchNo())) {
@@ -684,10 +715,11 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
             if (dto.getPlanQty() == null || dto.getPlanQty().compareTo(BigDecimal.ZERO) <= 0) {
                 throw new IllegalArgumentException("批次计划数量必须大于 0");
             }
-            sum = sum.add(dto.getPlanQty());
         }
-        if (plan.getPlanQty() != null && sum.compareTo(plan.getPlanQty()) != 0) {
-            throw new IllegalArgumentException("批次数量合计必须等于工序计划数量 " + plan.getPlanQty());
+        // 批次数量合计不强制等于工序计划数量：排产计划数量为排产时手工填写，
+        // 实际拆分可按生产安排调整，允许合计大于或小于计划数量
+        if (plan.getPlanQty() != null && BigDecimal.ZERO.compareTo(plan.getPlanQty()) >= 0) {
+            throw new IllegalArgumentException("工序计划数量必须大于 0");
         }
         List<WorkOrderProcessPlanBatch> entities = new ArrayList<>();
         for (PlanBatchDto dto : batches) {
@@ -700,9 +732,14 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
             batch.setPlanDurationMinutes(dto.getPlanStartTime() != null && dto.getPlanEndTime() != null
                     ? Math.toIntExact(Duration.between(dto.getPlanStartTime(), dto.getPlanEndTime()).toMinutes()) : null);
             batch.setPlanQty(dto.getPlanQty());
+            // 计量单位：优先取前端传值，未传时继承所属工序计划
+            batch.setUnitId(dto.getUnitId() != null ? dto.getUnitId() : plan.getUnitId());
             batch.setRoomId(dto.getRoomId() != null ? dto.getRoomId() : plan.getRoomId());
             batch.setEquipmentId(dto.getEquipmentId() != null ? dto.getEquipmentId() : plan.getEquipmentId());
             batch.setTeamId(dto.getTeamId() != null ? dto.getTeamId() : plan.getTeamId());
+            // 批次排产标识由前端传参，未传时沿用所属工序计划的值
+            batch.setScheduled(dto.getScheduled() != null
+                    ? Integer.valueOf(dto.getScheduled() ? 1 : 0) : plan.getScheduled());
             batch.setStatus("计划中");
             if (dto.getParticipants() != null) {
                 batch.setParticipants(dto.getParticipants().stream()
@@ -754,7 +791,11 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
     }
 
     /**
-     * 持久化计划、批次与参与人（全量覆盖）
+     * 持久化计划、批次与参与人
+     * <p>
+     * 以“工序顺序”为键合并：本次提交的工序更新或新增，未提交的工序保持原样。
+     * 排产页面调整或拆分某一道工序时只回传该工序，不能据此删除其他工序的计划、批次与参与人。
+     * </p>
      */
     private void persist(Long workOrderId, List<WorkOrderProcessPlan> plans,
                          Map<Long, List<WorkOrderProcessPlanBatch>> batchMap,
@@ -765,13 +806,19 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
                         .eq(WorkOrderProcessPlan::getWorkOrderId, workOrderId));
         Map<Integer, WorkOrderProcessPlan> existingByStep = existing.stream()
                 .collect(Collectors.toMap(WorkOrderProcessPlan::getStepOrder, Function.identity(), (a, b) -> a));
-        Set<Integer> incomingSteps = new HashSet<>();
         for (WorkOrderProcessPlan plan : plans) {
-            incomingSteps.add(plan.getStepOrder());
             Long childKey = plan.getId();
             WorkOrderProcessPlan old = existingByStep.get(plan.getStepOrder());
             if (old != null) {
                 plan.setId(old.getId());
+                // 前端未传 scheduled 时沿用原值，避免空值覆盖已保存的排产标识
+                if (plan.getScheduled() == null) {
+                    plan.setScheduled(old.getScheduled());
+                }
+                // 前端未传计量单位时沿用原值
+                if (plan.getUnitId() == null) {
+                    plan.setUnitId(old.getUnitId());
+                }
                 planMapper.updateById(plan);
                 // 显式更新可能为空的字段，避免 MyBatis-Plus 忽略 null
                 planMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<WorkOrderProcessPlan>()
@@ -793,13 +840,6 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
                 planMapper.insert(plan);
             }
             saveChildren(plan, batchMap.get(childKey), participantMap.get(childKey));
-        }
-        for (WorkOrderProcessPlan old : existing) {
-            if (!incomingSteps.contains(old.getStepOrder())) {
-                batchMapper.physicalDeleteByPlanId(old.getId());
-                participantMapper.physicalDeleteByPlanId(old.getId());
-                planMapper.deleteById(old.getId());
-            }
         }
     }
 
@@ -983,9 +1023,14 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
             batch.setPlanDurationMinutes(dto.getPlanStartTime() != null && dto.getPlanEndTime() != null
                     ? Math.toIntExact(Duration.between(dto.getPlanStartTime(), dto.getPlanEndTime()).toMinutes()) : null);
             batch.setPlanQty(dto.getPlanQty());
+            // 计量单位：优先取前端传值，未传时继承所属工序计划
+            batch.setUnitId(dto.getUnitId() != null ? dto.getUnitId() : plan.getUnitId());
             batch.setRoomId(dto.getRoomId() != null ? dto.getRoomId() : plan.getRoomId());
             batch.setEquipmentId(dto.getEquipmentId() != null ? dto.getEquipmentId() : plan.getEquipmentId());
             batch.setTeamId(dto.getTeamId() != null ? dto.getTeamId() : plan.getTeamId());
+            // 批次排产标识由前端传参，未传时沿用所属工序计划的值
+            batch.setScheduled(dto.getScheduled() != null
+                    ? Integer.valueOf(dto.getScheduled() ? 1 : 0) : plan.getScheduled());
             batch.setStatus("计划中");
             batch.setTeamName(dto.getTeamName());
             batch.setRoomName(dto.getRoomName());
@@ -1069,6 +1114,46 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
     private String equipmentName(Integer equipmentId) {
         com.tonghui.erp.Data.Entity.Equipment equipment = equipmentMapper.selectById(equipmentId);
         return equipment == null ? null : equipment.getEquipmentName();
+    }
+
+    /**
+     * 批量加载计量单位
+     *
+     * @param unitIds 单位ID集合
+     * @return 单位ID -> 单位
+     */
+    private Map<Long, Unit> loadUnits(java.util.Collection<Long> unitIds) {
+        Set<Long> ids = unitIds == null ? Set.of()
+                : unitIds.stream().filter(Objects::nonNull).collect(Collectors.toSet());
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        return unitMapper.selectBatchIds(ids).stream()
+                .collect(Collectors.toMap(Unit::getUnitId, u -> u, (a, b) -> a));
+    }
+
+    /**
+     * 填充工序行的计量单位
+     */
+    private void fillUnit(ProcessScheduleDto dto, Long unitId, Map<Long, Unit> unitMap) {
+        dto.setUnitId(unitId);
+        Unit unit = unitId == null ? null : unitMap.get(unitId);
+        if (unit != null) {
+            dto.setUnitName(unit.getUnitName());
+            dto.setUnitSymbol(unit.getSymbol());
+        }
+    }
+
+    /**
+     * 填充批次行的计量单位
+     */
+    private void fillUnit(PlanBatchDto dto, Long unitId, Map<Long, Unit> unitMap) {
+        dto.setUnitId(unitId);
+        Unit unit = unitId == null ? null : unitMap.get(unitId);
+        if (unit != null) {
+            dto.setUnitName(unit.getUnitName());
+            dto.setUnitSymbol(unit.getSymbol());
+        }
     }
 
     private String workOrderCode(Long workOrderId) {

@@ -33,6 +33,15 @@ public class PlanBatchDto {
     /** 计划数量 */
     private BigDecimal planQty;
 
+    /** 计量单位ID */
+    private Long unitId;
+
+    /** 计量单位名称（如：千克） */
+    private String unitName;
+
+    /** 计量单位符号（如：kg） */
+    private String unitSymbol;
+
     /** 计划房间ID */
     private Integer roomId;
 
@@ -54,7 +63,7 @@ public class PlanBatchDto {
     /** 状态 */
     private String status;
 
-    /** 是否已排产：计划起止均已填写 */
+    /** 是否已排产：1是/0否（保存时由前端传参，后端不自动计算） */
     private Boolean scheduled;
 
     /** 实际开始时间 */

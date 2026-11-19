@@ -33,6 +33,9 @@ public class ProcessPlanSaveDto {
     /** 计划数量 */
     private BigDecimal planQty;
 
+    /** 计量单位ID（选填；未传时沿用原值或按工序模板补齐） */
+    private Long unitId;
+
     /** 计划房间ID */
     private Integer roomId;
 
@@ -44,6 +47,12 @@ public class ProcessPlanSaveDto {
 
     /** 备注 */
     private String remark;
+
+    /**
+     * 是否已排产：1是/0否
+     * <p>由前端传参，后端原样保存并返回，不按计划起止时间推算</p>
+     */
+    private Boolean scheduled;
 
     /** 批次 */
     private List<PlanBatchDto> batches;

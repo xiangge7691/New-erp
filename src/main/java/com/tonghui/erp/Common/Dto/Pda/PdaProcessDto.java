@@ -39,6 +39,15 @@ public class PdaProcessDto {
     /** 计划数量 */
     private BigDecimal planQty;
 
+    /** 计量单位ID */
+    private Long unitId;
+
+    /** 计量单位名称 */
+    private String unitName;
+
+    /** 计量单位符号（如 kg） */
+    private String unitSymbol;
+
     /** 设备ID */
     private Integer equipmentId;
 

@@ -35,7 +35,7 @@
 
 - **生产任务详情**：任务字段表（任务名称、生产任务编号、关联计划、当前状态、制剂名称、加工类型、计划数量、批号、配置日期、成品数量、得率等）+ **只读生产工序表**。
   工序表列：工序名称、配置室、使用设备、关键工艺参数、计划起止、实际起止、操作人、加工数量、**排产**、**生产**、备注、操作。
-  - 排产：`已排产 / 未排产`（计划起止是否填写）。
+  - 排产：`已排产 / 未排产`（保存排产时由前端传 `processes[].scheduled`，后端原样保存并返回，不按计划起止时间推算）。
   - 生产：`未生产 / 生产中 / 已生产`（按实际执行起止推导）。
 - **变更历史**：留空或对接变更日志接口。
 - **排产**：检查冲突 / 自动顺排 / 保存排产 / 拆分工序；排产表按工序+批次展开。
@@ -81,7 +81,7 @@
 | 方法 | 路径 | 用途 |
 |---|---|---|
 | GET | `/api/work-order-process-execution/by-work-order/{workOrderId}` | 查询工单执行记录（含参与人） |
-| POST | `/api/work-order-process-execution/batch?workOrderId=` | 批量保存执行记录（开始/结束/数量/参与人；带 planId、planBatchId、batchNo） |
+| POST | `/api/work-order-process-execution/batch?workOrderId=` | 批量保存执行记录（开始/结束/数量/参与人；带 planId、planBatchId、batchNo）。兼容排产详情回传字段：`executionId`→记录ID、`actualStartTime/actualEndTime`→实际起止、`actualQty`→实际数量；支持 `unitId`，未传时按执行记录→批次→计划→工序模板补齐；返回 `unitId/unitName/unitSymbol`。参与人未传 `workHours` 时按实际起止自动计算，未逐人传 `completedQty` 时按参与人均分实际数量 |
 | POST | `/api/work-order-process-execution/{executionId}/complete` | 完工：锁定记录并生成人员绩效 |
 | GET | `/api/work-order-process-execution/completed` | 完工记录列表 |
 | GET | `/api/work-order-process-execution/completed/export` | 完工记录导出 |
@@ -121,12 +121,13 @@
 
 | 字段 | 说明 |
 |---|---|
-| `scheduled` | **是否已排产**（计划起止均已填写；为 false 时不影响流程） |
+| `scheduled` | **是否已排产**：保存时由前端传参并落库，后端原样返回，不按计划起止时间推算；未传时沿用原值 |
 | `status` | 保存状态：草稿 / 已保存 |
 | `planStartTime` / `planEndTime` / `planDurationMinutes` | 计划时间，可为空 |
 | `planQty` / `roomId` / `roomName` / `equipmentId` / `equipmentName` | 计划数量与资源 |
+| `unitId` / `unitName` / `unitSymbol` | 计量单位（快照自工序模板）；数量列优先显示 `unitSymbol`（如 kg），无单位显示“—” |
 | `teamId` / `teamName` / `participants` | 计划班组（选填）与参与人 |
-| `batches[]` | 拆分批次；每个批次 `scheduled`、计划起止、数量、参与人、实际对照 |
+| `batches[]` | 拆分批次；每个批次 `scheduled`、计划起止、数量、`unitId/unitName/unitSymbol`、参与人、实际对照 |
 | `actualStartTime` / `actualEndTime` / `actualStatus` / `actualQty` / `executionId` | 实际执行对照 |
 
 ### 3.3 甘特图（`GanttItemDto`）
@@ -148,8 +149,8 @@
 ## 4. 业务规则
 
 1. **排产可选**：计划开始/结束为空即未排产；正式保存同样允许，未排产工序不参与冲突校验、不进甘特图，不影响生产任务流程。
-2. **排产标记 ≠ 流程状态**：列表/详情的「已排产 / 未排产 / 部分排产」只是“是否填写计划时间”的标识；生产状态由实际执行推导。
-3. **冲突规则**：设备占用、房间占用、人员冲突（同一人同一时段被安排到不同工序）、工序顺序、批次数量、批次重叠。**班次校验已删除**，班组不参与冲突判断。
+2. **排产标记 ≠ 流程状态**：列表/详情的「已排产 / 未排产 / 部分排产」由前端保存时传入的 `scheduled` 决定（后端不推算）；生产状态由实际执行推导。
+3. **冲突规则**：设备占用、房间占用、人员冲突（同一人同一时段被安排到不同工序）、工序顺序、批次时段重叠。**班次校验已删除**，班组不参与冲突判断。拆分批次的每批数量只需大于 0，合计不强制等于工序计划数量（计划数量为排产时手工填写，可按实际安排拆分）。
 4. **班组快捷选人**：选择班组只勾选成员，之后可逐人增减；排产保存到计划参与人，实际生产保存到执行参与人。
 5. **实际生产**：执行记录按工序/批次保存；`complete` 后锁定，不可再改，并生成人员绩效。
 6. **修改留痕**：首次修改绩效时长时写入 `original_performance_hours`，后续修改不再覆盖；修改备注必填。
@@ -169,13 +170,14 @@
 
 - 「生产任务详情」用详情接口的工单字段 + `processes[].scheduled`、`actualStatus` 渲染只读工序表。
 - 「排产」页签：
-  - 调整工序：`PUT /plan` 保存草稿，`POST /plan/save` 正式保存；
-  - 拆批次：`POST /plans/{planId}/split`（批次参与人字段 `batches[].participants`）；
+  - 调整工序：`PUT /plan` 保存草稿，`POST /plan/save` 正式保存；工序行带 `unitId`（不传沿用原值或按工序模板补齐），数量列显示 `unitSymbol`；
+  - 拆批次：`POST /plans/{planId}/split`（批次参与人字段 `batches[].participants`；`batches[].unitId` 不传时继承工序计划）；
   - 班组快捷选人：`GET /api/production-teams/active` 取成员，勾选后写入 `participants`。
 - 「实际生产」页签：
-  - 保存执行：`POST /api/work-order-process-execution/batch?workOrderId=`；
+  - 保存执行：`POST /api/work-order-process-execution/batch?workOrderId=`（可带 `unitId`，不传按执行记录→批次→计划→模板补齐）；
   - 完工：`POST /api/work-order-process-execution/{executionId}/complete`；
-  - 参与人同样可按 `production-teams/active` 快捷选择。
+  - 参与人同样可按 `production-teams/active` 快捷选择；
+  - 数量列与录入框使用执行记录返回的 `unitSymbol`。
 
 ### 5.3 绩效页
 
@@ -192,7 +194,13 @@
 
 ```
 src/main/resources/Data/migration/20261118_scheduling_alignment.sql
+src/main/resources/Data/migration/20261119_work_order_plan_scheduled_flag.sql
+src/main/resources/Data/migration/20261119_process_unit_id.sql
 ```
+
+`20261119_work_order_plan_scheduled_flag.sql`：计划/批次增加 `scheduled`（前端传参，后端不推算）。
+
+`20261119_process_unit_id.sql`：计划/批次/执行记录增加 `unit_id`，并按「制剂 + 工序类型 + 工序顺序」从工序模板回填，批次继承计划。
 
 内容：
 1. `performance_record` 增加 `original_performance_hours`；

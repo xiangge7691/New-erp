@@ -87,6 +87,12 @@ public class WorkOrderProcessPlan extends AuditEntity {
     private BigDecimal planQty;
 
     /**
+     * 计量单位ID（快照自工序模板）
+     */
+    @TableField(value = "unit_id")
+    private Long unitId;
+
+    /**
      * 计划房间ID
      */
     @TableField(value = "room_id")
@@ -109,6 +115,13 @@ public class WorkOrderProcessPlan extends AuditEntity {
      */
     @TableField(value = "status")
     private String status;
+
+    /**
+     * 是否已排产：1是/0否
+     * <p>由前端保存排产时传参决定，后端不按计划起止时间推算</p>
+     */
+    @TableField(value = "scheduled")
+    private Integer scheduled;
 
     /**
      * 备注

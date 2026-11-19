@@ -368,7 +368,7 @@ export const exportCompletedExecutions = (params: { from?: string; to?: string; 
 保存实际记录时：
 
 - `participants` 传空数组会清空参与人；不传（`undefined`）则保留现有参与人。
-- 参与人 `workHours > 0`；填写了实际数量时，**每位参与人都必须填写完成数量**，且合计必须等于 `processQty`。
+- 参与人未传 `workHours` 时按工序实际起止自动计算；填写了实际数量但未逐人填写完成数量时，按参与人均分（尾差计入最后一人）；部分填写时仍要求补全且合计等于 `processQty`。
 - `locked=1` 的记录不能再修改或删除；完工请调用 `complete` 接口。
 
 ### 3.4 绩效类型与接口
@@ -510,14 +510,14 @@ export interface CoefficientVersionDetail {
    - `saved=true`：提示成功，刷新详情。
    - `saved=false`：打开冲突抽屉，按 `conflicts` 渲染；每条显示 `type`、`processName`、`startTime~endTime`、`message`、`recommendedStartTime~recommendedEndTime`。
    - “套用推荐”只改本地对应行的计划时间，重新调用 `checkConflicts` 或再次正式保存。
-7. 拆批次：对某行打开抽屉，填写批次号、时间、数量；校验数量合计等于 `planQty` 后调用 `POST /api/scheduling/plans/{planId}/split`。
+7. 拆批次：对某行打开抽屉，填写批次号、时间、数量（数量只需大于 0，合计不强制等于 `planQty`，计划数量为排产时手工填写，可按实际安排拆分）后调用 `POST /api/scheduling/plans/{planId}/split`。
 8. 甘特图：`GET /api/scheduling/gantt`，按 `view` 分组；`conflict=true` 的条目红色。
 
 ### 4.3 校验提示（前端先做一层，后端仍会校验）
 
 - 后一项计划开始不得早于前一项计划开始；允许时段重叠。
 - 首道工序不得早于工单 `planStartTime`。
-- 批次数量合计 = 工序计划数量；批次时段不得重叠。
+- 批次数量仅要求大于 0，合计不强制等于工序计划数量；批次时段不得重叠。
 - 正式保存前检查：每道工序必须有计划起止（或批次起止）。
 - 同一班组可以同时负责多台设备，前端不要把班组做成互斥资源。
 
@@ -530,7 +530,6 @@ export interface CoefficientVersionDetail {
 | 人员班次 | 班组【xxx】不在有效班次内 |
 | 工序顺序 | 计划开始早于紧前工序开始 |
 | 批次重叠 | 同工序批次时段重叠 |
-| 批次数量 | 批次数量合计不等于工序计划数量 |
 
 ---
 

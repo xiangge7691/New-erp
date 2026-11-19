@@ -143,20 +143,11 @@ public class ScheduleConflictService {
             }
         }
 
-        // 2. 批次数量与批次重叠
+        // 2. 批次时段重叠（批次数量合计不强制等于工序计划数量，不再校验）
         for (WorkOrderProcessPlan plan : plans) {
             List<WorkOrderProcessPlanBatch> list = batchMap.get(plan.getId());
             if (CollectionUtils.isEmpty(list)) {
                 continue;
-            }
-            if (plan.getPlanQty() != null) {
-                java.math.BigDecimal sum = list.stream().map(WorkOrderProcessPlanBatch::getPlanQty)
-                        .filter(Objects::nonNull).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
-                if (sum.compareTo(plan.getPlanQty()) != 0) {
-                    conflicts.add(conflict("批次数量", plan, null, null, null,
-                            "工序【" + safeName(plan) + "】批次计划数量合计 " + sum
-                                    + " 不等于工序计划数量 " + plan.getPlanQty()));
-                }
             }
             for (int i = 0; i < list.size(); i++) {
                 for (int j = i + 1; j < list.size(); j++) {
