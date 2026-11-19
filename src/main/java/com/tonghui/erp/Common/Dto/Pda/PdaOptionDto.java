@@ -17,6 +17,9 @@ public class PdaOptionDto {
     /** 编号/编码 */
     private String code;
 
+    /** 所属房间ID（设备选项使用） */
+    private Integer roomId;
+
     /** 附加信息（房间、型号等） */
     private String extra;
 

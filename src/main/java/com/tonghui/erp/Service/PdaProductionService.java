@@ -86,9 +86,10 @@ public interface PdaProductionService {
      * 启用设备选项
      *
      * @param keyword 名称/编号关键字
+     * @param roomId  配置室ID，传入时只返回该房间的设备
      * @return 设备选项
      */
-    List<PdaOptionDto> equipmentOptions(String keyword);
+    List<PdaOptionDto> equipmentOptions(String keyword, Integer roomId);
 
     /**
      * 在职人员选项

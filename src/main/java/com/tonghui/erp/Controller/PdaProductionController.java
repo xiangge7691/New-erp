@@ -205,16 +205,18 @@ public class PdaProductionController extends BaseController {
      * 启用设备选项
      *
      * 示例请求：
-     * GET /api/pda/production/equipment/options?keyword=F-301
+     * GET /api/pda/production/equipment/options?keyword=F-301&roomId=104
      *
      * @param keyword 名称/编号关键字
+     * @param roomId  配置室ID，传入时只返回该房间的设备
      * @return 设备选项
      */
     @GetMapping("/equipment/options")
     public ApiResponse<List<PdaOptionDto>> equipmentOptions(
-            @RequestParam(required = false) String keyword) {
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Integer roomId) {
         try {
-            return success(pdaProductionService.equipmentOptions(keyword));
+            return success(pdaProductionService.equipmentOptions(keyword, roomId));
         } catch (Exception ex) {
             return exception(ex, "查询PDA设备选项");
         }

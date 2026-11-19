@@ -15,6 +15,9 @@ public class PdaExecutionSaveRequest {
     /** 使用设备ID */
     private Integer equipmentId;
 
+    /** 配置室ID */
+    private Integer roomId;
+
     /** 开始时间 */
     private LocalDateTime startTime;
 
