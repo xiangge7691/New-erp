@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import lombok.Data;
 
 /**
@@ -119,6 +120,30 @@ public class ReturnOrderDetail {
      */
     @TableField(value = "unit")
     private String unit;
+
+    /**
+     * 退库应扫标签码快照
+     */
+    @TableField(value = "expected_label_code")
+    private String expectedLabelCode;
+
+    /**
+     * 扫码状态：待扫码/已扫
+     */
+    @TableField(value = "scan_status")
+    private String scanStatus;
+
+    /**
+     * 扫码人ID
+     */
+    @TableField(value = "scanned_by")
+    private Long scannedBy;
+
+    /**
+     * 扫码时间
+     */
+    @TableField(value = "scanned_time")
+    private LocalDateTime scannedTime;
 
     // endregion
 

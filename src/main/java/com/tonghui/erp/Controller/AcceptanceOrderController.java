@@ -523,7 +523,7 @@ public class AcceptanceOrderController extends BaseController {
     }
 
     /**
-     * 整单入库：全部明细终结后一次性生成整单入库单（合格明细入库、写库存与流水）
+     * 整单入库：全部明细终结后生成整单入库单（PDA 两阶段：先生成入库单与标签，扫码确认后才写库存）
      * <p>可点击条件：所有明细均终结（待入库/待退货/已退货/已重发/已入库/已取消）且至少一条「待入库」；
      * 每条待入库明细可独立指定仓库，未指定回退验收单级仓库</p>
      *
@@ -544,7 +544,7 @@ public class AcceptanceOrderController extends BaseController {
         try {
             List<AcceptanceInboundRequest.Item> items = request != null ? request.getItems() : null;
             StockInWithNamesDto stockIn = acceptanceOrderService.inbound(id, items);
-            return success(stockIn, "整单入库完成，库存已更新");
+            return success(stockIn, "入库单已生成，请打印入库标签并逐条扫码确认");
         } catch (Exception ex) {
             return exception(ex, "整单入库");
         }

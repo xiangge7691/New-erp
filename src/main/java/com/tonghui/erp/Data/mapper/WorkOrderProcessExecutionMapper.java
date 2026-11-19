@@ -108,4 +108,33 @@ public interface WorkOrderProcessExecutionMapper extends BaseMapper<WorkOrderPro
                                                           @Param("minStart") LocalDateTime minStart,
                                                           @Param("maxEnd") LocalDateTime maxEnd,
                                                           @Param("excludeIds") Collection<Long> excludeIds);
+
+    /**
+     * 查询某设备下的全部工序执行记录（含工序、工单显示字段）
+     * <p>用于 PDA 设备占用与时段重叠校验。</p>
+     *
+     * @param equipmentId 设备ID
+     * @return 工序执行记录列表
+     */
+    @Select("SELECT e.*, pt.process_name AS process_type_name,"
+            + " w.work_order_code AS work_order_code, w.preparation_name AS preparation_name"
+            + " FROM work_order_process_execution e"
+            + " LEFT JOIN process_type pt ON pt.process_id = e.process_type_id"
+            + " LEFT JOIN work_order w ON w.work_order_id = e.work_order_id"
+            + " WHERE e.equipment_id = #{equipmentId} AND e.is_deleted = 0")
+    List<WorkOrderProcessExecution> selectByEquipmentIdWithDetails(@Param("equipmentId") Integer equipmentId);
+
+    /**
+     * 查询全部正在执行的工序（开始时间不为空、结束时间为空）
+     * <p>用于 PDA 设备占用提示。</p>
+     *
+     * @return 正在执行的工序执行记录
+     */
+    @Select("SELECT e.*, pt.process_name AS process_type_name,"
+            + " w.work_order_code AS work_order_code, w.preparation_name AS preparation_name"
+            + " FROM work_order_process_execution e"
+            + " LEFT JOIN process_type pt ON pt.process_id = e.process_type_id"
+            + " LEFT JOIN work_order w ON w.work_order_id = e.work_order_id"
+            + " WHERE e.start_time IS NOT NULL AND e.end_time IS NULL AND e.is_deleted = 0")
+    List<WorkOrderProcessExecution> selectOpenExecutionsWithDetails();
 }

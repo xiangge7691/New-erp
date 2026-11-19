@@ -80,6 +80,9 @@ public final class BizFileKinds {
     /** 工序附件 */
     public static final String PROCESS_ATTACHMENT = "PROCESS_ATTACHMENT";
 
+    /** 工序现场照片（最多9张） */
+    public static final String PROCESS_PHOTO = "PROCESS_PHOTO";
+
     /** 工艺规程 */
     public static final String PROCESS_SPEC = "PROCESS_SPEC";
 

@@ -149,6 +149,48 @@ public class WorkOrderProcessExecution extends AuditEntity {
     private LocalDateTime completedTime;
 
     /**
+     * PDA是否已提交：0否/1是
+     */
+    @TableField(value = "pda_submitted")
+    private Integer pdaSubmitted;
+
+    /**
+     * PDA提交人ID
+     */
+    @TableField(value = "pda_submit_by")
+    private Long pdaSubmitBy;
+
+    /**
+     * PDA提交时间
+     */
+    @TableField(value = "pda_submit_time")
+    private LocalDateTime pdaSubmitTime;
+
+    /**
+     * PDA设备编号
+     */
+    @TableField(value = "pda_device_no")
+    private String pdaDeviceNo;
+
+    /**
+     * 是否手填时间：0否/1是
+     */
+    @TableField(value = "manual_time")
+    private Integer manualTime;
+
+    /**
+     * 手填时间原因
+     */
+    @TableField(value = "manual_reason")
+    private String manualReason;
+
+    /**
+     * 客户端幂等ID
+     */
+    @TableField(value = "client_request_id")
+    private String clientRequestId;
+
+    /**
      * 备注
      */
     @TableField(value = "remark")

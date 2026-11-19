@@ -33,6 +33,7 @@ import com.tonghui.erp.Data.mapper.UserMapper;
 import com.tonghui.erp.Service.AcceptanceOrderService;
 import com.tonghui.erp.Service.MaterialRequisitionSlipService;
 import com.tonghui.erp.Service.StockService;
+import com.tonghui.erp.Service.StockLabelService;
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -104,6 +105,9 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
     /** 入库单明细数据访问层，验收入库时生成入库明细 */
     private final StockInDetailMapper stockInDetailMapper;
 
+    /** 入库标签服务 */
+    private final StockLabelService stockLabelService;
+
     /** 采购订单数据访问层，验收合格入库后回写采购订单状态 */
     private final PurchaseOrdersMapper purchaseOrdersMapper;
 
@@ -152,6 +156,7 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
                                       StockService stockService,
                                       StockInMapper stockInMapper,
                                       StockInDetailMapper stockInDetailMapper,
+                                      StockLabelService stockLabelService,
                                       PurchaseOrdersMapper purchaseOrdersMapper,
                                       PurchaseOrderItemsMapper purchaseOrderItemsMapper,
                                       MaterialMapper materialMapper,
@@ -164,6 +169,7 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         this.stockService = stockService;
         this.stockInMapper = stockInMapper;
         this.stockInDetailMapper = stockInDetailMapper;
+        this.stockLabelService = stockLabelService;
         this.purchaseOrdersMapper = purchaseOrdersMapper;
         this.purchaseOrderItemsMapper = purchaseOrderItemsMapper;
         this.materialMapper = materialMapper;
@@ -1166,8 +1172,10 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         // 关联生产计划标题：按生产计划编号反查计划名称，无匹配时置空
         stockIn.setPlanTitle(resolvePlanTitle(stockIn.getPlanNumber()));
         stockIn.setInDate(LocalDateTime.now());
-        stockIn.setInStatus("已入库");
-        stockIn.setRemark("货物验收合格自动入库: " + acceptance.getAcceptanceCode());
+        // PDA 两阶段：验收完成先进入待打印入库码，标签打印并逐条扫码后才确认入库
+        stockIn.setInStatus("草稿");
+        stockIn.setScanStatus("待打印");
+        stockIn.setRemark("货物验收合格，待打印标签后扫码入库: " + acceptance.getAcceptanceCode());
         stockInMapper.insert(stockIn);
 
         // 构造并保存入库明细（库存状态默认合格）
@@ -1219,8 +1227,8 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         stockIn.setTotalAmount(totalAmount);
         stockInMapper.updateById(stockIn);
 
-        // 调用公共库存服务：增加库存并写流水
-        stockService.applyInbound(stockIn, stockInDetails);
+        // 生成每条入库明细的唯一标签码
+        stockLabelService.ensureLabels(stockIn.getInId());
 
         return stockIn;
     }

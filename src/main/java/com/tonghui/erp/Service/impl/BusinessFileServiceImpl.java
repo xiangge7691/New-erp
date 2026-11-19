@@ -2,6 +2,7 @@ package com.tonghui.erp.Service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.tonghui.erp.Common.Constants.BizFileKinds;
 import com.tonghui.erp.Common.Constants.BizFileType;
 import com.tonghui.erp.Common.Dto.BusinessFile.BizFileTypeDto;
 import com.tonghui.erp.Common.Dto.BusinessFile.BusinessFileDto;
@@ -77,6 +78,7 @@ public class BusinessFileServiceImpl extends ServiceImpl<BusinessFileMapper, Bus
         String kind = type.normalizeKind(fileKind);
         long ref = refId == null ? 0L : refId;
         validateParent(type, bizId, ref);
+        validateKindFile(file, type, kind);
 
         // 槽位数量校验
         long exists = count(new LambdaQueryWrapper<BusinessFile>()
@@ -459,6 +461,27 @@ public class BusinessFileServiceImpl extends ServiceImpl<BusinessFileMapper, Bus
      * @param code 业务类型编码
      * @return 业务类型
      */
+    /**
+     * 按业务槽位校验文件类型与大小
+     * <p>工序现场照片：JPG/PNG，单张不超过 10MB。</p>
+     */
+    private void validateKindFile(MultipartFile file, BizFileType type, String kind) {
+        if (type == BizFileType.WORK_ORDER_PROCESS_EXECUTION
+                && BizFileKinds.PROCESS_PHOTO.equals(kind)) {
+            if (file == null || file.isEmpty()) {
+                throw new IllegalArgumentException("上传文件不能为空");
+            }
+            if (file.getSize() > 10L * 1024 * 1024) {
+                throw new IllegalArgumentException("工序照片单张不能超过 10MB");
+            }
+            String contentType = file.getContentType();
+            if (!"image/jpeg".equalsIgnoreCase(contentType)
+                    && !"image/png".equalsIgnoreCase(contentType)) {
+                throw new IllegalArgumentException("工序照片仅支持 JPG / PNG");
+            }
+        }
+    }
+
     private BizFileType resolveType(String code) {
         BizFileType type = StringUtils.hasText(code) ? BizFileType.resolve(code) : null;
         if (type == null) {

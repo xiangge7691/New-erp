@@ -126,6 +126,30 @@ public class StockOut extends AuditEntity {
     @TableField(value = "approval_instance_id")
     private Long approvalInstanceId;
 
+    /**
+     * PDA扫码状态：待扫码/已出库
+     */
+    @TableField(value = "scan_status")
+    private String scanStatus;
+
+    /**
+     * PDA确认人ID
+     */
+    @TableField(value = "confirm_by")
+    private Long confirmBy;
+
+    /**
+     * PDA确认时间
+     */
+    @TableField(value = "confirm_time")
+    private LocalDateTime confirmTime;
+
+    /**
+     * PDA确认设备编号
+     */
+    @TableField(value = "confirm_device_no")
+    private String confirmDeviceNo;
+
     // endregion
 
     // region 状态与审计字段

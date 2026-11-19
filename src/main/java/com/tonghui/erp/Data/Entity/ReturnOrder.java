@@ -130,6 +130,30 @@ public class ReturnOrder extends AuditEntity {
     @TableField(value = "return_time")
     private LocalDateTime returnTime;
 
+    /**
+     * PDA扫码状态：待扫码/已确认
+     */
+    @TableField(value = "scan_status")
+    private String scanStatus;
+
+    /**
+     * PDA确认人ID
+     */
+    @TableField(value = "confirm_by")
+    private Long confirmBy;
+
+    /**
+     * PDA确认时间
+     */
+    @TableField(value = "confirm_time")
+    private LocalDateTime confirmTime;
+
+    /**
+     * PDA确认设备编号
+     */
+    @TableField(value = "confirm_device_no")
+    private String confirmDeviceNo;
+
     // endregion
 
     // region 操作人与状态字段

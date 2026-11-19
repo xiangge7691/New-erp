@@ -137,7 +137,8 @@ public enum BizFileType {
 
     /** 工单工序执行行 */
     WORK_ORDER_PROCESS_EXECUTION("WORK_ORDER_PROCESS_EXECUTION", "work_order_process_execution", "id",
-            "工单工序", "生产管理/工序附件", kinds(BizFileKinds.PROCESS_ATTACHMENT, 1)),
+            "工单工序", "生产管理/工序附件",
+            kinds(BizFileKinds.PROCESS_ATTACHMENT, 1, BizFileKinds.PROCESS_PHOTO, 9)),
 
     /** 生产单位 */
     PRODUCTION_UNIT("PRODUCTION_UNIT", "production_unit", "prod_unit_id", "生产单位", "生产管理/生产单位",
