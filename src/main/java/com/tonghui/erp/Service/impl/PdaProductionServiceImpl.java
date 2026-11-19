@@ -87,7 +87,7 @@ public class PdaProductionServiceImpl implements PdaProductionService {
 
     @Override
     public List<PdaTaskDto> listTasks(String status, Long personId, Long processTypeId,
-                                      String workshop, String keyword) {
+                                      String workshop, String keyword, boolean todoOnly) {
         LambdaQueryWrapper<WorkOrder> wrapper = new LambdaQueryWrapper<WorkOrder>()
                 .eq(WorkOrder::getIsDeleted, 0)
                 .notIn(WorkOrder::getCurrentStatus, "已作废", "已归档");
@@ -124,6 +124,12 @@ public class PdaProductionServiceImpl implements PdaProductionService {
                     .noneMatch(p -> processTypeId.equals(p.getProcessTypeId()))) {
                 continue;
             }
+            // PDA 待办模式：隐藏已全部完成的工单（明确查看“已完成”时除外）
+            if (todoOnly && !"已完成".equals(status)
+                    && dto.getProcessCount() != null && dto.getDoneCount() != null
+                    && dto.getDoneCount() >= dto.getProcessCount()) {
+                continue;
+            }
             result.add(dto);
         }
         return result;
@@ -156,7 +162,8 @@ public class PdaProductionServiceImpl implements PdaProductionService {
         dto.setBatchQty(order.getBatchQty());
         dto.setPlanStartTime(order.getPlanStartTime());
         dto.setProcessCount(executions.size());
-        dto.setSubmittedCount((int) executions.stream().filter(this::isSubmitted).count());
+        dto.setDoneCount((int) executions.stream().filter(this::isDone).count());
+        dto.setSubmittedCount((int) executions.stream().filter(this::isPdaSubmitted).count());
         dto.setProcesses(executions.stream().map(this::toProcessDto).collect(Collectors.toList()));
         dto.setStatus(resolveTaskStatus(executions));
         return dto;
@@ -166,18 +173,44 @@ public class PdaProductionServiceImpl implements PdaProductionService {
         if (CollectionUtils.isEmpty(executions)) {
             return "未开始";
         }
-        boolean allSubmitted = executions.stream().allMatch(this::isSubmitted);
-        if (allSubmitted) {
+        boolean allDone = executions.stream().allMatch(this::isDone);
+        if (allDone) {
             return "已完成";
         }
         boolean anyStarted = executions.stream()
-                .anyMatch(e -> e.getStartTime() != null || isSubmitted(e));
+                .anyMatch(e -> e.getStartTime() != null || isDone(e));
         return anyStarted ? "进行中" : "未开始";
     }
 
-    private boolean isSubmitted(WorkOrderProcessExecution execution) {
-        return Integer.valueOf(1).equals(execution.getPdaSubmitted())
-                || Integer.valueOf(1).equals(execution.getLocked());
+    /**
+     * 是否已通过 PDA 提交
+     */
+    private boolean isPdaSubmitted(WorkOrderProcessExecution execution) {
+        return Integer.valueOf(1).equals(execution.getPdaSubmitted());
+    }
+
+    /**
+     * 工序是否由 PC 端填写完整起止时间（PDA 尚未提交、未完工锁定）
+     * <p>
+     * PC 批量保存不会写入 PDA 设备号，而 PDA 的开始、结束、暂存都会写入设备号，
+     * 以此区分 PC 填写与 PDA 暂存，避免把 PDA 暂存误判为已完成。
+     * </p>
+     */
+    private boolean isPcFilled(WorkOrderProcessExecution execution) {
+        return !isPdaSubmitted(execution)
+                && !Integer.valueOf(1).equals(execution.getLocked())
+                && execution.getStartTime() != null
+                && execution.getEndTime() != null
+                && !StringUtils.hasText(execution.getPdaDeviceNo());
+    }
+
+    /**
+     * 工序是否已完成（PDA提交、PC填写完整起止时间或已完工锁定）
+     */
+    private boolean isDone(WorkOrderProcessExecution execution) {
+        return isPdaSubmitted(execution)
+                || Integer.valueOf(1).equals(execution.getLocked())
+                || isPcFilled(execution);
     }
 
     private PdaProcessDto toProcessDto(WorkOrderProcessExecution execution) {
@@ -200,13 +233,18 @@ public class PdaProductionServiceImpl implements PdaProductionService {
         dto.setActualEndTime(execution.getEndTime());
         dto.setActualEquipmentName(execution.getEquipmentName());
         dto.setActualQty(execution.getProcessQty());
-        dto.setSubmitted(isSubmitted(execution));
-        dto.setLocked(Integer.valueOf(1).equals(execution.getLocked()));
+        boolean pdaSubmitted = isPdaSubmitted(execution);
+        boolean locked = Integer.valueOf(1).equals(execution.getLocked());
+        boolean done = isDone(execution);
+        dto.setSubmitted(pdaSubmitted);
+        dto.setLocked(locked);
+        dto.setDone(done);
+        dto.setPcFilled(isPcFilled(execution));
         dto.setManualTime(Integer.valueOf(1).equals(execution.getManualTime()));
         dto.setManualReason(execution.getManualReason());
         dto.setRemark(execution.getRemark());
-        if (isSubmitted(execution)) {
-            dto.setStatus("已提交");
+        if (done) {
+            dto.setStatus("已完成");
         } else if (execution.getStartTime() != null) {
             dto.setStatus("进行中");
         } else {
@@ -411,6 +449,9 @@ public class PdaProductionServiceImpl implements PdaProductionService {
         execution.setEndTime(null);
         execution.setManualTime(0);
         execution.setManualReason(null);
+        if (StringUtils.hasText(request.getDeviceNo())) {
+            execution.setPdaDeviceNo(request.getDeviceNo());
+        }
         execution.setStatus("执行中");
         setOperator(execution);
         executionService.updateById(execution);
@@ -435,6 +476,9 @@ public class PdaProductionServiceImpl implements PdaProductionService {
         assertEquipmentFree(execution, equipment, execution.getStartTime(), now);
         execution.setEndTime(now);
         execution.setStatus("已完成");
+        if (StringUtils.hasText(request.getDeviceNo())) {
+            execution.setPdaDeviceNo(request.getDeviceNo());
+        }
         setOperator(execution);
         executionService.updateById(execution);
         return loadProcess(execution);
@@ -446,6 +490,9 @@ public class PdaProductionServiceImpl implements PdaProductionService {
         WorkOrderProcessExecution execution = requireEditable(executionId);
         validateCommon(execution, request, false);
         applyFields(execution, request);
+        if (StringUtils.hasText(request.getDeviceNo())) {
+            execution.setPdaDeviceNo(request.getDeviceNo());
+        }
         executionService.updateById(execution);
         saveParticipants(execution, request.getParticipants(), false);
         return loadProcess(execution);
@@ -491,8 +538,8 @@ public class PdaProductionServiceImpl implements PdaProductionService {
         if (execution == null) {
             throw new IllegalArgumentException("工序执行记录不存在");
         }
-        if (isSubmitted(execution)) {
-            throw new IllegalArgumentException("该工序已提交，PDA 端不可修改");
+        if (isDone(execution)) {
+            throw new IllegalArgumentException("该工序已在 PC 填写完成或已提交，PDA 端不可修改");
         }
         return execution;
     }

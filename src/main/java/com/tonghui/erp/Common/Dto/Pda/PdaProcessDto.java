@@ -63,11 +63,17 @@ public class PdaProcessDto {
     /** 实际数量 */
     private BigDecimal actualQty;
 
-    /** 工序状态：待执行/执行中/已完成 */
+    /** 工序状态：未开始/进行中/已完成 */
     private String status;
+
+    /** 是否已完成（PDA提交、PC填写完整起止时间或已完工锁定） */
+    private Boolean done;
 
     /** 是否已在PDA提交 */
     private Boolean submitted;
+
+    /** 是否由PC端填写完整起止时间（未走PDA提交、未完工锁定） */
+    private Boolean pcFilled;
 
     /** 是否已完工锁定 */
     private Boolean locked;

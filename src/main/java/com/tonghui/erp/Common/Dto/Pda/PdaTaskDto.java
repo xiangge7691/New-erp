@@ -42,7 +42,10 @@ public class PdaTaskDto {
     /** 工序总数 */
     private Integer processCount;
 
-    /** 已提交工序数 */
+    /** 已完成工序数（含PC填写完整起止时间、PDA提交、完工锁定） */
+    private Integer doneCount;
+
+    /** 已通过PDA提交的工序数 */
     private Integer submittedCount;
 
     /** 工序行 */

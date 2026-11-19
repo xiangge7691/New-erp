@@ -22,10 +22,11 @@ public interface PdaProductionService {
      * @param processTypeId 工序类型ID
      * @param workshop      车间（当前工单无车间字段，预留）
      * @param keyword       制剂名称/批号/工单号关键字
+     * @param todoOnly      true 时隐藏已全部完成的工单（查看“已完成”状态时除外）
      * @return 任务列表
      */
     List<PdaTaskDto> listTasks(String status, Long personId, Long processTypeId,
-                               String workshop, String keyword);
+                               String workshop, String keyword, boolean todoOnly);
 
     /**
      * 查询单个 PDA 任务

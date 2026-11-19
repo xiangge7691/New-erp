@@ -46,6 +46,7 @@ public class PdaProductionController extends BaseController {
      * @param processTypeId 工序类型ID
      * @param workshop      车间（预留）
      * @param keyword       制剂名称/批号/工单号
+     * @param todoOnly      true 时只返回仍有待办工序的工单（查看“已完成”时除外）
      * @return 任务列表
      */
     @GetMapping("/tasks")
@@ -54,9 +55,11 @@ public class PdaProductionController extends BaseController {
             @RequestParam(required = false) Long personId,
             @RequestParam(required = false) Long processTypeId,
             @RequestParam(required = false) String workshop,
-            @RequestParam(required = false) String keyword) {
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Boolean todoOnly) {
         try {
-            return success(pdaProductionService.listTasks(status, personId, processTypeId, workshop, keyword));
+            return success(pdaProductionService.listTasks(status, personId, processTypeId, workshop,
+                    keyword, Boolean.TRUE.equals(todoOnly)));
         } catch (Exception ex) {
             return exception(ex, "查询PDA生产任务");
         }
