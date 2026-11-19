@@ -22,7 +22,7 @@ import java.util.List;
  * 工单排产控制器
  * <p>
  * 提供任务列表、工序排产详情、自动顺排、草稿保存、正式保存、拆批次、冲突检查与甘特图查询。
- * 正式保存时存在冲突会被拒绝，草稿允许保留冲突。
+ * 保存（草稿或正式）时存在冲突会被拒绝并且不落库，冲突明细随响应返回。
  * </p>
  */
 @RestController
@@ -141,7 +141,7 @@ public class WorkOrderScheduleController extends BaseController {
     // ===================================
 
     /**
-     * 按模板标准工时自动顺排（保存为草稿）
+     * 按模板标准工时自动顺排（保存为草稿；存在冲突时不保存并返回错误）
      *
      * 示例请求：
      * POST /api/scheduling/tasks/470/auto-plan
@@ -161,7 +161,7 @@ public class WorkOrderScheduleController extends BaseController {
     }
 
     /**
-     * 保存排产草稿（允许存在冲突）
+     * 保存排产草稿（存在冲突时不保存，返回冲突明细）
      *
      * 示例请求：
      * PUT /api/scheduling/tasks/470/plan
@@ -186,7 +186,7 @@ public class WorkOrderScheduleController extends BaseController {
      *
      * @param workOrderId 工单ID
      * @param request     排产请求
-     * @return 保存结果（含冲突）
+     * @return 保存结果；存在冲突时 code=400，data.conflicts 返回冲突明细且不落库
      */
     @OperationLog(module = "工序排产", type = OperationType.UPDATE, desc = "保存排产草稿",
             businessType = "WORK_ORDER_SCHEDULE", businessId = "#workOrderId")
@@ -195,7 +195,15 @@ public class WorkOrderScheduleController extends BaseController {
                                                      @RequestBody ScheduleSaveRequest request) {
         try {
             request.setWorkOrderId(workOrderId);
-            return success(scheduleService.save(workOrderId, request, false), "草稿已保存");
+            ScheduleSaveResult result = scheduleService.save(workOrderId, request, false);
+            if (!result.isSaved()) {
+                ApiResponse<ScheduleSaveResult> response = new ApiResponse<>();
+                response.setCode(ApiResponse.BAD_REQUEST);
+                response.setMessage("存在 " + result.getConflicts().size() + " 项冲突，排产未保存");
+                response.setData(result);
+                return response;
+            }
+            return success(result, "草稿已保存");
         } catch (Exception ex) {
             return exception(ex, "保存排产草稿");
         }

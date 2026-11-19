@@ -51,11 +51,11 @@
 |---|---|---|
 | GET | `/api/scheduling/tasks?keyword=&status=&configFrom=&configTo=` | 生产任务列表（含生产状态、生产用时、已排产工序数） |
 | GET | `/api/scheduling/tasks/{workOrderId}` | 任务详情：工单信息 + 工序计划 + 批次 + 实际 + 冲突 |
-| POST | `/api/scheduling/tasks/{workOrderId}/auto-plan` | 按模板标准工时自动顺排（存草稿） |
-| PUT | `/api/scheduling/tasks/{workOrderId}/plan` | 保存草稿（允许冲突） |
-| POST | `/api/scheduling/tasks/{workOrderId}/plan/save` | 正式保存；有冲突返回 `saved=false` + `conflicts` |
+| POST | `/api/scheduling/tasks/{workOrderId}/auto-plan` | 按模板标准工时自动顺排（存草稿；有冲突则不保存并返回错误） |
+| PUT | `/api/scheduling/tasks/{workOrderId}/plan` | 保存草稿；有冲突时返回 code=400 + `data.conflicts`，**不落库** |
+| POST | `/api/scheduling/tasks/{workOrderId}/plan/save` | 正式保存；有冲突时返回 code=400 + `saved=false` + `conflicts`，**不落库** |
 | POST | `/api/scheduling/tasks/{workOrderId}/conflicts/check` | 当前任务冲突检查 |
-| POST | `/api/scheduling/plans/{planId}/split` | 拆分工序为多个批次 |
+| POST | `/api/scheduling/plans/{planId}/split` | 拆分工序为多个批次；有冲突时返回 400 + `conflicts`，**不落库** |
 | GET | `/api/scheduling/gantt?view=task|equipment|room&from=&to=` | 甘特图数据（含草稿、制剂名、计划号、批次名）；`from/to` 支持 `yyyy-MM-dd HH:mm:ss` 或 ISO `yyyy-MM-ddTHH:mm:ss` |
 
 **列表查询参数**

@@ -2,6 +2,7 @@ package com.tonghui.erp.Service;
 
 import com.tonghui.erp.Common.Dto.Scheduling.PlanBatchDto;
 import com.tonghui.erp.Common.Dto.Scheduling.ProcessPlanSaveDto;
+import com.tonghui.erp.Common.Dto.Scheduling.ScheduleConflictDto;
 import com.tonghui.erp.Common.Dto.Scheduling.ScheduleSaveRequest;
 import com.tonghui.erp.Data.Entity.Equipment;
 import com.tonghui.erp.Data.Entity.ProcessType;
@@ -274,6 +275,48 @@ class WorkOrderSchedulePartialSaveTest {
         org.junit.jupiter.api.Assertions.assertTrue(result.isSaved());
         // 合计 6702 与计划数量 7001 不等也应允许保存
         verify(batchMapper, org.mockito.Mockito.times(2)).insert(any());
+    }
+
+    /**
+     * 存在冲突时保存直接返回冲突明细，不写入数据库
+     */
+    @Test
+    void shouldReturnConflictsAndNotPersistWhenConflictExists() {
+        WorkOrder order = new WorkOrder();
+        order.setWorkOrderId(470L);
+        order.setWorkOrderCode("GD202611110001");
+        order.setBatchQty(new BigDecimal("7001"));
+        when(workOrderMapper.selectById(470L)).thenReturn(order);
+        when(planMapper.selectList(any())).thenReturn(List.of());
+        when(planMapper.selectByWorkOrderIdWithDetails(470L)).thenReturn(List.of());
+
+        ScheduleConflictDto conflict = new ScheduleConflictDto();
+        conflict.setType("设备占用");
+        conflict.setPlanId(27L);
+        conflict.setMessage("设备【灭菌柜】与其他工单重叠");
+        when(conflictService.check(any(), any(), any(), any())).thenReturn(List.of(conflict));
+
+        ProcessPlanSaveDto dto = new ProcessPlanSaveDto();
+        dto.setPlanId(27L);
+        dto.setProcessTypeId(88L);
+        dto.setStepOrder(3);
+        dto.setPlanQty(new BigDecimal("7001"));
+        dto.setPlanStartTime(LocalDateTime.of(2026, 11, 20, 1, 0));
+        dto.setPlanEndTime(LocalDateTime.of(2026, 11, 20, 2, 0));
+        dto.setRoomId(108);
+        dto.setEquipmentId(219);
+        ScheduleSaveRequest request = new ScheduleSaveRequest();
+        request.setWorkOrderId(470L);
+        request.setProcesses(List.of(dto));
+
+        var result = scheduleService.save(470L, request, false);
+
+        org.junit.jupiter.api.Assertions.assertFalse(result.isSaved());
+        org.junit.jupiter.api.Assertions.assertEquals(1, result.getConflicts().size());
+        verify(planMapper, never()).insert(any());
+        verify(planMapper, never()).updateById(any());
+        verify(batchMapper, never()).insert(any());
+        verify(participantMapper, never()).insert(any());
     }
 
     // endregion

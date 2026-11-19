@@ -573,7 +573,11 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
         ScheduleSaveRequest request = new ScheduleSaveRequest();
         request.setWorkOrderId(workOrderId);
         request.setProcesses(processDtos);
-        save(workOrderId, request, false);
+        ScheduleSaveResult result = save(workOrderId, request, false);
+        if (!result.isSaved()) {
+            throw new IllegalArgumentException("存在 " + result.getConflicts().size()
+                    + " 项冲突，自动顺排未保存，请先消除冲突");
+        }
         return getDetail(workOrderId);
     }
 
@@ -674,7 +678,8 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
         }
         List<ScheduleConflictDto> conflicts = conflictService.check(workOrderId, plans, allBatches,
                 participantMap.values().stream().flatMap(List::stream).toList());
-        if (formal && !conflicts.isEmpty()) {
+        // 存在冲突时不落库：直接把冲突明细返回给前端，由前端调整后重新保存
+        if (!conflicts.isEmpty()) {
             ScheduleSaveResult result = new ScheduleSaveResult();
             result.setSaved(false);
             result.setConflicts(conflicts);
