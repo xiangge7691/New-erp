@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>仓储扫码 · PDA 端原型</title>
+<title>ERP 移动作业 · PDA 端原型</title>
 <style>
 :root{
   --primary:#2f6fed; --primary-weak:#eaf1ff; --primary-dark:#1f5bd7;
@@ -236,6 +236,11 @@ button{cursor:pointer}
 .code-card b{display:block;font-size:13px}
 .code-card .sub{font-size:11px;margin-top:2px}
 .code-card .btn{margin-left:auto}
+.reprint-main{flex:1;min-width:0}
+.reprint-filters{display:flex;gap:8px;margin-bottom:12px}
+.reprint-filters select{flex:1;min-width:0;height:40px;border:1px solid var(--line);border-radius:11px;background:#fff;padding:0 10px;font-size:12.5px;outline:none}
+.reprint-filters select:focus{border-color:#9db8f5;box-shadow:0 0 0 4px rgba(47,111,237,.10)}
+.code-card .btn:disabled{opacity:.55}
 .record{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px 14px;box-shadow:var(--shadow);margin-bottom:9px}
 .record .top{display:flex;justify-content:space-between;align-items:center}
 .record b{font-size:13px}
@@ -250,6 +255,80 @@ button{cursor:pointer}
 .list-row:last-child{border-bottom:0}
 .list-row .ico{width:32px;height:32px;border-radius:9px;background:#f2f4f7;display:grid;place-items:center;color:var(--muted)}
 .list-row .arrow{margin-left:auto;color:var(--soft)}
+
+/* ---------- 生产工序执行 ---------- */
+.exec-hero{
+  background:linear-gradient(135deg,#1f4fbf,#2f6fed 55%,#5b8cf7);border-radius:18px;padding:17px 18px;
+  color:#fff;box-shadow:0 12px 26px rgba(31,79,191,.28);margin-bottom:14px;position:relative;overflow:hidden;
+}
+.exec-hero::after{content:"";position:absolute;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,.10);right:-50px;top:-60px}
+.exec-hero .k{font-size:11px;opacity:.82}
+.exec-hero .v{font-size:21px;font-weight:800;letter-spacing:-.4px;margin-top:3px}
+.exec-hero .row{display:flex;gap:22px;margin-top:13px;font-size:11px;opacity:.9}
+.exec-hero .row b{display:block;font-size:17px;opacity:1;font-weight:750;margin-bottom:1px}
+.search-row{display:flex;gap:8px;margin:6px 0 12px}
+.search-row input{flex:1;min-width:0;height:40px;border:1px solid var(--line);border-radius:11px;padding:0 12px;background:#fff;font-size:13px;outline:none}
+.search-row input:focus{border-color:#9db8f5;box-shadow:0 0 0 4px rgba(47,111,237,.10)}
+.search-row .btn{height:40px;flex:none;border-radius:11px}
+.exec-task{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden}
+.exec-task-head{display:flex;gap:10px;justify-content:space-between;padding:13px 14px;background:#fbfcfe;border-bottom:1px solid var(--line2)}
+.exec-task-name{font-size:15px;font-weight:750}
+.exec-task-head .sub{font-size:11px;margin-top:3px;line-height:1.55}
+.exec-task-right{text-align:right;flex:none}
+.exec-task-right .sub{margin-top:6px;font-size:10.5px}
+.exec-proc-row{display:flex;gap:9px;align-items:center;padding:11px 14px;border-bottom:1px solid var(--line2);cursor:pointer}
+.exec-proc-row:last-child{border-bottom:0}
+.exec-proc-row:active{background:#f7faff}
+.exec-seq{width:24px;height:24px;border-radius:7px;background:#f2f4f7;color:var(--muted);font-size:11px;font-weight:700;display:grid;place-items:center;flex:none}
+.exec-proc-main{flex:1;min-width:0}
+.exec-proc-title{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.exec-proc-title b{font-size:13px}
+.exec-proc-main .sub{font-size:10.5px;margin-top:2px;line-height:1.5}
+.exec-proc-main .sub b{color:var(--text);font-weight:600}
+.exec-arrow{color:var(--soft);font-size:18px;flex:none}
+.exec-empty{padding:34px 14px;text-align:center;color:var(--soft);font-size:12px}
+.punch-card{background:#fff;border:1px solid var(--line);border-radius:15px;padding:14px;box-shadow:var(--shadow);margin-bottom:12px}
+.punch-row{display:flex;gap:10px}
+.punch-row .btn{flex:1;height:52px;font-size:15px}
+.punch-now{display:flex;justify-content:space-between;gap:10px;font-size:11px;color:var(--soft);margin-top:10px}
+.punch-now b{color:var(--text)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.chip{display:inline-flex;align-items:center;height:23px;padding:0 8px;border-radius:7px;background:#f2f4f7;color:#475467;font-size:11px;margin:2px 4px 2px 0;cursor:pointer;user-select:none}
+.chip.sel{background:var(--primary-weak);color:var(--primary);font-weight:600}
+.form-card{background:#fff;border:1px solid var(--line);border-radius:15px;padding:15px;box-shadow:var(--shadow);margin-bottom:12px}
+.form-card h4{margin:0 0 12px;font-size:14px}
+.form-row{margin-bottom:12px}
+.form-row:last-child{margin-bottom:0}
+.form-row label{display:block;font-size:11.5px;color:var(--muted);margin-bottom:5px}
+.form-row .hint{font-size:10.5px;color:var(--soft);margin-top:5px;line-height:1.5}
+.form-row input,.form-row select,.form-row textarea{width:100%;height:44px;border:1px solid var(--line);border-radius:11px;background:#fff;padding:0 12px;font-size:14px;outline:none}
+.form-row textarea{height:70px;padding:9px 12px;font:inherit;font-size:13px;resize:none}
+.form-row input:focus,.form-row select:focus,.form-row textarea:focus{border-color:#9db8f5;box-shadow:0 0 0 4px rgba(47,111,237,.10)}
+.form-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.people-box{display:flex;flex-wrap:wrap;margin-top:2px}
+.person-qty{display:flex;flex-direction:column;gap:7px;margin-top:8px}
+.person-qty-row{display:flex;align-items:center;gap:8px;background:#fafbfe;border:1px solid var(--line2);border-radius:10px;padding:7px 9px}
+.person-qty-row span{width:56px;font-size:12px;color:var(--muted);flex:none}
+.person-qty-row input{flex:1;height:36px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:0 9px;font-size:13px;outline:none}
+.person-qty-row input:focus{border-color:#9db8f5;box-shadow:0 0 0 3px rgba(47,111,237,.10)}
+.sum-line{font-size:11px;color:var(--muted);margin-top:7px;text-align:right}
+.sum-line b{font-weight:700}
+.sum-line b.ok{color:var(--green)}
+.sum-line b.bad{color:var(--red)}
+.photo-actions{display:flex;gap:8px;margin-top:2px}
+.photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px}
+.photo-item{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#f2f4f7}
+.photo-item img{width:100%;height:100%;object-fit:cover;display:block}
+.photo-item button{position:absolute;top:3px;right:3px;width:20px;height:20px;border:0;border-radius:50%;background:rgba(16,24,40,.65);color:#fff;font-size:12px;line-height:1;cursor:pointer}
+.photo-empty{grid-column:1/-1;padding:18px;text-align:center;font-size:11px;color:var(--soft);border:1px dashed var(--line);border-radius:10px}
+.readonly-note{background:#f7fcf9;border:1px solid #bfe3cd;border-radius:12px;padding:11px 13px;font-size:11.5px;color:#05603a;line-height:1.6;margin-bottom:12px}
+.readonly-note b{font-size:12.5px}
+.readonly-value{font-size:13px;padding:9px 0;border-bottom:1px dashed var(--line2);display:flex;justify-content:space-between;gap:10px}
+.readonly-value:last-child{border-bottom:0}
+.readonly-value span{color:var(--muted);font-size:11.5px;flex:none}
+.readonly-value b{font-weight:600;text-align:right}
+.filter-grid .form-row{margin-bottom:10px}
+.doc-summary .meta .full{grid-column:1/-1}
 
 .toast-root{position:absolute;left:0;right:0;bottom:86px;z-index:40;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
 #printArea{display:none}
@@ -290,7 +369,7 @@ button{cursor:pointer}
 const docs = {
   inbound: {
     id:'IN202611130001', type:'采购入库', source:'YS-20261113-001', warehouse:'原料仓库',
-    purpose:'疏肝养胃丸', packageCode:'pk2026111300001', status:'待打印入库码',
+    purpose:'疏肝养胃丸', status:'待打印入库码',
     lines:[
       {id:1, code:'Z046', name:'当归', batch:'260501', qty:14.71, unit:'千克', expiry:'2029-05-03', location:'A-01-02', inCode:'in2026111300001', scanned:false},
       {id:2, code:'Z125', name:'红花', batch:'260701', qty:14.71, unit:'千克', expiry:'2029-07-27', location:'A-02-01', inCode:'in2026111300002', scanned:false},
@@ -302,7 +381,7 @@ const docs = {
   },
   outbound: {
     id:'OUT202611130001', type:'生产领料出库', source:'SCLL-20261113-001', warehouse:'原料仓库',
-    purpose:'疏肝养胃丸', packageCode:'pk2026111300001', qtyLocked:true, status:'草稿',
+    purpose:'疏肝养胃丸', qtyLocked:true, status:'草稿',
     lines:[
       {id:1, code:'Z046', name:'当归', batch:'260501', qty:14.71, unit:'千克', inCode:'in2026111300001', scanned:false},
       {id:2, code:'Z125', name:'红花', batch:'260701', qty:14.71, unit:'千克', inCode:'in2026111300002', scanned:false},
@@ -314,7 +393,7 @@ const docs = {
   },
   blocked: {
     id:'OUT202611130003', type:'生产领料出库', source:'SCLL-20261113-009', warehouse:'原料仓库',
-    purpose:'疏肝养胃丸', packageCode:'pk2026111300003', qtyLocked:true, status:'草稿',
+    purpose:'疏肝养胃丸', qtyLocked:true, status:'草稿',
     lines:[
       {id:1, code:'Z077', name:'过期药材（演示）', batch:'241201', qty:5, unit:'千克', inCode:'in2026111300091', expiry:'2025-12-31', available:5, scanned:false},
       {id:2, code:'Z078', name:'库存不足药材（演示）', batch:'260101', qty:10, unit:'千克', inCode:'in2026111300092', expiry:'2029-01-01', available:6, scanned:false}
@@ -322,7 +401,7 @@ const docs = {
   },
   return: {
     id:'TK-20261113001', type:'退库', source:'OUT202611120006', warehouse:'原料仓库',
-    purpose:'疏肝养胃丸', packageCode:null, status:'草稿',
+    purpose:'疏肝养胃丸', status:'草稿',
     lines:[
       {id:1, code:'Z046', name:'当归', batch:'260501', qty:2.0, unit:'千克', inCode:'in2026111200011', scanned:false},
       {id:2, code:'Z125', name:'红花', batch:'260701', qty:1.5, unit:'千克', inCode:'in2026111200012', scanned:false}
@@ -330,11 +409,42 @@ const docs = {
   }
 };
 
+/* 可补打标签演示数据（跨单据、仓库与状态，便于演示筛选） */
+const reprintLabels = [
+  {code:'in2026111300001', name:'当归', materialCode:'Z046', batch:'260501', doc:'IN202611130001', warehouse:'原料仓库', date:'2026-11-13', status:'可补打'},
+  {code:'in2026111300002', name:'红花', materialCode:'Z125', batch:'260701', doc:'IN202611130001', warehouse:'原料仓库', date:'2026-11-13', status:'可补打'},
+  {code:'in2026111300003', name:'川芎', materialCode:'Z055', batch:'260601', doc:'IN202611130001', warehouse:'原料仓库', date:'2026-11-13', status:'可补打'},
+  {code:'in2026111300004', name:'桃仁', materialCode:'Z013', batch:'251101', doc:'IN202611130001', warehouse:'原料仓库', date:'2026-11-13', status:'可补打'},
+  {code:'in2026111300006', name:'全蝎', materialCode:'Z067', batch:'260401', doc:'IN202611130001', warehouse:'原料仓库', date:'2026-11-13', status:'已作废'},
+  {code:'in2026111200021', name:'蜂蜜（药用）', materialCode:'F030', batch:'260908-1', doc:'IN202611120008', warehouse:'辅料仓库', date:'2026-11-12', status:'可补打'},
+  {code:'in2026111200022', name:'郁金油', materialCode:'F0051', batch:'260801', doc:'IN202611120008', warehouse:'辅料仓库', date:'2026-11-12', status:'可补打'},
+  {code:'in2026111300007', name:'疏肝养胃丸', materialCode:'Z04-011', batch:'20261101', doc:'IN202611130002', warehouse:'成品仓库', date:'2026-11-13', status:'可补打'},
+  {code:'in2026111300101', name:'活血通络丸', materialCode:'Z04-012', batch:'20261102', doc:'IN202611130003', warehouse:'成品仓库', date:'2026-11-13', status:'已作废'}
+];
+
+/* 作业记录演示数据（跨类型、仓库与日期，便于演示筛选） */
+const workRecords = [
+  {id:'IN202611130001', kind:'入库', status:'已入库', statusCls:'green', warehouse:'原料仓库', date:'2026-11-13', time:'11:26', summary:'采购入库 · 6 种物料 · 94.06 千克', detail:'整单确认 · 作业签名 陶新文 · PDA-A03 · 账号 taoxinwen · 逐条扫码'},
+  {id:'OUT202611130001', kind:'出库', status:'已出库', statusCls:'green', warehouse:'原料仓库', date:'2026-11-13', time:'10:42', summary:'生产领料出库 · 6 种物料 · 94.06 千克', detail:'整单确认 · 作业签名 陶新文 · PDA-A03 · 账号 taoxinwen · 逐条扫码'},
+  {id:'TK-20261113001', kind:'退库', status:'已退库', statusCls:'green', warehouse:'原料仓库', date:'2026-11-13', time:'09:18', summary:'退库 · 2 种物料 · 3.50 千克', detail:'整单确认 · 作业签名 陶新文 · PDA-A03 · 账号 taoxinwen'},
+  {id:'IN202611130002', kind:'入库', status:'已入库', statusCls:'green', warehouse:'成品仓库', date:'2026-11-13', time:'09:40', summary:'成品入库 · 1 种物料 · 7,000 盒', detail:'整单确认 · 作业签名 李娜 · PDA-A05 · 账号 lina'},
+  {id:'OUT202611120006', kind:'出库', status:'已出库', statusCls:'green', warehouse:'辅料仓库', date:'2026-11-12', time:'16:12', summary:'生产领料出库 · 2 种物料 · 520 千克', detail:'整单确认 · 作业签名 陶新文 · PDA-A03 · 账号 taoxinwen'},
+  {id:'IN202611120008', kind:'入库', status:'已入库', statusCls:'green', warehouse:'辅料仓库', date:'2026-11-12', time:'10:05', summary:'采购入库 · 2 种物料 · 520 千克', detail:'整单确认 · 作业签名 周涛 · PDA-A07 · 账号 zhoutao'}
+];
+
+/* =========================================================
+ * 演示账号：同一台 PDA 承载仓储与生产两类作业
+ * ======================================================= */
+const pdaUsers = {
+  warehouse: {account:'taoxinwen', name:'陶新文', short:'陶', role:'库管', dept:'原料仓库', team:'', module:'warehouse'},
+  worker:    {account:'zhangwei', name:'张伟', short:'张', role:'操作工', dept:'制剂车间 · 灌装一班', team:'灌装一班', module:'production'}
+};
+const initialRole = new URLSearchParams(location.search).get('role') === 'worker' ? 'worker' : 'warehouse';
+
 const state = {
   screen:'login',
   tab:'home',
   taskTab:'inbound',
-  mode:'package',
   current:'inbound',
   signed:false,
   lastScan:null,
@@ -344,7 +454,14 @@ const state = {
   scanQueue:[],
   reprints:[],
   manualEntries:[],
-  deviceRegistered:true
+  reprintFilter:{keyword:'', warehouse:'全部', status:'全部'},
+  recordFilter:{keyword:'', kind:'全部', warehouse:'全部', date:'全部'},
+  deviceRegistered:true,
+  userKey:initialRole,
+  user:pdaUsers[initialRole],
+  execFilter:{status:'全部', person:'全部', proc:'全部', ws:'全部', keyword:''},
+  execRecordFilter:{keyword:'', process:'全部', person:'全部'},
+  exec:{taskCode:'RW-20261114-001', procId:'a2'}
 };
 
 /* =========================================================
@@ -426,7 +543,7 @@ function setOnline(v){
     state.scanQueue = [];
     toast('网络已恢复，已同步 '+n+' 条扫码记录','ok');
   }else if(!v){
-    toast('网络不可用，扫码记录将暂存本机','warn');
+    toast(state.user.module==='production' ? '网络不可用，请恢复后继续' : '网络不可用，扫码记录将暂存本机','warn');
   }
   render();
 }
@@ -459,6 +576,8 @@ function render(){
 }
 
 function loginView(){
+  const u = curPdaUser();
+  const isProd = u.module === 'production';
   return `
   <div class="screen">
     <div class="login">
@@ -468,7 +587,11 @@ function loginView(){
             <path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>
           </svg>
         </div>
-        <div><h1>仓储扫码</h1><div class="sub">仓储物料 · PDA 作业端</div></div>
+        <div><h1>${isProd?'工序执行':'仓储扫码'}</h1><div class="sub">ERP 移动作业 · PDA</div></div>
+      </div>
+      <div class="seg" style="margin:18px 0 0">
+        <button class="${isProd?'':'active'}" onclick="selectPdaUser('warehouse')">仓储库管</button>
+        <button class="${isProd?'active':''}" onclick="selectPdaUser('worker')">生产操作</button>
       </div>
       <div class="device-card">
         <div class="device-icon">${icons.box}</div>
@@ -477,35 +600,71 @@ function loginView(){
       </div>
       <div style="text-align:center;margin-top:8px"><button class="link" onclick="toggleDevice()">切换为${state.deviceRegistered?'未登记设备':'已登记设备'}（演示）</button></div>
       <div class="login-form">
-        <div class="field"><label>账号</label><input value="taoxinwen" /></div>
+        <div class="field"><label>账号</label><input value="${u.account}" readonly /></div>
         <div class="field"><label>密码</label><input type="password" value="123456" /></div>
-        <button class="btn primary block" ${state.deviceRegistered?'':'disabled'} onclick="go('home')" style="margin-top:6px">登录</button>
+        <button class="btn primary block" ${state.deviceRegistered?'':'disabled'} onclick="doPdaLogin()" style="margin-top:6px">登录</button>
       </div>
       <div class="login-note">
-        <b>设备说明</b><br/>
-        未登记设备不能作业；设备与使用人绑定。当前设备：${state.deviceRegistered?'PDA-A03 → 陶新文（库管）':'PDA-A09（未登记，不能登录）'}。
+        <b>演示账号</b><br/>
+        ${isProd
+          ? '操作工：张伟 · 制剂车间灌装一班 · 按计划查看任务，工序开始/结束打点、录入设备、操作人与逐人数量、现场照片，暂存或提交。'
+          : '仓储库管：陶新文 · 原料仓库 · 入库 / 出库 / 退库逐条扫码与标签补打。'}<br/>
+        设备与使用人绑定，未登记设备不能作业；切换角色可在同一台 PDA 上演示两类作业。
       </div>
     </div>
   </div>`;
 }
+function curPdaUser(){ return pdaUsers[state.userKey] || pdaUsers.warehouse; }
+function pdaLogout(){
+  state.screen = 'login';
+  state.tab = 'home';
+  render();
+}
+function selectPdaUser(key){
+  state.userKey = key;
+  state.user = pdaUsers[key];
+  render();
+}
+function doPdaLogin(){
+  if(!state.deviceRegistered){ toast('未登记设备不能登录','err'); return; }
+  state.user = curPdaUser();
+  state.tab = state.user.module === 'production' ? 'tasks' : 'home';
+  state.screen = 'home';
+  render();
+  toast('登录成功，'+state.user.name, 'ok');
+}
 
 function shellView(){
   const tab = state.tab;
+  const prod = state.user.module === 'production';
   let body = '';
-  if (tab === 'home') body = homeView();
-  else if (tab === 'tasks') body = tasksView();
-  else if (tab === 'records') body = recordsView();
-  else body = profileView();
+  if (prod) {
+    if (tab === 'records') body = execRecordsView();
+    else if (tab === 'profile') body = execProfileView();
+    else body = execTasksView();
+  } else {
+    if (tab === 'home') body = homeView();
+    else if (tab === 'tasks') body = tasksView();
+    else if (tab === 'records') body = recordsView();
+    else body = profileView();
+  }
+  const tabbar = prod
+    ? `<div class="tabbar">
+        <button class="${tab==='tasks'?'active':''}" onclick="setTab('tasks')">${icons.task}<span>任务</span></button>
+        <button class="${tab==='records'?'active':''}" onclick="setTab('records')">${icons.record}<span>记录</span></button>
+        <button class="${tab==='profile'?'active':''}" onclick="setTab('profile')">${icons.user}<span>我的</span></button>
+      </div>`
+    : `<div class="tabbar">
+        <button class="${tab==='home'?'active':''}" onclick="setTab('home')">${icons.home}<span>首页</span></button>
+        <button class="${tab==='tasks'?'active':''}" onclick="setTab('tasks')">${icons.task}<span>任务</span></button>
+        <button class="${tab==='records'?'active':''}" onclick="setTab('records')">${icons.record}<span>记录</span></button>
+        <button class="${tab==='profile'?'active':''}" onclick="setTab('profile')">${icons.user}<span>我的</span></button>
+      </div>`;
   return `
   <div class="screen">
     ${body}
-    ${state.online?'':'<div style="background:#92400e;color:#fff;font-size:11px;padding:6px 16px;text-align:center">网络不可用 · 扫码记录暂存本机，恢复后自动提交</div>'}
-    <div class="tabbar">
-      <button class="${tab==='home'?'active':''}" onclick="setTab('home')">${icons.home}<span>首页</span></button>
-      <button class="${tab==='tasks'?'active':''}" onclick="setTab('tasks')">${icons.task}<span>任务</span></button>
-      <button class="${tab==='records'?'active':''}" onclick="setTab('records')">${icons.record}<span>记录</span></button>
-      <button class="${tab==='profile'?'active':''}" onclick="setTab('profile')">${icons.user}<span>我的</span></button>
-    </div>
+    ${state.online?'':`<div style="background:#92400e;color:#fff;font-size:11px;padding:6px 16px;text-align:center">${prod?'网络不可用，请恢复后继续':'网络不可用 · 扫码记录暂存本机，恢复后自动提交'}</div>`}
+    ${tabbar}
   </div>`;
 }
 
@@ -569,7 +728,7 @@ function taskCard(d, kind){
   const finished = ['已入库','已出库','已退库'].includes(status);
   const pillClass = pendingPrint ? 'amber' : finished ? 'green' : (status==='待入库' || kind==='outbound' || kind==='blocked') ? 'blue' : 'gray';
   const progress = pendingPrint
-    ? `待打印 ${total + (d.packageCode ? 1 : 0)} 张标签`
+    ? `待打印 ${total} 张标签`
     : `${total} 种物料 · 已扫 ${done}/${total}`;
   const action = pendingPrint
     ? `<button class="btn sm primary" onclick="openPrint('${kind}')">打印入库码</button>`
@@ -621,7 +780,6 @@ function openWork(kind){
   if(['已入库','已出库','已退库'].includes(d.status)){ toast('该单已完成','warn'); return; }
   state.current = kind;
   state.screen = 'work';
-  state.mode = (kind === 'return' || kind === 'blocked') ? 'line' : 'package';
   state.lastScan = null;
   state.scanPaused = false;
   render();
@@ -668,15 +826,10 @@ function workView(){
 
       ${d.qtyLocked?`<div class="card pad" style="margin-bottom:12px;border-color:#f3d7b5;background:#fffaf3"><div style="font-size:12px;color:#92400e"><b>数量已锁定</b> · 该单由生产领料推送，扫码只核对物料与批次，不能改数量。</div></div>`:''}
 
-      ${(kind==='return'||kind==='blocked') ? '' : `<div class="seg">
-        <button class="${state.mode==='package'?'active':''}" onclick="state.mode='package';render()">整包扫码</button>
-        <button class="${state.mode==='line'?'active':''}" onclick="state.mode='line';render()">逐条扫码</button>
-      </div>`}
-
       <div class="scan-panel">
         <div class="scan-ico">${icons.scan}</div>
-        <b>${state.mode==='package'?'扫描包码':'扫描入库码'}</b>
-        <div class="sub">${state.mode==='package'?'一次带出包内全部物料，整包不支持拆包':'逐个扫描入库码，扫到哪行核对哪行'}</div>
+        <b>扫描入库码</b>
+        <div class="sub">逐个扫描入库码，扫到哪行核对哪行</div>
         <div class="scan-input-row">
           <input id="scanInput" class="scan-input" autocomplete="off" autocorrect="off" autocapitalize="off"
                  spellcheck="false" inputmode="none" placeholder="等待扫描…"
@@ -687,7 +840,6 @@ function workView(){
         <div class="scan-tip">扫描头设为「键盘模拟 / Keystroke」，扫完自动回车；若弹出软键盘，按返回键收起。</div>
         <div class="scan-links">
           <button class="link" onclick="enableManualInput()">手输码值</button>
-          <button class="link" onclick="simulateScan()">模拟扫码（演示）</button>
         </div>
         <div class="last-scan" id="lastScan">${state.lastScan ? `最近扫码：<b>${esc(state.lastScan.code)}</b> · ${esc(state.lastScan.msg)}` : '最近扫码：—'}</div>
         <a class="manual" onclick="openManualEntrySheet()">标签无法识别？补打 / 主管授权手工录入</a>
@@ -739,24 +891,21 @@ function printView(){
       <div class="card pad" style="text-align:center;margin-bottom:12px">
         <div class="scan-ico">${icons.print}</div>
         <b>入库码已生成</b>
-        <div class="sub">先打印包码与入库码；打印后单据进入「待入库」，才能扫码确认。</div>
-        <div style="display:flex;justify-content:center;margin-top:14px">${qrSvg(qrContent('PK', d.packageCode), 132)}</div>
-        <div class="mono" style="margin-top:8px;font-size:13px;font-weight:700">${d.packageCode}</div>
-        <div class="hint">整包标签 · 整包作业扫此码</div>
+        <div class="sub">先打印入库码；打印后单据进入「待入库」，才能逐条扫码确认。</div>
       </div>
 
-      <div class="section-head" style="margin:16px 0 8px"><b>入库码（${d.lines.length}）</b><span class="sub">逐张粘贴到物料上</span></div>
+      <div class="section-head" style="margin:16px 0 8px"><b>逐条入库码（${d.lines.length}）</b><span class="sub">同一入库单号，每条明细唯一码</span></div>
       ${d.lines.map(l=>`
         <div class="code-card">
           <div class="qrbox">${qrSvg(qrContent('IC', l.inCode), 54)}</div>
-          <div><b>${l.name}</b><div class="sub mono">${l.inCode} · 批号 ${l.batch}</div><div class="sub">${l.qty} ${l.unit} · 效期 ${l.expiry}</div></div>
+          <div><b>${l.name}</b><div class="sub mono">单号 ${d.id}</div><div class="sub mono">入库码 ${l.inCode} · 批号 ${l.batch}</div><div class="sub">${l.qty} ${l.unit} · 效期 ${l.expiry}</div></div>
         </div>`).join('')}
       <div class="hint">标签破损或漏贴时，可在首页「补打标签」复用原码补打，补打会记录原因与操作人。</div>
       <div class="hint">点击打印会打开系统打印预览；若未弹出，请允许浏览器弹窗（会自动切换到页面打印兜底）。</div>
       <div class="hint">当前默认按 A4 横向（58:40 比例）打印，打印 App 会缩放到 58×40 标签。</div>
     </div>
     <div class="bottom-bar" style="gap:8px">
-      <button class="btn" onclick="printLabels()">打印标签（${d.lines.length + 1} 张）</button>
+      <button class="btn" onclick="printLabels()">打印标签（${d.lines.length} 张）</button>
       <button class="btn primary" onclick="printAndContinue()">打印并去扫码</button>
     </div>
   </div>`;
@@ -770,6 +919,7 @@ function labelHtml(opts){
       <div class="title">${opts.title}</div>
       <div class="badge">${opts.badge || ''}</div>
     </div>
+    ${opts.docCode ? `<div class="docno">入库单号 ${opts.docCode}</div>` : ''}
     <div class="body">
       <div class="left">
         <div class="fields">${(opts.fields || []).map(f => fieldHtml(f[0], f[1])).join('')}</div>
@@ -785,22 +935,10 @@ function labelHtml(opts){
 }
 function buildLabelsHtml(d, a4){
   const wrap = html => a4 ? `<div class="page">${html}</div>` : html;
-  const packageLabel = d.packageCode ? labelHtml({
-    title: '整包入库标签',
-    badge: d.packageCode,
-    fields: [
-      ['用途', d.purpose || '—'],
-      ['入库日期', '2026-11-13'],
-      ['品种数量', `${d.lines.length} 种`],
-      ['来源', d.id]
-    ],
-    materials: d.lines.map(l => `${l.name} ${l.batch}`).join(' · '),
-    qr: qrSvg(qrContent('PK', d.packageCode), 100),
-    footLeft: '包码 ' + d.packageCode
-  }) : '';
   const inboundLabels = d.lines.map(l => labelHtml({
     title: l.name,
     badge: l.code,
+    docCode: d.id,
     fields: [
       ['批号', l.batch],
       ['有效期', l.expiry || '—'],
@@ -812,7 +950,7 @@ function buildLabelsHtml(d, a4){
     qr: qrSvg(qrContent('IC', l.inCode), 100),
     footLeft: l.inCode
   })).map(wrap).join('');
-  return (packageLabel ? wrap(packageLabel) : '') + inboundLabels;
+  return inboundLabels;
 }
 function buildPrintHtml(d, a4, pdf){
   const pageCss = pdf
@@ -838,6 +976,7 @@ function buildPrintHtml(d, a4, pdf){
     .head{display:flex;align-items:baseline;justify-content:space-between;gap:1mm;border-bottom:0.4mm solid #000;padding-bottom:0.6mm;flex:none}
     .title{font-size:4.5mm;font-weight:800;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .badge{font-size:2.1mm;font-family:ui-monospace,Consolas,monospace;white-space:nowrap}
+    .docno{font-size:2.1mm;font-weight:700;line-height:1.2;font-family:ui-monospace,Consolas,monospace;margin-top:0.3mm}
     .body{flex:1;display:flex;gap:1.5mm;padding:0.8mm 0 0.4mm;min-height:0}
     .left{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:0.8mm}
     .fields{display:grid;grid-template-columns:1fr 1fr;gap:0.6mm 1.2mm;align-content:start}
@@ -870,6 +1009,7 @@ function printLabelsFallback(d, a4){
     #printArea .head{display:flex;align-items:baseline;justify-content:space-between;gap:1mm;border-bottom:0.4mm solid #000;padding-bottom:0.6mm;flex:none}
     #printArea .title{font-size:4.5mm;font-weight:800;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     #printArea .badge{font-size:2.1mm;font-family:ui-monospace,Consolas,monospace;white-space:nowrap}
+    #printArea .docno{font-size:2.1mm;font-weight:700;line-height:1.2;font-family:ui-monospace,Consolas,monospace;margin-top:0.3mm}
     #printArea .body{flex:1;display:flex;gap:1.5mm;padding:0.8mm 0 0.4mm;min-height:0}
     #printArea .left{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:0.8mm}
     #printArea .fields{display:grid;grid-template-columns:1fr 1fr;gap:0.6mm 1.2mm;align-content:start}
@@ -972,24 +1112,8 @@ function handleScan(raw){
   let ok = false, msg = '';
 
   if (parsed.type === 'package') {
-    if (!d.packageCode) msg = '当前单据没有包码，请逐条扫入库码';
-    else if (parsed.code !== d.packageCode) msg = '包码不属于当前单据';
-    else if (allScanned()) msg = '该包已全部扫描，不重复计数';
-    else if (isOut){
-      const bad = d.lines.find(l=>lineIssue(l,kind).startsWith('err'));
-      if(bad){
-        msg = lineIssue(bad,kind).slice(4)+'：'+bad.name;
-      }else{
-        d.lines.forEach(l => l.scanned = true);
-        ok = true;
-        msg = '整包扫码成功，共 ' + d.lines.length + ' 种物料';
-      }
-    }else{
-      d.lines.forEach(l => l.scanned = true);
-      ok = true;
-      const expired = d.lines.find(l=>lineIssue(l,'inbound').startsWith('warn'));
-      msg = expired ? '整包扫码成功；'+expired.name+' 批次已过期，请复核' : '整包扫码成功，共 ' + d.lines.length + ' 种物料';
-    }
+    // 已停用整包扫码：包码不再作为作业码，避免一次带出多行
+    msg = '已停用整包扫码，请逐条扫描入库码';
   } else if (parsed.type === 'inbound') {
     const line = d.lines.find(l => l.inCode && l.inCode.toLowerCase() === parsed.code.toLowerCase());
     if (!line) msg = '入库码不属于当前单据';
@@ -1008,7 +1132,7 @@ function handleScan(raw){
   } else {
     // 物料码仅作物料档案标识，不参与扫码
     if(d.lines.some(l=>l.code && l.code.toLowerCase()===parsed.code.toLowerCase())){
-      msg = '物料码仅作物料档案标识，请扫描入库码或包码';
+      msg = '物料码仅作物料档案标识，请扫描入库码';
     }else{
       msg = '无法识别的条码';
     }
@@ -1074,7 +1198,7 @@ function enableManualInput(){
   const el = document.getElementById('scanInput');
   if (!el) return;
   el.setAttribute('inputmode', 'text');
-  el.placeholder = '输入入库码 / 包码';
+  el.placeholder = '输入入库码';
   el.focus();
   toast('已切换手输模式，可手动输入码值');
 }
@@ -1092,14 +1216,6 @@ function bindScanInput(){
   el.addEventListener('blur', () => {
     if (state.screen === 'work' && !state.scanPaused) setTimeout(focusScanInput, 150);
   });
-}
-
-function simulateScan(){
-  const d = doc();
-  if (state.mode === 'package' && d.packageCode){ handleScan(d.packageCode); return; }
-  const next = d.lines.find(l => !l.scanned);
-  if (!next){ toast('本单已全部扫满'); return; }
-  handleScan(next.inCode || next.code);
 }
 
 let audioCtx = null;
@@ -1205,8 +1321,55 @@ function successView(){
 }
 
 /* ---------- 补打 ---------- */
+function filteredReprintLabels(){
+  const f = state.reprintFilter;
+  return reprintLabels.filter(l=>{
+    if(f.warehouse!=='全部' && l.warehouse!==f.warehouse) return false;
+    if(f.status!=='全部' && l.status!==f.status) return false;
+    if(f.keyword){
+      const k = f.keyword.toLowerCase();
+      const hit = l.name.toLowerCase().includes(k)
+        || l.materialCode.toLowerCase().includes(k)
+        || l.batch.toLowerCase().includes(k)
+        || l.code.toLowerCase().includes(k)
+        || l.doc.toLowerCase().includes(k);
+      if(!hit) return false;
+    }
+    return true;
+  });
+}
+function reprintListHtml(){
+  const list = filteredReprintLabels();
+  if(!list.length) return '<div class="exec-empty">没有符合条件的标签</div>';
+  return list.map(l=>`
+    <div class="code-card">
+      <div class="qrbox">${qrSvg(qrContent('IC', l.code),54)}</div>
+      <div class="reprint-main">
+        <b>${esc(l.name)}</b>
+        <div class="sub mono">${esc(l.code)} · 批号 ${esc(l.batch)}</div>
+        <div class="sub">${esc(l.doc)} · ${esc(l.warehouse)} · ${esc(l.date)}${l.reprints?' · 已补打 '+l.reprints+' 次':''}</div>
+      </div>
+      <button class="btn sm" ${l.status==='已作废'?'disabled':''} onclick="openReprintSheet('${l.code}','${l.name}')">${l.status==='已作废'?'已作废':'补打'}</button>
+    </div>`).join('');
+}
+function onReprintSearch(v){
+  state.reprintFilter.keyword = v;
+  const box = document.getElementById('reprintList');
+  if(box) box.innerHTML = reprintListHtml();
+  const count = document.getElementById('reprintCount');
+  if(count) count.textContent = filteredReprintLabels().length;
+}
+function setReprintFilter(key,value){
+  state.reprintFilter[key] = value;
+  const box = document.getElementById('reprintList');
+  if(box) box.innerHTML = reprintListHtml();
+  const count = document.getElementById('reprintCount');
+  if(count) count.textContent = filteredReprintLabels().length;
+}
 function reprintView(){
-  const codes = docs.inbound.lines.slice(0,4);
+  const warehouses = [...new Set(reprintLabels.map(l=>l.warehouse))];
+  const opts = (list,cur)=>list.map(v=>`<option ${v===cur?'selected':''}>${esc(v)}</option>`).join('');
+  const list = filteredReprintLabels();
   return `
   <div class="screen">
     <div class="appbar">
@@ -1217,12 +1380,15 @@ function reprintView(){
       <div class="card pad" style="margin-bottom:12px">
         <div style="font-size:12px;color:var(--muted);line-height:1.7">补打需填写原因，系统记录操作人、设备与时间；已作废的码不能补打。</div>
       </div>
-      ${codes.map(l=>`
-        <div class="code-card">
-          <div class="qrbox">${qrSvg(qrContent('IC', l.inCode),54)}</div>
-          <div><b>${l.name}</b><div class="sub mono">${l.inCode} · 批号 ${l.batch}</div></div>
-          <button class="btn sm" onclick="openReprintSheet('${l.inCode}','${l.name}')">补打</button>
-        </div>`).join('')}
+      <div class="search-row">
+        <input value="${esc(state.reprintFilter.keyword)}" placeholder="搜索物料 / 批号 / 入库码 / 单号" oninput="onReprintSearch(this.value)" />
+      </div>
+      <div class="reprint-filters">
+        <select onchange="setReprintFilter('warehouse',this.value)">${opts(['全部',...warehouses], state.reprintFilter.warehouse)}</select>
+        <select onchange="setReprintFilter('status',this.value)">${opts(['全部','可补打','已作废'], state.reprintFilter.status)}</select>
+      </div>
+      <div class="section-head"><b>标签（<span id="reprintCount">${list.length}</span>）</b><span class="sub">按仓库与状态筛选</span></div>
+      <div id="reprintList">${reprintListHtml()}</div>
       <div class="hint">标签破损、无法识别时先补打；补打失败可由主管授权手工录入并记录原因。</div>
     </div>
   </div>`;
@@ -1252,6 +1418,8 @@ function doReprint(code,name){
   const reason = ((el && el.value) || '').trim();
   if(!reason){ toast('请填写补打原因','warn'); return; }
   state.reprints.unshift({code, name, reason, time:'11:32', op:'陶新文', device:'PDA-A03'});
+  const label = reprintLabels.find(l=>l.code===code);
+  if(label) label.reprints = (label.reprints||0)+1;
   closeSheet();
   render();
   toast('补打已记录，可在作业记录中追溯','ok');
@@ -1302,33 +1470,78 @@ function doManualEntry(){
 }
 
 /* ---------- 记录 ---------- */
-function recordsView(){
+function allWorkRecords(){
+  const rows = workRecords.slice();
+  state.manualEntries.forEach(m=>{
+    rows.unshift({id:m.code, kind:'手工录入', status:'授权', statusCls:'amber', warehouse:'原料仓库', date:'2026-11-13', time:m.time, summary:m.name, detail:'授权 '+m.authorizer+' · 原因：'+m.reason, person:m.authorizer});
+  });
+  state.reprints.forEach(r=>{
+    const label = reprintLabels.find(l=>l.code===r.code);
+    rows.unshift({id:r.code, kind:'补打', status:'补打', statusCls:'amber', warehouse:label?label.warehouse:'—', date:'2026-11-13', time:r.time, summary:r.name, detail:'原因：'+r.reason+' · '+r.op+' · '+r.device});
+  });
+  return rows.sort((a,b)=>String(b.date+b.time).localeCompare(String(a.date+a.time)));
+}
+function filteredWorkRecords(){
+  const f = state.recordFilter;
+  return allWorkRecords().filter(r=>{
+    if(f.kind!=='全部' && r.kind!==f.kind) return false;
+    if(f.warehouse!=='全部' && r.warehouse!==f.warehouse) return false;
+    if(f.date!=='全部' && r.date!==f.date) return false;
+    if(f.keyword){
+      const k = f.keyword.toLowerCase();
+      const hit = [r.id,r.summary,r.detail,r.kind,r.person].some(v=>String(v||'').toLowerCase().includes(k));
+      if(!hit) return false;
+    }
+    return true;
+  });
+}
+function workRecordHtml(r){
   return `
-  <div class="appbar"><div><div class="title">作业记录</div><div class="sub">2026-11-13 · 原料仓库</div></div></div>
+    <div class="record">
+      <div class="top"><b class="mono">${esc(r.id)}</b><span class="pill ${r.statusCls}">${esc(r.status)}</span></div>
+      <div class="sub">${esc(r.kind)} · ${esc(r.summary)}</div>
+      <div class="lines">${esc(r.date)} ${esc(r.time)} · ${esc(r.warehouse)}<br/>${esc(r.detail)}</div>
+    </div>`;
+}
+function recordListHtml(){
+  const list = filteredWorkRecords();
+  if(!list.length) return '<div class="exec-empty">没有符合条件的作业记录</div>';
+  return list.map(workRecordHtml).join('');
+}
+function onRecordSearch(v){
+  state.recordFilter.keyword = v;
+  const box = document.getElementById('recordList');
+  if(box) box.innerHTML = recordListHtml();
+  const count = document.getElementById('recordCount');
+  if(count) count.textContent = filteredWorkRecords().length;
+}
+function setRecordFilter(key,value){
+  state.recordFilter[key] = value;
+  const box = document.getElementById('recordList');
+  if(box) box.innerHTML = recordListHtml();
+  const count = document.getElementById('recordCount');
+  if(count) count.textContent = filteredWorkRecords().length;
+}
+function recordsView(){
+  const all = allWorkRecords();
+  const warehouses = [...new Set(all.map(r=>r.warehouse))];
+  const dates = [...new Set(all.map(r=>r.date))].sort().reverse();
+  const kinds = ['全部','入库','出库','退库','手工录入','补打'];
+  const opts = (list,cur)=>list.map(v=>`<option ${v===cur?'selected':''}>${esc(v)}</option>`).join('');
+  const list = filteredWorkRecords();
+  return `
+  <div class="appbar"><div><div class="title">作业记录</div><div class="sub">可按类型、仓库与日期筛选</div></div></div>
   <div class="content">
-    <div class="record">
-      <div class="top"><b class="mono">IN202611130001</b><span class="pill green">已入库</span></div>
-      <div class="sub">采购入库 · 6 种物料 · 94.06 千克</div>
-      <div class="lines">11:26 整单确认 · 作业签名 陶新文 · PDA-A03 · 账号 taoxinwen<br/>扫码方式：整包扫码（pk2026111300001）</div>
+    <div class="search-row">
+      <input value="${esc(state.recordFilter.keyword)}" placeholder="搜索单号 / 物料 / 操作人" oninput="onRecordSearch(this.value)" />
     </div>
-    <div class="record">
-      <div class="top"><b class="mono">OUT202611130001</b><span class="pill green">已出库</span></div>
-      <div class="sub">生产领料出库 · 6 种物料 · 94.06 千克</div>
-      <div class="lines">10:42 整单确认 · 作业签名 陶新文 · PDA-A03 · 账号 taoxinwen<br/>扫码方式：逐条扫码</div>
+    <div class="reprint-filters">
+      <select onchange="setRecordFilter('kind',this.value)">${opts(kinds, state.recordFilter.kind)}</select>
+      <select onchange="setRecordFilter('warehouse',this.value)">${opts(['全部',...warehouses], state.recordFilter.warehouse)}</select>
+      <select onchange="setRecordFilter('date',this.value)">${opts(['全部',...dates], state.recordFilter.date)}</select>
     </div>
-    <div class="record">
-      <div class="top"><b class="mono">TK-20261113001</b><span class="pill green">已退库</span></div>
-      <div class="sub">退库 · 2 种物料 · 3.50 千克</div>
-      <div class="lines">09:18 整单确认 · 作业签名 陶新文 · PDA-A03 · 账号 taoxinwen</div>
-    </div>
-    ${state.manualEntries.length?`<div class="record">
-      <div class="top"><b>手工录入</b><span class="pill amber">授权</span></div>
-      <div class="lines">${state.manualEntries.map(m=>`${m.time} ${m.name} · 码 ${m.code} · 授权 ${m.authorizer} · 原因：${m.reason}`).join('<br/>')}</div>
-    </div>`:''}
-    ${state.reprints.length?`<div class="record">
-      <div class="top"><b>补打记录</b><span class="pill amber">补打</span></div>
-      <div class="lines">${state.reprints.map(r=>`${r.time} ${r.name} · ${r.code} · 原因：${r.reason} · ${r.op} · ${r.device}`).join('<br/>')}</div>
-    </div>`:''}
+    <div class="section-head"><b>记录（<span id="recordCount">${list.length}</span>）</b><span class="sub">按时间倒序</span></div>
+    <div id="recordList">${recordListHtml()}</div>
     <div class="hint">每笔记录可追溯操作账号、PDA 设备编号、时间与入库码。</div>
   </div>`;
 }
@@ -1347,9 +1560,797 @@ function profileView(){
       <div class="list-row"><div class="ico">${icons.box}</div>当前设备<div class="arrow">${state.deviceRegistered?'PDA-A03':'PDA-A09（未登记）'} ›</div></div>
       <div class="list-row"><div class="ico">${icons.task}</div>作业权限<div class="arrow">入库 / 出库 / 退库 ›</div></div>
       <div class="list-row"><div class="ico">${icons.print}</div>标签打印<div class="arrow">已连接 ›</div></div>
-      <div class="list-row"><div class="ico">${icons.user}</div>切换账号<div class="arrow">›</div></div>
+      <div class="list-row" onclick="pdaLogout()"><div class="ico">${icons.user}</div>切换账号 / 角色<div class="arrow">›</div></div>
     </div>
     <div class="hint" style="margin-top:16px">未登记设备不能作业；设备换人需主管重新绑定。</div>
+  </div>`;
+}
+
+/* =========================================================
+ * 生产工序执行 · 演示数据
+ * ======================================================= */
+const execTasks = [
+  {
+    code:'RW-20261114-001', name:'复方甘草口服溶液', batch:'20261114A',
+    qty:200000, unit:'瓶', planStart:'2026-11-17 08:00', ws:'制剂车间', createdAt:'2026-11-14 09:12',
+    procs:[
+      {id:'a1', seq:1, name:'称量配料', planPs:'08:00', planPe:'09:00', planEq:'电子秤 E-01',
+       device:'电子秤 E-01', actualPs:'08:02', actualPe:'08:58', people:['张伟','李娜'], qtyDone:200000,
+       personQty:{'张伟':100000,'李娜':100000}, note:'', photos:[], manual:false, manualReason:'',
+       submitted:true, submitter:'张伟', submitTime:'09:00'},
+      {id:'a2', seq:2, name:'配制', planPs:'09:00', planPe:'12:00', planEq:'配制罐 R-201',
+       device:'配制罐 R-201', actualPs:'08:06', actualPe:null, people:['张伟','陈静'], qtyDone:null,
+       personQty:{}, note:'', photos:[], manual:false, manualReason:'', submitted:false},
+      {id:'a3', seq:3, name:'灌装', planPs:'12:00', planPe:'16:00', planEq:'灌装机 F-301',
+       device:'灌装机 F-301', actualPs:null, actualPe:null, people:[], qtyDone:null,
+       personQty:{}, note:'', photos:[], manual:false, manualReason:'', submitted:false},
+      {id:'a4', seq:4, name:'灭菌', planPs:'17:00', planPe:'19:00', planEq:'灭菌柜 S-102',
+       device:'灭菌柜 S-102', actualPs:null, actualPe:null, people:[], qtyDone:null,
+       personQty:{}, note:'', photos:[], manual:false, manualReason:'', submitted:false},
+      {id:'a5', seq:5, name:'灯检', planPs:'18:00', planPe:'20:00', planEq:'灯检台 L-01',
+       device:'灯检台 L-01', actualPs:null, actualPe:null, people:[], qtyDone:null,
+       personQty:{}, note:'', photos:[], manual:false, manualReason:'', submitted:false},
+      {id:'a6', seq:6, name:'包装', planPs:'明日 08:00', planPe:'明日 13:00', planEq:'包装线 P-401',
+       device:'包装线 P-401', actualPs:null, actualPe:null, people:[], qtyDone:null,
+       personQty:{}, note:'', photos:[], manual:false, manualReason:'', submitted:false}
+    ]
+  },
+  {
+    code:'RW-20261114-002', name:'维生素C片', batch:'20261114B',
+    qty:120000, unit:'片', planStart:'2026-11-17 08:30', ws:'制剂车间', createdAt:'2026-11-14 10:20',
+    procs:[
+      {id:'b1', seq:1, name:'称量配料', planPs:'08:30', planPe:'09:30', planEq:'电子秤 E-02',
+       device:'电子秤 E-02', actualPs:'08:31', actualPe:'09:20', people:['张伟'], qtyDone:120000,
+       personQty:{'张伟':120000}, note:'', photos:[], manual:false, manualReason:'',
+       submitted:true, submitter:'张伟', submitTime:'09:22'},
+      {id:'b2', seq:2, name:'制粒', planPs:'09:00', planPe:'12:00', planEq:'制粒机 G-101',
+       device:'制粒机 G-101', actualPs:'08:35', actualPe:null, people:['陈静','李娜'], qtyDone:null,
+       personQty:{}, note:'', photos:[], manual:false, manualReason:'', submitted:false},
+      {id:'b3', seq:3, name:'压片', planPs:'12:30', planPe:'16:30', planEq:'压片机 T-201',
+       device:'压片机 T-201', actualPs:null, actualPe:null, people:[], qtyDone:null,
+       personQty:{}, note:'', photos:[], manual:false, manualReason:'', submitted:false},
+      {id:'b4', seq:4, name:'包衣', planPs:'13:00', planPe:'16:00', planEq:'包衣机 C-301',
+       device:'包衣机 C-301', actualPs:null, actualPe:null, people:[], qtyDone:null,
+       personQty:{}, note:'', photos:[], manual:false, manualReason:'', submitted:false},
+      {id:'b5', seq:5, name:'包装', planPs:'明日 08:00', planPe:'明日 13:00', planEq:'包装线 P-402',
+       device:'包装线 P-402', actualPs:null, actualPe:null, people:[], qtyDone:null,
+       personQty:{}, note:'', photos:[], manual:false, manualReason:'', submitted:false}
+    ]
+  },
+  {
+    code:'RW-20261115-007', name:'板蓝根颗粒', batch:'20261115C',
+    qty:80000, unit:'袋', planStart:null, ws:'制剂车间', createdAt:'2026-11-15 10:02',
+    procs:[
+      {id:'c1', seq:1, name:'称量配料', planPs:null, planPe:null, planEq:'电子秤 E-03',
+       device:'电子秤 E-03', actualPs:null, actualPe:null, people:[], qtyDone:null,
+       personQty:{}, note:'', photos:[], manual:false, manualReason:'', submitted:false},
+      {id:'c2', seq:2, name:'制粒', planPs:null, planPe:null, planEq:'制粒机 G-102',
+       device:'制粒机 G-102', actualPs:null, actualPe:null, people:[], qtyDone:null,
+       personQty:{}, note:'', photos:[], manual:false, manualReason:'', submitted:false},
+      {id:'c3', seq:3, name:'包装', planPs:null, planPe:null, planEq:'包装线 P-403',
+       device:'包装线 P-403', actualPs:null, actualPe:null, people:[], qtyDone:null,
+       personQty:{}, note:'', photos:[], manual:false, manualReason:'', submitted:false}
+    ]
+  }
+];
+
+const execEquipment = [
+  {name:'电子秤 E-01', code:'E-01', active:true},
+  {name:'电子秤 E-02', code:'E-02', active:true},
+  {name:'电子秤 E-03', code:'E-03', active:true},
+  {name:'配制罐 R-201', code:'R-201', active:true},
+  {name:'制粒机 G-101', code:'G-101', active:true},
+  {name:'制粒机 G-102', code:'G-102', active:true},
+  {name:'压片机 T-201', code:'T-201', active:true},
+  {name:'包衣机 C-301', code:'C-301', active:true},
+  {name:'灌装机 F-301', code:'F-301', active:true},
+  {name:'灌装机 F-302', code:'F-302', active:false},
+  {name:'灭菌柜 S-102', code:'S-102', active:true},
+  {name:'灯检台 L-01', code:'L-01', active:true},
+  {name:'包装线 P-401', code:'P-401', active:true},
+  {name:'包装线 P-402', code:'P-402', active:true},
+  {name:'包装线 P-403', code:'P-403', active:true}
+];
+
+const execPeople = ['张伟','李娜','王强','陈静','刘洋','赵磊','孙敏','周涛'];
+
+/* =========================================================
+ * 生产工序执行 · 状态与工具
+ * ======================================================= */
+/** 数字格式化：最多两位小数 */
+function execNum(n){
+  if(n==null || isNaN(Number(n))) return '—';
+  return Number(n).toLocaleString('zh-CN',{maximumFractionDigits:2});
+}
+/** HH:mm 转分钟，非法返回 null */
+function execParseTime(v){
+  const m = String(v==null?'':v).trim().match(/^(\d{1,2}):(\d{2})$/);
+  if(!m) return null;
+  const h = Number(m[1]), mm = Number(m[2]);
+  if(h>23 || mm>59) return null;
+  return h*60+mm;
+}
+/** 分钟转 HH:mm */
+function execFmt(min){
+  return String(Math.floor(min/60)).padStart(2,'0')+':'+String(min%60).padStart(2,'0');
+}
+/** 当前时间（分钟） */
+function execNow(){
+  const d = new Date();
+  return d.getHours()*60 + d.getMinutes();
+}
+function execNowText(){ return execFmt(execNow()); }
+/** 任务状态：未开始 / 进行中 / 已完成 */
+function execTaskStatus(t){
+  if(t.procs.every(p=>p.submitted)) return '已完成';
+  if(t.procs.every(p=>!p.actualPs && !p.submitted)) return '未开始';
+  return '进行中';
+}
+/** 工序状态：未开始 / 进行中 / 已提交 */
+function execProcStatus(p){
+  if(p.submitted) return '已提交';
+  if(p.actualPs) return '进行中';
+  return '未开始';
+}
+function execStatusCls(s){
+  return s==='已提交' || s==='已完成' ? 'green' : s==='进行中' ? 'blue' : 'gray';
+}
+/** 计划开始时间升序；未排期排最后，按创建时间升序 */
+function execSortedTasks(){
+  return execTasks.slice().sort((a,b)=>{
+    if(a.planStart && b.planStart) return a.planStart.localeCompare(b.planStart);
+    if(a.planStart) return -1;
+    if(b.planStart) return 1;
+    return String(a.createdAt||'').localeCompare(String(b.createdAt||''));
+  });
+}
+function execFilteredTasks(){
+  const f = state.execFilter;
+  return execSortedTasks().filter(t=>{
+    if(f.status!=='全部' && execTaskStatus(t)!==f.status) return false;
+    if(f.ws!=='全部' && t.ws!==f.ws) return false;
+    if(f.proc!=='全部' && !t.procs.some(p=>p.name===f.proc)) return false;
+    if(f.person!=='全部' && !t.procs.some(p=>(p.people||[]).includes(f.person))) return false;
+    if(f.keyword){
+      const k = f.keyword.toLowerCase();
+      if(!(t.name.toLowerCase().includes(k) || t.batch.toLowerCase().includes(k))) return false;
+    }
+    return true;
+  });
+}
+function execFilterActiveCount(){
+  const f = state.execFilter;
+  return ['status','person','proc','ws'].filter(k=>f[k]!=='全部').length + (f.keyword?1:0);
+}
+function execGlobalStats(){
+  const procs = [];
+  execTasks.forEach(t=>t.procs.forEach(p=>procs.push(p)));
+  return {
+    tasks: execTasks.length,
+    procs: procs.length,
+    submitted: procs.filter(p=>p.submitted).length,
+    doing: procs.filter(p=>p.actualPs && !p.submitted).length,
+    todo: procs.filter(p=>!p.actualPs && !p.submitted).length
+  };
+}
+function execCurrent(){
+  const t = execTasks.find(x=>x.code===state.exec.taskCode) || execTasks[0];
+  const p = t.procs.find(x=>x.id===state.exec.procId) || t.procs[0];
+  return {t,p};
+}
+function execSelectedPeople(){
+  return Array.from(document.querySelectorAll('#execPeopleBox .chip.sel')).map(el=>el.dataset.name);
+}
+
+/* =========================================================
+ * 生产工序执行 · 任务列表与筛选
+ * ======================================================= */
+function execTasksView(){
+  const stats = execGlobalStats();
+  return `
+  <div class="appbar">
+    <div><div class="title">生产工序执行</div><div class="sub">制剂车间 · 全部任务</div></div>
+    <div class="right"><button class="back" onclick="execRefreshList()">↻</button><button class="back" onclick="openExecFilterSheet()">筛</button></div>
+  </div>
+  <div class="content">
+    <div class="search-row">
+      <input id="execSearch" value="${esc(state.execFilter.keyword)}" placeholder="搜索制剂名称 / 批号" oninput="onExecSearch(this.value)" />
+      <button class="btn sm" onclick="openExecFilterSheet()">筛选${execFilterActiveCount()?' · '+execFilterActiveCount():''}</button>
+    </div>
+    <div class="exec-hero">
+      <div class="k">今日生产 · 制剂车间</div>
+      <div class="v">${stats.tasks} 个任务 · ${stats.procs} 道工序</div>
+      <div class="row">
+        <div><b>${stats.submitted}</b>已提交</div>
+        <div><b>${stats.doing}</b>进行中</div>
+        <div><b>${stats.todo}</b>未开始</div>
+      </div>
+    </div>
+    <div class="section-head"><b>生产任务</b><span class="sub">按计划开始时间排序</span></div>
+    <div id="execTaskList">${execTaskListHtml()}</div>
+    <div class="hint">任务与工序两级始终展开；未排期任务排在最后并标注。已提交工序在 PDA 端只读。</div>
+  </div>`;
+}
+function execTaskListHtml(){
+  const list = execFilteredTasks();
+  if(!list.length) return '<div class="exec-empty">没有符合条件的生产任务</div>';
+  return list.map(execTaskHtml).join('');
+}
+function execRefreshList(){
+  render();
+  toast('已刷新任务列表（演示）','ok');
+}
+function execTaskHtml(t){
+  const st = execTaskStatus(t);
+  const done = t.procs.filter(p=>p.submitted).length;
+  return `
+  <div class="exec-task">
+    <div class="exec-task-head">
+      <div>
+        <div class="exec-task-name">${esc(t.name)}</div>
+        <div class="sub">批号 <b>${esc(t.batch)}</b> · 计划 ${execNum(t.qty)} ${esc(t.unit)}</div>
+        <div class="sub">计划开始 ${t.planStart?esc(t.planStart):'<span class="pill amber">未排期</span>'} · ${esc(t.ws)}</div>
+      </div>
+      <div class="exec-task-right">
+        <span class="pill ${execStatusCls(st)}">${st}</span>
+        <div class="sub">已提交 ${done}/${t.procs.length}</div>
+      </div>
+    </div>
+    ${t.procs.map(p=>execProcRow(t,p)).join('')}
+  </div>`;
+}
+function execProcRow(t,p){
+  const st = execProcStatus(p);
+  return `
+  <div class="exec-proc-row" onclick="openExecEntry('${t.code}','${p.id}')">
+    <div class="exec-seq">${p.seq}</div>
+    <div class="exec-proc-main">
+      <div class="exec-proc-title"><b>${esc(p.name)}</b><span class="pill ${execStatusCls(st)}">${st}</span></div>
+      <div class="sub">计划 ${p.planPs?esc(p.planPs)+'–'+esc(p.planPe):'未排期'} · 实际 <b>${p.actualPs?esc(p.actualPs)+'–'+(p.actualPe?esc(p.actualPe):'进行中'):'—'}</b></div>
+      <div class="sub">设备 ${esc(p.device||p.planEq||'—')} · 操作人 ${esc((p.people||[]).join('、')||'—')}</div>
+    </div>
+    <div class="exec-arrow">›</div>
+  </div>`;
+}
+function onExecSearch(v){
+  state.execFilter.keyword = v;
+  const box = document.getElementById('execTaskList');
+  if(box) box.innerHTML = execTaskListHtml();
+}
+function openExecFilterSheet(){
+  const f = state.execFilter;
+  const procs = [];
+  execTasks.forEach(t=>t.procs.forEach(p=>{ if(!procs.includes(p.name)) procs.push(p.name); }));
+  const wss = [];
+  execTasks.forEach(t=>{ if(!wss.includes(t.ws)) wss.push(t.ws); });
+  const sel = (list,cur)=>list.map(x=>`<option ${x===cur?'selected':''}>${esc(x)}</option>`).join('');
+  const wrap = document.createElement('div');
+  wrap.className = 'sheet-wrap open';
+  wrap.id = 'sheet';
+  wrap.innerHTML = `
+    <div class="sheet-mask" onclick="closeSheet()"></div>
+    <div class="sheet" style="max-height:86%;overflow:auto">
+      <div class="handle"></div>
+      <h3>筛选任务</h3>
+      <p class="sub">默认展示全部生产任务，不按账号所属班组限定。</p>
+      <div class="filter-grid" style="margin-top:12px">
+        <div class="form-row"><label>任务状态</label><select id="fStatus">${sel(['全部','未开始','进行中','已完成'],f.status)}</select></div>
+        <div class="form-row"><label>操作人</label><select id="fPerson">${sel(['全部',...execPeople],f.person)}</select></div>
+        <div class="form-row"><label>工序</label><select id="fProc">${sel(['全部',...procs],f.proc)}</select></div>
+        <div class="form-row"><label>车间</label><select id="fWs">${sel(['全部',...wss],f.ws)}</select></div>
+      </div>
+      <div class="actions"><button class="btn" onclick="execResetFilter()">重置</button><button class="btn primary" onclick="execApplyFilter()">应用筛选</button></div>
+    </div>`;
+  document.getElementById('app').appendChild(wrap);
+}
+function execApplyFilter(){
+  state.execFilter = {
+    status: document.getElementById('fStatus').value,
+    person: document.getElementById('fPerson').value,
+    proc: document.getElementById('fProc').value,
+    ws: document.getElementById('fWs').value,
+    keyword: state.execFilter.keyword
+  };
+  closeSheet();
+  render();
+}
+function execResetFilter(){
+  state.execFilter = {status:'全部',person:'全部',proc:'全部',ws:'全部',keyword:''};
+  closeSheet();
+  render();
+}
+
+/* =========================================================
+ * 生产工序执行 · 工序录入与只读
+ * ======================================================= */
+function openExecEntry(code,procId){
+  state.exec = {taskCode:code, procId};
+  state.screen = 'execEntry';
+  render();
+}
+function execBack(){
+  state.screen = 'home';
+  state.tab = 'tasks';
+  render();
+}
+function execEntryView(){
+  const {t,p} = execCurrent();
+  const st = execProcStatus(p);
+  const idx = t.procs.indexOf(p)+1;
+  const summary = `
+    <div class="doc-summary">
+      <div class="top"><div class="no">${esc(t.name)}</div><span class="pill ${execStatusCls(execTaskStatus(t))}">${execTaskStatus(t)}</span></div>
+      <div class="meta">
+        <div>批号：<b>${esc(t.batch)}</b></div>
+        <div>计划数量：<b>${execNum(t.qty)} ${esc(t.unit)}</b></div>
+        <div>工序：<b>${idx}. ${esc(p.name)}</b></div>
+        <div>计划起止：<b>${p.planPs?esc(p.planPs)+'–'+esc(p.planPe):'未排期'}</b></div>
+        <div class="full">计划设备：<b>${esc(p.planEq||'—')}</b></div>
+      </div>
+    </div>`;
+  return `
+  <div class="screen">
+    <div class="appbar">
+      <button class="back" onclick="execBack()">${icons.back}</button>
+      <div><div class="title">${p.submitted?'工序详情':'工序执行'}</div><div class="sub">${esc(t.code)} · 第 ${idx} 道</div></div>
+      <div class="right"><span class="pill ${execStatusCls(st)}">${st}</span></div>
+    </div>
+    <div class="content">
+      ${summary}
+      ${p.submitted ? execReadonlyBody(t,p) : execEditableBody(t,p)}
+    </div>
+    ${p.submitted?'':`<div class="bottom-bar">
+      <button class="btn" onclick="execSaveDraft()">暂存</button>
+      <button class="btn primary" style="flex:1" onclick="execSubmit()">提交</button>
+    </div>`}
+  </div>`;
+}
+function execEditableBody(t,p){
+  const eqVal = p.device || p.planEq || '';
+  const eqOptions = execEquipment.filter(e=>e.active || e.name===eqVal)
+    .map(e=>`<option value="${esc(e.name)}">${esc(e.code)}${e.active?'':'（停用）'}</option>`).join('');
+  const peopleChips = execPeople.map(n=>`<span class="chip ${p.people.includes(n)?'sel':''}" data-name="${n}" onclick="execTogglePerson(this)">${n}</span>`).join('');
+  const qtyRows = execPeople.map(n=>`
+    <div class="person-qty-row" data-name="${n}" style="display:${p.people.includes(n)?'flex':'none'}">
+      <span>${n}</span>
+      <input type="number" min="0" step="0.01" value="${p.personQty[n]!=null?p.personQty[n]:''}" placeholder="完成数量" oninput="execSyncQtyTotal()" />
+    </div>`).join('');
+  return `
+    <div class="punch-card">
+      <div class="punch-row">
+        <button class="btn primary" onclick="execPunchStart()" ${p.actualPs?'disabled':''}>开始计时</button>
+        <button class="btn" onclick="execPunchEnd()" ${(!p.actualPs||p.actualPe)?'disabled':''}>结束计时</button>
+      </div>
+      <div class="punch-now"><span>打点取 PDA 当前时间，精确到分钟</span><span>当前 <b>${execNowText()}</b></span></div>
+      <div class="sub" style="margin-top:9px">开始 <b>${p.actualPs||'—'}</b> · 结束 <b>${p.actualPe||'—'}</b></div>
+    </div>
+
+    <div class="form-card">
+      <h4>时间与设备</h4>
+      <div class="form-row"><label>使用设备</label>
+        <input id="execEq" list="execEqList" value="${esc(eqVal)}" placeholder="搜索设备名称 / 编号" />
+        <datalist id="execEqList">${eqOptions}</datalist>
+        <div class="hint">仅列出启用设备；录入期间设备被停用，已选设备仍可提交。</div>
+      </div>
+      <div class="form-grid2">
+        <div class="form-row"><label>开始时间</label><input id="execPs" value="${esc(p.actualPs||'')}" placeholder="HH:mm" oninput="execMarkManual()" /></div>
+        <div class="form-row"><label>结束时间</label><input id="execPe" value="${esc(p.actualPe||'')}" placeholder="HH:mm" oninput="execMarkManual()" /></div>
+      </div>
+      <div class="form-row"><label>手填原因${p.manual?' <span style="color:var(--red)">*</span>':''}</label>
+        <textarea id="execManualReason" placeholder="手工修改时间时必填，不超过 200 字">${esc(p.manualReason||'')}</textarea>
+        <div class="hint">打点无需原因；手填或修改时间必须说明原因，随工序留痕。</div>
+      </div>
+    </div>
+
+    <div class="form-card">
+      <h4>操作人与数量</h4>
+      <div class="form-row"><label>操作人（多选，仅在职人员）</label>
+        <div class="people-box" id="execPeopleBox">${peopleChips}</div>
+      </div>
+      <div class="form-row"><label>逐人完成数量</label>
+        <div class="person-qty" id="execPersonQty">${qtyRows}</div>
+        <div class="sum-line" id="execQtySum">${execSumHtml(p)}</div>
+      </div>
+      <div class="form-row"><label>加工数量（${esc(t.unit)}）</label>
+        <div style="display:flex;gap:8px">
+          <input id="execQty" type="number" min="0" step="0.01" value="${p.qtyDone!=null?p.qtyDone:''}" placeholder="实际完成数量" oninput="execSyncQtyTotal()" />
+          <button class="btn" style="height:44px;flex:none" onclick="execAverageQty()">平均分配</button>
+        </div>
+      </div>
+      <div class="form-row"><label>备注</label>
+        <textarea id="execNote" maxlength="200" placeholder="不超过 200 字">${esc(p.note||'')}</textarea>
+      </div>
+    </div>
+
+    <div class="form-card">
+      <h4>现场照片 <span class="sub" style="font-weight:400">（<span id="photoCount">${p.photos.length}/9</span>）</span></h4>
+      <div class="photo-actions">
+        <button class="btn sm" onclick="document.getElementById('execPhotoCamera').click()">拍照</button>
+        <button class="btn sm" onclick="document.getElementById('execPhotoGallery').click()">从相册选择</button>
+      </div>
+      <input type="file" id="execPhotoCamera" accept="image/*" capture="environment" style="display:none" onchange="execAddPhotos(event)" />
+      <input type="file" id="execPhotoGallery" accept="image/*" multiple style="display:none" onchange="execAddPhotos(event)" />
+      <div class="photo-grid" id="execPhotos">${execPhotosHtml(p)}</div>
+      <div class="hint">JPG / PNG，单张不超过 10MB，每道工序最多 9 张。</div>
+    </div>`;
+}
+function execReadonlyBody(t,p){
+  return `
+    <div class="readonly-note"><b>已提交 · PDA 端只读</b><br/>提交人 ${esc(p.submitter||'—')} · ${esc(p.submitTime||'—')}；如需更正请到 PC 端生产任务详情修改，修改须填写原因。</div>
+    <div class="form-card">
+      <h4>执行信息</h4>
+      ${execRo('使用设备', esc(p.device||'—'))}
+      ${execRo('开始时间', esc(p.actualPs||'—'))}
+      ${execRo('结束时间', esc(p.actualPe||'—'))}
+      ${execRo('操作人', esc((p.people||[]).join('、')||'—'))}
+      ${execRo('加工数量', p.qtyDone!=null?execNum(p.qtyDone)+' '+esc(t.unit):'—')}
+      ${(p.people||[]).map(n=>execRo(esc(n)+' 完成数量', p.personQty[n]!=null?execNum(p.personQty[n]):'—')).join('')}
+      ${execRo('备注', esc(p.note||'—'))}
+      ${execRo('手填原因', esc(p.manualReason||'—'))}
+    </div>
+    <div class="form-card">
+      <h4>现场照片（${p.photos.length}）</h4>
+      <div class="photo-grid">${execPhotosHtml(p,true)}</div>
+    </div>`;
+}
+function execRo(k,v){
+  return `<div class="readonly-value"><span>${k}</span><b>${v}</b></div>`;
+}
+function execPhotosHtml(p, readonly){
+  if(!p.photos.length) return '<div class="photo-empty">暂无照片</div>';
+  return p.photos.map((ph,i)=>`
+    <div class="photo-item">
+      <img src="${ph.url}" alt="${esc(ph.name)}" />
+      ${readonly?'':`<button onclick="execRemovePhoto(${i})">×</button>`}
+    </div>`).join('');
+}
+function execPersonSum(p){
+  return p.people.reduce((a,n)=>a+Number(p.personQty[n]||0),0);
+}
+function execSumHtml(p){
+  const sum = execPersonSum(p);
+  const ok = p.qtyDone!=null && Math.abs(sum-Number(p.qtyDone))<0.005;
+  return `逐人合计 <b class="${ok?'ok':'bad'}">${execNum(sum)}</b> / 加工数量 ${p.qtyDone!=null?execNum(p.qtyDone):'—'}`;
+}
+
+/* =========================================================
+ * 生产工序执行 · 表单交互
+ * ======================================================= */
+function execTogglePerson(el){
+  const name = el.dataset.name;
+  el.classList.toggle('sel');
+  const row = document.querySelector('#execPersonQty .person-qty-row[data-name="'+name+'"]');
+  if(row) row.style.display = el.classList.contains('sel') ? 'flex' : 'none';
+  execSyncQtyTotal();
+}
+function execMarkManual(){
+  const {p} = execCurrent();
+  p.manual = true;
+}
+function execSyncQtyTotal(){
+  const box = document.getElementById('execQtySum');
+  if(!box) return;
+  const people = execSelectedPeople();
+  const qtyEl = document.getElementById('execQty');
+  const qty = qtyEl && qtyEl.value!=='' ? Number(qtyEl.value) : null;
+  let sum = 0;
+  people.forEach(n=>{
+    const el = document.querySelector('#execPersonQty .person-qty-row[data-name="'+n+'"] input');
+    if(el && el.value!=='') sum += Number(el.value)||0;
+  });
+  const ok = qty!=null && qty>0 && Math.abs(sum-qty)<0.005;
+  box.innerHTML = `逐人合计 <b class="${ok?'ok':'bad'}">${execNum(sum)}</b> / 加工数量 ${qty!=null?execNum(qty):'—'}`;
+}
+function execAverageQty(){
+  const people = execSelectedPeople();
+  const qtyEl = document.getElementById('execQty');
+  const qty = qtyEl ? Number(qtyEl.value) : NaN;
+  if(!qty || qty<=0){ toast('请先填写加工数量','warn'); return; }
+  if(!people.length){ toast('请先选择操作人','warn'); return; }
+  const cents = Math.round(qty*100);
+  const base = Math.floor(cents/people.length);
+  let assigned = 0;
+  people.forEach((n,i)=>{
+    const c = i===people.length-1 ? cents-assigned : base;
+    assigned += c;
+    const input = document.querySelector('#execPersonQty .person-qty-row[data-name="'+n+'"] input');
+    if(input) input.value = (c/100).toFixed(2);
+  });
+  execSyncQtyTotal();
+  toast('已平均分配，尾差计入最后一人','ok');
+}
+function execAddPhotos(e){
+  const {p} = execCurrent();
+  const files = Array.from(e.target.files||[]);
+  let added = 0;
+  for(const f of files){
+    if(p.photos.length>=9){ toast('每道工序最多 9 张照片','warn'); break; }
+    if(!/^image\/(jpeg|jpg|png)$/i.test(f.type)){ toast(f.name+' 仅支持 JPG / PNG','err'); continue; }
+    if(f.size>10*1024*1024){ toast(f.name+' 超过 10MB，已跳过','err'); continue; }
+    p.photos.push({name:f.name, url:URL.createObjectURL(f)});
+    added++;
+  }
+  e.target.value = '';
+  execRenderPhotos();
+  if(added) toast('照片已添加（'+p.photos.length+'/9）','ok');
+}
+function execRemovePhoto(i){
+  const {p} = execCurrent();
+  p.photos.splice(i,1);
+  execRenderPhotos();
+}
+function execRenderPhotos(){
+  const {p} = execCurrent();
+  const box = document.getElementById('execPhotos');
+  if(box) box.innerHTML = execPhotosHtml(p);
+  const count = document.getElementById('photoCount');
+  if(count) count.textContent = p.photos.length+'/9';
+}
+function execFormValues(){
+  const eq = ((document.getElementById('execEq')||{}).value||'').trim();
+  const ps = ((document.getElementById('execPs')||{}).value||'').trim();
+  const pe = ((document.getElementById('execPe')||{}).value||'').trim();
+  const people = execSelectedPeople();
+  const personQty = {};
+  people.forEach(n=>{
+    const el = document.querySelector('#execPersonQty .person-qty-row[data-name="'+n+'"] input');
+    personQty[n] = el && el.value!=='' ? Number(el.value) : null;
+  });
+  const qtyEl = document.getElementById('execQty');
+  const qtyVal = qtyEl ? String(qtyEl.value).trim() : '';
+  return {
+    eq, ps, pe, people, personQty,
+    qtyDone: qtyVal==='' ? null : Number(qtyVal),
+    note: ((document.getElementById('execNote')||{}).value||'').trim(),
+    manualReason: ((document.getElementById('execManualReason')||{}).value||'').trim()
+  };
+}
+function execAssign(p,v){
+  p.device = v.eq || '';
+  p.actualPs = v.ps || null;
+  p.actualPe = v.pe || null;
+  p.people = v.people;
+  p.personQty = v.personQty;
+  p.qtyDone = v.qtyDone;
+  p.note = v.note;
+  p.manualReason = v.manualReason;
+  if(!p.actualPs && !p.actualPe) p.manual = false;
+}
+function execApplyFormToProc(p){
+  execAssign(p, execFormValues());
+}
+
+/* =========================================================
+ * 生产工序执行 · 校验与设备占用
+ * ======================================================= */
+/** 设备占用/时段重叠校验：全部生产任务范围内比对实际时间 */
+function execDeviceConflict(p, s, e, eq){
+  if(!eq) return '';
+  const now = execNow();
+  for(const t of execTasks){
+    for(const q of t.procs){
+      if(q===p) continue;
+      if((q.device||q.planEq) !== eq) continue;
+      if(!q.actualPs) continue;
+      const qs = execParseTime(q.actualPs);
+      if(qs==null) continue;
+      // 已开始但未结束：设备正在占用，任何开始/保存都拦截
+      if(!q.actualPe){
+        return '设备「'+eq+'」正在被 '+t.code+' '+t.name+' · '+q.name+' 占用（'+q.actualPs+' 开始，未结束）';
+      }
+      const qe = execParseTime(q.actualPe);
+      if(qe==null) continue;
+      const end = e==null ? now : e;
+      if(s < qe && qs < end){
+        return '设备「'+eq+'」已被 '+t.code+' '+t.name+' · '+q.name+' 占用（'+q.actualPs+'–'+q.actualPe+'）';
+      }
+    }
+  }
+  return '';
+}
+function execValidate(t,p,v,submit){
+  const s = v.ps ? execParseTime(v.ps) : null;
+  const e = v.pe ? execParseTime(v.pe) : null;
+  const now = execNow();
+  if(v.ps && s==null) return '开始时间格式应为 HH:mm';
+  if(v.pe && e==null) return '结束时间格式应为 HH:mm';
+  if(s!=null && e!=null && e<=s) return '结束时间必须晚于开始时间';
+  if(s!=null && s>now) return '开始时间不得晚于当前时间';
+  if(e!=null && e>now) return '结束时间不得晚于当前时间';
+  if(p.manual && !v.manualReason) return '手填时间必须填写原因';
+  if(v.manualReason.length>200) return '手填原因不能超过 200 字';
+  if(v.note.length>200) return '备注不能超过 200 字';
+  if(v.qtyDone!=null && (isNaN(v.qtyDone) || v.qtyDone<=0)) return '加工数量必须大于 0';
+  if(v.qtyDone!=null && Math.abs(Math.round(v.qtyDone*100)-v.qtyDone*100)>1e-6) return '加工数量最多保留两位小数';
+  if(s!=null && !v.eq) return '已填写开始时间，请选择使用设备';
+  if(v.eq){
+    const eqObj = execEquipment.find(x=>x.name===v.eq);
+    if(!eqObj) return '请从设备档案中选择使用设备';
+    if(!eqObj.active && v.eq!==p.device) return '该设备已停用，不能选用';
+  }
+  if(s!=null){
+    const idx = t.procs.indexOf(p);
+    if(idx>0){
+      const prev = t.procs[idx-1];
+      if(!prev.actualPs) return '紧前工序「'+prev.name+'」尚未开始，不能开始本工序';
+      const prevStart = execParseTime(prev.actualPs);
+      if(prevStart!=null && s<prevStart) return '开始时间不得早于紧前工序「'+prev.name+'」的开始时间';
+    }
+    const conflict = execDeviceConflict(p,s,e,v.eq);
+    if(conflict) return conflict;
+  }
+  if(submit){
+    if(!v.ps || !v.pe) return '开始与结束时间都填写后才能提交';
+    if(!v.eq) return '请选择使用设备';
+    if(!v.people.length) return '请至少选择一名操作人';
+    if(v.qtyDone==null || isNaN(v.qtyDone) || v.qtyDone<=0) return '请填写加工数量';
+    for(const n of v.people){
+      if(v.personQty[n]==null || isNaN(v.personQty[n]) || v.personQty[n]<0) return '请填写「'+n+'」的完成数量';
+      if(Math.abs(Math.round(v.personQty[n]*100)-v.personQty[n]*100)>1e-6) return '「'+n+'」完成数量最多保留两位小数';
+    }
+    const sum = v.people.reduce((a,n)=>a+(v.personQty[n]||0),0);
+    if(Math.abs(sum-v.qtyDone)>0.005) return '逐人完成数量合计（'+execNum(sum)+'）必须等于加工数量（'+execNum(v.qtyDone)+'）';
+    if(p.photos.length>9) return '每道工序最多 9 张照片';
+  }
+  return null;
+}
+
+/* =========================================================
+ * 生产工序执行 · 打点、暂存与提交
+ * ======================================================= */
+function execPunchStart(){
+  if(!state.online){ toast('网络不可用，请恢复后继续','err'); return; }
+  const {t,p} = execCurrent();
+  if(p.submitted){ toast('该工序已提交，PDA 端不可修改','warn'); return; }
+  if(p.actualPs){ toast('该工序已开始计时','warn'); return; }
+  execApplyFormToProc(p);
+  if(!p.device){ toast('请先选择使用设备','warn'); return; }
+  const eqObj = execEquipment.find(x=>x.name===p.device);
+  if(!eqObj){ toast('请从设备档案中选择使用设备','err'); return; }
+  if(!eqObj.active){ toast('该设备已停用，不能开始计时','err'); return; }
+  const idx = t.procs.indexOf(p);
+  if(idx>0){
+    const prev = t.procs[idx-1];
+    if(!prev.actualPs){ toast('紧前工序「'+prev.name+'」尚未开始，不能开始本工序','err'); return; }
+  }
+  const now = execNow();
+  if(idx>0){
+    const prevStart = execParseTime(t.procs[idx-1].actualPs);
+    if(prevStart!=null && now<prevStart){ toast('开始时间不得早于紧前工序的开始时间','err'); return; }
+  }
+  const conflict = execDeviceConflict(p, now, null, p.device);
+  if(conflict){ toast(conflict,'err'); return; }
+  p.actualPs = execFmt(now);
+  p.manual = false;
+  render();
+  toast('已开始计时 '+p.actualPs,'ok');
+}
+function execPunchEnd(){
+  if(!state.online){ toast('网络不可用，请恢复后继续','err'); return; }
+  const {p} = execCurrent();
+  if(p.submitted){ toast('该工序已提交，PDA 端不可修改','warn'); return; }
+  if(!p.actualPs){ toast('请先开始计时','warn'); return; }
+  if(p.actualPe){ toast('该工序已结束计时','warn'); return; }
+  execApplyFormToProc(p);
+  if(!p.device){ toast('请选择使用设备','warn'); return; }
+  const s = execParseTime(p.actualPs);
+  const now = execNow();
+  if(s==null){ toast('开始时间格式不正确','err'); return; }
+  if(now<=s){ toast('结束时间必须晚于开始时间','err'); return; }
+  const conflict = execDeviceConflict(p, s, now, p.device);
+  if(conflict){ toast(conflict,'err'); return; }
+  p.actualPe = execFmt(now);
+  render();
+  toast('已结束计时 '+p.actualPe,'ok');
+}
+function execSaveDraft(){
+  if(!state.online){ toast('网络不可用，请恢复后继续','err'); return; }
+  const {t,p} = execCurrent();
+  if(p.submitted){ toast('该工序已提交，PDA 端不可修改','warn'); return; }
+  const v = execFormValues();
+  const err = execValidate(t,p,v,false);
+  if(err){ toast(err,'err'); return; }
+  execAssign(p,v);
+  render();
+  toast('已暂存，可稍后继续','ok');
+}
+function execSubmit(){
+  if(!state.online){ toast('网络不可用，请恢复后继续','err'); return; }
+  const {t,p} = execCurrent();
+  if(p.submitted){ toast('该工序已提交，不能重复提交','warn'); return; }
+  const v = execFormValues();
+  const err = execValidate(t,p,v,true);
+  if(err){ toast(err,'err'); return; }
+  execAssign(p,v);
+  p.submitted = true;
+  p.submitter = state.user.name;
+  p.submitTime = execNowText();
+  render();
+  toast('工序已提交，PDA 端转为只读','ok');
+}
+
+/* =========================================================
+ * 生产工序执行 · 记录与我的
+ * ======================================================= */
+function execRecordRows(){
+  const rows = [];
+  execTasks.forEach(t=>t.procs.forEach(p=>{ if(p.submitted) rows.push({t,p}); }));
+  return rows.sort((a,b)=>String(b.p.submitTime||'').localeCompare(String(a.p.submitTime||'')));
+}
+function filteredExecRecordRows(){
+  const f = state.execRecordFilter;
+  return execRecordRows().filter(({t,p})=>{
+    if(f.process!=='全部' && p.name!==f.process) return false;
+    if(f.person!=='全部' && !(p.people||[]).includes(f.person)) return false;
+    if(f.keyword){
+      const k = f.keyword.toLowerCase();
+      const hit = [t.name,t.batch,t.code,p.name,p.submitter,p.device,(p.people||[]).join('、')]
+        .some(v=>String(v||'').toLowerCase().includes(k));
+      if(!hit) return false;
+    }
+    return true;
+  });
+}
+function execRecordListHtml(){
+  const rows = filteredExecRecordRows();
+  if(!rows.length) return '<div class="exec-empty">没有符合条件的提交记录</div>';
+  return rows.map(({t,p})=>`
+      <div class="record">
+        <div class="top"><b>${esc(t.name)} · ${esc(p.name)}</b><span class="pill green">已提交</span></div>
+        <div class="sub">批号 ${esc(t.batch)} · 第 ${p.seq} 道 · ${esc(t.code)}</div>
+        <div class="lines">实际 ${esc(p.actualPs||'—')}–${esc(p.actualPe||'—')} · 设备 ${esc(p.device||'—')}<br/>操作人 ${esc((p.people||[]).join('、')||'—')} · 加工 ${p.qtyDone!=null?execNum(p.qtyDone):'—'} ${esc(t.unit)}<br/>提交 ${esc(p.submitter||'—')} · ${esc(p.submitTime||'—')}</div>
+      </div>`).join('');
+}
+function onExecRecordSearch(v){
+  state.execRecordFilter.keyword = v;
+  const box = document.getElementById('execRecordList');
+  if(box) box.innerHTML = execRecordListHtml();
+  const count = document.getElementById('execRecordCount');
+  if(count) count.textContent = filteredExecRecordRows().length;
+}
+function setExecRecordFilter(key,value){
+  state.execRecordFilter[key] = value;
+  const box = document.getElementById('execRecordList');
+  if(box) box.innerHTML = execRecordListHtml();
+  const count = document.getElementById('execRecordCount');
+  if(count) count.textContent = filteredExecRecordRows().length;
+}
+function execRecordsView(){
+  const all = execRecordRows();
+  const procs = [...new Set(all.map(r=>r.p.name))];
+  const people = [...new Set(all.flatMap(r=>r.p.people||[]))];
+  const opts = (list,cur)=>list.map(v=>`<option ${v===cur?'selected':''}>${esc(v)}</option>`).join('');
+  const rows = filteredExecRecordRows();
+  return `
+  <div class="appbar"><div><div class="title">提交记录</div><div class="sub">已提交工序 · ${all.length} 条</div></div></div>
+  <div class="content">
+    <div class="search-row">
+      <input value="${esc(state.execRecordFilter.keyword)}" placeholder="搜索制剂 / 批号 / 工序 / 操作人" oninput="onExecRecordSearch(this.value)" />
+    </div>
+    <div class="reprint-filters">
+      <select onchange="setExecRecordFilter('process',this.value)">${opts(['全部',...procs], state.execRecordFilter.process)}</select>
+      <select onchange="setExecRecordFilter('person',this.value)">${opts(['全部',...people], state.execRecordFilter.person)}</select>
+    </div>
+    <div class="section-head"><b>已提交（<span id="execRecordCount">${rows.length}</span>）</b><span class="sub">按提交时间倒序</span></div>
+    <div id="execRecordList">${execRecordListHtml()}</div>
+    <div class="hint">提交后在 PDA 端只读；更正需到 PC 端生产任务详情操作并填写原因。</div>
+  </div>`;
+}
+function execProfileView(){
+  return `
+  <div class="appbar"><div><div class="title">我的</div><div class="sub">账号与设备</div></div></div>
+  <div class="content">
+    <div class="profile-card">
+      <div class="avatar">${state.user.short}</div>
+      <div><b>${state.user.name}</b><div class="sub">${state.user.role} · ${state.user.dept}</div></div>
+    </div>
+    <div class="list-card">
+      <div class="list-row" onclick="setOnline(!state.online)"><div class="ico">${icons.record}</div>网络状态<div class="arrow" style="color:${state.online?'var(--green)':'var(--red)'}">${state.online?'在线（点击模拟断网）':'离线（点击恢复网络）'} ›</div></div>
+      <div class="list-row"><div class="ico">${icons.box}</div>当前设备<div class="arrow">${state.deviceRegistered?'PDA-A03':'PDA-A09（未登记）'} ›</div></div>
+      <div class="list-row"><div class="ico">${icons.task}</div>作业权限<div class="arrow">工序录入 / 暂存 / 提交 ›</div></div>
+      <div class="list-row" onclick="pdaLogout()"><div class="ico">${icons.user}</div>切换账号 / 角色<div class="arrow">›</div></div>
+    </div>
+    <div class="hint" style="margin-top:16px">仅在线作业；断网时提示并保留本机已填内容，恢复后继续。已提交工序在 PDA 端只读。</div>
   </div>`;
 }
 
@@ -1365,6 +2366,7 @@ render = function(){
   }
   if (state.screen === 'print') { app.innerHTML = printView(); return; }
   if (state.screen === 'reprint') { app.innerHTML = reprintView(); return; }
+  if (state.screen === 'execEntry') { app.innerHTML = execEntryView(); return; }
   _render();
 };
 

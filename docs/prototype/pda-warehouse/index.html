@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>仓储扫码 · 原型入口</title>
+<title>ERP 移动作业 · 原型入口</title>
 <style>
 :root{
   --primary:#2f6fed; --primary-weak:#eaf1ff;
@@ -109,20 +109,20 @@ h1{margin:0;font-size:34px;letter-spacing:-.8px;line-height:1.25}
         <path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>
       </svg>
     </div>
-    <div><b>仓储物料管理</b><span>PDA 扫码 · 交互原型</span></div>
+    <div><b>ERP 移动作业</b><span>仓储扫码 · 生产工序执行 · 交互原型</span></div>
   </div>
 
-  <h1>仓储扫码 · 交互原型</h1>
+  <h1>仓储扫码 · 生产工序执行 · 交互原型</h1>
   <p class="lead">
-    按 PRD 落地：验收双签后生成入库码与包码，先进入「待打印入库码」，打印标签后再用 PC 或 PDA 扫码核对，<b>手动确认</b>后才改变库存。
-    扫码只记录核对结果，不改变已录入数量。
+    同一台 PDA 承载两类移动作业：仓储库管完成验收双签后的入库、出库、退库核对，<b>只能逐条扫描入库码</b>并手动确认后更新库存；生产操作工按计划查看生产任务与工序，逐道打点开始/结束，登记设备、操作人、逐人完成数量、加工数量与现场照片，暂存或提交后 PDA 端只读。
   </p>
   <div class="badges">
     <span class="badge"><i></i>入库码 · 一物料批次一码</span>
-    <span class="badge"><i></i>包码 · 一来源单据一码</span>
+    <span class="badge green"><i></i>只准逐条扫入库码</span>
     <span class="badge green"><i></i>整单确认才动库存</span>
     <span class="badge amber"><i></i>PC / PDA 双端一致</span>
-    <span class="badge green"><i></i>标签二维码真实可扫</span>
+    <span class="badge green"><i></i>PDA 双角色：库管 / 操作工</span>
+    <span class="badge"><i></i>工序打点与设备占用校验</span>
   </div>
 
   <div class="cards">
@@ -145,7 +145,7 @@ h1{margin:0;font-size:34px;letter-spacing:-.8px;line-height:1.25}
       </div>
       <div class="tag">Desktop · 1440</div>
       <h2>PC 端原型</h2>
-      <p>入库 / 出库 / 退库列表与详情抽屉、待打印入库码、明细行扫码、整单确认、验收双签、标签打印与补打。保留现有页面结构，增加打印、状态、扫码与确认按钮。</p>
+      <p>入库 / 出库 / 退库列表与详情抽屉、待打印入库码、明细行逐条扫码、整单确认、验收双签、标签打印与补打。移除整包扫码，扫码只接受单条入库码。</p>
       <div class="go">打开 PC 原型 <span>→</span></div>
     </a>
 
@@ -166,8 +166,8 @@ h1{margin:0;font-size:34px;letter-spacing:-.8px;line-height:1.25}
         </div>
       </div>
       <div class="tag">Mobile · 390</div>
-      <h2>PDA 端原型</h2>
-      <p>移动适配：登录与设备绑定、待打印入库码、入库/出库/退库任务、PDA 扫描头真实扫码（键盘模拟）、整包或逐条扫码、扫满后作业签名确认、补打标签与作业记录。</p>
+      <h2>PDA 端原型（双角色）</h2>
+      <p>登录页可切换「仓储库管 / 生产操作」：库管完成待打印入库码、入库/出库/退库任务，只能逐条扫描入库码并作业签名；操作工按任务—工序两级查看，逐道打点开始/结束、登记设备与人员、逐人数量与照片，校验设备占用后暂存或提交。</p>
       <div class="go">打开 PDA 原型 <span>→</span></div>
     </a>
   </div>
@@ -177,17 +177,27 @@ h1{margin:0;font-size:34px;letter-spacing:-.8px;line-height:1.25}
     <p>PC 与 PDA 共用同一套状态与扫码记录，区别只在交互载体。</p>
     <div class="steps">
       <div class="step"><div class="n">1</div><b>验收双签</b><span>验收人 + 复核人，缺一不可</span></div>
-      <div class="step"><div class="n">2</div><b>生成入库码</b><span>入库码 + 包码，进入待打印</span></div>
-      <div class="step"><div class="n">3</div><b>待打印入库码</b><span>打印包码与入库码后才可扫码</span></div>
-      <div class="step"><div class="n">4</div><b>入库扫码</b><span>整包扫或逐条扫，只记明细</span></div>
+      <div class="step"><div class="n">2</div><b>生成入库码</b><span>按明细生成入库码，进入待打印</span></div>
+      <div class="step"><div class="n">3</div><b>待打印入库码</b><span>打印入库码后才可扫码</span></div>
+      <div class="step"><div class="n">4</div><b>逐条扫码</b><span>只准单条扫入库码，只记明细</span></div>
       <div class="step"><div class="n">5</div><b>手动确认</b><span>扫满 + 作业签名才生效</span></div>
       <div class="step"><div class="n">6</div><b>库存更新</b><span>一次性入库 / 出库 / 退库</span></div>
     </div>
     <div class="rules">
       <div class="rule"><b>先打印再扫码</b><span>验收完成后是「待打印入库码」，未打印不能扫码，库存不变。</span></div>
       <div class="rule"><b>未扫满不能确认</b><span>任一行未扫码，确认按钮置灰，库存不变。</span></div>
-      <div class="rule"><b>明细行可单独扫码</b><span>PC 行按钮与 PDA 逐条扫码共用同一服务，扫错行直接拦截。</span></div>
+      <div class="rule"><b>只准逐条扫码</b><span>整包/包码扫码已停用，PDA 与 PC 都只接受单条入库码；包码扫码会被拦截并提示逐条扫描。</span></div>
       <div class="rule"><b>扫码不改数量</b><span>数量先录入，扫码只确认物料与批次正确。</span></div>
+    </div>
+
+    <h3 style="margin-top:26px">生产工序 PDA 执行流程</h3>
+    <p>操作工在当班现场按计划执行工序；模块只采集实际执行信息，不含排产与计划调整。</p>
+    <div class="steps">
+      <div class="step"><div class="n">1</div><b>选择任务</b><span>任务—工序两级始终展开，未排期排最后</span></div>
+      <div class="step"><div class="n">2</div><b>工序打点</b><span>开始 / 结束取当前时间，支持手填并填原因</span></div>
+      <div class="step"><div class="n">3</div><b>录入执行信息</b><span>设备、操作人、逐人数量、加工数量、照片</span></div>
+      <div class="step"><div class="n">4</div><b>校验</b><span>设备占用、时段重叠、工序顺序与完整性</span></div>
+      <div class="step"><div class="n">5</div><b>暂存 / 提交</b><span>提交后 PDA 只读，更正到 PC 端</span></div>
     </div>
     <div class="pda-note">
       <div>
@@ -196,11 +206,18 @@ h1{margin:0;font-size:34px;letter-spacing:-.8px;line-height:1.25}
       </div>
       <a href="pda.html">打开 PDA 端 →</a>
     </div>
+    <div class="pda-note" style="background:#f7fcf9;border-color:#bfe3cd">
+      <div>
+        <b>生产工序执行 PDA</b>
+        <span>登录页切换到「生产操作」账号（张伟 · 操作工），或在地址后加 <code>?role=worker</code> 直接进入：按计划查看任务 → 工序开始/结束打点 → 登记设备、操作人、逐人数量与照片 → 设备占用与时段校验 → 暂存或提交，提交后只读。</span>
+      </div>
+      <a href="pda.html?role=worker">打开工序执行 PDA →</a>
+    </div>
   </div>
 
   <div class="footer">
-    <span>原型数据为演示数据 · 2026-11-13</span>
-    <span>建议先看 PC 端的入库详情抽屉，再看 PDA 端的入库作业流程</span>
+    <span>原型数据为演示数据 · 2026-11-17</span>
+    <span>建议先看 PC 端的入库详情抽屉，再分别用两个角色体验 PDA 的逐条入库扫码与工序执行</span>
   </div>
 </div>
 </body>

@@ -317,7 +317,7 @@ tbody tr:hover{background:#fafbff}
 const inboundDocs = [
   {
     id:'IN202611130001', type:'采购入库', source:'YS-20261113-001', warehouse:'原料仓库',
-    date:'2026-11-13 09:20', status:'待打印入库码', purpose:'疏肝养胃丸', packageCode:'pk2026111300001',
+    date:'2026-11-13 09:20', status:'待打印入库码', purpose:'疏肝养胃丸',
     lines:[
       {id:1, code:'Z046', name:'当归', batch:'260501', qty:14.71, unit:'千克', expiry:'2029-05-03', location:'A-01-02', inCode:'in2026111300001', scanned:false},
       {id:2, code:'Z125', name:'红花', batch:'260701', qty:14.71, unit:'千克', expiry:'2029-07-27', location:'A-02-01', inCode:'in2026111300002', scanned:false},
@@ -329,14 +329,14 @@ const inboundDocs = [
   },
   {
     id:'IN202611130002', type:'成品入库', source:'GD202611130001', warehouse:'成品仓库',
-    date:'2026-11-13 10:05', status:'待入库', purpose:'疏肝养胃丸', packageCode:'pk2026111300002',
+    date:'2026-11-13 10:05', status:'待入库', purpose:'疏肝养胃丸',
     lines:[
       {id:1, code:'Z04-011', name:'疏肝养胃丸', batch:'20261101', qty:7000, unit:'盒', expiry:'2028-11-01', location:'C-01-01', inCode:'in2026111300007', scanned:false}
     ]
   },
   {
     id:'IN202611120008', type:'采购入库', source:'YS-20261112-006', warehouse:'辅料仓库',
-    date:'2026-11-12 16:40', status:'已入库', purpose:'活血通络丸', packageCode:'pk2026111200006',
+    date:'2026-11-12 16:40', status:'已入库', purpose:'活血通络丸',
     lines:[
       {id:1, code:'F030', name:'蜂蜜（药用）', batch:'260908-1', qty:500, unit:'千克', expiry:'2028-09-07', location:'F-01-01', inCode:'in2026111200021', scanned:true},
       {id:2, code:'F0051', name:'郁金油', batch:'260801', qty:20, unit:'千克', expiry:'2028-08-01', location:'F-02-02', inCode:'in2026111200022', scanned:true}
@@ -344,14 +344,14 @@ const inboundDocs = [
   },
   {
     id:'IN202611120009', type:'采购入库', source:'YS-20261112-007', warehouse:'包材仓库',
-    date:'2026-11-12 17:20', status:'草稿', purpose:'—', packageCode:null,
+    date:'2026-11-12 17:20', status:'草稿', purpose:'—',
     lines:[
       {id:1, code:'B05-004-01', name:'60ml口服固体药用高密度聚乙烯瓶', batch:'A202603023', qty:20000, unit:'个', expiry:'2028-09-15', location:'P-01-01', inCode:null, scanned:false}
     ]
   },
   {
     id:'IN202611130003', type:'成品入库', source:'GD202611130002', warehouse:'成品仓库',
-    date:'2026-11-13 12:10', status:'待放行', purpose:'活血通络丸', packageCode:null,
+    date:'2026-11-13 12:10', status:'待放行', purpose:'活血通络丸',
     lines:[
       {id:1, code:'Z04-012', name:'活血通络丸', batch:'20261102', qty:5000, unit:'盒', expiry:'2028-11-02', location:'', inCode:null, scanned:false}
     ]
@@ -408,6 +408,7 @@ const state = {
   pendingCancel:null,
   signRole:null,
   reprints:[],
+  labelFilter:{keyword:'', warehouse:'全部', status:'全部'},
   acceptanceSigned:{accept:false, review:false}
 };
 
@@ -741,32 +742,20 @@ function openInbound(id){
         <div class="meta"><div class="k">用途</div><div class="v">${doc.purpose}</div></div>
         <div class="meta"><div class="k">品种数</div><div class="v">${doc.lines.length}</div></div>
         <div class="meta"><div class="k">入库总量</div><div class="v">${doc.lines.reduce((s,l)=>s+Number(l.qty),0).toFixed(2)}</div></div>
-        <div class="meta"><div class="k">包码</div><div class="v mono">${doc.packageCode || '—'}</div></div>
         <div class="meta"><div class="k">状态</div><div class="v">${doc.status}</div></div>
       </div>
 
-      ${pendingPrint?`<div class="summary" style="margin-bottom:16px;background:#fff8ec;border-color:#f3d7b5">入库码/包码已生成，请先打印标签。打印后单据进入「待入库」，才能扫码确认。</div>`:''}
+      ${pendingPrint?`<div class="summary" style="margin-bottom:16px;background:#fff8ec;border-color:#f3d7b5">入库码已生成，请先打印标签。打印后单据进入「待入库」，才能逐条扫码确认。</div>`:''}
 
-      ${doc.packageCode ? `
-      <div class="package-card">
-        ${qrSvg(qrContent('PK', doc.packageCode), 72)}
-        <div class="grow">
-          <div class="k">包码（整包作业扫这个）</div>
-          <div class="code mono">${doc.packageCode}</div>
-          <div class="hint">${pendingPrint?'打印包码与入库码后才能扫码。':'整包扫码一次带出 '+doc.lines.length+' 种物料；整包不支持拆包。'}</div>
-        </div>
-        ${pendingPrint
-          ? `<button class="btn primary" onclick="printDoc('${doc.id}','inbound')">打印入库码</button>`
-          : `<button class="btn primary" onclick="scanAll('${doc.id}','inbound')">整包扫码</button>
-             <button class="btn" onclick="printDoc('${doc.id}','inbound')">补打标签</button>`}
-      </div>` : `
       <div class="package-card">
         <div class="grow">
-          <div class="k">${doc.status==='待放行'?'待检验放行':doc.status==='已取消'?'已取消':'草稿单据'}</div>
-          <div class="code">${doc.status==='已取消'?'单据已取消':'尚未生成入库码'}</div>
-          <div class="hint">${doc.status==='待放行'?'需先完成检验放行，系统生成入库码与包码后才能扫码。':doc.status==='已取消'?'单据已取消，不能作业。':'需先完成验收双签，系统生成入库码与包码后才能扫码。'}</div>
+          <div class="k">${pendingPrint?'待打印入库码':canScan?'待扫码核对':doc.status}</div>
+          <div class="code">${pendingPrint?'请先打印 '+doc.lines.length+' 张入库码':canScan?'逐条扫描入库码':'—'}</div>
+          <div class="hint">${pendingPrint?'打印后单据进入「待入库」，才能逐条扫码确认。':canScan?'扫码只核对物料与批次，不改变录入数量；只能逐条扫描入库码。':doc.status==='待放行'?'需先完成检验放行，系统生成入库码后才能扫码。':doc.status==='已取消'?'单据已取消，不能作业。':'需先完成验收双签，系统生成入库码后才能扫码。'}</div>
         </div>
-      </div>`}
+        ${pendingPrint?`<button class="btn primary" onclick="printDoc('${doc.id}','inbound')">打印入库码</button>`
+          :canScan?`<button class="btn" onclick="printDoc('${doc.id}','inbound')">补打标签</button>`:''}
+      </div>
 
       <div class="progress">
         <span class="txt">${pendingPrint?'打印进度':'扫码进度'} <b>${pendingPrint?'待打印':scanned+'/'+doc.lines.length}</b></span>
@@ -852,7 +841,7 @@ function openOutbound(id){
         <span class="txt">${all?'已扫满，可确认':'还差 '+(doc.lines.length-scanned)+' 行'}</span>
       </div>
 
-      <div class="section-title"><h4>出库明细</h4><span>扫入库码或包码，确认批次正确</span></div>
+      <div class="section-title"><h4>出库明细</h4><span>逐条扫描入库码，确认批次正确</span></div>
       <table class="detail-table">
         <thead><tr>
           <th style="width:36px">#</th><th>物料</th><th>批号</th><th>数量</th><th>入库码</th><th style="width:96px">扫码状态</th>
@@ -989,13 +978,6 @@ function scanLine(docId, lineId, kind){
   toast('扫码成功：' + line.name + ' · 批次 ' + line.batch, 'ok');
   refreshOpen(kind, docId);
 }
-function scanAll(docId, kind){
-  const doc = findDoc(kind, docId);
-  if(kind==='inbound' && doc.status!=='待入库'){ toast('请先打印入库码，单据进入待入库后才能扫码','warn'); return; }
-  doc.lines.forEach(l=>l.scanned = true);
-  toast('整包扫码成功，共带出 ' + doc.lines.length + ' 种物料', 'ok');
-  refreshOpen(kind, docId);
-}
 function clearLine(docId, lineId, kind){
   const doc = findDoc(kind, docId);
   doc.lines.find(l=>l.id===lineId).scanned = false;
@@ -1014,13 +996,12 @@ function releaseInbound(id){
   const doc = inboundDocs.find(d=>d.id===id);
   if(!doc || doc.status!=='待放行'){ toast('当前状态不可放行','warn'); return; }
   doc.status = '待打印入库码';
-  if(!doc.packageCode) doc.packageCode = 'pk'+doc.id.replace(/\D/g,'');
   doc.lines.forEach((l,i)=>{
     if(!l.inCode) l.inCode = 'in'+doc.id.replace(/\D/g,'')+String(i+1).padStart(3,'0');
   });
   if(state.view==='inbound') state.inboundTab = 'print';
   render();
-  toast('检验放行完成，已生成入库码与包码，等待打印（演示）','ok');
+  toast('检验放行完成，已生成入库码，等待打印（演示）','ok');
 }
 function openCancel(kind, id){
   const doc = findDoc(kind, id);
@@ -1127,7 +1108,7 @@ function confirmReprint(){
   const line = lineId==null ? null : doc.lines.find(l=>l.id===lineId);
   state.reprints.unshift({
     time:'2026-11-13 12:05', op:'陶新文', device:'PC-01',
-    docId, code: line ? line.inCode : doc.packageCode, reason: reason.trim()
+    docId, code: line ? line.inCode : '整单标签', reason: reason.trim()
   });
   state.pendingReprint = null;
   closeModal();
@@ -1216,23 +1197,10 @@ function closeModal(){
 function printDoc(id, kind){
   const doc = findDoc(kind, id);
   const pendingPrint = kind==='inbound' && doc.status==='待打印入库码';
-  const packageLabel = (kind==='inbound' && doc.packageCode) ? `
-    <div class="label-card">
-      <div class="lh"><b>整包标签</b><span class="mono">${doc.packageCode}</span></div>
-      <div class="lg">
-        <div class="fields">
-          用途：<b>${doc.purpose || '—'}</b><br/>
-          入库时间：<b>2026-11-13</b><br/>
-          品种数量：<b>${doc.lines.length} 种</b><br/>
-          来源：<b class="mono">${doc.id}</b>
-        </div>
-        ${qrSvg(qrContent('PK', doc.packageCode), 110)}
-      </div>
-      <div class="note">${doc.packageCode} · 整包作业扫此码</div>
-    </div>` : '';
   const labels = doc.lines.map(l=>`
     <div class="label-card">
       <div class="lh"><b>${l.name}</b><span class="mono">${l.code}</span></div>
+      <div class="mono" style="font-size:10.5px;color:#475467;margin:2px 0 5px">入库单号：${doc.id}</div>
       <div class="lg">
         <div class="fields">
           批号：<b>${l.batch}</b><br/>
@@ -1246,14 +1214,14 @@ function printDoc(id, kind){
       </div>
       <div class="note">${l.inCode || l.code} · 部分领用后以系统实时库存为准</div>
     </div>`).join('');
-  const total = doc.lines.length + (packageLabel ? 1 : 0);
+  const total = doc.lines.length;
   document.getElementById('modal').className = 'modal wide';
   document.getElementById('modal').innerHTML = `
     <h3>${pendingPrint?'打印入库码':'标签打印预览'}</h3>
-    <p class="sub">${pendingPrint?'打印包码与入库码后，单据进入「待入库」，才能扫码确认。':'补打复用原码，不生成新编码；补打需填写原因并记录操作人、设备与时间。'}</p>
+    <p class="sub">${pendingPrint?'打印入库码后，单据进入「待入库」，才能逐条扫码确认。':'补打复用原码，不生成新编码；补打需填写原因并记录操作人、设备与时间。'}</p>
     <div class="modal-body">
       <div class="label-preview">
-        <div class="label-grid">${packageLabel}${labels}</div>
+        <div class="label-grid">${labels}</div>
       </div>
       <div class="summary" style="margin-top:14px">${pendingPrint?'验收完成后必须先打印入库码；未打印不能扫码，也不会改变库存。':'补打复用原码，不生成新编码；补打需填写原因并记录操作人、设备与时间。'}<br/>默认按 A4 横向（58:40 比例）打印，打印 App 会缩放到 58×40 标签。</div>
     </div>
@@ -1287,6 +1255,7 @@ function pcLabelHtml(opts){
       <div class="title">${opts.title}</div>
       <div class="badge">${opts.badge || ''}</div>
     </div>
+    ${opts.docCode ? `<div class="docno">入库单号 ${opts.docCode}</div>` : ''}
     <div class="body">
       <div class="left">
         <div class="fields">${(opts.fields || []).map(f => pcFieldHtml(f[0], f[1])).join('')}</div>
@@ -1302,22 +1271,10 @@ function pcLabelHtml(opts){
 }
 function buildPcPrintHtml(doc, a4, pdf){
   const wrap = html => a4 ? `<div class="page">${html}</div>` : html;
-  const packageLabel = doc.packageCode ? pcLabelHtml({
-    title: '整包入库标签',
-    badge: doc.packageCode,
-    fields: [
-      ['用途', doc.purpose || '—'],
-      ['入库日期', '2026-11-13'],
-      ['品种数量', `${doc.lines.length} 种`],
-      ['来源', doc.id]
-    ],
-    materials: doc.lines.map(l => `${l.name} ${l.batch}`).join(' · '),
-    qr: qrSvg(qrContent('PK', doc.packageCode), 100),
-    footLeft: '包码 ' + doc.packageCode
-  }) : '';
   const labels = doc.lines.map(l => pcLabelHtml({
     title: l.name,
     badge: l.code,
+    docCode: doc.id,
     fields: [
       ['批号', l.batch],
       ['有效期', l.expiry || '—'],
@@ -1351,6 +1308,7 @@ function buildPcPrintHtml(doc, a4, pdf){
     .head{display:flex;align-items:baseline;justify-content:space-between;gap:1mm;border-bottom:0.4mm solid #000;padding-bottom:0.6mm;flex:none}
     .title{font-size:4.5mm;font-weight:800;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .badge{font-size:2.1mm;font-family:ui-monospace,Consolas,monospace;white-space:nowrap}
+    .docno{font-size:2.1mm;font-weight:700;line-height:1.2;font-family:ui-monospace,Consolas,monospace;margin-top:0.3mm}
     .body{flex:1;display:flex;gap:1.5mm;padding:0.8mm 0 0.4mm;min-height:0}
     .left{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:0.8mm}
     .fields{display:grid;grid-template-columns:1fr 1fr;gap:0.6mm 1.2mm;align-content:start}
@@ -1365,7 +1323,7 @@ function buildPcPrintHtml(doc, a4, pdf){
     @media print { html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; } .toolbar{display:none} .sheet{padding:0} .label{margin:0;border:0;height:37.5mm;page-break-after:always} .label:last-child{page-break-after:auto} body{-webkit-print-color-adjust:exact;print-color-adjust:exact} }
   </style></head><body>
   <div class="toolbar"><span class="hint">${pdf ? 'PDF 58×40 · 在打印对话框选择「另存为 PDF」' : (a4 ? 'A4 横向（58:40 比例）· 打印 App 会缩放到 58×40 标签' : '纸张 58×40mm · 缩放 100% · 边距无 · 关闭页眉页脚')}</span><button onclick="window.print()">打印</button><button onclick="window.close()">关闭</button></div>
-  <div class="sheet">${packageLabel ? wrap(packageLabel) : ''}${labels}</div>
+  <div class="sheet">${labels}</div>
   </body></html>`;
 }
 function printPcWindow(doc, a4 = true, pdf = false){
@@ -1385,11 +1343,66 @@ function printPcAndMark(id, kind){
   setTimeout(()=>markPrinted(id, kind), 900);
 }
 
+function labelAllRows(){
+  return inboundDocs.filter(d=>d.status!=='草稿' && d.status!=='已取消' && d.status!=='待放行')
+    .flatMap(d=>d.lines.map(l=>({doc:d, line:l})));
+}
+function filteredLabelRows(){
+  const f = state.labelFilter;
+  return labelAllRows().filter(({doc,line})=>{
+    if(f.warehouse!=='全部' && doc.warehouse!==f.warehouse) return false;
+    if(f.status!=='全部' && doc.status!==f.status) return false;
+    if(f.keyword){
+      const k = f.keyword.toLowerCase();
+      const hit = String(doc.id).toLowerCase().includes(k)
+        || String(line.name||'').toLowerCase().includes(k)
+        || String(line.code||'').toLowerCase().includes(k)
+        || String(line.batch||'').toLowerCase().includes(k)
+        || String(line.inCode||'').toLowerCase().includes(k);
+      if(!hit) return false;
+    }
+    return true;
+  });
+}
+function labelRowsHtml(){
+  const rows = filteredLabelRows();
+  if(!rows.length) return '<tr><td colspan="10" class="sub" style="text-align:center;padding:26px">没有符合条件的标签</td></tr>';
+  return rows.map(({doc,line})=>`
+    <tr>
+      <td><input type="checkbox" /></td>
+      <td class="mono">${doc.id}</td>
+      <td><b>${line.name}</b><div class="sub mono">${line.code}</div></td>
+      <td class="mono">${line.batch}</td>
+      <td>${line.qty} ${line.unit}</td>
+      <td class="sub">${line.expiry}</td>
+      <td class="mono">${line.inCode || '—'}</td>
+      <td>${pill(doc.status)}</td>
+      <td>${doc.status==='待打印入库码' ? '<span class="pill gray">待打印</span>' : (line.scanned?pill('已扫码'):pill('待扫码'))}</td>
+      <td>${doc.status==='待打印入库码'
+        ? `<button class="link" onclick="printDoc('${doc.id}','inbound')">打印</button>`
+        : `<button class="link" onclick="printDoc('${doc.id}','inbound')">预览</button><button class="link" style="margin-left:12px" onclick="openReprintLine('${doc.id}',${line.id})">补打</button>`}</td>
+    </tr>`).join('');
+}
+function onLabelFilter(key,value){
+  state.labelFilter[key] = value;
+  const tbody = document.getElementById('labelRows');
+  if(tbody) tbody.innerHTML = labelRowsHtml();
+  const count = document.getElementById('labelFilterCount');
+  if(count) count.textContent = filteredLabelRows().length;
+}
+function resetLabelFilter(){
+  state.labelFilter = {keyword:'', warehouse:'全部', status:'全部'};
+  render();
+}
 function labelsView(){
-  const rows = inboundDocs.filter(d=>d.status!=='草稿' && d.status!=='已取消').flatMap(d=>d.lines.map(l=>({doc:d, line:l})));
+  const allRows = labelAllRows();
+  const rows = filteredLabelRows();
+  const warehouses = [...new Set(allRows.map(r=>r.doc.warehouse).filter(Boolean))];
+  const statuses = [...new Set(allRows.map(r=>r.doc.status).filter(Boolean))];
+  const opts = (list,cur)=>list.map(v=>`<option ${v===cur?'selected':''}>${v}</option>`).join('');
   return `
   <div class="page-head">
-    <div><h1>标签打印</h1><p>按入库单批量打印入库码；包码单独打印。补打需填写原因并留痕。</p></div>
+    <div><h1>标签打印</h1><p>按入库单批量打印入库码；补打需填写原因并留痕。</p></div>
     <div class="toolbar"><button class="btn" onclick="toast('原型演示：按筛选批量打印')">批量打印</button></div>
   </div>
   ${state.reprints.length?`<div class="card" style="margin-bottom:16px">
@@ -1400,32 +1413,25 @@ function labelsView(){
     </table>
   </div>`:''}
   <div class="stat-grid">
-    <div class="stat"><div class="k">待打印入库码</div><div class="v">7</div><div class="s">1 张入库单 · 含包码</div></div>
-    <div class="stat"><div class="k">待打印包码</div><div class="v">1</div><div class="s">一单一个包码</div></div>
+    <div class="stat"><div class="k">待打印入库码</div><div class="v">7</div><div class="s">1 张入库单</div></div>
+    <div class="stat"><div class="k">待入库单据</div><div class="v">${inboundDocs.filter(d=>d.status==='待入库').length}</div><div class="s">逐条扫码核对</div></div>
     <div class="stat"><div class="k">今日补打</div><div class="v">${5+state.reprints.length}</div><div class="s">均已记录原因</div></div>
     <div class="stat"><div class="k">标签打印机</div><div class="v">1</div><div class="s"><b>在线</b> · 58×40mm</div></div>
   </div>
   <div class="card">
-    <div class="card-head"><div><h3>待打印清单</h3><p>验收完成后先打印入库码与包码；打印后单据进入待入库，才能扫码。</p></div>
+    <div class="card-head"><div><h3>标签与补打清单</h3><p>可按入库单号、物料、批号、入库码搜索，并按仓库与单据状态筛选。</p></div>
       <button class="btn primary" onclick="toast('已发送打印任务（原型）','ok')">打印选中</button></div>
+    <div class="filters" style="border-bottom:1px solid var(--line2)">
+      <input class="input" style="width:260px" value="${state.labelFilter.keyword}" placeholder="搜索入库单号 / 物料 / 批号 / 入库码" oninput="onLabelFilter('keyword',this.value)" />
+      <select class="input" onchange="onLabelFilter('warehouse',this.value)">${opts(['全部',...warehouses], state.labelFilter.warehouse)}</select>
+      <select class="input" onchange="onLabelFilter('status',this.value)">${opts(['全部',...statuses], state.labelFilter.status)}</select>
+      <span class="sub">共 <b id="labelFilterCount">${rows.length}</b> 条</span>
+      <button class="link" onclick="resetLabelFilter()">重置</button>
+    </div>
     <table>
       <thead><tr><th style="width:36px"><input type="checkbox" /></th><th>入库单号</th><th>物料</th><th>批号</th><th>数量</th><th>有效期至</th><th>入库码</th><th>单据状态</th><th>扫码状态</th><th>操作</th></tr></thead>
-      <tbody>
-      ${rows.slice(0,8).map(({doc,line})=>`
-        <tr>
-          <td><input type="checkbox" /></td>
-          <td class="mono">${doc.id}</td>
-          <td><b>${line.name}</b><div class="sub mono">${line.code}</div></td>
-          <td class="mono">${line.batch}</td>
-          <td>${line.qty} ${line.unit}</td>
-          <td class="sub">${line.expiry}</td>
-          <td class="mono">${line.inCode}</td>
-          <td>${pill(doc.status)}</td>
-          <td>${doc.status==='待打印入库码' ? '<span class="pill gray">待打印</span>' : (line.scanned?pill('已扫码'):pill('待扫码'))}</td>
-          <td>${doc.status==='待打印入库码'
-            ? `<button class="link" onclick="printDoc('${doc.id}','inbound')">打印</button>`
-            : `<button class="link" onclick="printDoc('${doc.id}','inbound')">预览</button><button class="link" style="margin-left:12px" onclick="openReprintLine('${doc.id}',${line.id})">补打</button>`}</td>
-        </tr>`).join('')}
+      <tbody id="labelRows">
+      ${labelRowsHtml()}
       </tbody>
     </table>
   </div>`;
@@ -1439,7 +1445,7 @@ function acceptanceView(){
   const both = s.accept && s.review;
   return `
   <div class="page-head">
-    <div><h1>验收签名</h1><p>验收人与复核人分别签名，缺一不可；双签完成后系统生成入库码与包码。</p></div>
+    <div><h1>验收签名</h1><p>验收人与复核人分别签名，缺一不可；双签完成后系统生成入库码。</p></div>
     <div class="toolbar"><button class="btn" onclick="toast('原型演示：查看验收单明细')">查看验收明细</button></div>
   </div>
   <div class="card" style="padding:20px 22px;margin-bottom:16px">
@@ -1491,8 +1497,8 @@ function acceptanceView(){
     <div style="padding:18px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
       <div style="width:38px;height:38px;border-radius:50%;background:var(--green);color:#fff;display:grid;place-items:center;font-weight:800">✓</div>
       <div style="flex:1;min-width:260px">
-        <b>双签完成，已生成入库码与包码</b>
-        <div class="sub">入库单 IN202611130001 · 包码 pk2026111300001 · 6 个入库码 · 等待库管扫码确认</div>
+        <b>双签完成，已生成入库码</b>
+        <div class="sub">入库单 IN202611130001 · 6 个入库码 · 等待库管逐条扫码确认</div>
       </div>
       <button class="btn primary" onclick="go('inbound')">去入库扫码</button>
     </div>
@@ -1531,7 +1537,7 @@ function doAcceptanceSign(){
   closeModal();
   render();
   const both = state.acceptanceSigned.accept && state.acceptanceSigned.review;
-  toast(both?'双签完成，已生成入库码与包码':'签名成功', 'ok');
+  toast(both?'双签完成，已生成入库码':'签名成功', 'ok');
 }
 
 /* =========================================================
@@ -1542,12 +1548,12 @@ function notesHtml(){
   <div class="callout"><b>核心变化</b><br/>现有 PC 端是「保存即入库/出库」。本原型改为：验收双签或检验放行后先进入 <code>待打印入库码</code>，打印后转为 <code>待入库</code>，扫码扫满并<b>手动确认</b>才改库存。扫码只记录核对，不改数量；取消单据需原因与主管权限，并回写来源模块。</div>
   <h4>PC 端操作路径</h4>
   <ol>
-    <li>验收签名：验收人、复核人双签 → 生成入库码与包码，单据进入「待打印入库码」。</li>
-    <li>成品入库：检验放行后生成入库码与包码 → 打印 → 待入库 → 扫码确认。</li>
-    <li>入库管理：待打印入库码 → 打印包码与入库码 → 转为「待入库」→ 整包扫码或逐行扫码 → 录入库位 → 确认入库（作业签名）。</li>
+    <li>验收签名：验收人、复核人双签 → 生成入库码，单据进入「待打印入库码」。</li>
+    <li>成品入库：检验放行后生成入库码 → 打印 → 待入库 → 逐条扫码确认。</li>
+    <li>入库管理：待打印入库码 → 打印入库码 → 转为「待入库」→ 逐条扫码 → 录入库位 → 确认入库（作业签名）。</li>
     <li>出库管理：生产领料草稿数量锁定 → 扫码核对 → 确认出库；库管自建草稿可改数量。</li>
     <li>退库管理：选择原出库单 → 输入退库数量 → 扫码 → 确认退库。</li>
-    <li>标签打印：入库码/包码预览、打印、补打（填写原因并留痕）。</li>
+    <li>标签打印：入库码预览、打印、补打（填写原因并留痕）。</li>
     <li>取消单据：填写原因、主管权限；采购入库回写采购单为待到货，成品入库回写质检放行为未入库。</li>
   </ol>
   <h4>状态规则</h4>
@@ -1557,11 +1563,11 @@ function notesHtml(){
     <li>未扫满不能确认，库存不变。</li>
     <li>确认后一次性改库存，单据变已入库/已出库/已退库。</li>
     <li>取消后单据变「已取消」，库存不变；来源模块回写结果在取消提示中展示。</li>
-    <li>扫码可撤销；撤销以一次扫码动作为单位（整包扫一次撤销整组）。</li>
+    <li>扫码可撤销；撤销以单条扫码记录为单位。</li>
     <li>重复扫同一码提示已扫，不重复计数。</li>
   </ol>
   <h4>明细行扫码</h4>
-  <p>每行右侧「扫码」按钮：扫入库码后回填批次/效期/入库码，行变绿；支持清除后重扫。整包扫码等价于批量行扫码。</p>
+  <p>每行右侧「扫码」按钮：扫入库码后回填批次/效期/入库码，行变绿；支持清除后重扫。每条明细只允许逐条扫描对应入库码。</p>
   <h4>设计取舍</h4>
   <p>PC 端保留现有列表/详情结构，只增加状态列、扫码按钮与确认按钮；不改变原有录单方式。</p>`;
 }
