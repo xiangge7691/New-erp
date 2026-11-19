@@ -47,6 +47,9 @@ public class PdaLabelDto {
     /** 仓库名称 */
     private String warehouseName;
 
+    /** 关联制剂名称（标签用途） */
+    private String preparationName;
+
     /** 单据日期 */
     private LocalDateTime docDate;
 

@@ -11,6 +11,7 @@ import com.tonghui.erp.Service.StockLabelService;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -90,6 +91,26 @@ public class StockLabelServiceImpl implements StockLabelService {
     @Override
     public String buildQrContent(String labelCode) {
         return "ERP1|IC|" + labelCode + "|" + crc16(labelCode);
+    }
+
+    @Override
+    public String parseLabelCode(String qrContent) {
+        if (!StringUtils.hasText(qrContent)) {
+            return qrContent;
+        }
+        String code = qrContent.trim();
+        if (!code.startsWith("ERP1|")) {
+            return code;
+        }
+        String[] parts = code.split("\\|", -1);
+        if (parts.length != 4 || !"IC".equals(parts[1]) || !StringUtils.hasText(parts[2])) {
+            throw new IllegalArgumentException("二维码格式不正确，请重新扫码");
+        }
+        String labelCode = parts[2].trim();
+        if (!crc16(labelCode).equalsIgnoreCase(parts[3].trim())) {
+            throw new IllegalArgumentException("二维码校验失败，请重新扫码");
+        }
+        return labelCode;
     }
 
     private StockInLabel buildLabel(Long inId, StockInDetail detail, int index) {

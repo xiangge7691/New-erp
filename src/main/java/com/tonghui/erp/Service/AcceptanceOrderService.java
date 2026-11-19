@@ -243,6 +243,18 @@ public interface AcceptanceOrderService extends IService<AcceptanceOrder> {
     StockInWithNamesDto inbound(Long acceptanceId, List<AcceptanceInboundRequest.Item> items);
 
     /**
+     * PDA 入库确认后回写验收单状态
+     * <p>
+     * 入库单打印标签、逐条扫码并签名确认后调用：将关联验收单中
+     * 「待扫码入库」明细更新为「已入库」，主单派生为「已入库」，
+     * 并同步采购订单与领料单状态。非验收来源的入库单或已完成的验收单静默跳过。
+     * </p>
+     *
+     * @param acceptanceCode 验收单号（入库单 relatedOrder）
+     */
+    void confirmInbound(String acceptanceCode);
+
+    /**
      * 将验收单状态同步至关联采购订单
      * <p>
      * 明细级回写采购订单明细状态（purchase_order_items.status），

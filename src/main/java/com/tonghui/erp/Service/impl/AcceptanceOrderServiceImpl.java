@@ -423,8 +423,9 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
             if (existing == null) {
                 throw new RuntimeException("验收明细不存在(ID=" + detail.getDetailId() + ")");
             }
-            if (AcceptanceStatusPolicy.DETAIL_INBOUND.equals(existing.getStatus())) {
-                throw new RuntimeException("明细「" + (existing.getMaterialName() != null ? existing.getMaterialName() : "未知物料") + "」(序号" + existing.getSeq() + ")已入库，批号/单价/仓库已锁定，不可修改");
+            if (AcceptanceStatusPolicy.DETAIL_INBOUND.equals(existing.getStatus())
+                    || AcceptanceStatusPolicy.DETAIL_PENDING_SCAN.equals(existing.getStatus())) {
+                throw new RuntimeException("明细「" + (existing.getMaterialName() != null ? existing.getMaterialName() : "未知物料") + "」(序号" + existing.getSeq() + ")已生成入库单或已入库，批号/单价/仓库已锁定，不可修改");
             }
             // 携带实际到货数量或单价时，读取原记录补全后重算金额（以实际到货数量 × 单价）
             if (detail.getActualArrivalQty() != null || detail.getUnitPrice() != null) {
@@ -784,8 +785,8 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
      * <p>
      * 可执行条件：全部明细均为终结状态且至少一条「待入库」；
      * 为每条待入库明细指定仓库（缺省回退验收单级仓库）、校验批号必填后，
-     * 生成入库单并写库存与流水，合格明细→已入库、主单→已入库，
-     * 同步关联采购订单与领料单状态
+     * 生成待打印/待扫码的草稿入库单与标签，明细→待扫码入库、主单→待扫码入库；
+     * 库存、采购订单与领料单状态在 PDA 打印扫码并签名确认后再更新
      * </p>
      *
      * @param acceptanceId 验收单ID
@@ -837,28 +838,56 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         }
         // 单据级仓库取第一明细（兼容旧展示），明细级仓库各自保留
         acceptance.setProdUnitId(pendingInbound.get(0).getProdUnitId());
-        appendRemark(acceptance, "整单入库");
+        appendRemark(acceptance, "生成入库单，待打印标签并扫码确认");
         // 验收完成时间兜底：若检验阶段未写入（如历史数据），入库前补记
         if (acceptance.getAcceptanceTime() == null) {
             acceptance.setAcceptanceTime(LocalDateTime.now());
         }
 
-        // 生成入库单与库存流水（入库单主表仓库=第一明细仓库，明细级仓库各自写入）
+        // 生成入库单与标签；此时只生成待打印/待扫码的草稿入库单，不增加库存
         StockIn stockIn = applyAcceptanceInbound(acceptance, pendingInbound);
+        appendRemark(acceptance, "入库单号 " + stockIn.getInCode());
 
-        // 待入库明细 → 已入库，主单派生为已入库
-        markDetailsStatus(pendingInbound, AcceptanceStatusPolicy.DETAIL_INBOUND, null, null);
+        // 待入库明细 → 待扫码入库，主单派生为待扫码入库
+        markDetailsStatus(pendingInbound, AcceptanceStatusPolicy.DETAIL_PENDING_SCAN, null, null);
         applyDerivedMainStatus(acceptance, allDetails);
         acceptanceOrderMapper.updateById(acceptance);
 
-        // 同步关联采购订单明细状态与主单状态
-        syncPurchaseOrderStatus(acceptance);
-
-        // 同步关联领料单状态为"已入库"
-        syncMaterialRequisitionSlipStatus(acceptance, AcceptanceStatusPolicy.MAIN_INBOUND);
-
+        // 采购订单与领料单保持"验收中"，待 PDA 打印、扫码并签名确认后再同步为已入库
         // 组装返回DTO：补全操作人姓名与仓库名称
         return buildStockInWithNames(stockIn);
+    }
+
+    /**
+     * PDA 入库确认后回写验收单状态
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void confirmInbound(String acceptanceCode) {
+        if (!StringUtils.hasText(acceptanceCode)) {
+            return;
+        }
+        AcceptanceOrder acceptance = acceptanceOrderMapper.selectOne(
+                new QueryWrapper<AcceptanceOrder>()
+                        .eq("acceptance_code", acceptanceCode)
+                        .eq("is_deleted", 0)
+                        .last("limit 1"));
+        if (acceptance == null) {
+            return;
+        }
+        List<AcceptanceDetail> details = getDetailsByAcceptanceId(acceptance.getAcceptanceId());
+        List<AcceptanceDetail> pendingScan = details.stream()
+                .filter(d -> AcceptanceStatusPolicy.DETAIL_PENDING_SCAN.equals(d.getStatus()))
+                .collect(Collectors.toList());
+        if (pendingScan.isEmpty()) {
+            return;
+        }
+        markDetailsStatus(pendingScan, AcceptanceStatusPolicy.DETAIL_INBOUND, null, null);
+        applyDerivedMainStatus(acceptance, details);
+        acceptanceOrderMapper.updateById(acceptance);
+        // 库存实际入账后，再同步采购订单与领料单为已入库
+        syncPurchaseOrderStatus(acceptance);
+        syncMaterialRequisitionSlipStatus(acceptance, AcceptanceStatusPolicy.MAIN_INBOUND);
     }
 
     /**

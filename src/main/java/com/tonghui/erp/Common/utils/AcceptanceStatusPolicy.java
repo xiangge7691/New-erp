@@ -11,8 +11,8 @@ import java.util.Set;
  * 集中承载三模块（采购订单/货物验收/物料退货管理）的状态词表、
  * 主单状态派生规则与明细状态流转规则，避免状态字面量散落各处：
  * <ul>
- *   <li>主单状态（验收单与采购订单共享）：运输中/验收中/已入库/已结束/已作废，采购订单另有初始态"待采购"与终态"已归档"</li>
- *   <li>明细状态（验收明细与采购订单明细共享）：待初验/待检验/待入库/待退货/已退货/已重发/已入库/已取消</li>
+ *   <li>主单状态（验收单与采购订单共享）：运输中/验收中/待扫码入库/已入库/已结束/已作废，采购订单另有初始态"待采购"与终态"已归档"</li>
+ *   <li>明细状态（验收明细与采购订单明细共享）：待初验/待检验/待入库/待扫码入库/待退货/已退货/已重发/已入库/已取消</li>
  *   <li>主单状态由明细汇总派生，判定优先级：已作废 ＞ 已入库 ＞ 已结束 ＞ 验收中 ＞ 运输中</li>
  *   <li>"存在退货"为派生布尔：任一明细处于 待退货/已退货/已取消 时为 true，不作为主单状态</li>
  * </ul>
@@ -30,6 +30,9 @@ public final class AcceptanceStatusPolicy {
 
     /** 主单状态：验收中（已确认到货，逐明细初验/检验中） */
     public static final String MAIN_INSPECTING = "验收中";
+
+    /** 主单状态：待扫码入库（入库单已生成，等待打印标签、逐条扫码并签名确认） */
+    public static final String MAIN_PENDING_SCAN = "待扫码入库";
 
     /** 主单状态：已入库（整单入库完成，合格明细已入库存，终态） */
     public static final String MAIN_INBOUND = "已入库";
@@ -61,6 +64,9 @@ public final class AcceptanceStatusPolicy {
 
     /** 明细状态：待入库（检验合格，等待整单入库） */
     public static final String DETAIL_PENDING_INBOUND = "待入库";
+
+    /** 明细状态：待扫码入库（入库单已生成，等待打印标签、逐条扫码并签名确认） */
+    public static final String DETAIL_PENDING_SCAN = "待扫码入库";
 
     /** 明细状态：待退货（初验/检验不合格，待采购部门在物料退货管理页退货） */
     public static final String DETAIL_PENDING_RETURN = "待退货";
@@ -112,7 +118,7 @@ public final class AcceptanceStatusPolicy {
 
     /** 明细终结状态集合：流程无需在验收页继续推进的状态 */
     private static final Set<String> DETAIL_TERMINAL_STATUSES = Set.of(
-            DETAIL_PENDING_INBOUND, DETAIL_PENDING_RETURN, DETAIL_RETURNED,
+            DETAIL_PENDING_INBOUND, DETAIL_PENDING_SCAN, DETAIL_PENDING_RETURN, DETAIL_RETURNED,
             DETAIL_RESENT, DETAIL_INBOUND, DETAIL_CANCELLED);
 
     /** "存在退货"派生集合：任一明细处于以下状态时主单存在退货为 true */
@@ -130,7 +136,8 @@ public final class AcceptanceStatusPolicy {
     private static final Map<String, Set<String>> DETAIL_TRANSITIONS = Map.of(
             DETAIL_PENDING_INITIAL, Set.of(DETAIL_PENDING_QUALITY, DETAIL_PENDING_RETURN),
             DETAIL_PENDING_QUALITY, Set.of(DETAIL_PENDING_INBOUND, DETAIL_PENDING_RETURN),
-            DETAIL_PENDING_INBOUND, Set.of(DETAIL_INBOUND),
+            DETAIL_PENDING_INBOUND, Set.of(DETAIL_PENDING_SCAN),
+            DETAIL_PENDING_SCAN, Set.of(DETAIL_INBOUND),
             DETAIL_PENDING_RETURN, Set.of(DETAIL_RETURNED),
             DETAIL_RETURNED, Set.of(DETAIL_RESENT, DETAIL_CANCELLED));
 
@@ -223,6 +230,10 @@ public final class AcceptanceStatusPolicy {
         // 全部终结：含待入库 → 验收中（等待整单入库）
         if (detailStatuses.contains(DETAIL_PENDING_INBOUND)) {
             return MAIN_INSPECTING;
+        }
+        // 全部终结：含待扫码入库 → 待扫码入库（入库单已生成，等待 PDA 确认）
+        if (detailStatuses.contains(DETAIL_PENDING_SCAN)) {
+            return MAIN_PENDING_SCAN;
         }
         // 全部终结：含已入库 → 已入库
         if (detailStatuses.contains(DETAIL_INBOUND)) {

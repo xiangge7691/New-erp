@@ -13,6 +13,7 @@ import com.tonghui.erp.Common.Dto.Pda.PdaStockTaskDetailDto;
 import com.tonghui.erp.Common.Dto.Pda.PdaStockTaskDto;
 import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Common.utils.PasswordHasher;
+import com.tonghui.erp.Data.Entity.ProductionPlan;
 import com.tonghui.erp.Data.Entity.ProductionUnit;
 import com.tonghui.erp.Data.Entity.ReturnOrder;
 import com.tonghui.erp.Data.Entity.ReturnOrderDetail;
@@ -25,6 +26,7 @@ import com.tonghui.erp.Data.Entity.StockOut;
 import com.tonghui.erp.Data.Entity.StockOutDetail;
 import com.tonghui.erp.Data.Entity.StockScanRecord;
 import com.tonghui.erp.Data.Entity.User;
+import com.tonghui.erp.Data.mapper.ProductionPlanMapper;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
 import com.tonghui.erp.Data.mapper.ReturnOrderDetailMapper;
 import com.tonghui.erp.Data.mapper.ReturnOrderMapper;
@@ -37,6 +39,7 @@ import com.tonghui.erp.Data.mapper.StockOutDetailMapper;
 import com.tonghui.erp.Data.mapper.StockOutMapper;
 import com.tonghui.erp.Data.mapper.StockScanRecordMapper;
 import com.tonghui.erp.Data.mapper.UserMapper;
+import com.tonghui.erp.Service.AcceptanceOrderService;
 import com.tonghui.erp.Service.PdaStockService;
 import com.tonghui.erp.Service.StockInService;
 import com.tonghui.erp.Service.StockLabelService;
@@ -84,10 +87,12 @@ public class PdaStockServiceImpl implements PdaStockService {
     private final StockScanRecordMapper stockScanRecordMapper;
     private final StockLabelPrintLogMapper stockLabelPrintLogMapper;
     private final ProductionUnitMapper productionUnitMapper;
+    private final ProductionPlanMapper productionPlanMapper;
     private final UserMapper userMapper;
     private final StockInService stockInService;
     private final StockOutService stockOutService;
     private final StockLabelService stockLabelService;
+    private final AcceptanceOrderService acceptanceOrderService;
 
     public PdaStockServiceImpl(StockInMapper stockInMapper,
                                StockInDetailMapper stockInDetailMapper,
@@ -100,10 +105,12 @@ public class PdaStockServiceImpl implements PdaStockService {
                                StockScanRecordMapper stockScanRecordMapper,
                                StockLabelPrintLogMapper stockLabelPrintLogMapper,
                                ProductionUnitMapper productionUnitMapper,
+                               ProductionPlanMapper productionPlanMapper,
                                UserMapper userMapper,
                                StockInService stockInService,
                                StockOutService stockOutService,
-                               StockLabelService stockLabelService) {
+                               StockLabelService stockLabelService,
+                               AcceptanceOrderService acceptanceOrderService) {
         this.stockInMapper = stockInMapper;
         this.stockInDetailMapper = stockInDetailMapper;
         this.stockOutMapper = stockOutMapper;
@@ -115,10 +122,12 @@ public class PdaStockServiceImpl implements PdaStockService {
         this.stockScanRecordMapper = stockScanRecordMapper;
         this.stockLabelPrintLogMapper = stockLabelPrintLogMapper;
         this.productionUnitMapper = productionUnitMapper;
+        this.productionPlanMapper = productionPlanMapper;
         this.userMapper = userMapper;
         this.stockInService = stockInService;
         this.stockOutService = stockOutService;
         this.stockLabelService = stockLabelService;
+        this.acceptanceOrderService = acceptanceOrderService;
     }
 
     // region 任务查询
@@ -189,6 +198,7 @@ public class PdaStockServiceImpl implements PdaStockService {
         PdaStockTaskDto dto = baseTask(stockIn.getInId(), stockIn.getInCode(), INBOUND,
                 stockIn.getInStatus(), stockIn.getScanStatus(), stockIn.getProdUnitId(),
                 stockIn.getInDate(), stockIn.getRemark());
+        dto.setPreparationName(resolvePreparationName(stockIn));
         dto.setLineCount(labels.size());
         dto.setPrintedCount((int) labels.stream()
                 .filter(l -> "已打印".equals(l.getPrintStatus())).count());
@@ -310,6 +320,18 @@ public class PdaStockServiceImpl implements PdaStockService {
             throw new IllegalArgumentException("仅草稿入库单可以打印待入库标签");
         }
         ensureInboundLabels(stockIn);
+        // 打印前保存库位，标签和入库明细共用同一库位
+        if (request != null && request.getLocations() != null) {
+            for (Map.Entry<Long, String> entry : request.getLocations().entrySet()) {
+                StockInDetail detail = entry.getKey() == null ? null
+                        : stockInDetailMapper.selectById(entry.getKey());
+                if (detail != null && Objects.equals(detail.getInId(), inId)) {
+                    detail.setStorageLocation(StringUtils.hasText(entry.getValue())
+                            ? entry.getValue().trim() : null);
+                    stockInDetailMapper.updateById(detail);
+                }
+            }
+        }
         List<StockInLabel> labels = stockInLabelMapper.selectByInIdWithDetail(inId);
         Set<Long> selected = request != null && !CollectionUtils.isEmpty(request.getLineIds())
                 ? Set.copyOf(request.getLineIds()) : null;
@@ -400,6 +422,7 @@ public class PdaStockServiceImpl implements PdaStockService {
         dto.setQuantity(label.getQuantity());
         dto.setUnitName(label.getUnitName());
         dto.setWarehouseName(warehouseName(stockIn.getProdUnitId()));
+        dto.setPreparationName(resolvePreparationName(stockIn));
         dto.setDocDate(stockIn.getInDate());
         dto.setPrintStatus(label.getPrintStatus());
         dto.setScanStatus(label.getScanStatus());
@@ -447,6 +470,8 @@ public class PdaStockServiceImpl implements PdaStockService {
         if (request == null || !StringUtils.hasText(request.getCode())) {
             throw new IllegalArgumentException("请扫描或输入条码");
         }
+        // 扫码枪读取的是 ERP1|IC|标签码|CRC16，统一解析为纯标签码
+        request.setCode(stockLabelService.parseLabelCode(request.getCode()));
         String normalized = normalizeType(type);
         if (StringUtils.hasText(request.getRequestId())) {
             StockScanRecord existing = stockScanRecordMapper.selectOne(
@@ -685,6 +710,8 @@ public class PdaStockServiceImpl implements PdaStockService {
             fresh.setConfirmTime(LocalDateTime.now());
             fresh.setConfirmDeviceNo(request == null ? null : request.getDeviceNo());
             stockInMapper.updateById(fresh);
+            // 库存实际入账后回写验收单：待扫码入库 → 已入库
+            acceptanceOrderService.confirmInbound(fresh.getRelatedOrder());
             return getTask(INBOUND, id);
         }
         if (OUTBOUND.equals(normalized)) {
@@ -713,7 +740,25 @@ public class PdaStockServiceImpl implements PdaStockService {
             return getTask(OUTBOUND, id);
         }
         if (RETURN.equals(normalized)) {
-            throw new IllegalArgumentException("退库扫码确认流程尚未接入");
+            ReturnOrder order = requireReturnOrder(id);
+            if ("已确认".equals(order.getScanStatus())) {
+                return getTask(RETURN, id);
+            }
+            List<ReturnOrderDetail> details = returnDetails(id);
+            List<ReturnOrderDetail> unscanned = details.stream()
+                    .filter(d -> !"已扫".equals(d.getScanStatus()))
+                    .collect(Collectors.toList());
+            if (!unscanned.isEmpty()) {
+                throw new IllegalArgumentException("还有 " + unscanned.size()
+                        + " 条明细未扫码，不能确认退库");
+            }
+            // 退库单创建时已回增库存，这里只做扫码完整性校验与签名留痕
+            order.setScanStatus("已确认");
+            order.setConfirmBy(EntityUtils.getCurrentUserId());
+            order.setConfirmTime(LocalDateTime.now());
+            order.setConfirmDeviceNo(request == null ? null : request.getDeviceNo());
+            returnOrderMapper.updateById(order);
+            return getTask(RETURN, id);
         }
         throw new IllegalArgumentException("不支持的单据类型: " + type);
     }
@@ -1082,6 +1127,20 @@ public class PdaStockServiceImpl implements PdaStockService {
             throw new IllegalArgumentException("退库明细不存在");
         }
         return detail;
+    }
+
+    /**
+     * 解析入库单关联生产计划的制剂名称，用作标签“用途”
+     */
+    private String resolvePreparationName(StockIn stockIn) {
+        if (stockIn == null || !StringUtils.hasText(stockIn.getPlanNumber())) {
+            return null;
+        }
+        ProductionPlan plan = productionPlanMapper.selectOne(new QueryWrapper<ProductionPlan>()
+                .eq("plan_number", stockIn.getPlanNumber())
+                .eq("is_deleted", 0)
+                .last("limit 1"));
+        return plan == null ? null : plan.getPreparationName();
     }
 
     private String warehouseName(Long prodUnitId) {

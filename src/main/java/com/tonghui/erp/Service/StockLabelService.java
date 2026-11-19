@@ -32,4 +32,12 @@ public interface StockLabelService {
      * @return 二维码内容
      */
     String buildQrContent(String labelCode);
+
+    /**
+     * 解析扫码内容：兼容纯标签码与 ERP1|IC|标签码|CRC16 完整二维码
+     *
+     * @param qrContent 扫码枪读到的原始内容
+     * @return 纯标签码
+     */
+    String parseLabelCode(String qrContent);
 }

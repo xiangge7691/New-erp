@@ -11,6 +11,9 @@ public class PdaPunchRequest {
     /** 使用设备ID */
     private Integer equipmentId;
 
+    /** 配置室ID */
+    private Integer roomId;
+
     /** PDA设备编号 */
     private String deviceNo;
 
