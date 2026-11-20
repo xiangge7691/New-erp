@@ -275,5 +275,53 @@ public class WorkOrderScheduleController extends BaseController {
         }
     }
 
+    /**
+     * 删除误拆的批次行
+     *
+     * 示例请求：
+     * DELETE /api/scheduling/plans/1/batches/12
+     *
+     * 批次已完工或已登记实际生产时拒绝删除；删除后剩余批次自动重排序号，
+     * 工序计划时间同步为剩余批次的最早开始与最晚结束。
+     *
+     * @param planId  计划行ID
+     * @param batchId 批次ID
+     * @return 删除后的排产结果；processes 为最新工序行，conflicts 为最新冲突明细
+     */
+    @OperationLog(module = "工序排产", type = OperationType.DELETE, desc = "删除排产批次",
+            businessType = "WORK_ORDER_SCHEDULE", businessId = "#planId")
+    @DeleteMapping("/plans/{planId}/batches/{batchId}")
+    public ApiResponse<ScheduleSaveResult> deleteBatch(@PathVariable Long planId,
+                                                       @PathVariable Long batchId) {
+        try {
+            return success(scheduleService.deleteBatch(planId, batchId), "批次已删除");
+        } catch (Exception ex) {
+            return exception(ex, "删除排产批次");
+        }
+    }
+
+    /**
+     * 删除误加的整道排产工序行
+     *
+     * 示例请求：
+     * DELETE /api/scheduling/plans/1
+     *
+     * 工序下已登记实际生产（存在执行记录）或存在已完工批次时拒绝删除；
+     * 删除后不压缩其余工序的序号，与制剂工序模板及执行记录保持一致。
+     *
+     * @param planId 计划行ID
+     * @return 删除后的排产结果；processes 为最新工序行，conflicts 为最新冲突明细
+     */
+    @OperationLog(module = "工序排产", type = OperationType.DELETE, desc = "删除排产工序行",
+            businessType = "WORK_ORDER_SCHEDULE", businessId = "#planId")
+    @DeleteMapping("/plans/{planId}")
+    public ApiResponse<ScheduleSaveResult> deletePlan(@PathVariable Long planId) {
+        try {
+            return success(scheduleService.deletePlan(planId), "工序行已删除");
+        } catch (Exception ex) {
+            return exception(ex, "删除排产工序行");
+        }
+    }
+
     // endregion
 }

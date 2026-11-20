@@ -43,4 +43,13 @@ public interface WorkOrderProcessPlanParticipantMapper extends BaseMapper<WorkOr
      */
     @Delete("DELETE FROM work_order_process_plan_participant WHERE plan_id = #{planId} AND batch_id IS NOT NULL")
     int physicalDeleteBatchParticipants(@Param("planId") Long planId);
+
+    /**
+     * 物理删除某个批次的参与人（删除误拆的批次行时使用）
+     *
+     * @param batchId 批次ID
+     * @return 删除行数
+     */
+    @Delete("DELETE FROM work_order_process_plan_participant WHERE batch_id = #{batchId}")
+    int physicalDeleteByBatchId(@Param("batchId") Long batchId);
 }

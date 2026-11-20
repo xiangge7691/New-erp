@@ -60,6 +60,25 @@ public interface WorkOrderScheduleService {
     ScheduleSaveResult split(Long planId, List<PlanBatchDto> batches);
 
     /**
+     * 删除误拆的批次行
+     * <p>批次已完工或已登记实际生产时拒绝删除，避免执行记录悬挂</p>
+     *
+     * @param planId  计划行ID
+     * @param batchId 批次ID
+     * @return 删除后的排产结果（含最新冲突明细）
+     */
+    ScheduleSaveResult deleteBatch(Long planId, Long batchId);
+
+    /**
+     * 删除误加的整道排产工序行
+     * <p>工序下已登记实际生产或存在已完工批次时拒绝删除</p>
+     *
+     * @param planId 计划行ID
+     * @return 删除后的排产结果（含最新冲突明细）
+     */
+    ScheduleSaveResult deletePlan(Long planId);
+
+    /**
      * 查询甘特图数据
      *
      * @param view 视图：task/equipment/room

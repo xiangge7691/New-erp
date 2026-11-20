@@ -44,4 +44,13 @@ public interface WorkOrderProcessExecutionService extends IService<WorkOrderProc
      * @return 完工后的执行记录
      */
     WorkOrderProcessExecution complete(Long executionId);
+
+    /**
+     * 删除误拆的工序执行行
+     * <p>已完工锁定、PDA 已提交或已生成绩效的记录不允许删除</p>
+     *
+     * @param executionId 工序执行记录ID
+     * @return 所属工单ID（供前端刷新列表）
+     */
+    Long deleteExecution(Long executionId);
 }

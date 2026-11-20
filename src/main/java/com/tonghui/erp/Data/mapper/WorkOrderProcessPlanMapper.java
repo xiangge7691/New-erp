@@ -1,6 +1,7 @@
 package com.tonghui.erp.Data.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
@@ -57,4 +58,13 @@ public interface WorkOrderProcessPlanMapper extends BaseMapper<WorkOrderProcessP
             @Param("minStart") LocalDateTime minStart,
             @Param("maxEnd") LocalDateTime maxEnd,
             @Param("excludeWorkOrderId") Long excludeWorkOrderId);
+
+    /**
+     * 物理删除单个排产计划行（删除误加的工序行时使用）
+     *
+     * @param id 计划行ID
+     * @return 删除行数
+     */
+    @Delete("DELETE FROM work_order_process_plan WHERE id = #{id}")
+    int physicalDeleteById(@Param("id") Long id);
 }

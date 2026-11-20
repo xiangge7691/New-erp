@@ -234,4 +234,28 @@ public class WorkOrderProcessExecutionController extends BaseController {
             return exception(ex, "工序完工");
         }
     }
+
+    /**
+     * 删除误拆的工序执行行
+     *
+     * 示例请求：
+     * DELETE /api/work-order-process-execution/123
+     *
+     * 仅允许删除未完工锁定、未通过 PDA 提交、未生成绩效的执行行；
+     * 删除时同时清理该行的参与人与照片附件。
+     *
+     * @param executionId 工序执行记录ID
+     * @return 删除后该工单的最新工序执行记录列表
+     */
+    @OperationLog(module = "工单工序执行", type = OperationType.DELETE, desc = "删除工序执行行",
+            businessType = "WORK_ORDER_PROCESS_EXECUTION", businessId = "#executionId")
+    @DeleteMapping("/{executionId}")
+    public ApiResponse<List<WorkOrderProcessExecution>> delete(@PathVariable Long executionId) {
+        try {
+            Long workOrderId = workOrderProcessExecutionService.deleteExecution(executionId);
+            return success(workOrderProcessExecutionService.getByWorkOrderId(workOrderId), "已删除");
+        } catch (Exception ex) {
+            return exception(ex, "删除工序执行记录失败");
+        }
+    }
 }

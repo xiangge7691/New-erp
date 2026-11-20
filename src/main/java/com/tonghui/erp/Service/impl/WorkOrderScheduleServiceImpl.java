@@ -1,6 +1,7 @@
 package com.tonghui.erp.Service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.tonghui.erp.Common.Constants.ProcessExecutionStatus;
 import com.tonghui.erp.Common.Dto.Scheduling.GanttItemDto;
 import com.tonghui.erp.Common.Dto.Scheduling.PlanBatchDto;
@@ -708,6 +709,16 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
         if (plan == null) {
             throw new IllegalArgumentException("排产计划不存在");
         }
+        // 已登记实际生产时不允许重新拆分：全量替换会重建批次并改变批次ID，执行记录将悬挂
+        List<WorkOrderProcessPlanBatch> existingBatches = batchMapper.selectByPlanIds(List.of(planId));
+        if (existingBatches.stream().anyMatch(b -> "已完工".equals(b.getStatus()))) {
+            throw new IllegalArgumentException("该工序存在已完工批次，不能重新拆分批次");
+        }
+        List<Long> existingBatchIds = existingBatches.stream()
+                .map(WorkOrderProcessPlanBatch::getId).toList();
+        if (countExecutions(planId, existingBatchIds) > 0) {
+            throw new IllegalArgumentException("该工序已登记实际生产，不能重新拆分批次");
+        }
         if (CollectionUtils.isEmpty(batches)) {
             throw new IllegalArgumentException("批次不能为空");
         }
@@ -793,6 +804,200 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
         result.setConflicts(List.of());
         result.setProcesses(getDetail(plan.getWorkOrderId()).getProcesses());
         return result;
+    }
+
+    /**
+     * 删除误拆的批次行
+     * <p>
+     * 批次已完工或已登记实际生产（存在执行记录）时拒绝删除，避免执行记录指向不存在的批次；
+     * 删除后剩余批次按序号重排，并把工序计划时间同步为剩余批次的最早开始与最晚结束。
+     * </p>
+     *
+     * @param planId  计划行ID
+     * @param batchId 批次ID
+     * @return 删除后的排产结果（含最新冲突明细）
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ScheduleSaveResult deleteBatch(Long planId, Long batchId) {
+        WorkOrderProcessPlan plan = planMapper.selectById(planId);
+        if (plan == null) {
+            throw new IllegalArgumentException("排产计划不存在");
+        }
+        WorkOrderProcessPlanBatch batch = batchMapper.selectById(batchId);
+        if (batch == null || !Objects.equals(batch.getPlanId(), planId)) {
+            throw new IllegalArgumentException("批次不存在或不属于该工序");
+        }
+        if ("已完工".equals(batch.getStatus())) {
+            throw new IllegalArgumentException("批次【" + batchLabel(batch) + "】已完工，不能删除");
+        }
+        Long executionCount = executionMapper.selectCount(
+                new LambdaQueryWrapper<WorkOrderProcessExecution>()
+                        .eq(WorkOrderProcessExecution::getPlanBatchId, batchId));
+        if (executionCount != null && executionCount > 0) {
+            throw new IllegalArgumentException("批次【" + batchLabel(batch)
+                    + "】已登记实际生产，请先在「实际生产」页删除对应记录");
+        }
+        // 批次参与人随批次一并物理删除，避免残留指向已删批次的记录
+        participantMapper.physicalDeleteByBatchId(batchId);
+        batchMapper.physicalDeleteById(batchId);
+
+        List<WorkOrderProcessPlanBatch> remaining = batchMapper.selectList(
+                new LambdaQueryWrapper<WorkOrderProcessPlanBatch>()
+                        .eq(WorkOrderProcessPlanBatch::getPlanId, planId)
+                        .orderByAsc(WorkOrderProcessPlanBatch::getBatchNo)
+                        .orderByAsc(WorkOrderProcessPlanBatch::getId));
+        renumberBatches(remaining);
+        // 剩余批次为 0 时视为恢复为整道工序，计划行保留当前起止与数量，由用户再调整
+        if (!remaining.isEmpty()) {
+            LocalDateTime start = remaining.stream()
+                    .map(WorkOrderProcessPlanBatch::getPlanStartTime)
+                    .filter(Objects::nonNull).min(LocalDateTime::compareTo).orElse(plan.getPlanStartTime());
+            LocalDateTime end = remaining.stream()
+                    .map(WorkOrderProcessPlanBatch::getPlanEndTime)
+                    .filter(Objects::nonNull).max(LocalDateTime::compareTo).orElse(plan.getPlanEndTime());
+            Integer duration = start != null && end != null
+                    ? Math.toIntExact(Duration.between(start, end).toMinutes())
+                    : plan.getPlanDurationMinutes();
+            planMapper.update(null, new LambdaUpdateWrapper<WorkOrderProcessPlan>()
+                    .eq(WorkOrderProcessPlan::getId, planId)
+                    .set(WorkOrderProcessPlan::getPlanStartTime, start)
+                    .set(WorkOrderProcessPlan::getPlanEndTime, end)
+                    .set(WorkOrderProcessPlan::getPlanDurationMinutes, duration));
+        }
+
+        // 删除只会减少占用，一般不会新增冲突；仍按整工单重算后随结果返回
+        return buildDeleteResult(plan.getWorkOrderId());
+    }
+
+    /**
+     * 删除误加的整道排产工序行
+     * <p>
+     * 工序下已登记实际生产（存在执行记录）或存在已完工批次时拒绝删除；
+     * 删除后不压缩其余工序的 stepOrder，保留空洞，与制剂工序模板及执行记录保持一致。
+     * </p>
+     *
+     * @param planId 计划行ID
+     * @return 删除后的排产结果（含最新冲突明细）
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ScheduleSaveResult deletePlan(Long planId) {
+        WorkOrderProcessPlan plan = planMapper.selectById(planId);
+        if (plan == null) {
+            throw new IllegalArgumentException("排产计划不存在");
+        }
+        List<WorkOrderProcessPlanBatch> batches = batchMapper.selectByPlanIds(List.of(planId));
+        if (batches.stream().anyMatch(b -> "已完工".equals(b.getStatus()))) {
+            throw new IllegalArgumentException("该工序存在已完工批次，不能删除");
+        }
+        List<Long> batchIds = batches.stream().map(WorkOrderProcessPlanBatch::getId).toList();
+        if (countExecutions(planId, batchIds) > 0) {
+            throw new IllegalArgumentException("该工序已登记实际生产，请先在「实际生产」页删除对应记录");
+        }
+        // 批次、参与人、计划行依次物理删除
+        participantMapper.physicalDeleteByPlanId(planId);
+        batchMapper.physicalDeleteByPlanId(planId);
+        planMapper.physicalDeleteById(planId);
+        return buildDeleteResult(plan.getWorkOrderId());
+    }
+
+    /**
+     * 统计排产计划及其批次下的实际执行记录数
+     *
+     * @param planId  计划行ID
+     * @param batchIds 该计划行的批次ID
+     * @return 执行记录数
+     */
+    private long countExecutions(Long planId, List<Long> batchIds) {
+        Long count = executionMapper.selectCount(
+                new LambdaQueryWrapper<WorkOrderProcessExecution>()
+                        .and(w -> {
+                            w.eq(WorkOrderProcessExecution::getPlanId, planId);
+                            if (!batchIds.isEmpty()) {
+                                w.or().in(WorkOrderProcessExecution::getPlanBatchId, batchIds);
+                            }
+                        }));
+        return count == null ? 0 : count;
+    }
+
+    /**
+     * 构建删除操作后的排产结果
+     *
+     * @param workOrderId 工单ID
+     * @return 保存结果（含最新冲突与工序行）
+     */
+    private ScheduleSaveResult buildDeleteResult(Long workOrderId) {
+        List<WorkOrderProcessPlan> plans = planMapper.selectByWorkOrderIdWithDetails(workOrderId);
+        List<Long> planIds = plans.stream().map(WorkOrderProcessPlan::getId).toList();
+        List<WorkOrderProcessPlanBatch> batches = planIds.isEmpty()
+                ? List.of() : batchMapper.selectByPlanIds(planIds);
+        ScheduleSaveResult result = new ScheduleSaveResult();
+        result.setSaved(true);
+        result.setConflicts(conflictService.check(workOrderId, new ArrayList<>(plans), batches));
+        result.setProcesses(getDetail(workOrderId).getProcesses());
+        return result;
+    }
+
+    /**
+     * 批次按当前顺序重排为 1..N
+     * <p>
+     * 批次表存在 (plan_id, batch_no) 唯一键，先写入唯一负值再写目标值，避免逐条更新时瞬时冲突；
+     * 名称为默认「批次 N」的批次同步改名，自定义名称保持不变。
+     * </p>
+     *
+     * @param batches 剩余批次（按序号升序）
+     */
+    private void renumberBatches(List<WorkOrderProcessPlanBatch> batches) {
+        if (CollectionUtils.isEmpty(batches)) {
+            return;
+        }
+        Map<Long, Boolean> defaultName = batches.stream()
+                .collect(Collectors.toMap(WorkOrderProcessPlanBatch::getId,
+                        b -> isDefaultBatchName(b.getBatchName(), b.getBatchNo())));
+        for (int i = 0; i < batches.size(); i++) {
+            batchMapper.update(null, new LambdaUpdateWrapper<WorkOrderProcessPlanBatch>()
+                    .eq(WorkOrderProcessPlanBatch::getId, batches.get(i).getId())
+                    .set(WorkOrderProcessPlanBatch::getBatchNo, -(i + 1)));
+        }
+        for (int i = 0; i < batches.size(); i++) {
+            WorkOrderProcessPlanBatch batch = batches.get(i);
+            int newNo = i + 1;
+            LambdaUpdateWrapper<WorkOrderProcessPlanBatch> update =
+                    new LambdaUpdateWrapper<WorkOrderProcessPlanBatch>()
+                            .eq(WorkOrderProcessPlanBatch::getId, batch.getId())
+                            .set(WorkOrderProcessPlanBatch::getBatchNo, newNo);
+            if (Boolean.TRUE.equals(defaultName.get(batch.getId()))) {
+                update.set(WorkOrderProcessPlanBatch::getBatchName, "批次 " + newNo);
+            }
+            batchMapper.update(null, update);
+        }
+    }
+
+    /**
+     * 判断批次名称是否为默认的「批次 N」
+     *
+     * @param batchName 批次名称
+     * @param batchNo   批次序号
+     * @return 是否默认名称
+     */
+    private boolean isDefaultBatchName(String batchName, Integer batchNo) {
+        if (batchName == null || batchNo == null) {
+            return false;
+        }
+        String trimmed = batchName.trim();
+        return trimmed.equals("批次 " + batchNo) || trimmed.equals("批次" + batchNo);
+    }
+
+    /**
+     * 批次展示名：优先批次名称，其次按序号生成
+     *
+     * @param batch 批次
+     * @return 展示名
+     */
+    private String batchLabel(WorkOrderProcessPlanBatch batch) {
+        return StringUtils.hasText(batch.getBatchName())
+                ? batch.getBatchName() : "批次 " + batch.getBatchNo();
     }
 
     /**

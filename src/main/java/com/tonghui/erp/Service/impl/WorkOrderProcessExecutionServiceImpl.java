@@ -3,6 +3,7 @@ package com.tonghui.erp.Service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.tonghui.erp.Common.Constants.BizFileType;
 import com.tonghui.erp.Common.Constants.ProcessExecutionStatus;
 import com.tonghui.erp.Common.utils.EquipmentUsageConflictValidator;
 import com.tonghui.erp.Data.Entity.PerformanceRecord;
@@ -19,6 +20,7 @@ import com.tonghui.erp.Data.mapper.WorkOrderProcessExecutionMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessExecutionParticipantMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessPlanBatchMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessPlanMapper;
+import com.tonghui.erp.Service.BusinessFileService;
 import com.tonghui.erp.Service.PerformanceGenerationService;
 import com.tonghui.erp.Service.WorkOrderProcessExecutionService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -76,6 +78,10 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
     /** 绩效生成服务 */
     @Autowired
     private PerformanceGenerationService performanceGenerationService;
+
+    /** 业务附件服务（删除执行行时清理照片与附件关联） */
+    @Autowired
+    private BusinessFileService businessFileService;
 
     /** 工单 Mapper（读取制剂ID，用于补齐工序关键工艺参数） */
     @Autowired
@@ -340,9 +346,8 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
                     || !isReplacedByIncoming(old, incomingBatchIds, incomingPlanIds, incomingProcessKeys)) {
                 continue;
             }
-            if (Integer.valueOf(1).equals(old.getLocked())) {
-                throw new IllegalArgumentException("工序【" + old.getStepOrder() + "】已完工锁定，不能删除");
-            }
+            // 已锁定、已 PDA 提交或已生成绩效的旧行不允许被替换删除，避免绩效与执行数据悬挂
+            assertDeletable(old);
             participantMapper.physicalDeleteByExecutionId(old.getId());
             baseMapper.physicalDeleteById(old.getId());
         }
@@ -600,6 +605,62 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
      */
     private String processKey(Long processTypeId, Integer stepOrder) {
         return processTypeId + "#" + stepOrder;
+    }
+
+    // endregion
+
+    // region 删除
+    // ===================================
+    // 删除
+    // ===================================
+
+    /**
+     * 删除误拆的工序执行行
+     * <p>
+     * 已完工锁定、PDA 已提交或已生成绩效的执行行不允许删除；删除时一并清理参与人与照片附件。
+     * </p>
+     *
+     * @param executionId 工序执行记录ID
+     * @return 所属工单ID（供前端刷新列表）
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long deleteExecution(Long executionId) {
+        WorkOrderProcessExecution execution = this.getById(executionId);
+        if (execution == null) {
+            throw new IllegalArgumentException("工序执行记录不存在");
+        }
+        assertDeletable(execution);
+        // 先解绑附件（含照片），无其他业务引用时一并回收文件
+        businessFileService.unbindAll(BizFileType.WORK_ORDER_PROCESS_EXECUTION.getCode(),
+                executionId, null, null);
+        participantMapper.physicalDeleteByExecutionId(executionId);
+        baseMapper.physicalDeleteById(executionId);
+        return execution.getWorkOrderId();
+    }
+
+    /**
+     * 校验执行行是否可删除
+     * <p>已完工锁定、已通过 PDA 提交或已生成绩效的执行行，删除后会造成绩效与执行数据悬挂，一律拒绝</p>
+     *
+     * @param execution 执行记录
+     */
+    private void assertDeletable(WorkOrderProcessExecution execution) {
+        String label = execution.getStepOrder() == null
+                ? "ID " + execution.getId() : "工序【" + execution.getStepOrder() + "】";
+        if (Integer.valueOf(1).equals(execution.getLocked())) {
+            throw new IllegalArgumentException(label + "已完工锁定，不能删除");
+        }
+        if (Integer.valueOf(1).equals(execution.getPdaSubmitted())) {
+            throw new IllegalArgumentException(label + "已通过 PDA 提交并生成绩效，不能删除");
+        }
+        Long performanceCount = performanceRecordMapper.selectCount(
+                new QueryWrapper<PerformanceRecord>()
+                        .eq("execution_id", execution.getId())
+                        .eq("record_status", 1));
+        if (performanceCount != null && performanceCount > 0) {
+            throw new IllegalArgumentException(label + "已生成绩效记录，不能删除");
+        }
     }
 
     // endregion
