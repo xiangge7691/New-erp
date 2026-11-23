@@ -41,6 +41,7 @@ import com.tonghui.erp.Data.mapper.WorkOrderProcessExecutionMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessPlanBatchMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessPlanMapper;
 import com.tonghui.erp.Service.PerformanceService;
+import com.tonghui.erp.Service.PerformanceGenerationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -132,6 +133,10 @@ public class PerformanceServiceImpl implements PerformanceService {
     @Autowired
     private UserMapper userMapper;
 
+    /** 绩效生成服务（历史执行记录补生成） */
+    @Autowired
+    private PerformanceGenerationService performanceGenerationService;
+
     // endregion
 
     // region 查询
@@ -150,6 +155,11 @@ public class PerformanceServiceImpl implements PerformanceService {
             pageRequest = new PageRequestDto();
         }
         pageRequest.validateAndFix();
+        // 历史执行记录（PDA 结束打点、实际生产保存等）完工时没有生成绩效，
+        // 查询指定区间前先幂等补生成，保证工序/人员粒度视图能看到历史数据
+        if (from != null && to != null) {
+            performanceGenerationService.generateForRange(from, to);
+        }
         LambdaQueryWrapper<PerformanceRecord> wrapper = new LambdaQueryWrapper<>();
         if (from != null) wrapper.ge(PerformanceRecord::getPerformanceDate, from);
         if (to != null) wrapper.le(PerformanceRecord::getPerformanceDate, to);
@@ -884,6 +894,10 @@ public class PerformanceServiceImpl implements PerformanceService {
      */
     @Override
     public List<Map<String, Object>> aggregate(LocalDate from, LocalDate to, String groupBy) {
+        // 汇总同样按区间补生成历史绩效，避免总览与明细数据不一致
+        if (from != null && to != null) {
+            performanceGenerationService.generateForRange(from, to);
+        }
         LambdaQueryWrapper<PerformanceRecord> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(PerformanceRecord::getRecordStatus, 1);
         if (from != null) wrapper.ge(PerformanceRecord::getPerformanceDate, from);

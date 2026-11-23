@@ -1,6 +1,7 @@
 package com.tonghui.erp.Service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.tonghui.erp.Common.Constants.ProcessExecutionStatus;
 import com.tonghui.erp.Data.Entity.PerformanceCoefficientVersion;
 import com.tonghui.erp.Data.Entity.PerformancePersonCoefficient;
 import com.tonghui.erp.Data.Entity.PerformanceProcessCoefficient;
@@ -17,6 +18,7 @@ import com.tonghui.erp.Data.mapper.WorkOrderProcessExecutionMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessExecutionParticipantMapper;
 import com.tonghui.erp.Service.PerformanceGenerationService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -24,6 +26,7 @@ import org.springframework.util.CollectionUtils;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -141,6 +144,44 @@ public class PerformanceGenerationServiceImpl implements PerformanceGenerationSe
     private BigDecimal durationHours(WorkOrderProcessExecution execution) {
         long minutes = Duration.between(execution.getStartTime(), execution.getEndTime()).toMinutes();
         return BigDecimal.valueOf(minutes).divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 按完工日期区间补生成绩效记录
+     * <p>历史执行记录（PDA 结束打点、实际生产保存、未走完工锁定的旧数据）不会在完工时生成绩效，
+     * 这里按结束时间扫描已完成的执行记录逐条补生成；已有记录的执行记录由
+     * {@link #generateForExecution(Long)} 自动跳过，因此可重复调用。</p>
+     *
+     * @param from 完工日期起（可为空）
+     * @param to   完工日期止（可为空）
+     * @return 新生成的记录数
+     */
+    @Override
+    public int generateForRange(LocalDate from, LocalDate to) {
+        if (from == null && to == null) {
+            return 0;
+        }
+        LambdaQueryWrapper<WorkOrderProcessExecution> wrapper = new LambdaQueryWrapper<>();
+        wrapper.isNotNull(WorkOrderProcessExecution::getStartTime)
+                .isNotNull(WorkOrderProcessExecution::getEndTime)
+                .eq(WorkOrderProcessExecution::getStatus, ProcessExecutionStatus.COMPLETED);
+        if (from != null) {
+            wrapper.ge(WorkOrderProcessExecution::getEndTime, from.atStartOfDay());
+        }
+        if (to != null) {
+            wrapper.lt(WorkOrderProcessExecution::getEndTime, to.plusDays(1).atStartOfDay());
+        }
+        List<Long> executionIds = executionMapper.selectList(wrapper).stream()
+                .map(WorkOrderProcessExecution::getId).toList();
+        int generated = 0;
+        for (Long executionId : executionIds) {
+            try {
+                generated += generateForExecution(executionId);
+            } catch (DuplicateKeyException ex) {
+                // 并发补生成时唯一索引（执行记录+人员）冲突，说明记录已存在，跳过即可
+            }
+        }
+        return generated;
     }
 
     private PerformanceCoefficientVersion activeVersion() {

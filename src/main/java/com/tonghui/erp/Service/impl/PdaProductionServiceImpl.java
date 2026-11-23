@@ -27,6 +27,7 @@ import com.tonghui.erp.Data.mapper.WorkOrderMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessExecutionMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessExecutionParticipantMapper;
 import com.tonghui.erp.Service.PdaProductionService;
+import com.tonghui.erp.Service.PerformanceGenerationService;
 import com.tonghui.erp.Service.WorkOrderProcessExecutionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -82,6 +83,10 @@ public class PdaProductionServiceImpl implements PdaProductionService {
 
     @Autowired
     private BusinessFileMapper businessFileMapper;
+
+    /** 绩效生成服务（PDA 提交后生成绩效记录） */
+    @Autowired
+    private PerformanceGenerationService performanceGenerationService;
 
     // region 查询
 
@@ -537,6 +542,8 @@ public class PdaProductionServiceImpl implements PdaProductionService {
         execution.setClientRequestId(request.getRequestId());
         executionService.updateById(execution);
         saveParticipants(execution, request.getParticipants(), true);
+        // PDA 提交即完工口径，按参与人与工序时长生成绩效（幂等，重复提交不会重复生成）
+        performanceGenerationService.generateForExecution(executionId);
         return loadProcess(execution);
     }
 
