@@ -156,8 +156,8 @@ public class PerformanceServiceImpl implements PerformanceService {
         }
         pageRequest.validateAndFix();
         // 历史执行记录（PDA 结束打点、实际生产保存等）完工时没有生成绩效，
-        // 查询指定区间前先幂等补生成，保证工序/人员粒度视图能看到历史数据
-        if (from != null && to != null) {
+        // 查询指定区间前先幂等补生成，保证工序/人员粒度视图能看到历史数据；单边日期也补生成
+        if (from != null || to != null) {
             performanceGenerationService.generateForRange(from, to);
         }
         LambdaQueryWrapper<PerformanceRecord> wrapper = new LambdaQueryWrapper<>();
@@ -894,8 +894,8 @@ public class PerformanceServiceImpl implements PerformanceService {
      */
     @Override
     public List<Map<String, Object>> aggregate(LocalDate from, LocalDate to, String groupBy) {
-        // 汇总同样按区间补生成历史绩效，避免总览与明细数据不一致
-        if (from != null && to != null) {
+        // 汇总同样按区间补生成历史绩效，避免总览与明细数据不一致；单边日期也补生成
+        if (from != null || to != null) {
             performanceGenerationService.generateForRange(from, to);
         }
         LambdaQueryWrapper<PerformanceRecord> wrapper = new LambdaQueryWrapper<>();

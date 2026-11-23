@@ -326,10 +326,16 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
                     .set(WorkOrderProcessExecution::getEndTime, execution.getEndTime())
                     .update();
             saveParticipants(execution);
+            // PC 批量保存把起止时间填齐同样视为完工，需与 PDA 提交、完工锁定统一生成绩效口径
+            WorkOrderProcessExecution before = existingMap.get(execution.getId());
+            generateForCompleted(execution,
+                    before != null && ProcessExecutionStatus.COMPLETED.equals(before.getStatus()));
         }
         for (WorkOrderProcessExecution execution : toInsert) {
             this.save(execution);
             saveParticipants(execution);
+            // 新增行直接以已完成状态落库时，同样要求登记参与人并生成绩效
+            generateForCompleted(execution, false);
         }
 
         // 6. 被本次提交替换的既有行：仅删除同一工序/批次的旧记录
@@ -389,6 +395,28 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
                     .findFirst().orElse(null);
         }
         return null;
+    }
+
+    /**
+     * 按工单+工序类型+工序顺序匹配排产计划
+     * <p>「工单工序执行」页保存行时通常不带 planId，用该匹配把执行记录挂回计划行，
+     * 使绩效记录的 planId 不为空，工序粒度视图才能显示计划起止与计划数量。</p>
+     *
+     * @param execution 待保存的执行记录
+     * @return 匹配到的排产计划，未匹配返回 null
+     */
+    private WorkOrderProcessPlan findPlanByProcess(WorkOrderProcessExecution execution) {
+        if (execution.getWorkOrderId() == null || execution.getProcessTypeId() == null
+                || execution.getStepOrder() == null) {
+            return null;
+        }
+        List<WorkOrderProcessPlan> plans = planMapper.selectList(
+                new LambdaQueryWrapper<WorkOrderProcessPlan>()
+                        .eq(WorkOrderProcessPlan::getWorkOrderId, execution.getWorkOrderId())
+                        .eq(WorkOrderProcessPlan::getProcessTypeId, execution.getProcessTypeId())
+                        .eq(WorkOrderProcessPlan::getStepOrder, execution.getStepOrder())
+                        .last("LIMIT 1"));
+        return plans.isEmpty() ? null : plans.get(0);
     }
 
     /**
@@ -475,9 +503,13 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
             }
         }
 
-        // 3.3 工序计划兜底：工序类型与工序顺序
+        // 3.3 工序计划兜底：未携带 planId 时按工单+工序+顺序匹配排产计划，
+        // 保证生成绩效后工序粒度视图能带出计划起止与计划数量
         WorkOrderProcessPlan plan = execution.getPlanId() == null
-                ? null : planMapper.selectById(execution.getPlanId());
+                ? findPlanByProcess(execution) : planMapper.selectById(execution.getPlanId());
+        if (plan != null && execution.getPlanId() == null) {
+            execution.setPlanId(plan.getId());
+        }
         if (plan != null) {
             if (execution.getProcessTypeId() == null) {
                 execution.setProcessTypeId(plan.getProcessTypeId());
@@ -721,6 +753,34 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
         }
         execution.setParticipants(participantMapper.selectByExecutionIdsWithPersonnel(List.of(executionId)));
         return execution;
+    }
+
+    /**
+     * 完工行生成绩效记录
+     * <p>PC 批量保存把开始/结束时间填齐后同样视为完工，需要与 PDA 提交、完工锁定保持同一口径：
+     * 本次由未完工变为已完成的记录必须有参与人，否则拒绝整批保存；已有参与人的完工行
+     * 按「执行记录+人员」幂等生成绩效，重复保存不会重复生成。</p>
+     *
+     * @param execution         本次保存的执行记录（已落库并保存参与人）
+     * @param existingCompleted 保存前该记录是否已完成
+     */
+    private void generateForCompleted(WorkOrderProcessExecution execution, boolean existingCompleted) {
+        if (!ProcessExecutionStatus.COMPLETED.equals(execution.getStatus())) {
+            return;
+        }
+        Long participantCount = participantMapper.selectCount(
+                new QueryWrapper<WorkOrderProcessExecutionParticipant>()
+                        .eq("execution_id", execution.getId()));
+        if (participantCount == null || participantCount == 0) {
+            if (!existingCompleted) {
+                String label = execution.getStepOrder() == null
+                        ? "ID " + execution.getId() : "工序【" + execution.getStepOrder() + "】";
+                throw new IllegalArgumentException(label + "未登记参与人，无法生成绩效；请先登记参与人");
+            }
+            // 历史脏数据（已完成但无参与人）不阻断当前保存，待补充参与人后再次保存即可生成
+            return;
+        }
+        performanceGenerationService.generateForExecution(execution.getId());
     }
 
     /**

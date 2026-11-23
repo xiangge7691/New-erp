@@ -7,6 +7,7 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Data.Entity.Equipment;
 import com.tonghui.erp.Data.Entity.EquipmentMaintenance;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessExecution;
+import com.tonghui.erp.Data.Entity.WorkOrderProcessExecutionParticipant;
 import com.tonghui.erp.Data.mapper.EquipmentMaintenanceMapper;
 import com.tonghui.erp.Data.mapper.EquipmentMapper;
 import org.apache.poi.ss.usermodel.DataFormatter;
@@ -538,6 +539,13 @@ public class EquipmentUsageTest {
         execution.setStartTime(startTime);
         execution.setEndTime(endTime);
         execution.setStatus("待执行");
+        // 起止时间齐全即视为完工，按绩效口径必须带参与人，否则批量保存会被拒绝
+        if (startTime != null && endTime != null) {
+            WorkOrderProcessExecutionParticipant participant = new WorkOrderProcessExecutionParticipant();
+            participant.setPersonnelId(1L);
+            participant.setIsPrimary(1);
+            execution.setParticipants(List.of(participant));
+        }
         return execution;
     }
 

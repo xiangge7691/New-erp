@@ -1,5 +1,7 @@
 package com.tonghui.erp.Service;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -17,7 +19,10 @@ import com.tonghui.erp.Data.mapper.WorkOrderProcessExecutionMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessExecutionParticipantMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessPlanBatchMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessPlanMapper;
+import com.tonghui.erp.Service.PerformanceGenerationService;
 import com.tonghui.erp.Service.impl.WorkOrderProcessExecutionServiceImpl;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,8 +38,11 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -71,6 +79,8 @@ class WorkOrderProcessExecutionBatchSaveTest {
     private PerformanceRecordMapper performanceRecordMapper;
     @Mock
     private EquipmentUsageConflictValidator equipmentUsageConflictValidator;
+    @Mock
+    private PerformanceGenerationService performanceGenerationService;
 
     @InjectMocks
     private WorkOrderProcessExecutionServiceImpl service;
@@ -81,6 +91,15 @@ class WorkOrderProcessExecutionBatchSaveTest {
     // ===================================
     // 测试准备
     // ===================================
+
+    /**
+     * 初始化实体表信息，让批量保存中的 Lambda 更新能解析字段
+     */
+    @BeforeAll
+    static void initTableInfo() {
+        MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
+        TableInfoHelper.initTableInfo(assistant, WorkOrderProcessExecution.class);
+    }
 
     /**
      * 将 Mapper 注入 ServiceImpl 的 baseMapper
@@ -232,6 +251,8 @@ class WorkOrderProcessExecutionBatchSaveTest {
                 })
                 .toList());
 
+        when(participantMapper.selectCount(any())).thenReturn(5L);
+
         service.batchSave(470L, List.of(incoming));
 
         ArgumentCaptor<WorkOrderProcessExecutionParticipant> captor =
@@ -244,6 +265,94 @@ class WorkOrderProcessExecutionBatchSaveTest {
             qtySum = qtySum.add(participant.getCompletedQty());
         }
         assertEquals(0, qtySum.compareTo(new BigDecimal("5000")));
+    }
+
+    /**
+     * 新完工（本次由未完工变为已完成）但没有参与人：应拒绝整批保存，避免「已完成但无绩效」脏数据
+     */
+    @Test
+    void shouldRejectNewlyCompletedRowWithoutParticipants() {
+        WorkOrder order = new WorkOrder();
+        order.setWorkOrderId(480L);
+        order.setIsDeleted(0);
+        when(workOrderMapper.selectById(480L)).thenReturn(order);
+
+        WorkOrderProcessExecution existing = new WorkOrderProcessExecution();
+        existing.setId(550L);
+        existing.setWorkOrderId(480L);
+        existing.setProcessTypeId(189L);
+        existing.setStepOrder(1);
+        existing.setStatus("待执行");
+        existing.setLocked(0);
+        when(executionMapper.selectList(any())).thenReturn(List.of(existing));
+        when(participantMapper.selectCount(any())).thenReturn(0L);
+
+        WorkOrderProcessExecution incoming = new WorkOrderProcessExecution();
+        incoming.setId(550L);
+        incoming.setStartTime(LocalDateTime.of(2026, 11, 20, 0, 0));
+        incoming.setEndTime(LocalDateTime.of(2026, 11, 20, 1, 0));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> service.batchSave(480L, List.of(incoming)));
+        assertEquals("工序【1】未登记参与人，无法生成绩效；请先登记参与人", ex.getMessage());
+        verify(performanceGenerationService, never()).generateForExecution(any());
+    }
+
+    /**
+     * 新完工且已登记参与人：保存后按执行记录生成绩效
+     */
+    @Test
+    void shouldGeneratePerformanceWhenCompletedRowHasParticipants() {
+        WorkOrder order = new WorkOrder();
+        order.setWorkOrderId(480L);
+        order.setIsDeleted(0);
+        when(workOrderMapper.selectById(480L)).thenReturn(order);
+        when(executionMapper.selectList(any())).thenReturn(List.of());
+        when(participantMapper.selectCount(any())).thenReturn(1L);
+
+        WorkOrderProcessExecutionParticipant participant = new WorkOrderProcessExecutionParticipant();
+        participant.setPersonnelId(71L);
+
+        WorkOrderProcessExecution incoming = new WorkOrderProcessExecution();
+        incoming.setPlanId(69L);
+        incoming.setProcessTypeId(189L);
+        incoming.setStepOrder(1);
+        incoming.setStartTime(LocalDateTime.of(2026, 11, 20, 0, 0));
+        incoming.setEndTime(LocalDateTime.of(2026, 11, 20, 1, 0));
+        incoming.setParticipants(List.of(participant));
+
+        service.batchSave(480L, List.of(incoming));
+
+        verify(performanceGenerationService).generateForExecution(any());
+    }
+
+    /**
+     * 历史已完成但无参与人的记录再次保存时不阻断（便于补登参与人后重新触发），也不生成绩效
+     */
+    @Test
+    void shouldAllowResavingAlreadyCompletedRowWithoutParticipants() {
+        WorkOrder order = new WorkOrder();
+        order.setWorkOrderId(480L);
+        order.setIsDeleted(0);
+        when(workOrderMapper.selectById(480L)).thenReturn(order);
+
+        WorkOrderProcessExecution existing = new WorkOrderProcessExecution();
+        existing.setId(550L);
+        existing.setWorkOrderId(480L);
+        existing.setProcessTypeId(189L);
+        existing.setStepOrder(1);
+        existing.setStatus("已完成");
+        existing.setLocked(0);
+        when(executionMapper.selectList(any())).thenReturn(List.of(existing));
+        when(participantMapper.selectCount(any())).thenReturn(0L);
+
+        WorkOrderProcessExecution incoming = new WorkOrderProcessExecution();
+        incoming.setId(550L);
+        incoming.setStartTime(LocalDateTime.of(2026, 11, 20, 0, 0));
+        incoming.setEndTime(LocalDateTime.of(2026, 11, 20, 1, 0));
+
+        assertDoesNotThrow(() -> service.batchSave(480L, List.of(incoming)));
+        verify(performanceGenerationService, never()).generateForExecution(any());
     }
 
     // endregion

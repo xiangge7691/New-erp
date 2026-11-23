@@ -17,6 +17,8 @@ import com.tonghui.erp.Data.mapper.ProcessTypeMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessExecutionMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessExecutionParticipantMapper;
 import com.tonghui.erp.Service.PerformanceGenerationService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -27,13 +29,19 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 绩效生成服务实现类
  */
 @Service
 public class PerformanceGenerationServiceImpl implements PerformanceGenerationService {
+
+    /** 日志记录器 */
+    private static final Logger log = LoggerFactory.getLogger(PerformanceGenerationServiceImpl.class);
 
     // region 依赖注入
     // ===================================
@@ -173,13 +181,34 @@ public class PerformanceGenerationServiceImpl implements PerformanceGenerationSe
         }
         List<Long> executionIds = executionMapper.selectList(wrapper).stream()
                 .map(WorkOrderProcessExecution::getId).toList();
+        if (executionIds.isEmpty()) {
+            return 0;
+        }
+        // 已完工但没有参与人的执行记录无法归属到人，先批量挑出来并汇总告警，避免静默漏数据
+        Set<Long> withParticipant = participantMapper
+                .selectByExecutionIdsWithPersonnel(executionIds).stream()
+                .map(WorkOrderProcessExecutionParticipant::getExecutionId)
+                .collect(Collectors.toSet());
         int generated = 0;
+        int skippedNoParticipant = 0;
+        List<Long> skippedSamples = new ArrayList<>();
         for (Long executionId : executionIds) {
+            if (!withParticipant.contains(executionId)) {
+                skippedNoParticipant++;
+                if (skippedSamples.size() < 10) {
+                    skippedSamples.add(executionId);
+                }
+                continue;
+            }
             try {
                 generated += generateForExecution(executionId);
             } catch (DuplicateKeyException ex) {
                 // 并发补生成时唯一索引（执行记录+人员）冲突，说明记录已存在，跳过即可
             }
+        }
+        if (skippedNoParticipant > 0) {
+            log.warn("绩效补生成：区间 {} ~ {} 内有 {} 条已完工工序执行记录未登记参与人，已跳过（示例 executionId：{}）",
+                    from, to, skippedNoParticipant, skippedSamples);
         }
         return generated;
     }

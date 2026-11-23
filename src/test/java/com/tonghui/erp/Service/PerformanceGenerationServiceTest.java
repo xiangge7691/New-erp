@@ -22,11 +22,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -103,5 +105,41 @@ class PerformanceGenerationServiceTest {
         assertEquals(0, new BigDecimal("2.00").compareTo(record.getProcessActualHours()));
         assertEquals(java.time.LocalDate.of(2026, 11, 20), record.getPerformanceDate());
         assertEquals("系统生成", record.getSource());
+    }
+
+    /**
+     * 区间补生成：没有参与人的完工执行记录应跳过，不能阻断其他记录生成
+     */
+    @Test
+    void shouldSkipCompletedExecutionWithoutParticipants() {
+        WorkOrderProcessExecution withPerson = new WorkOrderProcessExecution();
+        withPerson.setId(10L);
+        withPerson.setWorkOrderId(2L);
+        withPerson.setStartTime(LocalDateTime.of(2026, 11, 20, 8, 0));
+        withPerson.setEndTime(LocalDateTime.of(2026, 11, 20, 10, 0));
+        WorkOrderProcessExecution withoutPerson = new WorkOrderProcessExecution();
+        withoutPerson.setId(11L);
+        withoutPerson.setWorkOrderId(2L);
+        withoutPerson.setStartTime(LocalDateTime.of(2026, 11, 20, 8, 0));
+        withoutPerson.setEndTime(LocalDateTime.of(2026, 11, 20, 10, 0));
+        when(executionMapper.selectList(any())).thenReturn(List.of(withPerson, withoutPerson));
+
+        WorkOrderProcessExecutionParticipant participant = new WorkOrderProcessExecutionParticipant();
+        participant.setExecutionId(10L);
+        participant.setPersonnelId(7L);
+        when(participantMapper.selectByExecutionIdsWithPersonnel(List.of(10L, 11L)))
+                .thenReturn(List.of(participant));
+        when(participantMapper.selectByExecutionIdsWithPersonnel(List.of(10L)))
+                .thenReturn(List.of(participant));
+
+        when(executionMapper.selectById(10L)).thenReturn(withPerson);
+        when(recordMapper.selectCount(any())).thenReturn(0L);
+        when(recordMapper.insert(any())).thenReturn(1);
+
+        int generated = generationService.generateForRange(
+                LocalDate.of(2026, 11, 20), LocalDate.of(2026, 11, 20));
+
+        assertEquals(1, generated);
+        verify(executionMapper, never()).selectById(11L);
     }
 }
