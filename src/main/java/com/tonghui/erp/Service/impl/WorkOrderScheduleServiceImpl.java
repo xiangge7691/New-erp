@@ -495,16 +495,23 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
                     // 批次是否已排产同样以保存时前端传入的值为准
                     dto.setScheduled(b.getScheduled() != null && b.getScheduled() == 1);
                     dto.setParticipants(toParticipantDtos(participants, b.getId()));
-                    batchExecutions.stream()
-                            .findFirst()
-                            .ifPresent(e -> {
-                                dto.setExecutionId(e.getId());
-                                dto.setActualStartTime(e.getStartTime());
-                                dto.setActualEndTime(e.getEndTime());
-                                dto.setActualStatus(e.getStatus());
-                                dto.setActualQty(e.getProcessQty());
-                                dto.setLocked(e.getLocked());
-                            });
+                    // 实际对照：拆分后的批次也要有实际状态，未登记时为「待执行」；
+                    // 多条执行记录按最早开始、最晚结束、数量合计汇总，与工序级口径一致
+                    dto.setActualStatus(batchExecutions.isEmpty()
+                            ? ProcessExecutionStatus.PENDING : resolveActualStatus(batchExecutions));
+                    dto.setExecutionId(batchExecutions.size() == 1 ? batchExecutions.get(0).getId() : null);
+                    dto.setActualStartTime(batchExecutions.stream()
+                            .map(WorkOrderProcessExecution::getStartTime)
+                            .filter(Objects::nonNull).min(LocalDateTime::compareTo).orElse(null));
+                    dto.setActualEndTime(batchExecutions.stream()
+                            .map(WorkOrderProcessExecution::getEndTime)
+                            .filter(Objects::nonNull).max(LocalDateTime::compareTo).orElse(null));
+                    dto.setActualQty(batchExecutions.stream()
+                            .map(WorkOrderProcessExecution::getProcessQty)
+                            .filter(Objects::nonNull).reduce(BigDecimal::add).orElse(null));
+                    dto.setLocked(batchExecutions.isEmpty() ? null
+                            : (batchExecutions.stream()
+                            .anyMatch(e -> Integer.valueOf(1).equals(e.getLocked())) ? 1 : 0));
                     return dto;
                 }).toList();
     }

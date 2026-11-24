@@ -127,7 +127,7 @@
 | `planQty` / `roomId` / `roomName` / `equipmentId` / `equipmentName` | 计划数量与资源 |
 | `unitId` / `unitName` / `unitSymbol` | 计量单位（快照自工序模板）；数量列优先显示 `unitSymbol`（如 kg），无单位显示“—” |
 | `teamId` / `teamName` / `participants` | 计划班组（选填）与参与人 |
-| `batches[]` | 拆分批次；每个批次 `scheduled`、计划起止、数量、`unitId/unitName/unitSymbol`、参与人、实际对照；`status` 按关联的实际执行记录推导为 `计划中` / `执行中` / `已完工` |
+| `batches[]` | 拆分批次；每个批次 `scheduled`、计划起止、数量、`unitId/unitName/unitSymbol`、参与人、实际对照；`status` 按关联的实际执行记录推导为 `计划中` / `执行中` / `已完工`；`actualStatus` 未登记实际生产时为 `待执行`，多条执行记录按最早开始、最晚结束、数量合计汇总 |
 | `actualStartTime` / `actualEndTime` / `actualStatus` / `actualQty` / `executionId` | 实际执行对照 |
 
 ### 3.3 甘特图（`GanttItemDto`）

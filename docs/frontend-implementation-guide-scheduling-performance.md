@@ -75,6 +75,7 @@ export async function saveScheduleFormal(workOrderId: number, payload: ScheduleS
 | 计划状态 `status` | `草稿` / `已保存` / `需重排` |
 | 批次状态 | `计划中` / `执行中` / `已完工`（按关联的实际执行记录推导：无执行=计划中，有开始未全部完成=执行中，全部完成=已完工） |
 | 执行状态 | `待执行` / `执行中` / `已完成` |
+| 批次实际状态 `batches[].actualStatus` | 未登记实际生产时为 `待执行`（不再返回 null）；存在多条执行记录时按最早开始、最晚结束、数量合计汇总 |
 | 绩效来源 `source` | `系统生成` / `手动添加`（中文原值，不要传 system/manual） |
 | 绩效计算方式 `calcMode` | `按系数计算` / `直接计入` |
 | 修改状态 `modifiedStatus` | `0` 未修改 / `1` 已修改 |

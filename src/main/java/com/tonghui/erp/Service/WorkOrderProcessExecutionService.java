@@ -61,4 +61,11 @@ public interface WorkOrderProcessExecutionService extends IService<WorkOrderProc
      * @param planBatchId 排产批次ID（为空时忽略）
      */
     void refreshPlanBatchStatus(Long planBatchId);
+
+    /**
+     * 执行记录未关联排产计划时，按「工单+工序类型+工序顺序」回填计划ID并落库
+     *
+     * @param execution 执行记录（需包含工单、工序类型与工序顺序）
+     */
+    void fillPlanReference(WorkOrderProcessExecution execution);
 }

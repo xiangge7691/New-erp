@@ -184,8 +184,29 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
         Map<Long, WorkOrderProcessPlanBatch> batches = batchIds.isEmpty() ? Map.of()
                 : planBatchMapper.selectBatchIds(batchIds).stream()
                 .collect(Collectors.toMap(WorkOrderProcessPlanBatch::getId, e -> e, (a, b) -> a));
+        // 早期 PDA 录入的执行记录可能没有 plan_id：按「工单+工序类型+工序顺序」兜底匹配计划，
+        // 保证 PDA 显示的计划数量与排产接口一致（全部已关联时跳过查询）
+        boolean hasUnlinked = executions.stream().anyMatch(e -> e.getPlanId() == null);
+        Set<Long> workOrderIds = hasUnlinked
+                ? executions.stream().map(WorkOrderProcessExecution::getWorkOrderId)
+                .filter(Objects::nonNull).collect(Collectors.toSet())
+                : Set.of();
+        Map<String, WorkOrderProcessPlan> plansByProcess = workOrderIds.isEmpty() ? Map.of()
+                : planMapper.selectList(new LambdaQueryWrapper<WorkOrderProcessPlan>()
+                .in(WorkOrderProcessPlan::getWorkOrderId, workOrderIds))
+                .stream().collect(Collectors.toMap(
+                        p -> planProcessKey(p.getWorkOrderId(), p.getProcessTypeId(), p.getStepOrder()),
+                        e -> e, (a, b) -> a));
         for (WorkOrderProcessExecution execution : executions) {
             WorkOrderProcessPlan plan = execution.getPlanId() == null ? null : plans.get(execution.getPlanId());
+            if (plan == null) {
+                plan = plansByProcess.get(planProcessKey(execution.getWorkOrderId(),
+                        execution.getProcessTypeId(), execution.getStepOrder()));
+                if (plan != null && execution.getPlanId() == null) {
+                    // 仅补齐返回给前端的计划关联，落库关联由保存实际记录时回填
+                    execution.setPlanId(plan.getId());
+                }
+            }
             WorkOrderProcessPlanBatch batch = execution.getPlanBatchId() == null
                     ? null : batches.get(execution.getPlanBatchId());
             if (batch != null) {
@@ -648,6 +669,18 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
         return processTypeId + "#" + stepOrder;
     }
 
+    /**
+     * 计划兜底匹配键：工单 + 工序类型 + 工序顺序
+     *
+     * @param workOrderId   工单ID
+     * @param processTypeId 工序类型ID
+     * @param stepOrder     工序顺序
+     * @return 匹配键
+     */
+    private String planProcessKey(Long workOrderId, Long processTypeId, Integer stepOrder) {
+        return workOrderId + "#" + processTypeId + "#" + stepOrder;
+    }
+
     // endregion
 
     // region 删除
@@ -716,6 +749,31 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
             batch.setStatus(status);
             planBatchMapper.updateById(batch);
         }
+    }
+
+    /**
+     * 执行记录未关联排产计划时，按「工单+工序类型+工序顺序」回填计划ID并落库
+     * <p>
+     * PDA 的开始/结束/暂存/提交直接更新执行记录，不走 PC 批量保存的字段补齐逻辑，
+     * 这里补上计划关联，保证绩效记录与工序粒度视图能取到计划信息。
+     * </p>
+     *
+     * @param execution 执行记录（需包含工单、工序类型与工序顺序）
+     */
+    @Override
+    public void fillPlanReference(WorkOrderProcessExecution execution) {
+        if (execution == null || execution.getId() == null || execution.getPlanId() != null) {
+            return;
+        }
+        WorkOrderProcessPlan plan = findPlanByProcess(execution);
+        if (plan == null) {
+            return;
+        }
+        execution.setPlanId(plan.getId());
+        this.lambdaUpdate()
+                .eq(WorkOrderProcessExecution::getId, execution.getId())
+                .set(WorkOrderProcessExecution::getPlanId, plan.getId())
+                .update();
     }
 
     /**

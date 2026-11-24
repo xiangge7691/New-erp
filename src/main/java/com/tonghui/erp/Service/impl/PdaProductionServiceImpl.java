@@ -228,8 +228,8 @@ public class PdaProductionServiceImpl implements PdaProductionService {
         dto.setBatchName(execution.getPlanBatchName());
         dto.setPlanStartTime(execution.getPlanStartTime());
         dto.setPlanEndTime(execution.getPlanEndTime());
-        dto.setPlanQty(execution.getPlanQty() != null
-                ? execution.getPlanQty() : execution.getProcessQty());
+        // 计划数量只取排产计划/批次；未维护计划时返回空，不能回退成实际数量
+        dto.setPlanQty(execution.getPlanQty());
         dto.setUnitId(execution.getUnitId());
         dto.setUnitName(execution.getUnitName());
         dto.setUnitSymbol(execution.getUnitSymbol());
@@ -467,6 +467,7 @@ public class PdaProductionServiceImpl implements PdaProductionService {
         execution.setStatus("执行中");
         setOperator(execution);
         executionService.updateById(execution);
+        executionService.fillPlanReference(execution);
         executionService.refreshPlanBatchStatus(execution.getPlanBatchId());
         return loadProcess(execution);
     }
@@ -494,6 +495,7 @@ public class PdaProductionServiceImpl implements PdaProductionService {
         }
         setOperator(execution);
         executionService.updateById(execution);
+        executionService.fillPlanReference(execution);
         executionService.refreshPlanBatchStatus(execution.getPlanBatchId());
         return loadProcess(execution);
     }
@@ -508,6 +510,7 @@ public class PdaProductionServiceImpl implements PdaProductionService {
             execution.setPdaDeviceNo(request.getDeviceNo());
         }
         executionService.updateById(execution);
+        executionService.fillPlanReference(execution);
         saveParticipants(execution, request.getParticipants(), false);
         executionService.refreshPlanBatchStatus(execution.getPlanBatchId());
         return loadProcess(execution);
@@ -544,6 +547,7 @@ public class PdaProductionServiceImpl implements PdaProductionService {
         execution.setPdaDeviceNo(request.getDeviceNo());
         execution.setClientRequestId(request.getRequestId());
         executionService.updateById(execution);
+        executionService.fillPlanReference(execution);
         saveParticipants(execution, request.getParticipants(), true);
         // PDA 提交即完工口径，按参与人与工序时长生成绩效（幂等，重复提交不会重复生成）
         performanceGenerationService.generateForExecution(executionId);
