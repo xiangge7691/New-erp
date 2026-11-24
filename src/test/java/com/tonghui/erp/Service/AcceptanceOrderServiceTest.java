@@ -10,6 +10,7 @@ import com.tonghui.erp.Data.Entity.Stock;
 import com.tonghui.erp.Data.Entity.StockIn;
 import com.tonghui.erp.Data.Entity.StockInDetail;
 import com.tonghui.erp.Common.Dto.Stock.AcceptanceInboundRequest;
+import com.tonghui.erp.Common.Dto.Stock.StockInWithNamesDto;
 import com.tonghui.erp.Common.Dto.Stock.StockTransactionDto;
 import com.tonghui.erp.Data.mapper.MaterialMapper;
 import com.tonghui.erp.Data.mapper.ProductionUnitMapper;
@@ -67,6 +68,12 @@ public class AcceptanceOrderServiceTest {
      */
     @Autowired
     private StockService stockService;
+
+    /**
+     * 入库单服务（模拟 PDA 扫码确认入库）
+     */
+    @Autowired
+    private StockInService stockInService;
 
     /**
      * 库存数据访问层（直接查询库存批次）
@@ -197,15 +204,25 @@ public class AcceptanceOrderServiceTest {
                         .allMatch(d -> "待入库".equals(d.getStatus())),
                 "检验合格后明细应全部为待入库");
 
-        // 整单入库：为每条待入库明细指定仓库，生成入库单，明细已入库、主单已入库
+        // 整单入库：生成待打印/待扫码的草稿入库单，明细进入待扫码入库（两阶段 PDA 流程）
         List<Long> detailIds = acceptanceOrderService.getDetailsByAcceptanceId(id).stream()
                 .map(AcceptanceDetail::getDetailId).collect(java.util.stream.Collectors.toList());
-        acceptanceOrderService.inbound(id, detailIds.stream().map(did -> {
+        StockInWithNamesDto stockIn = acceptanceOrderService.inbound(id, detailIds.stream().map(did -> {
             AcceptanceInboundRequest.Item item = new AcceptanceInboundRequest.Item();
             item.setDetailId(did);
             item.setProdUnitId(prodUnitId);
             return item;
         }).collect(java.util.stream.Collectors.toList()));
+
+        AcceptanceOrder pendingScan = acceptanceOrderService.getAcceptanceById(id);
+        assertEquals("待扫码入库", pendingScan.getStatus());
+        assertTrue(acceptanceOrderService.getDetailsByAcceptanceId(id).stream()
+                        .allMatch(d -> "待扫码入库".equals(d.getStatus())),
+                "生成入库单后明细应全部为待扫码入库");
+
+        // 模拟 PDA 扫码确认入库：入库单入账并回写验收单为已入库
+        stockInService.confirmStockIn(stockIn.getInId());
+        acceptanceOrderService.confirmInbound(acceptance.getAcceptanceCode());
 
         AcceptanceOrder done = acceptanceOrderService.getAcceptanceById(id);
         assertEquals("已入库", done.getStatus());
@@ -222,13 +239,157 @@ public class AcceptanceOrderServiceTest {
                 .eq("prod_unit_id", prodUnitId)
                 .eq("batch_number", first.getBatchNumber()));
         assertNotNull(stock, "整单入库后库存批次应存在");
-        assertEquals(0, first.getQuantity().compareTo(stock.getQuantity()), "库存数量应与验收数量一致");
+        assertEquals(0, first.getInboundQty().compareTo(stock.getQuantity()), "库存数量应与入库数量一致");
 
         // 断言库存流水写入（入库类型为验收来源类型）
         List<StockTransactionDto> transactions = stockService.getTransactionsByStockId(stock.getStockId());
         assertFalse(transactions.isEmpty(), "整单入库后应写入库存流水");
         assertTrue(transactions.stream().anyMatch(t -> "采购入库".equals(String.valueOf(t.getTransactionType()))),
                 "流水类型应为采购入库");
+    }
+
+    /**
+     * 测试取样/留样数量从入库数量中扣减：到货1.0，取样0.1，留样0.05，入库0.85
+     * <p>校验验收明细入库数量、草稿入库单数量、库存入账数量与金额口径</p>
+     */
+    @Test
+    @Transactional
+    public void testInboundQtyExcludesSamplingAndRetention() {
+        Long prodUnitId = findAnyProdUnitId();
+        if (prodUnitId == null) {
+            System.out.println("无生产单位数据，跳过取样扣减断言");
+            return;
+        }
+
+        AcceptanceOrder acceptance = createAcceptanceWithSampling("运输中", "SAMPLING-BATCH-001",
+                new BigDecimal("1.000"), new BigDecimal("1.000"),
+                new BigDecimal("0.100"), new BigDecimal("0.050"));
+        Long id = acceptance.getAcceptanceId();
+
+        // 新建时即计算预计入库数量：1.0 - 0.1 - 0.05 = 0.85
+        AcceptanceDetail saved = acceptanceOrderService.getDetailsByAcceptanceId(id).get(0);
+        assertEquals(0, new BigDecimal("0.850").compareTo(saved.getInboundQty()),
+                "新建明细应计算预计入库数量（到货数量−取样−留样）");
+        assertEquals(0, new BigDecimal("10.00").compareTo(saved.getAmount()),
+                "验收金额仍按实际到货数量计算，不受取样/留样影响");
+
+        acceptanceOrderService.confirmArrival(id);
+        acceptanceOrderService.inspect(id, null, true, "初验合格");
+        acceptanceOrderService.qualityCheck(id, null, true, "检验合格");
+
+        List<Long> detailIds = acceptanceOrderService.getDetailsByAcceptanceId(id).stream()
+                .map(AcceptanceDetail::getDetailId).collect(java.util.stream.Collectors.toList());
+        StockInWithNamesDto stockIn = acceptanceOrderService.inbound(id, detailIds.stream().map(did -> {
+            AcceptanceInboundRequest.Item item = new AcceptanceInboundRequest.Item();
+            item.setDetailId(did);
+            item.setProdUnitId(prodUnitId);
+            return item;
+        }).collect(java.util.stream.Collectors.toList()));
+
+        // 验收明细入库数量与草稿入库单数量均应为0.85
+        AcceptanceDetail afterInbound = acceptanceOrderService.getDetailsByAcceptanceId(id).get(0);
+        assertEquals(0, new BigDecimal("0.850").compareTo(afterInbound.getInboundQty()),
+                "入库后验收明细入库数量应为0.85");
+        List<StockInDetail> stockInDetails = stockInDetailMapper.selectList(
+                new QueryWrapper<StockInDetail>().eq("in_id", stockIn.getInId()));
+        assertEquals(1, stockInDetails.size(), "应生成1条入库明细");
+        assertEquals(0, new BigDecimal("0.850").compareTo(stockInDetails.get(0).getQuantity()),
+                "入库明细数量应为0.85");
+        assertEquals(0, new BigDecimal("8.50").compareTo(stockInDetails.get(0).getAmount()),
+                "入库金额应按入库数量计算");
+
+        // PDA 扫码确认后库存数量应为0.85
+        stockInService.confirmStockIn(stockIn.getInId());
+        acceptanceOrderService.confirmInbound(acceptance.getAcceptanceCode());
+        Stock stock = stockMapper.selectOne(new QueryWrapper<Stock>()
+                .eq("item_code", afterInbound.getMaterialCode())
+                .eq("prod_unit_id", prodUnitId)
+                .eq("batch_number", afterInbound.getBatchNumber()));
+        assertNotNull(stock, "入库后库存批次应存在");
+        assertEquals(0, new BigDecimal("0.850").compareTo(stock.getQuantity()),
+                "库存数量应为扣减取样/留样后的入库数量");
+    }
+
+    /**
+     * 测试取样/留样校验：两者之和超过基准数量时保存应拒绝
+     */
+    @Test
+    @Transactional
+    public void testSamplingExceedsBaseRejectedOnSave() {
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> createAcceptanceWithSampling("运输中", "SAMPLING-BATCH-002",
+                        new BigDecimal("1.000"), null,
+                        new BigDecimal("0.800"), new BigDecimal("0.300")));
+        assertTrue(ex.getMessage().contains("不能超过"), "异常信息应提示取样/留样超过基准数量");
+    }
+
+    /**
+     * 测试检验合格时入库数量必须大于0：取样+留样等于基准数量应拒绝
+     */
+    @Test
+    @Transactional
+    public void testQualityCheckRejectsZeroInbound() {
+        AcceptanceOrder acceptance = createAcceptanceWithSampling("运输中", "SAMPLING-BATCH-003",
+                new BigDecimal("1.000"), new BigDecimal("1.000"),
+                new BigDecimal("0.700"), new BigDecimal("0.300"));
+        Long id = acceptance.getAcceptanceId();
+        acceptanceOrderService.confirmArrival(id);
+        acceptanceOrderService.inspect(id, null, true, "初验合格");
+
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> acceptanceOrderService.qualityCheck(id, null, true, "检验合格"));
+        assertTrue(ex.getMessage().contains("入库数量必须大于0"), "异常信息应提示入库数量必须大于0");
+    }
+
+    /**
+     * 测试部分验收拆行时取样/留样的归属与校验
+     * <p>验收子行保留取样/留样并按验收数量重算入库数量；退货子行不继承取样/留样且不入库；
+     * 取样/留样超过验收数量时拒绝拆行</p>
+     */
+    @Test
+    @Transactional
+    public void testPartialAcceptanceSamplingAllocation() {
+        AcceptanceOrder acceptance = createAcceptanceWithSampling("运输中", "SAMPLING-BATCH-004",
+                new BigDecimal("1.000"), new BigDecimal("1.000"),
+                new BigDecimal("0.100"), new BigDecimal("0.050"));
+        Long id = acceptance.getAcceptanceId();
+        acceptanceOrderService.confirmArrival(id);
+        AcceptanceDetail detail = acceptanceOrderService.getDetailsByAcceptanceId(id).get(0);
+
+        acceptanceOrderService.partialAcceptance(detail.getDetailId(), "初验",
+                new BigDecimal("0.700"), new BigDecimal("0.300"), "部分验收");
+
+        List<AcceptanceDetail> rows = acceptanceOrderService.getDetailsByAcceptanceId(id);
+        assertEquals(2, rows.size(), "拆行后应有验收子行与退货子行");
+        AcceptanceDetail acceptChild = rows.stream()
+                .filter(d -> "待检验".equals(d.getStatus())).findFirst().orElse(null);
+        AcceptanceDetail returnChild = rows.stream()
+                .filter(d -> "待退货".equals(d.getStatus())).findFirst().orElse(null);
+        assertNotNull(acceptChild, "应存在验收子行");
+        assertNotNull(returnChild, "应存在退货子行");
+        assertEquals(0, new BigDecimal("0.100").compareTo(acceptChild.getSamplingQty()),
+                "验收子行应保留取样数量");
+        assertEquals(0, new BigDecimal("0.050").compareTo(acceptChild.getRetentionQty()),
+                "验收子行应保留留样数量");
+        assertEquals(0, new BigDecimal("0.550").compareTo(acceptChild.getInboundQty()),
+                "验收子行入库数量应为 0.7−0.1−0.05");
+        assertEquals(0, BigDecimal.ZERO.compareTo(returnChild.getSamplingQty()),
+                "退货子行不应继承取样数量");
+        assertEquals(0, BigDecimal.ZERO.compareTo(returnChild.getRetentionQty()),
+                "退货子行不应继承留样数量");
+        assertEquals(0, BigDecimal.ZERO.compareTo(returnChild.getInboundQty()),
+                "退货子行不应入库");
+
+        // 取样/留样超过验收数量时应拒绝拆行
+        AcceptanceOrder second = createAcceptanceWithSampling("运输中", "SAMPLING-BATCH-005",
+                new BigDecimal("1.000"), new BigDecimal("1.000"),
+                new BigDecimal("0.800"), BigDecimal.ZERO);
+        acceptanceOrderService.confirmArrival(second.getAcceptanceId());
+        AcceptanceDetail secondDetail = acceptanceOrderService.getDetailsByAcceptanceId(second.getAcceptanceId()).get(0);
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> acceptanceOrderService.partialAcceptance(secondDetail.getDetailId(), "初验",
+                        new BigDecimal("0.700"), new BigDecimal("0.300"), "部分验收"));
+        assertTrue(ex.getMessage().contains("不能超过"), "取样数量超过验收数量时应拒绝拆行");
     }
 
     /**
@@ -396,12 +557,15 @@ public class AcceptanceOrderServiceTest {
         acceptanceOrderService.qualityCheck(id, null, true, "合格");
         List<Long> inboundDetailIds = acceptanceOrderService.getDetailsByAcceptanceId(id).stream()
                 .map(AcceptanceDetail::getDetailId).collect(java.util.stream.Collectors.toList());
-        acceptanceOrderService.inbound(id, inboundDetailIds.stream().map(did -> {
+        StockInWithNamesDto stockIn = acceptanceOrderService.inbound(id, inboundDetailIds.stream().map(did -> {
             AcceptanceInboundRequest.Item item = new AcceptanceInboundRequest.Item();
             item.setDetailId(did);
             item.setProdUnitId(prodUnitId);
             return item;
         }).collect(java.util.stream.Collectors.toList()));
+        // 模拟 PDA 扫码确认，使验收单进入已入库终态
+        stockInService.confirmStockIn(stockIn.getInId());
+        acceptanceOrderService.confirmInbound(acceptance.getAcceptanceCode());
 
         // 已入库不可删除
         RuntimeException ex = assertThrows(RuntimeException.class,
@@ -471,7 +635,7 @@ public class AcceptanceOrderServiceTest {
     }
 
     /**
-     * 测试货物验收表导出：生成合法 xlsx，单 sheet「货物验收表」，24 列表头与表尾合计行
+     * 测试货物验收表导出：生成合法 xlsx，单 sheet「货物验收表」，26 列表头与表尾合计行
      */
     @Test
     @Transactional
@@ -486,10 +650,10 @@ public class AcceptanceOrderServiceTest {
         assertEquals((byte) 'P', bytes[0], "xlsx 应为 zip 格式（PK）");
         assertEquals((byte) 'K', bytes[1], "xlsx 应为 zip 格式（PK）");
 
-        // 期望表头（主单8列 + 明细16列，共24列）
+        // 期望表头（主单8列 + 明细18列，共26列）
         String[] expectedHeaders = {
                 "验收单号", "来源类型", "关联采购订单号", "关联采购计划编号", "收货单位", "状态", "交期", "备注",
-                "序号", "物料编码", "物料名称", "物料分类", "单位", "采购数量", "到货数量", "入库数量",
+                "序号", "物料编码", "物料名称", "物料分类", "单位", "采购数量", "到货数量", "取样数量", "留样数量", "入库数量",
                 "单价", "金额", "批号", "有效期至", "明细状态", "退货原因", "不合格说明", "供应商"
         };
 
@@ -505,11 +669,11 @@ public class AcceptanceOrderServiceTest {
                         "第" + (i + 1) + "列表头应为" + expectedHeaders[i]);
             }
 
-            // 数据行不应超过24列
+            // 数据行不应超过26列
             for (int r = 1; r < sheet.getLastRowNum(); r++) {
                 Row row = sheet.getRow(r);
                 if (row != null) {
-                    assertNull(row.getCell(expectedHeaders.length), "数据行不应超过24列");
+                    assertNull(row.getCell(expectedHeaders.length), "数据行不应超过26列");
                 }
             }
 
@@ -611,12 +775,15 @@ public class AcceptanceOrderServiceTest {
         // 整单入库（两条明细指定同一仓库）
         List<Long> detailIds = acceptanceOrderService.getDetailsByAcceptanceId(id).stream()
                 .map(AcceptanceDetail::getDetailId).collect(java.util.stream.Collectors.toList());
-        acceptanceOrderService.inbound(id, detailIds.stream().map(did -> {
+        StockInWithNamesDto stockInResult = acceptanceOrderService.inbound(id, detailIds.stream().map(did -> {
             AcceptanceInboundRequest.Item item = new AcceptanceInboundRequest.Item();
             item.setDetailId(did);
             item.setProdUnitId(prodUnitId);
             return item;
         }).collect(java.util.stream.Collectors.toList()));
+        // 模拟 PDA 扫码确认入库，真正写入库存
+        stockInService.confirmStockIn(stockInResult.getInId());
+        acceptanceOrderService.confirmInbound(acceptance.getAcceptanceCode());
 
         // 自动生成的入库单明细应合并为一条，数量2
         StockIn stockIn = stockInMapper.selectOne(new QueryWrapper<StockIn>()
@@ -669,6 +836,46 @@ public class AcceptanceOrderServiceTest {
         detail.setUnitName("kg");
         detail.setStandardDosage(new BigDecimal("0.1000"));
         detail.setQuantity(new BigDecimal("1.000"));
+        detail.setUnitPrice(new BigDecimal("10.00"));
+        detail.setBatchNumber(batchNo);
+        detail.setExpiryDate(LocalDate.now().plusYears(1));
+
+        acceptanceOrderService.addAcceptance(acceptance, List.of(detail));
+        return acceptance;
+    }
+
+    /**
+     * 创建带取样/留样数量的验收单（单条明细）
+     *
+     * @param status          验收单状态
+     * @param batchNo         批号
+     * @param quantity        采购数量
+     * @param actualArrivalQty 实际到货数量（可空，空时按采购数量作为基准）
+     * @param samplingQty     取样数量
+     * @param retentionQty    留样数量
+     * @return 新建的验收单
+     */
+    private AcceptanceOrder createAcceptanceWithSampling(String status, String batchNo,
+                                                         BigDecimal quantity, BigDecimal actualArrivalQty,
+                                                         BigDecimal samplingQty, BigDecimal retentionQty) {
+        AcceptanceOrder acceptance = new AcceptanceOrder();
+        acceptance.setAcceptanceCode(sequenceService.generateAcceptanceCode());
+        acceptance.setSourceType("采购入库");
+        acceptance.setStatus(status);
+        acceptance.setRelatedOrder("TEST-ORDER-001");
+        acceptance.setDeliveryDate(LocalDate.now().plusDays(7));
+
+        AcceptanceDetail detail = new AcceptanceDetail();
+        detail.setItemType("material");
+        detail.setMaterialCode("TEST001");
+        detail.setMaterialName("测试物料");
+        detail.setMaterialCategory("原料");
+        detail.setUnitName("kg");
+        detail.setStandardDosage(new BigDecimal("0.1000"));
+        detail.setQuantity(quantity);
+        detail.setActualArrivalQty(actualArrivalQty);
+        detail.setSamplingQty(samplingQty);
+        detail.setRetentionQty(retentionQty);
         detail.setUnitPrice(new BigDecimal("10.00"));
         detail.setBatchNumber(batchNo);
         detail.setExpiryDate(LocalDate.now().plusYears(1));

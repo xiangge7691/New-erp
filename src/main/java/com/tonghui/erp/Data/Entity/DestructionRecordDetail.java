@@ -64,6 +64,18 @@ public class DestructionRecordDetail extends AuditEntity {
     private BigDecimal quantity;
 
     /**
+     * 品名类别：生产原料/中间产品/成品（物料销毁类型必填，其他类型可为空）
+     */
+    @TableField(value = "item_category")
+    private String itemCategory;
+
+    /**
+     * 计量单位：kg/g/L/袋/盒/瓶（物料销毁类型必填）
+     */
+    @TableField(value = "unit_name")
+    private String unitName;
+
+    /**
      * 关联留样记录ID（可空，仅作选人回填与追溯引用，保存销毁记录不联动留样状态）
      */
     @TableField(value = "retained_sample_id")

@@ -57,6 +57,8 @@ CREATE TABLE IF NOT EXISTS `acceptance_detail` (
   `standard_dosage`   DECIMAL(18,4) DEFAULT NULL COMMENT '标准处方量',
   `quantity`          DECIMAL(18,3) NOT NULL COMMENT '采购数量',
   `actual_arrival_qty` DECIMAL(18,3) DEFAULT NULL COMMENT '实际到货数量（供应商实际送达数量，金额以该数量为准计算）',
+  `sampling_qty`      DECIMAL(18,3) DEFAULT NULL COMMENT '取样数量（验收时抽取的检验样品数量，不计入入库；空按0处理）',
+  `retention_qty`     DECIMAL(18,3) DEFAULT NULL COMMENT '留样数量（验收时留存样品数量，不计入入库；空按0处理）',
   `inbound_qty`       DECIMAL(18,3) DEFAULT NULL COMMENT '入库数量（检验合格后实际入库数量）',
   `unit_price`        DECIMAL(18,2) DEFAULT NULL COMMENT '物料单价',
   `amount`            DECIMAL(18,2) DEFAULT NULL COMMENT '金额（实际到货数量*单价）',
@@ -88,6 +90,26 @@ SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS
     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'acceptance_detail' AND COLUMN_NAME = 'inbound_qty');
 SET @ddl := IF(@col_exists = 0,
     'ALTER TABLE `acceptance_detail` ADD COLUMN `inbound_qty` DECIMAL(18,3) DEFAULT NULL COMMENT ''入库数量（检验合格后实际入库数量）'' AFTER `actual_arrival_qty`',
+    'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- 2.3 验收明细表补充：取样数量列（存量库幂等加列）
+SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'acceptance_detail' AND COLUMN_NAME = 'sampling_qty');
+SET @ddl := IF(@col_exists = 0,
+    'ALTER TABLE `acceptance_detail` ADD COLUMN `sampling_qty` DECIMAL(18,3) DEFAULT NULL COMMENT ''取样数量（验收时抽取的检验样品数量，不计入入库；空按0处理）'' AFTER `actual_arrival_qty`',
+    'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- 2.4 验收明细表补充：留样数量列（存量库幂等加列）
+SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'acceptance_detail' AND COLUMN_NAME = 'retention_qty');
+SET @ddl := IF(@col_exists = 0,
+    'ALTER TABLE `acceptance_detail` ADD COLUMN `retention_qty` DECIMAL(18,3) DEFAULT NULL COMMENT ''留样数量（验收时留存样品数量，不计入入库；空按0处理）'' AFTER `sampling_qty`',
     'SELECT 1');
 PREPARE stmt FROM @ddl;
 EXECUTE stmt;

@@ -197,6 +197,12 @@ public class MaterialReturnServiceTest {
         List<AcceptanceDetail> originalDetails =
                 acceptanceOrderService.getDetailsByAcceptanceId(acceptance.getAcceptanceId());
         Long detailId = originalDetails.get(0).getDetailId();
+        // 原明细先记录取样/留样，重发后新单应清零
+        AcceptanceDetail withSampling = new AcceptanceDetail();
+        withSampling.setDetailId(detailId);
+        withSampling.setSamplingQty(new BigDecimal("0.100"));
+        withSampling.setRetentionQty(new BigDecimal("0.050"));
+        acceptanceOrderService.updateAcceptanceDetails(List.of(withSampling));
         materialReturnService.returnDetail(detailId);
 
         MaterialResendRequestDto request = new MaterialResendRequestDto();
@@ -223,6 +229,12 @@ public class MaterialReturnServiceTest {
         assertEquals(0, new BigDecimal("2.000").compareTo(newDetail.getQuantity()), "新单采购数量应为重新发货数量");
         assertEquals("待初验", newDetail.getStatus(), "新单明细应为待初验");
         assertEquals(0, new BigDecimal("20.00").compareTo(newDetail.getAmount()), "金额应按新数量重算");
+        assertEquals(0, BigDecimal.ZERO.compareTo(
+                newDetail.getSamplingQty() != null ? newDetail.getSamplingQty() : BigDecimal.ZERO),
+                "重发明细取样数量应清零");
+        assertEquals(0, BigDecimal.ZERO.compareTo(
+                newDetail.getRetentionQty() != null ? newDetail.getRetentionQty() : BigDecimal.ZERO),
+                "重发明细留样数量应清零");
 
         // 原明细已重发
         assertEquals("已重发", acceptanceOrderService.getDetailsByAcceptanceId(acceptance.getAcceptanceId())

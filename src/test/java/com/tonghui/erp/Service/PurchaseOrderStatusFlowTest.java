@@ -239,8 +239,12 @@ public void testQualityCheckWriteBackOrderStatus() {
 
             // 逐行检验合格（明细待入库，回写订单明细为待入库）
             acceptanceOrderService.qualityCheck(acceptanceId, null, true, "测试合格");
-            // 整单入库（触发库存联动 + 回写采购订单状态为已入库；仓库回退验收单级仓库）
-            acceptanceOrderService.inbound(acceptanceId, null);
+            // 整单入库：生成待扫码入库的草稿入库单，再模拟 PDA 扫码确认入库
+            com.tonghui.erp.Common.Dto.Stock.StockInWithNamesDto stockIn =
+                    acceptanceOrderService.inbound(acceptanceId, null);
+            stockInId = stockIn.getInId();
+            stockInService.confirmStockIn(stockInId);
+            acceptanceOrderService.confirmInbound(acceptance.getAcceptanceCode());
 
             // 断言采购订单状态为"已入库"
             PurchaseOrders updatedOrder = purchaseOrdersMapper.selectById(orderId);

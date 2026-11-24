@@ -30,11 +30,11 @@ public interface DestructionRecordService extends IService<DestructionRecord> {
     /**
      * 生成销毁单号
      * <p>
-     * 按记录类型选择前缀：不合格品销毁BPXH/留样及稳定性考察产品销毁LYXH，
+     * 按记录类型选择前缀：不合格品销毁BPXH/留样及稳定性考察产品销毁LYXH/物料销毁WLXH，
      * 格式前缀-YYYYMMDD-NNN，基于当天最大序号递增，查询绕过软删除过滤
      * </p>
      *
-     * @param recordType 记录类型（不合格品销毁/留样及稳定性考察产品销毁）
+     * @param recordType 记录类型（不合格品销毁/留样及稳定性考察产品销毁/物料销毁）
      * @return 生成的唯一销毁单号
      */
     String generateCode(String recordType);
@@ -42,17 +42,18 @@ public interface DestructionRecordService extends IService<DestructionRecord> {
     /**
      * 条件分页查询销毁记录列表（列表项回填创建人姓名createdByName及明细列表details）
      *
-     * @param recordType 记录类型（可空，精确匹配）
-     * @param keyword    关键字（可空，模糊匹配销毁单号）
-     * @param batchNo    批号（可空，模糊匹配明细批号，存在该批号明细的主表命中）
-     * @param status     状态（可空，精确匹配：正常/作废）
-     * @param startDate  登记时间起始（可空，格式yyyy-MM-dd）
-     * @param endDate    登记时间结束（可空，格式yyyy-MM-dd）
-     * @param pageRequest 分页参数
+     * @param recordType   记录类型（可空，精确匹配）
+     * @param keyword      关键字（可空，模糊匹配销毁单号）
+     * @param batchNo      批号（可空，模糊匹配明细批号，存在该批号明细的主表命中）
+     * @param itemCategory 品名类别（可空，精确匹配明细品名类别：生产原料/中间产品/成品）
+     * @param status       状态（可空，精确匹配：正常/作废）
+     * @param startDate    登记时间起始（可空，格式yyyy-MM-dd）
+     * @param endDate      登记时间结束（可空，格式yyyy-MM-dd）
+     * @param pageRequest  分页参数
      * @return 分页结果（列表项含创建人姓名createdByName及明细列表details，明细含关联留样编号retainedCode；附件列表仅详情返回）
      */
     PagedResult<DestructionRecordWithDetailsDto> search(String recordType, String keyword, String batchNo,
-                                          String status, String startDate, String endDate,
+                                          String itemCategory, String status, String startDate, String endDate,
                                           PageRequestDto pageRequest);
 
     /**

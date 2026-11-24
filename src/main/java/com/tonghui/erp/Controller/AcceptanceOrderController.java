@@ -209,10 +209,13 @@ public class AcceptanceOrderController extends BaseController {
      *   "details": [
      *     { "materialCode": "Y0084", "materialName": "甘草", "materialCategory": "原料",
      *       "unitName": "kg", "standardDosage": 0.021, "quantity": 0.42,
-     *       "actualArrivalQty": 0.40, "inboundQty": 0.38,
+     *       "actualArrivalQty": 0.40, "samplingQty": 0.02, "retentionQty": 0.01,
      *       "unitPrice": 30, "batchNumber": "HG20260723", "expiryDate": "2027-07-23" }
      *   ]
      * }
+     *
+     * 入库数量说明：inboundQty 由服务端计算（实际到货数量 − 取样数量 − 留样数量，未填实际到货时回退采购数量），
+     * 客户端传入无效；取样/留样数量不进入库存。
      *
      * @param request 保存请求（acceptance-验收单信息，details-明细列表）
      * @return 验收单信息
@@ -364,16 +367,17 @@ public class AcceptanceOrderController extends BaseController {
     }
 
     /**
-     * 批量更新验收明细（批号/单价/实际到货数量等）
+     * 批量更新验收明细（批号/单价/实际到货数量/取样数量/留样数量等）
      * <p>支持一次提交多条明细；携带实际到货数量或单价时自动按 实际到货数量 × 单价 重算金额；
-     * 已入库明细（明细状态=已入库）已锁定，批号/单价/仓库不可修改，整体拒绝并报错</p>
+     * 取样/留样数量变更后由服务端重算入库数量（inboundQty 只读）；
+     * 已生成入库单/已入库明细（明细状态=待扫码入库/已入库）已锁定，批号/单价/仓库不可修改，整体拒绝并报错</p>
      *
      * 示例请求：
      * PUT /api/acceptance/detail
      * Content-Type: application/json
      * [
      *   { "detailId": 1, "batchNumber": "HG20260723", "unitPrice": 30 },
-     *   { "detailId": 2, "actualArrivalQty": 0.40, "batchNumber": "HG20260724" }
+     *   { "detailId": 2, "actualArrivalQty": 0.40, "samplingQty": 0.02, "retentionQty": 0.01, "batchNumber": "HG20260724" }
      * ]
      *
      * @param details 验收明细列表（每条必须包含 detailId）

@@ -26,9 +26,9 @@ import java.util.List;
 /**
  * 销毁记录控制器
  * <p>
- * 提供销毁记录（不合格品销毁/留样及稳定性考察产品销毁）的CRUD操作、
+ * 提供销毁记录（不合格品销毁/留样及稳定性考察产品销毁/物料销毁）的CRUD操作、
  * 条件分页查询、销毁单号生成、作废及留样下拉查询，
- * 用于质量检验模块的GMP销毁台账管理
+ * 用于质量检验模块的GMP销毁台账管理；物料销毁（原辅包/中间品/成品）为独立台账，不联动库存与留样
  * </p>
  * <p>
  * 作废语义：不提供删除接口，作废通过 PUT /{id}/void 实现，作废后禁止修改
@@ -74,16 +74,17 @@ public class DestructionRecordController extends BaseController {
      * 分页查询销毁记录列表（列表项含创建人姓名createdByName及明细列表details，明细含关联留样编号retainedCode）
      *
      * 示例请求：
-     * GET /api/destruction?recordType=不合格品销毁&keyword=BX&batchNo=20260701&status=正常&startDate=2026-10-01&endDate=2026-10-12&pageIndex=0&pageSize=10
+     * GET /api/destruction?recordType=物料销毁&itemCategory=成品&keyword=WL&batchNo=20260701&status=正常&startDate=2026-10-01&endDate=2026-10-12&pageIndex=0&pageSize=10
      *
-     * @param recordType 记录类型（可选，精确匹配：不合格品销毁/留样及稳定性考察产品销毁）
-     * @param keyword    关键字（可选，模糊匹配销毁单号）
-     * @param batchNo    批号（可选，模糊匹配明细批号，存在该批号明细的主表命中）
-     * @param status     状态（可选，精确匹配：正常/作废）
-     * @param startDate  登记时间起始（可选，格式：yyyy-MM-dd）
-     * @param endDate    登记时间结束（可选，格式：yyyy-MM-dd）
-     * @param pageIndex  页码索引，从0开始（默认0）
-     * @param pageSize   每页数量（默认10）
+     * @param recordType   记录类型（可选，精确匹配：不合格品销毁/留样及稳定性考察产品销毁/物料销毁）
+     * @param keyword      关键字（可选，模糊匹配销毁单号）
+     * @param batchNo      批号（可选，模糊匹配明细批号，存在该批号明细的主表命中）
+     * @param itemCategory 品名类别（可选，精确匹配明细品名类别：生产原料/中间产品/成品）
+     * @param status       状态（可选，精确匹配：正常/作废）
+     * @param startDate    登记时间起始（可选，格式：yyyy-MM-dd）
+     * @param endDate      登记时间结束（可选，格式：yyyy-MM-dd）
+     * @param pageIndex    页码索引，从0开始（默认0）
+     * @param pageSize     每页数量（默认10）
      * @return ApiResponse&lt;PagedResult&lt;DestructionRecordWithDetailsDto&gt;&gt; 分页结果（列表项含创建人姓名createdByName及明细列表details，明细含关联留样编号retainedCode，附件列表仅详情返回）
      */
     @GetMapping
@@ -91,6 +92,7 @@ public class DestructionRecordController extends BaseController {
             @RequestParam(required = false) String recordType,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String batchNo,
+            @RequestParam(required = false) String itemCategory,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate,
@@ -101,7 +103,7 @@ public class DestructionRecordController extends BaseController {
             pageRequest.setPageIndex(pageIndex);
             pageRequest.setPageSize(pageSize);
             return success(destructionRecordService.search(recordType, keyword, batchNo,
-                    status, startDate, endDate, pageRequest));
+                    itemCategory, status, startDate, endDate, pageRequest));
         } catch (Exception e) {
             return exception(e, "查询销毁记录");
         }
@@ -132,14 +134,14 @@ public class DestructionRecordController extends BaseController {
     /**
      * 获取自动生成的销毁单号
      * <p>
-     * 按记录类型选择前缀：不合格品销毁BPXH/留样及稳定性考察产品销毁LYXH
+     * 按记录类型选择前缀：不合格品销毁BPXH/留样及稳定性考察产品销毁LYXH/物料销毁WLXH
      * </p>
      *
      * 示例请求：
-     * GET /api/destruction/generateCode?recordType=不合格品销毁
+     * GET /api/destruction/generateCode?recordType=物料销毁
      *
-     * @param recordType 记录类型（必填：不合格品销毁/留样及稳定性考察产品销毁）
-     * @return ApiResponse&lt;String&gt; 自动生成的销毁单号（格式BPXH-YYYYMMDD-NNN或LYXH-YYYYMMDD-NNN）
+     * @param recordType 记录类型（必填：不合格品销毁/留样及稳定性考察产品销毁/物料销毁）
+     * @return ApiResponse&lt;String&gt; 自动生成的销毁单号（格式BPXH-YYYYMMDD-NNN、LYXH-YYYYMMDD-NNN或WLXH-YYYYMMDD-NNN）
      */
     @GetMapping("/generateCode")
     public ApiResponse<String> generateCode(@RequestParam String recordType) {
@@ -222,14 +224,24 @@ public class DestructionRecordController extends BaseController {
      * }
      *
      * 必填字段：
-     *   recordType  记录类型（必填：不合格品销毁/留样及稳定性考察产品销毁，决定单号前缀）
+     *   recordType  记录类型（必填：不合格品销毁/留样及稳定性考察产品销毁/物料销毁，决定单号前缀）
      *   details     销毁明细列表（必填，至少1行，明细materialName必填）
      * 其他说明：
-     *   destructionCode 由服务端自动生成（不合格品销毁BPXH-前缀/留样销毁LYXH-前缀），不可传入
+     *   destructionCode 由服务端自动生成（不合格品销毁BPXH-/留样销毁LYXH-/物料销毁WLXH-前缀），不可传入
      *   totalQuantity 由服务端按明细quantity求和计算，不可传入
      *   明细行retainedSampleId：留样销毁类型会反写关联留样为已销毁（销毁日期取destroyDate，为空取当天），
      *   不合格品销毁类型仅作追溯引用不联动留样状态
      *   以下字段选填：destroyReason、destroyMethod、destroyLocation、remark、四方签字姓名与日期、attachmentFileIds
+     *
+     * 物料销毁示例（recordType=物料销毁，单号前缀WLXH；明细必须携带 itemCategory 与 unitName）：
+     *   "details": [
+     *     { "materialName": "维生素C", "spec": "食品级", "batchNo": "20260701", "quantity": 50.5,
+     *       "itemCategory": "生产原料", "unitName": "kg" },
+     *     { "materialName": "复方制剂A", "spec": "10ml/支", "batchNo": "20260615", "quantity": 30,
+     *       "itemCategory": "成品", "unitName": "盒" }
+     *   ]
+     * 物料销毁说明：itemCategory 只能是生产原料/中间产品/成品，quantity 必须大于0，unitName 必填，
+     *   且不允许携带 retainedSampleId（独立台账，不联动留样与库存）
      *
      * @param dto 保存请求体（主表字段+明细列表）
      * @return ApiResponse&lt;DestructionRecord&gt; 新增的销毁记录（含自动生成的单号与合计数量）

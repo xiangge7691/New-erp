@@ -39,6 +39,16 @@ public class DestructionRecordDetailSaveDto {
     private BigDecimal quantity;
 
     /**
+     * 品名类别：生产原料/中间产品/成品（物料销毁类型必填，其他类型可为空）
+     */
+    private String itemCategory;
+
+    /**
+     * 计量单位：kg/g/L/袋/盒/瓶（物料销毁类型必填）
+     */
+    private String unitName;
+
+    /**
      * 关联留样记录ID（可空）
      * <p>
      * 留样及稳定性考察产品销毁类型：会反写留样状态为已销毁并写入销毁日期；

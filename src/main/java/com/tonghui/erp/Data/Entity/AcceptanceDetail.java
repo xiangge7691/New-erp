@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import lombok.Data;
@@ -101,8 +102,22 @@ public class AcceptanceDetail {
     private BigDecimal actualArrivalQty;
 
     /**
-     * 入库数量（检验合格后实际入库数量）
+     * 取样数量（验收时抽取的检验样品数量，不计入入库；空按0处理）
      */
+    @TableField(value = "sampling_qty")
+    private BigDecimal samplingQty;
+
+    /**
+     * 留样数量（验收时留存样品数量，不计入入库；空按0处理）
+     */
+    @TableField(value = "retention_qty")
+    private BigDecimal retentionQty;
+
+    /**
+     * 入库数量（服务端计算的入库数量：基准数量−取样数量−留样数量；
+     * 生成入库单前为预计值，入库后为实际值快照，客户端不可写入）
+     */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @TableField(value = "inbound_qty")
     private BigDecimal inboundQty;
 

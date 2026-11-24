@@ -13,7 +13,7 @@ import lombok.EqualsAndHashCode;
 /**
  * 销毁记录主表实体类
  * <p>
- * 记录不合格品销毁与留样及稳定性考察产品销毁两类纸质表单的电子台账，
+ * 记录不合格品销毁、留样及稳定性考察产品销毁、物料销毁三类纸质表单的电子台账，
  * 包括销毁单号、记录类型、销毁合计数量、销毁原因/方法/地点、
  * 申请人/批准人/销毁人/监销人四方签字文本及作废状态
  * </p>
@@ -42,6 +42,11 @@ public class DestructionRecord extends AuditEntity {
      * 记录类型：留样及稳定性考察产品销毁（单号前缀LYXH）
      */
     public static final String TYPE_RETAINED = "留样及稳定性考察产品销毁";
+
+    /**
+     * 记录类型：物料销毁（原辅包/中间品/成品，单号前缀WLXH；明细按 itemCategory 区分对象类别）
+     */
+    public static final String TYPE_MATERIAL = "物料销毁";
 
     /**
      * 状态：正常
@@ -73,7 +78,7 @@ public class DestructionRecord extends AuditEntity {
     private String destructionCode;
 
     /**
-     * 记录类型：不合格品销毁/留样及稳定性考察产品销毁
+     * 记录类型：不合格品销毁/留样及稳定性考察产品销毁/物料销毁
      */
     @TableField(value = "record_type")
     private String recordType;

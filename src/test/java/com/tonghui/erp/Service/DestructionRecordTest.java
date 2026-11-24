@@ -25,14 +25,15 @@ import static org.junit.jupiter.api.Assertions.*;
  * 销毁记录模块专项测试
  * <p>
  * 覆盖业务规则：
- * 1. 单号按记录类型选择前缀（BPXH/LYXH）自动生成
+ * 1. 单号按记录类型选择前缀（BPXH/LYXH/WLXH）自动生成
  * 2. 合计数量由服务端按明细求和计算
  * 3. 更新时明细整体重建
  * 4. 作废后禁止修改、禁止重复作废
  * 5. 留样销毁类型反写联动：登记置留样已销毁，移除引用/类型变更/作废回滚留样中
- * 6. 条件分页查询（批号经明细命中主表）
+ * 6. 条件分页查询（批号/品名类别经明细命中主表）
  * 7. 详情/列表明细行回填关联留样编号（retainedCode）
  * 8. 列表返回创建人姓名（createdByName）及明细列表（details）
+ * 9. 物料销毁（原辅包/中间品/成品）：品名类别、单位必填，不联动留样与库存
  * 全部用例使用事务回滚，不污染数据库
  * </p>
  */
@@ -205,7 +206,7 @@ public class DestructionRecordTest {
         pageRequest.setPageIndex(-1);
         pageRequest.setPageSize(-1);
         PagedResult<DestructionRecordWithDetailsDto> result = destructionRecordService.search(
-                null, created.getDestructionCode(), null, null, null, null, pageRequest);
+                null, created.getDestructionCode(), null, null, null, null, null, pageRequest);
         DestructionRecordWithDetailsDto listItem = result.getItems().stream()
                 .filter(r -> r.getId().equals(created.getId()))
                 .findFirst()
@@ -382,7 +383,7 @@ public class DestructionRecordTest {
         pageRequest.setPageIndex(-1);
         pageRequest.setPageSize(-1);
         PagedResult<DestructionRecordWithDetailsDto> result = destructionRecordService.search(
-                null, created.getDestructionCode(), null, null, null, null, pageRequest);
+                null, created.getDestructionCode(), null, null, null, null, null, pageRequest);
         DestructionRecordWithDetailsDto item = result.getItems().stream()
                 .filter(r -> r.getId().equals(created.getId()))
                 .findFirst()
@@ -406,17 +407,17 @@ public class DestructionRecordTest {
         pageRequest.setPageSize(10);
         // 按明细批号查询
         PagedResult<DestructionRecordWithDetailsDto> byBatchNo = destructionRecordService.search(
-                null, null, "BATCHSEARCH20261012", null, null, null, pageRequest);
+                null, null, "BATCHSEARCH20261012", null, null, null, null, pageRequest);
         assertTrue(byBatchNo.getItems().stream().anyMatch(r -> r.getId().equals(created.getId())),
                 "按明细批号应命中主表");
         // 按状态查询（新建记录状态为正常）
         PagedResult<DestructionRecordWithDetailsDto> byStatus = destructionRecordService.search(
-                null, null, null, DestructionRecord.STATUS_NORMAL, null, null, pageRequest);
+                null, null, null, null, DestructionRecord.STATUS_NORMAL, null, null, pageRequest);
         assertTrue(byStatus.getItems().stream().anyMatch(r -> r.getId().equals(created.getId())),
                 "按状态正常应命中新建记录");
         // 按单号关键字查询
         PagedResult<DestructionRecordWithDetailsDto> byCode = destructionRecordService.search(
-                null, created.getDestructionCode(), null, null, null, null, pageRequest);
+                null, created.getDestructionCode(), null, null, null, null, null, pageRequest);
         assertTrue(byCode.getItems().stream().anyMatch(r -> r.getId().equals(created.getId())),
                 "按单号关键字应命中新建记录");
         // 列表项应携带明细列表
@@ -470,6 +471,94 @@ public class DestructionRecordTest {
                 "非法记录类型应抛异常");
     }
 
+    /**
+     * 测试物料销毁单号：WLXH 前缀自动生成
+     */
+    @Test
+    public void testGenerateCodeForMaterialType() {
+        String materialCode = destructionRecordService.generateCode(DestructionRecord.TYPE_MATERIAL);
+        assertTrue(materialCode.startsWith("WLXH-"), "物料销毁单号应以WLXH-开头");
+        assertTrue(materialCode.matches("^WLXH-\\d{8}-\\d{3}$"),
+                "物料销毁单号格式应为WLXH-YYYYMMDD-NNN：" + materialCode);
+    }
+
+    /**
+     * 测试物料销毁登记：原辅包/中间品/成品三类明细落库，合计数量由明细求和
+     */
+    @Test
+    public void testCreateMaterialDestructionWithCategories() {
+        DestructionRecord created = destructionRecordService.create(buildMaterialSaveDto());
+        assertEquals(0, new BigDecimal("90.5").compareTo(created.getTotalQuantity()),
+                "合计数量应为明细数量之和");
+        assertTrue(created.getDestructionCode().startsWith("WLXH-"), "物料销毁单号应以WLXH-开头");
+
+        DestructionRecordWithDetailsDto detail = destructionRecordService.getDetail(created.getId());
+        assertEquals(3, detail.getDetails().size(), "明细应有3行");
+        assertTrue(detail.getDetails().stream().anyMatch(d -> "生产原料".equals(d.getItemCategory())
+                && "kg".equals(d.getUnitName())), "应包含生产原料明细及其单位");
+        assertTrue(detail.getDetails().stream().anyMatch(d -> "中间产品".equals(d.getItemCategory())),
+                "应包含中间产品明细");
+        assertTrue(detail.getDetails().stream().anyMatch(d -> "成品".equals(d.getItemCategory())
+                && "盒".equals(d.getUnitName())), "应包含成品明细及其单位");
+    }
+
+    /**
+     * 测试物料销毁必填校验：品名类别/单位/数量与留样引用限制
+     */
+    @Test
+    public void testMaterialDestructionValidation() {
+        // 品名类别缺失
+        DestructionRecordSaveDto missingCategory = buildMaterialSaveDto();
+        missingCategory.getDetails().get(0).setItemCategory(null);
+        assertThrows(RuntimeException.class, () -> destructionRecordService.create(missingCategory),
+                "物料销毁品名类别缺失应抛异常");
+        // 品名类别非法
+        DestructionRecordSaveDto invalidCategory = buildMaterialSaveDto();
+        invalidCategory.getDetails().get(0).setItemCategory("半成品");
+        assertThrows(RuntimeException.class, () -> destructionRecordService.create(invalidCategory),
+                "物料销毁品名类别非法应抛异常");
+        // 数量为0
+        DestructionRecordSaveDto zeroQuantity = buildMaterialSaveDto();
+        zeroQuantity.getDetails().get(0).setQuantity(BigDecimal.ZERO);
+        assertThrows(RuntimeException.class, () -> destructionRecordService.create(zeroQuantity),
+                "物料销毁数量为0应抛异常");
+        // 单位缺失
+        DestructionRecordSaveDto missingUnit = buildMaterialSaveDto();
+        missingUnit.getDetails().get(0).setUnitName(null);
+        assertThrows(RuntimeException.class, () -> destructionRecordService.create(missingUnit),
+                "物料销毁单位缺失应抛异常");
+        // 不允许关联留样记录
+        DestructionRecordSaveDto linkedSample = buildMaterialSaveDto();
+        linkedSample.getDetails().get(0).setRetainedSampleId(1L);
+        assertThrows(RuntimeException.class, () -> destructionRecordService.create(linkedSample),
+                "物料销毁关联留样应抛异常");
+    }
+
+    /**
+     * 测试按品名类别过滤：仅命中存在对应类别明细的主表
+     */
+    @Test
+    public void testSearchByItemCategory() {
+        DestructionRecordSaveDto dto = buildMaterialSaveDto();
+        // 仅保留成品明细，便于验证类别过滤
+        dto.setDetails(List.of(dto.getDetails().get(2)));
+        DestructionRecord created = destructionRecordService.create(dto);
+
+        PageRequestDto pageRequest = new PageRequestDto();
+        pageRequest.setPageIndex(-1);
+        pageRequest.setPageSize(-1);
+        PagedResult<DestructionRecordWithDetailsDto> byCategory = destructionRecordService.search(
+                DestructionRecord.TYPE_MATERIAL, created.getDestructionCode(), null, "成品",
+                null, null, null, pageRequest);
+        assertTrue(byCategory.getItems().stream().anyMatch(r -> r.getId().equals(created.getId())),
+                "按品名类别成品应命中主表");
+        PagedResult<DestructionRecordWithDetailsDto> noMatch = destructionRecordService.search(
+                DestructionRecord.TYPE_MATERIAL, created.getDestructionCode(), null, "生产原料",
+                null, null, null, pageRequest);
+        assertFalse(noMatch.getItems().stream().anyMatch(r -> r.getId().equals(created.getId())),
+                "不存在的品名类别不应命中主表");
+    }
+
     // endregion
 
     // region 私有工具方法
@@ -506,6 +595,48 @@ public class DestructionRecordTest {
         details.add(detail2);
         dto.setDetails(details);
         return dto;
+    }
+
+    /**
+     * 构建物料销毁保存请求体（物料销毁类型，3行明细分别覆盖生产原料/中间产品/成品）
+     *
+     * @return 保存请求体
+     */
+    private DestructionRecordSaveDto buildMaterialSaveDto() {
+        DestructionRecordSaveDto dto = new DestructionRecordSaveDto();
+        dto.setRecordType(DestructionRecord.TYPE_MATERIAL);
+        dto.setDestroyReason("过期报废");
+        dto.setDestroyMethod("交有资质单位高温焚烧");
+        dto.setDestroyLocation("厂区危废暂存间");
+        List<DestructionRecordDetailSaveDto> details = new java.util.ArrayList<>();
+        details.add(buildMaterialDetail("维生素C", "食品级", "20260701", "50.5", "生产原料", "kg"));
+        details.add(buildMaterialDetail("复方制剂A", "10ml/支", "20260615", "30", "中间产品", "L"));
+        details.add(buildMaterialDetail("感冒灵胶囊", "0.5g/粒", "20260610", "10", "成品", "盒"));
+        dto.setDetails(details);
+        return dto;
+    }
+
+    /**
+     * 构建物料销毁明细行
+     *
+     * @param materialName 品名
+     * @param spec         规格
+     * @param batchNo      批号
+     * @param quantity     数量
+     * @param itemCategory 品名类别
+     * @param unitName     计量单位
+     * @return 明细保存请求
+     */
+    private DestructionRecordDetailSaveDto buildMaterialDetail(String materialName, String spec, String batchNo,
+                                                               String quantity, String itemCategory, String unitName) {
+        DestructionRecordDetailSaveDto detail = new DestructionRecordDetailSaveDto();
+        detail.setMaterialName(materialName);
+        detail.setSpec(spec);
+        detail.setBatchNo(batchNo);
+        detail.setQuantity(new BigDecimal(quantity));
+        detail.setItemCategory(itemCategory);
+        detail.setUnitName(unitName);
+        return detail;
     }
 
     /**

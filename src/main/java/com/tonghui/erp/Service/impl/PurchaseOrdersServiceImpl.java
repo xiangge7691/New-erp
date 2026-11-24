@@ -25,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -277,6 +278,10 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
             detail.setUnitName(item.getUnit());
             detail.setStandardDosage(item.getStandardDosage());
             detail.setQuantity(item.getPurchaseQuantity());
+            // 取样/留样初始为0，入库数量先按采购数量预填，验收环节可调整取样/留样后由服务端重算
+            detail.setSamplingQty(BigDecimal.ZERO);
+            detail.setRetentionQty(BigDecimal.ZERO);
+            detail.setInboundQty(item.getPurchaseQuantity());
             detail.setUnitPrice(item.getUnitPrice());
             detail.setAmount(item.getAmount());
             // 明细状态初始化为"待初验"，并携带采购订单明细ID与供应商（退货/同步回写依赖）

@@ -47,6 +47,8 @@ CREATE TABLE IF NOT EXISTS `destruction_record_detail` (
   `spec`              VARCHAR(100) DEFAULT NULL COMMENT '规格',
   `batch_no`          VARCHAR(50)  DEFAULT NULL COMMENT '批号',
   `quantity`          DECIMAL(18,3) DEFAULT 0 COMMENT '数量',
+  `item_category`     VARCHAR(20)  DEFAULT NULL COMMENT '品名类别：生产原料/中间产品/成品（物料销毁类型必填）',
+  `unit_name`         VARCHAR(20)  DEFAULT NULL COMMENT '计量单位（物料销毁类型必填）',
   `retained_sample_id` BIGINT      DEFAULT NULL COMMENT '关联留样记录ID（可空；留样销毁类型会反写留样状态，不合格品销毁类型仅作追溯引用）',
   `created_by`        BIGINT       DEFAULT NULL COMMENT '创建人ID',
   `updated_by`        BIGINT       DEFAULT NULL COMMENT '更新人ID',

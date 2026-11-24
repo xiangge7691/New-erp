@@ -103,6 +103,16 @@ public class AcceptanceExportRowDto {
     private BigDecimal actualArrivalQty;
 
     /**
+     * 取样数量（acceptance_detail.sampling_qty）
+     */
+    private BigDecimal samplingQty;
+
+    /**
+     * 留样数量（acceptance_detail.retention_qty）
+     */
+    private BigDecimal retentionQty;
+
+    /**
      * 入库数量（acceptance_detail.inbound_qty）
      */
     private BigDecimal inboundQty;
