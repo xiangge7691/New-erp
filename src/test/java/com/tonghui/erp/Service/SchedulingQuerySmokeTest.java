@@ -31,7 +31,8 @@ class SchedulingQuerySmokeTest {
     void queriesShouldRunAgainstTestDatabase() {
         assertDoesNotThrow(() -> scheduleService.listTasks(null, null, null, null));
         assertDoesNotThrow(() -> scheduleService.gantt("task",
-                LocalDate.now().minusDays(30).atStartOfDay(), LocalDate.now().plusDays(1).atStartOfDay()));
+                LocalDate.now().minusDays(30).atStartOfDay(), LocalDate.now().plusDays(1).atStartOfDay(),
+                null, null, null, null, null));
         assertDoesNotThrow(() -> teamService.listActive());
         assertDoesNotThrow(() -> executionService.listCompleted(null, null, null));
 

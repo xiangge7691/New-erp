@@ -53,4 +53,12 @@ public interface WorkOrderProcessExecutionService extends IService<WorkOrderProc
      * @return 所属工单ID（供前端刷新列表）
      */
     Long deleteExecution(Long executionId);
+
+    /**
+     * 按关联的实际执行记录刷新排产批次状态
+     * <p>无执行记录=计划中，已登记实际生产但未全部完成=执行中，全部完成=已完工。</p>
+     *
+     * @param planBatchId 排产批次ID（为空时忽略）
+     */
+    void refreshPlanBatchStatus(Long planBatchId);
 }

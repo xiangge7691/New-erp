@@ -73,7 +73,7 @@ export async function saveScheduleFormal(workOrderId: number, payload: ScheduleS
 | 字段 | 取值 |
 |---|---|
 | 计划状态 `status` | `草稿` / `已保存` / `需重排` |
-| 批次状态 | `计划中` / `已完工` |
+| 批次状态 | `计划中` / `执行中` / `已完工`（按关联的实际执行记录推导：无执行=计划中，有开始未全部完成=执行中，全部完成=已完工） |
 | 执行状态 | `待执行` / `执行中` / `已完成` |
 | 绩效来源 `source` | `系统生成` / `手动添加`（中文原值，不要传 system/manual） |
 | 绩效计算方式 `calcMode` | `按系数计算` / `直接计入` |
@@ -673,7 +673,7 @@ export interface CoefficientVersionDetail {
 - **标准工时为空**：现有工序模板 `standard_duration` 全为空，自动顺排会返回 400；需要业务先补录。
 - **“需重排”不会自动标记**：字段和取值已支持，但外部变更（工单计划调整、设备维保等）触发重算并自动改状态的规则尚未实现；当前只能通过重新保存排产改变状态。
 - **`production_process_record` 只读保留**：新实际记录统一走 `work_order_process_execution`。
-- **批次/参与人全量覆盖**：保存时以请求体为准，未提交的行会被删除；前端编辑时务必提交完整集合。
+- **批次/参与人全量覆盖**：保存时以请求体为准，未提交的行会被删除；批次按 `batches[].id`（未带时按 `batchNo`）就地更新，**批次ID保持不变**；已登记实际生产的批次拒绝删除。前端编辑时务必提交完整集合。
 - **绩效导出返回文件流**：现有 `request` 需补 `blob` 处理。
 
 已完成（相对上一版新增）：
@@ -683,5 +683,6 @@ export interface CoefficientVersionDetail {
 - 绩效记录补充班组、计划/实际起止、计划时长/数量、系数版本号；支持按班组过滤。
 - 系数版本详情返回带名称的 `processItems` / `personItems`。
 - 排产工序与批次 DTO 补充 `actualQty`、`actualStatus`、`executionId`、`locked`。
+- 批次 `status` 按关联的实际执行记录推导为 `计划中` / `执行中` / `已完工`；保存排产不再重建批次ID。
 
 > 配套原型：[后端对接原型入口](prototype/production/backend/index.html)

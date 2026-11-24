@@ -81,10 +81,17 @@ public interface WorkOrderScheduleService {
     /**
      * 查询甘特图数据
      *
-     * @param view 视图：task/equipment/room
-     * @param from 开始时间
-     * @param to   结束时间
-     * @return 甘特条目
+     * @param view          视图：task/equipment/room
+     * @param from          开始时间
+     * @param to            结束时间
+     * @param taskNo        任务号（可选，工单编号模糊匹配）
+     * @param equipmentId   设备ID（可选，精确匹配，批次设备优先于工序设备）
+     * @param equipmentName 设备名称（可选，模糊匹配，批次设备优先于工序设备）
+     * @param roomId        房间ID（可选，精确匹配，批次房间优先于工序房间）
+     * @param roomName      房间名称（可选，模糊匹配，批次房间优先于工序房间）
+     * @return 甘特条目（冲突仍按工单全部计划计算，筛选只影响返回条数）
      */
-    List<GanttItemDto> gantt(String view, LocalDateTime from, LocalDateTime to);
+    List<GanttItemDto> gantt(String view, LocalDateTime from, LocalDateTime to,
+                             String taskNo, Integer equipmentId, String equipmentName,
+                             Integer roomId, String roomName);
 }

@@ -110,24 +110,36 @@ public class WorkOrderScheduleController extends BaseController {
     }
 
     /**
-     * 查询甘特图数据
+     * 查询甘特图数据（支持按任务号、设备、房间筛选）
      *
      * 示例请求：
      * GET /api/scheduling/gantt?view=task&from=2026-11-01T00:00:00&to=2026-11-30T23:59:59
+     * GET /api/scheduling/gantt?view=equipment&from=2026-11-01T00:00:00&to=2026-11-30T23:59:59&taskNo=SC-2026&equipmentId=203&roomName=一车间
      * view 可选：task/equipment/room
      *
-     * @param view 视图
-     * @param from 开始时间
-     * @param to   结束时间
+     * @param view          视图：task/equipment/room
+     * @param from          开始时间
+     * @param to            结束时间
+     * @param taskNo        任务号（可选，工单编号模糊匹配）
+     * @param equipmentId   设备ID（可选，精确匹配，批次设备优先于工序设备）
+     * @param equipmentName 设备名称（可选，模糊匹配，批次设备优先于工序设备）
+     * @param roomId        房间ID（可选，精确匹配，批次房间优先于工序房间）
+     * @param roomName      房间名称（可选，模糊匹配，批次房间优先于工序房间）
      * @return 甘特条目
      */
     @GetMapping("/gantt")
     public ApiResponse<List<GanttItemDto>> gantt(
             @RequestParam(defaultValue = "task") String view,
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss", fallbackPatterns = {"yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd HH:mm"}) LocalDateTime from,
-            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss", fallbackPatterns = {"yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd HH:mm"}) LocalDateTime to) {
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss", fallbackPatterns = {"yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd HH:mm"}) LocalDateTime to,
+            @RequestParam(required = false) String taskNo,
+            @RequestParam(required = false) Integer equipmentId,
+            @RequestParam(required = false) String equipmentName,
+            @RequestParam(required = false) Integer roomId,
+            @RequestParam(required = false) String roomName) {
         try {
-            return success(scheduleService.gantt(view, from, to));
+            return success(scheduleService.gantt(view, from, to,
+                    taskNo, equipmentId, equipmentName, roomId, roomName));
         } catch (Exception ex) {
             return exception(ex, "查询排产甘特图");
         }

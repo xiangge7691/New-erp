@@ -467,6 +467,7 @@ public class PdaProductionServiceImpl implements PdaProductionService {
         execution.setStatus("执行中");
         setOperator(execution);
         executionService.updateById(execution);
+        executionService.refreshPlanBatchStatus(execution.getPlanBatchId());
         return loadProcess(execution);
     }
 
@@ -493,6 +494,7 @@ public class PdaProductionServiceImpl implements PdaProductionService {
         }
         setOperator(execution);
         executionService.updateById(execution);
+        executionService.refreshPlanBatchStatus(execution.getPlanBatchId());
         return loadProcess(execution);
     }
 
@@ -507,6 +509,7 @@ public class PdaProductionServiceImpl implements PdaProductionService {
         }
         executionService.updateById(execution);
         saveParticipants(execution, request.getParticipants(), false);
+        executionService.refreshPlanBatchStatus(execution.getPlanBatchId());
         return loadProcess(execution);
     }
 
@@ -544,6 +547,7 @@ public class PdaProductionServiceImpl implements PdaProductionService {
         saveParticipants(execution, request.getParticipants(), true);
         // PDA 提交即完工口径，按参与人与工序时长生成绩效（幂等，重复提交不会重复生成）
         performanceGenerationService.generateForExecution(executionId);
+        executionService.refreshPlanBatchStatus(execution.getPlanBatchId());
         return loadProcess(execution);
     }
 

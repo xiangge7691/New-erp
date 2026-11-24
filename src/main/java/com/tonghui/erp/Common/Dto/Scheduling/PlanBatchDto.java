@@ -60,7 +60,7 @@ public class PlanBatchDto {
     /** 计划班组名称 */
     private String teamName;
 
-    /** 状态 */
+    /** 批次状态：计划中/执行中/已完工，按关联的实际执行记录推导 */
     private String status;
 
     /** 是否已排产：1是/0否（保存时由前端传参，后端不自动计算） */

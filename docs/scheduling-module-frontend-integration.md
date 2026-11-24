@@ -56,7 +56,7 @@
 | POST | `/api/scheduling/tasks/{workOrderId}/plan/save` | 正式保存；有冲突时返回 code=400 + `saved=false` + `conflicts`，**不落库** |
 | POST | `/api/scheduling/tasks/{workOrderId}/conflicts/check` | 当前任务冲突检查 |
 | POST | `/api/scheduling/plans/{planId}/split` | 拆分工序为多个批次；有冲突时返回 400 + `conflicts`，**不落库** |
-| GET | `/api/scheduling/gantt?view=task|equipment|room&from=&to=` | 甘特图数据（含草稿、制剂名、计划号、批次名）；`from/to` 支持 `yyyy-MM-dd HH:mm:ss` 或 ISO `yyyy-MM-ddTHH:mm:ss` |
+| GET | `/api/scheduling/gantt?view=task|equipment|room&from=&to=&taskNo=&equipmentId=&equipmentName=&roomId=&roomName=` | 甘特图数据（含草稿、制剂名、计划号、批次名）；`from/to` 支持 `yyyy-MM-dd HH:mm:ss` 或 ISO `yyyy-MM-ddTHH:mm:ss`；`taskNo` 按任务号模糊筛选，设备/房间支持 ID 精确或名称模糊筛选（批次设备/房间优先） |
 
 **列表查询参数**
 
@@ -127,7 +127,7 @@
 | `planQty` / `roomId` / `roomName` / `equipmentId` / `equipmentName` | 计划数量与资源 |
 | `unitId` / `unitName` / `unitSymbol` | 计量单位（快照自工序模板）；数量列优先显示 `unitSymbol`（如 kg），无单位显示“—” |
 | `teamId` / `teamName` / `participants` | 计划班组（选填）与参与人 |
-| `batches[]` | 拆分批次；每个批次 `scheduled`、计划起止、数量、`unitId/unitName/unitSymbol`、参与人、实际对照 |
+| `batches[]` | 拆分批次；每个批次 `scheduled`、计划起止、数量、`unitId/unitName/unitSymbol`、参与人、实际对照；`status` 按关联的实际执行记录推导为 `计划中` / `执行中` / `已完工` |
 | `actualStartTime` / `actualEndTime` / `actualStatus` / `actualQty` / `executionId` | 实际执行对照 |
 
 ### 3.3 甘特图（`GanttItemDto`）
@@ -164,6 +164,7 @@
 
 - 页面进入调用 `GET /api/scheduling/tasks`（可不传参数），状态筛选映射 `status`，关键字映射 `keyword`，配置日期映射 `configFrom/configTo`。
 - 甘特图调用 `GET /api/scheduling/gantt?view=...&from=...&to=...`，默认展示草稿；色块 `preparationName` + `workOrderCode` 两行。
+- 甘特图筛选（均为可选）：`taskNo` 按任务号模糊匹配；设备可传 `equipmentId`（精确）或 `equipmentName`（模糊）；房间可传 `roomId` 或 `roomName`。批次上的设备/房间优先于工序计划；筛选只影响返回条数，冲突标记仍按工单全部计划计算。
 - 行点击进入详情（`GET /api/scheduling/tasks/{id}`）。
 
 ### 5.2 详情页
@@ -171,6 +172,7 @@
 - 「生产任务详情」用详情接口的工单字段 + `processes[].scheduled`、`actualStatus` 渲染只读工序表。
 - 「排产」页签：
   - 调整工序：`PUT /plan` 保存草稿，`POST /plan/save` 正式保存；工序行带 `unitId`（不传沿用原值或按工序模板补齐），数量列显示 `unitSymbol`；
+  - 保存批次时把 `batches[].id` 原样回传即可就地更新、批次ID不变（未带ID时按 `batchNo` 匹配）；已登记实际生产的批次不能删除；
   - 拆批次：`POST /plans/{planId}/split`（批次参与人字段 `batches[].participants`；`batches[].unitId` 不传时继承工序计划）；
   - 班组快捷选人：`GET /api/production-teams/active` 取成员，勾选后写入 `participants`。
 - 「实际生产」页签：

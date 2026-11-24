@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Constants.BizFileType;
+import com.tonghui.erp.Common.Constants.PlanBatchStatus;
 import com.tonghui.erp.Common.Constants.ProcessExecutionStatus;
 import com.tonghui.erp.Common.utils.EquipmentUsageConflictValidator;
 import com.tonghui.erp.Data.Entity.PerformanceRecord;
@@ -339,6 +340,8 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
         }
 
         // 6. 被本次提交替换的既有行：仅删除同一工序/批次的旧记录
+        Set<Long> affectedBatchIds = rows.stream().map(WorkOrderProcessExecution::getPlanBatchId)
+                .filter(Objects::nonNull).collect(Collectors.toCollection(HashSet::new));
         Set<Long> incomingBatchIds = rows.stream().map(WorkOrderProcessExecution::getPlanBatchId)
                 .filter(Objects::nonNull).collect(Collectors.toSet());
         Set<Long> incomingPlanIds = rows.stream().map(WorkOrderProcessExecution::getPlanId)
@@ -354,9 +357,15 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
             }
             // 已锁定、已 PDA 提交或已生成绩效的旧行不允许被替换删除，避免绩效与执行数据悬挂
             assertDeletable(old);
+            if (old.getPlanBatchId() != null) {
+                affectedBatchIds.add(old.getPlanBatchId());
+            }
             participantMapper.physicalDeleteByExecutionId(old.getId());
             baseMapper.physicalDeleteById(old.getId());
         }
+
+        // 7. 按最新实际执行记录刷新涉及批次的状态（计划中/执行中/已完工）
+        affectedBatchIds.forEach(this::refreshPlanBatchStatus);
     }
 
     // endregion
@@ -668,7 +677,45 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
                 executionId, null, null);
         participantMapper.physicalDeleteByExecutionId(executionId);
         baseMapper.physicalDeleteById(executionId);
+        // 删除实际记录后重算批次状态，避免残留执行中/已完工
+        refreshPlanBatchStatus(execution.getPlanBatchId());
         return execution.getWorkOrderId();
+    }
+
+    /**
+     * 按关联的实际执行记录刷新排产批次状态
+     * <p>
+     * 批次状态由执行记录推导：无执行记录=计划中，已登记实际生产但未全部完成=执行中，
+     * 关联执行全部完成=已完工。执行记录按批次ID关联，历史行未写批次ID时按批次序号兜底。
+     * </p>
+     *
+     * @param planBatchId 排产批次ID（为空时忽略）
+     */
+    @Override
+    public void refreshPlanBatchStatus(Long planBatchId) {
+        if (planBatchId == null) {
+            return;
+        }
+        WorkOrderProcessPlanBatch batch = planBatchMapper.selectById(planBatchId);
+        if (batch == null || batch.getPlanId() == null) {
+            return;
+        }
+        WorkOrderProcessPlan plan = planMapper.selectById(batch.getPlanId());
+        if (plan == null || plan.getWorkOrderId() == null || plan.getStepOrder() == null) {
+            return;
+        }
+        // 批次状态只看同一工单、同一工序下的执行记录，避免跨工序按批次序号误匹配
+        List<WorkOrderProcessExecution> candidates = this.lambdaQuery()
+                .eq(WorkOrderProcessExecution::getWorkOrderId, plan.getWorkOrderId())
+                .eq(WorkOrderProcessExecution::getStepOrder, plan.getStepOrder())
+                .list();
+        String status = PlanBatchStatus.resolve(candidates.stream()
+                .filter(e -> PlanBatchStatus.matches(batch, e))
+                .toList());
+        if (!status.equals(batch.getStatus())) {
+            batch.setStatus(status);
+            planBatchMapper.updateById(batch);
+        }
     }
 
     /**
@@ -744,13 +791,8 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
             throw new IllegalArgumentException("未登记参与人，无法生成绩效；请先登记参与人");
         }
         performanceGenerationService.generateForExecution(executionId);
-        if (execution.getPlanBatchId() != null) {
-            WorkOrderProcessPlanBatch batch = planBatchMapper.selectById(execution.getPlanBatchId());
-            if (batch != null) {
-                batch.setStatus("已完工");
-                planBatchMapper.updateById(batch);
-            }
-        }
+        // 按批次下全部执行记录的完成情况刷新批次状态，多个执行行分次完工时不会提前标记已完工
+        refreshPlanBatchStatus(execution.getPlanBatchId());
         execution.setParticipants(participantMapper.selectByExecutionIdsWithPersonnel(List.of(executionId)));
         return execution;
     }

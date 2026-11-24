@@ -2,6 +2,7 @@ package com.tonghui.erp.Service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.tonghui.erp.Common.Constants.PlanBatchStatus;
 import com.tonghui.erp.Common.Constants.ProcessExecutionStatus;
 import com.tonghui.erp.Common.Dto.Scheduling.GanttItemDto;
 import com.tonghui.erp.Common.Dto.Scheduling.PlanBatchDto;
@@ -486,13 +487,15 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
                     dto.setEquipmentName(b.getEquipmentName());
                     dto.setTeamId(b.getTeamId());
                     dto.setTeamName(b.getTeamName());
-                    dto.setStatus(b.getStatus());
+                    // 批次状态按关联的实际执行记录推导：无执行记录=计划中，已开始=执行中，全部完成=已完工
+                    List<WorkOrderProcessExecution> batchExecutions = executions.stream()
+                            .filter(e -> PlanBatchStatus.matches(b, e))
+                            .toList();
+                    dto.setStatus(PlanBatchStatus.resolve(batchExecutions));
                     // 批次是否已排产同样以保存时前端传入的值为准
                     dto.setScheduled(b.getScheduled() != null && b.getScheduled() == 1);
                     dto.setParticipants(toParticipantDtos(participants, b.getId()));
-                    executions.stream()
-                            .filter(e -> Objects.equals(e.getPlanBatchId(), b.getId())
-                                    || (e.getPlanBatchId() == null && Objects.equals(e.getBatchNo(), b.getBatchNo())))
+                    batchExecutions.stream()
                             .findFirst()
                             .ifPresent(e -> {
                                 dto.setExecutionId(e.getId());
@@ -711,7 +714,7 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
         }
         // 已登记实际生产时不允许重新拆分：全量替换会重建批次并改变批次ID，执行记录将悬挂
         List<WorkOrderProcessPlanBatch> existingBatches = batchMapper.selectByPlanIds(List.of(planId));
-        if (existingBatches.stream().anyMatch(b -> "已完工".equals(b.getStatus()))) {
+        if (existingBatches.stream().anyMatch(b -> PlanBatchStatus.COMPLETED.equals(b.getStatus()))) {
             throw new IllegalArgumentException("该工序存在已完工批次，不能重新拆分批次");
         }
         List<Long> existingBatchIds = existingBatches.stream()
@@ -756,7 +759,8 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
             // 批次排产标识由前端传参，未传时沿用所属工序计划的值
             batch.setScheduled(dto.getScheduled() != null
                     ? Integer.valueOf(dto.getScheduled() ? 1 : 0) : plan.getScheduled());
-            batch.setStatus("计划中");
+            // 新建批次尚无实际执行记录，初始状态为计划中；后续按关联执行记录刷新
+            batch.setStatus(PlanBatchStatus.PLANNED);
             if (dto.getParticipants() != null) {
                 batch.setParticipants(dto.getParticipants().stream()
                         .filter(x -> x.getPersonnelId() != null)
@@ -828,7 +832,7 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
         if (batch == null || !Objects.equals(batch.getPlanId(), planId)) {
             throw new IllegalArgumentException("批次不存在或不属于该工序");
         }
-        if ("已完工".equals(batch.getStatus())) {
+        if (PlanBatchStatus.COMPLETED.equals(batch.getStatus())) {
             throw new IllegalArgumentException("批次【" + batchLabel(batch) + "】已完工，不能删除");
         }
         Long executionCount = executionMapper.selectCount(
@@ -888,7 +892,7 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
             throw new IllegalArgumentException("排产计划不存在");
         }
         List<WorkOrderProcessPlanBatch> batches = batchMapper.selectByPlanIds(List.of(planId));
-        if (batches.stream().anyMatch(b -> "已完工".equals(b.getStatus()))) {
+        if (batches.stream().anyMatch(b -> PlanBatchStatus.COMPLETED.equals(b.getStatus()))) {
             throw new IllegalArgumentException("该工序存在已完工批次，不能删除");
         }
         List<Long> batchIds = batches.stream().map(WorkOrderProcessPlanBatch::getId).toList();
@@ -1055,22 +1059,108 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
 
     /**
      * 保存计划的批次与参与人
+     * <p>
+     * 批次按批次ID（请求未带ID时按批次序号）匹配既有行就地更新，未提交的批次物理删除，
+     * 避免每次保存都重建批次ID导致执行记录的 plan_batch_id 悬挂；已登记实际生产的批次拒绝删除。
+     * 批次表存在 (plan_id, batch_no) 唯一键，更新前先把匹配行改为临时负序号，允许前端调换批次顺序。
+     * </p>
      */
     private void saveChildren(WorkOrderProcessPlan plan,
                               List<WorkOrderProcessPlanBatch> batches,
                               List<WorkOrderProcessPlanParticipant> participants) {
-        batchMapper.physicalDeleteByPlanId(plan.getId());
-        participantMapper.physicalDeleteByPlanId(plan.getId());
+        List<WorkOrderProcessPlanBatch> existingBatches = batchMapper.selectByPlanIds(List.of(plan.getId()));
+        Map<Long, WorkOrderProcessPlanBatch> existingById = existingBatches.stream()
+                .collect(Collectors.toMap(WorkOrderProcessPlanBatch::getId, Function.identity(), (a, b) -> a));
+        Map<Integer, WorkOrderProcessPlanBatch> existingByNo = existingBatches.stream()
+                .filter(b -> b.getBatchNo() != null)
+                .collect(Collectors.toMap(WorkOrderProcessPlanBatch::getBatchNo, Function.identity(), (a, b) -> a));
+
+        // 1. 建立本次提交与既有批次的对应关系：优先批次ID，未带ID时按批次序号
+        Map<Integer, WorkOrderProcessPlanBatch> matchedByIndex = new HashMap<>();
+        Set<Long> claimedIds = new HashSet<>();
+        Set<Integer> usedNos = new HashSet<>();
         if (batches != null) {
-            for (WorkOrderProcessPlanBatch batch : batches) {
-                batch.setId(null);
+            for (int i = 0; i < batches.size(); i++) {
+                WorkOrderProcessPlanBatch batch = batches.get(i);
                 batch.setPlanId(plan.getId());
-                batch.setIsDeleted(0);
-                batch.setVersion(0);
                 if (batch.getTeamId() == null) {
                     batch.setTeamId(plan.getTeamId());
                 }
-                batchMapper.insert(batch);
+                if (batch.getBatchNo() != null && !usedNos.add(batch.getBatchNo())) {
+                    throw new IllegalArgumentException("批次序号重复：" + batch.getBatchNo());
+                }
+                WorkOrderProcessPlanBatch old = batch.getId() == null ? null : existingById.get(batch.getId());
+                if (old != null && !claimedIds.add(old.getId())) {
+                    old = null;
+                }
+                if (old == null && batch.getBatchNo() != null) {
+                    WorkOrderProcessPlanBatch candidate = existingByNo.get(batch.getBatchNo());
+                    if (candidate != null && claimedIds.add(candidate.getId())) {
+                        old = candidate;
+                    }
+                }
+                if (old != null) {
+                    matchedByIndex.put(i, old);
+                }
+            }
+        }
+
+        // 2. 未提交的既有批次：已登记实际生产的拒绝删除，其余先删除以腾出批次序号
+        Set<Long> keptIds = matchedByIndex.values().stream()
+                .map(WorkOrderProcessPlanBatch::getId).collect(Collectors.toSet());
+        for (WorkOrderProcessPlanBatch old : existingBatches) {
+            if (keptIds.contains(old.getId())) {
+                continue;
+            }
+            Long executionCount = executionMapper.selectCount(
+                    new LambdaQueryWrapper<WorkOrderProcessExecution>()
+                            .eq(WorkOrderProcessExecution::getPlanBatchId, old.getId()));
+            if (executionCount != null && executionCount > 0) {
+                throw new IllegalArgumentException("批次【" + batchLabel(old)
+                        + "】已登记实际生产，不能删除；请先删除对应实际生产记录");
+            }
+            batchMapper.physicalDeleteById(old.getId());
+        }
+
+        // 3. 匹配到的批次先写临时负序号，避免调换序号时命中唯一键
+        int tempSeq = 0;
+        for (WorkOrderProcessPlanBatch old : matchedByIndex.values()) {
+            batchMapper.update(null, new LambdaUpdateWrapper<WorkOrderProcessPlanBatch>()
+                    .eq(WorkOrderProcessPlanBatch::getId, old.getId())
+                    .set(WorkOrderProcessPlanBatch::getBatchNo, -(100000 + (++tempSeq))));
+        }
+
+        // 4. 批次就地更新或新增，参与人全量重建
+        participantMapper.physicalDeleteByPlanId(plan.getId());
+        if (batches != null) {
+            for (int i = 0; i < batches.size(); i++) {
+                WorkOrderProcessPlanBatch batch = batches.get(i);
+                WorkOrderProcessPlanBatch old = matchedByIndex.get(i);
+                if (old == null) {
+                    batch.setId(null);
+                    batch.setIsDeleted(0);
+                    batch.setVersion(0);
+                    batchMapper.insert(batch);
+                } else {
+                    batch.setId(old.getId());
+                    // 批次状态由实际执行记录推导，保存排产不重置，避免已完工批次回到计划中
+                    batch.setStatus(old.getStatus());
+                    batchMapper.updateById(batch);
+                    // 显式更新可能为空的字段，避免 MyBatis-Plus 忽略 null
+                    batchMapper.update(null, new LambdaUpdateWrapper<WorkOrderProcessPlanBatch>()
+                            .eq(WorkOrderProcessPlanBatch::getId, old.getId())
+                            .set(WorkOrderProcessPlanBatch::getBatchNo, batch.getBatchNo())
+                            .set(WorkOrderProcessPlanBatch::getBatchName, batch.getBatchName())
+                            .set(WorkOrderProcessPlanBatch::getPlanStartTime, batch.getPlanStartTime())
+                            .set(WorkOrderProcessPlanBatch::getPlanEndTime, batch.getPlanEndTime())
+                            .set(WorkOrderProcessPlanBatch::getPlanDurationMinutes, batch.getPlanDurationMinutes())
+                            .set(WorkOrderProcessPlanBatch::getPlanQty, batch.getPlanQty())
+                            .set(WorkOrderProcessPlanBatch::getUnitId, batch.getUnitId())
+                            .set(WorkOrderProcessPlanBatch::getRoomId, batch.getRoomId())
+                            .set(WorkOrderProcessPlanBatch::getEquipmentId, batch.getEquipmentId())
+                            .set(WorkOrderProcessPlanBatch::getTeamId, batch.getTeamId())
+                            .set(WorkOrderProcessPlanBatch::getScheduled, batch.getScheduled()));
+                }
                 if (batch.getParticipants() != null) {
                     for (WorkOrderProcessPlanParticipant participant : batch.getParticipants()) {
                         participant.setId(null);
@@ -1110,7 +1200,9 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
      * @return 甘特条目
      */
     @Override
-    public List<GanttItemDto> gantt(String view, LocalDateTime from, LocalDateTime to) {
+    public List<GanttItemDto> gantt(String view, LocalDateTime from, LocalDateTime to,
+                                    String taskNo, Integer equipmentId, String equipmentName,
+                                    Integer roomId, String roomName) {
         LambdaQueryWrapper<WorkOrderProcessPlan> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(WorkOrderProcessPlan::getIsDeleted, 0)
                 .isNotNull(WorkOrderProcessPlan::getPlanStartTime)
@@ -1118,6 +1210,21 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
                 .lt(WorkOrderProcessPlan::getPlanStartTime, to)
                 .gt(WorkOrderProcessPlan::getPlanEndTime, from)
                 .orderByAsc(WorkOrderProcessPlan::getPlanStartTime);
+        // 任务号筛选：先按工单编号模糊匹配工单ID，再限定排产计划范围，
+        // 保证冲突仍在该工单的全量计划内计算
+        if (StringUtils.hasText(taskNo)) {
+            List<Long> matchedOrderIds = workOrderMapper.selectList(
+                            new LambdaQueryWrapper<WorkOrder>()
+                                    .like(WorkOrder::getWorkOrderCode, taskNo.trim()))
+                    .stream()
+                    .map(WorkOrder::getWorkOrderId)
+                    .distinct()
+                    .toList();
+            if (matchedOrderIds.isEmpty()) {
+                return List.of();
+            }
+            wrapper.in(WorkOrderProcessPlan::getWorkOrderId, matchedOrderIds);
+        }
         List<WorkOrderProcessPlan> plans = planMapper.selectList(wrapper);
         if (CollectionUtils.isEmpty(plans)) {
             return List.of();
@@ -1158,16 +1265,74 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
             WorkOrder order = orderMap.get(plan.getWorkOrderId());
             List<WorkOrderProcessPlanBatch> batches = batchMap.get(plan.getId());
             if (CollectionUtils.isEmpty(batches)) {
-                result.add(toGantt(plan, null, order, view, conflictPlans,
-                        planNumberByOrder.get(plan.getWorkOrderId())));
+                // 设备/房间筛选：无批次时按工序计划上的设备/房间匹配
+                if (matchesResourceFilter(plan, null, equipmentId, equipmentName, roomId, roomName)) {
+                    result.add(toGantt(plan, null, order, view, conflictPlans,
+                            planNumberByOrder.get(plan.getWorkOrderId())));
+                }
             } else {
                 for (WorkOrderProcessPlanBatch batch : batches) {
-                    result.add(toGantt(plan, batch, order, view, conflictPlans,
-                            planNumberByOrder.get(plan.getWorkOrderId())));
+                    // 设备/房间筛选：有批次时批次上的设备/房间优先
+                    if (matchesResourceFilter(plan, batch, equipmentId, equipmentName, roomId, roomName)) {
+                        result.add(toGantt(plan, batch, order, view, conflictPlans,
+                                planNumberByOrder.get(plan.getWorkOrderId())));
+                    }
                 }
             }
         }
         return result;
+    }
+
+    /**
+     * 判断计划/批次是否命中设备、房间筛选条件
+     * <p>
+     * 批次上的设备/房间优先于工序计划上的值；ID 精确匹配，名称模糊匹配（忽略大小写）；
+     * 未传条件视为命中。筛选只影响返回条目，冲突标记仍按工单全部计划计算。
+     * </p>
+     *
+     * @param plan          工序计划
+     * @param batch         批次（无批次时为 null）
+     * @param equipmentId   设备ID（可空）
+     * @param equipmentName 设备名称（可空）
+     * @param roomId        房间ID（可空）
+     * @param roomName      房间名称（可空）
+     * @return 命中筛选返回 true
+     */
+    private boolean matchesResourceFilter(WorkOrderProcessPlan plan, WorkOrderProcessPlanBatch batch,
+                                          Integer equipmentId, String equipmentName,
+                                          Integer roomId, String roomName) {
+        Integer effectiveEquipmentId = batch != null && batch.getEquipmentId() != null
+                ? batch.getEquipmentId() : plan.getEquipmentId();
+        String effectiveEquipmentName = batch != null && StringUtils.hasText(batch.getEquipmentName())
+                ? batch.getEquipmentName() : plan.getEquipmentName();
+        Integer effectiveRoomId = batch != null && batch.getRoomId() != null
+                ? batch.getRoomId() : plan.getRoomId();
+        String effectiveRoomName = batch != null && StringUtils.hasText(batch.getRoomName())
+                ? batch.getRoomName() : plan.getRoomName();
+        if (equipmentId != null && !equipmentId.equals(effectiveEquipmentId)) {
+            return false;
+        }
+        if (!containsText(effectiveEquipmentName, equipmentName)) {
+            return false;
+        }
+        if (roomId != null && !roomId.equals(effectiveRoomId)) {
+            return false;
+        }
+        return containsText(effectiveRoomName, roomName);
+    }
+
+    /**
+     * 文本模糊匹配（忽略大小写）
+     *
+     * @param value   待匹配文本
+     * @param keyword 关键字（空视为匹配）
+     * @return 匹配返回 true
+     */
+    private boolean containsText(String value, String keyword) {
+        if (!StringUtils.hasText(keyword)) {
+            return true;
+        }
+        return value != null && value.toLowerCase().contains(keyword.trim().toLowerCase());
     }
 
     private GanttItemDto toGantt(WorkOrderProcessPlan plan, WorkOrderProcessPlanBatch batch,
@@ -1225,6 +1390,8 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
         List<WorkOrderProcessPlanBatch> result = new ArrayList<>();
         for (PlanBatchDto dto : dtos) {
             WorkOrderProcessPlanBatch batch = new WorkOrderProcessPlanBatch();
+            // 保留前端回传的批次ID，保存时就地更新而不是重建
+            batch.setId(dto.getId());
             batch.setPlanId(plan.getId());
             batch.setBatchNo(dto.getBatchNo());
             batch.setBatchName(dto.getBatchName());
@@ -1241,7 +1408,8 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
             // 批次排产标识由前端传参，未传时沿用所属工序计划的值
             batch.setScheduled(dto.getScheduled() != null
                     ? Integer.valueOf(dto.getScheduled() ? 1 : 0) : plan.getScheduled());
-            batch.setStatus("计划中");
+            // 新建批次尚无实际执行记录，初始状态为计划中；后续按关联执行记录刷新
+            batch.setStatus(PlanBatchStatus.PLANNED);
             batch.setTeamName(dto.getTeamName());
             batch.setRoomName(dto.getRoomName());
             batch.setEquipmentName(dto.getEquipmentName());
