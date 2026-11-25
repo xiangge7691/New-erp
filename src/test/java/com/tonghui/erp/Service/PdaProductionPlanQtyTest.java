@@ -8,10 +8,13 @@ import com.tonghui.erp.Data.Entity.WorkOrderProcessExecution;
 import com.tonghui.erp.Data.mapper.BusinessFileMapper;
 import com.tonghui.erp.Data.mapper.EquipmentMapper;
 import com.tonghui.erp.Data.mapper.PersonnelFileMapper;
+import com.tonghui.erp.Data.mapper.UnitMapper;
 import com.tonghui.erp.Data.mapper.UserMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessExecutionMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessExecutionParticipantMapper;
+import com.tonghui.erp.Data.mapper.WorkOrderProcessPlanBatchMapper;
+import com.tonghui.erp.Data.mapper.WorkOrderProcessPlanMapper;
 import com.tonghui.erp.Service.impl.PdaProductionServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -60,6 +63,12 @@ class PdaProductionPlanQtyTest {
     private UserMapper userMapper;
     @Mock
     private BusinessFileMapper businessFileMapper;
+    @Mock
+    private WorkOrderProcessPlanMapper planMapper;
+    @Mock
+    private WorkOrderProcessPlanBatchMapper planBatchMapper;
+    @Mock
+    private UnitMapper unitMapper;
     @Mock
     private PerformanceGenerationService performanceGenerationService;
 

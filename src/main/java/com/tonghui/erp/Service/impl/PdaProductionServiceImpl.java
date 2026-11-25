@@ -3,6 +3,8 @@ package com.tonghui.erp.Service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.tonghui.erp.Common.Constants.EquipmentStatus;
+import com.tonghui.erp.Common.Constants.PlanBatchStatus;
+import com.tonghui.erp.Common.Constants.ProcessExecutionStatus;
 import com.tonghui.erp.Common.Dto.Pda.PdaExecutionSaveRequest;
 import com.tonghui.erp.Common.Dto.Pda.PdaOptionDto;
 import com.tonghui.erp.Common.Dto.Pda.PdaParticipantDto;
@@ -15,17 +17,23 @@ import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.BusinessFile;
 import com.tonghui.erp.Data.Entity.Equipment;
 import com.tonghui.erp.Data.Entity.PersonnelFile;
+import com.tonghui.erp.Data.Entity.Unit;
 import com.tonghui.erp.Data.Entity.User;
 import com.tonghui.erp.Data.Entity.WorkOrder;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessExecution;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessExecutionParticipant;
+import com.tonghui.erp.Data.Entity.WorkOrderProcessPlan;
+import com.tonghui.erp.Data.Entity.WorkOrderProcessPlanBatch;
 import com.tonghui.erp.Data.mapper.BusinessFileMapper;
 import com.tonghui.erp.Data.mapper.EquipmentMapper;
 import com.tonghui.erp.Data.mapper.PersonnelFileMapper;
+import com.tonghui.erp.Data.mapper.UnitMapper;
 import com.tonghui.erp.Data.mapper.UserMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessExecutionMapper;
 import com.tonghui.erp.Data.mapper.WorkOrderProcessExecutionParticipantMapper;
+import com.tonghui.erp.Data.mapper.WorkOrderProcessPlanBatchMapper;
+import com.tonghui.erp.Data.mapper.WorkOrderProcessPlanMapper;
 import com.tonghui.erp.Service.PdaProductionService;
 import com.tonghui.erp.Service.PerformanceGenerationService;
 import com.tonghui.erp.Service.WorkOrderProcessExecutionService;
@@ -83,6 +91,18 @@ public class PdaProductionServiceImpl implements PdaProductionService {
 
     @Autowired
     private BusinessFileMapper businessFileMapper;
+
+    /** 排产计划 Mapper（拆分批次后按批次展开工序行） */
+    @Autowired
+    private WorkOrderProcessPlanMapper planMapper;
+
+    /** 排产批次 Mapper */
+    @Autowired
+    private WorkOrderProcessPlanBatchMapper planBatchMapper;
+
+    /** 计量单位 Mapper */
+    @Autowired
+    private UnitMapper unitMapper;
 
     /** 绩效生成服务（PDA 提交后生成绩效记录） */
     @Autowired
@@ -149,6 +169,57 @@ public class PdaProductionServiceImpl implements PdaProductionService {
         return buildTask(order);
     }
 
+    /**
+     * 确保排产批次的执行记录存在（不存在则创建）
+     * <p>批次行拆分后按批次独立登记实际生产，PDA 开始计时或保存前先取得批次执行记录。</p>
+     *
+     * @param workOrderId 工单ID
+     * @param planBatchId 排产批次ID
+     * @return 批次执行行
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public PdaProcessDto ensureBatchExecution(Long workOrderId, Long planBatchId) {
+        WorkOrderProcessPlanBatch batch = planBatchMapper.selectById(planBatchId);
+        if (batch == null) {
+            throw new IllegalArgumentException("排产批次不存在");
+        }
+        WorkOrderProcessPlan plan = planMapper.selectById(batch.getPlanId());
+        if (plan == null || !Objects.equals(plan.getWorkOrderId(), workOrderId)) {
+            throw new IllegalArgumentException("排产批次不属于该生产任务");
+        }
+        // 已有批次执行记录直接复用，重复点击开始不会产生多行
+        WorkOrderProcessExecution existing = executionService.getOne(
+                new QueryWrapper<WorkOrderProcessExecution>()
+                        .eq("work_order_id", workOrderId)
+                        .eq("plan_batch_id", planBatchId)
+                        .orderByAsc("id")
+                        .last("LIMIT 1"), false);
+        if (existing != null) {
+            return loadProcess(existing);
+        }
+        WorkOrderProcessExecution execution = new WorkOrderProcessExecution();
+        execution.setWorkOrderId(workOrderId);
+        execution.setPlanId(plan.getId());
+        execution.setPlanBatchId(planBatchId);
+        execution.setBatchNo(batch.getBatchNo());
+        execution.setProcessTypeId(plan.getProcessTypeId());
+        execution.setStepOrder(plan.getStepOrder());
+        execution.setUnitId(batch.getUnitId() != null ? batch.getUnitId() : plan.getUnitId());
+        execution.setRoomId(batch.getRoomId() != null ? batch.getRoomId() : plan.getRoomId());
+        execution.setEquipmentId(batch.getEquipmentId() != null
+                ? batch.getEquipmentId() : plan.getEquipmentId());
+        execution.setTeamId(batch.getTeamId() != null ? batch.getTeamId() : plan.getTeamId());
+        execution.setStatus(ProcessExecutionStatus.PENDING);
+        execution.setLocked(0);
+        execution.setPdaSubmitted(0);
+        execution.setManualTime(0);
+        execution.setIsDeleted(0);
+        execution.setVersion(1);
+        executionService.save(execution);
+        return loadProcess(execution);
+    }
+
     private PdaTaskDto buildTask(WorkOrder order) {
         List<WorkOrderProcessExecution> executions =
                 executionService.getByWorkOrderId(order.getWorkOrderId());
@@ -157,6 +228,7 @@ public class PdaProductionServiceImpl implements PdaProductionService {
                 .thenComparing(WorkOrderProcessExecution::getBatchNo,
                         Comparator.nullsLast(Comparator.naturalOrder()))
                 .thenComparing(WorkOrderProcessExecution::getId));
+        List<PdaProcessDto> processes = buildProcesses(order, executions);
 
         PdaTaskDto dto = new PdaTaskDto();
         dto.setWorkOrderId(order.getWorkOrderId());
@@ -166,24 +238,210 @@ public class PdaProductionServiceImpl implements PdaProductionService {
         dto.setBatchNumber(order.getBatchNumber());
         dto.setBatchQty(order.getBatchQty());
         dto.setPlanStartTime(order.getPlanStartTime());
-        dto.setProcessCount(executions.size());
-        dto.setDoneCount((int) executions.stream().filter(this::isDone).count());
-        dto.setSubmittedCount((int) executions.stream().filter(this::isPdaSubmitted).count());
-        dto.setProcesses(executions.stream().map(this::toProcessDto).collect(Collectors.toList()));
-        dto.setStatus(resolveTaskStatus(executions));
+        dto.setProcessCount(processes.size());
+        dto.setDoneCount((int) processes.stream()
+                .filter(p -> Boolean.TRUE.equals(p.getDone())).count());
+        dto.setSubmittedCount((int) processes.stream()
+                .filter(p -> Boolean.TRUE.equals(p.getSubmitted())).count());
+        dto.setProcesses(processes);
+        dto.setStatus(resolveTaskStatus(processes));
         return dto;
     }
 
-    private String resolveTaskStatus(List<WorkOrderProcessExecution> executions) {
-        if (CollectionUtils.isEmpty(executions)) {
+    /**
+     * 构建 PDA 工序明细行
+     * <p>
+     * 排产拆分批次后，工序按批次展开为多条执行行（批次 1、批次 2…），不再展示原整道工序行；
+     * 批次尚未生成执行记录时 executionId 为空，前端可调用「确保批次执行记录」接口后再开始计时。
+     * </p>
+     *
+     * @param order      工单
+     * @param executions 执行记录
+     * @return 工序明细行（按工序顺序、批次序号排序）
+     */
+    private List<PdaProcessDto> buildProcesses(WorkOrder order, List<WorkOrderProcessExecution> executions) {
+        // 草稿排产不参与实际生产，正式保存后才按批次展开
+        List<WorkOrderProcessPlan> plans = planMapper.selectByWorkOrderIdWithDetails(order.getWorkOrderId())
+                .stream().filter(p -> !"草稿".equals(p.getStatus())).toList();
+        List<Long> planIds = plans.stream().map(WorkOrderProcessPlan::getId).toList();
+        Map<Long, List<WorkOrderProcessPlanBatch>> batchesByPlan = planIds.isEmpty() ? Map.of()
+                : planBatchMapper.selectByPlanIds(planIds).stream()
+                .collect(Collectors.groupingBy(WorkOrderProcessPlanBatch::getPlanId));
+        Map<Long, Unit> unitMap = loadUnits(plans, batchesByPlan);
+
+        List<PdaProcessDto> rows = new ArrayList<>();
+        Set<String> handled = new HashSet<>();
+        for (WorkOrderProcessPlan plan : plans) {
+            List<WorkOrderProcessPlanBatch> batches = batchesByPlan.getOrDefault(plan.getId(), List.of());
+            if (batches.isEmpty()) {
+                continue;
+            }
+            // 同一工序只展开一次，避免重复计划行导致批次行翻倍
+            if (!handled.add(processKey(plan.getProcessTypeId(), plan.getStepOrder()))) {
+                continue;
+            }
+            List<WorkOrderProcessExecution> stepExecutions = executions.stream()
+                    .filter(e -> Objects.equals(e.getProcessTypeId(), plan.getProcessTypeId())
+                            && Objects.equals(e.getStepOrder(), plan.getStepOrder()))
+                    .toList();
+            expandBatchRows(rows, plan, batches, stepExecutions, unitMap);
+        }
+        // 未拆批次的工序按执行记录逐条展示
+        for (WorkOrderProcessExecution execution : executions) {
+            if (handled.contains(processKey(execution.getProcessTypeId(), execution.getStepOrder()))) {
+                continue;
+            }
+            rows.add(toProcessDto(execution));
+        }
+        rows.sort(Comparator.comparing(PdaProcessDto::getStepOrder, Comparator.nullsLast(Integer::compareTo))
+                .thenComparing(PdaProcessDto::getBatchNo, Comparator.nullsLast(Integer::compareTo))
+                .thenComparing(PdaProcessDto::getExecutionId, Comparator.nullsLast(Long::compareTo)));
+        return rows;
+    }
+
+    /**
+     * 按批次展开工序明细行：有批次执行记录时展示实际数据，没有时生成待执行行
+     *
+     * @param rows       结果行
+     * @param plan       排产计划
+     * @param batches    批次列表
+     * @param executions 该工序的执行记录
+     * @param unitMap    计量单位
+     */
+    private void expandBatchRows(List<PdaProcessDto> rows, WorkOrderProcessPlan plan,
+                                 List<WorkOrderProcessPlanBatch> batches,
+                                 List<WorkOrderProcessExecution> executions,
+                                 Map<Long, Unit> unitMap) {
+        List<WorkOrderProcessPlanBatch> sorted = batches.stream()
+                .sorted(Comparator.comparing(WorkOrderProcessPlanBatch::getBatchNo,
+                        Comparator.nullsLast(Integer::compareTo)))
+                .toList();
+        for (WorkOrderProcessPlanBatch batch : sorted) {
+            WorkOrderProcessExecution matched = executions.stream()
+                    .filter(e -> PlanBatchStatus.matches(batch, e))
+                    .findFirst().orElse(null);
+            PdaProcessDto dto = matched != null ? toProcessDto(matched) : newBatchRow(plan, unitMap);
+            // 批次口径优先：计划起止、数量、单位以批次为准
+            dto.setPlanId(plan.getId());
+            dto.setPlanBatchId(batch.getId());
+            dto.setBatchNo(batch.getBatchNo());
+            dto.setBatchName(StringUtils.hasText(batch.getBatchName())
+                    ? batch.getBatchName()
+                    : (batch.getBatchNo() == null ? null : "批次 " + batch.getBatchNo()));
+            if (batch.getPlanStartTime() != null) {
+                dto.setPlanStartTime(batch.getPlanStartTime());
+            }
+            if (batch.getPlanEndTime() != null) {
+                dto.setPlanEndTime(batch.getPlanEndTime());
+            }
+            if (batch.getPlanQty() != null) {
+                dto.setPlanQty(batch.getPlanQty());
+            }
+            Long unitId = batch.getUnitId() != null ? batch.getUnitId() : plan.getUnitId();
+            if (unitId != null) {
+                dto.setUnitId(unitId);
+                Unit unit = unitMap.get(unitId);
+                if (unit != null) {
+                    dto.setUnitName(unit.getUnitName());
+                    dto.setUnitSymbol(unit.getSymbol());
+                }
+            }
+            if (dto.getEquipmentId() == null) {
+                dto.setEquipmentId(batch.getEquipmentId() != null ? batch.getEquipmentId() : plan.getEquipmentId());
+                dto.setEquipmentName(batch.getEquipmentName() != null
+                        ? batch.getEquipmentName() : plan.getEquipmentName());
+            }
+            if (dto.getRoomId() == null) {
+                dto.setRoomId(batch.getRoomId() != null ? batch.getRoomId() : plan.getRoomId());
+                dto.setRoomName(batch.getRoomName() != null ? batch.getRoomName() : plan.getRoomName());
+            }
+            rows.add(dto);
+        }
+    }
+
+    /**
+     * 生成未登记实际生产的批次行
+     *
+     * @param plan    排产计划
+     * @param unitMap 计量单位
+     * @return 待执行的批次行
+     */
+    private PdaProcessDto newBatchRow(WorkOrderProcessPlan plan, Map<Long, Unit> unitMap) {
+        PdaProcessDto dto = new PdaProcessDto();
+        dto.setStepOrder(plan.getStepOrder());
+        dto.setProcessTypeId(plan.getProcessTypeId());
+        dto.setProcessName(plan.getProcessTypeName());
+        dto.setPlanStartTime(plan.getPlanStartTime());
+        dto.setPlanEndTime(plan.getPlanEndTime());
+        dto.setPlanQty(plan.getPlanQty());
+        dto.setEquipmentId(plan.getEquipmentId());
+        dto.setEquipmentName(plan.getEquipmentName());
+        dto.setRoomId(plan.getRoomId());
+        dto.setRoomName(plan.getRoomName());
+        if (plan.getUnitId() != null) {
+            dto.setUnitId(plan.getUnitId());
+            Unit unit = unitMap.get(plan.getUnitId());
+            if (unit != null) {
+                dto.setUnitName(unit.getUnitName());
+                dto.setUnitSymbol(unit.getSymbol());
+            }
+        }
+        dto.setStatus("未开始");
+        dto.setDone(false);
+        dto.setSubmitted(false);
+        dto.setPcFilled(false);
+        dto.setLocked(false);
+        dto.setManualTime(false);
+        dto.setParticipants(List.of());
+        return dto;
+    }
+
+    /**
+     * 加载计划/批次用到的计量单位
+     *
+     * @param plans        排产计划
+     * @param batchesByPlan 计划下的批次
+     * @return 单位ID → 单位
+     */
+    private Map<Long, Unit> loadUnits(List<WorkOrderProcessPlan> plans,
+                                      Map<Long, List<WorkOrderProcessPlanBatch>> batchesByPlan) {
+        Set<Long> unitIds = new HashSet<>();
+        plans.stream().map(WorkOrderProcessPlan::getUnitId).filter(Objects::nonNull).forEach(unitIds::add);
+        batchesByPlan.values().stream().flatMap(List::stream)
+                .map(WorkOrderProcessPlanBatch::getUnitId).filter(Objects::nonNull).forEach(unitIds::add);
+        if (unitIds.isEmpty()) {
+            return Map.of();
+        }
+        return unitMapper.selectBatchIds(unitIds).stream()
+                .collect(Collectors.toMap(Unit::getUnitId, Function.identity(), (a, b) -> a));
+    }
+
+    /**
+     * 工序匹配键：工序类型 + 工序顺序
+     *
+     * @param processTypeId 工序类型ID
+     * @param stepOrder     工序顺序
+     * @return 匹配键
+     */
+    private String processKey(Long processTypeId, Integer stepOrder) {
+        return processTypeId + "#" + stepOrder;
+    }
+
+    /**
+     * 按明细行状态汇总任务状态
+     *
+     * @param processes 工序明细行
+     * @return 未开始/进行中/已完成
+     */
+    private String resolveTaskStatus(List<PdaProcessDto> processes) {
+        if (CollectionUtils.isEmpty(processes)) {
             return "未开始";
         }
-        boolean allDone = executions.stream().allMatch(this::isDone);
-        if (allDone) {
+        if (processes.stream().allMatch(p -> Boolean.TRUE.equals(p.getDone()))) {
             return "已完成";
         }
-        boolean anyStarted = executions.stream()
-                .anyMatch(e -> e.getStartTime() != null || isDone(e));
+        boolean anyStarted = processes.stream().anyMatch(p -> "进行中".equals(p.getStatus())
+                || Boolean.TRUE.equals(p.getDone()));
         return anyStarted ? "进行中" : "未开始";
     }
 
@@ -221,6 +479,8 @@ public class PdaProductionServiceImpl implements PdaProductionService {
     private PdaProcessDto toProcessDto(WorkOrderProcessExecution execution) {
         PdaProcessDto dto = new PdaProcessDto();
         dto.setExecutionId(execution.getId());
+        dto.setPlanId(execution.getPlanId());
+        dto.setPlanBatchId(execution.getPlanBatchId());
         dto.setStepOrder(execution.getStepOrder());
         dto.setProcessTypeId(execution.getProcessTypeId());
         dto.setProcessName(execution.getProcessTypeName());

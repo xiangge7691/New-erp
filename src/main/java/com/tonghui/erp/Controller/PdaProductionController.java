@@ -84,6 +84,31 @@ public class PdaProductionController extends BaseController {
     }
 
     /**
+     * 确保拆分批次已有执行记录（不存在则创建）
+     * <p>PDA 任务详情按批次展开后，尚未登记实际生产的批次行没有 executionId，
+     * 开始计时或保存前先调用本接口取得批次执行记录。</p>
+     *
+     * 示例请求：
+     * POST /api/pda/production/tasks/480/batches/146/execution
+     *
+     * @param workOrderId 工单ID
+     * @param planBatchId 排产批次ID
+     * @return 批次执行行（含 executionId）
+     */
+    @OperationLog(module = "PDA生产执行", type = OperationType.CREATE, desc = "准备批次执行记录",
+            businessType = "WORK_ORDER_PROCESS_EXECUTION", businessId = "#planBatchId")
+    @PostMapping("/tasks/{workOrderId}/batches/{planBatchId}/execution")
+    public ApiResponse<PdaProcessDto> ensureBatchExecution(@PathVariable Long workOrderId,
+                                                           @PathVariable Long planBatchId) {
+        try {
+            return success(pdaProductionService.ensureBatchExecution(workOrderId, planBatchId),
+                    "已准备批次执行记录");
+        } catch (Exception ex) {
+            return exception(ex, "准备批次执行记录");
+        }
+    }
+
+    /**
      * 工序开始打点
      *
      * 示例请求：

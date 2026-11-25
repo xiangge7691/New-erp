@@ -181,7 +181,13 @@
   - 参与人同样可按 `production-teams/active` 快捷选择；
   - 数量列与录入框使用执行记录返回的 `unitSymbol`。
 
-### 5.3 绩效页
+### 5.3 PDA 任务详情与批次执行
+
+- `GET /api/pda/production/tasks/{workOrderId}`：排产拆分过批次（且已正式保存、非草稿）的工序按批次展开，一条批次一行（`batchNo` / `batchName` / `planBatchId`，计划起止与数量取批次），原整道工序行不再返回；批次尚未登记实际生产时 `processes[].executionId` 为空。
+- 批次行开始计时或保存前，先调用 `POST /api/pda/production/tasks/{workOrderId}/batches/{planBatchId}/execution` 确保批次执行记录存在（已存在则返回原记录，幂等），拿到 `executionId` 后再调用 start / end / draft / submit 接口。
+- `processCount`、`doneCount` 按展开后的行统计，批次全部完成才算该道工序完成。
+
+### 5.4 绩效页
 
 - 工序粒度：`GET /api/performance/process-view?from=&to=&keyword=&teamId=&source=&modifiedStatus=&recordStatus=`（`workOrderId` 可不传）。
 - 人员粒度：`GET /api/performance/person-view?personnelId=&from=&to=`。

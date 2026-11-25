@@ -37,6 +37,17 @@ public interface PdaProductionService {
     PdaTaskDto getTask(Long workOrderId);
 
     /**
+     * 确保排产批次的执行记录存在（不存在则创建）
+     * <p>PDA 任务详情按批次展开后，未登记过实际生产的批次行没有 executionId，
+     * 开始计时或保存前先调用本接口取得批次执行记录。</p>
+     *
+     * @param workOrderId 工单ID
+     * @param planBatchId 排产批次ID
+     * @return 批次执行行
+     */
+    PdaProcessDto ensureBatchExecution(Long workOrderId, Long planBatchId);
+
+    /**
      * 工序开始打点
      *
      * @param executionId 执行记录ID

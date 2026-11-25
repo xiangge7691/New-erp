@@ -15,6 +15,12 @@ public class PdaProcessDto {
     /** 执行记录ID，未生成执行行时为空 */
     private Long executionId;
 
+    /** 排产计划ID */
+    private Long planId;
+
+    /** 排产批次ID（拆分批次时用于定位实际执行记录） */
+    private Long planBatchId;
+
     /** 工序顺序 */
     private Integer stepOrder;
 
