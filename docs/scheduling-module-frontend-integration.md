@@ -163,6 +163,7 @@
 ### 5.1 列表页
 
 - 页面进入调用 `GET /api/scheduling/tasks`（可不传参数），状态筛选映射 `status`，关键字映射 `keyword`，配置日期映射 `configFrom/configTo`。
+- 任务级 `planStartTime` 取工单计划开始时间；工单未填时取最早排产工序的开始时间，PDA 任务详情同样处理。
 - 甘特图调用 `GET /api/scheduling/gantt?view=...&from=...&to=...`，默认展示草稿；色块 `preparationName` + `workOrderCode` 两行。
 - 甘特图筛选（均为可选）：`taskNo` 按任务号模糊匹配；设备可传 `equipmentId`（精确）或 `equipmentName`（模糊）；房间可传 `roomId` 或 `roomName`。批次上的设备/房间优先于工序计划；筛选只影响返回条数，冲突标记仍按工单全部计划计算。
 - 行点击进入详情（`GET /api/scheduling/tasks/{id}`）。

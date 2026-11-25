@@ -206,8 +206,12 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
             dto.setBatchQty(order.getBatchQty());
             dto.setCurrentStatus(order.getCurrentStatus());
             dto.setConfigDate(order.getConfigDate());
-            dto.setPlanStartTime(order.getPlanStartTime());
             List<WorkOrderProcessPlan> plans = planMapper.selectByWorkOrderIdWithDetails(order.getWorkOrderId());
+            // 工单未填计划开始时间时取最早排产工序的开始，避免任务卡片显示为空
+            LocalDateTime planStart = order.getPlanStartTime() != null ? order.getPlanStartTime()
+                    : plans.stream().map(WorkOrderProcessPlan::getPlanStartTime)
+                    .filter(Objects::nonNull).min(LocalDateTime::compareTo).orElse(null);
+            dto.setPlanStartTime(planStart);
             int processCount = plans.size();
             if (processCount == 0 && order.getPreparationId() != null) {
                 processCount = Math.toIntExact(templateMapper.selectCount(
@@ -321,6 +325,11 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
         detail.setPlanStartTime(order.getPlanStartTime());
 
         List<WorkOrderProcessPlan> plans = planMapper.selectByWorkOrderIdWithDetails(workOrderId);
+        if (detail.getPlanStartTime() == null) {
+            // 工单未填计划开始时间时取最早排产工序的开始，避免明明已排产却显示为空
+            detail.setPlanStartTime(plans.stream().map(WorkOrderProcessPlan::getPlanStartTime)
+                    .filter(Objects::nonNull).min(LocalDateTime::compareTo).orElse(null));
+        }
         List<ProcessScheduleDto> processes = new ArrayList<>();
         List<ScheduleConflictDto> conflicts = new ArrayList<>();
         Map<Integer, List<WorkOrderProcessExecution>> executionMap = executionMapper

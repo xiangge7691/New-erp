@@ -237,7 +237,11 @@ public class PdaProductionServiceImpl implements PdaProductionService {
         dto.setPreparationName(order.getPreparationName());
         dto.setBatchNumber(order.getBatchNumber());
         dto.setBatchQty(order.getBatchQty());
-        dto.setPlanStartTime(order.getPlanStartTime());
+        // 工单未填计划开始时间时取最早排产工序/批次的开始，避免任务页显示为空
+        LocalDateTime planStart = order.getPlanStartTime() != null ? order.getPlanStartTime()
+                : processes.stream().map(PdaProcessDto::getPlanStartTime)
+                .filter(Objects::nonNull).min(LocalDateTime::compareTo).orElse(null);
+        dto.setPlanStartTime(planStart);
         dto.setProcessCount(processes.size());
         dto.setDoneCount((int) processes.stream()
                 .filter(p -> Boolean.TRUE.equals(p.getDone())).count());

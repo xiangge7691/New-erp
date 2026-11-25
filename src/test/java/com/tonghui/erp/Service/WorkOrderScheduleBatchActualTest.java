@@ -139,6 +139,18 @@ class WorkOrderScheduleBatchActualTest {
                 "另一批次没有执行记录应为待执行");
     }
 
+    /**
+     * 工单未填计划开始时间时，详情取最早排产工序的开始，避免已排产却显示为空
+     */
+    @Test
+    void shouldFallBackOrderPlanStartToEarliestProcess() {
+        stubDetail(List.of());
+        ScheduleDetailDto detail = scheduleService.getDetail(480L);
+
+        assertEquals(LocalDateTime.of(2026, 11, 20, 22, 0), detail.getPlanStartTime(),
+                "应回退到最早排产工序的计划开始时间");
+    }
+
     // endregion
 
     // region 测试辅助
@@ -163,6 +175,8 @@ class WorkOrderScheduleBatchActualTest {
         plan.setStepOrder(11);
         plan.setPlanQty(new BigDecimal("3500"));
         plan.setUnitId(9L);
+        plan.setPlanStartTime(LocalDateTime.of(2026, 11, 20, 22, 0));
+        plan.setPlanEndTime(LocalDateTime.of(2026, 11, 20, 23, 0));
         when(planMapper.selectByWorkOrderIdWithDetails(480L)).thenReturn(List.of(plan));
 
         WorkOrderProcessPlanBatch first = batch(146L, 1);

@@ -103,6 +103,8 @@ class PdaTaskBatchExpansionTest {
         assertEquals(2, task.getProcesses().size(), "第 11 道工序拆成两个批次应展示两行");
         assertEquals(2, task.getProcessCount());
         assertEquals(0, task.getDoneCount());
+        assertEquals(LocalDateTime.of(2026, 11, 20, 22, 0), task.getPlanStartTime(),
+                "工单未填计划开始时间时应取最早排产工序的开始");
 
         PdaProcessDto first = task.getProcesses().get(0);
         assertEquals(Long.valueOf(146L), first.getPlanBatchId());
