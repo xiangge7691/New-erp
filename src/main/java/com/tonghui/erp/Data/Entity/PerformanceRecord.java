@@ -106,7 +106,7 @@ public class PerformanceRecord extends AuditEntity {
     private BigDecimal performanceHours;
 
     /**
-     * 修改前绩效时长（小时）：首次修改时写入，保留原始口径
+     * 修改前绩效工时（小时）：首次修改时写入，保留修改前的 performanceHoursTotal
      */
     @TableField(value = "original_performance_hours")
     private BigDecimal originalPerformanceHours;

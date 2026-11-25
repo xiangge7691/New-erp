@@ -313,7 +313,7 @@ public class PerformanceServiceImpl implements PerformanceService {
     // ===================================
 
     /**
-     * 修改绩效时长
+     * 修改绩效工时：直接覆盖系数计算后的时长，实际时长与实际执行数据保持不变
      */
     @Override
     public PerformanceRecord modify(Long id, PerformanceModifyRequest request) {
@@ -324,21 +324,22 @@ public class PerformanceServiceImpl implements PerformanceService {
         if (Integer.valueOf(0).equals(record.getRecordStatus())) {
             throw new IllegalArgumentException("作废记录不能修改");
         }
-        if (request == null || request.getPerformanceHours() == null
-                || request.getPerformanceHours().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("绩效时长必须大于 0");
+        if (request == null || request.getPerformanceHoursTotal() == null
+                || request.getPerformanceHoursTotal().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("绩效工时必须大于 0");
         }
         if (!StringUtils.hasText(request.getNote())) {
             throw new IllegalArgumentException("修改备注必填");
         }
         if (record.getOriginalPerformanceHours() == null) {
-            record.setOriginalPerformanceHours(record.getPerformanceHours());
+            // 留痕口径：记录首次修改前的绩效工时（系数计算后的时长）
+            record.setOriginalPerformanceHours(record.getPerformanceHoursTotal());
         }
-        record.setPerformanceHours(scale2(request.getPerformanceHours()));
+        // 手工修改直接覆盖系数计算出的绩效工时，实际时长 performanceHours 保持不变
+        record.setPerformanceHoursTotal(scale2(request.getPerformanceHoursTotal()));
         if ("手动添加".equals(record.getSource()) && request.getCompletedQty() != null) {
             record.setCompletedQty(request.getCompletedQty());
         }
-        record.setPerformanceHoursTotal(calcTotal(record));
         record.setModifiedStatus(1);
         record.setNote(request.getNote().trim());
         recordMapper.updateById(record);

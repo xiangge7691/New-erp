@@ -38,7 +38,7 @@ public interface PerformanceService {
                                          String keyword, PageRequestDto pageRequest);
 
     /**
-     * 修改绩效时长
+     * 修改绩效工时（系数计算后的时长，直接覆盖）
      */
     PerformanceRecord modify(Long id, PerformanceModifyRequest request);
 

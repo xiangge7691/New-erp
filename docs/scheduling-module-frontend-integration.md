@@ -94,7 +94,7 @@
 |---|---|---|
 | GET | `/api/performance/process-view` | `workOrderId` 改为可选；新增 `keyword`、`source`、`modifiedStatus`、`recordStatus`（不传=全部状态） |
 | GET | `/api/performance/records` | 新增 `keyword` |
-| PUT | `/api/performance/records/{id}` | 返回 `originalPerformanceHours`（首次修改前的绩效时长） |
+| PUT | `/api/performance/records/{id}` | 请求体改为 `performanceHoursTotal`（系数计算后的绩效工时，直接覆盖）；返回 `originalPerformanceHours`（首次修改前的绩效工时） |
 | POST | `/api/performance/coefficient-versions` | `note` 改为选填（版本备注） |
 | GET | `/api/performance/export` | 新增 `keyword`；导出列合并为「工时（绩效时长）」 |
 | GET | `/api/performance/aggregate` | 保留接口，前端不再调用（班组与品种页已删除） |
@@ -136,13 +136,13 @@
 
 ### 3.4 绩效记录
 
-新增 `originalPerformanceHours`（首次修改前的绩效时长）。修改后：
-- `performanceHours` = 修改后时长；
-- `originalPerformanceHours` = 原始时长；
-- `performanceHoursTotal` = 绩效时长 × 工序系数 × 人员系数（按快照）；
+新增 `originalPerformanceHours`（首次修改前的绩效工时）。修改的是系数计算后的绩效工时 `performanceHoursTotal`，直接覆盖；修改后：
+- `performanceHoursTotal` = 修改后绩效工时；
+- `performanceHours` = 实际时长，保持不变；
+- `originalPerformanceHours` = 修改前绩效工时（首次修改时写入）；
 - `updatedByName` / `updatedTime` 为最后修改人与时间。
 
-红色「绩效工时」点击后展示：修改前/后绩效时长、修改原因（`note`）、修改人、修改时间。
+红色「绩效工时」点击后展示：修改前/后绩效工时、修改原因（`note`）、修改人、修改时间。
 
 ---
 
@@ -153,7 +153,7 @@
 3. **冲突规则**：设备占用、房间占用、人员冲突（同一人同一时段被安排到不同工序）、工序顺序、批次时段重叠。**班次校验已删除**，班组不参与冲突判断。拆分批次的每批数量只需大于 0，合计不强制等于工序计划数量（计划数量为排产时手工填写，可按实际安排拆分）。
 4. **班组快捷选人**：选择班组只勾选成员，之后可逐人增减；排产保存到计划参与人，实际生产保存到执行参与人。
 5. **实际生产**：执行记录按工序/批次保存；`complete` 后锁定，不可再改，并生成人员绩效。
-6. **修改留痕**：首次修改绩效时长时写入 `original_performance_hours`，后续修改不再覆盖；修改备注必填。
+6. **修改留痕**：修改绩效工时（`performanceHoursTotal`）时，首次修改把修改前的值写入 `original_performance_hours`，后续修改不再覆盖；修改备注必填。
 7. **系数版本**：工序系数 + 人员系数整体发布，备注选填；发布后不可撤销。
 
 ---
@@ -192,7 +192,7 @@
 
 - 工序粒度：`GET /api/performance/process-view?from=&to=&keyword=&teamId=&source=&modifiedStatus=&recordStatus=`（`workOrderId` 可不传）。
 - 人员粒度：`GET /api/performance/person-view?personnelId=&from=&to=`。
-- 工时列展示 `performanceHours`（列名「工时（绩效时长）」）；红色绩效工时点击展示修改明细（`originalPerformanceHours`、`note`、`updatedByName`、`updatedTime`）。
+- 工时列展示 `performanceHoursTotal`（列名「工时（绩效时长）」）；红色绩效工时点击展示修改明细（`originalPerformanceHours`、`note`、`updatedByName`、`updatedTime`）。
 - 系数版本：`POST /api/performance/coefficient-versions`，`note` 可不传。
 
 ---

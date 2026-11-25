@@ -185,12 +185,12 @@ public class PerformanceController extends BaseController {
     // ===================================
 
     /**
-     * 修改绩效时长
+     * 修改绩效工时（系数计算后的时长，直接覆盖）
      *
      * 示例请求：
      * PUT /api/performance/records/1
      * {
-     *   "performanceHours": 1.8,
+     *   "performanceHoursTotal": 1.8,
      *   "note": "复核后修正"
      * }
      *
@@ -198,7 +198,7 @@ public class PerformanceController extends BaseController {
      * @param request 修改请求
      * @return 修改后的记录
      */
-    @OperationLog(module = "人员绩效", type = OperationType.UPDATE, desc = "修改绩效时长",
+    @OperationLog(module = "人员绩效", type = OperationType.UPDATE, desc = "修改绩效工时",
             businessType = "PERFORMANCE_RECORD", businessId = "#id")
     @PutMapping("/records/{id}")
     public ApiResponse<PerformanceRecord> modify(@PathVariable Long id,
@@ -206,7 +206,7 @@ public class PerformanceController extends BaseController {
         try {
             return success(performanceService.modify(id, request), "修改成功");
         } catch (Exception ex) {
-            return exception(ex, "修改绩效时长");
+            return exception(ex, "修改绩效工时");
         }
     }
 

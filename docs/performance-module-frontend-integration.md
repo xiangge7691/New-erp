@@ -91,7 +91,7 @@
   - 工时（绩效时长）：`performanceHours`（列名已合并，工作时间为 `workHours`，仅悬停展示）；
   - 绩效工时：`performanceHoursTotal`；修改过的记录前端标红；
   - 完成数量：`completedQty`；来源：`source`；状态：`recordStatus / modifiedStatus`。
-- 修改明细：点击红色绩效工时，用 `originalPerformanceHours`、`performanceHours`、`note`、`updatedByName`、`updatedTime` 展示修改前后、原因、修改人与时间；未修改记录 `originalPerformanceHours` 为空。
+- 修改明细：点击红色绩效工时，用 `originalPerformanceHours`、`performanceHoursTotal`、`note`、`updatedByName`、`updatedTime` 展示修改前后、原因、修改人与时间；未修改记录 `originalPerformanceHours` 为空。
 
 ### 3.3 人员粒度视图
 
@@ -121,12 +121,13 @@
 
 ### 3.5 修改、补录、作废
 
-- **修改绩效时长**：`PUT /api/performance/records/{id}`
+- **修改绩效工时**：`PUT /api/performance/records/{id}`
   ```json
-  { "performanceHours": 1.8, "note": "复核后修正", "completedQty": 98000 }
+  { "performanceHoursTotal": 1.8, "note": "复核后修正", "completedQty": 98000 }
   ```
+  - 修改的是系数计算后的绩效工时 `performanceHoursTotal`，直接覆盖该值；实际时长 `performanceHours` 不变；
   - `note` 必填；`completedQty` 仅手动记录可传；
-  - 首次修改会写入 `originalPerformanceHours`；
+  - 首次修改会把修改前的 `performanceHoursTotal` 写入 `originalPerformanceHours`；
   - 返回更新后的记录（含绩效工时、修改人、更新时间）。
 - **手动补录**：`POST /api/performance/manual`
   ```json
@@ -184,8 +185,8 @@
 | `planStartTime / planEndTime / planDurationMinutes / planQty` | 计划参考 |
 | `actualStartTime / actualEndTime / processActualHours` | 实际执行 |
 | `workHours` | 个人工作时间（原字段，列表不再单独展示） |
-| `performanceHours` | 工时（绩效时长，参与计算） |
-| `originalPerformanceHours` | 修改前绩效时长（首次修改写入） |
+| `performanceHours` | 工时（绩效时长基数，修改接口不改动该字段） |
+| `originalPerformanceHours` | 修改前绩效工时（首次修改时写入修改前的 `performanceHoursTotal`） |
 | `processCoefficient / personCoefficient / coefficientVersionNo` | 系数快照 |
 | `performanceHoursTotal` | 绩效工时 |
 | `completedQty` | 完成数量 |
