@@ -487,14 +487,13 @@ public class MaterialReturnServiceImpl implements MaterialReturnService {
             AcceptanceDetail src = selected.get(i);
             AcceptanceDetail nd = new AcceptanceDetail();
             BeanUtils.copyProperties(src, nd, "detailId", "acceptanceId", "seq", "batchNumber",
-                    "actualArrivalQty", "inboundQty", "samplingQty", "retentionQty", "amount", "diffQuantity",
+                    "actualArrivalQty", "inboundQty", "samplingQty", "amount", "diffQuantity",
                     "status", "returnReason", "returnRemark",
                     "outerPackageCheck", "appearanceCheck");
             nd.setQuantity(selectedQtys.get(i));
             nd.setBatchNumber("");
-            // 重新发货需重新取样/留样，不继承原明细的取样与留样数量
+            // 重新发货需重新取样，不继承原明细的取样数量
             nd.setSamplingQty(BigDecimal.ZERO);
-            nd.setRetentionQty(BigDecimal.ZERO);
             nd.setStatus(AcceptanceStatusPolicy.DETAIL_PENDING_INITIAL);
             // 重新发货需重新检查，不复用原明细的不合格结果
             nd.setOuterPackageCheck("合格");

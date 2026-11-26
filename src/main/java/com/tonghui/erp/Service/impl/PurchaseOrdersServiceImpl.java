@@ -278,9 +278,8 @@ public class PurchaseOrdersServiceImpl extends ServiceImpl<PurchaseOrdersMapper,
             detail.setUnitName(item.getUnit());
             detail.setStandardDosage(item.getStandardDosage());
             detail.setQuantity(item.getPurchaseQuantity());
-            // 取样/留样初始为0，入库数量先按采购数量预填，验收环节可调整取样/留样后由服务端重算
+            // 取样初始为0，入库数量先按采购数量预填，验收环节可调整取样后由服务端重算
             detail.setSamplingQty(BigDecimal.ZERO);
-            detail.setRetentionQty(BigDecimal.ZERO);
             detail.setInboundQty(item.getPurchaseQuantity());
             detail.setUnitPrice(item.getUnitPrice());
             detail.setAmount(item.getAmount());

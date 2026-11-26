@@ -427,7 +427,7 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
                     || AcceptanceStatusPolicy.DETAIL_PENDING_SCAN.equals(existing.getStatus())) {
                 throw new RuntimeException("明细「" + (existing.getMaterialName() != null ? existing.getMaterialName() : "未知物料") + "」(序号" + existing.getSeq() + ")已生成入库单或已入库，批号/单价/仓库已锁定，不可修改");
             }
-            // 合并原记录与本次传入值，校验取样/留样并重算入库数量（服务端权威，
+            // 合并原记录与本次传入值，校验取样数量并重算入库数量（服务端权威，
             // 领料单作废等场景会把明细置为已取消，此处对退货/取消类状态放行）
             AcceptanceDetail merged = new AcceptanceDetail();
             BeanUtils.copyProperties(existing, merged);
@@ -439,9 +439,6 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
             }
             if (detail.getSamplingQty() != null) {
                 merged.setSamplingQty(detail.getSamplingQty());
-            }
-            if (detail.getRetentionQty() != null) {
-                merged.setRetentionQty(detail.getRetentionQty());
             }
             if (StringUtils.hasText(detail.getStatus())) {
                 merged.setStatus(detail.getStatus());
@@ -792,12 +789,12 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
             if (noBatch) {
                 throw new RuntimeException("存在未填写批号的物料，请先补充批号后再检验");
             }
-            // 校验取样/留样并计算入库数量：合格行入库数量必须大于0，避免拖到入库环节才失败
+            // 校验取样数量并计算入库数量：合格行入库数量必须大于0，避免拖到入库环节才失败
             for (AcceptanceDetail detail : targets) {
                 validateSamplingQuantities(detail, true);
                 BigDecimal inboundQty = calculateInboundQty(detail);
                 if (inboundQty == null || inboundQty.compareTo(BigDecimal.ZERO) <= 0) {
-                    throw new RuntimeException("入库数量必须大于0，请检查取样/留样数量: " + detail.getMaterialName());
+                    throw new RuntimeException("入库数量必须大于0，请检查取样数量: " + detail.getMaterialName());
                 }
                 detail.setInboundQty(inboundQty);
             }
@@ -877,11 +874,11 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
                 throw new RuntimeException("存在未填写批号的物料，无法入库: " + detail.getMaterialName());
             }
             detail.setProdUnitId(unitId);
-            // 最终闸门：校验取样/留样并重算入库数量（服务端权威，忽略客户端传入的入库数量）
+            // 最终闸门：校验取样数量并重算入库数量（服务端权威，忽略客户端传入的入库数量）
             validateSamplingQuantities(detail, true);
             BigDecimal inboundQty = calculateInboundQty(detail);
             if (inboundQty == null || inboundQty.compareTo(BigDecimal.ZERO) <= 0) {
-                throw new RuntimeException("入库数量必须大于0，请检查取样/留样数量: " + detail.getMaterialName());
+                throw new RuntimeException("入库数量必须大于0，请检查取样数量: " + detail.getMaterialName());
             }
             detail.setInboundQty(inboundQty);
         }
@@ -1014,7 +1011,7 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
                     + (baseIsActualArrival ? "实际到货数量" : "采购数量"));
         }
 
-        // 取样/留样校验：拆行后验收子行基准数量为验收数量；检验环节要求入库数量大于0
+        // 取样校验：拆行后验收子行基准数量为验收数量；检验环节要求入库数量大于0
         AcceptanceDetail acceptChild = new AcceptanceDetail();
         BeanUtils.copyProperties(detail, acceptChild);
         acceptChild.setActualArrivalQty(acceptQty);
@@ -1052,7 +1049,7 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         AcceptanceDetail returnChild = new AcceptanceDetail();
         BeanUtils.copyProperties(detail, returnChild,
                 "detailId", "seq", "quantity", "amount", "diffQuantity",
-                "actualArrivalQty", "inboundQty", "samplingQty", "retentionQty",
+                "actualArrivalQty", "inboundQty", "samplingQty",
                 "status", "returnReason", "returnRemark",
                 "purchaseItemId", "prodUnitId", "originalSeq",
                 "createdBy", "createdTime");
@@ -1064,9 +1061,8 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         returnChild.setReturnReason(returnReason);
         returnChild.setReturnRemark(StringUtils.hasText(remark) ? remark : null);
         returnChild.setPurchaseItemId(newPurchaseItemId);
-        // 退货子行不继承取样/留样，也不入库
+        // 退货子行不继承取样，也不入库
         returnChild.setSamplingQty(BigDecimal.ZERO);
-        returnChild.setRetentionQty(BigDecimal.ZERO);
         returnChild.setInboundQty(BigDecimal.ZERO);
         // 退货子行不入库：清空仓库（批号沿用原明细行便于追溯）；原行批号为空时置空串保持一致
         returnChild.setBatchNumber(StringUtils.hasText(detail.getBatchNumber()) ? detail.getBatchNumber() : "");
@@ -1089,7 +1085,7 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         detail.setReturnReason(null);
         detail.setReturnRemark(null);
         recalculateAmountAndDiff(detail, acceptQty);
-        // 验收子行保留取样/留样，按验收数量重算入库数量
+        // 验收子行保留取样，按验收数量重算入库数量
         detail.setInboundQty(calculateInboundQty(detail));
         acceptanceDetailMapper.updateById(detail);
 
@@ -1180,7 +1176,7 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
     }
 
     /**
-     * 判断明细状态是否为退货/取消类（此类明细不入库，取样/留样不参与校验与扣减）
+     * 判断明细状态是否为退货/取消类（此类明细不入库，取样不参与校验与扣减）
      *
      * @param status 明细状态
      * @return 待退货/已退货/已重发/已取消 返回 true
@@ -1193,10 +1189,10 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
     }
 
     /**
-     * 校验取样数量与留样数量
+     * 校验取样数量
      * <p>
-     * 规则：两者均不得为负；存在取样/留样时必须能解析入库基准数量；
-     * 两者之和不得超过基准数量；要求入库数量大于 0 时，两者之和必须严格小于基准数量。
+     * 入库仅按取样数量扣减。规则：取样数量不得为负；取样数量大于 0 时必须能解析入库基准数量；
+     * 取样数量不得超过基准数量；要求入库数量大于 0 时，取样数量必须严格小于基准数量。
      * 退货/取消类明细不参与入库，仅校验非负。
      * </p>
      *
@@ -1205,37 +1201,33 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
      */
     private void validateSamplingQuantities(AcceptanceDetail detail, boolean requirePositiveInbound) {
         BigDecimal sampling = zeroIfNull(detail.getSamplingQty());
-        BigDecimal retention = zeroIfNull(detail.getRetentionQty());
         String materialName = StringUtils.hasText(detail.getMaterialName())
                 ? detail.getMaterialName() : "未知物料";
         if (sampling.compareTo(BigDecimal.ZERO) < 0) {
             throw new RuntimeException("取样数量不能为负数: " + materialName);
         }
-        if (retention.compareTo(BigDecimal.ZERO) < 0) {
-            throw new RuntimeException("留样数量不能为负数: " + materialName);
-        }
-        // 退货/取消类明细不入库，不校验取样/留样与基准数量的关系
+        // 退货/取消类明细不入库，不校验取样数量与基准数量的关系
         if (isReturnLikeStatus(detail.getStatus())) {
             return;
         }
-        BigDecimal consumed = sampling.add(retention);
-        if (consumed.compareTo(BigDecimal.ZERO) == 0) {
+        // 仅在取样数量大于0时校验与基准数量的关系
+        if (sampling.compareTo(BigDecimal.ZERO) == 0) {
             return;
         }
         BigDecimal baseQty = resolveBaseQty(detail);
         if (baseQty == null) {
-            throw new RuntimeException("存在取样/留样数量但缺少入库基准数量: " + materialName);
+            throw new RuntimeException("存在取样数量但缺少入库基准数量: " + materialName);
         }
-        if (consumed.compareTo(baseQty) > 0) {
-            throw new RuntimeException("取样与留样数量之和不能超过入库基准数量: " + materialName);
+        if (sampling.compareTo(baseQty) > 0) {
+            throw new RuntimeException("取样数量不能超过入库基准数量: " + materialName);
         }
-        if (requirePositiveInbound && consumed.compareTo(baseQty) == 0) {
-            throw new RuntimeException("取样与留样数量之和不能等于入库基准数量，入库数量必须大于0: " + materialName);
+        if (requirePositiveInbound && sampling.compareTo(baseQty) == 0) {
+            throw new RuntimeException("取样数量不能等于入库基准数量，入库数量必须大于0: " + materialName);
         }
     }
 
     /**
-     * 计算明细入库数量 = 基准数量 − 取样数量 − 留样数量
+     * 计算明细入库数量 = 基准数量 − 取样数量
      * <p>退货/取消类明细不入库，返回 0；基准数量缺失时返回 null</p>
      *
      * @param detail 验收明细
@@ -1249,8 +1241,7 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
         if (baseQty == null) {
             return null;
         }
-        BigDecimal inbound = baseQty.subtract(zeroIfNull(detail.getSamplingQty()))
-                .subtract(zeroIfNull(detail.getRetentionQty()));
+        BigDecimal inbound = baseQty.subtract(zeroIfNull(detail.getSamplingQty()));
         return inbound.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : inbound;
     }
 
@@ -1293,7 +1284,7 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
                 // 外包装/性状检查结果：为空默认"合格"，非空时校验取值
                 detail.setOuterPackageCheck(normalizeCheckResult(detail.getOuterPackageCheck(), "外包装检查"));
                 detail.setAppearanceCheck(normalizeCheckResult(detail.getAppearanceCheck(), "性状检查"));
-                // 取样/留样校验并计算预计入库数量（服务端权威，退货/取消类状态不入库）
+                // 取样校验并计算预计入库数量（服务端权威，退货/取消类状态不入库）
                 validateSamplingQuantities(detail, false);
                 detail.setInboundQty(calculateInboundQty(detail));
                 // 计算金额 = 实际到货数量 × 单价（未填实际到货数量时回退采购数量）
@@ -1387,7 +1378,7 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
             sid.setBatchNumber(d.getBatchNumber());
             // 明细级入库仓库（每条物料独立选择，缺省回退单据级仓库）
             sid.setProdUnitId(d.getProdUnitId() != null ? d.getProdUnitId() : acceptance.getProdUnitId());
-            // 入库数量：服务端按 基准数量−取样数量−留样数量 重算，不信任客户端或数据库旧值
+            // 入库数量：服务端按 基准数量 − 取样数量 重算，不信任客户端或数据库旧值
             BigDecimal inboundQty = calculateInboundQty(d);
             if (inboundQty == null || inboundQty.compareTo(BigDecimal.ZERO) <= 0) {
                 throw new RuntimeException("入库数量必须大于0: " + d.getMaterialName());
@@ -1724,10 +1715,10 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
     /** 货物验收表 sheet 名称 */
     private static final String ACCEPTANCE_SHEET_NAME = "货物验收表";
 
-    /** 货物验收表表头（26 列：8 主单字段 + 18 明细字段） */
+    /** 货物验收表表头（25 列：8 主单字段 + 17 明细字段） */
     private static final String[] ACCEPTANCE_HEADERS = {
             "验收单号", "来源类型", "关联采购订单号", "关联采购计划编号", "收货单位", "状态", "交期", "备注",
-            "序号", "物料编码", "物料名称", "物料分类", "单位", "采购数量", "到货数量", "取样数量", "留样数量", "入库数量",
+            "序号", "物料编码", "物料名称", "物料分类", "单位", "采购数量", "到货数量", "取样数量", "入库数量",
             "单价", "金额", "批号", "有效期至", "明细状态", "退货原因", "不合格说明", "供应商"
     };
 
@@ -1814,7 +1805,6 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
                 row.setQuantity(d.getQuantity());
                 row.setActualArrivalQty(d.getActualArrivalQty());
                 row.setSamplingQty(d.getSamplingQty());
-                row.setRetentionQty(d.getRetentionQty());
                 row.setInboundQty(d.getInboundQty());
                 row.setUnitPrice(d.getUnitPrice());
                 row.setAmount(d.getAmount());
@@ -1884,19 +1874,18 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
                 setExportNumber(r, 13, row.getQuantity(), numberStyle);
                 setExportNumber(r, 14, row.getActualArrivalQty(), numberStyle);
                 setExportNumber(r, 15, row.getSamplingQty(), numberStyle);
-                setExportNumber(r, 16, row.getRetentionQty(), numberStyle);
-                setExportNumber(r, 17, row.getInboundQty(), numberStyle);
-                setExportNumber(r, 18, row.getUnitPrice(), moneyStyle);
-                setExportNumber(r, 19, row.getAmount(), moneyStyle);
-                setExportText(r, 20, row.getBatchNumber(), textStyle);
-                setExportText(r, 21, formatExportDate(row.getExpiryDate()), textStyle);
-                setExportText(r, 22, row.getDetailStatus(), textStyle);
-                setExportText(r, 23, row.getReturnReason(), textStyle);
-                setExportText(r, 24, row.getReturnRemark(), textStyle);
-                setExportText(r, 25, row.getSupplier(), textStyle);
+                setExportNumber(r, 16, row.getInboundQty(), numberStyle);
+                setExportNumber(r, 17, row.getUnitPrice(), moneyStyle);
+                setExportNumber(r, 18, row.getAmount(), moneyStyle);
+                setExportText(r, 19, row.getBatchNumber(), textStyle);
+                setExportText(r, 20, formatExportDate(row.getExpiryDate()), textStyle);
+                setExportText(r, 21, row.getDetailStatus(), textStyle);
+                setExportText(r, 22, row.getReturnReason(), textStyle);
+                setExportText(r, 23, row.getReturnRemark(), textStyle);
+                setExportText(r, 24, row.getSupplier(), textStyle);
             }
 
-            // 表尾合计行（采购数量/到货数量/取样数量/留样数量/入库数量/金额）
+            // 表尾合计行（采购数量/到货数量/取样数量/入库数量/金额）
             int lastDataRow = rowIndex - 1;
             Row total = sheet.createRow(rowIndex);
             Cell totalLabel = total.createCell(0);
@@ -1905,9 +1894,8 @@ public class AcceptanceOrderServiceImpl extends ServiceImpl<AcceptanceOrderMappe
             setExportNumber(total, 13, sumColumn(rows, AcceptanceExportRowDto::getQuantity), boldNumberStyle);
             setExportNumber(total, 14, sumColumn(rows, AcceptanceExportRowDto::getActualArrivalQty), boldNumberStyle);
             setExportNumber(total, 15, sumColumn(rows, AcceptanceExportRowDto::getSamplingQty), boldNumberStyle);
-            setExportNumber(total, 16, sumColumn(rows, AcceptanceExportRowDto::getRetentionQty), boldNumberStyle);
-            setExportNumber(total, 17, sumColumn(rows, AcceptanceExportRowDto::getInboundQty), boldNumberStyle);
-            setExportNumber(total, 19, sumColumn(rows, AcceptanceExportRowDto::getAmount), boldMoneyStyle);
+            setExportNumber(total, 16, sumColumn(rows, AcceptanceExportRowDto::getInboundQty), boldNumberStyle);
+            setExportNumber(total, 18, sumColumn(rows, AcceptanceExportRowDto::getAmount), boldMoneyStyle);
 
             // 冻结首行 + 自动筛选（筛选范围不含表尾合计行）
             sheet.createFreezePane(0, 1);

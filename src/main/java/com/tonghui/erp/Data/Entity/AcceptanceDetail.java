@@ -102,19 +102,13 @@ public class AcceptanceDetail {
     private BigDecimal actualArrivalQty;
 
     /**
-     * 取样数量（验收时抽取的检验样品数量，不计入入库；空按0处理）
+     * 取样数量（验收时抽取的检验样品数量；入库时按该数量扣减；空按0处理）
      */
     @TableField(value = "sampling_qty")
     private BigDecimal samplingQty;
 
     /**
-     * 留样数量（验收时留存样品数量，不计入入库；空按0处理）
-     */
-    @TableField(value = "retention_qty")
-    private BigDecimal retentionQty;
-
-    /**
-     * 入库数量（服务端计算的入库数量：基准数量−取样数量−留样数量；
+     * 入库数量（服务端计算的入库数量：基准数量−取样数量；
      * 生成入库单前为预计值，入库后为实际值快照，客户端不可写入）
      */
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
