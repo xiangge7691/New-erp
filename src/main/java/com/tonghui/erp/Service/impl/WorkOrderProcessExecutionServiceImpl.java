@@ -2,11 +2,14 @@ package com.tonghui.erp.Service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tonghui.erp.Common.Constants.BizFileType;
 import com.tonghui.erp.Common.Constants.PlanBatchStatus;
 import com.tonghui.erp.Common.Constants.ProcessExecutionStatus;
 import com.tonghui.erp.Common.utils.EquipmentUsageConflictValidator;
+import com.tonghui.erp.Common.utils.ExecutionRecordMatcher;
+import com.tonghui.erp.Common.utils.WorkOrderExecutionTimeValidator;
 import com.tonghui.erp.Data.Entity.PerformanceRecord;
 import com.tonghui.erp.Data.Entity.PreparationProcessTemplate;
 import com.tonghui.erp.Data.Entity.WorkOrder;
@@ -59,6 +62,10 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
     /** 设备使用冲突校验器 */
     @Autowired
     private EquipmentUsageConflictValidator equipmentUsageConflictValidator;
+
+    /** 实际执行时间校验器（任务时间窗 + 工序先后） */
+    @Autowired
+    private WorkOrderExecutionTimeValidator executionTimeValidator;
 
     /** 实际参与人 Mapper */
     @Autowired
@@ -269,6 +276,11 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
      * 只回传当前行（不带 id，仅带 planId/planBatchId 等定位字段）。后者的缺失字段按排产批次、
      * 工序计划与制剂工序模板补齐，并且只替换该工序/批次的既有记录，不会删除其他工序。
      * </p>
+     * <p>
+     * 定位规则：带 id 时按主键更新，但 id 的批次必须与本次提交的 planBatchId 一致，
+     * 否则视为客户端误传同工序其它批次的 executionId，改按「计划/批次」业务键重新定位，
+     * 避免多批次互相覆盖。更新时请求未携带的实际执行数据沿用原值。
+     * </p>
      *
      * @param workOrderId 工单ID
      * @param executions  工序执行记录列表
@@ -291,6 +303,7 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
         List<WorkOrderProcessExecution> rows = executions == null ? List.of() : executions;
         Set<Long> incomingIds = new HashSet<>();
         Set<Long> matchedIds = new HashSet<>();
+        Set<Long> affectedBatchIds = new HashSet<>();
         List<WorkOrderProcessExecution> toInsert = new ArrayList<>();
         List<WorkOrderProcessExecution> toUpdate = new ArrayList<>();
 
@@ -303,19 +316,22 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
             if (batch != null && execution.getPlanId() == null) {
                 execution.setPlanId(batch.getPlanId());
             }
-            WorkOrderProcessExecution existing = execution.getId() == null
-                    ? findExistingByPlanOrBatch(execution, existingList, matchedIds)
-                    : existingMap.get(execution.getId());
+            WorkOrderProcessExecution existing = ExecutionRecordMatcher.resolve(
+                    execution, existingList, existingMap, matchedIds);
             boolean businessKeyMatch = existing != null && execution.getId() == null;
             if (businessKeyMatch) {
                 execution.setId(existing.getId());
             }
-            enrichExecution(execution, existing, businessKeyMatch, batch, order.getPreparationId());
+            enrichExecution(execution, existing, batch, order.getPreparationId());
             execution.setStatus(ProcessExecutionStatus.resolve(
                     execution.getStartTime(), execution.getEndTime()));
             if (existing != null) {
                 if (Integer.valueOf(1).equals(existing.getLocked())) {
                     throw new IllegalArgumentException("工序【" + existing.getStepOrder() + "】已完工锁定，不能修改");
+                }
+                // 记录换批次/换归属时，原批次状态也要重算，避免残留「执行中/已完工」
+                if (existing.getPlanBatchId() != null) {
+                    affectedBatchIds.add(existing.getPlanBatchId());
                 }
                 incomingIds.add(existing.getId());
                 matchedIds.add(existing.getId());
@@ -328,11 +344,19 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
                 toInsert.add(execution);
             }
         }
+        // 本次提交涉及的目标批次同样需要刷新状态
+        rows.stream().map(WorkOrderProcessExecution::getPlanBatchId)
+                .filter(Objects::nonNull).forEach(affectedBatchIds::add);
 
         // 4. 设备使用冲突校验（必须在任何写库操作之前；此时设备与时间字段已补齐）
         equipmentUsageConflictValidator.validate(workOrderId, rows);
 
-        // 5. 更新与新增
+        // 5. 实际时间校验：任务配置时间窗 + 工序先后（同样必须在写库之前）
+        Set<Long> overwrittenIds = toUpdate.stream().map(WorkOrderProcessExecution::getId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        executionTimeValidator.validate(order, rows, overwrittenIds);
+
+        // 6. 更新与新增
         for (WorkOrderProcessExecution execution : toUpdate) {
             this.updateById(execution);
             // 显式更新可能为空的字段，避免 MyBatis-Plus 忽略 null
@@ -360,20 +384,21 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
             generateForCompleted(execution, false);
         }
 
-        // 6. 被本次提交替换的既有行：仅删除同一工序/批次的旧记录
-        Set<Long> affectedBatchIds = rows.stream().map(WorkOrderProcessExecution::getPlanBatchId)
-                .filter(Objects::nonNull).collect(Collectors.toCollection(HashSet::new));
+        // 7. 被本次提交替换的既有行：仅删除同一工序/批次的旧记录
         Set<Long> incomingBatchIds = rows.stream().map(WorkOrderProcessExecution::getPlanBatchId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<Integer> incomingBatchNos = rows.stream().map(WorkOrderProcessExecution::getBatchNo)
                 .filter(Objects::nonNull).collect(Collectors.toSet());
         Set<Long> incomingPlanIds = rows.stream().map(WorkOrderProcessExecution::getPlanId)
                 .filter(Objects::nonNull).collect(Collectors.toSet());
         Set<String> incomingProcessKeys = rows.stream()
                 .filter(e -> e.getProcessTypeId() != null && e.getStepOrder() != null)
-                .map(e -> processKey(e.getProcessTypeId(), e.getStepOrder()))
+                .map(e -> ExecutionRecordMatcher.processKey(e.getProcessTypeId(), e.getStepOrder()))
                 .collect(Collectors.toSet());
         for (WorkOrderProcessExecution old : existingList) {
             if (incomingIds.contains(old.getId())
-                    || !isReplacedByIncoming(old, incomingBatchIds, incomingPlanIds, incomingProcessKeys)) {
+                    || !ExecutionRecordMatcher.isReplacedByIncoming(old, incomingBatchIds, incomingBatchNos,
+                            incomingPlanIds, incomingProcessKeys)) {
                 continue;
             }
             // 已锁定、已 PDA 提交或已生成绩效的旧行不允许被替换删除，避免绩效与执行数据悬挂
@@ -385,7 +410,7 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
             baseMapper.physicalDeleteById(old.getId());
         }
 
-        // 7. 按最新实际执行记录刷新涉及批次的状态（计划中/执行中/已完工）
+        // 8. 按最新实际执行记录刷新涉及批次的状态（计划中/执行中/已完工）
         affectedBatchIds.forEach(this::refreshPlanBatchStatus);
     }
 
@@ -395,37 +420,6 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
     // ===================================
     // 工序字段补齐
     // ===================================
-
-    /**
-     * 按「计划批次 → 工序计划」定位既有执行记录
-     * <p>「实际生产」保存时只回传排产定位字段，用它把重复保存合并到同一条记录</p>
-     *
-     * @param row          待保存行（已解析 planId）
-     * @param existingList 工单现有执行记录
-     * @param matchedIds   本次已匹配的记录ID（避免同一行被重复复用）
-     * @return 匹配到的既有记录，未匹配返回 null
-     */
-    private WorkOrderProcessExecution findExistingByPlanOrBatch(WorkOrderProcessExecution row,
-                                                                List<WorkOrderProcessExecution> existingList,
-                                                                Set<Long> matchedIds) {
-        if (row.getPlanBatchId() != null) {
-            WorkOrderProcessExecution batchRow = existingList.stream()
-                    .filter(e -> !matchedIds.contains(e.getId()))
-                    .filter(e -> Objects.equals(row.getPlanBatchId(), e.getPlanBatchId()))
-                    .findFirst().orElse(null);
-            if (batchRow != null) {
-                return batchRow;
-            }
-        }
-        if (row.getPlanId() != null) {
-            return existingList.stream()
-                    .filter(e -> !matchedIds.contains(e.getId()))
-                    .filter(e -> Objects.equals(row.getPlanId(), e.getPlanId()))
-                    .filter(e -> e.getPlanBatchId() == null)
-                    .findFirst().orElse(null);
-        }
-        return null;
-    }
 
     /**
      * 按工单+工序类型+工序顺序匹配排产计划
@@ -453,19 +447,17 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
      * 补齐执行行的计划/批次/模板字段
      * <p>
      * 前端「实际生产」可能只传 planId/planBatchId，工序顺序、配置室、使用设备、关键工艺参数、
-     * 加工数量需从排产批次、工序计划与制剂工序模板回填；按业务键匹配到既有行时，
-     * 未携带的实际执行数据沿用原值，避免被空值覆盖。
+     * 加工数量需从排产批次、工序计划与制剂工序模板回填；更新既有行时，请求未携带的
+     * 实际执行数据一律沿用原值，避免「选人」等局部保存把已登记的实际起止清空。
      * </p>
      *
      * @param execution   待保存行
      * @param existing    匹配到的既有记录（可为空）
-     * @param businessKeyMatch 是否按计划/批次业务键匹配（是则保留既有实际数据）
      * @param batch       已解析的排产批次（可为空）
      * @param preparationId 制剂ID
      */
     private void enrichExecution(WorkOrderProcessExecution execution,
                                  WorkOrderProcessExecution existing,
-                                 boolean businessKeyMatch,
                                  WorkOrderProcessPlanBatch batch,
                                  Long preparationId) {
         // 3.1 既有记录优先：关联字段与模板带入字段缺失时沿用原值
@@ -500,26 +492,24 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
             if (!StringUtils.hasText(execution.getKeyProcessParams())) {
                 execution.setKeyProcessParams(existing.getKeyProcessParams());
             }
-            if (businessKeyMatch) {
-                // 实际生产数据未携带时沿用原值，避免局部保存清空已登记的执行信息
-                if (execution.getOperatorId() == null) {
-                    execution.setOperatorId(existing.getOperatorId());
-                }
-                if (!StringUtils.hasText(execution.getOperatorName())) {
-                    execution.setOperatorName(existing.getOperatorName());
-                }
-                if (execution.getStartTime() == null) {
-                    execution.setStartTime(existing.getStartTime());
-                }
-                if (execution.getEndTime() == null) {
-                    execution.setEndTime(existing.getEndTime());
-                }
-                if (execution.getProcessQty() == null) {
-                    execution.setProcessQty(existing.getProcessQty());
-                }
-                if (!StringUtils.hasText(execution.getRemark())) {
-                    execution.setRemark(existing.getRemark());
-                }
+            // 实际执行数据未携带时沿用原值，避免局部保存（如只改参与人）清空已登记的执行信息
+            if (execution.getOperatorId() == null) {
+                execution.setOperatorId(existing.getOperatorId());
+            }
+            if (!StringUtils.hasText(execution.getOperatorName())) {
+                execution.setOperatorName(existing.getOperatorName());
+            }
+            if (execution.getStartTime() == null) {
+                execution.setStartTime(existing.getStartTime());
+            }
+            if (execution.getEndTime() == null) {
+                execution.setEndTime(existing.getEndTime());
+            }
+            if (execution.getProcessQty() == null) {
+                execution.setProcessQty(existing.getProcessQty());
+            }
+            if (!StringUtils.hasText(execution.getRemark())) {
+                execution.setRemark(existing.getRemark());
             }
         }
 
@@ -571,7 +561,7 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
             execution.setUnitId(findTemplateUnitId(
                     preparationId, execution.getProcessTypeId(), execution.getStepOrder()));
         }
-        if (execution.getProcessQty() == null && (existing == null || businessKeyMatch)) {
+        if (execution.getProcessQty() == null && existing == null) {
             execution.setProcessQty(batch != null && batch.getPlanQty() != null
                     ? batch.getPlanQty() : plan == null ? null : plan.getPlanQty());
         }
@@ -630,43 +620,6 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
     private String findTemplateKeyProcessParams(Long preparationId, Long processTypeId, Integer stepOrder) {
         PreparationProcessTemplate template = findTemplate(preparationId, processTypeId, stepOrder);
         return template == null ? null : template.getKeyProcessParams();
-    }
-
-    /**
-     * 判断既有记录是否被本次提交的工序/批次替换
-     * <p>
-     * 只按同一工序（计划行或工序类型+顺序）或同一批次判断，避免像全量覆盖那样删除其他工序的执行记录。
-     * </p>
-     *
-     * @param old                 既有执行记录
-     * @param incomingBatchIds    本次提交涉及的批次ID
-     * @param incomingPlanIds     本次提交涉及的工序计划ID
-     * @param incomingProcessKeys 本次提交涉及的「工序类型#顺序」键
-     * @return 是否应删除
-     */
-    private boolean isReplacedByIncoming(WorkOrderProcessExecution old,
-                                         Set<Long> incomingBatchIds,
-                                         Set<Long> incomingPlanIds,
-                                         Set<String> incomingProcessKeys) {
-        if (old.getPlanBatchId() != null) {
-            return incomingBatchIds.contains(old.getPlanBatchId());
-        }
-        if (old.getPlanId() != null) {
-            return incomingPlanIds.contains(old.getPlanId());
-        }
-        return old.getProcessTypeId() != null && old.getStepOrder() != null
-                && incomingProcessKeys.contains(processKey(old.getProcessTypeId(), old.getStepOrder()));
-    }
-
-    /**
-     * 工序定位键：工序类型 + 工序顺序
-     *
-     * @param processTypeId 工序类型ID
-     * @param stepOrder     工序顺序
-     * @return 定位键
-     */
-    private String processKey(Long processTypeId, Integer stepOrder) {
-        return processTypeId + "#" + stepOrder;
     }
 
     /**
@@ -848,11 +801,33 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
         if (participantCount == 0) {
             throw new IllegalArgumentException("未登记参与人，无法生成绩效；请先登记参与人");
         }
+        // 执行中登记的参与人工时为 0（结束时间未知），完工时按最终实际区间回填
+        backfillParticipantWorkHours(executionId, execution.getStartTime(), end);
         performanceGenerationService.generateForExecution(executionId);
         // 按批次下全部执行记录的完成情况刷新批次状态，多个执行行分次完工时不会提前标记已完工
         refreshPlanBatchStatus(execution.getPlanBatchId());
         execution.setParticipants(participantMapper.selectByExecutionIdsWithPersonnel(List.of(executionId)));
         return execution;
+    }
+
+    /**
+     * 回填执行中登记的参与人工时
+     * <p>「实际生产」允许工序未完工时先登记参与人，此时个人工时暂记 0；完工后按实际起止补齐，
+     * 避免执行记录与绩效明细中的工时长期为 0。</p>
+     *
+     * @param executionId 执行记录ID
+     * @param start       实际开始时间
+     * @param end         实际结束时间
+     */
+    private void backfillParticipantWorkHours(Long executionId, LocalDateTime start, LocalDateTime end) {
+        BigDecimal hours = durationHours(start, end);
+        if (hours.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+        participantMapper.update(null, new LambdaUpdateWrapper<WorkOrderProcessExecutionParticipant>()
+                .eq(WorkOrderProcessExecutionParticipant::getExecutionId, executionId)
+                .le(WorkOrderProcessExecutionParticipant::getWorkHours, BigDecimal.ZERO)
+                .set(WorkOrderProcessExecutionParticipant::getWorkHours, hours));
     }
 
     /**
@@ -930,8 +905,10 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
             return;
         }
         Set<Long> personnelIds = new HashSet<>();
-        // 前端只登记参与人时，按工序实际起止计算个人工作时间
+        // 前端只登记参与人时，按工序实际起止计算个人工作时间；执行中的工序结束时间未知，
+        // 工时先记 0，待完工时按最终实际区间回填（绩效生成同样按执行区间兜底）
         BigDecimal defaultHours = durationHours(execution.getStartTime(), execution.getEndTime());
+        boolean durationKnown = execution.getStartTime() != null && execution.getEndTime() != null;
         for (WorkOrderProcessExecutionParticipant participant : participants) {
             if (participant.getPersonnelId() == null) {
                 throw new IllegalArgumentException("参与人必须关联人员档案");
@@ -944,7 +921,11 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
                 participant.setWorkHours(defaultHours);
             }
             if (participant.getWorkHours().compareTo(BigDecimal.ZERO) <= 0) {
-                throw new IllegalArgumentException("参与人工作时间必须大于 0");
+                if (durationKnown) {
+                    throw new IllegalArgumentException("参与人工作时间必须大于 0");
+                }
+                // 执行中：允许工时暂为 0，完工时统一回填
+                participant.setWorkHours(BigDecimal.ZERO);
             }
             if (participant.getCompletedQty() != null
                     && participant.getCompletedQty().compareTo(BigDecimal.ZERO) < 0) {

@@ -178,6 +178,9 @@
   - 班组快捷选人：`GET /api/production-teams/active` 取成员，勾选后写入 `participants`。
 - 「实际生产」页签：
   - 保存执行：`POST /api/work-order-process-execution/batch?workOrderId=`（可带 `unitId`，不传按执行记录→批次→计划→模板补齐）；
+  - 批次行只能用**该批次自己的** `executionId`（来自 `batches[].executionId`）。批次尚未登记实际生产时该值为空，不可回退使用工序级 `processes[].executionId`，否则会把同工序其它批次的记录改到自己名下；
+  - 保存时后端校验实际时间：开始不得早于任务配置时间（`configDate`），结束不得晚于配置完成时间（`configCompleteTime`，为空时只校验下界），且不得早于前序工序的实际结束；前序工序未完工时不允许开始。校验不通过返回 400，message 为具体原因；
+  - 只填开始时间即「执行中」，此时可登记参与人（个人工时先记 0，完工时按实际区间回填）；请求未携带的开始/结束时间、数量等字段沿用库中原值，局部保存（如只改参与人）不会清空已登记数据；
   - 完工：`POST /api/work-order-process-execution/{executionId}/complete`；
   - 参与人同样可按 `production-teams/active` 快捷选择；
   - 数量列与录入框使用执行记录返回的 `unitSymbol`。

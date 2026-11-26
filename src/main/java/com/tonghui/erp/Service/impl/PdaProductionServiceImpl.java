@@ -14,6 +14,7 @@ import com.tonghui.erp.Common.Dto.Pda.PdaPunchRequest;
 import com.tonghui.erp.Common.Dto.Pda.PdaRecordDto;
 import com.tonghui.erp.Common.Dto.Pda.PdaTaskDto;
 import com.tonghui.erp.Common.utils.EntityUtils;
+import com.tonghui.erp.Common.utils.WorkOrderExecutionTimeValidator;
 import com.tonghui.erp.Data.Entity.BusinessFile;
 import com.tonghui.erp.Data.Entity.Equipment;
 import com.tonghui.erp.Data.Entity.PersonnelFile;
@@ -107,6 +108,10 @@ public class PdaProductionServiceImpl implements PdaProductionService {
     /** 绩效生成服务（PDA 提交后生成绩效记录） */
     @Autowired
     private PerformanceGenerationService performanceGenerationService;
+
+    /** 实际执行时间校验器（任务时间窗 + 工序先后） */
+    @Autowired
+    private WorkOrderExecutionTimeValidator executionTimeValidator;
 
     // region 查询
 
@@ -754,6 +759,8 @@ public class PdaProductionServiceImpl implements PdaProductionService {
         assertEquipmentFree(execution, equipment, execution.getStartTime(), now);
         execution.setEndTime(now);
         execution.setStatus("已完成");
+        // 结束打点同样要满足任务时间窗与工序先后，避免 PDA 绕过 PC 的校验
+        validateExecutionTime(execution);
         if (StringUtils.hasText(request.getDeviceNo())) {
             execution.setPdaDeviceNo(request.getDeviceNo());
         }
@@ -805,6 +812,7 @@ public class PdaProductionServiceImpl implements PdaProductionService {
             throw new IllegalArgumentException("每道工序最多 9 张照片");
         }
         applyFields(execution, request);
+        validateExecutionTime(execution);
         execution.setPdaSubmitted(1);
         execution.setPdaSubmitBy(EntityUtils.getCurrentUserId());
         execution.setPdaSubmitTime(nowMinute());
@@ -817,6 +825,20 @@ public class PdaProductionServiceImpl implements PdaProductionService {
         performanceGenerationService.generateForExecution(executionId);
         executionService.refreshPlanBatchStatus(execution.getPlanBatchId());
         return loadProcess(execution);
+    }
+
+    /**
+     * 校验本次打点/提交的实际时间
+     * <p>必须落在任务配置时间窗内，且不得早于前序工序的实际结束时间；校验排除本记录原值。</p>
+     *
+     * @param execution 执行记录（已应用本次提交的起止时间）
+     */
+    private void validateExecutionTime(WorkOrderProcessExecution execution) {
+        if (execution.getStartTime() == null) {
+            return;
+        }
+        WorkOrder order = workOrderMapper.selectById(execution.getWorkOrderId());
+        executionTimeValidator.validate(order, List.of(execution), Set.of(execution.getId()));
     }
 
     private WorkOrderProcessExecution requireEditable(Long executionId) {

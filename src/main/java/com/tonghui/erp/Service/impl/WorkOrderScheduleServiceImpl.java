@@ -322,6 +322,7 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
         detail.setBatchQty(order.getBatchQty());
         detail.setCurrentStatus(order.getCurrentStatus());
         detail.setConfigDate(order.getConfigDate());
+        detail.setConfigCompleteTime(order.getConfigCompleteTime());
         detail.setPlanStartTime(order.getPlanStartTime());
 
         List<WorkOrderProcessPlan> plans = planMapper.selectByWorkOrderIdWithDetails(workOrderId);

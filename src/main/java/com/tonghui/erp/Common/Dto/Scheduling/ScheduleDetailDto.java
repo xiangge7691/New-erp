@@ -48,6 +48,9 @@ public class ScheduleDetailDto {
     /** 配置日期 */
     private LocalDateTime configDate;
 
+    /** 配置完成时间（为 null 表示任务尚未配置完成） */
+    private LocalDateTime configCompleteTime;
+
     /** 任务计划开始时间 */
     private LocalDateTime planStartTime;
 
