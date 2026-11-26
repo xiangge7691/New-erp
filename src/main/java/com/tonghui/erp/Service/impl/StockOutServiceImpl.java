@@ -189,6 +189,8 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
                             detail.setRelatedInCode(stockIn.getInCode());
                         }
                     }
+                    // 物品类型以库存批次为准（成品为 preparation），避免成品被误记为物料
+                    detail.setItemType(resolveItemType(stock, detail));
                 }
             }
             if (detail.getItemType() == null) {
@@ -308,6 +310,10 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
         if (!StringUtils.hasText(detail.getUnitName())) {
             detail.setUnitName(matched.getUnitName());
         }
+        // 物品类型以库存批次为准（成品为 preparation），避免成品被误记为物料
+        if (detail.getItemType() == null) {
+            detail.setItemType(resolveItemType(matched, detail));
+        }
         stockOutDetailMapper.insert(detail);
 
         return draft;
@@ -401,7 +407,8 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
                 detail.setAmount(detail.getQuantity().multiply(detail.getUnitPrice()).setScale(2, RoundingMode.HALF_UP));
             }
             if (detail.getItemType() == null) {
-                detail.setItemType("material");
+                // 物品类型以库存批次为准（成品为 preparation），避免成品被误记为物料
+                detail.setItemType(resolveItemType(stock, detail));
             }
             if (detail.getIsDeleted() == null) {
                 detail.setIsDeleted(0);
@@ -460,6 +467,36 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
             return List.of();
         }
         return findAvailableBatches(materialCode, requiredQty);
+    }
+
+    /**
+     * 解析出库明细的物品类型
+     * <p>
+     * 以库存批次为准：优先取库存 itemType；其次按分类判断（成品→preparation）；
+     * 再回退明细自带值；最后兜底 material。
+     * 用于报损出库等允许选择成品的场景，避免成品明细被误记为物料。
+     * </p>
+     *
+     * @param stock  库存批次（可空）
+     * @param detail 出库明细（可空，用于分类与自带值兜底）
+     * @return 物品类型：material/preparation
+     */
+    private String resolveItemType(Stock stock, StockOutDetail detail) {
+        if (stock != null && stock.getItemType() != null
+                && StringUtils.hasText(String.valueOf(stock.getItemType()))) {
+            return String.valueOf(stock.getItemType());
+        }
+        String categoryName = detail != null && StringUtils.hasText(detail.getCategoryName())
+                ? detail.getCategoryName()
+                : (stock != null ? stock.getCategoryName() : null);
+        if (StringUtils.hasText(categoryName) && "成品".equals(categoryName.trim())) {
+            return "preparation";
+        }
+        if (detail != null && detail.getItemType() != null
+                && StringUtils.hasText(String.valueOf(detail.getItemType()))) {
+            return String.valueOf(detail.getItemType());
+        }
+        return "material";
     }
 
     /**
@@ -1355,6 +1392,8 @@ public class StockOutServiceImpl extends ServiceImpl<StockOutMapper, StockOut> i
                 Stock stock = stockMapper.selectById(item.getStockId());
                 if (stock != null) {
                     detail.setProdUnitId(stock.getProdUnitId());
+                    // 物品类型以库存批次为准（成品为 preparation）
+                    detail.setItemType(resolveItemType(stock, detail));
                     if (stock.getStockInId() != null) {
                         StockIn stockIn = stockInMapper.selectById(stock.getStockInId());
                         if (stockIn != null) {

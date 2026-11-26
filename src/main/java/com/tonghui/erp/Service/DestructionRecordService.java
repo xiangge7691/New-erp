@@ -6,6 +6,7 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Quality.DestructionRecordSaveDto;
 import com.tonghui.erp.Common.Dto.Quality.DestructionRecordWithDetailsDto;
 import com.tonghui.erp.Common.Dto.Quality.RetainedSampleOptionDto;
+import com.tonghui.erp.Common.Dto.Quality.WorkOrderOptionDto;
 import com.tonghui.erp.Data.Entity.DestructionRecord;
 import com.tonghui.erp.Data.Entity.FileInfo;
 
@@ -15,7 +16,14 @@ import java.util.List;
  * 销毁记录服务接口
  * <p>
  * 提供销毁记录（不合格品销毁/留样及稳定性考察产品销毁）的CRUD、条件分页查询、
- * 销毁单号生成、作废及关联留样下拉查询等业务能力
+ * 销毁单号生成、作废、关联留样与生产任务下拉查询等业务能力
+ * </p>
+ * <p>
+ * 类型口径：原辅包/中间品/成品销毁统一按「不合格品销毁」登记（明细以品名类别区分），
+ * 「物料销毁」类型已并入，不再允许新建，历史单据仍可查询与修改
+ * </p>
+ * <p>
+ * 生产任务关联：非必填，不限制任务状态，保存时快照任务编号与名称，不联动任务状态、不关联库存
  * </p>
  * <p>
  * 作废语义：不提供删除接口，作废后禁止修改；更新时明细整体重建
@@ -99,6 +107,14 @@ public interface DestructionRecordService extends IService<DestructionRecord> {
      * @return 附件文件列表
      */
     List<FileInfo> getAttachments(Long id);
+
+    /**
+     * 生产任务下拉查询（不限制任务状态，关键字模糊匹配任务编号/任务名称/制剂名称/批号）
+     *
+     * @param keyword 关键字（可空）
+     * @return 下拉选项列表（最多20条）
+     */
+    List<WorkOrderOptionDto> searchWorkOrders(String keyword);
 
     /**
      * 留样下拉查询（仅返回状态为留样中的记录，关键字模糊匹配留样编号/物料名称/批号）

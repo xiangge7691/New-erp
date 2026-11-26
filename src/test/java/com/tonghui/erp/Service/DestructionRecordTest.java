@@ -10,6 +10,8 @@ import com.tonghui.erp.Common.Dto.Quality.RetainedSampleOptionDto;
 import com.tonghui.erp.Data.Entity.DestructionRecord;
 import com.tonghui.erp.Data.Entity.DestructionRecordDetail;
 import com.tonghui.erp.Data.Entity.RetainedSample;
+import com.tonghui.erp.Data.Entity.WorkOrder;
+import com.tonghui.erp.Data.mapper.WorkOrderMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,6 +22,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * 销毁记录模块专项测试
@@ -33,7 +36,9 @@ import static org.junit.jupiter.api.Assertions.*;
  * 6. 条件分页查询（批号/品名类别经明细命中主表）
  * 7. 详情/列表明细行回填关联留样编号（retainedCode）
  * 8. 列表返回创建人姓名（createdByName）及明细列表（details）
- * 9. 物料销毁（原辅包/中间品/成品）：品名类别、单位必填，不联动留样与库存
+ * 9. 原辅包/中间品/成品销毁并入「不合格品销毁」：品名类别、单位与数量必填；
+ *    「物料销毁」不允许新建，仅历史数据可修改
+ * 10. 关联生产任务：保存时快照任务编号与名称，取消关联时清空快照，不联动任务状态与库存
  * 全部用例使用事务回滚，不污染数据库
  * </p>
  */
@@ -69,6 +74,12 @@ public class DestructionRecordTest {
      */
     @Autowired
     private com.tonghui.erp.Data.mapper.DestructionRecordDetailMapper destructionRecordDetailMapper;
+
+    /**
+     * 生产任务Mapper（查询测试用生产任务）
+     */
+    @Autowired
+    private WorkOrderMapper workOrderMapper;
 
     // endregion
 
@@ -483,14 +494,15 @@ public class DestructionRecordTest {
     }
 
     /**
-     * 测试物料销毁登记：原辅包/中间品/成品三类明细落库，合计数量由明细求和
+     * 测试不合格品销毁（原辅包/中间品/成品并入）：三类明细落库，合计数量由明细求和
      */
     @Test
-    public void testCreateMaterialDestructionWithCategories() {
-        DestructionRecord created = destructionRecordService.create(buildMaterialSaveDto());
+    public void testCreateUnqualifiedDestructionWithCategories() {
+        DestructionRecord created = destructionRecordService.create(buildCategorySaveDto());
         assertEquals(0, new BigDecimal("90.5").compareTo(created.getTotalQuantity()),
                 "合计数量应为明细数量之和");
-        assertTrue(created.getDestructionCode().startsWith("WLXH-"), "物料销毁单号应以WLXH-开头");
+        assertTrue(created.getDestructionCode().startsWith("BPXH-"),
+                "并入后原辅包/中间品/成品销毁应使用不合格品销毁单号");
 
         DestructionRecordWithDetailsDto detail = destructionRecordService.getDetail(created.getId());
         assertEquals(3, detail.getDetails().size(), "明细应有3行");
@@ -503,35 +515,42 @@ public class DestructionRecordTest {
     }
 
     /**
-     * 测试物料销毁必填校验：品名类别/单位/数量与留样引用限制
+     * 测试不合格品销毁必填校验：品名类别/单位/数量（原辅包/中间品/成品并入后口径）
      */
     @Test
-    public void testMaterialDestructionValidation() {
+    public void testUnqualifiedDestructionValidation() {
         // 品名类别缺失
-        DestructionRecordSaveDto missingCategory = buildMaterialSaveDto();
+        DestructionRecordSaveDto missingCategory = buildCategorySaveDto();
         missingCategory.getDetails().get(0).setItemCategory(null);
         assertThrows(RuntimeException.class, () -> destructionRecordService.create(missingCategory),
-                "物料销毁品名类别缺失应抛异常");
+                "不合格品销毁品名类别缺失应抛异常");
         // 品名类别非法
-        DestructionRecordSaveDto invalidCategory = buildMaterialSaveDto();
+        DestructionRecordSaveDto invalidCategory = buildCategorySaveDto();
         invalidCategory.getDetails().get(0).setItemCategory("半成品");
         assertThrows(RuntimeException.class, () -> destructionRecordService.create(invalidCategory),
-                "物料销毁品名类别非法应抛异常");
+                "不合格品销毁品名类别非法应抛异常");
         // 数量为0
-        DestructionRecordSaveDto zeroQuantity = buildMaterialSaveDto();
+        DestructionRecordSaveDto zeroQuantity = buildCategorySaveDto();
         zeroQuantity.getDetails().get(0).setQuantity(BigDecimal.ZERO);
         assertThrows(RuntimeException.class, () -> destructionRecordService.create(zeroQuantity),
-                "物料销毁数量为0应抛异常");
+                "不合格品销毁数量为0应抛异常");
         // 单位缺失
-        DestructionRecordSaveDto missingUnit = buildMaterialSaveDto();
+        DestructionRecordSaveDto missingUnit = buildCategorySaveDto();
         missingUnit.getDetails().get(0).setUnitName(null);
         assertThrows(RuntimeException.class, () -> destructionRecordService.create(missingUnit),
-                "物料销毁单位缺失应抛异常");
-        // 不允许关联留样记录
-        DestructionRecordSaveDto linkedSample = buildMaterialSaveDto();
-        linkedSample.getDetails().get(0).setRetainedSampleId(1L);
-        assertThrows(RuntimeException.class, () -> destructionRecordService.create(linkedSample),
-                "物料销毁关联留样应抛异常");
+                "不合格品销毁单位缺失应抛异常");
+    }
+
+    /**
+     * 测试物料销毁类型已并入：不允许新建，提示使用不合格品销毁
+     */
+    @Test
+    public void testLegacyMaterialTypeCannotBeCreated() {
+        DestructionRecordSaveDto dto = buildCategorySaveDto();
+        dto.setRecordType(DestructionRecord.TYPE_MATERIAL);
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> destructionRecordService.create(dto), "物料销毁类型不应允许新建");
+        assertTrue(ex.getMessage().contains("已并入"), "提示应说明已并入不合格品销毁");
     }
 
     /**
@@ -539,7 +558,7 @@ public class DestructionRecordTest {
      */
     @Test
     public void testSearchByItemCategory() {
-        DestructionRecordSaveDto dto = buildMaterialSaveDto();
+        DestructionRecordSaveDto dto = buildCategorySaveDto();
         // 仅保留成品明细，便于验证类别过滤
         dto.setDetails(List.of(dto.getDetails().get(2)));
         DestructionRecord created = destructionRecordService.create(dto);
@@ -548,15 +567,65 @@ public class DestructionRecordTest {
         pageRequest.setPageIndex(-1);
         pageRequest.setPageSize(-1);
         PagedResult<DestructionRecordWithDetailsDto> byCategory = destructionRecordService.search(
-                DestructionRecord.TYPE_MATERIAL, created.getDestructionCode(), null, "成品",
+                DestructionRecord.TYPE_UNQUALIFIED, created.getDestructionCode(), null, "成品",
                 null, null, null, pageRequest);
         assertTrue(byCategory.getItems().stream().anyMatch(r -> r.getId().equals(created.getId())),
                 "按品名类别成品应命中主表");
         PagedResult<DestructionRecordWithDetailsDto> noMatch = destructionRecordService.search(
-                DestructionRecord.TYPE_MATERIAL, created.getDestructionCode(), null, "生产原料",
+                DestructionRecord.TYPE_UNQUALIFIED, created.getDestructionCode(), null, "生产原料",
                 null, null, null, pageRequest);
         assertFalse(noMatch.getItems().stream().anyMatch(r -> r.getId().equals(created.getId())),
                 "不存在的品名类别不应命中主表");
+    }
+
+    /**
+     * 测试关联生产任务：保存时快照任务编号与名称，取消关联时清空快照
+     */
+    @Test
+    public void testWorkOrderSnapshotAndClear() {
+        WorkOrder workOrder = findAnyWorkOrder();
+        assumeTrue(workOrder != null, "测试库无生产任务数据，跳过关联用例");
+
+        DestructionRecordSaveDto dto = buildSaveDto();
+        dto.setWorkOrderId(workOrder.getWorkOrderId());
+        DestructionRecord created = destructionRecordService.create(dto);
+        assertEquals(workOrder.getWorkOrderId(), created.getWorkOrderId(), "关联任务ID应落库");
+        assertEquals(workOrder.getWorkOrderCode(), created.getWorkOrderCode(), "任务编号应快照落库");
+        assertEquals(workOrder.getWorkOrderName(), created.getWorkOrderName(), "任务名称应快照落库");
+
+        // 取消关联：workOrderId 为空时三个快照字段应被清空（updateById 忽略 null，服务端显式清空）
+        DestructionRecordSaveDto updateDto = buildSaveDto();
+        DestructionRecord updated = destructionRecordService.update(created.getId(), updateDto);
+        assertNull(updated.getWorkOrderId(), "取消关联后任务ID应为空");
+        assertNull(updated.getWorkOrderCode(), "取消关联后任务编号快照应为空");
+        assertNull(updated.getWorkOrderName(), "取消关联后任务名称快照应为空");
+    }
+
+    /**
+     * 测试关联不存在的生产任务：应拒绝保存
+     */
+    @Test
+    public void testWorkOrderNotFoundRejected() {
+        DestructionRecordSaveDto dto = buildSaveDto();
+        dto.setWorkOrderId(-1L);
+        assertThrows(RuntimeException.class, () -> destructionRecordService.create(dto),
+                "关联不存在的生产任务应抛异常");
+    }
+
+    /**
+     * 测试生产任务下拉：不限制任务状态，关键字可命中任务编号
+     */
+    @Test
+    public void testSearchWorkOrders() {
+        WorkOrder workOrder = findAnyWorkOrder();
+        assumeTrue(workOrder != null, "测试库无生产任务数据，跳过多拉用例");
+
+        List<com.tonghui.erp.Common.Dto.Quality.WorkOrderOptionDto> options =
+                destructionRecordService.searchWorkOrders(workOrder.getWorkOrderCode());
+        assertTrue(options.stream().anyMatch(o -> workOrder.getWorkOrderId().equals(o.getWorkOrderId())),
+                "按任务编号应命中下拉选项");
+        assertTrue(options.stream().anyMatch(o -> o.getWorkOrderName() != null),
+                "下拉选项应携带任务名称");
     }
 
     // endregion
@@ -585,11 +654,15 @@ public class DestructionRecordTest {
         detail1.setSpec("食品级");
         detail1.setBatchNo("20260701");
         detail1.setQuantity(new BigDecimal("50.5"));
+        detail1.setItemCategory("生产原料");
+        detail1.setUnitName("kg");
         DestructionRecordDetailSaveDto detail2 = new DestructionRecordDetailSaveDto();
         detail2.setMaterialName("淀粉");
         detail2.setSpec("药用");
         detail2.setBatchNo("20260615");
         detail2.setQuantity(new BigDecimal("30.0"));
+        detail2.setItemCategory("中间产品");
+        detail2.setUnitName("L");
         List<DestructionRecordDetailSaveDto> details = new java.util.ArrayList<>();
         details.add(detail1);
         details.add(detail2);
@@ -598,13 +671,13 @@ public class DestructionRecordTest {
     }
 
     /**
-     * 构建物料销毁保存请求体（物料销毁类型，3行明细分别覆盖生产原料/中间产品/成品）
+     * 构建不合格品销毁保存请求体（原辅包/中间品/成品并入后，3行明细分别覆盖生产原料/中间产品/成品）
      *
      * @return 保存请求体
      */
-    private DestructionRecordSaveDto buildMaterialSaveDto() {
+    private DestructionRecordSaveDto buildCategorySaveDto() {
         DestructionRecordSaveDto dto = new DestructionRecordSaveDto();
-        dto.setRecordType(DestructionRecord.TYPE_MATERIAL);
+        dto.setRecordType(DestructionRecord.TYPE_UNQUALIFIED);
         dto.setDestroyReason("过期报废");
         dto.setDestroyMethod("交有资质单位高温焚烧");
         dto.setDestroyLocation("厂区危废暂存间");
@@ -656,6 +729,15 @@ public class DestructionRecordTest {
         sample.setStatus(RetainedSample.STATUS_RETAINING);
         assertTrue(retainedSampleService.save(sample), "新增留样应成功");
         return sample;
+    }
+
+    /**
+     * 查询任意一条生产任务（用于生产任务关联用例，不限制任务状态）
+     *
+     * @return 生产任务，测试库无数据时返回null
+     */
+    private WorkOrder findAnyWorkOrder() {
+        return workOrderMapper.selectOne(new LambdaQueryWrapper<WorkOrder>().last("LIMIT 1"));
     }
 
     /**

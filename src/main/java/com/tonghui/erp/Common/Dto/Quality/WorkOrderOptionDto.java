@@ -27,6 +27,11 @@ public class WorkOrderOptionDto {
     private String workOrderCode;
 
     /**
+     * 生产任务名称（前端下拉与台账展示）
+     */
+    private String workOrderName;
+
+    /**
      * 制剂名称
      */
     private String preparationName;

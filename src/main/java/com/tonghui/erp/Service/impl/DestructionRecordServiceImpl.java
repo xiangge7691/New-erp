@@ -10,17 +10,20 @@ import com.tonghui.erp.Common.Dto.Quality.DestructionRecordDetailSaveDto;
 import com.tonghui.erp.Common.Dto.Quality.DestructionRecordSaveDto;
 import com.tonghui.erp.Common.Dto.Quality.DestructionRecordWithDetailsDto;
 import com.tonghui.erp.Common.Dto.Quality.RetainedSampleOptionDto;
+import com.tonghui.erp.Common.Dto.Quality.WorkOrderOptionDto;
 import com.tonghui.erp.Common.utils.EntityUtils;
 import com.tonghui.erp.Data.Entity.DestructionRecord;
 import com.tonghui.erp.Data.Entity.DestructionRecordDetail;
 import com.tonghui.erp.Data.Entity.FileInfo;
 import com.tonghui.erp.Data.Entity.RetainedSample;
 import com.tonghui.erp.Data.Entity.User;
+import com.tonghui.erp.Data.Entity.WorkOrder;
 import com.tonghui.erp.Data.mapper.DestructionRecordDetailMapper;
 import com.tonghui.erp.Data.mapper.DestructionRecordMapper;
 import com.tonghui.erp.Data.mapper.FileInfoMapper;
 import com.tonghui.erp.Data.mapper.RetainedSampleMapper;
 import com.tonghui.erp.Data.mapper.UserMapper;
+import com.tonghui.erp.Data.mapper.WorkOrderMapper;
 import com.tonghui.erp.Service.DestructionRecordService;
 import com.tonghui.erp.Service.FileInfoService;
 import com.tonghui.erp.Service.FileStorageService;
@@ -42,7 +45,7 @@ import java.util.stream.Collectors;
 /**
  * 销毁记录服务实现类
  * <p>
- * 实现销毁记录（不合格品销毁/留样及稳定性考察产品销毁/物料销毁）的业务规则：
+ * 实现销毁记录（不合格品销毁/留样及稳定性考察产品销毁）的业务规则：
  * 1. 销毁单号按记录类型选择前缀（BPXH/LYXH/WLXH）自动生成，不可修改，唯一索引冲突时自动重试（最多3次）
  * 2. 合计数量由服务端按明细数量求和计算，前端不传
  * 3. 更新时明细整体重建（按destruction_id物理删除旧行再整单重插）
@@ -50,7 +53,10 @@ import java.util.stream.Collectors;
  * 5. 留样反写联动：仅「留样及稳定性考察产品销毁」类型生效，明细retained_sample_id命中留样时
  *    置留样为已销毁并写入销毁日期；移除引用、类型变更或销毁单作废时回滚为留样中
  *    （仍被其他正常销毁单引用则不回滚，且保存时禁止同一留样被多张正常销毁单引用）
- * 6. 不合格品销毁类型仅保存retained_sample_id作追溯引用，不联动留样状态
+ * 6. 类型口径：原辅包/中间品/成品销毁统一按「不合格品销毁」登记，明细必须携带品名类别与计量单位；
+ *    「物料销毁」已并入，不再允许新建，历史单据仍可查询与修改
+ * 7. 生产任务关联：非必填，保存时按 work_order_id 快照任务编号与名称，不限制任务状态，
+ *    不联动任务状态、不关联库存
  * </p>
  */
 @Service
@@ -116,6 +122,12 @@ public class DestructionRecordServiceImpl extends ServiceImpl<DestructionRecordM
      */
     @Autowired
     private RetainedSampleMapper retainedSampleMapper;
+
+    /**
+     * 生产任务Mapper（关联任务快照与下拉查询）
+     */
+    @Autowired
+    private WorkOrderMapper workOrderMapper;
 
     /**
      * 文件信息Mapper（附件绑定/解绑）
@@ -291,6 +303,29 @@ public class DestructionRecordServiceImpl extends ServiceImpl<DestructionRecordM
         }).collect(Collectors.toList());
     }
 
+    @Override
+    public List<WorkOrderOptionDto> searchWorkOrders(String keyword) {
+        LambdaQueryWrapper<WorkOrder> wrapper = new LambdaQueryWrapper<>();
+        // 需求明确「不管状态」：不按任务状态过滤，全部任务均可被销毁记录引用
+        if (StringUtils.hasText(keyword)) {
+            wrapper.and(w -> w.like(WorkOrder::getWorkOrderCode, keyword)
+                    .or().like(WorkOrder::getWorkOrderName, keyword)
+                    .or().like(WorkOrder::getPreparationName, keyword)
+                    .or().like(WorkOrder::getBatchNumber, keyword));
+        }
+        wrapper.orderByDesc(WorkOrder::getCreatedTime);
+        wrapper.last("LIMIT 20");
+        return workOrderMapper.selectList(wrapper).stream().map(workOrder -> {
+            WorkOrderOptionDto option = new WorkOrderOptionDto();
+            option.setWorkOrderId(workOrder.getWorkOrderId());
+            option.setWorkOrderCode(workOrder.getWorkOrderCode());
+            option.setWorkOrderName(workOrder.getWorkOrderName());
+            option.setPreparationName(workOrder.getPreparationName());
+            option.setBatchNumber(workOrder.getBatchNumber());
+            return option;
+        }).collect(Collectors.toList());
+    }
+
     // endregion
 
     // region 新增与修改
@@ -301,9 +336,15 @@ public class DestructionRecordServiceImpl extends ServiceImpl<DestructionRecordM
     @Override
     @Transactional
     public DestructionRecord create(DestructionRecordSaveDto dto) {
-        validateRequired(dto);
+        // 「物料销毁」已并入「不合格品销毁」：禁止新建，历史单据仍可查询与修改
+        if (DestructionRecord.TYPE_MATERIAL.equals(dto.getRecordType())) {
+            throw new RuntimeException("「物料销毁」类型已并入「不合格品销毁」，请使用不合格品销毁登记");
+        }
+        validateRequired(dto, false);
         DestructionRecord record = new DestructionRecord();
         BeanUtils.copyProperties(dto, record);
+        // 关联生产任务快照（非必填，不限制任务状态）
+        snapshotWorkOrder(record, dto.getWorkOrderId());
         // 合计数量由服务端按明细求和计算
         record.setTotalQuantity(sumDetailQuantity(dto.getDetails()));
         // 状态默认正常
@@ -341,7 +382,10 @@ public class DestructionRecordServiceImpl extends ServiceImpl<DestructionRecordM
         if (DestructionRecord.STATUS_VOID.equals(existing.getStatus())) {
             throw new RuntimeException("已作废的销毁记录不能修改");
         }
-        validateRequired(dto);
+        // 历史「物料销毁」单据允许继续按原类型修改；其余类型按并入后的口径校验
+        boolean legacyMaterial = DestructionRecord.TYPE_MATERIAL.equals(existing.getRecordType())
+                && DestructionRecord.TYPE_MATERIAL.equals(dto.getRecordType());
+        validateRequired(dto, legacyMaterial);
         // 明细重建前先收集旧引用留样，用于后续回滚判断
         Set<Long> oldSampleIds = collectReferencedSampleIds(id);
         DestructionRecord record = new DestructionRecord();
@@ -352,7 +396,18 @@ public class DestructionRecordServiceImpl extends ServiceImpl<DestructionRecordM
         record.setId(id);
         // 合计数量由服务端按明细求和计算
         record.setTotalQuantity(sumDetailQuantity(dto.getDetails()));
+        // 关联生产任务快照（非必填；未关联时在 updateById 后显式清空）
+        snapshotWorkOrder(record, dto.getWorkOrderId());
         baseMapper.updateById(record);
+        // updateById 忽略 null 字段，取消关联生产任务时需显式清空三个快照字段
+        if (dto.getWorkOrderId() == null) {
+            UpdateWrapper<DestructionRecord> clearWorkOrder = new UpdateWrapper<>();
+            clearWorkOrder.eq("id", id)
+                    .set("work_order_id", null)
+                    .set("work_order_code", null)
+                    .set("work_order_name", null);
+            baseMapper.update(null, clearWorkOrder);
+        }
         // 明细整体重建：物理删除旧行再整单重插
         destructionRecordDetailMapper.physicalDeleteByDestructionId(id);
         saveDetails(id, dto.getDetails());
@@ -436,14 +491,42 @@ public class DestructionRecordServiceImpl extends ServiceImpl<DestructionRecordM
     }
 
     /**
+     * 关联生产任务快照：按ID带出任务编号与名称写入销毁记录
+     * <p>不限制任务状态（需求明确「不管状态」），仅作追溯引用，不联动任务状态</p>
+     *
+     * @param record      销毁记录（快照字段将写入该对象）
+     * @param workOrderId 关联生产任务ID（可为空，为空时不处理）
+     */
+    private void snapshotWorkOrder(DestructionRecord record, Long workOrderId) {
+        if (workOrderId == null) {
+            return;
+        }
+        WorkOrder workOrder = workOrderMapper.selectById(workOrderId);
+        if (workOrder == null) {
+            throw new RuntimeException("关联生产任务不存在：" + workOrderId);
+        }
+        record.setWorkOrderId(workOrderId);
+        record.setWorkOrderCode(workOrder.getWorkOrderCode());
+        record.setWorkOrderName(workOrder.getWorkOrderName());
+    }
+
+    /**
      * 校验新增/修改必填字段
      *
-     * @param dto 保存请求体
+     * @param dto                 保存请求体
+     * @param allowLegacyMaterial 是否允许按历史「物料销毁」口径校验（仅历史单据修改时为true）
      */
-    private void validateRequired(DestructionRecordSaveDto dto) {
+    private void validateRequired(DestructionRecordSaveDto dto, boolean allowLegacyMaterial) {
         // 记录类型必填且合法（resolvePrefix内部校验合法性）
         resolvePrefix(dto.getRecordType());
         boolean materialType = DestructionRecord.TYPE_MATERIAL.equals(dto.getRecordType());
+        if (materialType && !allowLegacyMaterial) {
+            throw new RuntimeException("「物料销毁」类型已并入「不合格品销毁」，请使用不合格品销毁登记");
+        }
+        // 不合格品销毁（并入原辅包/中间品/成品销毁）与历史物料销毁同样要求品名类别、单位与数量
+        boolean itemFieldsRequired = materialType
+                || DestructionRecord.TYPE_UNQUALIFIED.equals(dto.getRecordType());
+        String typeLabel = materialType ? "物料销毁" : "不合格品销毁";
         // 明细必填且至少1行
         if (dto.getDetails() == null || dto.getDetails().isEmpty()) {
             throw new RuntimeException("销毁明细不能为空，至少需要1行");
@@ -456,7 +539,7 @@ public class DestructionRecordServiceImpl extends ServiceImpl<DestructionRecordM
             if (materialName.length() > 100) {
                 throw new RuntimeException("明细品名不能超过100字符");
             }
-            // 所有类型：数量不得为负（旧类型允许为空/0，保持兼容）
+            // 所有类型：数量不得为负（留样销毁类型允许为空/0，保持兼容）
             if (detail.getQuantity() != null && detail.getQuantity().compareTo(BigDecimal.ZERO) < 0) {
                 throw new RuntimeException("销毁数量不能为负数: " + materialName);
             }
@@ -464,26 +547,27 @@ public class DestructionRecordServiceImpl extends ServiceImpl<DestructionRecordM
                     ? detail.getItemCategory().trim() : null;
             String unitName = StringUtils.hasText(detail.getUnitName())
                     ? detail.getUnitName().trim() : null;
-            if (materialType) {
-                // 物料销毁：数量/品名类别/单位必填，且不允许关联留样记录（独立台账，不联动留样）
+            if (itemFieldsRequired) {
+                // 不合格品销毁/物料销毁：数量/品名类别/单位必填
                 if (detail.getQuantity() == null || detail.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
-                    throw new RuntimeException("物料销毁明细数量必须大于0: " + materialName);
+                    throw new RuntimeException(typeLabel + "明细数量必须大于0: " + materialName);
                 }
                 if (itemCategory == null) {
-                    throw new RuntimeException("物料销毁明细品名类别必填: " + materialName);
+                    throw new RuntimeException(typeLabel + "明细品名类别必填: " + materialName);
                 }
                 if (!MATERIAL_ITEM_CATEGORIES.contains(itemCategory)) {
                     throw new RuntimeException("品名类别只能是生产原料/中间产品/成品: " + materialName);
                 }
                 if (unitName == null) {
-                    throw new RuntimeException("物料销毁明细计量单位必填: " + materialName);
-                }
-                if (detail.getRetainedSampleId() != null) {
-                    throw new RuntimeException("物料销毁不允许关联留样记录: " + materialName);
+                    throw new RuntimeException(typeLabel + "明细计量单位必填: " + materialName);
                 }
             } else if (itemCategory != null && !MATERIAL_ITEM_CATEGORIES.contains(itemCategory)) {
-                // 其他类型：品名类别可选，携带时必须合法
+                // 留样销毁类型：品名类别可选，携带时必须合法
                 throw new RuntimeException("品名类别只能是生产原料/中间产品/成品: " + materialName);
+            }
+            if (materialType && detail.getRetainedSampleId() != null) {
+                // 历史物料销毁：独立台账，不允许关联留样记录
+                throw new RuntimeException("物料销毁不允许关联留样记录: " + materialName);
             }
             if (itemCategory != null && itemCategory.length() > 20) {
                 throw new RuntimeException("品名类别不能超过20字符: " + materialName);

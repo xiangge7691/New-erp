@@ -13,9 +13,11 @@ import lombok.EqualsAndHashCode;
 /**
  * 销毁记录主表实体类
  * <p>
- * 记录不合格品销毁、留样及稳定性考察产品销毁、物料销毁三类纸质表单的电子台账，
+ * 记录不合格品销毁、留样及稳定性考察产品销毁两类纸质表单的电子台账，
  * 包括销毁单号、记录类型、销毁合计数量、销毁原因/方法/地点、
- * 申请人/批准人/销毁人/监销人四方签字文本及作废状态
+ * 申请人/批准人/销毁人/监销人四方签字文本及作废状态；
+ * 原辅包/中间品/成品销毁统一按「不合格品销毁」类型登记，明细以品名类别区分对象，
+ * 并可选择性关联生产任务（快照编号与名称）用于追溯，不关联库存
  * </p>
  * <p>
  * 作废语义：不提供删除接口，作废通过 status=作废 + void_time + void_remark 实现，作废后禁止修改
@@ -44,7 +46,10 @@ public class DestructionRecord extends AuditEntity {
     public static final String TYPE_RETAINED = "留样及稳定性考察产品销毁";
 
     /**
-     * 记录类型：物料销毁（原辅包/中间品/成品，单号前缀WLXH；明细按 itemCategory 区分对象类别）
+     * 记录类型：物料销毁（原辅包/中间品/成品，单号前缀WLXH）
+     * <p>
+     * 已并入「不合格品销毁」：新单不再产生该类型，仅保留历史数据读取与编辑
+     * </p>
      */
     public static final String TYPE_MATERIAL = "物料销毁";
 
@@ -78,7 +83,7 @@ public class DestructionRecord extends AuditEntity {
     private String destructionCode;
 
     /**
-     * 记录类型：不合格品销毁/留样及稳定性考察产品销毁/物料销毁
+     * 记录类型：不合格品销毁/留样及稳定性考察产品销毁/物料销毁（物料销毁仅历史数据）
      */
     @TableField(value = "record_type")
     private String recordType;
@@ -88,6 +93,31 @@ public class DestructionRecord extends AuditEntity {
      */
     @TableField(value = "total_quantity")
     private BigDecimal totalQuantity;
+
+    // endregion
+
+    // region 关联生产任务字段
+    // ===================================
+    // 关联生产任务字段
+    // ===================================
+
+    /**
+     * 关联生产任务ID（非必填，仅作追溯引用，不联动任务状态）
+     */
+    @TableField(value = "work_order_id")
+    private Long workOrderId;
+
+    /**
+     * 生产任务编号（保存时从生产任务表带出的快照，便于列表展示）
+     */
+    @TableField(value = "work_order_code")
+    private String workOrderCode;
+
+    /**
+     * 生产任务名称（保存时快照，前端显示）
+     */
+    @TableField(value = "work_order_name")
+    private String workOrderName;
 
     // endregion
 

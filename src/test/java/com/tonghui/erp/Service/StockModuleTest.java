@@ -174,6 +174,45 @@ public class StockModuleTest {
     }
 
     /**
+     * 测试报损出库选择成品：明细未携带itemType时，服务端按库存批次判定为preparation
+     */
+    @Test
+    @Transactional
+    public void testLossOutboundFinishedGoodsItemType() {
+        Long prodUnitId = findAnyProdUnitId();
+        if (prodUnitId == null) {
+            System.out.println("无生产单位数据，跳过该测试");
+            return;
+        }
+
+        String itemCode = "STK-FG-" + System.currentTimeMillis();
+        String batch = "BT-FG-" + System.currentTimeMillis();
+        Stock stock = buildFinishedStock(itemCode, prodUnitId, batch, new BigDecimal("10.000"));
+
+        StockOut stockOut = new StockOut();
+        stockOut.setOutType("报损出库");
+        stockOut.setProdUnitId(prodUnitId);
+        stockOut.setOutDate(LocalDateTime.now());
+        StockOutDetail outDetail = new StockOutDetail();
+        outDetail.setStockId(stock.getStockId());
+        outDetail.setItemCode(itemCode);
+        outDetail.setItemName("报损成品测试");
+        outDetail.setCategoryName("成品");
+        outDetail.setUnitName("盒");
+        outDetail.setBatchNumber(batch);
+        outDetail.setQuantity(new BigDecimal("2.000"));
+        // 前端不传itemType，服务端应按库存批次判定
+        stockOutService.addStockOut(stockOut, List.of(outDetail));
+
+        List<StockOutDetail> savedDetails = stockOutService.getStockOutDetailsByStockOutId(stockOut.getOutId());
+        assertEquals(1, savedDetails.size(), "应保存1条出库明细");
+        assertEquals("preparation", String.valueOf(savedDetails.get(0).getItemType()),
+                "成品明细物品类型应为preparation");
+        Stock after = stockMapper.selectById(stock.getStockId());
+        assertEquals(0, new BigDecimal("8.000").compareTo(after.getQuantity()), "报损出库后成品库存应为8");
+    }
+
+    /**
      * 测试出库库存不足抛异常且事务回滚：库存3出库100应报"库存不足"，单据不落库
      */
     @Test
@@ -387,6 +426,25 @@ public class StockModuleTest {
         stock.setBatchNumber(batchNumber);
         stock.setQuantity(quantity);
         stock.setUnitPrice(new BigDecimal("10.00"));
+        stock.setStockStatus("合格");
+        stockMapper.insert(stock);
+        return stock;
+    }
+
+    /**
+     * 直接插入一个成品库存批次（供报损出库测试使用）
+     */
+    private Stock buildFinishedStock(String itemCode, Long prodUnitId, String batchNumber, BigDecimal quantity) {
+        Stock stock = new Stock();
+        stock.setProdUnitId(prodUnitId);
+        stock.setItemType("preparation");
+        stock.setItemCode(itemCode);
+        stock.setItemName("报损成品测试");
+        stock.setCategoryName("成品");
+        stock.setUnitName("盒");
+        stock.setBatchNumber(batchNumber);
+        stock.setQuantity(quantity);
+        stock.setUnitPrice(new BigDecimal("29.40"));
         stock.setStockStatus("合格");
         stockMapper.insert(stock);
         return stock;

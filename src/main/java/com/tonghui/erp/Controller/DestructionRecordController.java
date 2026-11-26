@@ -8,6 +8,7 @@ import com.tonghui.erp.Common.Dto.PagedResult;
 import com.tonghui.erp.Common.Dto.Quality.DestructionRecordSaveDto;
 import com.tonghui.erp.Common.Dto.Quality.DestructionRecordWithDetailsDto;
 import com.tonghui.erp.Common.Dto.Quality.RetainedSampleOptionDto;
+import com.tonghui.erp.Common.Dto.Quality.WorkOrderOptionDto;
 import com.tonghui.erp.Data.Entity.DestructionRecord;
 import com.tonghui.erp.Data.Entity.FileInfo;
 import com.tonghui.erp.Service.DestructionRecordService;
@@ -26,9 +27,11 @@ import java.util.List;
 /**
  * 销毁记录控制器
  * <p>
- * 提供销毁记录（不合格品销毁/留样及稳定性考察产品销毁/物料销毁）的CRUD操作、
- * 条件分页查询、销毁单号生成、作废及留样下拉查询，
- * 用于质量检验模块的GMP销毁台账管理；物料销毁（原辅包/中间品/成品）为独立台账，不联动库存与留样
+ * 提供销毁记录（不合格品销毁/留样及稳定性考察产品销毁）的CRUD操作、
+ * 条件分页查询、销毁单号生成、作废、留样与生产任务下拉查询，
+ * 用于质量检验模块的GMP销毁台账管理。
+ * 原辅包/中间品/成品销毁统一按「不合格品销毁」类型登记（明细以品名类别区分），
+ * 「物料销毁」类型已并入、仅保留历史数据；销毁记录不关联库存，可选关联生产任务（快照任务编号与名称）
  * </p>
  * <p>
  * 作废语义：不提供删除接口，作废通过 PUT /{id}/void 实现，作废后禁止修改
@@ -42,10 +45,11 @@ import java.util.List;
  * │ 2  │ /api/destruction/{id}                    │ GET    │ 查询销毁记录详情（含明细附件）│
  * │ 3  │ /api/destruction/generateCode            │ GET    │ 获取自动生成的销毁单号        │
  * │ 4  │ /api/destruction/retained-samples        │ GET    │ 留样下拉查询                  │
- * │ 5  │ /api/destruction/{id}/attachments        │ GET    │ 查询附件列表                  │
- * │ 6  │ /api/destruction                         │ POST   │ 新增销毁记录（主表+明细）      │
- * │ 7  │ /api/destruction/{id}                    │ PUT    │ 修改销毁记录（明细整体重建）    │
- * │ 8  │ /api/destruction/{id}/void               │ PUT    │ 作废销毁记录                  │
+ * │ 5  │ /api/destruction/work-orders             │ GET    │ 生产任务下拉查询（不限状态）  │
+ * │ 6  │ /api/destruction/{id}/attachments        │ GET    │ 查询附件列表                  │
+ * │ 7  │ /api/destruction                         │ POST   │ 新增销毁记录（主表+明细）      │
+ * │ 8  │ /api/destruction/{id}                    │ PUT    │ 修改销毁记录（明细整体重建）    │
+ * │ 9  │ /api/destruction/{id}/void               │ PUT    │ 作废销毁记录                  │
  * └────┴──────────────────────────────────────────┴────────┴──────────────────────────────┘
  */
 @RestController
@@ -74,9 +78,9 @@ public class DestructionRecordController extends BaseController {
      * 分页查询销毁记录列表（列表项含创建人姓名createdByName及明细列表details，明细含关联留样编号retainedCode）
      *
      * 示例请求：
-     * GET /api/destruction?recordType=物料销毁&itemCategory=成品&keyword=WL&batchNo=20260701&status=正常&startDate=2026-10-01&endDate=2026-10-12&pageIndex=0&pageSize=10
+     * GET /api/destruction?recordType=不合格品销毁&itemCategory=成品&keyword=BPXH&batchNo=20260701&status=正常&startDate=2026-10-01&endDate=2026-10-12&pageIndex=0&pageSize=10
      *
-     * @param recordType   记录类型（可选，精确匹配：不合格品销毁/留样及稳定性考察产品销毁/物料销毁）
+     * @param recordType   记录类型（可选，精确匹配：不合格品销毁/留样及稳定性考察产品销毁；物料销毁仅历史数据）
      * @param keyword      关键字（可选，模糊匹配销毁单号）
      * @param batchNo      批号（可选，模糊匹配明细批号，存在该批号明细的主表命中）
      * @param itemCategory 品名类别（可选，精确匹配明细品名类别：生产原料/中间产品/成品）
@@ -134,14 +138,14 @@ public class DestructionRecordController extends BaseController {
     /**
      * 获取自动生成的销毁单号
      * <p>
-     * 按记录类型选择前缀：不合格品销毁BPXH/留样及稳定性考察产品销毁LYXH/物料销毁WLXH
+     * 按记录类型选择前缀：不合格品销毁BPXH/留样及稳定性考察产品销毁LYXH（物料销毁WLXH仅历史数据）
      * </p>
      *
      * 示例请求：
-     * GET /api/destruction/generateCode?recordType=物料销毁
+     * GET /api/destruction/generateCode?recordType=不合格品销毁
      *
-     * @param recordType 记录类型（必填：不合格品销毁/留样及稳定性考察产品销毁/物料销毁）
-     * @return ApiResponse&lt;String&gt; 自动生成的销毁单号（格式BPXH-YYYYMMDD-NNN、LYXH-YYYYMMDD-NNN或WLXH-YYYYMMDD-NNN）
+     * @param recordType 记录类型（必填：不合格品销毁/留样及稳定性考察产品销毁；物料销毁仅历史数据）
+     * @return ApiResponse&lt;String&gt; 自动生成的销毁单号（格式BPXH-YYYYMMDD-NNN或LYXH-YYYYMMDD-NNN）
      */
     @GetMapping("/generateCode")
     public ApiResponse<String> generateCode(@RequestParam String recordType) {
@@ -168,6 +172,29 @@ public class DestructionRecordController extends BaseController {
             return success(destructionRecordService.searchRetainedSamples(keyword));
         } catch (Exception e) {
             return exception(e, "查询留样下拉");
+        }
+    }
+
+    /**
+     * 生产任务下拉查询（不限制任务状态，非必填关联）
+     * <p>
+     * 关键字模糊匹配生产任务编号/生产任务名称/制剂名称/批号，按创建时间倒序返回最多20条；
+     * 下拉选中后仅回传 workOrderId，保存时由服务端快照任务编号与名称
+     * </p>
+     *
+     * 示例请求：
+     * GET /api/destruction/work-orders?keyword=SC2026
+     *
+     * @param keyword 关键字（可选）
+     * @return ApiResponse&lt;List&lt;WorkOrderOptionDto&gt;&gt; 下拉选项列表（含workOrderId/workOrderCode/workOrderName/preparationName/batchNumber，最多20条）
+     */
+    @GetMapping("/work-orders")
+    public ApiResponse<List<WorkOrderOptionDto>> searchWorkOrders(
+            @RequestParam(required = false) String keyword) {
+        try {
+            return success(destructionRecordService.searchWorkOrders(keyword));
+        } catch (Exception e) {
+            return exception(e, "查询生产任务下拉");
         }
     }
 
@@ -204,6 +231,7 @@ public class DestructionRecordController extends BaseController {
      * Content-Type: application/json
      * {
      *   "recordType": "不合格品销毁",
+     *   "workOrderId": 12,
      *   "destroyReason": "中间体含量不合格，无法继续使用",
      *   "destroyMethod": "交有资质单位高温焚烧",
      *   "destroyLocation": "厂区危废暂存间",
@@ -217,31 +245,30 @@ public class DestructionRecordController extends BaseController {
      *   "superviseDate": "2026-10-11",
      *   "remark": "随附检验报告复印件",
      *   "details": [
-     *     { "materialName": "维生素C", "spec": "食品级", "batchNo": "20260701", "quantity": 50.5, "retainedSampleId": null },
-     *     { "materialName": "淀粉", "spec": "药用", "batchNo": "20260615", "quantity": 30.0 }
+     *     { "materialName": "维生素C", "spec": "食品级", "batchNo": "20260701", "quantity": 50.5,
+     *       "itemCategory": "生产原料", "unitName": "kg" },
+     *     { "materialName": "复方制剂A", "spec": "10ml/支", "batchNo": "20260615", "quantity": 30,
+     *       "itemCategory": "中间产品", "unitName": "L" },
+     *     { "materialName": "感冒灵胶囊", "spec": "0.5g/粒", "batchNo": "20260610", "quantity": 10,
+     *       "itemCategory": "成品", "unitName": "盒" }
      *   ],
      *   "attachmentFileIds": [201]
      * }
      *
      * 必填字段：
-     *   recordType  记录类型（必填：不合格品销毁/留样及稳定性考察产品销毁/物料销毁，决定单号前缀）
+     *   recordType  记录类型（必填：不合格品销毁/留样及稳定性考察产品销毁，决定单号前缀）
      *   details     销毁明细列表（必填，至少1行，明细materialName必填）
+     * 类型口径（重要）：
+     *   原辅包/中间品/成品销毁统一使用「不合格品销毁」（BPXH-），明细必须携带 itemCategory 与 unitName：
+     *   itemCategory 只能是生产原料/中间产品/成品（页面可显示为原辅包/中间品/成品），quantity 必须大于0；
+     *   「物料销毁」已并入、不允许再新建（历史 WLXH 单据仍可查询与修改）
      * 其他说明：
-     *   destructionCode 由服务端自动生成（不合格品销毁BPXH-/留样销毁LYXH-/物料销毁WLXH-前缀），不可传入
+     *   destructionCode 由服务端自动生成，不可传入
      *   totalQuantity 由服务端按明细quantity求和计算，不可传入
+     *   workOrderId 非必填，不限制生产任务状态；保存时服务端快照 workOrderCode/workOrderName，前端无需提交
      *   明细行retainedSampleId：留样销毁类型会反写关联留样为已销毁（销毁日期取destroyDate，为空取当天），
      *   不合格品销毁类型仅作追溯引用不联动留样状态
      *   以下字段选填：destroyReason、destroyMethod、destroyLocation、remark、四方签字姓名与日期、attachmentFileIds
-     *
-     * 物料销毁示例（recordType=物料销毁，单号前缀WLXH；明细必须携带 itemCategory 与 unitName）：
-     *   "details": [
-     *     { "materialName": "维生素C", "spec": "食品级", "batchNo": "20260701", "quantity": 50.5,
-     *       "itemCategory": "生产原料", "unitName": "kg" },
-     *     { "materialName": "复方制剂A", "spec": "10ml/支", "batchNo": "20260615", "quantity": 30,
-     *       "itemCategory": "成品", "unitName": "盒" }
-     *   ]
-     * 物料销毁说明：itemCategory 只能是生产原料/中间产品/成品，quantity 必须大于0，unitName 必填，
-     *   且不允许携带 retainedSampleId（独立台账，不联动留样与库存）
      *
      * @param dto 保存请求体（主表字段+明细列表）
      * @return ApiResponse&lt;DestructionRecord&gt; 新增的销毁记录（含自动生成的单号与合计数量）
@@ -272,6 +299,7 @@ public class DestructionRecordController extends BaseController {
      * Content-Type: application/json
      * {
      *   "recordType": "不合格品销毁",
+     *   "workOrderId": 12,
      *   "destroyReason": "中间体含量不合格，无法继续使用（补充说明）",
      *   "destroyMethod": "交有资质单位高温焚烧",
      *   "destroyLocation": "厂区危废暂存间",
@@ -280,15 +308,18 @@ public class DestructionRecordController extends BaseController {
      *   "supervisorName": "钱七",
      *   "superviseDate": "2026-10-11",
      *   "details": [
-     *     { "materialName": "维生素C", "spec": "食品级", "batchNo": "20260701", "quantity": 50.5 }
+     *     { "materialName": "维生素C", "spec": "食品级", "batchNo": "20260701", "quantity": 50.5,
+     *       "itemCategory": "生产原料", "unitName": "kg" }
      *   ],
      *   "attachmentFileIds": [201, 202]
      * }
      *
      * 必填字段说明：同新增接口；销毁单号与状态不可修改，服务端保留原值
+     * 生产任务：workOrderId 传 null 表示取消关联，服务端会同时清空任务编号与名称快照
      * 其他说明：已作废的销毁记录不能修改；明细列表整体重建（旧行删除后按新列表重插）；
      *   留样销毁类型按新旧引用差异反写：新增引用置留样为已销毁，移除的引用回滚为留样中，
-     *   类型改为不合格品销毁时回滚全部原引用（仍被其他正常销毁单引用时不回滚）
+     *   类型改为不合格品销毁时回滚全部原引用（仍被其他正常销毁单引用时不回滚）；
+     *   历史「物料销毁」单据仍可按原类型修改，需继续携带 itemCategory/unitName/quantity
      *
      * @param id  销毁记录ID（路径参数）
      * @param dto 更新的销毁记录信息（主表字段+明细列表）

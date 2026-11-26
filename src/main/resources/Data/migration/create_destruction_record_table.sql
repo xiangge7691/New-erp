@@ -11,8 +11,11 @@
 CREATE TABLE IF NOT EXISTS `destruction_record` (
   `id`               BIGINT       NOT NULL AUTO_INCREMENT COMMENT '销毁记录唯一标识',
   `destruction_code` VARCHAR(32)  NOT NULL COMMENT '销毁单号（唯一约束，BPXH-YYYYMMDD-NNN/LYXH-YYYYMMDD-NNN，系统自动生成）',
-  `record_type`      VARCHAR(20)  NOT NULL COMMENT '记录类型：不合格品销毁/留样及稳定性考察产品销毁',
+  `record_type`      VARCHAR(20)  NOT NULL COMMENT '记录类型：不合格品销毁/留样及稳定性考察产品销毁（物料销毁已并入不合格品销毁，仅保留历史数据）',
   `total_quantity`   DECIMAL(18,3) NOT NULL DEFAULT 0 COMMENT '销毁合计数量（服务端按明细求和）',
+  `work_order_id`    BIGINT       DEFAULT NULL COMMENT '关联生产任务ID（可空，仅追溯引用，不联动任务状态）',
+  `work_order_code`  VARCHAR(64)  DEFAULT NULL COMMENT '生产任务编号快照（保存时带出）',
+  `work_order_name`  VARCHAR(200) DEFAULT NULL COMMENT '生产任务名称快照（前端显示）',
   `destroy_reason`   VARCHAR(1000) DEFAULT NULL COMMENT '销毁原因',
   `destroy_method`   VARCHAR(1000) DEFAULT NULL COMMENT '销毁方法',
   `destroy_location` VARCHAR(200) DEFAULT NULL COMMENT '销毁地点',
@@ -37,7 +40,8 @@ CREATE TABLE IF NOT EXISTS `destruction_record` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_destruction_code` (`destruction_code`),
   KEY `idx_destruction_record_type` (`record_type`),
-  KEY `idx_destruction_status` (`status`)
+  KEY `idx_destruction_status` (`status`),
+  KEY `idx_destruction_work_order` (`work_order_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='销毁记录主表';
 
 CREATE TABLE IF NOT EXISTS `destruction_record_detail` (
