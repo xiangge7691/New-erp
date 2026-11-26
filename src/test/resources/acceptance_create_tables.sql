@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS `acceptance_detail` (
   `quantity`          DECIMAL(18,3) NOT NULL COMMENT '采购数量',
   `actual_arrival_qty` DECIMAL(18,3) DEFAULT NULL COMMENT '实际到货数量（供应商实际送达数量，金额以该数量为准计算）',
   `sampling_qty`      DECIMAL(18,3) DEFAULT NULL COMMENT '取样数量（入库时按该数量扣减；空按0处理）',
-  `inbound_qty`       DECIMAL(18,3) DEFAULT NULL COMMENT '入库数量（检验合格后实际入库数量）',
+  `inbound_qty`       DECIMAL(18,3) DEFAULT NULL COMMENT '入库数量（实际到货数量−取样数量，服务端自动计算；生成入库单前为预计值）',
   `unit_price`        DECIMAL(18,2) DEFAULT NULL COMMENT '物料单价',
   `amount`            DECIMAL(18,2) DEFAULT NULL COMMENT '金额（实际到货数量*单价）',
   `batch_number`      VARCHAR(50)   DEFAULT NULL COMMENT '物料批号（入库必填）',
@@ -88,7 +88,7 @@ DEALLOCATE PREPARE stmt;
 SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS
     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'acceptance_detail' AND COLUMN_NAME = 'inbound_qty');
 SET @ddl := IF(@col_exists = 0,
-    'ALTER TABLE `acceptance_detail` ADD COLUMN `inbound_qty` DECIMAL(18,3) DEFAULT NULL COMMENT ''入库数量（检验合格后实际入库数量）'' AFTER `actual_arrival_qty`',
+    'ALTER TABLE `acceptance_detail` ADD COLUMN `inbound_qty` DECIMAL(18,3) DEFAULT NULL COMMENT ''入库数量（实际到货数量−取样数量，服务端自动计算；生成入库单前为预计值）'' AFTER `actual_arrival_qty`',
     'SELECT 1');
 PREPARE stmt FROM @ddl;
 EXECUTE stmt;
