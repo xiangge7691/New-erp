@@ -31,7 +31,7 @@ import java.util.List;
  * 条件分页查询、销毁单号生成、作废、留样与生产任务下拉查询，
  * 用于质量检验模块的GMP销毁台账管理。
  * 原辅包/中间品/成品销毁统一按「不合格品销毁」类型登记（明细以品名类别区分），
- * 「物料销毁」类型已并入、仅保留历史数据；销毁记录不关联库存，可选关联生产任务（快照任务编号与名称）
+ * 销毁记录不关联库存，可选关联生产任务（快照任务编号与名称）
  * </p>
  * <p>
  * 作废语义：不提供删除接口，作废通过 PUT /{id}/void 实现，作废后禁止修改
@@ -80,7 +80,7 @@ public class DestructionRecordController extends BaseController {
      * 示例请求：
      * GET /api/destruction?recordType=不合格品销毁&itemCategory=成品&keyword=BPXH&batchNo=20260701&status=正常&startDate=2026-10-01&endDate=2026-10-12&pageIndex=0&pageSize=10
      *
-     * @param recordType   记录类型（可选，精确匹配：不合格品销毁/留样及稳定性考察产品销毁；物料销毁仅历史数据）
+     * @param recordType   记录类型（可选，精确匹配：不合格品销毁/留样及稳定性考察产品销毁）
      * @param keyword      关键字（可选，模糊匹配销毁单号）
      * @param batchNo      批号（可选，模糊匹配明细批号，存在该批号明细的主表命中）
      * @param itemCategory 品名类别（可选，精确匹配明细品名类别：生产原料/中间产品/成品）
@@ -138,13 +138,13 @@ public class DestructionRecordController extends BaseController {
     /**
      * 获取自动生成的销毁单号
      * <p>
-     * 按记录类型选择前缀：不合格品销毁BPXH/留样及稳定性考察产品销毁LYXH（物料销毁WLXH仅历史数据）
+     * 按记录类型选择前缀：不合格品销毁BPXH/留样及稳定性考察产品销毁LYXH
      * </p>
      *
      * 示例请求：
      * GET /api/destruction/generateCode?recordType=不合格品销毁
      *
-     * @param recordType 记录类型（必填：不合格品销毁/留样及稳定性考察产品销毁；物料销毁仅历史数据）
+     * @param recordType 记录类型（必填：不合格品销毁/留样及稳定性考察产品销毁）
      * @return ApiResponse&lt;String&gt; 自动生成的销毁单号（格式BPXH-YYYYMMDD-NNN或LYXH-YYYYMMDD-NNN）
      */
     @GetMapping("/generateCode")
@@ -260,8 +260,7 @@ public class DestructionRecordController extends BaseController {
      *   details     销毁明细列表（必填，至少1行，明细materialName必填）
      * 类型口径（重要）：
      *   原辅包/中间品/成品销毁统一使用「不合格品销毁」（BPXH-），明细必须携带 itemCategory 与 unitName：
-     *   itemCategory 只能是生产原料/中间产品/成品（页面可显示为原辅包/中间品/成品），quantity 必须大于0；
-     *   「物料销毁」已并入、不允许再新建（历史 WLXH 单据仍可查询与修改）
+     *   itemCategory 只能是生产原料/中间产品/成品（页面可显示为原辅包/中间品/成品），quantity 必须大于0
      * 其他说明：
      *   destructionCode 由服务端自动生成，不可传入
      *   totalQuantity 由服务端按明细quantity求和计算，不可传入
@@ -318,8 +317,7 @@ public class DestructionRecordController extends BaseController {
      * 生产任务：workOrderId 传 null 表示取消关联，服务端会同时清空任务编号与名称快照
      * 其他说明：已作废的销毁记录不能修改；明细列表整体重建（旧行删除后按新列表重插）；
      *   留样销毁类型按新旧引用差异反写：新增引用置留样为已销毁，移除的引用回滚为留样中，
-     *   类型改为不合格品销毁时回滚全部原引用（仍被其他正常销毁单引用时不回滚）；
-     *   历史「物料销毁」单据仍可按原类型修改，需继续携带 itemCategory/unitName/quantity
+     *   类型改为不合格品销毁时回滚全部原引用（仍被其他正常销毁单引用时不回滚）
      *
      * @param id  销毁记录ID（路径参数）
      * @param dto 更新的销毁记录信息（主表字段+明细列表）

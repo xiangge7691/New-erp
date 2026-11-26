@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * 销毁记录模块专项测试
  * <p>
  * 覆盖业务规则：
- * 1. 单号按记录类型选择前缀（BPXH/LYXH/WLXH）自动生成
+ * 1. 单号按记录类型选择前缀（BPXH/LYXH）自动生成
  * 2. 合计数量由服务端按明细求和计算
  * 3. 更新时明细整体重建
  * 4. 作废后禁止修改、禁止重复作废
@@ -36,8 +36,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * 6. 条件分页查询（批号/品名类别经明细命中主表）
  * 7. 详情/列表明细行回填关联留样编号（retainedCode）
  * 8. 列表返回创建人姓名（createdByName）及明细列表（details）
- * 9. 原辅包/中间品/成品销毁并入「不合格品销毁」：品名类别、单位与数量必填；
- *    「物料销毁」不允许新建，仅历史数据可修改
+ * 9. 原辅包/中间品/成品销毁并入「不合格品销毁」：品名类别、单位与数量必填
  * 10. 关联生产任务：保存时快照任务编号与名称，取消关联时清空快照，不联动任务状态与库存
  * 全部用例使用事务回滚，不污染数据库
  * </p>
@@ -483,17 +482,6 @@ public class DestructionRecordTest {
     }
 
     /**
-     * 测试物料销毁单号：WLXH 前缀自动生成
-     */
-    @Test
-    public void testGenerateCodeForMaterialType() {
-        String materialCode = destructionRecordService.generateCode(DestructionRecord.TYPE_MATERIAL);
-        assertTrue(materialCode.startsWith("WLXH-"), "物料销毁单号应以WLXH-开头");
-        assertTrue(materialCode.matches("^WLXH-\\d{8}-\\d{3}$"),
-                "物料销毁单号格式应为WLXH-YYYYMMDD-NNN：" + materialCode);
-    }
-
-    /**
      * 测试不合格品销毁（原辅包/中间品/成品并入）：三类明细落库，合计数量由明细求和
      */
     @Test
@@ -539,18 +527,6 @@ public class DestructionRecordTest {
         missingUnit.getDetails().get(0).setUnitName(null);
         assertThrows(RuntimeException.class, () -> destructionRecordService.create(missingUnit),
                 "不合格品销毁单位缺失应抛异常");
-    }
-
-    /**
-     * 测试物料销毁类型已并入：不允许新建，提示使用不合格品销毁
-     */
-    @Test
-    public void testLegacyMaterialTypeCannotBeCreated() {
-        DestructionRecordSaveDto dto = buildCategorySaveDto();
-        dto.setRecordType(DestructionRecord.TYPE_MATERIAL);
-        RuntimeException ex = assertThrows(RuntimeException.class,
-                () -> destructionRecordService.create(dto), "物料销毁类型不应允许新建");
-        assertTrue(ex.getMessage().contains("已并入"), "提示应说明已并入不合格品销毁");
     }
 
     /**
@@ -690,7 +666,7 @@ public class DestructionRecordTest {
     }
 
     /**
-     * 构建物料销毁明细行
+     * 构建带品名类别的明细行
      *
      * @param materialName 品名
      * @param spec         规格

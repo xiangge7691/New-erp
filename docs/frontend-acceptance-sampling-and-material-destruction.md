@@ -116,7 +116,7 @@
 
 ## 三、销毁记录模块
 
-> ⚠️ **2026-11-26 调整**：原辅包/中间品/成品销毁已并入「不合格品销毁」类型，「物料销毁」不再允许新建（历史单据仍可查询与修改）；另新增可选的生产任务关联。最新前端对接契约见 [`docs/destruction-merged-type-and-work-order.md`](./destruction-merged-type-and-work-order.md)，本节保留为历史改造说明。
+> ⚠️ **2026-11-26 调整（本节已作废）**：原辅包/中间品/成品销毁统一使用「不合格品销毁」类型；文中提到的「物料销毁」类型从未上线，已从后端代码、迁移脚本中彻底删除。另新增可选的生产任务关联。最新前端对接契约见 [`docs/destruction-merged-type-and-work-order.md`](./destruction-merged-type-and-work-order.md)，本节仅保留为历史改造记录，请勿按此对接。
 
 ### 3.1 记录类型
 

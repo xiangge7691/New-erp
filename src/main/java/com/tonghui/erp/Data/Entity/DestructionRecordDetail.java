@@ -64,13 +64,13 @@ public class DestructionRecordDetail extends AuditEntity {
     private BigDecimal quantity;
 
     /**
-     * 品名类别：生产原料/中间产品/成品（物料销毁类型必填，其他类型可为空）
+     * 品名类别：生产原料/中间产品/成品（不合格品销毁类型必填，留样销毁类型可为空）
      */
     @TableField(value = "item_category")
     private String itemCategory;
 
     /**
-     * 计量单位：kg/g/L/袋/盒/瓶（物料销毁类型必填）
+     * 计量单位：kg/g/L/袋/盒/瓶（不合格品销毁类型必填）
      */
     @TableField(value = "unit_name")
     private String unitName;

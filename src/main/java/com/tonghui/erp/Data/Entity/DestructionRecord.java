@@ -46,14 +46,6 @@ public class DestructionRecord extends AuditEntity {
     public static final String TYPE_RETAINED = "留样及稳定性考察产品销毁";
 
     /**
-     * 记录类型：物料销毁（原辅包/中间品/成品，单号前缀WLXH）
-     * <p>
-     * 已并入「不合格品销毁」：新单不再产生该类型，仅保留历史数据读取与编辑
-     * </p>
-     */
-    public static final String TYPE_MATERIAL = "物料销毁";
-
-    /**
      * 状态：正常
      */
     public static final String STATUS_NORMAL = "正常";
@@ -83,7 +75,7 @@ public class DestructionRecord extends AuditEntity {
     private String destructionCode;
 
     /**
-     * 记录类型：不合格品销毁/留样及稳定性考察产品销毁/物料销毁（物料销毁仅历史数据）
+     * 记录类型：不合格品销毁/留样及稳定性考察产品销毁
      */
     @TableField(value = "record_type")
     private String recordType;

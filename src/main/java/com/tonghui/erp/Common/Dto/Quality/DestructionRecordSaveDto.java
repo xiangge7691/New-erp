@@ -22,7 +22,7 @@ public class DestructionRecordSaveDto {
 
     /**
      * 记录类型（必填：不合格品销毁/留样及稳定性考察产品销毁，决定单号前缀；
-     * 原辅包/中间品/成品销毁统一使用「不合格品销毁」，「物料销毁」仅历史数据可编辑、不可新建）
+     * 原辅包/中间品/成品销毁统一使用「不合格品销毁」）
      */
     private String recordType;
 

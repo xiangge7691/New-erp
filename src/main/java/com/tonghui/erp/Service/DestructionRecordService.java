@@ -19,8 +19,7 @@ import java.util.List;
  * 销毁单号生成、作废、关联留样与生产任务下拉查询等业务能力
  * </p>
  * <p>
- * 类型口径：原辅包/中间品/成品销毁统一按「不合格品销毁」登记（明细以品名类别区分），
- * 「物料销毁」类型已并入，不再允许新建，历史单据仍可查询与修改
+ * 类型口径：原辅包/中间品/成品销毁统一按「不合格品销毁」登记（明细以品名类别区分）
  * </p>
  * <p>
  * 生产任务关联：非必填，不限制任务状态，保存时快照任务编号与名称，不联动任务状态、不关联库存
@@ -38,11 +37,11 @@ public interface DestructionRecordService extends IService<DestructionRecord> {
     /**
      * 生成销毁单号
      * <p>
-     * 按记录类型选择前缀：不合格品销毁BPXH/留样及稳定性考察产品销毁LYXH/物料销毁WLXH，
+     * 按记录类型选择前缀：不合格品销毁BPXH/留样及稳定性考察产品销毁LYXH，
      * 格式前缀-YYYYMMDD-NNN，基于当天最大序号递增，查询绕过软删除过滤
      * </p>
      *
-     * @param recordType 记录类型（不合格品销毁/留样及稳定性考察产品销毁/物料销毁）
+     * @param recordType 记录类型（不合格品销毁/留样及稳定性考察产品销毁）
      * @return 生成的唯一销毁单号
      */
     String generateCode(String recordType);
