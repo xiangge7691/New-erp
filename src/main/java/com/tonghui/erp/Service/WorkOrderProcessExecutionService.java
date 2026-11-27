@@ -31,6 +31,11 @@ public interface WorkOrderProcessExecutionService extends IService<WorkOrderProc
 
     /**
      * 批量保存工序执行记录与实际参与人
+     * <p>
+     * 保存的是「实际生产登记」而不是「完工」：只填实际开始时间也可保存，
+     * 此时状态由后端推导为「执行中」；实际结束时间由
+     * {@link #complete(Long, java.time.LocalDateTime)} 单独登记。
+     * </p>
      *
      * @param workOrderId 工单ID
      * @param executions  工序执行记录列表
@@ -44,6 +49,19 @@ public interface WorkOrderProcessExecutionService extends IService<WorkOrderProc
      * @return 完工后的执行记录
      */
     WorkOrderProcessExecution complete(Long executionId);
+
+    /**
+     * 工序/批次完工：按指定结束时间锁定执行记录并生成个人绩效
+     * <p>
+     * 结束时间为空时取当前时间；指定结束时间时必须晚于实际开始时间，
+     * 且必须落在工单配置时间窗内。
+     * </p>
+     *
+     * @param executionId 工序执行记录ID
+     * @param endTime     实际结束时间（可空，空则取当前时间）
+     * @return 完工后的执行记录
+     */
+    WorkOrderProcessExecution complete(Long executionId, java.time.LocalDateTime endTime);
 
     /**
      * 删除误拆的工序执行行

@@ -221,7 +221,21 @@ public class PdaProductionServiceImpl implements PdaProductionService {
         execution.setManualTime(0);
         execution.setIsDeleted(0);
         execution.setVersion(1);
-        executionService.save(execution);
+        try {
+            executionService.save(execution);
+        } catch (org.springframework.dao.DuplicateKeyException ex) {
+            // 并发点击「开始」时另一个请求已创建同一批次执行记录（uk_wpe_plan_batch），复用已有行
+            WorkOrderProcessExecution concurrent = executionService.getOne(
+                    new QueryWrapper<WorkOrderProcessExecution>()
+                            .eq("work_order_id", workOrderId)
+                            .eq("plan_batch_id", planBatchId)
+                            .orderByAsc("id")
+                            .last("LIMIT 1"), false);
+            if (concurrent == null) {
+                throw ex;
+            }
+            return loadProcess(concurrent);
+        }
         return loadProcess(execution);
     }
 

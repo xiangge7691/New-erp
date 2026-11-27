@@ -30,8 +30,10 @@ import java.util.stream.Collectors;
  * <ol>
  *   <li>任务时间窗：实际开始不得早于任务配置时间；已填配置完成时间时，实际起止不得晚于该时间</li>
  *   <li>工序先后：本工序实际开始不得早于前序工序的实际结束时间；前序工序尚未完工时不允许开始本工序</li>
+ *   <li>时间倒挂：后序工序已登记实际开始后，前序工序的实际结束不得晚于该时间</li>
+ *   <li>时长：实际结束必须晚于实际开始，避免 0 或负工时</li>
  * </ol>
- * 只校验「已填写开始时间」的行；仅登记设备、未填时间的行放行。
+ * 只校验「已填写开始或结束时间」的行；仅登记设备、数量、参与人的行放行。
  * 同工序拆分的多个批次之间允许重叠，不做先后约束。
  * </p>
  * <p>
@@ -104,6 +106,38 @@ public class WorkOrderExecutionTimeValidator {
      * @throws IllegalArgumentException 校验不通过
      */
     public void validate(WorkOrder order, List<WorkOrderProcessExecution> rows, Set<Long> excludeIds) {
+        validate(order, rows, excludeIds, true);
+    }
+
+    /**
+     * 完工时校验：只校验时间窗、时长与「结束不得晚于后续工序已开始」
+     * <p>
+     * 完工不会改变开始时间，开始时间在登记时已经校验过；这里不再重复做前序工序校验，
+     * 避免历史数据或并行批次在补结束时间时被误拦。结束时间的上界与倒挂仍然校验。
+     * </p>
+     *
+     * @param order 所属工单
+     * @param row   待完工的执行记录（结束时间已填入）
+     * @throws IllegalArgumentException 校验不通过
+     */
+    public void validateCompletion(WorkOrder order, WorkOrderProcessExecution row) {
+        if (row == null) {
+            return;
+        }
+        Set<Long> excludes = row.getId() == null ? Set.of() : Set.of(row.getId());
+        validate(order, List.of(row), excludes, false);
+    }
+
+    /**
+     * 校验入口（内部实现）
+     *
+     * @param order              所属工单
+     * @param rows               待保存的执行记录
+     * @param excludeIds         本次将被覆盖的既有记录ID
+     * @param checkPreviousSteps 是否校验前序工序（保存时为 true，完工时为 false）
+     */
+    private void validate(WorkOrder order, List<WorkOrderProcessExecution> rows, Set<Long> excludeIds,
+                          boolean checkPreviousSteps) {
         if (!enabled || order == null || CollectionUtils.isEmpty(rows)) {
             return;
         }
@@ -115,13 +149,22 @@ public class WorkOrderExecutionTimeValidator {
 
         Set<String> errors = new LinkedHashSet<>();
         for (WorkOrderProcessExecution row : rows) {
-            if (row.getStartTime() == null) {
-                // 未填时间（仅登记设备/数量）的行不参与时间校验
+            if (row.getStartTime() == null && row.getEndTime() == null) {
+                // 未填时间（仅登记设备/数量/参与人）的行不参与时间校验
                 continue;
             }
             String label = describeProcess(row, processNames);
             checkTaskWindow(row, label, configStart, configEnd, errors);
-            checkStepOrder(row, label, steps, processNames, errors);
+            if (row.getStartTime() != null) {
+                checkDuration(row, label, errors);
+                if (checkPreviousSteps) {
+                    checkStepOrder(row, label, steps, processNames, errors);
+                }
+            }
+            if (row.getEndTime() != null) {
+                // 反向校验：修改历史工序的结束时间时，不得晚于后续工序已登记的实际开始
+                checkNextStepOrder(row, label, steps, processNames, errors);
+            }
         }
         if (!errors.isEmpty()) {
             throw new IllegalArgumentException(String.join("\n", errors));
@@ -150,7 +193,7 @@ public class WorkOrderExecutionTimeValidator {
                                  Set<String> errors) {
         LocalDateTime start = row.getStartTime();
         LocalDateTime end = row.getEndTime();
-        if (configStart != null && start.isBefore(configStart)) {
+        if (configStart != null && start != null && start.isBefore(configStart)) {
             errors.add("工序【" + label + "】实际开始 " + format(start)
                     + " 早于任务配置时间 " + format(configStart));
         }
@@ -161,15 +204,37 @@ public class WorkOrderExecutionTimeValidator {
         if (configEnd == null) {
             return;
         }
-        if (end != null && end.isAfter(configEnd)) {
-            errors.add("工序【" + label + "】实际结束 " + format(end)
-                    + " 晚于任务配置完成时间 " + format(configEnd));
+        if (end != null) {
+            if (end.isAfter(configEnd)) {
+                errors.add("工序【" + label + "】实际结束 " + format(end)
+                        + " 晚于任务配置完成时间 " + format(configEnd));
+            }
             return;
         }
         // 工序尚未结束：至少要求开始时间不晚于配置完成时间，避免登记到窗口之后再补结束时间
-        if (end == null && start.isAfter(configEnd)) {
+        if (start != null && start.isAfter(configEnd)) {
             errors.add("工序【" + label + "】实际开始 " + format(start)
                     + " 晚于任务配置完成时间 " + format(configEnd));
+        }
+    }
+
+    /**
+     * 校验实际结束时间晚于实际开始时间
+     * <p>结束时间早于或等于开始时间会产生 0 或负工时，直接拒绝。</p>
+     *
+     * @param row    执行记录
+     * @param label  工序描述
+     * @param errors 错误收集容器
+     */
+    private void checkDuration(WorkOrderProcessExecution row, String label, Set<String> errors) {
+        LocalDateTime start = row.getStartTime();
+        LocalDateTime end = row.getEndTime();
+        if (start == null || end == null) {
+            return;
+        }
+        if (!end.isAfter(start)) {
+            errors.add("工序【" + label + "】实际结束 " + format(end)
+                    + " 必须晚于实际开始 " + format(start));
         }
     }
 
@@ -226,6 +291,40 @@ public class WorkOrderExecutionTimeValidator {
     }
 
     /**
+     * 校验本工序结束时间不晚于后续工序的实际开始时间
+     * <p>
+     * 用于「反方向」修改：补录/修正前序工序的结束时间时，若已晚于后续工序已登记的实际开始，
+     * 会造成时间倒挂，直接拒绝。后续工序尚未开始时不做限制。
+     * 同工序拆分的多个批次之间不互相约束。
+     * </p>
+     *
+     * @param row          执行记录
+     * @param label        工序描述
+     * @param steps        按工序顺序汇总的执行状态
+     * @param processNames 工序ID → 工序名称
+     * @param errors       错误收集容器
+     */
+    private void checkNextStepOrder(WorkOrderProcessExecution row, String label,
+                                    Map<Integer, StepState> steps, Map<Long, String> processNames,
+                                    Set<String> errors) {
+        Integer stepOrder = row.getStepOrder();
+        LocalDateTime end = row.getEndTime();
+        if (stepOrder == null || end == null) {
+            return;
+        }
+        StepState nextStep = steps.values().stream()
+                .filter(state -> state.stepOrder != null && state.stepOrder > stepOrder)
+                .filter(state -> state.earliestStart != null)
+                .min((a, b) -> a.earliestStart.compareTo(b.earliestStart))
+                .orElse(null);
+        if (nextStep != null && end.isAfter(nextStep.earliestStart)) {
+            errors.add("工序【" + label + "】实际结束 " + format(end)
+                    + " 晚于后续工序【" + stateLabel(nextStep, processNames)
+                    + "】的实际开始 " + format(nextStep.earliestStart));
+        }
+    }
+
+    /**
      * 汇总各工序顺序的最晚实际结束时间与执行中状态
      * <p>库中既有记录按ID排除本次将被覆盖的行；本次提交的行按新值参与汇总。</p>
      *
@@ -266,6 +365,10 @@ public class WorkOrderExecutionTimeValidator {
         StepState state = steps.computeIfAbsent(execution.getStepOrder(), StepState::new);
         if (execution.getProcessTypeId() != null && state.processTypeId == null) {
             state.processTypeId = execution.getProcessTypeId();
+        }
+        if (execution.getStartTime() != null
+                && (state.earliestStart == null || execution.getStartTime().isBefore(state.earliestStart))) {
+            state.earliestStart = execution.getStartTime();
         }
         if (execution.getStartTime() != null && execution.getEndTime() == null) {
             state.open = true;
@@ -373,6 +476,9 @@ public class WorkOrderExecutionTimeValidator {
 
         /** 最晚实际结束时间 */
         private LocalDateTime latestEnd;
+
+        /** 最早实际开始时间（用于反向校验后续工序是否已开始） */
+        private LocalDateTime earliestStart;
 
         /** 是否存在已开始未结束的执行记录 */
         private boolean open;

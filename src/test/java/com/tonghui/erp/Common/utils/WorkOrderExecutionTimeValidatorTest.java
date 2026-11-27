@@ -165,6 +165,82 @@ public class WorkOrderExecutionTimeValidatorTest {
         assertDoesNotThrow(() -> validator.validate(order, List.of(batchTwo), Set.of()));
     }
 
+    /**
+     * 实际结束早于实际开始 → 拒绝（避免 0 或负工时）
+     */
+    @Test
+    public void testEndNotAfterStart() {
+        WorkOrder order = order(time(2026, 11, 11, 0, 0), time(2026, 11, 30, 0, 0));
+        WorkOrderProcessExecution row = execution(1L, 1,
+                time(2026, 11, 11, 12, 0), time(2026, 11, 11, 11, 0));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> validator.validate(order, List.of(row), Set.of()));
+        assertTrue(ex.getMessage().contains("必须晚于实际开始"), ex.getMessage());
+    }
+
+    /**
+     * 修改前序工序结束时间：晚于后续工序已登记的实际开始 → 拒绝
+     */
+    @Test
+    public void testEndAfterNextStepStart() {
+        WorkOrder order = order(time(2026, 11, 11, 0, 0), time(2026, 11, 30, 0, 0));
+        WorkOrderProcessExecution nextStep = execution(11L, 2,
+                time(2026, 11, 11, 13, 0), null);
+        when(executionMapper.selectList(any())).thenReturn(List.of(nextStep));
+        WorkOrderProcessExecution row = execution(10L, 1,
+                time(2026, 11, 11, 8, 0), time(2026, 11, 11, 14, 0));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> validator.validate(order, List.of(row), Set.of(10L)));
+        assertTrue(ex.getMessage().contains("晚于后续工序"), ex.getMessage());
+    }
+
+    /**
+     * 只填结束时间（无开始）也要校验任务时间窗，不能因缺少开始时间跳过
+     */
+    @Test
+    public void testEndOnlyRowStillChecksTaskWindow() {
+        WorkOrder order = order(time(2026, 11, 11, 0, 0), null);
+        WorkOrderProcessExecution row = execution(1L, 1,
+                null, time(2026, 11, 10, 9, 0));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> validator.validate(order, List.of(row), Set.of()));
+        assertTrue(ex.getMessage().contains("早于任务配置时间"), ex.getMessage());
+    }
+
+    /**
+     * 完工校验：不重复校验前序工序（开工时已校验），但仍拦截晚于后续工序已开始
+     */
+    @Test
+    public void testCompletionStillChecksNextStepStart() {
+        WorkOrder order = order(time(2026, 11, 11, 0, 0), time(2026, 11, 30, 0, 0));
+        WorkOrderProcessExecution previousOpen = execution(5L, 1, time(2026, 11, 11, 8, 0), null);
+        WorkOrderProcessExecution nextStep = execution(7L, 3, time(2026, 11, 11, 20, 0), null);
+        when(executionMapper.selectList(any())).thenReturn(List.of(previousOpen, nextStep));
+        WorkOrderProcessExecution row = execution(10L, 2,
+                time(2026, 11, 11, 9, 0), time(2026, 11, 11, 21, 0));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> validator.validateCompletion(order, row));
+        assertTrue(ex.getMessage().contains("晚于后续工序"), ex.getMessage());
+    }
+
+    /**
+     * 完工校验：前序工序仍在执行中时，补结束时间不应被前序校验误拦
+     */
+    @Test
+    public void testCompletionIgnoresPreviousOpenStep() {
+        WorkOrder order = order(time(2026, 11, 11, 0, 0), time(2026, 11, 30, 0, 0));
+        WorkOrderProcessExecution previousOpen = execution(5L, 1, time(2026, 11, 11, 8, 0), null);
+        when(executionMapper.selectList(any())).thenReturn(List.of(previousOpen));
+        WorkOrderProcessExecution row = execution(10L, 2,
+                time(2026, 11, 11, 9, 0), time(2026, 11, 11, 10, 0));
+
+        assertDoesNotThrow(() -> validator.validateCompletion(order, row));
+    }
+
     // region 测试数据构造
     // ===================================
     // 测试数据构造

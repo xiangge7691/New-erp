@@ -34,6 +34,20 @@ public interface WorkOrderMapper extends BaseMapper<WorkOrder> {
      */
     @Select("SELECT * FROM work_order WHERE inspection_end IS NOT NULL AND is_deleted = 0 ORDER BY work_order_code DESC")
     List<WorkOrder> selectInspectedOrders();
+
+    /**
+     * 按主键加行锁查询工单（SELECT ... FOR UPDATE）
+     * <p>
+     * 「实际生产」保存时先锁工单，串行化同一工单下多批次/多工序的并发保存，
+     * 避免两个用户同时编辑不同批次时互相覆盖执行记录。
+     * 必须在事务中调用。
+     * </p>
+     *
+     * @param workOrderId 工单ID
+     * @return 工单记录，不存在时返回 null
+     */
+    @Select("SELECT * FROM work_order WHERE work_order_id = #{workOrderId} FOR UPDATE")
+    WorkOrder selectByIdForUpdate(@Param("workOrderId") Long workOrderId);
 }
 
 

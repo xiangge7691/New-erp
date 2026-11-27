@@ -27,11 +27,11 @@ spring:
   # 数据库连接URL
   # 包含数据库地址、端口、数据库名以及连接参数
   datasource:
-    url: ${ERP_DB_URL:jdbc:mysql://192.168.5.100:3306/erp_db?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=GMT%2B8&allowPublicKeyRetrieval=true&zeroDateTimeBehavior=convertToNull}
+    url: ${ERP_DB_URL:jdbc:mysql://localhost:3306/erp_db?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=GMT%2B8&allowPublicKeyRetrieval=true&zeroDateTimeBehavior=convertToNull}
     username: ${ERP_DB_USERNAME:root}
 #    url: jdbc:mysql://8.148.27.237:3306/erp_db1?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=GMT%2B8&allowPublicKeyRetrieval=true&zeroDateTimeBehavior=convertToNull
 #    username: erp_db1
-    password: ${ERP_DB_PASSWORD:89749050}
+    password: ${ERP_DB_PASSWORD:970627}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
 # ===================================
@@ -84,6 +84,14 @@ file:
   permanent-dir: permanent
   image-dir: images
   document-dir: documents
+
+# ===================================
+# 生产模块配置
+# ===================================
+erp:
+  # 实际生产时间校验开关（工单配置时间窗 + 工序先后 + 时长）
+  # 历史数据批量修复、紧急补录时可临时关闭；关闭期间不校验，恢复后对新增写入生效
+  time-validation-enabled: true
 
 # ===================================
 # 日志模块配置

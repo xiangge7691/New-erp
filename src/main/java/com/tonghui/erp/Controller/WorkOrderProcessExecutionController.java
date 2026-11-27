@@ -175,7 +175,8 @@ public class WorkOrderProcessExecutionController extends BaseController {
      * <p>
      * 工序状态由后端按时间推导并落库，前端无需传 status：
      * 开始与结束时间齐全=已完成，仅有开始时间=执行中，均未填写=待执行。
-     * 只填开始时间表示工序执行中，此时该工序按开放区间持续占用设备。
+     * 只填开始时间表示工序执行中，此时该工序按开放区间持续占用设备；
+     * 结束实际生产请调用 POST /{executionId}/complete，不要用保存接口补结束时间。
      * 更新既有行时，请求未携带的开始/结束时间、数量等执行数据沿用原值，不会因局部保存被清空。
      * </p>
      *
@@ -217,24 +218,31 @@ public class WorkOrderProcessExecutionController extends BaseController {
     }
 
     /**
-     * 工序/批次完工
+     * 工序/批次完工（登记实际结束时间并锁定）
      * <p>
-     * 锁定实际执行记录，按实际参与人与个人工作时间生成人员绩效；
+     * 「实际生产」保存只登记实际开始时间（状态=执行中），完工时调用本接口：
+     * 结束时间可空，为空则取当前时间；传入时必须晚于实际开始时间，并落在工单配置时间窗内。
+     * 完工后锁定实际执行记录，按实际参与人与个人工作时间生成人员绩效；
      * 已锁定的工序不可重复完工。
      * </p>
      *
      * 示例请求：
      * POST /api/work-order-process-execution/123/complete
+     * POST /api/work-order-process-execution/123/complete?endTime=2026-11-19T18:00:00
      *
      * @param executionId 工序执行记录ID
+     * @param endTime     实际结束时间（可选，ISO 格式；为空取当前时间）
      * @return 完工后的执行记录（含参与人）
      */
     @OperationLog(module = "工单工序执行", type = OperationType.UPDATE, desc = "工序完工",
             businessType = "WORK_ORDER_PROCESS_EXECUTION", businessId = "#executionId")
     @PostMapping("/{executionId}/complete")
-    public ApiResponse<WorkOrderProcessExecution> complete(@PathVariable Long executionId) {
+    public ApiResponse<WorkOrderProcessExecution> complete(
+            @PathVariable Long executionId,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime) {
         try {
-            return success(workOrderProcessExecutionService.complete(executionId), "完工成功");
+            return success(workOrderProcessExecutionService.complete(executionId, endTime), "完工成功");
         } catch (Exception ex) {
             return exception(ex, "工序完工");
         }

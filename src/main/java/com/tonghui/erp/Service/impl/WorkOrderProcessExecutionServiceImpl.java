@@ -288,8 +288,8 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
     @Override
     @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public void batchSave(Long workOrderId, List<WorkOrderProcessExecution> executions) {
-        // 1. 校验工单，读取制剂ID（用于补齐关键工艺参数）
-        WorkOrder order = workOrderMapper.selectById(workOrderId);
+        // 1. 校验工单并加行锁，串行化同一工单的并发保存（读取制剂ID用于补齐关键工艺参数）
+        WorkOrder order = workOrderMapper.selectByIdForUpdate(workOrderId);
         if (order == null || Integer.valueOf(1).equals(order.getIsDeleted())) {
             throw new IllegalArgumentException("工单不存在");
         }
@@ -761,7 +761,7 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
     // ===================================
 
     /**
-     * 工序/批次完工：锁定执行记录并生成个人绩效
+     * 工序/批次完工（不指定结束时间，取当前时间）
      *
      * @param executionId 工序执行记录ID
      * @return 完工后的执行记录
@@ -769,6 +769,24 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
     @Override
     @Transactional(rollbackFor = Exception.class)
     public WorkOrderProcessExecution complete(Long executionId) {
+        return complete(executionId, null);
+    }
+
+    /**
+     * 工序/批次完工：锁定执行记录并生成个人绩效
+     * <p>
+     * 「实际生产」保存只登记开始时间，完工动作单独通过本方法完成：
+     * 未传结束时间时取当前时间；显式传入时必须晚于实际开始时间，
+     * 并与保存共用同一套时间校验（工单配置时间窗 + 工序先后）。
+     * </p>
+     *
+     * @param executionId 工序执行记录ID
+     * @param endTime     实际结束时间（可空，空则取当前时间）
+     * @return 完工后的执行记录
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public WorkOrderProcessExecution complete(Long executionId, LocalDateTime endTime) {
         WorkOrderProcessExecution execution = this.getById(executionId);
         if (execution == null) {
             throw new IllegalArgumentException("工序执行记录不存在");
@@ -779,11 +797,18 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
         if (execution.getStartTime() == null) {
             throw new IllegalArgumentException("请先填写实际开始时间");
         }
-        LocalDateTime end = execution.getEndTime() != null ? execution.getEndTime() : LocalDateTime.now();
+        LocalDateTime end = endTime != null ? endTime : LocalDateTime.now();
         if (!end.isAfter(execution.getStartTime())) {
+            if (endTime != null) {
+                throw new IllegalArgumentException("实际结束时间必须晚于实际开始时间");
+            }
+            // 开始时间登记在未来（如提前排产打点）时，自动顺延 1 分钟，避免 0 或负工时
             end = execution.getStartTime().plusMinutes(1);
         }
+        // 结束时间同样要落在工单配置时间窗内，并满足反向工序先后（开始时间在登记时已校验）
+        WorkOrder order = workOrderMapper.selectById(execution.getWorkOrderId());
         execution.setEndTime(end);
+        executionTimeValidator.validateCompletion(order, execution);
         execution.setStatus(ProcessExecutionStatus.COMPLETED);
         execution.setLocked(1);
         execution.setCompletedTime(end);

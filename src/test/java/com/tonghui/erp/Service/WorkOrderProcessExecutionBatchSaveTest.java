@@ -6,6 +6,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.tonghui.erp.Common.utils.EquipmentUsageConflictValidator;
+import com.tonghui.erp.Common.utils.WorkOrderExecutionTimeValidator;
 import com.tonghui.erp.Data.Entity.PreparationProcessTemplate;
 import com.tonghui.erp.Data.Entity.WorkOrder;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessExecution;
@@ -80,6 +81,8 @@ class WorkOrderProcessExecutionBatchSaveTest {
     @Mock
     private EquipmentUsageConflictValidator equipmentUsageConflictValidator;
     @Mock
+    private WorkOrderExecutionTimeValidator executionTimeValidator;
+    @Mock
     private PerformanceGenerationService performanceGenerationService;
 
     @InjectMocks
@@ -126,7 +129,7 @@ class WorkOrderProcessExecutionBatchSaveTest {
         order.setWorkOrderId(470L);
         order.setPreparationId(244L);
         order.setIsDeleted(0);
-        when(workOrderMapper.selectById(470L)).thenReturn(order);
+        when(workOrderMapper.selectByIdForUpdate(470L)).thenReturn(order);
 
         // 既有执行记录：第 1 道工序 + 第 3 道工序（灭菌的整道工序行）
         WorkOrderProcessExecution first = new WorkOrderProcessExecution();
@@ -231,7 +234,7 @@ class WorkOrderProcessExecutionBatchSaveTest {
         WorkOrder order = new WorkOrder();
         order.setWorkOrderId(470L);
         order.setIsDeleted(0);
-        when(workOrderMapper.selectById(470L)).thenReturn(order);
+        when(workOrderMapper.selectByIdForUpdate(470L)).thenReturn(order);
         when(executionMapper.selectList(any())).thenReturn(List.of());
 
         WorkOrderProcessExecution incoming = new WorkOrderProcessExecution();
@@ -275,7 +278,7 @@ class WorkOrderProcessExecutionBatchSaveTest {
         WorkOrder order = new WorkOrder();
         order.setWorkOrderId(480L);
         order.setIsDeleted(0);
-        when(workOrderMapper.selectById(480L)).thenReturn(order);
+        when(workOrderMapper.selectByIdForUpdate(480L)).thenReturn(order);
 
         WorkOrderProcessExecution existing = new WorkOrderProcessExecution();
         existing.setId(550L);
@@ -306,7 +309,7 @@ class WorkOrderProcessExecutionBatchSaveTest {
         WorkOrder order = new WorkOrder();
         order.setWorkOrderId(480L);
         order.setIsDeleted(0);
-        when(workOrderMapper.selectById(480L)).thenReturn(order);
+        when(workOrderMapper.selectByIdForUpdate(480L)).thenReturn(order);
         when(executionMapper.selectList(any())).thenReturn(List.of());
         when(participantMapper.selectCount(any())).thenReturn(1L);
 
@@ -334,7 +337,7 @@ class WorkOrderProcessExecutionBatchSaveTest {
         WorkOrder order = new WorkOrder();
         order.setWorkOrderId(480L);
         order.setIsDeleted(0);
-        when(workOrderMapper.selectById(480L)).thenReturn(order);
+        when(workOrderMapper.selectByIdForUpdate(480L)).thenReturn(order);
 
         WorkOrderProcessExecution existing = new WorkOrderProcessExecution();
         existing.setId(550L);
@@ -353,6 +356,69 @@ class WorkOrderProcessExecutionBatchSaveTest {
 
         assertDoesNotThrow(() -> service.batchSave(480L, List.of(incoming)));
         verify(performanceGenerationService, never()).generateForExecution(any());
+    }
+
+    /**
+     * 拆分批次：保存批次 2 的执行行时，批次 1 的既有记录不得被更新或删除，
+     * 且只登记开始时间时状态应为「执行中」。
+     */
+    @Test
+    void shouldKeepOtherBatchExecutionWhenSavingOneBatch() {
+        WorkOrder order = new WorkOrder();
+        order.setWorkOrderId(470L);
+        order.setIsDeleted(0);
+        when(workOrderMapper.selectByIdForUpdate(470L)).thenReturn(order);
+
+        // 既有：批次 1 已登记实际生产
+        WorkOrderProcessExecution batchOne = new WorkOrderProcessExecution();
+        batchOne.setId(501L);
+        batchOne.setWorkOrderId(470L);
+        batchOne.setPlanId(27L);
+        batchOne.setPlanBatchId(45L);
+        batchOne.setBatchNo(1);
+        batchOne.setProcessTypeId(88L);
+        batchOne.setStepOrder(3);
+        batchOne.setStartTime(LocalDateTime.of(2026, 11, 19, 10, 0));
+        batchOne.setEndTime(LocalDateTime.of(2026, 11, 19, 13, 0));
+        batchOne.setStatus("已完成");
+        batchOne.setLocked(0);
+        when(executionMapper.selectList(any())).thenReturn(List.of(batchOne));
+
+        WorkOrderProcessPlanBatch batchTwo = new WorkOrderProcessPlanBatch();
+        batchTwo.setId(46L);
+        batchTwo.setPlanId(27L);
+        batchTwo.setBatchNo(2);
+        batchTwo.setPlanQty(new BigDecimal("3501"));
+        when(planBatchMapper.selectById(46L)).thenReturn(batchTwo);
+
+        WorkOrderProcessPlan plan = new WorkOrderProcessPlan();
+        plan.setId(27L);
+        plan.setWorkOrderId(470L);
+        plan.setProcessTypeId(88L);
+        plan.setStepOrder(3);
+        when(planMapper.selectById(27L)).thenReturn(plan);
+
+        // 只回传批次 2，且只登记开始时间（执行中）
+        WorkOrderProcessExecution incoming = new WorkOrderProcessExecution();
+        incoming.setPlanId(27L);
+        incoming.setPlanBatchId(46L);
+        incoming.setProcessTypeId(88L);
+        incoming.setStartTime(LocalDateTime.of(2026, 11, 20, 0, 0));
+
+        service.batchSave(470L, List.of(incoming));
+
+        ArgumentCaptor<WorkOrderProcessExecution> captor =
+                ArgumentCaptor.forClass(WorkOrderProcessExecution.class);
+        verify(executionMapper).insert(captor.capture());
+        WorkOrderProcessExecution saved = captor.getValue();
+        assertEquals(46L, saved.getPlanBatchId());
+        assertEquals(2, saved.getBatchNo());
+        assertEquals("执行中", saved.getStatus());
+
+        // 批次 1 的记录不能被删除，也不能被改到批次 2 名下
+        verify(executionMapper, never()).physicalDeleteById(501L);
+        verify(executionMapper, never()).updateById(org.mockito.ArgumentMatchers
+                .<WorkOrderProcessExecution>argThat(e -> e != null && Long.valueOf(501L).equals(e.getId())));
     }
 
     // endregion
