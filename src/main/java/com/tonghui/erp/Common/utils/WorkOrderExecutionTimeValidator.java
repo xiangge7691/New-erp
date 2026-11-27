@@ -273,10 +273,26 @@ public class WorkOrderExecutionTimeValidator {
             return;
         }
         StepState unfinished = previousSteps.stream()
-                .filter(state -> state.open).findFirst().orElse(null);
+                .filter(state -> state.records > 0 && !state.anyStarted)
+                .findFirst().orElse(null);
         if (unfinished != null) {
             errors.add("工序【" + label + "】登记实际开始时间时，上一道工序【"
-                    + stateLabel(unfinished, processNames) + "】尚未完工，请先结束上一道工序");
+                    + stateLabel(unfinished, processNames) + "】尚未登记实际开始时间，请先开工");
+            return;
+        }
+        StepState running = previousSteps.stream()
+                .filter(state -> state.open).findFirst().orElse(null);
+        if (running != null) {
+            errors.add("工序【" + label + "】登记实际开始时间时，上一道工序【"
+                    + stateLabel(running, processNames) + "】尚未完工，请先结束上一道工序");
+            return;
+        }
+        StepState incomplete = previousSteps.stream()
+                .filter(state -> state.records > 0 && !state.allCompleted)
+                .findFirst().orElse(null);
+        if (incomplete != null) {
+            errors.add("工序【" + label + "】登记实际开始时间时，上一道工序【"
+                    + stateLabel(incomplete, processNames) + "】仍有未完工的批次，请先完成全部批次");
             return;
         }
         StepState lastFinished = previousSteps.stream()
@@ -369,6 +385,13 @@ public class WorkOrderExecutionTimeValidator {
         if (execution.getStartTime() != null
                 && (state.earliestStart == null || execution.getStartTime().isBefore(state.earliestStart))) {
             state.earliestStart = execution.getStartTime();
+        }
+        state.records++;
+        if (execution.getStartTime() != null) {
+            state.anyStarted = true;
+        }
+        if (execution.getStartTime() == null || execution.getEndTime() == null) {
+            state.allCompleted = false;
         }
         if (execution.getStartTime() != null && execution.getEndTime() == null) {
             state.open = true;
@@ -482,6 +505,15 @@ public class WorkOrderExecutionTimeValidator {
 
         /** 是否存在已开始未结束的执行记录 */
         private boolean open;
+
+        /** 该工序的执行记录条数（批次数量） */
+        private int records;
+
+        /** 是否存在已登记开始时间的记录 */
+        private boolean anyStarted;
+
+        /** 是否全部记录都已完工 */
+        private boolean allCompleted = true;
 
         private StepState(Integer stepOrder) {
             this.stepOrder = stepOrder;

@@ -55,6 +55,12 @@ public class ApiResponse<T> {
     private T data;
 
     /**
+     * 非阻断提醒（如设备占用提醒）
+     * <p>接口成功但存在需要用户确认的冲突时返回，不影响本次操作结果。</p>
+     */
+    private java.util.List<String> warnings;
+
+    /**
      * 时间戳
      */
     private long timestamp = System.currentTimeMillis();

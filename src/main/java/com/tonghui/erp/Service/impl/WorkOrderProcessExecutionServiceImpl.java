@@ -284,10 +284,11 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
      *
      * @param workOrderId 工单ID
      * @param executions  工序执行记录列表
+     * @return 非阻断的设备占用提醒（进行中记录的冲突）
      */
     @Override
     @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
-    public void batchSave(Long workOrderId, List<WorkOrderProcessExecution> executions) {
+    public List<String> batchSave(Long workOrderId, List<WorkOrderProcessExecution> executions) {
         // 1. 校验工单并加行锁，串行化同一工单的并发保存（读取制剂ID用于补齐关键工艺参数）
         WorkOrder order = workOrderMapper.selectByIdForUpdate(workOrderId);
         if (order == null || Integer.valueOf(1).equals(order.getIsDeleted())) {
@@ -348,8 +349,27 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
         rows.stream().map(WorkOrderProcessExecution::getPlanBatchId)
                 .filter(Objects::nonNull).forEach(affectedBatchIds::add);
 
-        // 4. 设备使用冲突校验（必须在任何写库操作之前；此时设备与时间字段已补齐）
-        equipmentUsageConflictValidator.validate(workOrderId, rows);
+        // 3.1 计算本次提交会替换/删除的旧行与涉及批次，供冲突比对排除
+        Set<Long> incomingBatchIds = rows.stream().map(WorkOrderProcessExecution::getPlanBatchId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<Integer> incomingBatchNos = rows.stream().map(WorkOrderProcessExecution::getBatchNo)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<Long> incomingPlanIds = rows.stream().map(WorkOrderProcessExecution::getPlanId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<String> incomingProcessKeys = rows.stream()
+                .filter(e -> e.getProcessTypeId() != null && e.getStepOrder() != null)
+                .map(e -> ExecutionRecordMatcher.processKey(e.getProcessTypeId(), e.getStepOrder()))
+                .collect(Collectors.toSet());
+        List<WorkOrderProcessExecution> toDelete = existingList.stream()
+                .filter(old -> !incomingIds.contains(old.getId()))
+                .filter(old -> ExecutionRecordMatcher.isReplacedByIncoming(old, incomingBatchIds, incomingBatchNos,
+                        incomingPlanIds, incomingProcessKeys))
+                .toList();
+        Set<Long> conflictExcludeIds = new HashSet<>(incomingIds);
+        toDelete.forEach(old -> conflictExcludeIds.add(old.getId()));
+
+        // 4. 设备使用冲突校验（进行中记录的占用冲突只作为提醒返回，不阻断保存）
+        List<String> warnings = equipmentUsageConflictValidator.validate(workOrderId, rows, conflictExcludeIds);
 
         // 5. 实际时间校验：任务配置时间窗 + 工序先后（同样必须在写库之前）
         Set<Long> overwrittenIds = toUpdate.stream().map(WorkOrderProcessExecution::getId)
@@ -385,22 +405,7 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
         }
 
         // 7. 被本次提交替换的既有行：仅删除同一工序/批次的旧记录
-        Set<Long> incomingBatchIds = rows.stream().map(WorkOrderProcessExecution::getPlanBatchId)
-                .filter(Objects::nonNull).collect(Collectors.toSet());
-        Set<Integer> incomingBatchNos = rows.stream().map(WorkOrderProcessExecution::getBatchNo)
-                .filter(Objects::nonNull).collect(Collectors.toSet());
-        Set<Long> incomingPlanIds = rows.stream().map(WorkOrderProcessExecution::getPlanId)
-                .filter(Objects::nonNull).collect(Collectors.toSet());
-        Set<String> incomingProcessKeys = rows.stream()
-                .filter(e -> e.getProcessTypeId() != null && e.getStepOrder() != null)
-                .map(e -> ExecutionRecordMatcher.processKey(e.getProcessTypeId(), e.getStepOrder()))
-                .collect(Collectors.toSet());
-        for (WorkOrderProcessExecution old : existingList) {
-            if (incomingIds.contains(old.getId())
-                    || !ExecutionRecordMatcher.isReplacedByIncoming(old, incomingBatchIds, incomingBatchNos,
-                            incomingPlanIds, incomingProcessKeys)) {
-                continue;
-            }
+        for (WorkOrderProcessExecution old : toDelete) {
             // 已锁定、已 PDA 提交或已生成绩效的旧行不允许被替换删除，避免绩效与执行数据悬挂
             assertDeletable(old);
             if (old.getPlanBatchId() != null) {
@@ -412,6 +417,7 @@ public class WorkOrderProcessExecutionServiceImpl extends ServiceImpl<WorkOrderP
 
         // 8. 按最新实际执行记录刷新涉及批次的状态（计划中/执行中/已完工）
         affectedBatchIds.forEach(this::refreshPlanBatchStatus);
+        return warnings;
     }
 
     // endregion

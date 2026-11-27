@@ -167,6 +167,8 @@ public class WorkOrderProcessExecutionController extends BaseController {
      * <p>
      * 保存前会校验设备使用合法性：设备必须为"正常"状态、同一设备的开始/结束时间不得重叠、
      * 使用日期不得与设备维保日期重叠。校验不通过返回 400，message 为具体冲突明细。
+     * 只填开始时间（进行中）的记录产生的设备占用冲突不阻断保存，随响应 {@code warnings} 返回，
+     * 由前端提示现场确认；双方结束时间都完整的区间冲突仍然阻断。
      * </p>
      * <p>
      * 同时校验实际时间：不得早于任务配置时间、不得晚于任务配置完成时间（未填写时只校验下界），
@@ -210,8 +212,13 @@ public class WorkOrderProcessExecutionController extends BaseController {
     public ApiResponse<List<WorkOrderProcessExecution>> batchSave(@RequestParam Long workOrderId,
                                                                   @RequestBody List<WorkOrderProcessExecution> executions) {
         try {
-            workOrderProcessExecutionService.batchSave(workOrderId, executions);
-            return success(workOrderProcessExecutionService.getByWorkOrderId(workOrderId), "保存成功");
+            List<String> warnings = workOrderProcessExecutionService.batchSave(workOrderId, executions);
+            List<WorkOrderProcessExecution> records =
+                    workOrderProcessExecutionService.getByWorkOrderId(workOrderId);
+            ApiResponse<List<WorkOrderProcessExecution>> response = success(records,
+                    warnings.isEmpty() ? "保存成功" : "保存成功，存在 " + warnings.size() + " 条设备占用提醒");
+            response.setWarnings(warnings);
+            return response;
         } catch (Exception ex) {
             return exception(ex, "保存工序执行记录失败");
         }

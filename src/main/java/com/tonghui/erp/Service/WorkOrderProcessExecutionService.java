@@ -39,8 +39,9 @@ public interface WorkOrderProcessExecutionService extends IService<WorkOrderProc
      *
      * @param workOrderId 工单ID
      * @param executions  工序执行记录列表
+     * @return 非阻断的设备占用提醒（进行中记录的冲突）
      */
-    void batchSave(Long workOrderId, List<WorkOrderProcessExecution> executions);
+    List<String> batchSave(Long workOrderId, List<WorkOrderProcessExecution> executions);
 
     /**
      * 工序/批次完工：锁定执行记录并生成个人绩效

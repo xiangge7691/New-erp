@@ -16,6 +16,7 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -36,8 +37,9 @@ import java.util.stream.Collectors;
  *   <li>维保冲突：使用时间区间不得与设备的维保时间区间重叠</li>
  * </ol>
  * 校验只针对"已填写开始时间"的行；仅选设备未排时间（工单按模板初始化）的行放行。
- * 只填开始时间表示工序执行中，结束时间未知，按 [开始时间, +∞) 参与占用与维保冲突判断，
- * 防止正在使用的设备被其他工单重复排产。
+ * 只填开始时间表示工序执行中，结束时间未知，仍按 [开始时间, +∞) 参与占用与维保冲突判断；
+ * 但「进行中」行产生的占用冲突只作为非阻断提醒（warnings）返回，不再阻止保存。
+ * 双方都填写了结束时间的完整区间冲突仍然阻断。
  * </p>
  * <p>
  * 并发控制：按 equipment_id 升序对设备行加 {@code SELECT ... FOR UPDATE} 行锁，
@@ -120,8 +122,28 @@ public class EquipmentUsageConflictValidator {
      * @throws IllegalArgumentException 校验不通过
      */
     public void validate(Long workOrderId, List<WorkOrderProcessExecution> executions) {
+        validate(workOrderId, executions, null);
+    }
+
+    /**
+     * 校验一批工序执行记录，并返回非阻断提醒
+     * <p>
+     * 硬性错误（时间非法、设备缺失/不可用）仍然抛出异常；
+     * 涉及「进行中」（未填结束时间）记录的设备占用/维保冲突降级为提醒，随保存结果返回。
+     * </p>
+     *
+     * @param workOrderId 工单ID
+     * @param executions  待保存的执行记录
+     * @param excludeIds  不参与数据库冲突比对的既有记录ID（本次将被更新/替换的行）；
+     *                    为空时退化为排除本工单全部既有行
+     * @return 非阻断的设备占用提醒
+     * @throws IllegalArgumentException 硬性校验不通过
+     */
+    public List<String> validate(Long workOrderId, List<WorkOrderProcessExecution> executions,
+                                 Collection<Long> excludeIds) {
+        List<String> warnings = new ArrayList<>();
         if (CollectionUtils.isEmpty(executions)) {
-            return;
+            return warnings;
         }
 
         // 1. 基础校验：时间先后、设备必填、部分填写时间
@@ -154,7 +176,7 @@ public class EquipmentUsageConflictValidator {
         }
         throwIfAny(errors);
         if (activeRows.isEmpty()) {
-            return;
+            return warnings;
         }
 
         // 2. 收集本批涉及设备，按ID升序加锁并校验状态
@@ -168,15 +190,16 @@ public class EquipmentUsageConflictValidator {
         throwIfAny(errors);
 
         // 3. 同一批内两两时间重叠校验
-        checkInBatchConflicts(activeRows, equipmentMap, errors);
+        checkInBatchConflicts(activeRows, equipmentMap, errors, warnings);
 
-        // 4. 与其他工单既有记录的时间冲突校验
-        checkDatabaseConflicts(workOrderId, activeRows, equipmentIds, equipmentMap, errors);
+        // 4. 与其他工单/本工单其他批次既有记录的时间冲突校验
+        checkDatabaseConflicts(workOrderId, activeRows, equipmentIds, equipmentMap, errors, warnings, excludeIds);
 
         // 5. 与设备维保日期的冲突校验
-        checkMaintenanceConflicts(activeRows, equipmentIds, equipmentMap, errors);
+        checkMaintenanceConflicts(activeRows, equipmentIds, equipmentMap, errors, warnings);
 
         throwIfAny(errors);
+        return warnings;
     }
 
     // endregion
@@ -231,7 +254,7 @@ public class EquipmentUsageConflictValidator {
      */
     private void checkInBatchConflicts(List<WorkOrderProcessExecution> activeRows,
                                        Map<Integer, Equipment> equipmentMap,
-                                       Set<String> errors) {
+                                       Set<String> errors, List<String> warnings) {
         Map<Integer, List<WorkOrderProcessExecution>> grouped = activeRows.stream()
                 .collect(Collectors.groupingBy(WorkOrderProcessExecution::getEquipmentId));
         for (Map.Entry<Integer, List<WorkOrderProcessExecution>> entry : grouped.entrySet()) {
@@ -245,10 +268,16 @@ public class EquipmentUsageConflictValidator {
                     if (!next.getStartTime().isBefore(effectiveEnd(current))) {
                         break;
                     }
-                    errors.add("同一工单内工序【" + describeProcess(current) + "】与工序【"
+                    String message = "同一工单内工序【" + describeProcess(current) + "】与工序【"
                             + describeProcess(next) + "】使用设备【" + equipmentLabel + "】的时间重叠（"
                             + formatRange(current.getStartTime(), current.getEndTime()) + " 与 "
-                            + formatRange(next.getStartTime(), next.getEndTime()) + "）");
+                            + formatRange(next.getStartTime(), next.getEndTime()) + "）";
+                    // 任一方未填结束时间（进行中）：按持续占用提示，但不阻断保存
+                    if (current.getEndTime() == null || next.getEndTime() == null) {
+                        warnings.add(message);
+                    } else {
+                        errors.add(message);
+                    }
                 }
             }
         }
@@ -274,7 +303,8 @@ public class EquipmentUsageConflictValidator {
                                         List<WorkOrderProcessExecution> activeRows,
                                         List<Integer> equipmentIds,
                                         Map<Integer, Equipment> equipmentMap,
-                                        Set<String> errors) {
+                                        Set<String> errors, List<String> warnings,
+                                        Collection<Long> excludeIds) {
         LocalDateTime minStart = activeRows.stream()
                 .map(WorkOrderProcessExecution::getStartTime)
                 .min(LocalDateTime::compareTo)
@@ -287,10 +317,11 @@ public class EquipmentUsageConflictValidator {
             return;
         }
 
-        // 本工单既有行会被本次提交整体覆盖（未提交的行将被删除），不参与冲突判断
-        List<Long> excludeIds = executionMapper.selectIdsByWorkOrderId(workOrderId);
+        // 只排除本次会被更新/替换的既有行；同工单其他批次仍需参与冲突比对
+        Collection<Long> excluded = excludeIds != null
+                ? excludeIds : executionMapper.selectIdsByWorkOrderId(workOrderId);
         List<EquipmentUsageConflictDto> conflicts = executionMapper.selectConflictRecords(
-                equipmentIds, minStart, maxEnd, excludeIds);
+                equipmentIds, minStart, maxEnd, excluded);
         if (CollectionUtils.isEmpty(conflicts)) {
             return;
         }
@@ -311,11 +342,17 @@ public class EquipmentUsageConflictValidator {
                 if (!overlap) {
                     continue;
                 }
-                errors.add("设备【" + describeConflictEquipment(conflict, equipmentMap) + "】使用时间冲突："
+                String message = "设备【" + describeConflictEquipment(conflict, equipmentMap) + "】使用时间冲突："
                         + formatRange(row.getStartTime(), row.getEndTime()) + " 已被工单【"
                         + safeText(conflict.getWorkOrderCode()) + "】的工序【" + safeText(conflict.getProcessName())
                         + "】（批号：" + safeText(conflict.getBatchNumber()) + "）占用 "
-                        + formatRange(conflict.getStartTime(), conflict.getEndTime()));
+                        + formatRange(conflict.getStartTime(), conflict.getEndTime());
+                // 未填结束时间（进行中）的冲突按持续占用提示，但不阻断保存
+                if (row.getEndTime() == null || conflict.getEndTime() == null) {
+                    warnings.add(message);
+                } else {
+                    errors.add(message);
+                }
             }
         }
     }
@@ -342,7 +379,7 @@ public class EquipmentUsageConflictValidator {
     private void checkMaintenanceConflicts(List<WorkOrderProcessExecution> activeRows,
                                            List<Integer> equipmentIds,
                                            Map<Integer, Equipment> equipmentMap,
-                                           Set<String> errors) {
+                                           Set<String> errors, List<String> warnings) {
         LocalDateTime minStart = activeRows.stream()
                 .map(WorkOrderProcessExecution::getStartTime)
                 .min(LocalDateTime::compareTo)
@@ -377,11 +414,17 @@ public class EquipmentUsageConflictValidator {
                 if (!overlap) {
                     continue;
                 }
-                errors.add("设备【" + describeMaintenanceEquipment(maintenance, equipmentMap)
+                String message = "设备【" + describeMaintenanceEquipment(maintenance, equipmentMap)
                         + "】在 " + formatRange(maintenance.getMaintenanceStartTime(), maintenance.getMaintenanceEndTime())
                         + " 有维保记录（" + safeText(maintenance.getMaintenanceType())
                         + "），该时段不可安排生产使用（使用时间："
-                        + formatRange(row.getStartTime(), row.getEndTime()) + "）");
+                        + formatRange(row.getStartTime(), row.getEndTime()) + "）";
+                // 进行中的记录结束时间未知，维保冲突降级为提醒
+                if (row.getEndTime() == null) {
+                    warnings.add(message);
+                } else {
+                    errors.add(message);
+                }
             }
         }
     }

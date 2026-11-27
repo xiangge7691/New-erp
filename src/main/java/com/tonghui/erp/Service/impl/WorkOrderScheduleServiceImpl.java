@@ -697,8 +697,9 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
         if (formal) {
             conflictService.lockResources(plans, allBatches);
         }
-        List<ScheduleConflictDto> conflicts = conflictService.check(workOrderId, plans, allBatches,
-                participantMap.values().stream().flatMap(List::stream).toList());
+        List<ScheduleConflictDto> conflicts = new ArrayList<>(conflictService.check(workOrderId, plans, allBatches,
+                participantMap.values().stream().flatMap(List::stream).toList()));
+        conflicts.addAll(conflictService.checkConfigWindow(order, plans, allBatches));
         // 存在冲突时不落库：直接把冲突明细返回给前端，由前端调整后重新保存
         if (!conflicts.isEmpty()) {
             ScheduleSaveResult result = new ScheduleSaveResult();
@@ -789,7 +790,11 @@ public class WorkOrderScheduleServiceImpl implements WorkOrderScheduleService {
         plan.setWorkOrderCode(workOrderCode(plan.getWorkOrderId()));
         plan.setProcessTypeName(processName(plan.getProcessTypeId(), null));
         List<WorkOrderProcessPlan> one = List.of(plan);
-        List<ScheduleConflictDto> conflicts = conflictService.check(plan.getWorkOrderId(), one, entities);
+        // 拆分属于正式保存：除本次新批次外，还要和同工单其他工序/批次、配置时间窗做校验
+        WorkOrder order = workOrderMapper.selectById(plan.getWorkOrderId());
+        List<ScheduleConflictDto> conflicts = new ArrayList<>(conflictService.check(
+                plan.getWorkOrderId(), one, entities, List.of(), new HashSet<>(existingBatchIds)));
+        conflicts.addAll(conflictService.checkConfigWindow(order, one, entities));
         if (!conflicts.isEmpty()) {
             ScheduleSaveResult result = new ScheduleSaveResult();
             result.setSaved(false);

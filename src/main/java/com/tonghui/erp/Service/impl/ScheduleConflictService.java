@@ -1,6 +1,7 @@
 package com.tonghui.erp.Service.impl;
 
 import com.tonghui.erp.Common.Dto.Scheduling.ScheduleConflictDto;
+import com.tonghui.erp.Data.Entity.WorkOrder;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessPlan;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessPlanBatch;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessPlanParticipant;
@@ -15,8 +16,10 @@ import org.springframework.util.CollectionUtils;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -80,6 +83,17 @@ public class ScheduleConflictService {
                         List<Long> personnelIds) {
     }
 
+    /**
+     * 同工单、但不在本次提交范围内的计划与批次
+     */
+    private record SiblingData(List<WorkOrderProcessPlan> plans,
+                               Map<Long, List<WorkOrderProcessPlanBatch>> batches,
+                               List<Item> items) {
+    }
+
+    /** 冲突提示中的时间格式 */
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+
     // endregion
 
     // region 入口
@@ -120,6 +134,27 @@ public class ScheduleConflictService {
     public List<ScheduleConflictDto> check(Long workOrderId, List<WorkOrderProcessPlan> plans,
                                            List<WorkOrderProcessPlanBatch> batches,
                                            List<WorkOrderProcessPlanParticipant> incomingParticipants) {
+        return check(workOrderId, plans, batches, incomingParticipants, Set.of());
+    }
+
+    /**
+     * 校验一个工单的排产计划（支持拆分等局部保存）
+     * <p>
+     * 除本次提交的行之外，还会加载同工单未被本次提交覆盖的工序/批次参与比对，
+     * 避免拆分批次只和别的工单比较、漏掉本工单其他工序。
+     * </p>
+     *
+     * @param workOrderId          工单ID
+     * @param plans                待保存的计划行
+     * @param batches              待保存的批次
+     * @param incomingParticipants 待保存的计划参与人
+     * @param replacedBatchIds     本次会被替换删除的旧批次ID（拆分时传原批次），比对时排除
+     * @return 冲突列表，空表示无冲突
+     */
+    public List<ScheduleConflictDto> check(Long workOrderId, List<WorkOrderProcessPlan> plans,
+                                           List<WorkOrderProcessPlanBatch> batches,
+                                           List<WorkOrderProcessPlanParticipant> incomingParticipants,
+                                           Set<Long> replacedBatchIds) {
         List<ScheduleConflictDto> conflicts = new ArrayList<>();
         if (CollectionUtils.isEmpty(plans)) {
             return conflicts;
@@ -131,14 +166,41 @@ public class ScheduleConflictService {
         Map<Long, List<WorkOrderProcessPlanBatch>> batchMap = batches == null ? Map.of()
                 : batches.stream().collect(Collectors.groupingBy(WorkOrderProcessPlanBatch::getPlanId));
 
-        // 1. 工序顺序：后道开始不早于紧前开始
-        for (int i = 1; i < plans.size(); i++) {
-            WorkOrderProcessPlan prev = plans.get(i - 1);
-            WorkOrderProcessPlan cur = plans.get(i);
-            LocalDateTime prevStart = effectiveStart(prev, batchMap.get(prev.getId()));
-            LocalDateTime curStart = effectiveStart(cur, batchMap.get(cur.getId()));
+        // 0. 同工单未提交的兄弟行（拆分/局部保存时参与比对）
+        Set<Long> submittedPlanIds = plans.stream().map(WorkOrderProcessPlan::getId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<Long> submittedBatchIds = batches == null ? Set.of()
+                : batches.stream().map(WorkOrderProcessPlanBatch::getId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<Long> replacedIds = replacedBatchIds == null ? Set.of() : replacedBatchIds;
+        SiblingData siblings = loadSiblingData(workOrderId, submittedPlanIds, submittedBatchIds, replacedIds);
+
+        // 1. 工序顺序：后道开始不早于紧前开始；紧前未排时间时不能静默跳过
+        List<WorkOrderProcessPlan> timeline = new ArrayList<>(plans);
+        timeline.addAll(siblings.plans());
+        timeline.sort(Comparator.comparing(WorkOrderProcessPlan::getStepOrder,
+                Comparator.nullsLast(Integer::compareTo)));
+        Map<Long, List<WorkOrderProcessPlanBatch>> timelineBatches = new HashMap<>(batchMap);
+        timelineBatches.putAll(siblings.batches());
+        for (int i = 1; i < timeline.size(); i++) {
+            WorkOrderProcessPlan prev = timeline.get(i - 1);
+            WorkOrderProcessPlan cur = timeline.get(i);
+            // 只对本次提交的工序报冲突，历史兄弟行不反向报
+            if (!submittedPlanIds.contains(cur.getId())) {
+                continue;
+            }
+            LocalDateTime prevStart = effectiveStart(prev, timelineBatches.get(prev.getId()));
+            LocalDateTime curStart = effectiveStart(cur, timelineBatches.get(cur.getId()));
+            if (curStart != null && prevStart == null) {
+                conflicts.add(conflict("工序顺序", cur, null, curStart,
+                        effectiveEnd(cur, timelineBatches.get(cur.getId())),
+                        "工序【" + safeName(cur) + "】已排时间，但紧前工序【" + safeName(prev)
+                                + "】未排产时间，无法校验先后"));
+                continue;
+            }
             if (prevStart != null && curStart != null && curStart.isBefore(prevStart)) {
-                conflicts.add(conflict("工序顺序", cur, null, curStart, effectiveEnd(cur, batchMap.get(cur.getId())),
+                conflicts.add(conflict("工序顺序", cur, null, curStart,
+                        effectiveEnd(cur, timelineBatches.get(cur.getId())),
                         "工序【" + safeName(cur) + "】计划开始早于紧前工序【" + safeName(prev) + "】的开始时间"));
             }
         }
@@ -164,16 +226,17 @@ public class ScheduleConflictService {
 
         // 3. 组装本批比对单元
         List<Item> incoming = buildItems(plans, batchMap, incomingParticipants);
-        // 4. 数据库内已保存计划
+        // 4. 数据库内其他工单已保存计划
         List<Item> saved = loadSavedItems(workOrderId, plans, batches);
         List<Item> all = new ArrayList<>(incoming);
         all.addAll(saved);
+        all.addAll(siblings.items());
 
-        // 5. 设备与房间冲突
-        checkResourceConflicts(incoming, saved, all, conflicts);
+        // 5. 设备与房间冲突（含同工单未提交的兄弟行）
+        checkResourceConflicts(incoming, saved, siblings.items(), all, conflicts);
 
         // 6. 人员冲突：同一人在同一时段被安排到不同工序
-        checkPersonConflicts(incoming, saved, conflicts);
+        checkPersonConflicts(incoming, saved, siblings.items(), conflicts);
 
         return conflicts;
     }
@@ -213,8 +276,8 @@ public class ScheduleConflictService {
     /**
      * 校验设备与房间冲突（本批内部 + 与已保存计划）
      */
-    private void checkResourceConflicts(List<Item> incoming, List<Item> saved, List<Item> all,
-                                        List<ScheduleConflictDto> conflicts) {
+    private void checkResourceConflicts(List<Item> incoming, List<Item> saved, List<Item> siblings,
+                                        List<Item> all, List<ScheduleConflictDto> conflicts) {
         for (int i = 0; i < incoming.size(); i++) {
             Item a = incoming.get(i);
             for (int j = i + 1; j < incoming.size(); j++) {
@@ -223,6 +286,9 @@ public class ScheduleConflictService {
             }
             for (Item b : saved) {
                 addPairConflict(a, b, conflicts, "其他工单");
+            }
+            for (Item b : siblings) {
+                addPairConflict(a, b, conflicts, "本工单");
             }
         }
         // 为设备/房间冲突补充最近的可用时段
@@ -335,13 +401,17 @@ public class ScheduleConflictService {
     /**
      * 校验人员冲突：同一人在同一时段被安排到不同工序（含其他工单已保存计划）
      */
-    private void checkPersonConflicts(List<Item> incoming, List<Item> saved, List<ScheduleConflictDto> conflicts) {
+    private void checkPersonConflicts(List<Item> incoming, List<Item> saved, List<Item> siblings,
+                                      List<ScheduleConflictDto> conflicts) {
         for (int i = 0; i < incoming.size(); i++) {
             Item a = incoming.get(i);
             for (int j = i + 1; j < incoming.size(); j++) {
                 addPersonConflict(a, incoming.get(j), conflicts);
             }
             for (Item b : saved) {
+                addPersonConflict(a, b, conflicts);
+            }
+            for (Item b : siblings) {
                 addPersonConflict(a, b, conflicts);
             }
         }
@@ -421,6 +491,108 @@ public class ScheduleConflictService {
             }
         }
         return items;
+    }
+
+    /**
+     * 加载同工单、但不在本次提交范围内的计划与批次
+     * <p>
+     * 拆分批次、单工序保存等局部入口只回传当前工序，若不额外加载兄弟行，
+     * 冲突校验会漏掉同工单其他工序/批次；草稿不参与（尚未正式排产）。
+     * </p>
+     *
+     * @param workOrderId       工单ID
+     * @param submittedPlanIds  本次提交的计划ID
+     * @param submittedBatchIds 本次提交的批次ID
+     * @param replacedBatchIds  本次会被替换删除的旧批次ID
+     * @return 兄弟行数据
+     */
+    private SiblingData loadSiblingData(Long workOrderId, Set<Long> submittedPlanIds,
+                                        Set<Long> submittedBatchIds, Set<Long> replacedBatchIds) {
+        if (workOrderId == null) {
+            return new SiblingData(List.of(), Map.of(), List.of());
+        }
+        List<WorkOrderProcessPlan> all = planMapper.selectByWorkOrderIdWithDetails(workOrderId);
+        List<WorkOrderProcessPlan> siblings = all.stream()
+                .filter(plan -> !"草稿".equals(plan.getStatus()))
+                .filter(plan -> !submittedPlanIds.contains(plan.getId()))
+                .toList();
+        if (siblings.isEmpty()) {
+            return new SiblingData(List.of(), Map.of(), List.of());
+        }
+        List<Long> siblingIds = siblings.stream().map(WorkOrderProcessPlan::getId).toList();
+        Map<Long, List<WorkOrderProcessPlanBatch>> batchMap = batchMapper.selectByPlanIds(siblingIds).stream()
+                .filter(batch -> !submittedBatchIds.contains(batch.getId()))
+                .filter(batch -> !replacedBatchIds.contains(batch.getId()))
+                .collect(Collectors.groupingBy(WorkOrderProcessPlanBatch::getPlanId));
+        List<WorkOrderProcessPlanParticipant> participants =
+                participantMapper.selectByPlanIdsWithPersonnel(siblingIds);
+        List<Item> items = new ArrayList<>();
+        for (WorkOrderProcessPlan plan : siblings) {
+            List<WorkOrderProcessPlanBatch> list = batchMap.get(plan.getId());
+            if (CollectionUtils.isEmpty(list)) {
+                items.add(toItem(plan, null, participants));
+            } else {
+                list.forEach(batch -> items.add(toItem(plan, batch, participants)));
+            }
+        }
+        return new SiblingData(siblings, batchMap, items);
+    }
+
+    /**
+     * 校验排产计划/批次是否落在「配置日期 ~ 配置完成时间」内
+     * <p>
+     * 任一时刻为空表示未配置该边界，只校验另一端；计划起止为空表示未排产，跳过。
+     * </p>
+     *
+     * @param order   工单（提供配置日期与配置完成时间）
+     * @param plans   计划行
+     * @param batches 批次
+     * @return 冲突列表，空表示全部在窗口内
+     */
+    public List<ScheduleConflictDto> checkConfigWindow(WorkOrder order,
+                                                       List<WorkOrderProcessPlan> plans,
+                                                       List<WorkOrderProcessPlanBatch> batches) {
+        List<ScheduleConflictDto> conflicts = new ArrayList<>();
+        if (order == null || CollectionUtils.isEmpty(plans)
+                || (order.getConfigDate() == null && order.getConfigCompleteTime() == null)) {
+            return conflicts;
+        }
+        Map<Long, List<WorkOrderProcessPlanBatch>> batchMap = batches == null ? Map.of()
+                : batches.stream().collect(Collectors.groupingBy(WorkOrderProcessPlanBatch::getPlanId));
+        for (WorkOrderProcessPlan plan : plans) {
+            List<WorkOrderProcessPlanBatch> list = batchMap.get(plan.getId());
+            if (CollectionUtils.isEmpty(list)) {
+                addWindowConflict(order, plan, null, plan.getPlanStartTime(), plan.getPlanEndTime(), conflicts);
+            } else {
+                for (WorkOrderProcessPlanBatch batch : list) {
+                    addWindowConflict(order, plan, batch, batch.getPlanStartTime(), batch.getPlanEndTime(), conflicts);
+                }
+            }
+        }
+        return conflicts;
+    }
+
+    /**
+     * 生成单条配置时间窗冲突
+     */
+    private void addWindowConflict(WorkOrder order, WorkOrderProcessPlan plan, WorkOrderProcessPlanBatch batch,
+                                   LocalDateTime start, LocalDateTime end,
+                                   List<ScheduleConflictDto> conflicts) {
+        if (start == null || end == null) {
+            return;
+        }
+        String label = "工序【" + safeName(plan) + "】"
+                + (batch == null || batch.getBatchNo() == null ? "" : "批次 " + batch.getBatchNo() + " ");
+        if (order.getConfigDate() != null && start.isBefore(order.getConfigDate())) {
+            conflicts.add(conflict("配置时间窗", plan, batch == null ? null : batch.getId(), start, end,
+                    label + "计划开始 " + TIME_FORMATTER.format(start)
+                            + " 早于配置日期 " + TIME_FORMATTER.format(order.getConfigDate())));
+        }
+        if (order.getConfigCompleteTime() != null && end.isAfter(order.getConfigCompleteTime())) {
+            conflicts.add(conflict("配置时间窗", plan, batch == null ? null : batch.getId(), start, end,
+                    label + "计划结束 " + TIME_FORMATTER.format(end)
+                            + " 晚于配置完成时间 " + TIME_FORMATTER.format(order.getConfigCompleteTime())));
+        }
     }
 
     /**

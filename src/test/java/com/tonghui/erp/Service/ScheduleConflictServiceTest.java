@@ -1,6 +1,8 @@
 package com.tonghui.erp.Service;
 
+import com.tonghui.erp.Data.Entity.WorkOrder;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessPlan;
+import com.tonghui.erp.Data.Entity.WorkOrderProcessPlanBatch;
 import com.tonghui.erp.Data.Entity.WorkOrderProcessPlanParticipant;
 import com.tonghui.erp.Data.mapper.EquipmentMapper;
 import com.tonghui.erp.Data.mapper.RoomInfoMapper;
@@ -19,6 +21,7 @@ import org.mockito.quality.Strictness;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -133,6 +136,71 @@ class ScheduleConflictServiceTest {
         var conflicts = conflictService.check(1L, new ArrayList<>(List.of(unscheduled)), List.of());
 
         assertEquals(0, conflicts.size());
+    }
+
+    /**
+     * 拆分批次：除本次批次外，还要和同工单其他工序做设备冲突校验
+     */
+    @Test
+    void shouldCheckSplitBatchAgainstSameWorkOrderSibling() {
+        when(planMapper.selectOverlappingSavedPlans(any(), any(), anyLong())).thenReturn(List.of());
+        WorkOrderProcessPlan sibling = plan(1, 1, "2026-11-20T08:30:00", "2026-11-20T09:30:00");
+        sibling.setStatus("已保存");
+        sibling.setEquipmentId(203);
+        when(planMapper.selectByWorkOrderIdWithDetails(1L)).thenReturn(List.of(sibling));
+        when(batchMapper.selectByPlanIds(any())).thenReturn(List.of());
+
+        WorkOrderProcessPlan splitPlan = plan(2, 2, "2026-11-20T08:00:00", "2026-11-20T09:00:00");
+        splitPlan.setStatus("已保存");
+        splitPlan.setEquipmentId(203);
+        WorkOrderProcessPlanBatch batch = new WorkOrderProcessPlanBatch();
+        batch.setId(21L);
+        batch.setPlanId(2L);
+        batch.setBatchNo(1);
+        batch.setPlanStartTime(LocalDateTime.parse("2026-11-20T08:00:00"));
+        batch.setPlanEndTime(LocalDateTime.parse("2026-11-20T09:00:00"));
+        batch.setEquipmentId(203);
+
+        var conflicts = conflictService.check(1L, new ArrayList<>(List.of(splitPlan)),
+                List.of(batch), List.of(), Set.of());
+
+        assertTrue(conflicts.stream().anyMatch(c -> "设备占用".equals(c.getType())), conflicts.toString());
+    }
+
+    /**
+     * 紧前工序未排时间：不能静默跳过先后校验
+     */
+    @Test
+    void shouldReportConflictWhenPreviousStepHasNoTime() {
+        when(planMapper.selectOverlappingSavedPlans(any(), any(), anyLong())).thenReturn(List.of());
+        when(batchMapper.selectByPlanIds(any())).thenReturn(List.of());
+
+        WorkOrderProcessPlan first = plan(1, 1, "2026-11-20T08:00:00", "2026-11-20T09:00:00");
+        first.setPlanStartTime(null);
+        first.setPlanEndTime(null);
+        WorkOrderProcessPlan second = plan(2, 2, "2026-11-20T08:30:00", "2026-11-20T09:30:00");
+
+        var conflicts = conflictService.check(1L, new ArrayList<>(List.of(first, second)), List.of());
+
+        assertTrue(conflicts.stream().anyMatch(c -> "工序顺序".equals(c.getType())
+                && c.getMessage().contains("未排产时间")), conflicts.toString());
+    }
+
+    /**
+     * 排产计划早于配置日期：应报配置时间窗冲突
+     */
+    @Test
+    void shouldReportConfigWindowConflict() {
+        WorkOrder order = new WorkOrder();
+        order.setWorkOrderId(1L);
+        order.setConfigDate(LocalDateTime.parse("2026-11-19T15:18:00"));
+
+        WorkOrderProcessPlan plan = plan(1, 1, "2026-11-10T00:00:00", "2026-11-11T00:00:00");
+
+        var conflicts = conflictService.checkConfigWindow(order, List.of(plan), List.of());
+
+        assertTrue(conflicts.stream().anyMatch(c -> "配置时间窗".equals(c.getType())
+                && c.getMessage().contains("早于配置日期")), conflicts.toString());
     }
 
     private WorkOrderProcessPlanParticipant participant(Long planId, Long personnelId) {

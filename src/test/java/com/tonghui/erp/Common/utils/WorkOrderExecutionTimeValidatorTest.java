@@ -166,6 +166,22 @@ public class WorkOrderExecutionTimeValidatorTest {
     }
 
     /**
+     * 前序工序有执行记录但从未开工 → 不允许开始后道
+     */
+    @Test
+    public void testPreviousStepNotStarted() {
+        WorkOrder order = order(time(2026, 11, 11, 0, 0), time(2026, 11, 30, 0, 0));
+        WorkOrderProcessExecution previous = execution(10L, 1, null, null);
+        when(executionMapper.selectList(any())).thenReturn(List.of(previous));
+        WorkOrderProcessExecution row = execution(11L, 2,
+                time(2026, 11, 11, 9, 0), time(2026, 11, 11, 10, 0));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> validator.validate(order, List.of(row), Set.of()));
+        assertTrue(ex.getMessage().contains("尚未登记实际开始时间"), ex.getMessage());
+    }
+
+    /**
      * 实际结束早于实际开始 → 拒绝（避免 0 或负工时）
      */
     @Test
