@@ -74,7 +74,7 @@ public class ScheduleConflictService {
     /**
      * 参与冲突比对的排产单元（工序或批次）
      */
-    private record Item(Long planId, Long batchId, Integer stepOrder, String processName,
+    private record Item(Long planId, Long batchId, Integer batchNo, Integer stepOrder, String processName,
                         Long workOrderId, String workOrderCode,
                         LocalDateTime start, LocalDateTime end,
                         Integer equipmentId, String equipmentName,
@@ -238,9 +238,13 @@ public class ScheduleConflictService {
                     WorkOrderProcessPlanBatch a = list.get(i);
                     WorkOrderProcessPlanBatch b = list.get(j);
                     if (overlap(a.getPlanStartTime(), a.getPlanEndTime(), b.getPlanStartTime(), b.getPlanEndTime())) {
-                        conflicts.add(conflict("批次重叠", plan, a.getId(), a.getPlanStartTime(), a.getPlanEndTime(),
-                                "工序【" + safeName(plan) + "】批次 " + a.getBatchNo() + " 与批次 "
-                                        + b.getBatchNo() + " 时段重叠"));
+                        // 冲突挂到靠后的批次：后一批次才是需要调整的一方
+                        WorkOrderProcessPlanBatch later = a.getPlanStartTime().isAfter(b.getPlanStartTime()) ? a : b;
+                        WorkOrderProcessPlanBatch earlier = later == a ? b : a;
+                        conflicts.add(conflict("批次重叠", plan, later.getId(),
+                                later.getPlanStartTime(), later.getPlanEndTime(),
+                                "工序【" + safeName(plan) + "】批次 " + later.getBatchNo() + " 与批次 "
+                                        + earlier.getBatchNo() + " 时段重叠"));
                     }
                 }
             }
@@ -318,14 +322,14 @@ public class ScheduleConflictService {
             if (!"设备占用".equals(conflict.getType()) && !"房间占用".equals(conflict.getType())) {
                 continue;
             }
-            Item item = incoming.stream()
+            Item item = all.stream()
                     .filter(x -> Objects.equals(x.planId(), conflict.getPlanId())
                             && (conflict.getBatchId() == null || Objects.equals(x.batchId(), conflict.getBatchId())))
                     .findFirst().orElse(null);
             if (item == null) {
                 continue;
             }
-            LocalDateTime prevStart = previousStart(item, incoming);
+            LocalDateTime prevStart = previousStart(item, all);
             LocalDateTime[] slot = findFreeSlot(item, all, prevStart);
             if (slot != null) {
                 conflict.setRecommendedStartTime(slot[0]);
@@ -344,24 +348,53 @@ public class ScheduleConflictService {
         if (!overlap(a.start(), a.end(), b.start(), b.end())) {
             return;
         }
-        if (a.equipmentId() != null && Objects.equals(a.equipmentId(), b.equipmentId())) {
-            ScheduleConflictDto c = conflict("设备占用", a.planId(), a.batchId(), a.stepOrder(), a.processName(),
-                    a.workOrderId(), a.workOrderCode(), a.start(), a.end(),
-                    "设备【" + safe(a.equipmentName()) + "】与" + b.workOrderCode() + " 工序【"
-                            + b.processName() + "】时段重叠（" + b.start() + " ~ " + b.end() + "）");
-            c.setOtherWorkOrderId(b.workOrderId());
-            c.setOtherWorkOrderCode(b.workOrderCode());
+        // 同工单内冲突挂到开始时间靠后的一条（后一条才是需要调整的）；跨工单仍挂到本次提交行
+        boolean sameWorkOrder = Objects.equals(a.workOrderId(), b.workOrderId());
+        Item target = sameWorkOrder ? laterItem(a, b) : a;
+        Item counter = target == a ? b : a;
+        if (target.equipmentId() != null && Objects.equals(target.equipmentId(), counter.equipmentId())) {
+            ScheduleConflictDto c = conflict("设备占用", target.planId(), target.batchId(), target.stepOrder(),
+                    target.processName(), target.workOrderId(), target.workOrderCode(),
+                    target.start(), target.end(),
+                    "设备【" + safe(target.equipmentName()) + "】" + itemLabel(target) + "与 "
+                            + itemLabel(counter) + "（" + safe(counter.workOrderCode()) + "）时段重叠（"
+                            + counter.start() + " ~ " + counter.end() + "）");
+            c.setOtherWorkOrderId(counter.workOrderId());
+            c.setOtherWorkOrderCode(counter.workOrderCode());
             conflicts.add(c);
         }
-        if (a.roomId() != null && Objects.equals(a.roomId(), b.roomId())) {
-            ScheduleConflictDto c = conflict("房间占用", a.planId(), a.batchId(), a.stepOrder(), a.processName(),
-                    a.workOrderId(), a.workOrderCode(), a.start(), a.end(),
-                    "房间【" + safe(a.roomName()) + "】与" + b.workOrderCode() + " 工序【"
-                            + b.processName() + "】时段重叠（" + b.start() + " ~ " + b.end() + "）");
-            c.setOtherWorkOrderId(b.workOrderId());
-            c.setOtherWorkOrderCode(b.workOrderCode());
+        if (target.roomId() != null && Objects.equals(target.roomId(), counter.roomId())) {
+            ScheduleConflictDto c = conflict("房间占用", target.planId(), target.batchId(), target.stepOrder(),
+                    target.processName(), target.workOrderId(), target.workOrderCode(),
+                    target.start(), target.end(),
+                    "房间【" + safe(target.roomName()) + "】" + itemLabel(target) + "与 "
+                            + itemLabel(counter) + "（" + safe(counter.workOrderCode()) + "）时段重叠（"
+                            + counter.start() + " ~ " + counter.end() + "）");
+            c.setOtherWorkOrderId(counter.workOrderId());
+            c.setOtherWorkOrderCode(counter.workOrderCode());
             conflicts.add(c);
         }
+    }
+
+    /**
+     * 取开始时间靠后的一条；开始时间相同时保留第一条
+     */
+    private Item laterItem(Item a, Item b) {
+        if (a.start() == null) {
+            return b;
+        }
+        if (b.start() == null) {
+            return a;
+        }
+        return b.start().isAfter(a.start()) ? b : a;
+    }
+
+    /**
+     * 冲突提示中的工序/批次描述
+     */
+    private String itemLabel(Item item) {
+        return "工序【" + safe(item.processName()) + "】"
+                + (item.batchNo() == null ? "" : "批次 " + item.batchNo() + " ");
     }
 
     /**
@@ -455,12 +488,18 @@ public class ScheduleConflictService {
         if (a.personnelIds().stream().noneMatch(b.personnelIds()::contains)) {
             return;
         }
-        ScheduleConflictDto c = conflict("人员冲突", a.planId(), a.batchId(), a.stepOrder(), a.processName(),
-                a.workOrderId(), a.workOrderCode(), a.start(), a.end(),
-                "操作人与 " + b.workOrderCode() + " 工序【" + b.processName() + "】人员重叠（"
-                        + b.start() + " ~ " + b.end() + "）");
-        c.setOtherWorkOrderId(b.workOrderId());
-        c.setOtherWorkOrderCode(b.workOrderCode());
+        // 同工单内冲突挂到开始时间靠后的一条；跨工单仍挂到本次提交行
+        boolean sameWorkOrder = Objects.equals(a.workOrderId(), b.workOrderId());
+        Item target = sameWorkOrder ? laterItem(a, b) : a;
+        Item counter = target == a ? b : a;
+        ScheduleConflictDto c = conflict("人员冲突", target.planId(), target.batchId(), target.stepOrder(),
+                target.processName(), target.workOrderId(), target.workOrderCode(),
+                target.start(), target.end(),
+                "操作人" + itemLabel(target) + "与 " + itemLabel(counter)
+                        + "（" + safe(counter.workOrderCode()) + "）人员重叠（"
+                        + counter.start() + " ~ " + counter.end() + "）");
+        c.setOtherWorkOrderId(counter.workOrderId());
+        c.setOtherWorkOrderCode(counter.workOrderCode());
         conflicts.add(c);
     }
 
@@ -638,7 +677,7 @@ public class ScheduleConflictService {
     private Item toItem(WorkOrderProcessPlan plan, WorkOrderProcessPlanBatch batch,
                         List<WorkOrderProcessPlanParticipant> participants) {
         if (batch == null) {
-            return new Item(plan.getId(), null, plan.getStepOrder(), safeName(plan),
+            return new Item(plan.getId(), null, null, plan.getStepOrder(), safeName(plan),
                     plan.getWorkOrderId(), plan.getWorkOrderCode(),
                     plan.getPlanStartTime(), plan.getPlanEndTime(),
                     plan.getEquipmentId(), plan.getEquipmentName(),
@@ -646,7 +685,7 @@ public class ScheduleConflictService {
                     plan.getTeamId(), plan.getTeamName(),
                     personnelIdsOf(participants, plan.getId(), null));
         }
-        return new Item(plan.getId(), batch.getId(), plan.getStepOrder(), safeName(plan),
+        return new Item(plan.getId(), batch.getId(), batch.getBatchNo(), plan.getStepOrder(), safeName(plan),
                 plan.getWorkOrderId(), plan.getWorkOrderCode(),
                 batch.getPlanStartTime(), batch.getPlanEndTime(),
                 batch.getEquipmentId() != null ? batch.getEquipmentId() : plan.getEquipmentId(),

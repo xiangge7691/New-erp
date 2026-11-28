@@ -228,6 +228,30 @@ class ScheduleConflictServiceTest {
         assertTrue(sequence.get(0).getMessage().contains("批次 1"), sequence.get(0).getMessage());
     }
 
+    /**
+     * 批次时段重叠：冲突挂到开始时间靠后的批次
+     */
+    @Test
+    void shouldAttachBatchOverlapToLaterBatch() {
+        when(planMapper.selectOverlappingSavedPlans(any(), any(), anyLong())).thenReturn(List.of());
+        when(batchMapper.selectByPlanIds(any())).thenReturn(List.of());
+        when(planMapper.selectByWorkOrderIdWithDetails(anyLong())).thenReturn(List.of());
+
+        WorkOrderProcessPlan plan = plan(2, 4, "2026-11-30T09:00:00", "2026-11-30T17:30:00");
+        WorkOrderProcessPlanBatch batchOne = batch(162L, 2L, 1,
+                "2026-11-30T09:00:00", "2026-11-30T12:00:00");
+        WorkOrderProcessPlanBatch batchTwo = batch(163L, 2L, 2,
+                "2026-11-30T11:00:00", "2026-11-30T17:30:00");
+
+        var conflicts = conflictService.check(1L, new ArrayList<>(List.of(plan)),
+                List.of(batchOne, batchTwo));
+
+        var overlap = conflicts.stream().filter(c -> "批次重叠".equals(c.getType())).toList();
+        assertEquals(1, overlap.size(), conflicts.toString());
+        assertEquals(163L, overlap.get(0).getBatchId());
+        assertTrue(overlap.get(0).getMessage().contains("批次 2"), overlap.get(0).getMessage());
+    }
+
     private WorkOrderProcessPlanParticipant participant(Long planId, Long personnelId) {
         WorkOrderProcessPlanParticipant participant = new WorkOrderProcessPlanParticipant();
         participant.setPlanId(planId);
