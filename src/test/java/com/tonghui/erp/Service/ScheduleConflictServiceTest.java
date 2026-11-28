@@ -203,11 +203,46 @@ class ScheduleConflictServiceTest {
                 && c.getMessage().contains("早于配置日期")), conflicts.toString());
     }
 
+    /**
+     * 拆分工序的先后冲突要落到具体批次，而不是整道工序
+     */
+    @Test
+    void shouldAttributeSequenceConflictToSpecificBatch() {
+        when(planMapper.selectOverlappingSavedPlans(any(), any(), anyLong())).thenReturn(List.of());
+        when(batchMapper.selectByPlanIds(any())).thenReturn(List.of());
+        when(planMapper.selectByWorkOrderIdWithDetails(anyLong())).thenReturn(List.of());
+
+        WorkOrderProcessPlan prev = plan(1, 1, "2026-11-28T23:00:00", "2026-11-28T23:10:00");
+        WorkOrderProcessPlan split = plan(2, 2, "2026-11-28T22:00:00", "2026-11-29T00:10:00");
+        WorkOrderProcessPlanBatch batchOne = batch(21L, 2L, 1,
+                "2026-11-28T22:00:00", "2026-11-29T00:00:00");
+        WorkOrderProcessPlanBatch batchTwo = batch(22L, 2L, 2,
+                "2026-11-29T00:01:00", "2026-11-29T00:10:00");
+
+        var conflicts = conflictService.check(1L, new ArrayList<>(List.of(prev, split)),
+                List.of(batchOne, batchTwo));
+
+        var sequence = conflicts.stream().filter(c -> "工序顺序".equals(c.getType())).toList();
+        assertEquals(1, sequence.size(), conflicts.toString());
+        assertEquals(21L, sequence.get(0).getBatchId());
+        assertTrue(sequence.get(0).getMessage().contains("批次 1"), sequence.get(0).getMessage());
+    }
+
     private WorkOrderProcessPlanParticipant participant(Long planId, Long personnelId) {
         WorkOrderProcessPlanParticipant participant = new WorkOrderProcessPlanParticipant();
         participant.setPlanId(planId);
         participant.setPersonnelId(personnelId);
         return participant;
+    }
+
+    private WorkOrderProcessPlanBatch batch(long id, long planId, int no, String start, String end) {
+        WorkOrderProcessPlanBatch batch = new WorkOrderProcessPlanBatch();
+        batch.setId(id);
+        batch.setPlanId(planId);
+        batch.setBatchNo(no);
+        batch.setPlanStartTime(LocalDateTime.parse(start));
+        batch.setPlanEndTime(LocalDateTime.parse(end));
+        return batch;
     }
 
     private WorkOrderProcessPlan plan(long id, int step, String start, String end) {

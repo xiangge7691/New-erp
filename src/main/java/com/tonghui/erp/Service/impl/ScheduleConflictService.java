@@ -190,18 +190,40 @@ public class ScheduleConflictService {
                 continue;
             }
             LocalDateTime prevStart = effectiveStart(prev, timelineBatches.get(prev.getId()));
-            LocalDateTime curStart = effectiveStart(cur, timelineBatches.get(cur.getId()));
+            // 拆分批次时逐批次判断，冲突要落到具体批次，避免整道工序两行都标红
+            List<WorkOrderProcessPlanBatch> curBatches = timelineBatches.get(cur.getId());
+            if (!CollectionUtils.isEmpty(curBatches)) {
+                for (WorkOrderProcessPlanBatch batch : curBatches) {
+                    LocalDateTime batchStart = batch.getPlanStartTime();
+                    if (batchStart == null) {
+                        continue;
+                    }
+                    String batchLabel = batch.getBatchNo() == null ? "批次" : "批次 " + batch.getBatchNo();
+                    String label = "工序【" + safeName(cur) + "】" + batchLabel;
+                    if (prevStart == null) {
+                        conflicts.add(conflict("工序顺序", cur, batch.getId(), batchStart, batch.getPlanEndTime(),
+                                label + " 已排时间，但紧前工序【" + safeName(prev) + "】未排产时间，无法校验先后"));
+                    } else if (batchStart.isBefore(prevStart)) {
+                        conflicts.add(conflict("工序顺序", cur, batch.getId(), batchStart, batch.getPlanEndTime(),
+                                label + " 计划开始 " + TIME_FORMATTER.format(batchStart)
+                                        + " 早于紧前工序【" + safeName(prev) + "】的开始时间 "
+                                        + TIME_FORMATTER.format(prevStart)));
+                    }
+                }
+                continue;
+            }
+            LocalDateTime curStart = cur.getPlanStartTime();
             if (curStart != null && prevStart == null) {
-                conflicts.add(conflict("工序顺序", cur, null, curStart,
-                        effectiveEnd(cur, timelineBatches.get(cur.getId())),
+                conflicts.add(conflict("工序顺序", cur, null, curStart, cur.getPlanEndTime(),
                         "工序【" + safeName(cur) + "】已排时间，但紧前工序【" + safeName(prev)
                                 + "】未排产时间，无法校验先后"));
                 continue;
             }
             if (prevStart != null && curStart != null && curStart.isBefore(prevStart)) {
-                conflicts.add(conflict("工序顺序", cur, null, curStart,
-                        effectiveEnd(cur, timelineBatches.get(cur.getId())),
-                        "工序【" + safeName(cur) + "】计划开始早于紧前工序【" + safeName(prev) + "】的开始时间"));
+                conflicts.add(conflict("工序顺序", cur, null, curStart, cur.getPlanEndTime(),
+                        "工序【" + safeName(cur) + "】计划开始 " + TIME_FORMATTER.format(curStart)
+                                + " 早于紧前工序【" + safeName(prev) + "】的开始时间 "
+                                + TIME_FORMATTER.format(prevStart)));
             }
         }
 
